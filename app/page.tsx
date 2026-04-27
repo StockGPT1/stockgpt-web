@@ -5,7 +5,7 @@ export default async function Home() {
     .from("stock_rankings")
     .select("*")
     .order("rank", { ascending: true })
-    .limit(100);
+    .limit(500);
 
   if (error) {
     return <main className="p-8">Error loading rankings.</main>;
