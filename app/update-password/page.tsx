@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 
 export default function UpdatePasswordPage() {
   const supabase = createClient();
+
   const [password, setPassword] = useState("");
   const [done, setDone] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -34,6 +35,7 @@ export default function UpdatePasswordPage() {
             <div className="rounded-xl bg-green-50 p-4 text-green-700">
               Password updated successfully.
             </div>
+
             <a href="/login" className="mt-4 block text-center underline">
               Log in
             </a>
