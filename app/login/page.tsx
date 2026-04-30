@@ -8,15 +8,22 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function login() {
+    setLoading(true);
+    setErrorMessage("");
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    setLoading(false);
+
     if (error) {
-      alert(error.message);
+      setErrorMessage("Incorrect email or password.");
       return;
     }
 
@@ -32,9 +39,10 @@ export default function LoginPage() {
           <input
             className="w-full rounded-xl border p-3"
             type="email"
-            placeholder="Email / username"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && login()}
           />
 
           <input
@@ -43,14 +51,29 @@ export default function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && login()}
           />
+
+          {errorMessage && (
+            <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
 
           <button
             onClick={login}
-            className="w-full rounded-xl bg-[#D4AF37] px-4 py-3 font-bold"
+            disabled={loading}
+            className="w-full rounded-xl bg-[#D4AF37] px-4 py-3 font-bold disabled:opacity-60"
           >
-            Log in
+            {loading ? "Logging in..." : "Log in"}
           </button>
+
+          <a
+            href="/forgot-password"
+            className="block text-center text-sm underline"
+          >
+            Forgotten password?
+          </a>
 
           <a href="/signup" className="block text-center text-sm underline">
             Create an account
