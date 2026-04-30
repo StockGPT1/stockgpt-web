@@ -5,18 +5,20 @@ import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const supabase = createClient();
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function signIn() {
   setLoading(true);
 
- const { error } = await supabase.auth.signInWithOtp({
-  email,
-  options: {
-    emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/account",
-  },
-});
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/account",
+    },
+  });
+
   setLoading(false);
 
   if (error) {
