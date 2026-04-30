@@ -1,0 +1,77 @@
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+
+export default function SignupPage() {
+  const supabase = createClient();
+
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function signUp() {
+    setLoading(true);
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/account",
+        data: {
+          full_name: fullName,
+          date_of_birth: dob,
+          phone,
+        },
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setSent(true);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
+        <h1 className="text-3xl font-bold">Create your StockGPT account</h1>
+
+        {sent ? (
+          <p className="mt-6 text-green-700">
+            Check your email to verify your account.
+          </p>
+        ) : (
+          <div className="mt-6 space-y-3">
+            <input className="w-full rounded-xl border p-3" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <input className="w-full rounded-xl border p-3" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+            <input className="w-full rounded-xl border p-3" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input className="w-full rounded-xl border p-3" type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="w-full rounded-xl border p-3" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+
+            <button
+              onClick={signUp}
+              disabled={loading}
+              className="w-full rounded-xl bg-[#D4AF37] px-4 py-3 font-bold"
+            >
+              {loading ? "Creating..." : "Create account"}
+            </button>
+
+            <a href="/login" className="block text-center text-sm underline">
+              Already have an account? Log in
+            </a>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
