@@ -9,26 +9,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   async function signIn() {
-    setLoading(true);
+  setLoading(true);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/account`,
-  },
-});
-      },
-    });
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=/account`,
+    },
+  });
 
-    setLoading(false);
+  setLoading(false);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setSent(true);
+  if (error) {
+    alert(error.message);
+    return;
   }
+
+  setSent(true);
+}
 
   return (
     <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
