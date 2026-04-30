@@ -15,6 +15,8 @@ export default function LoginPage() {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=/account`,
+  },
+});
       },
     });
 
