@@ -1,19 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ProWaitlistPage() {
+  const supabase = createClient();
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function submit() {
-    if (!email) return;
+    setErrorMessage("");
 
-    const { error } = await supabase.from("pro_waitlist").insert({ email });
+    if (!name || !email) {
+      setErrorMessage("Please enter both name and email.");
+      return;
+    }
+
+    const { error } = await supabase.from("pro_waitlist").insert({
+      name,
+      email,
+    });
 
     if (error) {
-      alert(error.message);
+      setErrorMessage("Something went wrong. Try again.");
       return;
     }
 
@@ -37,11 +49,25 @@ export default function ProWaitlistPage() {
           <>
             <input
               className="mt-6 w-full rounded-xl border p-3"
+              type="text"
+              placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+
+            <input
+              className="mt-4 w-full rounded-xl border p-3"
               type="email"
-              placeholder="you@example.com"
+              placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+
+            {errorMessage && (
+              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
 
             <button
               onClick={submit}
