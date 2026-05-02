@@ -1,11 +1,11 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function UpdatePasswordPage() {
-  const supabase = createClient();
-
   const [password, setPassword] = useState("");
   const [done, setDone] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -13,7 +13,7 @@ export default function UpdatePasswordPage() {
   async function updatePassword() {
     setErrorMessage("");
 
-    const { error } = await supabase.auth.updateUser({
+    const { error } = await createClient().auth.updateUser({
       password,
     });
 
@@ -28,6 +28,7 @@ export default function UpdatePasswordPage() {
   return (
     <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
+        <img src="/logo.png" alt="StockGPT" className="mb-4 h-10 w-10 rounded" />
         <h1 className="text-3xl font-bold">Choose a new password</h1>
 
         {done ? (
