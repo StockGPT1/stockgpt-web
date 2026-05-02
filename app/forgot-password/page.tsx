@@ -1,11 +1,12 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
-
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -13,7 +14,7 @@ export default function ForgotPasswordPage() {
   async function resetPassword() {
     setErrorMessage("");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await createClient().auth.resetPasswordForEmail(email, {
       redirectTo: "https://stockgpt.pro/update-password",
     });
 
@@ -27,7 +28,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
+      <div className="w-full max-w-md rounded-3xl border border-[#D4AF37]/30 bg-[#FFFDF5] p-8 text-[#0F2A1F] shadow-2xl">
+        <div className="relative mb-4 h-12 w-44"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" /></div>
         <h1 className="text-3xl font-bold">Reset your password</h1>
 
         <p className="mt-2 text-slate-600">
