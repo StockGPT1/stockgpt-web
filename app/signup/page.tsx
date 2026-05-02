@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 
 export default function SignupPage() {
@@ -45,8 +46,8 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
-        <img src="/logo.png" alt="StockGPT" className="mb-4 h-10 w-10 rounded" />
+      <div className="w-full max-w-md rounded-3xl border border-[#D4AF37]/30 bg-[#FFFDF5] p-8 text-[#0F2A1F] shadow-2xl">
+        <div className="relative mb-4 h-12 w-44"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" /></div>
         <h1 className="text-3xl font-bold">Create your StockGPT account</h1>
 
         {sent ? (
