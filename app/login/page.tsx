@@ -1,11 +1,11 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
-  const supabase = createClient();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await createClient().auth.signInWithPassword({
       email,
       password,
     });
@@ -33,6 +33,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
+        <img src="/logo.png" alt="StockGPT" className="mb-4 h-10 w-10 rounded" />
         <h1 className="text-3xl font-bold">Log in to StockGPT</h1>
 
         <div className="mt-6 space-y-3">
