@@ -1,11 +1,11 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function ProWaitlistPage() {
-  const supabase = createClient();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
@@ -19,7 +19,7 @@ export default function ProWaitlistPage() {
       return;
     }
 
-    const { error } = await supabase.from("pro_waitlist").insert({
+    const { error } = await createClient().from("pro_waitlist").insert({
       name,
       email,
     });
@@ -35,6 +35,7 @@ export default function ProWaitlistPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0F2A1F] p-8 text-white">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
+        <img src="/logo.png" alt="StockGPT" className="mb-4 h-10 w-10 rounded" />
         <h1 className="text-3xl font-bold">Join the Pro waitlist</h1>
 
         <p className="mt-3 text-slate-600">
