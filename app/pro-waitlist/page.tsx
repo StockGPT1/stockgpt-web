@@ -35,8 +35,8 @@ export default function ProWaitlistPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0F2A1F] p-8 text-white">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-[#0F2A1F]">
-        <img src="/logo.png" alt="StockGPT" className="mb-4 h-10 w-10 rounded" />
+      <div className="w-full max-w-md rounded-3xl border border-[#D4AF37]/30 bg-[#FFFDF5] p-8 text-[#0F2A1F] shadow-2xl">
+        <div className="relative mb-4 h-12 w-44"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" /></div>
         <h1 className="text-3xl font-bold">Join the Pro waitlist</h1>
 
         <p className="mt-3 text-slate-600">
