@@ -20,22 +20,22 @@ export function AppShell({
 }) {
   return (
     <div className="h-screen overflow-hidden bg-[#072116] text-[#faf6f0]">
-      <header className="flex h-[84px] items-center border-b border-[#ddb159]/20 bg-[#04180f] px-6">
-        <Link href="/" className="relative h-full w-[260px] shrink-0">
+      <header className="flex h-[68px] items-center border-b border-[#ddb159]/18 bg-[#04180f] px-5">
+        <Link href="/" className="relative h-[54px] w-[210px] shrink-0">
           <Image
             src="/logo.png"
             alt="StockGPT"
             fill
             priority
             className="object-contain object-left"
-            sizes="260px"
+            sizes="210px"
           />
         </Link>
 
         <form
           action="/rankings"
           method="get"
-          className="mx-auto flex h-11 w-full max-w-[560px] items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5 shadow-[0_0_25px_rgba(221,177,89,0.08)]"
+          className="mx-auto flex h-10 w-full max-w-[520px] items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5"
         >
           <input
             name="search"
@@ -43,6 +43,7 @@ export function AppShell({
             placeholder="Search stocks..."
             className="h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
           />
+
           <button
             type="submit"
             aria-label="Search stocks"
@@ -64,11 +65,11 @@ export function AppShell({
         <Link
           href="/account"
           aria-label="Account"
-          className="ml-6 grid size-12 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+          className="ml-5 grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
         >
           <svg
             viewBox="0 0 24 24"
-            className="size-6"
+            className="size-5"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.8"
@@ -79,9 +80,9 @@ export function AppShell({
         </Link>
       </header>
 
-      <div className="grid h-[calc(100vh-84px)] grid-cols-[248px_minmax(0,1fr)] overflow-hidden">
-        <aside className="h-full border-r border-[#ddb159]/18 bg-[#061b12] px-5 py-6">
-          <nav className="space-y-3">
+      <div className="grid h-[calc(100vh-68px)] grid-cols-[190px_minmax(0,1fr)] overflow-hidden">
+        <aside className="h-full border-r border-[#ddb159]/16 bg-[#061b12] px-4 py-5">
+          <nav className="space-y-2.5">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
 
@@ -90,23 +91,23 @@ export function AppShell({
                   key={item.href}
                   href={item.href}
                   className={[
-                    "flex h-12 items-center gap-4 rounded-xl border px-4 text-sm font-semibold transition",
+                    "flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-bold transition",
                     isActive
                       ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0]"
                       : "border-transparent text-[#faf6f0]/82 hover:border-[#ddb159]/40 hover:bg-[#ddb159]/8",
                   ].join(" ")}
                 >
-                  <span className="w-6 text-center text-xl text-[#ddb159]">
+                  <span className="w-5 text-center text-lg text-[#ddb159]">
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
         </aside>
 
-        <section className="min-h-0 overflow-hidden bg-[#072116] p-5">
+        <section className="min-h-0 overflow-hidden bg-[#072116] p-4">
           {children}
         </section>
       </div>
