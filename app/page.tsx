@@ -15,7 +15,7 @@ export default async function Home() {
   const { data: news } = await supabase.from("news_articles").select("id,title").order("published_at", { ascending: false }).limit(3);
   const top = rankings?.[0];
 
-<<<<<<< codex/implement-luxury-ui-design-for-dashboard-sza39m
+
   return (
     <AppShell activePath="/">
       <main className="grid gap-5 xl:grid-cols-[minmax(0,1160px)_544px]">
@@ -47,7 +47,7 @@ export default async function Home() {
       <section className="mt-5 grid gap-3 rounded-xl border border-[#d4af37]/20 bg-[#031a12] p-4 md:grid-cols-2 xl:grid-cols-4">{[["AI-Powered Analysis", "Proprietary AI evaluates 50+ factors to rank stocks"], ["Real-Time Data", "Live market data and updates throughout the day"], ["Secure & Private", "Your data is encrypted and always protected"], ["Premium Insights", "Institutional-grade insights for retail investors"]].map(([title,text]) => <div key={title} className="border-r border-[#d4af37]/20 pr-3 last:border-r-0"><p className="text-[28px] text-[#d4af37]">✧ {title}</p><p className="text-[20px] text-[#d8d2bf]">{text}</p></div>)}</section>
     </AppShell>
   );
-=======
+
   return <AppShell activePath="/"><main className="grid h-full min-h-0 gap-4 lg:grid-cols-[1.8fr_0.75fr] lg:overflow-hidden">
     <section className="flex min-h-0 flex-col gap-3 lg:overflow-hidden">
       <div className="relative rounded-3xl border border-[#D4AF37]/25 bg-gradient-to-r from-[#062117] to-[#0c3323] p-6">
@@ -59,5 +59,4 @@ export default async function Home() {
     </section>
     <aside className="flex min-h-0 flex-col gap-3 lg:overflow-hidden"><div className="rounded-3xl border border-[#D4AF37]/25 bg-[#051b13] p-4"><h3 className="text-2xl font-semibold md:text-3xl">Market Overview</h3><p className="mt-3 text-5xl font-semibold">${top?.price ? Number(top.price).toFixed(2) : "—"}</p><p className="text-3xl text-emerald-300">Top ranked: {top?.ticker ?? "N/A"}</p></div><div className="rounded-3xl border border-[#D4AF37]/25 bg-[#051b13] p-4"><h3 className="text-2xl font-semibold md:text-3xl">Top Gainers</h3><ul className="mt-2 space-y-2">{rankings?.slice(0,5).map((r)=><li key={r.id} className="flex justify-between rounded-lg border border-[#104531] bg-[#082419] px-3 py-2 text-2xl"><span>{r.ticker}</span><span className="text-emerald-300">#{r.rank}</span></li>)}</ul></div><div className="rounded-3xl border border-[#D4AF37]/25 bg-[#051b13] p-4"><h3 className="text-3xl font-semibold text-[#D4AF37]">AI Insight</h3><p className="mt-2 text-xl text-[#F8F3E7]/85">{news?.[0]?.title ?? "Technology sector momentum remains strong this week."}</p><Link href="/world-news" className="mt-3 inline-block rounded-lg border border-[#D4AF37] px-4 py-2">View Full Insight</Link></div></aside>
   </main></AppShell>;
->>>>>>> main
 }
