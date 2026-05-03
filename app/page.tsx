@@ -1,50 +1,353 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { PaywallCard } from "@/components/PaywallCard";
 import { createClient } from "@/utils/supabase/server";
+
+type Ranking = {
+  id: string | number;
+  rank: number | null;
+  ticker: string | null;
+  company: string | null;
+  sector: string | null;
+  score: number | string | null;
+  price: number | string | null;
+  updated_at: string | null;
+};
+
+type NewsArticle = {
+  id: string | number;
+  title: string | null;
+};
+
+function formatPrice(value: Ranking["price"]) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    return "—";
+  }
+
+  return `$${numberValue.toFixed(2)}`;
+}
+
+function formatScore(value: Ranking["score"]) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue)) {
+    return "—";
+  }
+
+  return numberValue.toLocaleString();
+}
+
+function formatUpdatedTime(value?: string | null) {
+  if (!value) {
+    return "—";
+  }
+
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function StatIcon({ type }: { type: "chart" | "crown" | "arrow" | "clock" }) {
+  return (
+    <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#072116] text-[#ddb159]">
+      {type === "chart" && (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <path d="M4 19h16" />
+          <path d="M7 16V9" />
+          <path d="M12 16V5" />
+          <path d="M17 16v-8" />
+          <path d="M5 10l6-5 4 4 4-6" />
+        </svg>
+      )}
+
+      {type === "crown" && (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M4 18h16l1-10-5 4-4-7-4 7-5-4 1 10Z" />
+          <path d="M5 21h14" />
+        </svg>
+      )}
+
+      {type === "arrow" && (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+        >
+          <path d="M4 17 9 12l4 4 7-9" />
+          <path d="M15 7h5v5" />
+        </svg>
+      )}
+
+      {type === "clock" && (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 7v5l4 2" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  main,
+  sub,
+  icon,
+}: {
+  label: string;
+  main: string;
+  sub: string;
+  icon: "chart" | "crown" | "arrow" | "clock";
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#faf6f0] px-4 py-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+      <StatIcon type={icon} />
+
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#072116]/60">
+          {label}
+        </p>
+        <p className="mt-1 truncate text-[30px] font-black leading-none tracking-[-0.03em]">
+          {main}
+        </p>
+        <p className="mt-1 truncate text-[12px] font-semibold text-[#072116]/60">
+          {sub}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default async function Home() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  let hasAccess = false;
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("subscription_status").eq("id", user.id).single();
-    hasAccess = profile?.subscription_status === "basic";
-  }
-  const { data: rankings } = await supabase.from("stock_rankings").select("id,rank,ticker,company,sector,score,price,updated_at").order("rank", { ascending: true }).limit(10);
-  const { data: news } = await supabase.from("news_articles").select("id,title").order("published_at", { ascending: false }).limit(3);
-  const top = rankings?.[0];
-  const topUpdated = top?.updated_at;
+
+  const { data: rankingsData } = await supabase
+    .from("stock_rankings")
+    .select("id,rank,ticker,company,sector,score,price,updated_at")
+    .order("rank", { ascending: true })
+    .limit(10);
+
+  const { data: newsData } = await supabase
+    .from("news_articles")
+    .select("id,title")
+    .order("published_at", { ascending: false })
+    .limit(3);
+
+  const rankings = (rankingsData ?? []) as Ranking[];
+  const news = (newsData ?? []) as NewsArticle[];
+  const topRanked = rankings[0];
 
   return (
     <AppShell activePath="/">
-      <main className="grid gap-5 xl:grid-cols-[minmax(0,1160px)_544px]">
-        <section className="space-y-5">
-          <div className="relative h-[245px] rounded-2xl border border-[#d4af37]/25 bg-gradient-to-r from-[#062117] via-[#073723] to-[#0d3f28] p-6">
-            <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 60% 20%, rgba(212,175,55,.35), transparent 42%), repeating-linear-gradient(90deg, transparent 0 22px, rgba(120,242,166,.12) 22px 23px), radial-gradient(circle at 70% 45%, rgba(255,255,255,.09), transparent 25%)" }} />
-            <p className="relative text-[28px] text-[#d4af37]">Welcome back,</p>
-            <h1 className="relative mt-1 max-w-[560px] text-[58px] leading-[1.03]">Make smarter investment decisions.</h1>
-            <p className="relative mt-3 max-w-[620px] text-[30px] text-[#d8d2bf]">AI-powered rankings and real-time insights to help you stay ahead of the market.</p>
+      <main className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_330px] gap-5 overflow-hidden">
+        <section className="grid min-h-0 grid-rows-[190px_118px_minmax(0,1fr)] gap-4 overflow-hidden">
+          <div className="min-h-0 rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-8 py-6 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
+            <p className="text-2xl font-semibold text-[#ddb159]">
+              Welcome back,
+            </p>
+
+            <h1 className="mt-2 max-w-[780px] text-[54px] font-black leading-[0.96] tracking-[-0.045em] text-[#faf6f0]">
+              Make smarter investment decisions.
+            </h1>
+
+            <p className="mt-4 max-w-[820px] text-[24px] font-medium leading-tight text-[#faf6f0]/68">
+              AI-powered rankings and real-time insights to help you stay ahead
+              of the market.
+            </p>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">{[["TOTAL STOCKS", rankings?.length ?? 0, "Ranked by AI Score"], ["TOP RANKED", top?.ticker ?? "—", top?.company ?? "—"], ["HIGHEST SCORE", rankings?.[0]?.score ?? "—", top?.company ?? "—"], ["LAST UPDATED", top?.updated_at ? new Date(topUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—", top?.updated_at ? new Date(topUpdated).toLocaleDateString() : "—"]].map(([k,v,s]) => <div key={String(k)} className="rounded-xl bg-[#f8f4e8] p-4 text-[#052416]"><p className="text-[20px] tracking-wide text-slate-600">{k}</p><p className="mt-1 text-[48px] leading-none font-semibold">{v}</p><p className="mt-1 text-[22px] text-slate-600">{s}</p></div>)}</div>
+          <div className="grid min-h-0 grid-cols-4 gap-3">
+            <StatCard
+              label="Total Stocks"
+              main="500"
+              sub="ranked by AI score"
+              icon="chart"
+            />
 
-          <div className="rounded-xl bg-[#f8f4e8] p-4 text-[#052416]">
-            {!hasAccess ? <PaywallCard /> : <>
-              <div className="mb-3 flex items-center justify-between"><h2 className="text-[46px] font-semibold">Rankings Overview</h2><div className="flex gap-2"><button className="rounded-lg border px-4 py-2 text-[22px]">All Sectors</button><Link href="/rankings" className="rounded-lg bg-[#062018] px-4 py-2 text-[22px] text-[#d4af37]">Export</Link></div></div>
-              <div className="overflow-x-auto"><table className="w-full text-[22px]"><thead><tr className="bg-[#062018] text-[#f8f3e7]"><th className="p-2 text-left">Rank</th><th>Ticker</th><th>Company</th><th>Sector</th><th>Price</th><th>AI Score</th></tr></thead><tbody>{rankings?.map((r) => <tr key={r.id} className="border-b border-slate-200"><td className="p-2">{r.rank}</td><td>{r.ticker}</td><td>{r.company}</td><td>{r.sector}</td><td>${Number(r.price ?? 0).toFixed(2)}</td><td><span className="rounded-full bg-[#d4af37] px-3 py-1">{r.score}</span></td></tr>)}</tbody></table></div>
-            </>}
+            <StatCard
+              label="Top Ranked"
+              main={topRanked?.ticker ?? "—"}
+              sub={topRanked?.company ?? "No ranking data"}
+              icon="crown"
+            />
+
+            <StatCard
+              label="Top Gainer"
+              main="Coming"
+              sub="placeholder feature"
+              icon="arrow"
+            />
+
+            <StatCard
+              label="Last Updated"
+              main={formatUpdatedTime(topRanked?.updated_at)}
+              sub="latest refresh"
+              icon="clock"
+            />
+          </div>
+
+          <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black tracking-[-0.03em]">
+                  Top 10 Ranked Stocks
+                </h2>
+                <p className="text-xs font-semibold text-[#072116]/55">
+                  Live preview ranked by AI score
+                </p>
+              </div>
+
+              <Link
+                href="/rankings"
+                className="rounded-full border border-[#ddb159] bg-[#072116] px-4 py-2 text-xs font-bold text-[#ddb159] transition hover:bg-[#0b2b1d]"
+              >
+                View Rankings
+              </Link>
+            </div>
+
+            <div className="min-h-0 overflow-hidden rounded-xl border border-[#072116]/10">
+              <table className="w-full table-fixed text-left text-[13px]">
+                <thead className="bg-[#072116] text-[#faf6f0]">
+                  <tr>
+                    <th className="w-[62px] px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      Rank
+                    </th>
+                    <th className="w-[92px] px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      Ticker
+                    </th>
+                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      Company
+                    </th>
+                    <th className="w-[155px] px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      Sector
+                    </th>
+                    <th className="w-[105px] px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      Price
+                    </th>
+                    <th className="w-[105px] px-3 py-2 text-[11px] font-bold uppercase tracking-wide">
+                      AI Score
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {rankings.length > 0 ? (
+                    rankings.map((stock) => (
+                      <tr
+                        key={stock.id}
+                        className="border-b border-[#072116]/10 last:border-b-0"
+                      >
+                        <td className="px-3 py-2 font-bold">
+                          {stock.rank ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 font-black">
+                          {stock.ticker ?? "—"}
+                        </td>
+                        <td className="truncate px-3 py-2 font-semibold">
+                          {stock.company ?? "—"}
+                        </td>
+                        <td className="truncate px-3 py-2 text-[#072116]/70">
+                          {stock.sector ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 font-semibold">
+                          {formatPrice(stock.price)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2 py-1 font-black text-[#072116]">
+                            {formatScore(stock.score)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-4 py-10 text-center font-semibold text-[#072116]/60"
+                      >
+                        No ranking data available yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
-        <aside className="space-y-5">
-          <div className="rounded-xl border border-[#d4af37]/25 bg-[#062018] p-4"><div className="flex items-center justify-between"><h3 className="text-[42px]">Market Overview</h3><div className="flex gap-3 text-[24px]"><span className="text-[#d4af37]">1D</span><span>1W</span><span>1M</span><span>1Y</span></div></div><p className="mt-3 text-[28px] text-[#d8d2bf]">S&P 500</p><p className="text-[64px] leading-none">5,321.41</p><p className="text-[32px] text-[#78f2a6]">+42.61 (0.81%) ▲</p><div className="mt-4 grid grid-cols-3 gap-2 text-[22px]"><div className="rounded-lg border border-[#d4af37]/20 bg-[#08251a] p-2"><p>DOW JONES</p><p className="font-semibold">39,872.99</p></div><div className="rounded-lg border border-[#d4af37]/20 bg-[#08251a] p-2"><p>NASDAQ</p><p className="font-semibold">16,832.62</p></div><div className="rounded-lg border border-[#d4af37]/20 bg-[#08251a] p-2"><p>VIX</p><p className="font-semibold text-red-400">12.45</p></div></div></div>
-          <div className="rounded-xl border border-[#d4af37]/25 bg-[#062018] p-4"><div className="mb-2 flex items-center justify-between"><h3 className="text-[42px]">Top Gainers</h3><span className="rounded-lg border px-3 py-1 text-[20px]">Today</span></div><ul className="space-y-2 text-[23px]">{(rankings ?? []).slice(0,5).map((r) => <li key={r.id} className="flex items-center justify-between rounded-lg bg-[#08251a] px-3 py-2"><span>{r.ticker}</span><span>${Number(r.price ?? 0).toFixed(2)}</span><span className="rounded-full bg-emerald-600/25 px-2 text-[#78f2a6]">+2.3%</span></li>)}</ul></div>
-          <div className="rounded-xl border border-[#d4af37]/25 bg-[#062018] p-4"><h3 className="text-[42px] text-[#d4af37]">AI Insight</h3><p className="mt-2 text-[24px] text-[#d8d2bf]">{news?.[0]?.title ?? "Technology sector shows strong momentum with top-ranked stocks outperforming this week."}</p><Link href="/world-news" className="mt-4 inline-block rounded-lg border border-[#d4af37] px-4 py-2 text-[24px] text-[#d4af37]">View Full Insight</Link></div>
+        <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden">
+          <div className="rounded-2xl border border-[#ddb159]/25 bg-[#061b12] p-5 shadow-[0_16px_45px_rgba(0,0,0,0.16)]">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#ddb159]">
+              Latest Market News
+            </p>
+            <h2 className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#faf6f0]">
+              World News
+            </h2>
+            <p className="mt-2 text-sm font-medium leading-snug text-[#faf6f0]/60">
+              The three newest articles from your news feed.
+            </p>
+          </div>
+
+          <div className="grid min-h-0 grid-rows-3 gap-4 overflow-hidden">
+            {news.length > 0 ? (
+              news.map((article, index) => (
+                <Link
+                  key={article.id}
+                  href="/world-news"
+                  className="group flex min-h-0 flex-col justify-between rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_12px_35px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
+                >
+                  <div className="min-h-0">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#ddb159]">
+                      Article {index + 1}
+                    </p>
+
+                    <h3
+                      className="mt-3 overflow-hidden text-[18px] font-black leading-tight tracking-[-0.02em]"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 4,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {article.title ?? "Untitled article"}
+                    </h3>
+                  </div>
+
+                  <p className="mt-4 text-xs font-bold text-[#072116]/55 group-hover:text-[#072116]">
+                    Open World News →
+                  </p>
+                </Link>
+              ))
+            ) : (
+              <div className="flex items-center justify-center rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-5 text-center font-semibold text-[#072116]/60">
+                No news articles available yet.
+              </div>
+            )}
+          </div>
         </aside>
       </main>
-
-      <section className="mt-5 grid gap-3 rounded-xl border border-[#d4af37]/20 bg-[#031a12] p-4 md:grid-cols-2 xl:grid-cols-4">{[["AI-Powered Analysis", "Proprietary AI evaluates 50+ factors to rank stocks"], ["Real-Time Data", "Live market data and updates throughout the day"], ["Secure & Private", "Your data is encrypted and always protected"], ["Premium Insights", "Institutional-grade insights for retail investors"]].map(([title,text]) => <div key={title} className="border-r border-[#d4af37]/20 pr-3 last:border-r-0"><p className="text-[28px] text-[#d4af37]">✧ {title}</p><p className="text-[20px] text-[#d8d2bf]">{text}</p></div>)}</section>
     </AppShell>
   );
 }
