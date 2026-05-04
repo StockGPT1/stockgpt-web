@@ -9,7 +9,6 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
   { href: "/world-news", label: "World News", icon: "✦" },
   { href: "/settings", label: "Settings", icon: "⚙" },
-  { href: "/account", label: "Account", icon: "◎" },
 ] as const;
 
 export function AppShell({
@@ -33,12 +32,11 @@ export function AppShell({
           />
         </Link>
 
-        {/* Replaced <form action="/rankings"> with live search */}
         <SearchBar />
 
         <Link
-          href="/account"
-          aria-label="Account"
+          href="/settings"
+          aria-label="Account settings"
           className="ml-5 grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
         >
           <svg
