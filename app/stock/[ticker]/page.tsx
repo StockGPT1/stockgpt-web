@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { WatchlistToggle } from "@/components/WatchlistToggle";
 import { createClient } from "@/utils/supabase/server";
 
 type StockData = {
@@ -25,10 +26,17 @@ function formatScore(value: StockData["score"]) {
 }
 
 function scoreColor(score: number) {
-  if (score >= 9000) return "text-emerald-400";
-  if (score >= 7000) return "text-[#ddb159]";
-  if (score >= 4000) return "text-orange-400";
-  return "text-red-400";
+  if (score >= 9000) return "text-emerald-500";
+  if (score >= 7000) return "text-[#072116]";
+  if (score >= 4000) return "text-orange-500";
+  return "text-red-500";
+}
+
+function scoreLabel(score: number) {
+  if (score >= 9000) return "Exceptionally strong signal";
+  if (score >= 7000) return "Strong signal";
+  if (score >= 4000) return "Moderate signal";
+  return "Weak signal";
 }
 
 export default async function StockPage({
@@ -40,7 +48,7 @@ export default async function StockPage({
   const upperTicker = ticker.toUpperCase();
   const supabase = await createClient();
 
-  // Fetch this stock
+  // Fetch stock data
   const { data: stock } = await supabase
     .from("stock_rankings")
     .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -52,7 +60,23 @@ export default async function StockPage({
   const s = stock as StockData;
   const numScore = Number(s.score);
 
-  // Fetch sector peers (same sector, ordered by rank, excluding this stock)
+  // Auth + watchlist status
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let inWatchlist = false;
+  if (user) {
+    const { data: wlEntry } = await supabase
+      .from("watchlist")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("ticker", upperTicker)
+      .maybeSingle();
+    inWatchlist = !!wlEntry;
+  }
+
+  // Sector peers
   const { data: peersData } = await supabase
     .from("stock_rankings")
     .select("id,rank,ticker,company,score,price")
@@ -103,20 +127,30 @@ export default async function StockPage({
               )}
             </div>
 
-            <div className="text-right">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]">
-                Price
-              </p>
-              <p className="mt-1 text-[32px] font-black leading-none tracking-[-0.03em] text-[#faf6f0]">
-                {formatPrice(s.price)}
-              </p>
+            <div className="flex flex-col items-end gap-3">
+              <div className="text-right">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]">
+                  Price
+                </p>
+                <p className="mt-1 text-[32px] font-black leading-none tracking-[-0.03em] text-[#faf6f0]">
+                  {formatPrice(s.price)}
+                </p>
+              </div>
+
+              {/* Watchlist toggle */}
+              {s.ticker && (
+                <WatchlistToggle
+                  ticker={s.ticker}
+                  initialInWatchlist={inWatchlist}
+                  isAuthenticated={!!user}
+                />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Score + details grid */}
+        {/* Stats grid */}
         <div className="mt-3 grid grid-cols-3 gap-3">
-          {/* AI Score card */}
           <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               AI Score
@@ -127,17 +161,10 @@ export default async function StockPage({
               {formatScore(s.score)}
             </p>
             <p className="mt-2 text-[10px] font-semibold text-[#072116]/55">
-              {Number.isFinite(numScore) && numScore >= 9000
-                ? "Exceptionally strong signal"
-                : Number.isFinite(numScore) && numScore >= 7000
-                  ? "Strong signal"
-                  : Number.isFinite(numScore) && numScore >= 4000
-                    ? "Moderate signal"
-                    : "Weak signal"}
+              {Number.isFinite(numScore) ? scoreLabel(numScore) : "No data"}
             </p>
           </div>
 
-          {/* Rank card */}
           <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               Overall Rank
@@ -150,7 +177,6 @@ export default async function StockPage({
             </p>
           </div>
 
-          {/* Last updated card */}
           <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               Last Updated
