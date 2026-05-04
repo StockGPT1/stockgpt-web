@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { WatchlistRemoveButton } from "@/components/WatchlistRemoveButton";
 import { createClient } from "@/utils/supabase/server";
+import { calculateTradeLevels, type TradeLevels } from "@/lib/trading-levels";
 
 type WatchlistStock = {
   ticker: string;
@@ -55,6 +56,26 @@ export default async function WatchlistPage() {
       .filter((s): s is WatchlistStock => !!s);
   }
 
+  // Compute trade levels for each watchlist stock in parallel
+  const levelsByTicker: Record<string, TradeLevels | null> = {};
+  await Promise.all(
+    stocks.map(async (stock) => {
+      const numPrice = Number(stock.price);
+      const numScore = Number(stock.score);
+      if (!Number.isFinite(numPrice) || !Number.isFinite(numScore)) {
+        levelsByTicker[stock.ticker] = null;
+        return;
+      }
+      levelsByTicker[stock.ticker] = await calculateTradeLevels({
+        ticker: stock.ticker,
+        price: numPrice,
+        score: numScore,
+        rank: stock.rank,
+        sector: stock.sector,
+      });
+    })
+  );
+
   // Watchlist summary stats
   const avgScore =
     stocks.length > 0
@@ -80,7 +101,7 @@ export default async function WatchlistPage() {
             </h1>
             <p className="mt-0.5 text-[13px] font-medium text-[#faf6f0]/50">
               {stocks.length > 0
-                ? `${stocks.length} stock${stocks.length !== 1 ? "s" : ""} you're tracking`
+                ? `${stocks.length} stock${stocks.length !== 1 ? "s" : ""} you're tracking · with AI trade setups`
                 : "Stocks you want to keep an eye on"}
             </p>
           </div>
@@ -115,65 +136,78 @@ export default async function WatchlistPage() {
               <table className="w-full text-left text-[12px] text-[#072116]">
                 <thead className="sticky top-0 z-10 bg-[#072116] text-[#faf6f0]">
                   <tr>
-                    <th className="w-[80px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                    <th className="w-[80px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
                       Ticker
                     </th>
-                    <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                    <th className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
                       Company
                     </th>
-                    <th className="w-[150px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                      Sector
-                    </th>
-                    <th className="w-[70px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                    <th className="w-[70px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
                       Rank
                     </th>
-                    <th className="w-[100px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                    <th className="w-[80px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
                       Price
                     </th>
-                    <th className="w-[100px] px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                    <th className="w-[80px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                      Entry
+                    </th>
+                    <th className="w-[80px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                      Stop
+                    </th>
+                    <th className="w-[80px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                      Target
+                    </th>
+                    <th className="w-[88px] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide">
                       AI Score
                     </th>
-                    <th className="w-[50px] px-4 py-2.5"></th>
+                    <th className="w-[50px] px-3 py-2.5"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stocks.map((stock) => (
-                    <tr
-                      key={stock.ticker}
-                      className="border-b border-[#072116]/8 transition hover:bg-[#ddb159]/8"
-                    >
-                      <td className="px-4 py-2.5">
-                        <Link
-                          href={`/stock/${stock.ticker}`}
-                          className="font-black text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 transition hover:decoration-[#ddb159]"
-                        >
-                          {stock.ticker}
-                        </Link>
-                      </td>
-                      <td className="truncate px-4 py-2.5 font-semibold">
-                        {stock.company ?? "—"}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="inline-flex rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold text-[#072116]/60">
-                          {stock.sector ?? "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 font-bold text-[#072116]/70">
-                        #{stock.rank ?? "—"}
-                      </td>
-                      <td className="px-4 py-2.5 font-semibold tabular-nums">
-                        {formatPrice(stock.price)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="inline-flex min-w-[60px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">
-                          {formatScore(stock.score)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <WatchlistRemoveButton ticker={stock.ticker} />
-                      </td>
-                    </tr>
-                  ))}
+                  {stocks.map((stock) => {
+                    const levels = levelsByTicker[stock.ticker];
+                    return (
+                      <tr
+                        key={stock.ticker}
+                        className="border-b border-[#072116]/8 transition hover:bg-[#ddb159]/8"
+                      >
+                        <td className="px-3 py-2.5">
+                          <Link
+                            href={`/stock/${stock.ticker}`}
+                            className="font-black text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 transition hover:decoration-[#ddb159]"
+                          >
+                            {stock.ticker}
+                          </Link>
+                        </td>
+                        <td className="truncate px-3 py-2.5 font-semibold">
+                          {stock.company ?? "—"}
+                        </td>
+                        <td className="px-3 py-2.5 font-bold text-[#072116]/70">
+                          #{stock.rank ?? "—"}
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold tabular-nums">
+                          {formatPrice(stock.price)}
+                        </td>
+                        <td className="px-3 py-2.5 font-bold tabular-nums">
+                          {levels ? `$${levels.entry.toFixed(2)}` : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 font-bold tabular-nums text-red-600">
+                          {levels ? `$${levels.stopLoss.toFixed(2)}` : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 font-bold tabular-nums text-emerald-600">
+                          {levels ? `$${levels.takeProfit.toFixed(2)}` : "—"}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="inline-flex min-w-[60px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">
+                            {formatScore(stock.score)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <WatchlistRemoveButton ticker={stock.ticker} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
