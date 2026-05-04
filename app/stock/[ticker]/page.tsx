@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
+import { TradeSetupCard } from "@/components/TradeSetupCard";
 import { createClient } from "@/utils/supabase/server";
+import { calculateTradeLevels } from "@/lib/trading-levels";
 
 type StockData = {
   id: string | number;
@@ -48,7 +50,6 @@ export default async function StockPage({
   const upperTicker = ticker.toUpperCase();
   const supabase = await createClient();
 
-  // Fetch stock data
   const { data: stock } = await supabase
     .from("stock_rankings")
     .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -59,6 +60,7 @@ export default async function StockPage({
 
   const s = stock as StockData;
   const numScore = Number(s.score);
+  const numPrice = Number(s.price);
 
   // Auth + watchlist status
   const {
@@ -75,6 +77,18 @@ export default async function StockPage({
       .maybeSingle();
     inWatchlist = !!wlEntry;
   }
+
+  // Trade levels — shown to everyone for now
+  const tradeLevels =
+    Number.isFinite(numPrice) && Number.isFinite(numScore)
+      ? await calculateTradeLevels({
+          ticker: upperTicker,
+          price: numPrice,
+          score: numScore,
+          rank: s.rank,
+          sector: s.sector,
+        })
+      : null;
 
   // Sector peers
   const { data: peersData } = await supabase
@@ -137,7 +151,6 @@ export default async function StockPage({
                 </p>
               </div>
 
-              {/* Watchlist toggle */}
               {s.ticker && (
                 <WatchlistToggle
                   ticker={s.ticker}
@@ -200,6 +213,13 @@ export default async function StockPage({
             </p>
           </div>
         </div>
+
+        {/* ✦ Trade Setup */}
+        {tradeLevels && (
+          <div className="mt-3">
+            <TradeSetupCard levels={tradeLevels} />
+          </div>
+        )}
 
         {/* Sector peers */}
         {peers.length > 0 && (
