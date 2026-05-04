@@ -19,18 +19,18 @@ type NewsArticle = {
   title: string | null;
   url: string | null;
   source: string | null;
+  impact: string | null;
+  affected_tickers: string[] | null;
 };
 
 function formatPrice(value: Ranking["price"]) {
-  const numberValue = Number(value);
-  if (!Number.isFinite(numberValue)) return "—";
-  return `$${numberValue.toFixed(2)}`;
+  const n = Number(value);
+  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
 }
 
 function formatScore(value: Ranking["score"]) {
-  const numberValue = Number(value);
-  if (!Number.isFinite(numberValue)) return "—";
-  return numberValue.toLocaleString();
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString() : "—";
 }
 
 function formatUpdatedTime(value?: string | null) {
@@ -39,6 +39,13 @@ function formatUpdatedTime(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function impactDot(impact: string | null) {
+  const s = (impact ?? "").toLowerCase().trim();
+  if (s === "positive") return "bg-emerald-500";
+  if (s === "negative") return "bg-red-500";
+  return "bg-[#072116]/30";
 }
 
 function StatIcon({ type }: { type: "chart" | "crown" | "arrow" | "clock" }) {
@@ -113,17 +120,12 @@ export default async function Home() {
     .order("rank", { ascending: true })
     .limit(10);
 
-  // Fetch news with url and source columns — if your table doesn't have these
-  // columns yet, add them or remove them from the select below.
   const { data: newsData } = await supabase
     .from("news_articles")
-    .select("id,title,url,source")
+    .select("id,title,url,source,impact,affected_tickers")
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // Try to get the highest-scoring stock for "Top Gainer" —
-  // If you have a `change_pct` or `day_change` column, use that instead.
-  // For now we'll use the highest score as a meaningful stat.
   const { data: topGainerData } = await supabase
     .from("stock_rankings")
     .select("ticker,company,score")
@@ -139,10 +141,8 @@ export default async function Home() {
     <AppShell activePath="/">
       <main className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_230px] gap-3 overflow-hidden">
         <section className="grid min-h-0 grid-rows-[106px_74px_minmax(0,1fr)] gap-3 overflow-hidden">
-          {/* ✦ Dynamic welcome banner */}
           <WelcomeBanner />
 
-          {/* ✦ Stat cards */}
           <div className="grid min-h-0 grid-cols-4 gap-2.5">
             <StatCard
               label="Total Stocks"
@@ -150,15 +150,12 @@ export default async function Home() {
               sub="ranked by AI score"
               icon="chart"
             />
-
             <StatCard
               label="Top Ranked"
               main={topRanked?.ticker ?? "—"}
               sub={topRanked?.company ?? "No ranking data"}
               icon="crown"
             />
-
-            {/* ✦ Replaced placeholder with real data */}
             <StatCard
               label="Highest Score"
               main={topGainerData?.ticker ?? "—"}
@@ -169,7 +166,6 @@ export default async function Home() {
               }
               icon="arrow"
             />
-
             <StatCard
               label="Last Updated"
               main={formatUpdatedTime(topRanked?.updated_at)}
@@ -178,7 +174,6 @@ export default async function Home() {
             />
           </div>
 
-          {/* ✦ Rankings table — rows are now clickable */}
           <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
             <div className="mb-2 flex h-[42px] items-start justify-between">
               <div>
@@ -232,7 +227,6 @@ export default async function Home() {
                           {stock.rank ?? "—"}
                         </td>
                         <td className="px-2.5 py-1">
-                          {/* ✦ Ticker is now a link to the stock detail page */}
                           <Link
                             href={`/stock/${stock.ticker}`}
                             className="font-black text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 transition hover:text-[#0b2b1d] hover:decoration-[#ddb159]"
@@ -272,7 +266,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* ✦ News sidebar — cards now link to actual article URLs */}
+        {/* ✦ News sidebar — redesigned cards */}
         <aside className="grid min-h-0 grid-rows-[118px_minmax(0,1fr)] gap-3 overflow-hidden">
           <div className="rounded-2xl border border-[#ddb159]/25 bg-[#061b12] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
@@ -281,18 +275,24 @@ export default async function Home() {
             <h2 className="mt-1.5 text-[25px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">
               World News
             </h2>
-            <p className="mt-2 text-[11px] font-medium leading-snug text-[#faf6f0]/58">
-              The three newest articles from your news feed.
-            </p>
+            <Link
+              href="/world-news"
+              className="mt-2 inline-block text-[11px] font-bold text-[#faf6f0]/55 transition hover:text-[#ddb159]"
+            >
+              See all articles →
+            </Link>
           </div>
 
           <div className="grid min-h-0 grid-rows-3 gap-3 overflow-hidden">
             {news.length > 0 ? (
-              news.map((article, index) => {
-                // ✦ Link to the actual article URL if available,
-                // fall back to /world-news
+              news.map((article) => {
                 const href = article.url || "/world-news";
                 const isExternal = !!article.url;
+                const tickers = Array.isArray(article.affected_tickers)
+                  ? article.affected_tickers.filter(
+                      (t) => t && t !== "Sector-wide"
+                    )
+                  : [];
 
                 return (
                   <a
@@ -300,33 +300,46 @@ export default async function Home() {
                     href={href}
                     target={isExternal ? "_blank" : undefined}
                     rel={isExternal ? "noopener noreferrer" : undefined}
-                    className="group flex min-h-0 flex-col justify-between rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
+                    className="group flex min-h-0 flex-col gap-2 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
                   >
-                    <div className="min-h-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
-                          Article {index + 1}
-                        </p>
-                        {article.source && (
-                          <p className="truncate text-[8px] font-bold uppercase tracking-wider text-[#072116]/40">
-                            {article.source}
-                          </p>
-                        )}
-                      </div>
-                      <h3
-                        className="mt-2 overflow-hidden text-[12px] font-black leading-tight tracking-[-0.02em]"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 4,
-                          WebkitBoxOrient: "vertical",
-                        }}
-                      >
-                        {article.title ?? "Untitled article"}
-                      </h3>
+                    {/* Top row: sentiment dot + source */}
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-block size-1.5 shrink-0 rounded-full ${impactDot(article.impact)}`}
+                      />
+                      <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                        {article.source ?? "News"}
+                      </p>
                     </div>
-                    <p className="mt-2 text-[10px] font-bold text-[#072116]/55 group-hover:text-[#072116]">
-                      {isExternal ? "Read article →" : "Open →"}
-                    </p>
+
+                    {/* Title — explicit dark text color, line clamp 3 */}
+                    <h3
+                      className="overflow-hidden text-[12px] font-black leading-tight tracking-[-0.02em] text-[#072116]"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {article.title ?? "Untitled article"}
+                    </h3>
+
+                    {/* Bottom row: tickers if any */}
+                    <div className="mt-auto flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1">
+                        {tickers.slice(0, 2).map((t) => (
+                          <span
+                            key={t}
+                            className="rounded bg-[#072116] px-1.5 py-0.5 text-[8px] font-black text-[#ddb159]"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="shrink-0 text-[10px] font-bold text-[#072116]/55 group-hover:text-[#072116]">
+                        {isExternal ? "Read →" : "Open →"}
+                      </p>
+                    </div>
                   </a>
                 );
               })
