@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SearchBar } from "@/components/SearchBar";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "▦" },
@@ -32,35 +33,8 @@ export function AppShell({
           />
         </Link>
 
-        <form
-          action="/rankings"
-          method="get"
-          className="mx-auto flex h-10 w-full max-w-[520px] items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5"
-        >
-          <input
-            name="search"
-            type="search"
-            placeholder="Search stocks..."
-            className="h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
-          />
-
-          <button
-            type="submit"
-            aria-label="Search stocks"
-            className="ml-3 grid size-8 place-items-center rounded-full text-[#ddb159] transition hover:bg-[#ddb159]/10"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="size-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-          </button>
-        </form>
+        {/* Replaced <form action="/rankings"> with live search */}
+        <SearchBar />
 
         <Link
           href="/account"
@@ -85,7 +59,6 @@ export function AppShell({
           <nav className="space-y-2.5">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
-
               return (
                 <Link
                   key={item.href}
