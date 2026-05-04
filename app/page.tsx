@@ -48,7 +48,7 @@ function impactDot(impact: string | null) {
   return "bg-[#072116]/30";
 }
 
-function StatIcon({ type }: { type: "chart" | "crown" | "arrow" | "clock" }) {
+function StatIcon({ type }: { type: "chart" | "crown" | "megaphone" | "clock" }) {
   return (
     <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[#ddb159]">
       {type === "chart" && (
@@ -66,10 +66,11 @@ function StatIcon({ type }: { type: "chart" | "crown" | "arrow" | "clock" }) {
           <path d="M5 21h14" />
         </svg>
       )}
-      {type === "arrow" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.9">
-          <path d="M4 17 9 12l4 4 7-9" />
-          <path d="M15 7h5v5" />
+      {type === "megaphone" && (
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z" />
+          <path d="M14 8c1.5 1 1.5 7 0 8" />
+          <path d="M18 5c3 2.5 3 11.5 0 14" />
         </svg>
       )}
       {type === "clock" && (
@@ -91,7 +92,7 @@ function StatCard({
   label: string;
   main: string;
   sub: string;
-  icon: "chart" | "crown" | "arrow" | "clock";
+  icon: "chart" | "crown" | "megaphone" | "clock";
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-[#faf6f0] px-3 py-2.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
@@ -126,12 +127,29 @@ export default async function Home() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  const { data: topGainerData } = await supabase
-    .from("stock_rankings")
-    .select("ticker,company,score")
-    .order("score", { ascending: false })
-    .limit(1)
-    .single();
+  // ✦ Compute "Most Mentioned" — ticker appearing most across recent news
+  const { data: recentNewsForCount } = await supabase
+    .from("news_articles")
+    .select("affected_tickers")
+    .order("published_at", { ascending: false })
+    .limit(50);
+
+  const tickerCounts: Record<string, number> = {};
+  (recentNewsForCount ?? []).forEach((article) => {
+    if (Array.isArray(article.affected_tickers)) {
+      article.affected_tickers.forEach((t: string) => {
+        if (t && t !== "Sector-wide") {
+          tickerCounts[t] = (tickerCounts[t] || 0) + 1;
+        }
+      });
+    }
+  });
+  const mostMentionedEntry = Object.entries(tickerCounts).sort(
+    (a, b) => b[1] - a[1]
+  )[0];
+  const mostMentioned = mostMentionedEntry
+    ? { ticker: mostMentionedEntry[0], count: mostMentionedEntry[1] }
+    : null;
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const news = (newsData ?? []) as NewsArticle[];
@@ -156,15 +174,16 @@ export default async function Home() {
               sub={topRanked?.company ?? "No ranking data"}
               icon="crown"
             />
+            {/* ✦ Replaced "Highest Score" with "Most Mentioned" */}
             <StatCard
-              label="Highest Score"
-              main={topGainerData?.ticker ?? "—"}
+              label="Most Mentioned"
+              main={mostMentioned?.ticker ?? "—"}
               sub={
-                topGainerData?.score != null
-                  ? `Score: ${Number(topGainerData.score).toLocaleString()}`
-                  : "No data yet"
+                mostMentioned
+                  ? `In ${mostMentioned.count} recent article${mostMentioned.count === 1 ? "" : "s"}`
+                  : "No news data yet"
               }
-              icon="arrow"
+              icon="megaphone"
             />
             <StatCard
               label="Last Updated"
@@ -266,7 +285,6 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* ✦ News sidebar — redesigned cards */}
         <aside className="grid min-h-0 grid-rows-[118px_minmax(0,1fr)] gap-3 overflow-hidden">
           <div className="rounded-2xl border border-[#ddb159]/25 bg-[#061b12] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
@@ -302,7 +320,6 @@ export default async function Home() {
                     rel={isExternal ? "noopener noreferrer" : undefined}
                     className="group flex min-h-0 flex-col gap-2 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
                   >
-                    {/* Top row: sentiment dot + source */}
                     <div className="flex items-center gap-1.5">
                       <span
                         className={`inline-block size-1.5 shrink-0 rounded-full ${impactDot(article.impact)}`}
@@ -312,7 +329,6 @@ export default async function Home() {
                       </p>
                     </div>
 
-                    {/* Title — explicit dark text color, line clamp 3 */}
                     <h3
                       className="overflow-hidden text-[12px] font-black leading-tight tracking-[-0.02em] text-[#072116]"
                       style={{
@@ -324,7 +340,6 @@ export default async function Home() {
                       {article.title ?? "Untitled article"}
                     </h3>
 
-                    {/* Bottom row: tickers if any */}
                     <div className="mt-auto flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-1">
                         {tickers.slice(0, 2).map((t) => (
