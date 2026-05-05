@@ -1,44 +1,26 @@
-import type { ReactNode } from "react";
-import { Cormorant_Garamond } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const luxuryDisplay = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-luxury-display",
-  display: "swap",
-});
-
-export const metadata = {
-  title: "StockGPT",
-  description: "AI-powered stock rankings, insights and market intelligence.",
-  openGraph: {
-    title: "StockGPT",
-    description: "AI-powered stock rankings, insights and market intelligence.",
-    url: "https://stockgpt.pro",
-    siteName: "StockGPT",
-    images: [
-      {
-        url: "https://stockgpt.pro/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "StockGPT",
-      },
-    ],
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "StockGPT",
-    description: "AI-powered stock rankings, insights and market intelligence.",
-    images: ["https://stockgpt.pro/og-image.png"],
-  },
+export const metadata: Metadata = {
+  title: "StockGPT — AI Stock Rankings & Portfolio Builder",
+  description: "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#072116",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" className={`h-full antialiased ${luxuryDisplay.variable}`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en">
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
