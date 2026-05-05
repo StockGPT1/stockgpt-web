@@ -7,8 +7,8 @@ import {
   updateEntryPrice,
   markReviewed,
   deletePortfolio,
+  addHolding,
 } from "@/lib/actions/portfolio-management";
-import { addHolding } from "@/lib/actions/portfolio-management";
 import type { EnrichedHolding, HoldingAlert } from "@/lib/portfolio-alerts";
 
 type Props = {
@@ -58,26 +58,31 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
   function handleSavePrice() {
     const newPrice = Number(priceInput);
     if (Number.isFinite(newPrice) && newPrice > 0) {
-      startTransition(() => updateEntryPrice(holding.ticker, newPrice));
+      startTransition(() => {
+        updateEntryPrice(holding.ticker, newPrice);
+      });
       setEditingPrice(false);
     }
   }
 
   function handleRemove() {
     if (confirm(`Remove ${holding.ticker} from your portfolio?`)) {
-      startTransition(() => removeHolding(holding.ticker));
+      startTransition(() => {
+        removeHolding(holding.ticker);
+      });
     }
   }
 
   function handleReviewed() {
-    startTransition(() => markReviewed(holding.ticker));
+    startTransition(() => {
+      markReviewed(holding.ticker);
+    });
   }
 
   return (
     <div className="rounded-2xl border border-[#072116]/8 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
       {/* Top row */}
       <div className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-4 p-4">
-        {/* Ticker */}
         <Link href={`/stock/${holding.ticker}`} className="group">
           <p className="text-[18px] font-black tracking-[-0.02em] text-[#072116] group-hover:text-[#ddb159]">
             {holding.ticker}
@@ -87,7 +92,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           </p>
         </Link>
 
-        {/* Mid section */}
         <div className="min-w-0">
           <Link href={`/stock/${holding.ticker}`} className="hover:text-[#ddb159]">
             <p className="truncate text-[13px] font-bold text-[#072116]">
@@ -104,7 +108,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           </div>
         </div>
 
-        {/* Recommendation badge */}
         <span className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${recStyle}`}>
           {holding.recommendation}
         </span>
@@ -112,7 +115,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-2 px-4 pb-3 sm:grid-cols-4">
-        {/* Entry price (editable) */}
         <div className="rounded-lg border border-[#072116]/8 bg-[#faf6f0] px-3 py-2">
           <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
             Entry Price
@@ -158,7 +160,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           )}
         </div>
 
-        {/* Current price */}
         <div className="rounded-lg border border-[#072116]/8 bg-[#faf6f0] px-3 py-2">
           <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
             Current
@@ -168,7 +169,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           </p>
         </div>
 
-        {/* P&L */}
         <div className="rounded-lg border border-[#072116]/8 bg-[#faf6f0] px-3 py-2">
           <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
             P&amp;L
@@ -179,7 +179,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           </p>
         </div>
 
-        {/* AI Score change */}
         <div className="rounded-lg border border-[#072116]/8 bg-[#faf6f0] px-3 py-2">
           <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
             AI Score
@@ -282,7 +281,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
   );
 }
 
-// ── Add stock form ──
 function AddStockForm() {
   const [ticker, setTicker] = useState("");
   const [entryPrice, setEntryPrice] = useState("");
@@ -355,13 +353,12 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
 
   function handleDeletePortfolio() {
     if (confirm("Delete your entire portfolio? This cannot be undone.")) {
-      startTransition(() => deletePortfolio());
+      startTransition(() => {
+        deletePortfolio();
+      });
     }
   }
 
-  // Aggregate stats
-  const totalValue = holdings.reduce((s, h) => s + h.currentPrice * (1 / h.entryPrice), 0);
-  const totalCost = holdings.length;
   const totalPnLPct =
     holdings.length > 0
       ? holdings.reduce((s, h) => s + h.pnlPercent, 0) / holdings.length
@@ -376,7 +373,6 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
 
   return (
     <div className="grid gap-3">
-      {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-6 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
 
@@ -423,7 +419,6 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
           </div>
         </div>
 
-        {/* Alert summary */}
         {totalAlerts > 0 && (
           <div className="relative mt-4 flex flex-wrap gap-2">
             {criticalAlerts > 0 && (
@@ -445,10 +440,8 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
         )}
       </div>
 
-      {/* Add stock form */}
       <AddStockForm />
 
-      {/* Holdings */}
       {holdings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#ddb159]/25 bg-[#061b12]/50 p-8 text-center">
           <p className="text-[14px] font-bold text-[#faf6f0]">
