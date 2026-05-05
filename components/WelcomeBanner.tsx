@@ -103,7 +103,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
 
       {/* Greeting + market pill — tighter line */}
       <div className="flex items-center gap-2.5">
-        <p className="text-[14px] font-semibold leading-none text-[#ddb159]">
+        <p className="font-luxury text-[14px] font-semibold leading-none tracking-[0.01em] text-[#ddb159]">
           {state.greeting}
         </p>
         <span className="flex items-center gap-1.5 rounded-full border border-[#ddb159]/20 bg-[#072116]/60 px-2 py-0.5">
@@ -124,7 +124,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
       </div>
 
       {/* Tagline — smaller, fits in the 106px row */}
-      <h1 className="mt-1 max-w-[1000px] truncate text-[28px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">
+      <h1 className="luxury-heading mt-1 max-w-[1000px] truncate text-[28px] leading-[1.05] text-[#faf6f0]">
         {state.tagline}
       </h1>
 
