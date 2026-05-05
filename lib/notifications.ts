@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type HoldingAlert } from "@/lib/portfolio-alerts";
+import { enrichHoldings, type HoldingAlert, type RiskTolerance } from "@/lib/portfolio-alerts";
 
 export type Notification = {
   key: string;
@@ -32,29 +32,27 @@ export async function getUserNotifications({
   unreadCount: number;
 }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { unread: [], read: [], unreadCount: 0 };
 
+  // ✦ Now fetching risk_tolerance to pass through
   const { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id")
+    .select("id, risk_tolerance")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!portfolio) return { unread: [], read: [], unreadCount: 0 };
 
-  // ✦ Now selecting shares and allocation_pct
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
-    .select(
-      "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct"
-    )
+    .select("ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct")
     .eq("portfolio_id", portfolio.id);
 
   if (!holdingsData || holdingsData.length === 0)
     return { unread: [], read: [], unreadCount: 0 };
+
+  const riskTolerance = (portfolio.risk_tolerance as RiskTolerance) ?? null;
 
   const enriched = await enrichHoldings(
     holdingsData.map((h) => ({
@@ -66,7 +64,8 @@ export async function getUserNotifications({
       allocation_pct: h.allocation_pct as number | null,
       added_at: h.added_at as string,
       last_reviewed_at: h.last_reviewed_at as string,
-    }))
+    })),
+    riskTolerance
   );
 
   const { data: dismissalsData } = await supabase
@@ -99,10 +98,7 @@ export async function getUserNotifications({
   });
 
   const severityOrder: Record<string, number> = {
-    critical: 0,
-    warning: 1,
-    info: 2,
-    success: 3,
+    critical: 0, warning: 1, info: 2, success: 3,
   };
   allNotifications.sort((a, b) => {
     const s = severityOrder[a.severity] - severityOrder[b.severity];
@@ -114,11 +110,7 @@ export async function getUserNotifications({
     ? allNotifications.filter((n) => dismissedKeys.has(n.key))
     : [];
 
-  return {
-    unread,
-    read,
-    unreadCount: unread.length,
-  };
+  return { unread, read, unreadCount: unread.length };
 }
 
 export async function getUnreadNotificationCount(): Promise<number> {
