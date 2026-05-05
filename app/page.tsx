@@ -321,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[166px_184px_minmax(210px,1fr)] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[166px_184px_minmax(220px,1fr)] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -483,22 +483,22 @@ function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
+      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
       <div className="pointer-events-none absolute -bottom-12 left-4 size-24 rounded-full bg-[#faf6f0]/5 blur-2xl" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
       <div className="relative flex h-full min-h-0 flex-col">
-        <div className="mb-2 flex size-7 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[16px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+        <div className="mb-2 flex size-8 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[17px] text-[#ddb159] transition duration-300 group-hover:scale-105">
           ♛
         </div>
 
-        <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+        <p className="shrink-0 text-[8.5px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
           ✦ AI-Powered
         </p>
 
-        <h2 className="mt-1 shrink-0 text-[16px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
+        <h2 className="mt-1.5 shrink-0 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
 
@@ -507,12 +507,12 @@ function PortfolioPromoCard() {
           them for you.
         </p>
 
-        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-3">
-          <p className="pb-1.5 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-4">
+          <p className="pb-2 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
 
-          <div className="flex items-end gap-1 pb-1.5">
+          <div className="flex items-end gap-1 pb-2">
             <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4" />
             <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6" />
             <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8" />
