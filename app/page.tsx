@@ -64,11 +64,10 @@ export default async function Home() {
       <main className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-y-auto pr-1 lg:overflow-hidden">
         <WelcomeBanner />
 
-        {/* 2-col layout */}
         <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
           {/* ── LEFT: Stats row + Top 10 ── */}
           <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 lg:overflow-hidden">
-            {/* ✦ Stats row above top 10 */}
+            {/* ✦ Bigger stat boxes */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <StatBlock label="Top Ranked" main={topRanked?.ticker ?? "—"} sub={topRanked?.company ?? "—"} />
               <StatBlock label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
@@ -140,9 +139,8 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* ── RIGHT: Chart + Movers + Portfolio (taller now) ── */}
+          {/* ── RIGHT: Chart + Movers + Portfolio ── */}
           <aside className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 lg:overflow-hidden">
-            {/* S&P 500 chart */}
             <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
               <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
                 ✦ Market Overview
@@ -160,7 +158,6 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Top movers */}
             <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
               <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
                 ✦ Top Movers · 5d
@@ -203,48 +200,29 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* ✦ Portfolio promo — beefed up with feature list */}
+            {/* ✦ Simplified portfolio widget — bigger fonts, less content */}
             <Link
               href="/portfolio"
-              className="group relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
+              className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
             >
               <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[#ddb159]/15 blur-3xl transition group-hover:bg-[#ddb159]/25" />
               <div className="pointer-events-none absolute -bottom-10 -left-10 size-32 rounded-full bg-emerald-500/10 blur-3xl" />
 
               <div className="relative">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                   ✦ AI-Powered
                 </p>
-                <h2 className="mt-1 text-[20px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
+                <h2 className="mt-2 text-[28px] font-black leading-[1.05] tracking-[-0.03em] text-[#faf6f0]">
                   Build Your AI Portfolio
                 </h2>
-                <p className="mt-1.5 text-[11px] font-medium leading-relaxed text-[#faf6f0]/65">
+                <p className="mt-3 text-[15px] font-medium leading-relaxed text-[#faf6f0]/75">
                   Tell the AI your goals. It picks the stocks, weights them, and watches them for you.
                 </p>
               </div>
 
-              <ul className="relative mt-3 grid gap-1.5 text-[11px] font-medium text-[#faf6f0]/80">
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-[#ddb159]">✓</span>
-                  <span>Picks 8–15 stocks tailored to your risk profile</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-[#ddb159]">✓</span>
-                  <span>Real-time alerts when scores drop or news hits</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-[#ddb159]">✓</span>
-                  <span>Action plans: when to sell, trim, or buy more</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-[#ddb159]">✓</span>
-                  <span>Track stocks you already own too</span>
-                </li>
-              </ul>
-
-              <div className="relative mt-auto pt-3">
+              <div className="relative mt-4">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-black transition group-hover:translate-x-0.5"
+                  className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-black transition group-hover:translate-x-0.5"
                   style={{ backgroundColor: "#ddb159", color: "#072116" }}
                 >
                   Start in 30 seconds
@@ -261,14 +239,14 @@ export default async function Home() {
 
 function StatBlock({ label, main, sub }: { label: string; main: string; sub: string }) {
   return (
-    <div className="rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
-      <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
+    <div className="rounded-xl bg-[#faf6f0] px-3.5 py-3 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+      <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
         {label}
       </p>
-      <p className="mt-0.5 truncate text-[16px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
+      <p className="mt-1 truncate text-[20px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
         {main}
       </p>
-      <p className="truncate text-[9px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
+      <p className="mt-0.5 truncate text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
         {sub}
       </p>
     </div>
