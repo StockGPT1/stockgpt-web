@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { MobileNav } from "@/components/MobileNav";
+import { TickerTape } from "@/components/TickerTape";
+import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { getUnreadNotificationCount } from "@/lib/notifications";
 
 const navItems = [
@@ -15,7 +17,6 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
-// Bottom nav on mobile — show 5 most important
 const mobileBottomNav = [
   { href: "/", label: "Home", icon: "▦" },
   { href: "/rankings", label: "Rankings", icon: "♛" },
@@ -35,39 +36,49 @@ export async function AppShell({
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
-      {/* HEADER */}
-      <header className="flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 sm:h-[68px] sm:px-5">
-        {/* Mobile menu button */}
+      <header className="relative z-40 flex h-[60px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:h-[64px] sm:px-5">
         <div className="relative lg:hidden">
-          <MobileNav navItems={navItems} activePath={activePath} unreadCount={unreadCount} />
+          <MobileNav
+            navItems={navItems}
+            activePath={activePath}
+            unreadCount={unreadCount}
+          />
         </div>
 
-        <Link href="/" className="relative h-[44px] w-[150px] shrink-0 sm:h-[54px] sm:w-[210px]">
+        <Link
+          href="/"
+          className="relative h-[42px] w-[142px] shrink-0 transition duration-300 hover:scale-[1.015] sm:h-[50px] sm:w-[198px]"
+        >
           <Image
             src="/logo.png"
             alt="StockGPT"
             fill
             priority
-            className="object-contain object-left"
-            sizes="(max-width: 640px) 150px, 210px"
+            className="object-contain object-left drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)]"
+            sizes="(max-width: 640px) 142px, 198px"
           />
         </Link>
 
-        {/* Search — hidden on tiny screens, full on tablet+ */}
         <div className="hidden flex-1 sm:flex">
           <SearchBar />
         </div>
 
-        {/* Notification bell — desktop only (mobile has it in bottom nav) */}
         <Link
           href="/notifications"
           aria-label="Notifications"
-          className="relative ml-auto hidden size-10 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:grid sm:size-11"
+          className="relative ml-auto hidden size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)] sm:grid"
         >
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
             <path d="M10 21h4" />
           </svg>
+
           {unreadCount > 0 && (
             <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-[#04180f]">
               {unreadCount > 99 ? "99+" : unreadCount}
@@ -78,47 +89,64 @@ export async function AppShell({
         <Link
           href="/settings"
           aria-label="Account settings"
-          className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:ml-2 sm:size-11"
+          className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)] sm:size-10"
         >
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <circle cx="12" cy="8" r="4" />
             <path d="M4 21a8 8 0 0 1 16 0" />
           </svg>
         </Link>
       </header>
 
-      {/* Mobile-only search bar (when header search is hidden) */}
+      <TickerTape />
+
+      <AskStockGPTButton />
+
       <div className="shrink-0 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 sm:hidden">
         <SearchBar />
       </div>
 
-      {/* MAIN BODY */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Desktop sidebar */}
-        <aside className="hidden h-full w-[190px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-4 py-5 lg:block">
-          <nav className="space-y-2.5">
+        <aside className="hidden h-full w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4 lg:block">
+          <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
               const isAlerts = item.href === "/notifications";
+
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={[
-                    "relative flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-bold transition",
+                    "group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
                     isActive
-                      ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0]"
-                      : "border-transparent text-[#faf6f0]/82 hover:border-[#ddb159]/40 hover:bg-[#ddb159]/8",
+                      ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0] shadow-[0_0_22px_rgba(221,177,89,0.08)]"
+                      : "border-transparent text-[#faf6f0]/78 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 hover:text-[#faf6f0]",
                   ].join(" ")}
                 >
-                  <span className="w-5 text-center text-lg text-[#ddb159]">{item.icon}</span>
+                  <span
+                    className={[
+                      "absolute inset-y-2 left-0 w-[2px] rounded-r-full bg-[#ddb159] transition",
+                      isActive
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-70",
+                    ].join(" ")}
+                  />
+
+                  <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110">
+                    {item.icon}
+                  </span>
+
                   <span className="truncate">{item.label}</span>
+
                   {isAlerts && unreadCount > 0 && (
-                    <span
-                      className={`ml-auto grid h-5 min-w-[20px] place-items-center rounded-full px-1 text-[10px] font-black ${
-                        unreadCount > 0 ? "bg-red-500 text-white" : "bg-[#ddb159] text-[#072116]"
-                      }`}
-                    >
+                    <span className="ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
@@ -128,17 +156,16 @@ export async function AppShell({
           </nav>
         </aside>
 
-        {/* Content area */}
-        <section className="min-h-0 flex-1 overflow-hidden bg-[#072116] p-3 pb-[72px] sm:p-4 lg:pb-4">
+        <section className="min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.08),transparent_28%),linear-gradient(180deg,#072116,#051a11)] p-3 pb-[72px] sm:p-3 lg:pb-3">
           {children}
         </section>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
         {mobileBottomNav.map((item) => {
           const isActive = activePath === item.href;
           const isAlerts = item.href === "/notifications";
+
           return (
             <Link
               key={item.href}
@@ -149,11 +176,13 @@ export async function AppShell({
             >
               <span className="text-xl">{item.icon}</span>
               <span className="text-[10px] font-bold">{item.label}</span>
+
               {isAlerts && unreadCount > 0 && (
                 <span className="absolute right-2 top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
+
               {isActive && (
                 <span className="absolute inset-x-4 top-0 h-[2px] bg-[#ddb159]" />
               )}
