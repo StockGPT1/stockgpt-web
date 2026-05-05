@@ -12,14 +12,9 @@ export default async function PortfolioPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Force builder view via ?builder=1
   if (params.builder === "1") {
     return (
       <AppShell activePath="/portfolio">
@@ -30,7 +25,6 @@ export default async function PortfolioPage({
     );
   }
 
-  // Load saved portfolio if it exists
   const { data: savedPortfolio } = await supabase
     .from("user_portfolios")
     .select("id, name, risk_tolerance, time_horizon, investment_amount")
@@ -38,7 +32,6 @@ export default async function PortfolioPage({
     .maybeSingle();
 
   if (!savedPortfolio) {
-    // No saved portfolio — show builder
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto pr-1">
@@ -48,12 +41,10 @@ export default async function PortfolioPage({
     );
   }
 
-  // Load holdings
+  // ✦ Now also fetching shares and allocation_pct
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
-    .select(
-      "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at"
-    )
+    .select("ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct")
     .eq("portfolio_id", savedPortfolio.id)
     .order("added_at", { ascending: false });
 
@@ -63,6 +54,8 @@ export default async function PortfolioPage({
       entry_price: h.entry_price as number | null,
       score_at_entry: h.score_at_entry as number | null,
       rank_at_entry: h.rank_at_entry as number | null,
+      shares: h.shares as number | null,
+      allocation_pct: h.allocation_pct as number | null,
       added_at: h.added_at as string,
       last_reviewed_at: h.last_reviewed_at as string,
     }))
