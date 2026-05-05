@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type HoldingAlert } from "@/lib/portfolio-alerts";
 
 export type Notification = {
-  key: string; // unique stable identifier (used for dismissal)
+  key: string;
   ticker: string;
   company: string | null;
   type: HoldingAlert["type"];
@@ -10,15 +10,10 @@ export type Notification = {
   title: string;
   message: string;
   recommendation: string;
-  createdAt: string; // ISO date — when this alert was first relevant
+  createdAt: string;
 };
 
-/**
- * Build a stable key for an alert so we can track if it's been dismissed.
- * Uses a weekly date bucket so the same alert resurfaces each week if still relevant.
- */
 function buildAlertKey(ticker: string, type: string, dateStr: string): string {
-  // Bucket by week — alert keys roll over weekly
   const d = new Date(dateStr);
   const year = d.getFullYear();
   const week = Math.floor(
@@ -27,9 +22,6 @@ function buildAlertKey(ticker: string, type: string, dateStr: string): string {
   return `${ticker}:${type}:${year}w${week}`;
 }
 
-/**
- * Load all current notifications for the user, with dismissed state.
- */
 export async function getUserNotifications({
   includeDismissed = false,
 }: {
@@ -45,7 +37,6 @@ export async function getUserNotifications({
   } = await supabase.auth.getUser();
   if (!user) return { unread: [], read: [], unreadCount: 0 };
 
-  // Load user's portfolio holdings
   const { data: portfolio } = await supabase
     .from("user_portfolios")
     .select("id")
@@ -54,10 +45,11 @@ export async function getUserNotifications({
 
   if (!portfolio) return { unread: [], read: [], unreadCount: 0 };
 
+  // ✦ Now selecting shares and allocation_pct
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
     .select(
-      "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at"
+      "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct"
     )
     .eq("portfolio_id", portfolio.id);
 
@@ -70,12 +62,13 @@ export async function getUserNotifications({
       entry_price: h.entry_price as number | null,
       score_at_entry: h.score_at_entry as number | null,
       rank_at_entry: h.rank_at_entry as number | null,
+      shares: h.shares as number | null,
+      allocation_pct: h.allocation_pct as number | null,
       added_at: h.added_at as string,
       last_reviewed_at: h.last_reviewed_at as string,
     }))
   );
 
-  // Load all dismissals for this user
   const { data: dismissalsData } = await supabase
     .from("notification_dismissals")
     .select("alert_key")
@@ -85,7 +78,6 @@ export async function getUserNotifications({
     (dismissalsData ?? []).map((d) => d.alert_key as string)
   );
 
-  // Flatten all alerts into notifications
   const today = new Date().toISOString();
   const allNotifications: Notification[] = [];
 
@@ -106,7 +98,6 @@ export async function getUserNotifications({
     });
   });
 
-  // Sort by severity (critical first) then ticker
   const severityOrder: Record<string, number> = {
     critical: 0,
     warning: 1,
@@ -130,10 +121,6 @@ export async function getUserNotifications({
   };
 }
 
-/**
- * Just the unread count — used for the sidebar badge.
- * Cheaper than getUserNotifications because it short-circuits early.
- */
 export async function getUnreadNotificationCount(): Promise<number> {
   const { unreadCount } = await getUserNotifications();
   return unreadCount;
