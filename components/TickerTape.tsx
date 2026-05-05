@@ -50,18 +50,18 @@ export async function TickerTape() {
     return null;
   }
 
-  const repeated = [...tickerItems, ...tickerItems];
+  const repeated = [...tickerItems, ...tickerItems, ...tickerItems];
 
   return (
     <div className="relative z-30 h-[30px] shrink-0 overflow-hidden border-b border-[#ddb159]/16 bg-[#03140d] shadow-[0_6px_18px_rgba(0,0,0,0.22)]">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#03140d] to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#03140d] to-transparent" />
 
-      <div className="flex h-full min-w-max animate-[stockTicker_42s_linear_infinite] items-center whitespace-nowrap">
+      <div className="stock-ticker-track flex h-full min-w-max items-center whitespace-nowrap">
         {repeated.map((item, index) => (
           <div
             key={`${item.yahooSymbol}-${index}`}
-            className="flex h-full items-center gap-2 border-r border-[#ddb159]/14 px-4"
+            className="flex h-full items-center gap-2 border-r border-[#ddb159]/14 px-5"
             title={`${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
               item.changePct,
             )})`}
