@@ -321,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[190px_166px_minmax(196px,1fr)] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[178px_188px_minmax(205px,1fr)] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -343,7 +343,7 @@ export default async function Home() {
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={78}
+                  height={70}
                 />
               </div>
             </div>
@@ -506,12 +506,12 @@ function PortfolioPromoCard() {
           them for you.
         </p>
 
-        <div className="mt-auto flex shrink-0 items-center justify-between gap-3 pt-3">
-          <p className="pb-0.5 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-3">
+          <p className="pb-1 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
 
-          <div className="flex items-end gap-1 pb-0.5">
+          <div className="flex items-end gap-1 pb-1">
             <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4" />
             <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6" />
             <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8" />
