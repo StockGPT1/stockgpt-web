@@ -82,10 +82,10 @@ export function WelcomeBanner({ name }: { name?: string }) {
   if (!state) {
     // Skeleton — same height as final content to prevent layout shift
     return (
-      <div className="min-h-0 rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-6 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+      <div className="min-h-[128px] rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-6 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
         <div className="h-3 w-32 rounded bg-[#ddb159]/15" />
-        <div className="mt-2 h-7 w-2/3 rounded bg-[#faf6f0]/10" />
-        <div className="mt-1.5 h-3 w-1/2 rounded bg-[#faf6f0]/8" />
+        <div className="mt-3 h-8 w-2/3 rounded bg-[#faf6f0]/10" />
+        <div className="mt-2 h-3 w-1/2 rounded bg-[#faf6f0]/8" />
       </div>
     );
   }
@@ -98,12 +98,12 @@ export function WelcomeBanner({ name }: { name?: string }) {
         : "bg-[#faf6f0]/40";
 
   return (
-    <div className="relative min-h-0 overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-6 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+    <div className="relative min-h-[128px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-6 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#ddb159]/8 blur-3xl" />
 
-      {/* Greeting + market pill — tighter line */}
-      <div className="flex items-center gap-2.5">
-        <p className="font-luxury text-[14px] font-semibold leading-none tracking-[0.01em] text-[#ddb159]">
+      {/* Greeting + market pill */}
+      <div className="relative flex flex-wrap items-center gap-2.5">
+        <p className="font-luxury text-[14px] font-semibold leading-tight tracking-[0.01em] text-[#ddb159]">
           {state.greeting}
         </p>
         <span className="flex items-center gap-1.5 rounded-full border border-[#ddb159]/20 bg-[#072116]/60 px-2 py-0.5">
@@ -123,12 +123,12 @@ export function WelcomeBanner({ name }: { name?: string }) {
         </span>
       </div>
 
-      {/* Tagline — smaller, fits in the 106px row */}
-      <h1 className="luxury-heading mt-1 max-w-[1000px] truncate text-[28px] leading-[1.05] text-[#faf6f0]">
+      {/* Tagline */}
+      <h1 className="luxury-heading relative mt-2 max-w-[1000px] text-[28px] leading-[1.08] text-[#faf6f0] sm:text-[32px]">
         {state.tagline}
       </h1>
 
-      <p className="mt-1 truncate text-[12px] font-medium text-[#faf6f0]/55">
+      <p className="relative mt-2 max-w-[900px] text-[12px] font-medium leading-snug text-[#faf6f0]/55 sm:text-[13px]">
         {state.subline}
       </p>
     </div>
