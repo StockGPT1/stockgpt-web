@@ -63,7 +63,6 @@ export function PortfolioBuilder() {
       const result = await savePortfolio(portfolio);
       if (result.success) {
         setSaved(true);
-        // Refresh server data so the saved view shows
         setTimeout(() => router.push("/portfolio"), 800);
       } else {
         setError(result.error ?? "Could not save");
@@ -71,11 +70,9 @@ export function PortfolioBuilder() {
     });
   }
 
-  // ── RESULTS VIEW ─────────────────────────────────────
   if (portfolio) {
     return (
       <div className="grid gap-3">
-        {/* Hero with stats */}
         <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-6 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
           <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -113,7 +110,6 @@ export function PortfolioBuilder() {
               </div>
             </div>
 
-            {/* AI stats */}
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2.5">
                 <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Holdings</p>
@@ -143,7 +139,6 @@ export function PortfolioBuilder() {
           </div>
         </div>
 
-        {/* Strategy */}
         <div className="rounded-2xl border border-[#ddb159]/30 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ AI Investment Strategy</p>
           <p className="mt-2 text-[13px] font-medium leading-relaxed text-[#072116]/85">{portfolio.strategy}</p>
@@ -153,7 +148,6 @@ export function PortfolioBuilder() {
           </div>
         </div>
 
-        {/* Sector breakdown */}
         <div className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ AI Sector Allocation</p>
           <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Why each sector is weighted this way</p>
@@ -182,7 +176,6 @@ export function PortfolioBuilder() {
           </div>
         </div>
 
-        {/* Holdings */}
         <div className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ AI Stock Picks</p>
           <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Sorted by allocation · click any stock for full AI analysis</p>
@@ -219,7 +212,6 @@ export function PortfolioBuilder() {
     );
   }
 
-  // ── FORM VIEW (unchanged from previous) ──
   return (
     <div className="grid gap-4">
       <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-6 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
