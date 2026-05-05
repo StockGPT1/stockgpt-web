@@ -321,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[205px_180px_minmax(180px,1fr)] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[190px_166px_minmax(196px,1fr)] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -338,12 +338,12 @@ export default async function Home() {
                 </p>
               </div>
 
-              <div className="mt-1.5">
+              <div className="mt-1">
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={86}
+                  height={78}
                 />
               </div>
             </div>
@@ -501,7 +501,7 @@ function PortfolioPromoCard() {
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-2 min-h-[30px] text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
+        <p className="mt-2 max-w-[245px] shrink-0 text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
