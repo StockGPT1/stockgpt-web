@@ -36,7 +36,7 @@ export async function AppShell({
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
-      <header className="relative z-40 flex h-[60px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:h-[64px] sm:px-5">
+      <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
         <div className="relative lg:hidden">
           <MobileNav
             navItems={navItems}
@@ -47,7 +47,7 @@ export async function AppShell({
 
         <Link
           href="/"
-          className="relative h-[42px] w-[142px] shrink-0 transition duration-300 hover:scale-[1.015] sm:h-[50px] sm:w-[198px]"
+          className="relative h-[46px] w-[150px] shrink-0 transition duration-300 hover:scale-[1.015] sm:h-[52px] sm:w-[205px]"
         >
           <Image
             src="/logo.png"
@@ -55,41 +55,62 @@ export async function AppShell({
             fill
             priority
             className="object-contain object-left drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)]"
-            sizes="(max-width: 640px) 142px, 198px"
+            sizes="(max-width: 640px) 150px, 205px"
           />
         </Link>
 
-        <div className="hidden flex-1 sm:flex">
+        <div className="hidden min-w-0 flex-1 sm:flex">
           <SearchBar />
         </div>
 
-        <Link
-          href="/notifications"
-          aria-label="Notifications"
-          className="relative ml-auto hidden size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)] sm:grid"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="size-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-            <path d="M10 21h4" />
-          </svg>
+        <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
+          <AskStockGPTButton />
 
-          {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-[#04180f]">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </Link>
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10 21h4" />
+            </svg>
+
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-[#04180f]">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
+            href="/settings"
+            aria-label="Account settings"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21a8 8 0 0 1 16 0" />
+            </svg>
+          </Link>
+        </div>
 
         <Link
           href="/settings"
           aria-label="Account settings"
-          className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)] sm:size-10"
+          className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
         >
           <svg
             viewBox="0 0 24 24"
@@ -105,8 +126,6 @@ export async function AppShell({
       </header>
 
       <TickerTape />
-
-      <AskStockGPTButton />
 
       <div className="shrink-0 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 sm:hidden">
         <SearchBar />
