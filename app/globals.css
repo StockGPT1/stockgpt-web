@@ -37,7 +37,6 @@ input {
   font: inherit;
 }
 
-/* Luxury display font helpers */
 .font-luxury,
 .luxury-heading,
 h1,
@@ -47,17 +46,46 @@ h2 {
   text-rendering: geometricPrecision;
 }
 
-/* Keep existing Tailwind sizes. Only make headings feel premium. */
 .luxury-heading,
 h1,
 h2 {
   letter-spacing: -0.015em;
 }
 
-/* Sidebar / navigation text */
 .luxury-nav {
   font-family: var(--font-luxury-display), Georgia, "Times New Roman", serif;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-rendering: geometricPrecision;
+}
+
+@keyframes stockTicker {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-33.3333%);
+  }
+}
+
+.stock-ticker-track {
+  animation: stockTicker 34s linear infinite;
+  will-change: transform;
+}
+
+.stock-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stock-ticker-track {
+    animation: none;
+    transform: none;
+  }
+
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
 }
