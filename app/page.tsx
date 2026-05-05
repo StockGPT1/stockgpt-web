@@ -321,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[178px_188px_minmax(205px,1fr)] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[166px_184px_minmax(210px,1fr)] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -338,18 +338,19 @@ export default async function Home() {
                 </p>
               </div>
 
-              <div className="mt-1">
+              <div className="mt-1.5 h-[84px] overflow-hidden rounded-xl bg-[#072116]/35">
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={70}
+                  height={84}
+                  compact
                 />
               </div>
             </div>
 
             <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)]">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex h-[20px] items-center justify-between gap-3">
                 <p
                   className="text-[9px] font-extrabold uppercase tracking-[0.14em]"
                   style={{ color: "rgba(7,33,22,0.55)" }}
@@ -364,7 +365,7 @@ export default async function Home() {
                 </span>
               </div>
 
-              <div className="mt-2 grid min-h-0 gap-1.5 overflow-hidden">
+              <div className="mt-2 grid h-[132px] gap-1.5 overflow-hidden">
                 {moversToShow.length > 0 ? (
                   moversToShow.slice(0, 3).map((m) => {
                     const isUp = m.changePct >= 0;
@@ -373,7 +374,7 @@ export default async function Home() {
                       <Link
                         key={m.ticker}
                         href={`/stock/${m.ticker}`}
-                        className="group flex items-center justify-between gap-2 rounded-xl border border-[#072116]/8 bg-white px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_8px_18px_rgba(0,0,0,0.1)]"
+                        className="group flex min-h-0 items-center justify-between gap-2 rounded-xl border border-[#072116]/8 bg-white px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_8px_18px_rgba(0,0,0,0.1)]"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <span
@@ -482,40 +483,40 @@ function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
+      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
       <div className="pointer-events-none absolute -bottom-12 left-4 size-24 rounded-full bg-[#faf6f0]/5 blur-2xl" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
       <div className="relative flex h-full min-h-0 flex-col">
-        <div className="mb-2 flex size-8 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+        <div className="mb-2 flex size-7 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[16px] text-[#ddb159] transition duration-300 group-hover:scale-105">
           ♛
         </div>
 
-        <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+        <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
           ✦ AI-Powered
         </p>
 
-        <h2 className="mt-1.5 shrink-0 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
+        <h2 className="mt-1 shrink-0 text-[16px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-2 max-w-[245px] shrink-0 text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
+        <p className="mt-2 max-w-[250px] shrink-0 text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
 
         <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-3">
-          <p className="pb-1 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+          <p className="pb-1.5 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
 
-          <div className="flex items-end gap-1 pb-1">
+          <div className="flex items-end gap-1 pb-1.5">
             <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4" />
             <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6" />
             <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8" />
-            <span className="h-9 w-1.5 rounded bg-[#ddb159] transition duration-300 group-hover:h-10" />
+            <span className="h-8 w-1.5 rounded bg-[#ddb159] transition duration-300 group-hover:h-9" />
           </div>
         </div>
       </div>
