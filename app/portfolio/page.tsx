@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { SavedPortfolio } from "@/components/SavedPortfolio";
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings } from "@/lib/portfolio-alerts";
+import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
 
 export default async function PortfolioPage({
   searchParams,
@@ -41,12 +41,14 @@ export default async function PortfolioPage({
     );
   }
 
-  // ✦ Now also fetching shares and allocation_pct
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
     .select("ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct")
     .eq("portfolio_id", savedPortfolio.id)
     .order("added_at", { ascending: false });
+
+  // ✦ Pass risk_tolerance so concentration thresholds adapt to user's chosen profile
+  const riskTolerance = (savedPortfolio.risk_tolerance as RiskTolerance) ?? null;
 
   const enriched = await enrichHoldings(
     (holdingsData ?? []).map((h) => ({
@@ -58,7 +60,8 @@ export default async function PortfolioPage({
       allocation_pct: h.allocation_pct as number | null,
       added_at: h.added_at as string,
       last_reviewed_at: h.last_reviewed_at as string,
-    }))
+    })),
+    riskTolerance
   );
 
   return (
