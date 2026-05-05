@@ -192,7 +192,7 @@ export default async function Home() {
           <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
             <div className="mb-2 flex h-[42px] items-start justify-between">
               <div>
-                <h2 className="text-[23px] font-black leading-none tracking-[-0.03em]">
+                <h2 className="luxury-heading text-[23px] leading-none">
                   Top 10 Ranked Stocks
                 </h2>
                 <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
@@ -290,7 +290,7 @@ export default async function Home() {
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                 ✦ AI-Powered
               </p>
-              <h2 className="mt-1 text-[18px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
+              <h2 className="luxury-heading mt-1 text-[18px] leading-tight text-[#faf6f0]">
                 Build a Portfolio
               </h2>
               <p className="mt-1.5 text-[10px] font-medium leading-snug text-[#faf6f0]/60">
