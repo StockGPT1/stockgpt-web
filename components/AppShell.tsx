@@ -2,23 +2,29 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
+import { getUnreadNotificationCount } from "@/lib/notifications";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "▦" },
   { href: "/rankings", label: "Rankings", icon: "♛" },
   { href: "/portfolio", label: "Portfolio", icon: "✦" },
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
+  { href: "/notifications", label: "Alerts", icon: "◐" },
   { href: "/world-news", label: "World News", icon: "◈" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
-export function AppShell({
+export async function AppShell({
   children,
   activePath,
 }: {
   children: ReactNode;
   activePath: string;
 }) {
+  // ✦ Fetch unread count for the badge (no-op for logged-out users)
+  const unreadCount = await getUnreadNotificationCount();
+  const hasCritical = unreadCount > 0; // The page itself shows severity breakdown
+
   return (
     <div className="h-screen overflow-hidden bg-[#072116] text-[#faf6f0]">
       <header className="flex h-[68px] items-center border-b border-[#ddb159]/18 bg-[#04180f] px-5">
@@ -35,10 +41,33 @@ export function AppShell({
 
         <SearchBar />
 
+        {/* Notification bell in header */}
+        <Link
+          href="/notifications"
+          aria-label="Notifications"
+          className="relative ml-3 grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10 21h4" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-[#04180f]">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </Link>
+
         <Link
           href="/settings"
           aria-label="Account settings"
-          className="ml-5 grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+          className="ml-2 grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159] text-[#ddb159] transition hover:bg-[#ddb159]/10"
         >
           <svg
             viewBox="0 0 24 24"
@@ -58,12 +87,13 @@ export function AppShell({
           <nav className="space-y-2.5">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
+              const isAlerts = item.href === "/notifications";
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={[
-                    "flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-bold transition",
+                    "relative flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-bold transition",
                     isActive
                       ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0]"
                       : "border-transparent text-[#faf6f0]/82 hover:border-[#ddb159]/40 hover:bg-[#ddb159]/8",
@@ -73,6 +103,14 @@ export function AppShell({
                     {item.icon}
                   </span>
                   <span className="truncate">{item.label}</span>
+                  {/* ✦ Badge in sidebar for unread alerts */}
+                  {isAlerts && unreadCount > 0 && (
+                    <span
+                      className={`ml-auto grid h-5 min-w-[20px] place-items-center rounded-full px-1 text-[10px] font-black ${hasCritical ? "bg-red-500 text-white" : "bg-[#ddb159] text-[#072116]"}`}
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
