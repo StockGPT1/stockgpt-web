@@ -54,10 +54,15 @@ function NotificationCard({
   const style = severityStyle(notification.severity);
 
   function handleDismiss() {
-    startTransition(() => dismissNotification(notification.key));
+    startTransition(() => {
+      dismissNotification(notification.key);
+    });
   }
+
   function handleRestore() {
-    startTransition(() => restoreNotification(notification.key));
+    startTransition(() => {
+      restoreNotification(notification.key);
+    });
   }
 
   return (
@@ -69,7 +74,7 @@ function NotificationCard({
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 p-4 pl-5">
         <div className="min-w-0">
-          {/* Top row: severity pill + ticker + time */}
+          {/* Top row: severity pill + ticker + company */}
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${style.pillBg} ${style.pillText}`}
@@ -154,12 +159,12 @@ export function NotificationsList({
 
   function handleMarkAllRead() {
     if (unread.length === 0) return;
-    startTransition(() =>
-      dismissAllNotifications(unread.map((n) => n.key))
-    );
+    startTransition(() => {
+      dismissAllNotifications(unread.map((n) => n.key));
+    });
   }
 
-  // Group unread by severity
+  // Group unread by severity for the count chips
   const critical = unread.filter((n) => n.severity === "critical");
   const warnings = unread.filter((n) => n.severity === "warning");
   const success = unread.filter((n) => n.severity === "success");
@@ -199,7 +204,7 @@ export function NotificationsList({
           )}
         </div>
 
-        {/* Counts */}
+        {/* Severity chips */}
         {unread.length > 0 && (
           <div className="relative mt-4 flex flex-wrap gap-2">
             {critical.length > 0 && (
@@ -257,7 +262,7 @@ export function NotificationsList({
         </div>
       )}
 
-      {/* Read toggle */}
+      {/* Dismissed toggle */}
       {read.length > 0 && (
         <>
           <button
