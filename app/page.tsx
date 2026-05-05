@@ -17,12 +17,6 @@ type Ranking = {
   updated_at: string | null;
 };
 
-type RankMove = {
-  label: string;
-  tone: "up" | "down" | "new" | "flat";
-  title: string;
-};
-
 function formatPrice(value: Ranking["price"]) {
   const n = Number(value);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
@@ -40,72 +34,6 @@ function formatUpdatedTime(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function getRankMove(stock: Ranking, index: number): RankMove {
-  const ticker = stock.ticker ?? "";
-  const score = Number(stock.score);
-  const seed =
-    ticker.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) +
-    index * 13;
-
-  if (index === 0) {
-    return {
-      label: "↑ 3",
-      tone: "up",
-      title: "Moved up 3 places since the previous model run",
-    };
-  }
-
-  if (seed % 11 === 0) {
-    return {
-      label: "NEW",
-      tone: "new",
-      title: "New entrant into the Top 10 since the previous model run",
-    };
-  }
-
-  if (Number.isFinite(score) && score >= 9000) {
-    const places = (seed % 4) + 1;
-
-    return {
-      label: `↑ ${places}`,
-      tone: "up",
-      title: `Moved up ${places} place${places === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  if (seed % 5 === 0) {
-    const places = (seed % 3) + 1;
-
-    return {
-      label: `↓ ${places}`,
-      tone: "down",
-      title: `Moved down ${places} place${places === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  return {
-    label: "—",
-    tone: "flat",
-    title: "Rank unchanged since the previous model run",
-  };
-}
-
-function moveClassName(tone: RankMove["tone"]) {
-  if (tone === "up") {
-    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700";
-  }
-
-  if (tone === "down") {
-    return "border-red-500/20 bg-red-500/10 text-red-700";
-  }
-
-  if (tone === "new") {
-    return "border-[#ddb159]/50 bg-[#ddb159]/20 text-[#072116]";
-  }
-
-  return "border-[#072116]/10 bg-[#072116]/5 text-[#072116]/45";
 }
 
 export default async function Home() {
@@ -153,7 +81,7 @@ export default async function Home() {
           : "Weak market";
 
   const dashboardRankingsGrid =
-    "grid-cols-[34px_56px_104px_minmax(0,1fr)_112px_76px_70px]";
+    "grid-cols-[38px_104px_minmax(0,1fr)_128px_82px_74px]";
 
   const moversToShow = [
     ...movers.gainers.slice(0, 2),
@@ -163,8 +91,8 @@ export default async function Home() {
   return (
     <AppShell activePath="/">
       <main className="h-full min-h-0 overflow-hidden">
-        <div className="grid h-full min-h-0 gap-2 xl:grid-cols-[minmax(0,1fr)_286px]">
-          <section className="grid h-full min-h-0 grid-rows-[132px_68px_minmax(0,1fr)] gap-2 overflow-hidden">
+        <div className="grid h-full min-h-0 gap-2 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <section className="grid h-full min-h-0 grid-rows-[150px_68px_minmax(0,1fr)] gap-2 overflow-hidden">
             <WelcomeBanner />
 
             <div className="grid min-h-0 grid-cols-2 gap-2 sm:grid-cols-4">
@@ -207,7 +135,7 @@ export default async function Home() {
                     className="mt-1 text-[10px] font-semibold"
                     style={{ color: "rgba(7,33,22,0.55)" }}
                   >
-                    Rank movement shown from the latest model comparison
+                    Click any row for full AI analysis
                   </p>
                 </div>
 
@@ -228,9 +156,6 @@ export default async function Home() {
                     #
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    Move
-                  </div>
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
                     Ticker
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
@@ -249,72 +174,56 @@ export default async function Home() {
 
                 <div className="min-h-0 flex-1 overflow-hidden">
                   {rankings.length > 0 ? (
-                    rankings.map((stock, index) => {
-                      const move = getRankMove(stock, index);
+                    rankings.map((stock) => (
+                      <Link
+                        key={stock.id}
+                        href={`/stock/${stock.ticker}`}
+                        style={{ color: "#072116" }}
+                        className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
+                      >
+                        <div className="px-2 font-bold tabular-nums text-[#072116]/75">
+                          {stock.rank ?? "—"}
+                        </div>
 
-                      return (
-                        <Link
-                          key={stock.id}
-                          href={`/stock/${stock.ticker}`}
-                          style={{ color: "#072116" }}
-                          className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
+                        <div className="flex min-w-0 items-center gap-2 px-2 font-black">
+                          <StockLogo
+                            ticker={stock.ticker}
+                            company={stock.company}
+                            size={17}
+                          />
+                          <span className="min-w-0 truncate tracking-[-0.01em]">
+                            {stock.ticker ?? "—"}
+                          </span>
+                        </div>
+
+                        <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
+                          {stock.company ?? "—"}
+                        </div>
+
+                        <div
+                          className="hidden min-w-0 truncate px-2 sm:block"
+                          style={{ color: "rgba(7,33,22,0.6)" }}
                         >
-                          <div className="px-2 font-bold tabular-nums text-[#072116]/75">
-                            {stock.rank ?? "—"}
-                          </div>
+                          {stock.sector ?? "—"}
+                        </div>
 
-                          <div className="px-2">
-                            <span
-                              title={move.title}
-                              className={[
-                                "inline-flex h-5 min-w-[44px] items-center justify-center rounded-full border px-1.5 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
-                                moveClassName(move.tone),
-                              ].join(" ")}
-                            >
-                              {move.label}
-                            </span>
-                          </div>
+                        <div className="px-2 text-right font-semibold tabular-nums">
+                          {formatPrice(stock.price)}
+                        </div>
 
-                          <div className="flex min-w-0 items-center gap-2 px-2 font-black">
-                            <StockLogo
-                              ticker={stock.ticker}
-                              company={stock.company}
-                              size={17}
-                            />
-                            <span className="min-w-0 truncate tracking-[-0.01em]">
-                              {stock.ticker ?? "—"}
-                            </span>
-                          </div>
-
-                          <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
-                            {stock.company ?? "—"}
-                          </div>
-
-                          <div
-                            className="hidden min-w-0 truncate px-2 sm:block"
-                            style={{ color: "rgba(7,33,22,0.6)" }}
+                        <div className="flex justify-end px-2">
+                          <span
+                            className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
+                            style={{
+                              backgroundColor: "#ddb159",
+                              color: "#072116",
+                            }}
                           >
-                            {stock.sector ?? "—"}
-                          </div>
-
-                          <div className="px-2 text-right font-semibold tabular-nums">
-                            {formatPrice(stock.price)}
-                          </div>
-
-                          <div className="flex justify-end px-2">
-                            <span
-                              className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
-                              style={{
-                                backgroundColor: "#ddb159",
-                                color: "#072116",
-                              }}
-                            >
-                              {formatScore(stock.score)}
-                            </span>
-                          </div>
-                        </Link>
-                      );
-                    })
+                            {formatScore(stock.score)}
+                          </span>
+                        </div>
+                      </Link>
+                    ))
                   ) : (
                     <div
                       className="px-4 py-8 text-center font-semibold"
@@ -328,7 +237,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="hidden h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_130px] gap-2 overflow-hidden xl:grid">
+          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_130px] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
