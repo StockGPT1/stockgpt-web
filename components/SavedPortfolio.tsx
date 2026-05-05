@@ -24,13 +24,15 @@ function severityStyle(s: HoldingAlert["severity"]) {
   return { bg: "bg-blue-500", text: "text-white", label: "Info", border: "border-blue-300" };
 }
 
+// ✦ Recommendation styling — uses inline style for reliability
 function recommendationStyle(r: EnrichedHolding["recommendation"]) {
-  if (r === "Sell Whole Position") return { bg: "bg-red-600", text: "text-white", glow: "bg-red-600/15" };
-  if (r === "Review Urgently") return { bg: "bg-red-500", text: "text-white", glow: "bg-red-500/15" };
-  if (r === "Consider Trimming") return { bg: "bg-amber-500", text: "text-white", glow: "bg-amber-500/15" };
-  if (r === "Consider Buying More") return { bg: "bg-emerald-500", text: "text-white", glow: "bg-emerald-500/15" };
-  if (r === "Strong Hold") return { bg: "bg-emerald-400", text: "text-[#072116]", glow: "bg-emerald-400/15" };
-  return { bg: "bg-[#072116]", text: "text-[#ddb159]", glow: "bg-[#072116]/15" };
+  if (r === "Sell Immediately") return { bg: "#dc2626", text: "#ffffff", glow: "bg-red-600/20" };
+  if (r === "Sell Whole Position") return { bg: "#dc2626", text: "#ffffff", glow: "bg-red-600/15" };
+  if (r === "Review Urgently") return { bg: "#ef4444", text: "#ffffff", glow: "bg-red-500/15" };
+  if (r === "Consider Trimming") return { bg: "#f59e0b", text: "#ffffff", glow: "bg-amber-500/15" };
+  if (r === "Consider Buying More") return { bg: "#10b981", text: "#ffffff", glow: "bg-emerald-500/15" };
+  if (r === "Strong Hold") return { bg: "#34d399", text: "#072116", glow: "bg-emerald-400/15" };
+  return { bg: "#072116", text: "#ddb159", glow: "bg-[#072116]/15" };
 }
 
 function sectorMomentumStyle(m: SectorMomentum) {
@@ -120,7 +122,6 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
     startTransition(() => { markReviewed(holding.ticker); });
   }
 
-  // Allocation drift indicator
   const targetAlloc = holding.targetAllocationPct;
   const allocDrift = targetAlloc != null ? holding.currentAllocationPct - targetAlloc : 0;
   const driftSignificant = Math.abs(allocDrift) > 3;
@@ -133,23 +134,39 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
       <div className="relative border-b border-[#072116]/8 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Link href={`/stock/${holding.ticker}`} className="group">
-                <p className="text-[28px] font-black tracking-[-0.04em] text-[#072116] transition group-hover:text-[#0b2b1d]">
+                <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]" style={{ color: "#072116" }}>
                   {holding.ticker}
                 </p>
               </Link>
-              <span className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider ${recStyle.bg} ${recStyle.text}`}>
+              {/* ✦ Recommendation badge — inline styled */}
+              <span
+                className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider"
+                style={{ backgroundColor: recStyle.bg, color: recStyle.text }}
+              >
                 {holding.recommendation}
               </span>
+              {/* ✦ NEW: Recently Added pill — explains the grace period */}
+              {holding.isRecentlyAdded && (
+                <span
+                  className="rounded-full border-2 px-2 py-0.5 text-[10px] font-bold"
+                  style={{ borderColor: "#ddb159", backgroundColor: "#fdf8ed", color: "#072116" }}
+                >
+                  ✦ Recently Added · {holding.daysHeld === 0 ? "today" : `${holding.daysHeld}d ago`}
+                </span>
+              )}
             </div>
             <Link href={`/stock/${holding.ticker}`} className="hover:underline">
-              <p className="mt-1 truncate text-[14px] font-bold text-[#072116]/85">
+              <p className="mt-1 truncate text-[14px] font-bold" style={{ color: "rgba(7,33,22,0.85)" }}>
                 {holding.company ?? holding.ticker}
               </p>
             </Link>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-2 py-0.5 text-[10px] font-black text-[#072116]">
+              <span
+                className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-2 py-0.5 text-[10px] font-black"
+                style={{ color: "#072116" }}
+              >
                 {holding.currentAllocationPct.toFixed(1)}% of portfolio
               </span>
               {targetAlloc != null && driftSignificant && (
@@ -157,17 +174,20 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                   {allocDrift > 0 ? "↑" : "↓"} target {targetAlloc.toFixed(1)}%
                 </span>
               )}
-              <span className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold text-[#072116]/65">
+              <span
+                className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold"
+                style={{ color: "rgba(7,33,22,0.65)" }}
+              >
                 #{holding.rank ?? "—"} of 500
               </span>
-              <span className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold text-[#072116]/65">
+              <span
+                className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold"
+                style={{ color: "rgba(7,33,22,0.65)" }}
+              >
                 {holding.sector ?? "—"}
               </span>
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${sectorStyle.bg} ${sectorStyle.text} ${sectorStyle.border}`}>
                 {sectorStyle.icon} {sectorStyle.label} ({holding.sectorBullishPct}% bullish)
-              </span>
-              <span className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold text-[#072116]/65">
-                Held {holding.daysHeld} {holding.daysHeld === 1 ? "day" : "days"}
               </span>
             </div>
           </div>
@@ -175,10 +195,10 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
 
         {/* AI Summary */}
         <div className="mt-4 rounded-xl border border-[#ddb159]/40 bg-gradient-to-br from-[#fdf8ed] to-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
             ✦ What the AI thinks
           </p>
-          <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#072116]">
+          <p className="mt-1 text-[13px] font-medium leading-relaxed" style={{ color: "#072116" }}>
             {holding.aiSummary}
           </p>
         </div>
@@ -186,60 +206,52 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
 
       {/* KEY NUMBERS */}
       <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-5">
-        {/* Shares (editable) */}
+        {/* Shares */}
         <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">Shares</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.55)" }}>Shares</p>
           {editingShares ? (
             <div className="mt-1 flex items-center gap-1">
-              <input
-                type="number" value={sharesInput}
-                onChange={(e) => setSharesInput(e.target.value)} step="0.01"
-                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black text-[#072116] outline-none"
-                autoFocus
-              />
+              <input type="number" value={sharesInput} onChange={(e) => setSharesInput(e.target.value)} step="0.01"
+                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black outline-none"
+                style={{ color: "#072116" }} autoFocus />
               <button onClick={handleSaveShares} disabled={isPending} className="rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-bold text-white">✓</button>
-              <button onClick={() => { setEditingShares(false); setSharesInput(holding.shares.toString()); }} className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#072116]">✕</button>
+              <button onClick={() => { setEditingShares(false); setSharesInput(holding.shares.toString()); }} className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold" style={{ color: "#072116" }}>✕</button>
             </div>
           ) : (
             <button onClick={() => setEditingShares(true)} className="mt-0.5 flex items-baseline gap-1 text-left">
-              <p className="text-[20px] font-black tracking-[-0.02em] text-[#072116]">
-                {holding.shares}
-              </p>
-              <span className="text-[9px] font-bold text-[#072116]/40 underline">edit</span>
+              <p className="text-[20px] font-black tracking-[-0.02em]" style={{ color: "#072116" }}>{holding.shares}</p>
+              <span className="text-[9px] font-bold underline" style={{ color: "rgba(7,33,22,0.4)" }}>edit</span>
             </button>
           )}
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">Update if you buy/sell</p>
+          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Update if you buy/sell</p>
         </div>
 
-        {/* Entry Price (editable) */}
+        {/* Entry Price */}
         <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">Entry Price</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.55)" }}>Entry Price</p>
           {editingPrice ? (
             <div className="mt-1 flex items-center gap-1">
-              <span className="text-[14px] font-black text-[#072116]">$</span>
-              <input
-                type="number" value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)} step="0.01"
-                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black text-[#072116] outline-none"
-                autoFocus
-              />
+              <span className="text-[14px] font-black" style={{ color: "#072116" }}>$</span>
+              <input type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} step="0.01"
+                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black outline-none"
+                style={{ color: "#072116" }} autoFocus />
               <button onClick={handleSavePrice} disabled={isPending} className="rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-bold text-white">✓</button>
-              <button onClick={() => { setEditingPrice(false); setPriceInput(holding.entryPrice.toString()); }} className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#072116]">✕</button>
+              <button onClick={() => { setEditingPrice(false); setPriceInput(holding.entryPrice.toString()); }} className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold" style={{ color: "#072116" }}>✕</button>
             </div>
           ) : (
             <button onClick={() => setEditingPrice(true)} className="mt-0.5 flex items-baseline gap-1 text-left">
-              <p className="text-[20px] font-black tracking-[-0.02em] text-[#072116]">${holding.entryPrice.toFixed(2)}</p>
-              <span className="text-[9px] font-bold text-[#072116]/40 underline">edit</span>
+              <p className="text-[20px] font-black tracking-[-0.02em]" style={{ color: "#072116" }}>${holding.entryPrice.toFixed(2)}</p>
+              <span className="text-[9px] font-bold underline" style={{ color: "rgba(7,33,22,0.4)" }}>edit</span>
             </button>
           )}
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">Avg cost basis</p>
+          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Avg cost basis</p>
         </div>
 
         {/* Current Price */}
         <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">Current Price</p>
-          <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em] text-[#072116]">${holding.currentPrice.toFixed(2)}</p>
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">Market price</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.55)" }}>Current Price</p>
+          <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em]" style={{ color: "#072116" }}>${holding.currentPrice.toFixed(2)}</p>
+          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Market price</p>
         </div>
 
         {/* Total P&L */}
@@ -255,8 +267,8 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
 
         {/* AI Score */}
         <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">AI Score</p>
-          <p className="mt-0.5 text-[20px] font-black tabular-nums tracking-[-0.02em] text-[#072116]">
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.55)" }}>AI Score</p>
+          <p className="mt-0.5 text-[20px] font-black tabular-nums tracking-[-0.02em]" style={{ color: "#072116" }}>
             {holding.score.toLocaleString()}
             {holding.scoreChange !== 0 && (
               <span className={`ml-1 text-[11px] ${holding.scoreChange > 0 ? "text-emerald-600" : "text-red-600"}`}>
@@ -264,22 +276,22 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
               </span>
             )}
           </p>
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">Top {Math.max(1, 100 - holding.scorePercentile)}% of stocks</p>
+          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Top {Math.max(1, 100 - holding.scorePercentile)}% of stocks</p>
         </div>
       </div>
 
       {/* Position summary bar */}
       <div className="grid grid-cols-2 gap-3 px-5 pb-3 sm:grid-cols-3">
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Cost Basis</p>
-          <p className="mt-0.5 text-[14px] font-black tabular-nums text-[#072116]">${holding.costBasis.toLocaleString()}</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.45)" }}>Cost Basis</p>
+          <p className="mt-0.5 text-[14px] font-black tabular-nums" style={{ color: "#072116" }}>${holding.costBasis.toLocaleString()}</p>
         </div>
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Current Value</p>
-          <p className="mt-0.5 text-[14px] font-black tabular-nums text-[#072116]">${holding.currentValue.toLocaleString()}</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.45)" }}>Current Value</p>
+          <p className="mt-0.5 text-[14px] font-black tabular-nums" style={{ color: "#072116" }}>${holding.currentValue.toLocaleString()}</p>
         </div>
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Per-share P&amp;L</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.45)" }}>Per-share P&amp;L</p>
           <p className={`mt-0.5 text-[14px] font-black tabular-nums ${isPositive ? "text-emerald-700" : "text-red-700"}`}>
             {isPositive ? "+" : "−"}${Math.abs(holding.pnlDollars).toFixed(2)}
           </p>
@@ -289,12 +301,9 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
       {/* ALERTS */}
       {holding.alerts.length > 0 && (
         <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
-          <button
-            onClick={() => setShowAlerts((s) => !s)}
-            className="flex w-full items-center justify-between px-5 py-3 transition hover:bg-[#faf6f0]"
-          >
+          <button onClick={() => setShowAlerts((s) => !s)} className="flex w-full items-center justify-between px-5 py-3 transition hover:bg-[#faf6f0]">
             <div className="flex items-center gap-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "#072116" }}>
                 ✦ AI Alerts ({holding.alerts.length})
               </p>
               {holding.alerts.filter((a) => a.severity === "critical").length > 0 && (
@@ -313,7 +322,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                 </span>
               )}
             </div>
-            <span className="text-[10px] font-bold text-[#072116]/55">{showAlerts ? "Hide ▴" : "Show ▾"}</span>
+            <span className="text-[10px] font-bold" style={{ color: "rgba(7,33,22,0.55)" }}>{showAlerts ? "Hide ▴" : "Show ▾"}</span>
           </button>
 
           {showAlerts && (
@@ -325,11 +334,11 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                     <div className="flex items-start gap-2">
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${style.bg} ${style.text}`}>{style.label}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-black tracking-[-0.01em] text-[#072116]">{alert.title}</p>
-                        <p className="mt-1 text-[12px] font-medium text-[#072116]/65">{alert.message}</p>
+                        <p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p>
+                        <p className="mt-1 text-[12px] font-medium" style={{ color: "rgba(7,33,22,0.65)" }}>{alert.message}</p>
                         <div className="mt-2 rounded-lg bg-[#faf6f0] p-2">
-                          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">✦ What to do</p>
-                          <p className="mt-0.5 text-[12px] font-bold text-[#072116]">{alert.recommendation}</p>
+                          <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.45)" }}>✦ What to do</p>
+                          <p className="mt-0.5 text-[12px] font-bold" style={{ color: "#072116" }}>{alert.recommendation}</p>
                         </div>
                       </div>
                     </div>
@@ -341,13 +350,13 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
         </div>
       )}
 
-      {/* TRIGGERS */}
+      {/* ✦ ACTION PLAN — renamed from "If This, Then That" to just "Action Plan" */}
       <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
         <button onClick={() => setShowTriggers((s) => !s)} className="flex w-full items-center justify-between px-5 py-3 transition hover:bg-[#faf6f0]">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">
-            ✦ Action Plan — If This, Then That ({holding.triggers.length})
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "#072116" }}>
+            ✦ Action Plan ({holding.triggers.length})
           </p>
-          <span className="text-[10px] font-bold text-[#072116]/55">{showTriggers ? "Hide ▴" : "Show ▾"}</span>
+          <span className="text-[10px] font-bold" style={{ color: "rgba(7,33,22,0.55)" }}>{showTriggers ? "Hide ▴" : "Show ▾"}</span>
         </button>
 
         {showTriggers && (
@@ -359,7 +368,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                   <div className={`shrink-0 ${style.icon}`}><TriggerIcon icon={trigger.icon} /></div>
                   <div className="min-w-0 flex-1">
                     <p className={`text-[13px] font-black tracking-[-0.01em] ${style.text}`}>{trigger.condition}</p>
-                    <p className="mt-1 text-[12px] font-medium text-[#072116]/70">→ {trigger.action}</p>
+                    <p className="mt-1 text-[12px] font-medium" style={{ color: "rgba(7,33,22,0.7)" }}>→ {trigger.action}</p>
                   </div>
                 </div>
               );
@@ -368,22 +377,35 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
         )}
       </div>
 
+      {/* FOOTER — Full Analysis button uses inline style now */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#072116]/8 bg-white px-5 py-3">
-        <p className="text-[10px] font-medium text-[#072116]/55">
+        <p className="text-[10px] font-medium" style={{ color: "rgba(7,33,22,0.55)" }}>
           {holding.daysSinceReview === 0 ? "Reviewed today" : `Last reviewed ${holding.daysSinceReview} days ago`}
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={handleReviewed} disabled={isPending}
-            className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-3 py-1.5 text-[11px] font-bold text-[#072116] transition hover:bg-[#ddb159]/20">
+          <button
+            onClick={handleReviewed}
+            disabled={isPending}
+            className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-3 py-1.5 text-[11px] font-bold transition hover:bg-[#ddb159]/20"
+            style={{ color: "#072116" }}
+          >
             ✓ Mark Reviewed
           </button>
-          <Link href={`/stock/${holding.ticker}`}
-            className="rounded-full bg-[#072116] px-3 py-1.5 text-[11px] font-bold text-[#ddb159] transition hover:bg-[#0b2b1d]">
+          <Link
+            href={`/stock/${holding.ticker}`}
+            className="rounded-full px-3 py-1.5 text-[11px] font-bold transition hover:opacity-90"
+            style={{ backgroundColor: "#072116", color: "#ddb159" }}
+          >
             Full Analysis →
           </Link>
-          <button onClick={handleRemove} disabled={isPending}
+          <button
+            onClick={handleRemove}
+            disabled={isPending}
             className="rounded-full border border-red-300 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50"
-            title="Remove from portfolio">✕</button>
+            title="Remove from portfolio"
+          >
+            ✕
+          </button>
         </div>
       </div>
     </div>
@@ -416,22 +438,26 @@ function AddStockForm() {
   }
 
   return (
-    <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+    <div className="rounded-2xl bg-[#faf6f0] p-4 shadow-[0_8px_22px_rgba(0,0,0,0.16)]" style={{ color: "#072116" }}>
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
         ✦ Add Your Own Stocks
       </p>
-      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
+      <p className="mt-1 text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
         Track stocks you already own. Enter shares + your entry price (optional, defaults to current).
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-[100px_90px_1fr_auto]">
         <input type="text" value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="AAPL"
-          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase text-[#072116] outline-none focus:border-[#ddb159]" />
+          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase outline-none focus:border-[#ddb159]"
+          style={{ color: "#072116" }} />
         <input type="number" step="0.01" value={shares} onChange={(e) => setShares(e.target.value)} placeholder="Shares"
-          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
+          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold outline-none focus:border-[#ddb159]"
+          style={{ color: "#072116" }} />
         <input type="number" step="0.01" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)} placeholder="Entry price (optional)"
-          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none focus:border-[#ddb159]" />
-        <button onClick={handleSubmit} disabled={isPending} style={{ backgroundColor: "#ddb159", color: "#072116" }}
-          className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60">
+          className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold outline-none focus:border-[#ddb159]"
+          style={{ color: "#072116" }} />
+        <button onClick={handleSubmit} disabled={isPending}
+          className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60"
+          style={{ backgroundColor: "#ddb159", color: "#072116" }}>
           {isPending ? "Adding…" : "+ Add"}
         </button>
       </div>
@@ -458,6 +484,7 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
   const successAlerts = holdings.flatMap((h) => h.alerts.filter((a) => a.severity === "success")).length;
   const totalAlerts = holdings.flatMap((h) => h.alerts).length;
   const avgScore = holdings.length > 0 ? Math.round(holdings.reduce((s, h) => s + h.score, 0) / holdings.length) : 0;
+  const sellSignals = holdings.filter((h) => h.recommendation === "Sell Immediately" || h.recommendation === "Sell Whole Position").length;
 
   return (
     <div className="grid gap-3">
@@ -503,8 +530,8 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
             <p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">{avgScore.toLocaleString()}</p>
           </div>
           <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Total Alerts</p>
-            <p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">{totalAlerts}</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Sell Signals</p>
+            <p className={`mt-0.5 text-[18px] font-black ${sellSignals > 0 ? "text-red-400" : "text-emerald-400"}`}>{sellSignals}</p>
           </div>
           <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Need Action</p>
