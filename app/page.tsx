@@ -9,12 +9,19 @@ import { getSP500Chart, getTopMovers } from "@/lib/yahoo";
 type Ranking = {
   id: string | number;
   rank: number | null;
+  previous_rank: number | null;
   ticker: string | null;
   company: string | null;
   sector: string | null;
   score: number | string | null;
   price: number | string | null;
   updated_at: string | null;
+};
+
+type RankMove = {
+  label: string;
+  tone: "up" | "down" | "flat" | "none";
+  title: string;
 };
 
 function formatPrice(value: Ranking["price"]) {
@@ -36,12 +43,64 @@ function formatUpdatedTime(value?: string | null) {
   });
 }
 
+function getRankMove(currentRank: number | null, previousRank: number | null): RankMove {
+  if (currentRank == null || previousRank == null) {
+    return {
+      label: "—",
+      tone: "none",
+      title: "Previous rank unavailable",
+    };
+  }
+
+  const difference = previousRank - currentRank;
+
+  if (difference > 0) {
+    return {
+      label: `↑ ${difference}`,
+      tone: "up",
+      title: `Moved up ${difference} place${difference === 1 ? "" : "s"} since the previous model run`,
+    };
+  }
+
+  if (difference < 0) {
+    const abs = Math.abs(difference);
+
+    return {
+      label: `↓ ${abs}`,
+      tone: "down",
+      title: `Moved down ${abs} place${abs === 1 ? "" : "s"} since the previous model run`,
+    };
+  }
+
+  return {
+    label: "—",
+    tone: "flat",
+    title: "Rank unchanged since the previous model run",
+  };
+}
+
+function moveClassName(tone: RankMove["tone"]) {
+  if (tone === "up") {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
+  }
+
+  if (tone === "down") {
+    return "border-red-500/25 bg-red-500/10 text-red-700";
+  }
+
+  if (tone === "flat") {
+    return "border-[#072116]/10 bg-[#072116]/5 text-[#072116]/45";
+  }
+
+  return "border-[#072116]/8 bg-transparent text-[#072116]/35";
+}
+
 export default async function Home() {
   const supabase = await createClient();
 
   const { data: rankingsData } = await supabase
     .from("stock_rankings")
-    .select("id,rank,ticker,company,sector,score,price,updated_at")
+    .select("id,rank,previous_rank,ticker,company,sector,score,price,updated_at")
     .order("rank", { ascending: true })
     .limit(10);
 
@@ -81,7 +140,7 @@ export default async function Home() {
           : "Weak market";
 
   const dashboardRankingsGrid =
-    "grid-cols-[38px_104px_minmax(0,1fr)_128px_82px_74px]";
+    "grid-cols-[34px_52px_96px_minmax(0,1fr)_112px_76px_70px]";
 
   const moversToShow = [
     ...movers.gainers.slice(0, 2),
@@ -102,13 +161,16 @@ export default async function Home() {
                 main={topRanked?.ticker ?? "—"}
                 sub={topRanked?.company ?? "—"}
               />
+
               <StatBlock
                 icon="↗"
                 label="Bullish %"
                 main={`${bullishPct}%`}
                 sub={sentiment}
               />
+
               <StatBlock icon="▦" label="Total" main="500" sub="ranked daily" />
+
               <StatBlock
                 icon="◷"
                 label="Updated"
@@ -156,6 +218,9 @@ export default async function Home() {
                     #
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                    Move
+                  </div>
+                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
                     Ticker
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
@@ -174,56 +239,72 @@ export default async function Home() {
 
                 <div className="min-h-0 flex-1 overflow-hidden">
                   {rankings.length > 0 ? (
-                    rankings.map((stock) => (
-                      <Link
-                        key={stock.id}
-                        href={`/stock/${stock.ticker}`}
-                        style={{ color: "#072116" }}
-                        className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
-                      >
-                        <div className="px-2 font-bold tabular-nums text-[#072116]/75">
-                          {stock.rank ?? "—"}
-                        </div>
+                    rankings.map((stock) => {
+                      const move = getRankMove(stock.rank, stock.previous_rank);
 
-                        <div className="flex min-w-0 items-center gap-2 px-2 font-black">
-                          <StockLogo
-                            ticker={stock.ticker}
-                            company={stock.company}
-                            size={17}
-                          />
-                          <span className="min-w-0 truncate tracking-[-0.01em]">
-                            {stock.ticker ?? "—"}
-                          </span>
-                        </div>
-
-                        <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
-                          {stock.company ?? "—"}
-                        </div>
-
-                        <div
-                          className="hidden min-w-0 truncate px-2 sm:block"
-                          style={{ color: "rgba(7,33,22,0.6)" }}
+                      return (
+                        <Link
+                          key={stock.id}
+                          href={`/stock/${stock.ticker}`}
+                          style={{ color: "#072116" }}
+                          className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
                         >
-                          {stock.sector ?? "—"}
-                        </div>
+                          <div className="px-2 font-bold tabular-nums text-[#072116]/75">
+                            {stock.rank ?? "—"}
+                          </div>
 
-                        <div className="px-2 text-right font-semibold tabular-nums">
-                          {formatPrice(stock.price)}
-                        </div>
+                          <div className="px-2">
+                            <span
+                              title={move.title}
+                              className={[
+                                "inline-flex h-5 min-w-[38px] items-center justify-center rounded-full border px-1 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
+                                moveClassName(move.tone),
+                              ].join(" ")}
+                            >
+                              {move.label}
+                            </span>
+                          </div>
 
-                        <div className="flex justify-end px-2">
-                          <span
-                            className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
-                            style={{
-                              backgroundColor: "#ddb159",
-                              color: "#072116",
-                            }}
+                          <div className="flex min-w-0 items-center gap-2 px-2 font-black">
+                            <StockLogo
+                              ticker={stock.ticker}
+                              company={stock.company}
+                              size={17}
+                            />
+                            <span className="min-w-0 truncate tracking-[-0.01em]">
+                              {stock.ticker ?? "—"}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
+                            {stock.company ?? "—"}
+                          </div>
+
+                          <div
+                            className="hidden min-w-0 truncate px-2 sm:block"
+                            style={{ color: "rgba(7,33,22,0.6)" }}
                           >
-                            {formatScore(stock.score)}
-                          </span>
-                        </div>
-                      </Link>
-                    ))
+                            {stock.sector ?? "—"}
+                          </div>
+
+                          <div className="px-2 text-right font-semibold tabular-nums">
+                            {formatPrice(stock.price)}
+                          </div>
+
+                          <div className="flex justify-end px-2">
+                            <span
+                              className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
+                              style={{
+                                backgroundColor: "#ddb159",
+                                color: "#072116",
+                              }}
+                            >
+                              {formatScore(stock.score)}
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })
                   ) : (
                     <div
                       className="px-4 py-8 text-center font-semibold"
@@ -237,7 +318,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_130px] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,0.9fr)_minmax(0,0.88fr)_168px] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -259,7 +340,7 @@ export default async function Home() {
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={100}
+                  height={96}
                 />
               </div>
             </div>
@@ -404,25 +485,25 @@ function PortfolioPromoCard() {
       <div className="pointer-events-none absolute -bottom-12 left-4 size-24 rounded-full bg-[#faf6f0]/5 blur-2xl" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
-      <div className="relative flex h-full flex-col">
-        <div className="mb-2 flex size-8 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+      <div className="relative flex h-full min-h-0 flex-col">
+        <div className="mb-2 flex size-8 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
           ♛
         </div>
 
-        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+        <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
           ✦ AI-Powered
         </p>
 
-        <h2 className="mt-1.5 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
+        <h2 className="mt-1.5 shrink-0 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-2 line-clamp-2 text-[10px] font-medium leading-snug text-[#faf6f0]/65">
+        <p className="mt-2 line-clamp-2 min-h-[28px] text-[10px] font-medium leading-snug text-[#faf6f0]/65">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
 
-        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+        <div className="mt-auto flex shrink-0 items-center justify-between gap-3 pt-3">
           <p className="text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
