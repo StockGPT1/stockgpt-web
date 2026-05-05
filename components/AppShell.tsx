@@ -93,7 +93,7 @@ export async function AppShell({
                   key={item.href}
                   href={item.href}
                   className={[
-                    "relative flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-bold transition",
+                    "relative flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] transition",
                     isActive
                       ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0]"
                       : "border-transparent text-[#faf6f0]/82 hover:border-[#ddb159]/40 hover:bg-[#ddb159]/8",
@@ -102,7 +102,7 @@ export async function AppShell({
                   <span className="w-5 text-center text-lg text-[#ddb159]">
                     {item.icon}
                   </span>
-                  <span className="truncate">{item.label}</span>
+                  <span className="luxury-nav truncate">{item.label}</span>
                   {/* ✦ Badge in sidebar for unread alerts */}
                   {isAlerts && unreadCount > 0 && (
                     <span
