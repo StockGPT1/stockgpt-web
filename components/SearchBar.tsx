@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { StockLogo } from "@/components/StockLogo";
 
 type SearchResult = {
   ticker: string;
@@ -62,13 +63,16 @@ export function SearchBar() {
       setLoading(false);
       return;
     }
+
     setLoading(true);
+
     const timeout = setTimeout(async () => {
       try {
         const res = await fetch(
           `/api/search?q=${encodeURIComponent(query.trim())}`,
           { cache: "no-store" }
         );
+
         const data: SearchResult[] = await res.json();
         setResults(data);
         setActive(-1);
@@ -78,6 +82,7 @@ export function SearchBar() {
         setLoading(false);
       }
     }, 150);
+
     return () => clearTimeout(timeout);
   }, [query]);
 
@@ -89,7 +94,9 @@ export function SearchBar() {
       0,
       MAX_RECENT
     );
+
     setRecents(next);
+
     try {
       localStorage.setItem(RECENT_KEY, JSON.stringify(next));
     } catch {}
@@ -113,10 +120,10 @@ export function SearchBar() {
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
+
       if (active >= 0 && list[active]) {
         navigate(list[active]);
       } else if (query.trim()) {
-        // Treat raw input as a ticker
         navigate({
           ticker: query.trim().toUpperCase(),
           company: query.trim().toUpperCase(),
@@ -157,7 +164,13 @@ export function SearchBar() {
             }}
             className="ml-2 grid size-6 place-items-center rounded-full text-[#faf6f0]/40 transition hover:text-[#faf6f0]/70"
           >
-            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              className="size-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
@@ -168,7 +181,13 @@ export function SearchBar() {
         )}
 
         <div className="ml-2 grid size-8 place-items-center rounded-full text-[#ddb159]">
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
           </svg>
@@ -195,7 +214,8 @@ export function SearchBar() {
           {/* No results */}
           {!loading && list.length === 0 && query.trim() && (
             <div className="px-4 py-4 text-xs font-semibold text-[#faf6f0]/50">
-              No matches found. Press Enter to look up &quot;{query.trim().toUpperCase()}&quot;.
+              No matches found. Press Enter to look up &quot;
+              {query.trim().toUpperCase()}&quot;.
             </div>
           )}
 
@@ -210,9 +230,12 @@ export function SearchBar() {
                 i === active ? "bg-[#ddb159]/10" : "",
               ].join(" ")}
             >
-              {/* Ticker badge */}
-              <span className="flex h-8 w-14 shrink-0 items-center justify-center rounded-lg bg-[#072116] text-xs font-black text-[#ddb159]">
-                {item.ticker}
+              {/* Company logo + ticker */}
+              <span className="flex h-8 w-16 shrink-0 items-center gap-2 rounded-lg bg-[#072116] px-2">
+                <StockLogo ticker={item.ticker} company={item.company} size={20} />
+                <span className="text-xs font-black text-[#ddb159]">
+                  {item.ticker}
+                </span>
               </span>
 
               {/* Company & sector */}
@@ -220,6 +243,7 @@ export function SearchBar() {
                 <p className="truncate text-sm font-bold text-[#faf6f0]">
                   {item.company}
                 </p>
+
                 {item.sector && (
                   <p className="truncate text-[10px] font-semibold text-[#faf6f0]/45">
                     {item.sector}
