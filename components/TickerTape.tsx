@@ -53,30 +53,30 @@ export async function TickerTape() {
   const repeated = [...tickerItems, ...tickerItems, ...tickerItems];
 
   return (
-    <div className="relative z-30 h-[30px] shrink-0 overflow-hidden border-b border-[#ddb159]/16 bg-[#03140d] shadow-[0_6px_18px_rgba(0,0,0,0.22)]">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#03140d] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#03140d] to-transparent" />
+    <div className="relative z-30 h-[24px] shrink-0 overflow-hidden border-b border-[#ddb159]/14 bg-[#03140d] shadow-[0_5px_14px_rgba(0,0,0,0.2)]">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-[#03140d] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-[#03140d] to-transparent" />
 
       <div className="stock-ticker-track flex h-full min-w-max items-center whitespace-nowrap">
         {repeated.map((item, index) => (
           <div
             key={`${item.yahooSymbol}-${index}`}
-            className="flex h-full items-center gap-2 border-r border-[#ddb159]/14 px-5"
+            className="flex h-full items-center gap-2 border-r border-[#ddb159]/12 px-4"
             title={`${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
               item.changePct,
             )})`}
           >
-            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
               {item.symbol}
             </span>
 
-            <span className="text-[10px] font-bold tabular-nums text-[#faf6f0]/82">
+            <span className="text-[9px] font-bold tabular-nums text-[#faf6f0]/78">
               {formatPrice(item.price)}
             </span>
 
             <span
               className={[
-                "text-[10px] font-extrabold tabular-nums",
+                "text-[9px] font-extrabold tabular-nums",
                 toneClassName(item.changePct),
               ].join(" ")}
             >
