@@ -48,7 +48,7 @@ function impactDot(impact: string | null) {
   return "bg-[#072116]/30";
 }
 
-function StatIcon({ type }: { type: "chart" | "crown" | "megaphone" | "clock" }) {
+function StatIcon({ type }: { type: "chart" | "crown" | "trending" | "clock" }) {
   return (
     <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[#ddb159]">
       {type === "chart" && (
@@ -66,11 +66,10 @@ function StatIcon({ type }: { type: "chart" | "crown" | "megaphone" | "clock" })
           <path d="M5 21h14" />
         </svg>
       )}
-      {type === "megaphone" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z" />
-          <path d="M14 8c1.5 1 1.5 7 0 8" />
-          <path d="M18 5c3 2.5 3 11.5 0 14" />
+      {type === "trending" && (
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+          <path d="M4 17 9 12l4 4 7-9" />
+          <path d="M15 7h5v5" />
         </svg>
       )}
       {type === "clock" && (
@@ -92,7 +91,7 @@ function StatCard({
   label: string;
   main: string;
   sub: string;
-  icon: "chart" | "crown" | "megaphone" | "clock";
+  icon: "chart" | "crown" | "trending" | "clock";
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-[#faf6f0] px-3 py-2.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
@@ -127,29 +126,28 @@ export default async function Home() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // ✦ Compute "Most Mentioned" — ticker appearing most across recent news
-  const { data: recentNewsForCount } = await supabase
-    .from("news_articles")
-    .select("affected_tickers")
-    .order("published_at", { ascending: false })
-    .limit(50);
+  // ✦ Compute "Bullish Stocks" — % of S&P 500 with strong AI signal
+  const { count: totalCount } = await supabase
+    .from("stock_rankings")
+    .select("*", { count: "exact", head: true });
 
-  const tickerCounts: Record<string, number> = {};
-  (recentNewsForCount ?? []).forEach((article) => {
-    if (Array.isArray(article.affected_tickers)) {
-      article.affected_tickers.forEach((t: string) => {
-        if (t && t !== "Sector-wide") {
-          tickerCounts[t] = (tickerCounts[t] || 0) + 1;
-        }
-      });
-    }
-  });
-  const mostMentionedEntry = Object.entries(tickerCounts).sort(
-    (a, b) => b[1] - a[1]
-  )[0];
-  const mostMentioned = mostMentionedEntry
-    ? { ticker: mostMentionedEntry[0], count: mostMentionedEntry[1] }
-    : null;
+  const { count: bullishCount } = await supabase
+    .from("stock_rankings")
+    .select("*", { count: "exact", head: true })
+    .gte("score", 7000);
+
+  const bullishPct =
+    totalCount && totalCount > 0
+      ? Math.round(((bullishCount ?? 0) / totalCount) * 100)
+      : 0;
+  const sentiment =
+    bullishPct >= 50
+      ? "Strong market"
+      : bullishPct >= 35
+        ? "Healthy market"
+        : bullishPct >= 20
+          ? "Cautious market"
+          : "Weak market";
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const news = (newsData ?? []) as NewsArticle[];
@@ -174,16 +172,12 @@ export default async function Home() {
               sub={topRanked?.company ?? "No ranking data"}
               icon="crown"
             />
-            {/* ✦ Replaced "Highest Score" with "Most Mentioned" */}
+            {/* ✦ Replaced Most Mentioned with Bullish Stocks (market breadth) */}
             <StatCard
-              label="Most Mentioned"
-              main={mostMentioned?.ticker ?? "—"}
-              sub={
-                mostMentioned
-                  ? `In ${mostMentioned.count} recent article${mostMentioned.count === 1 ? "" : "s"}`
-                  : "No news data yet"
-              }
-              icon="megaphone"
+              label="Bullish Stocks"
+              main={`${bullishPct}%`}
+              sub={sentiment}
+              icon="trending"
             />
             <StatCard
               label="Last Updated"
@@ -200,14 +194,19 @@ export default async function Home() {
                   Top 10 Ranked Stocks
                 </h2>
                 <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
-                  Live preview ranked by AI score
+                  Live preview · click any row to view details
                 </p>
               </div>
+              {/* ✦ Fixed button — gold filled with dark text, inline style for reliability */}
               <Link
                 href="/rankings"
-                className="rounded-full border border-[#ddb159] bg-[#072116] px-3 py-1.5 text-[11px] font-bold text-[#ddb159] transition hover:bg-[#0b2b1d]"
+                style={{
+                  backgroundColor: "#ddb159",
+                  color: "#072116",
+                }}
+                className="rounded-full px-4 py-1.5 text-[11px] font-black transition hover:opacity-90"
               >
-                View Rankings
+                View All Rankings →
               </Link>
             </div>
 
@@ -238,32 +237,37 @@ export default async function Home() {
                 <tbody>
                   {rankings.length > 0 ? (
                     rankings.map((stock) => (
+                      // ✦ Whole row is now clickable via JS click handler approach
+                      // Using a CSS technique: the link expands to fill the row
                       <tr
                         key={stock.id}
-                        className="h-[10%] border-b border-[#072116]/10 transition last:border-b-0 hover:bg-[#ddb159]/8"
+                        className="group relative h-[10%] cursor-pointer border-b border-[#072116]/10 transition last:border-b-0 hover:bg-[#ddb159]/8"
                       >
                         <td className="px-2.5 py-1 font-bold">
-                          {stock.rank ?? "—"}
-                        </td>
-                        <td className="px-2.5 py-1">
+                          {/* The "stretched link" — covers the whole row */}
                           <Link
                             href={`/stock/${stock.ticker}`}
-                            className="font-black text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 transition hover:text-[#0b2b1d] hover:decoration-[#ddb159]"
-                          >
-                            {stock.ticker ?? "—"}
-                          </Link>
-                        </td>
-                        <td className="truncate px-2.5 py-1 font-semibold">
-                          {stock.company ?? "—"}
-                        </td>
-                        <td className="truncate px-2.5 py-1 text-[#072116]/70">
-                          {stock.sector ?? "—"}
-                        </td>
-                        <td className="px-2.5 py-1 font-semibold">
-                          {formatPrice(stock.price)}
+                            className="absolute inset-0 z-0"
+                            aria-label={`View ${stock.ticker}`}
+                          />
+                          <span className="relative">{stock.rank ?? "—"}</span>
                         </td>
                         <td className="px-2.5 py-1">
-                          <span className="inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
+                          <span className="relative font-black text-[#072116] group-hover:text-[#0b2b1d]">
+                            {stock.ticker ?? "—"}
+                          </span>
+                        </td>
+                        <td className="truncate px-2.5 py-1 font-semibold">
+                          <span className="relative">{stock.company ?? "—"}</span>
+                        </td>
+                        <td className="truncate px-2.5 py-1 text-[#072116]/70">
+                          <span className="relative">{stock.sector ?? "—"}</span>
+                        </td>
+                        <td className="px-2.5 py-1 font-semibold">
+                          <span className="relative">{formatPrice(stock.price)}</span>
+                        </td>
+                        <td className="px-2.5 py-1">
+                          <span className="relative inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
                             {formatScore(stock.score)}
                           </span>
                         </td>
@@ -286,20 +290,28 @@ export default async function Home() {
         </section>
 
         <aside className="grid min-h-0 grid-rows-[118px_minmax(0,1fr)] gap-3 overflow-hidden">
-          <div className="rounded-2xl border border-[#ddb159]/25 bg-[#061b12] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-              Latest Market News
-            </p>
-            <h2 className="mt-1.5 text-[25px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">
-              World News
-            </h2>
-            <Link
-              href="/world-news"
-              className="mt-2 inline-block text-[11px] font-bold text-[#faf6f0]/55 transition hover:text-[#ddb159]"
-            >
-              See all articles →
-            </Link>
-          </div>
+          {/* ✦ Replaced static news header with Portfolio Builder promo */}
+          <Link
+            href="/portfolio"
+            className="group relative overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[#ddb159]/15 blur-2xl transition group-hover:bg-[#ddb159]/25" />
+
+            <div className="relative">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                ✦ New
+              </p>
+              <h2 className="mt-1 text-[18px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
+                Build a Portfolio
+              </h2>
+              <p className="mt-1.5 text-[10px] font-medium leading-snug text-[#faf6f0]/60">
+                Get an AI-built portfolio in 30 seconds.
+              </p>
+              <p className="mt-2 text-[10px] font-bold text-[#ddb159] transition group-hover:translate-x-0.5">
+                Start now →
+              </p>
+            </div>
+          </Link>
 
           <div className="grid min-h-0 grid-rows-3 gap-3 overflow-hidden">
             {news.length > 0 ? (
