@@ -45,7 +45,7 @@ function PageBackdrop({ activePath }: { activePath: string }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.075),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(250,246,240,0.04),transparent_26%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.065),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(250,246,240,0.035),transparent_26%)]" />
 
       {variant === "rankings" && (
         <>
@@ -105,10 +105,28 @@ function PageBackdrop({ activePath }: { activePath: string }) {
 
       {variant === "news" && (
         <>
-          <div className="absolute right-[5%] top-[9%] h-[340px] w-[520px] rotate-[-4deg] rounded-[36px] border border-[#ddb159]/10 bg-[#faf6f0]/[0.025]" />
-          <div className="absolute right-[11%] top-[16%] h-[1px] w-[340px] bg-[#ddb159]/12" />
-          <div className="absolute right-[13%] top-[24%] h-[1px] w-[260px] bg-[#ddb159]/10" />
-          <div className="absolute right-[10%] top-[32%] h-[1px] w-[300px] bg-[#ddb159]/10" />
+          <div className="absolute right-[7%] top-[6%] h-[300px] w-[620px] rounded-full bg-[#ddb159]/[0.035] blur-3xl" />
+          <div className="absolute left-[20%] top-[14%] h-px w-[62%] bg-gradient-to-r from-transparent via-[#ddb159]/12 to-transparent" />
+          <svg
+            className="absolute right-[6%] top-[9%] h-[170px] w-[520px] opacity-[0.07]"
+            viewBox="0 0 520 170"
+            fill="none"
+          >
+            <path
+              d="M4 122 C44 112 70 130 112 104 C150 80 174 90 218 64 C264 36 298 54 344 42 C404 26 448 36 516 12"
+              stroke="#ddb159"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+            <path
+              d="M4 146 C60 128 104 140 160 112 C216 84 248 98 304 72 C360 46 406 58 516 34"
+              stroke="#faf6f0"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.35"
+            />
+          </svg>
+          <div className="absolute right-[10%] top-[28%] h-[1px] w-[420px] bg-gradient-to-r from-transparent via-[#faf6f0]/8 to-transparent" />
         </>
       )}
 
