@@ -16,6 +16,15 @@ type Ranking = {
   updated_at: string | null;
 };
 
+type NewsArticle = {
+  id: string | number;
+  title: string | null;
+  url: string | null;
+  source: string | null;
+  impact: string | null;
+  affected_tickers: string[] | null;
+};
+
 function formatPrice(value: Ranking["price"]) {
   const n = Number(value);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
@@ -27,6 +36,12 @@ function formatScore(value: Ranking["score"]) {
 function formatUpdatedTime(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function impactDot(impact: string | null) {
+  const s = (impact ?? "").toLowerCase().trim();
+  if (s === "positive") return "bg-emerald-500";
+  if (s === "negative") return "bg-red-500";
+  return "bg-[#072116]/30";
 }
 
 export default async function Home() {
@@ -40,6 +55,13 @@ export default async function Home() {
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const topRanked = rankings[0];
+
+  const { data: newsData } = await supabase
+    .from("news_articles")
+    .select("id,title,url,source,impact,affected_tickers")
+    .order("published_at", { ascending: false })
+    .limit(3);
+  const news = (newsData ?? []) as NewsArticle[];
 
   const tickerList = rankings.map((r) => r.ticker).filter((t): t is string => !!t);
   const [sp500Data, movers] = await Promise.all([
@@ -58,16 +80,18 @@ export default async function Home() {
     : bullishPct >= 20 ? "Cautious market" : "Weak market";
 
   const gridCols = "grid-cols-[44px_70px_minmax(0,1fr)_115px_75px_72px]";
+  const moversToShow = [...movers.gainers.slice(0, 2), ...movers.losers.slice(0, 2)]
+    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
 
   return (
     <AppShell activePath="/">
-      <main className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-y-auto pr-1 lg:overflow-hidden">
+      <main className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1">
         <WelcomeBanner />
 
-        <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
-          {/* ✦ LEFT: stats GROW to fill, Top 10 is natural height */}
-          <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3 lg:overflow-hidden">
-            {/* Stats — flex-fill the available space */}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* ── LEFT: stats + chart/movers + top 10 ── */}
+          <section className="grid gap-3">
+            {/* Stats — small/reverted */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <StatBlock label="Top Ranked" main={topRanked?.ticker ?? "—"} sub={topRanked?.company ?? "—"} />
               <StatBlock label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
@@ -75,7 +99,68 @@ export default async function Home() {
               <StatBlock label="Updated" main={formatUpdatedTime(topRanked?.updated_at)} sub="latest refresh" />
             </div>
 
-            {/* Top 10 — natural height (no flex stretch, no overflow trickery) */}
+            {/* ✦ Chart + Top Movers side-by-side on the LEFT */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {/* S&P 500 chart */}
+              <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+                  ✦ Market Overview
+                </p>
+                <h3 className="mt-0.5 text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
+                  S&amp;P 500
+                </h3>
+                <div className="mt-2">
+                  <StockChart
+                    ticker="S&P 500"
+                    data={sp500Data}
+                    initialRange="6M"
+                    height={140}
+                  />
+                </div>
+              </div>
+
+              {/* Top Movers */}
+              <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
+                  ✦ Top Movers · 5d
+                </p>
+                <div className="mt-2 grid gap-1.5">
+                  {moversToShow.length > 0 ? (
+                    moversToShow.map((m) => {
+                      const isUp = m.changePct >= 0;
+                      return (
+                        <Link
+                          key={m.ticker}
+                          href={`/stock/${m.ticker}`}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className={`inline-block size-1.5 shrink-0 rounded-full ${isUp ? "bg-emerald-500" : "bg-red-500"}`} />
+                            <p className="text-[12px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>
+                              {m.ticker}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] font-bold tabular-nums" style={{ color: "#072116" }}>
+                              ${m.currentPrice.toFixed(2)}
+                            </p>
+                            <p className={`text-[10px] font-black tabular-nums ${isUp ? "text-emerald-600" : "text-red-600"}`}>
+                              {isUp ? "+" : ""}{m.changePct.toFixed(2)}%
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })
+                  ) : (
+                    <p className="py-3 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
+                      Loading movers...
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Top 10 rankings */}
             <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
               <div className="mb-2 flex items-start justify-between">
                 <div>
@@ -139,97 +224,91 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* RIGHT: chart + movers + portfolio */}
-          <aside className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 lg:overflow-hidden">
-            <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                ✦ Market Overview
-              </p>
-              <h3 className="mt-0.5 text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
-                S&amp;P 500
-              </h3>
-              <div className="mt-2">
-                <StockChart
-                  ticker="S&P 500"
-                  data={sp500Data}
-                  initialRange="6M"
-                  height={140}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
-                ✦ Top Movers · 5d
-              </p>
-              <div className="mt-2 grid gap-1.5">
-                {[...movers.gainers.slice(0, 2), ...movers.losers.slice(0, 2)]
-                  .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-                  .map((m) => {
-                    const isUp = m.changePct >= 0;
-                    return (
-                      <Link
-                        key={m.ticker}
-                        href={`/stock/${m.ticker}`}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={`inline-block size-1.5 shrink-0 rounded-full ${isUp ? "bg-emerald-500" : "bg-red-500"}`}
-                          />
-                          <p className="text-[12px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>
-                            {m.ticker}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[11px] font-bold tabular-nums" style={{ color: "#072116" }}>
-                            ${m.currentPrice.toFixed(2)}
-                          </p>
-                          <p className={`text-[10px] font-black tabular-nums ${isUp ? "text-emerald-600" : "text-red-600"}`}>
-                            {isUp ? "+" : ""}{m.changePct.toFixed(2)}%
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                {movers.gainers.length === 0 && movers.losers.length === 0 && (
-                  <p className="py-3 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
-                    Loading movers...
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* ✦ Portfolio widget — smaller fonts so content fits the box */}
+          {/* ── RIGHT: portfolio promo + news (like the original) ── */}
+          <aside className="grid gap-3 lg:grid-rows-[auto_minmax(0,1fr)]">
+            {/* Portfolio promo — compact, clean */}
             <Link
               href="/portfolio"
-              className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
+              className="group relative overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
             >
-              <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[#ddb159]/15 blur-3xl transition group-hover:bg-[#ddb159]/25" />
-              <div className="pointer-events-none absolute -bottom-10 -left-10 size-32 rounded-full bg-emerald-500/10 blur-3xl" />
-
+              <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[#ddb159]/15 blur-2xl transition group-hover:bg-[#ddb159]/25" />
               <div className="relative">
                 <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                   ✦ AI-Powered
                 </p>
-                <h2 className="mt-1.5 text-[19px] font-black leading-[1.1] tracking-[-0.02em] text-[#faf6f0]">
+                <h2 className="mt-1 text-[18px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
                   Build Your AI Portfolio
                 </h2>
-                <p className="mt-2 text-[12px] font-medium leading-snug text-[#faf6f0]/75">
+                <p className="mt-1.5 text-[11px] font-medium leading-snug text-[#faf6f0]/65">
                   Tell the AI your goals. It picks the stocks, weights them, and watches them for you.
                 </p>
-              </div>
-
-              <div className="relative mt-3">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-black transition group-hover:translate-x-0.5"
-                  style={{ backgroundColor: "#ddb159", color: "#072116" }}
-                >
-                  Start in 30 seconds
-                  <span>→</span>
-                </span>
+                <p className="mt-2 text-[11px] font-bold text-[#ddb159] transition group-hover:translate-x-0.5">
+                  Start in 30 seconds →
+                </p>
               </div>
             </Link>
+
+            {/* News — 3 cards stretching to fill the rest of the column */}
+            <div className="grid min-h-0 grid-rows-3 gap-3">
+              {news.length > 0 ? (
+                news.map((article) => {
+                  const href = article.url || "/world-news";
+                  const isExternal = !!article.url;
+                  const tickers = Array.isArray(article.affected_tickers)
+                    ? article.affected_tickers.filter((t) => t && t !== "Sector-wide")
+                    : [];
+
+                  return (
+                    <a
+                      key={article.id}
+                      href={href}
+                      target={isExternal ? "_blank" : undefined}
+                      rel={isExternal ? "noopener noreferrer" : undefined}
+                      className="group flex min-h-0 flex-col gap-2 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-block size-1.5 shrink-0 rounded-full ${impactDot(article.impact)}`} />
+                        <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                          {article.source ?? "News"}
+                        </p>
+                      </div>
+
+                      <h3
+                        className="overflow-hidden text-[12px] font-black leading-tight tracking-[-0.02em]"
+                        style={{
+                          color: "#072116",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {article.title ?? "Untitled article"}
+                      </h3>
+
+                      <div className="mt-auto flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                          {tickers.slice(0, 2).map((t) => (
+                            <span
+                              key={t}
+                              className="rounded bg-[#072116] px-1.5 py-0.5 text-[8px] font-black text-[#ddb159]"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="shrink-0 text-[10px] font-bold transition group-hover:text-[#072116]" style={{ color: "rgba(7,33,22,0.55)" }}>
+                          {isExternal ? "Read →" : "Open →"}
+                        </p>
+                      </div>
+                    </a>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-4 text-center text-xs font-semibold" style={{ color: "rgba(7,33,22,0.6)" }}>
+                  No news articles available yet.
+                </div>
+              )}
+            </div>
           </aside>
         </div>
       </main>
@@ -237,17 +316,17 @@ export default async function Home() {
   );
 }
 
-// ✦ Stat block — flex column with center alignment so it fills tall cells nicely
+// ✦ Reverted to compact size
 function StatBlock({ label, main, sub }: { label: string; main: string; sub: string }) {
   return (
-    <div className="flex flex-col justify-center rounded-xl bg-[#faf6f0] px-4 py-4 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
-      <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
+    <div className="rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+      <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
         {label}
       </p>
-      <p className="mt-1 truncate text-[22px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
+      <p className="mt-0.5 truncate text-[16px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
         {main}
       </p>
-      <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
+      <p className="truncate text-[9px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
         {sub}
       </p>
     </div>
