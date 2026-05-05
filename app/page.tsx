@@ -126,7 +126,7 @@ export default async function Home() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // ✦ Compute "Bullish Stocks" — % of S&P 500 with strong AI signal
+  // Bullish stocks count (% with strong AI signal)
   const { count: totalCount } = await supabase
     .from("stock_rankings")
     .select("*", { count: "exact", head: true });
@@ -153,6 +153,9 @@ export default async function Home() {
   const news = (newsData ?? []) as NewsArticle[];
   const topRanked = rankings[0];
 
+  // Grid template — must match between header and rows
+  const gridCols = "grid-cols-[50px_76px_minmax(0,1fr)_135px_90px_88px]";
+
   return (
     <AppShell activePath="/">
       <main className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_230px] gap-3 overflow-hidden">
@@ -172,7 +175,6 @@ export default async function Home() {
               sub={topRanked?.company ?? "No ranking data"}
               icon="crown"
             />
-            {/* ✦ Replaced Most Mentioned with Bullish Stocks (market breadth) */}
             <StatCard
               label="Bullish Stocks"
               main={`${bullishPct}%`}
@@ -194,10 +196,9 @@ export default async function Home() {
                   Top 10 Ranked Stocks
                 </h2>
                 <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
-                  Live preview · click any row to view details
+                  Live preview · click any row for full AI analysis
                 </p>
               </div>
-              {/* ✦ Fixed button — gold filled with dark text, inline style for reliability */}
               <Link
                 href="/rankings"
                 style={{
@@ -210,96 +211,84 @@ export default async function Home() {
               </Link>
             </div>
 
+            {/* ✦ FIXED: Replaced <table> with grid where each row is a Link */}
             <div className="h-[calc(100%-50px)] overflow-hidden rounded-xl border border-[#072116]/10">
-              <table className="h-full w-full table-fixed text-left text-[11px]">
-                <thead className="bg-[#072116] text-[#faf6f0]">
-                  <tr>
-                    <th className="w-[50px] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      Rank
-                    </th>
-                    <th className="w-[76px] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      Ticker
-                    </th>
-                    <th className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      Company
-                    </th>
-                    <th className="w-[135px] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      Sector
-                    </th>
-                    <th className="w-[90px] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      Price
-                    </th>
-                    <th className="w-[88px] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
-                      AI Score
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankings.length > 0 ? (
-                    rankings.map((stock) => (
-                      // ✦ Whole row is now clickable via JS click handler approach
-                      // Using a CSS technique: the link expands to fill the row
-                      <tr
-                        key={stock.id}
-                        className="group relative h-[10%] cursor-pointer border-b border-[#072116]/10 transition last:border-b-0 hover:bg-[#ddb159]/8"
-                      >
-                        <td className="px-2.5 py-1 font-bold">
-                          {/* The "stretched link" — covers the whole row */}
-                          <Link
-                            href={`/stock/${stock.ticker}`}
-                            className="absolute inset-0 z-0"
-                            aria-label={`View ${stock.ticker}`}
-                          />
-                          <span className="relative">{stock.rank ?? "—"}</span>
-                        </td>
-                        <td className="px-2.5 py-1">
-                          <span className="relative font-black text-[#072116] group-hover:text-[#0b2b1d]">
-                            {stock.ticker ?? "—"}
-                          </span>
-                        </td>
-                        <td className="truncate px-2.5 py-1 font-semibold">
-                          <span className="relative">{stock.company ?? "—"}</span>
-                        </td>
-                        <td className="truncate px-2.5 py-1 text-[#072116]/70">
-                          <span className="relative">{stock.sector ?? "—"}</span>
-                        </td>
-                        <td className="px-2.5 py-1 font-semibold">
-                          <span className="relative">{formatPrice(stock.price)}</span>
-                        </td>
-                        <td className="px-2.5 py-1">
-                          <span className="relative inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
-                            {formatScore(stock.score)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-10 text-center font-semibold text-[#072116]/60"
-                      >
-                        No ranking data available yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              {/* Header row */}
+              <div className={`grid ${gridCols} bg-[#072116] text-[#faf6f0]`}>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  Rank
+                </div>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  Ticker
+                </div>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  Company
+                </div>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  Sector
+                </div>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  Price
+                </div>
+                <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  AI Score
+                </div>
+              </div>
+
+              {/* Body — calculate row height for ~10 rows in remaining space */}
+              <div
+                className="overflow-hidden"
+                style={{ height: "calc(100% - 26px)" }}
+              >
+                {rankings.length > 0 ? (
+                  rankings.map((stock) => (
+                    <Link
+                      key={stock.id}
+                      href={`/stock/${stock.ticker}`}
+                      className={`grid ${gridCols} h-[10%] items-center border-b border-[#072116]/10 text-[11px] transition last:border-b-0 hover:bg-[#ddb159]/8`}
+                    >
+                      <div className="px-2.5 font-bold">
+                        {stock.rank ?? "—"}
+                      </div>
+                      <div className="px-2.5 font-black">
+                        {stock.ticker ?? "—"}
+                      </div>
+                      <div className="truncate px-2.5 font-semibold">
+                        {stock.company ?? "—"}
+                      </div>
+                      <div className="truncate px-2.5 text-[#072116]/70">
+                        {stock.sector ?? "—"}
+                      </div>
+                      <div className="px-2.5 font-semibold tabular-nums">
+                        {formatPrice(stock.price)}
+                      </div>
+                      <div className="px-2.5">
+                        <span className="inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
+                          {formatScore(stock.score)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="px-4 py-10 text-center font-semibold text-[#072116]/60">
+                    No ranking data available yet.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
 
         <aside className="grid min-h-0 grid-rows-[118px_minmax(0,1fr)] gap-3 overflow-hidden">
-          {/* ✦ Replaced static news header with Portfolio Builder promo */}
+          {/* Portfolio Builder promo */}
           <Link
             href="/portfolio"
             className="group relative overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
           >
             <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-[#ddb159]/15 blur-2xl transition group-hover:bg-[#ddb159]/25" />
-
             <div className="relative">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                ✦ New
+                ✦ AI-Powered
               </p>
               <h2 className="mt-1 text-[18px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
                 Build a Portfolio
