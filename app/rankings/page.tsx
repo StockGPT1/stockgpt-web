@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { StockLogo } from "@/components/StockLogo";
 import { createClient } from "@/utils/supabase/server";
 
 type Ranking = {
@@ -80,9 +81,12 @@ export default async function RankingsPage() {
               >
                 <div className="px-4 py-2.5 font-bold" style={{ color: "rgba(7,33,22,0.7)" }}>
                   {stock.rank ?? "—"}
-                </div>
-                <div className="px-4 py-2.5 font-black" style={{ color: "#072116" }}>
-                  {stock.ticker ?? "—"}
+                <div
+                  className="flex items-center gap-2 px-4 py-2.5 font-black"
+                  style={{ color: "#072116" }}
+                >
+                  <StockLogo ticker={stock.ticker} company={stock.company} size={22} />
+                  <span>{stock.ticker ?? "—"}</span>
                 </div>
                 <div className="truncate px-4 py-2.5 font-semibold" style={{ color: "#072116" }}>
                   {stock.company ?? "—"}
