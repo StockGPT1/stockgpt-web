@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { StockLogo } from "@/components/StockLogo";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
 import { TradeSetupCard } from "@/components/TradeSetupCard";
 import { createClient } from "@/utils/supabase/server";
@@ -68,6 +69,7 @@ export default async function StockPage({
   } = await supabase.auth.getUser();
 
   let inWatchlist = false;
+
   if (user) {
     const { data: wlEntry } = await supabase
       .from("watchlist")
@@ -75,6 +77,7 @@ export default async function StockPage({
       .eq("user_id", user.id)
       .eq("ticker", upperTicker)
       .maybeSingle();
+
     inWatchlist = !!wlEntry;
   }
 
@@ -122,18 +125,23 @@ export default async function StockPage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
+                <StockLogo ticker={s.ticker} company={s.company} size={38} />
+
                 <h1 className="text-[40px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">
                   {s.ticker}
                 </h1>
+
                 {s.rank != null && (
                   <span className="rounded-full border border-[#ddb159]/30 bg-[#072116]/60 px-3 py-1 text-[11px] font-bold text-[#ddb159]">
                     Rank #{s.rank}
                   </span>
                 )}
               </div>
+
               <p className="mt-1 text-[16px] font-semibold text-[#faf6f0]/70">
                 {s.company ?? "Unknown company"}
               </p>
+
               {s.sector && (
                 <p className="mt-1.5 inline-block rounded-full border border-[#ddb159]/20 bg-[#072116]/40 px-2.5 py-0.5 text-[10px] font-bold text-[#ddb159]">
                   {s.sector}
@@ -146,6 +154,7 @@ export default async function StockPage({
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]">
                   Price
                 </p>
+
                 <p className="mt-1 text-[32px] font-black leading-none tracking-[-0.03em] text-[#faf6f0]">
                   {formatPrice(s.price)}
                 </p>
@@ -168,11 +177,17 @@ export default async function StockPage({
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               AI Score
             </p>
+
             <p
-              className={`mt-1 text-[42px] font-black leading-none tracking-[-0.04em] ${Number.isFinite(numScore) ? scoreColor(numScore) : "text-[#072116]"}`}
+              className={`mt-1 text-[42px] font-black leading-none tracking-[-0.04em] ${
+                Number.isFinite(numScore)
+                  ? scoreColor(numScore)
+                  : "text-[#072116]"
+              }`}
             >
               {formatScore(s.score)}
             </p>
+
             <p className="mt-2 text-[10px] font-semibold text-[#072116]/55">
               {Number.isFinite(numScore) ? scoreLabel(numScore) : "No data"}
             </p>
@@ -182,9 +197,11 @@ export default async function StockPage({
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               Overall Rank
             </p>
+
             <p className="mt-1 text-[42px] font-black leading-none tracking-[-0.04em]">
               {s.rank != null ? `#${s.rank}` : "—"}
             </p>
+
             <p className="mt-2 text-[10px] font-semibold text-[#072116]/55">
               out of 500 ranked stocks
             </p>
@@ -194,6 +211,7 @@ export default async function StockPage({
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
               Last Updated
             </p>
+
             <p className="mt-1 text-[20px] font-black leading-none tracking-[-0.02em]">
               {s.updated_at
                 ? new Date(s.updated_at).toLocaleDateString([], {
@@ -203,6 +221,7 @@ export default async function StockPage({
                   })
                 : "—"}
             </p>
+
             <p className="mt-1 text-[16px] font-bold text-[#072116]/70">
               {s.updated_at
                 ? new Date(s.updated_at).toLocaleTimeString([], {
@@ -214,7 +233,7 @@ export default async function StockPage({
           </div>
         </div>
 
-        {/* ✦ Trade Setup */}
+        {/* Trade Setup */}
         {tradeLevels && (
           <div className="mt-3">
             <TradeSetupCard levels={tradeLevels} />
@@ -227,9 +246,11 @@ export default async function StockPage({
             <h2 className="text-[16px] font-black tracking-[-0.02em]">
               Sector Peers — {s.sector}
             </h2>
+
             <p className="mb-3 text-[10px] font-semibold text-[#072116]/55">
               Other stocks in the same sector, ranked by AI score
             </p>
+
             <div className="overflow-hidden rounded-xl border border-[#072116]/10">
               <table className="w-full table-fixed text-left text-[11px]">
                 <thead className="bg-[#072116] text-[#faf6f0]">
@@ -251,6 +272,7 @@ export default async function StockPage({
                     </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {peers.map((peer) => (
                     <tr
@@ -260,20 +282,29 @@ export default async function StockPage({
                       <td className="px-2.5 py-1.5 font-bold">
                         {peer.rank ?? "—"}
                       </td>
+
                       <td className="px-2.5 py-1.5">
                         <Link
                           href={`/stock/${peer.ticker}`}
-                          className="font-black underline decoration-[#ddb159]/40 underline-offset-2 transition hover:decoration-[#ddb159]"
+                          className="flex items-center gap-1.5 font-black underline decoration-[#ddb159]/40 underline-offset-2 transition hover:decoration-[#ddb159]"
                         >
-                          {peer.ticker}
+                          <StockLogo
+                            ticker={peer.ticker}
+                            company={peer.company}
+                            size={18}
+                          />
+                          <span>{peer.ticker}</span>
                         </Link>
                       </td>
+
                       <td className="truncate px-2.5 py-1.5 font-semibold">
                         {peer.company ?? "—"}
                       </td>
+
                       <td className="px-2.5 py-1.5 font-semibold">
                         {formatPrice(peer.price)}
                       </td>
+
                       <td className="px-2.5 py-1.5">
                         <span className="inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
                           {formatScore(peer.score)}
