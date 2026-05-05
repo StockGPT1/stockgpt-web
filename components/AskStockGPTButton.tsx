@@ -11,18 +11,10 @@ export function AskStockGPTButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-3 top-[74px] z-50 hidden rounded-full border border-[#ddb159]/70 bg-[#ddb159] px-4 py-2 text-[11px] font-black text-[#072116] shadow-[0_10px_28px_rgba(0,0,0,0.28),0_0_24px_rgba(221,177,89,0.18)] transition duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_14px_36px_rgba(0,0,0,0.34),0_0_34px_rgba(221,177,89,0.28)] md:block"
+        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#ddb159]/70 bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] shadow-[0_8px_22px_rgba(221,177,89,0.16)] transition duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_12px_30px_rgba(221,177,89,0.28)]"
       >
-        ✦ Ask StockGPT
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Ask StockGPT"
-        className="fixed right-3 top-[104px] z-50 grid size-11 place-items-center rounded-full border border-[#ddb159]/70 bg-[#ddb159] text-[18px] font-black text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.3),0_0_22px_rgba(221,177,89,0.2)] transition duration-300 hover:-translate-y-0.5 md:hidden"
-      >
-        ✦
+        <span>✦</span>
+        <span>Ask StockGPT</span>
       </button>
 
       {open && (
@@ -47,17 +39,17 @@ export function AskStockGPTButton() {
               </h2>
 
               <p className="mt-2 max-w-[310px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/65">
-                This button is ready visually, but the real AI backend endpoint
-                has not been connected yet.
+                The interface is ready. The live AI response endpoint still
+                needs to be connected before this can answer user questions.
               </p>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col justify-between p-4">
               <div className="rounded-2xl border border-[#ddb159]/18 bg-[#faf6f0] px-3 py-3 text-[12px] font-semibold leading-relaxed text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.18)]">
-                To keep StockGPT trustworthy, this panel will not generate fake
-                answers. The next proper step is to connect it to a real
-                `/api/ask-stockgpt` route using your selected AI provider and
-                live Supabase/Yahoo data.
+                No fake answers are shown here. To make this fully functional,
+                connect this drawer to a real API route, for example{" "}
+                <span className="font-black">/api/ask-stockgpt</span>, using
+                live Supabase rankings, Yahoo data, news and portfolio data.
               </div>
 
               <div className="mt-4 grid gap-2">
