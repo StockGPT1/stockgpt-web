@@ -65,9 +65,9 @@ export default async function Home() {
         <WelcomeBanner />
 
         <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
-          {/* ── LEFT: Stats row + Top 10 ── */}
-          <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 lg:overflow-hidden">
-            {/* ✦ Bigger stat boxes */}
+          {/* ✦ LEFT: stats GROW to fill, Top 10 is natural height */}
+          <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3 lg:overflow-hidden">
+            {/* Stats — flex-fill the available space */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <StatBlock label="Top Ranked" main={topRanked?.ticker ?? "—"} sub={topRanked?.company ?? "—"} />
               <StatBlock label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
@@ -75,8 +75,8 @@ export default async function Home() {
               <StatBlock label="Updated" main={formatUpdatedTime(topRanked?.updated_at)} sub="latest refresh" />
             </div>
 
-            {/* Top 10 rankings */}
-            <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
+            {/* Top 10 — natural height (no flex stretch, no overflow trickery) */}
+            <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
               <div className="mb-2 flex items-start justify-between">
                 <div>
                   <h2 className="text-[20px] font-black leading-none tracking-[-0.03em]">
@@ -113,14 +113,14 @@ export default async function Home() {
                       style={{ color: "#072116" }}
                       className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition last:border-b-0 hover:bg-[#ddb159]/8`}
                     >
-                      <div className="px-2.5 py-2.5 font-bold">{stock.rank ?? "—"}</div>
-                      <div className="px-2.5 py-2.5 font-black">{stock.ticker ?? "—"}</div>
-                      <div className="truncate px-2.5 py-2.5 font-semibold">{stock.company ?? "—"}</div>
-                      <div className="hidden truncate px-2.5 py-2.5 sm:block" style={{ color: "rgba(7,33,22,0.65)" }}>
+                      <div className="px-2.5 py-2 font-bold">{stock.rank ?? "—"}</div>
+                      <div className="px-2.5 py-2 font-black">{stock.ticker ?? "—"}</div>
+                      <div className="truncate px-2.5 py-2 font-semibold">{stock.company ?? "—"}</div>
+                      <div className="hidden truncate px-2.5 py-2 sm:block" style={{ color: "rgba(7,33,22,0.65)" }}>
                         {stock.sector ?? "—"}
                       </div>
-                      <div className="px-2.5 py-2.5 font-semibold tabular-nums">{formatPrice(stock.price)}</div>
-                      <div className="px-2.5 py-2.5">
+                      <div className="px-2.5 py-2 font-semibold tabular-nums">{formatPrice(stock.price)}</div>
+                      <div className="px-2.5 py-2">
                         <span
                           className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[10px] font-black"
                           style={{ backgroundColor: "#ddb159", color: "#072116" }}
@@ -139,7 +139,7 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* ── RIGHT: Chart + Movers + Portfolio ── */}
+          {/* RIGHT: chart + movers + portfolio */}
           <aside className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3 lg:overflow-hidden">
             <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
               <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
@@ -200,29 +200,29 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* ✦ Simplified portfolio widget — bigger fonts, less content */}
+            {/* ✦ Portfolio widget — smaller fonts so content fits the box */}
             <Link
               href="/portfolio"
-              className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
+              className="group relative flex min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
             >
               <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[#ddb159]/15 blur-3xl transition group-hover:bg-[#ddb159]/25" />
               <div className="pointer-events-none absolute -bottom-10 -left-10 size-32 rounded-full bg-emerald-500/10 blur-3xl" />
 
               <div className="relative">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                   ✦ AI-Powered
                 </p>
-                <h2 className="mt-2 text-[28px] font-black leading-[1.05] tracking-[-0.03em] text-[#faf6f0]">
+                <h2 className="mt-1.5 text-[19px] font-black leading-[1.1] tracking-[-0.02em] text-[#faf6f0]">
                   Build Your AI Portfolio
                 </h2>
-                <p className="mt-3 text-[15px] font-medium leading-relaxed text-[#faf6f0]/75">
+                <p className="mt-2 text-[12px] font-medium leading-snug text-[#faf6f0]/75">
                   Tell the AI your goals. It picks the stocks, weights them, and watches them for you.
                 </p>
               </div>
 
-              <div className="relative mt-4">
+              <div className="relative mt-3">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-black transition group-hover:translate-x-0.5"
+                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-black transition group-hover:translate-x-0.5"
                   style={{ backgroundColor: "#ddb159", color: "#072116" }}
                 >
                   Start in 30 seconds
@@ -237,16 +237,17 @@ export default async function Home() {
   );
 }
 
+// ✦ Stat block — flex column with center alignment so it fills tall cells nicely
 function StatBlock({ label, main, sub }: { label: string; main: string; sub: string }) {
   return (
-    <div className="rounded-xl bg-[#faf6f0] px-3.5 py-3 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+    <div className="flex flex-col justify-center rounded-xl bg-[#faf6f0] px-4 py-4 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
       <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
         {label}
       </p>
-      <p className="mt-1 truncate text-[20px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
+      <p className="mt-1 truncate text-[22px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
         {main}
       </p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
+      <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
         {sub}
       </p>
     </div>
