@@ -60,11 +60,7 @@ const SECTOR_WEIGHTS: Record<RiskTolerance, Record<string, number>> = {
   },
 };
 
-const HOLDING_COUNT: Record<TimeHorizon, number> = {
-  short: 8,
-  medium: 11,
-  long: 15,
-};
+const HOLDING_COUNT: Record<TimeHorizon, number> = { short: 8, medium: 11, long: 15 };
 
 function sectorRole(sector: string): SectorBreakdown["role"] {
   const defensive = ["Consumer Staples", "Utilities", "Health Care", "Healthcare"];
@@ -126,7 +122,6 @@ function buildStrategy(risk: RiskTolerance, horizon: TimeHorizon, holdingCount: 
 
 function expectedReturnEstimate(risk: RiskTolerance, avgScore: number, maxScore: number): number {
   const baseline = risk === "conservative" ? 7 : risk === "moderate" ? 9 : 12;
-  // ✦ Use dynamic max instead of hardcoded 10000
   const scoreBoost = (avgScore / Math.max(maxScore, 1)) * 3;
   return Math.round((baseline + scoreBoost) * 10) / 10;
 }
@@ -151,12 +146,9 @@ function buildHoldingReasoning(stock: { rank: number; score: number; sector: str
   if (stock.rank <= 5) parts.push(`Top-5 ranked (#${stock.rank})`);
   else if (stock.rank <= 25) parts.push(`Top-25 ranked (#${stock.rank})`);
   else if (stock.rank <= 100) parts.push(`Top-quartile rank (#${stock.rank})`);
-
-  // ✦ Score description without 10k assumption
   if (stock.score >= 9000) parts.push("exceptional AI signal");
   else if (stock.score >= 7500) parts.push("strong AI signal");
   else if (stock.score >= 5500) parts.push("solid AI signal");
-
   if (risk === "conservative") parts.push(`stable ${stock.sector}`);
   else if (risk === "aggressive") parts.push(`growth-oriented ${stock.sector}`);
   else parts.push(`balanced ${stock.sector} pick`);
@@ -171,20 +163,15 @@ export async function generatePortfolio({
   if (!investmentAmount || investmentAmount <= 0) return null;
   const supabase = await createClient();
 
-  // ✦ Fetch max score for dynamic normalization
   const { data: maxRow } = await supabase
-    .from("stock_rankings")
-    .select("score")
-    .order("score", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .from("stock_rankings").select("score")
+    .order("score", { ascending: false }).limit(1).maybeSingle();
   const maxScore = Math.max(Number(maxRow?.score) || 10000, 1);
 
   const { data: stocksData } = await supabase
     .from("stock_rankings")
     .select("ticker, company, sector, rank, score, price")
-    .order("rank", { ascending: true })
-    .limit(200);
+    .order("rank", { ascending: true }).limit(200);
 
   if (!stocksData || stocksData.length === 0) return null;
 
@@ -238,23 +225,19 @@ export async function generatePortfolio({
   }
 
   const candidates = Array.from(picked.values());
-  // ✦ Score factor uses dynamic max
-  const rawWeights = candidates.map((c) => {
-    const scoreFactor = 0.5 + (c.score / maxScore) * 0.5;
-    return c.sectorWeight * scoreFactor;
-  });
+  const rawWeights = candidates.map((c) => 0.5 * c.sectorWeight + 0.5 * c.sectorWeight * (c.score / maxScore));
   const totalRaw = rawWeights.reduce((sum, w) => sum + w, 0);
 
   const holdings: Holding[] = candidates.map((c, i) => {
     const allocationPct = (rawWeights[i] / totalRaw) * 100;
     const allocationDollars = (allocationPct / 100) * investmentAmount;
-    const shares = allocationDollars / c.price;
+    const shares = Math.round((allocationDollars / c.price) * 100) / 100;
     return {
       ticker: c.ticker, company: c.company, sector: c.sector, rank: c.rank,
       score: c.score, price: c.price,
       allocationPct: Math.round(allocationPct * 10) / 10,
       allocationDollars: Math.round(allocationDollars),
-      shares: Math.round(shares * 100) / 100,
+      shares,
       reasoning: buildHoldingReasoning(c, riskTolerance),
     };
   });
