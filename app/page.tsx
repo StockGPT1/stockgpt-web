@@ -117,7 +117,7 @@ export default async function Home() {
             </div>
 
             <div className="min-h-0 overflow-hidden rounded-2xl bg-[#faf6f0] text-[#072116] shadow-[0_14px_34px_rgba(0,0,0,0.18)]">
-              <div className="flex h-[58px] items-start justify-between gap-3 border-b border-[#072116]/10 px-3 py-2">
+              <div className="flex h-[72px] items-start justify-between gap-3 border-b border-[#072116]/10 px-4 py-3">
                 <div>
                   <p
                     className="text-[9px] font-extrabold uppercase tracking-[0.14em]"
@@ -125,11 +125,11 @@ export default async function Home() {
                   >
                     ✦ AI Rankings
                   </p>
-                  <h2 className="mt-0.5 text-[19px] font-black leading-none tracking-[-0.04em]">
+                  <h2 className="mt-1 text-[19px] font-black leading-none tracking-[-0.04em]">
                     Top 10 Ranked Stocks
                   </h2>
                   <p
-                    className="mt-0.5 text-[10px] font-semibold"
+                    className="mt-1.5 text-[10px] font-semibold"
                     style={{ color: "rgba(7,33,22,0.55)" }}
                   >
                     Click any row for full AI analysis
@@ -139,13 +139,13 @@ export default async function Home() {
                 <Link
                   href="/rankings"
                   style={{ backgroundColor: "#ddb159", color: "#072116" }}
-                  className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black shadow-[0_6px_16px_rgba(221,177,89,0.24)] transition hover:-translate-y-0.5 hover:opacity-90"
+                  className="mt-1 shrink-0 rounded-full px-4 py-2 text-[10px] font-black shadow-[0_6px_16px_rgba(221,177,89,0.24)] transition hover:-translate-y-0.5 hover:opacity-90"
                 >
                   View All →
                 </Link>
               </div>
 
-              <div className="flex h-[calc(100%-58px)] min-h-0 flex-col overflow-hidden">
+              <div className="flex h-[calc(100%-72px)] min-h-0 flex-col overflow-hidden">
                 <div
                   className={`grid ${dashboardRankingsGrid} h-[28px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
                 >
@@ -234,7 +234,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_120px] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_138px] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur transition hover:border-[#ddb159]/40">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -391,12 +391,12 @@ function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
+      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:border-[#ddb159]"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-[#ddb159]/20 blur-2xl transition group-hover:bg-[#ddb159]/30" />
       <div className="pointer-events-none absolute -bottom-12 left-4 size-24 rounded-full bg-[#faf6f0]/5 blur-2xl" />
 
-      <div className="relative">
+      <div className="relative flex h-full flex-col">
         <div className="mb-2 flex size-8 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159]">
           ♛
         </div>
@@ -405,16 +405,16 @@ function PortfolioPromoCard() {
           ✦ AI-Powered
         </p>
 
-        <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
+        <h2 className="mt-1.5 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-1.5 line-clamp-2 text-[10px] font-medium leading-snug text-[#faf6f0]/65">
+        <p className="mt-2 line-clamp-2 text-[10px] font-medium leading-snug text-[#faf6f0]/65">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
 
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <p className="text-[11px] font-bold text-[#ddb159] transition group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
