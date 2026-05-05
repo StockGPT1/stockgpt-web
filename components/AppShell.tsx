@@ -25,6 +25,119 @@ const mobileBottomNav = [
   { href: "/world-news", label: "News", icon: "◈" },
 ] as const;
 
+function PageBackdrop({ activePath }: { activePath: string }) {
+  if (activePath === "/") return null;
+
+  const variant =
+    activePath === "/rankings"
+      ? "rankings"
+      : activePath === "/portfolio"
+        ? "portfolio"
+        : activePath === "/watchlist"
+          ? "watchlist"
+          : activePath === "/notifications"
+            ? "alerts"
+            : activePath === "/world-news"
+              ? "news"
+              : activePath === "/settings"
+                ? "settings"
+                : "default";
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.075),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(250,246,240,0.04),transparent_26%)]" />
+
+      {variant === "rankings" && (
+        <>
+          <div className="absolute right-[-8%] top-[8%] h-[320px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[linear-gradient(135deg,rgba(221,177,89,0.08),transparent_55%)] blur-[1px]" />
+          <svg
+            className="absolute right-[4%] top-[10%] h-[230px] w-[520px] opacity-[0.13]"
+            viewBox="0 0 520 230"
+            fill="none"
+          >
+            <path
+              d="M8 190 C70 150 105 166 155 118 C215 60 245 98 305 72 C372 43 415 58 512 18"
+              stroke="#ddb159"
+              strokeWidth="5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M8 190 C70 150 105 166 155 118 C215 60 245 98 305 72 C372 43 415 58 512 18"
+              stroke="#faf6f0"
+              strokeWidth="1"
+              strokeLinecap="round"
+              opacity="0.35"
+            />
+          </svg>
+        </>
+      )}
+
+      {variant === "portfolio" && (
+        <>
+          <div className="absolute bottom-[-18%] right-[3%] h-[420px] w-[420px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.045] blur-[2px]" />
+          <div className="absolute right-[9%] top-[16%] grid h-[180px] w-[230px] grid-cols-5 items-end gap-3 opacity-[0.09]">
+            <span className="h-[42%] rounded-t bg-[#ddb159]" />
+            <span className="h-[62%] rounded-t bg-[#ddb159]" />
+            <span className="h-[35%] rounded-t bg-[#ddb159]" />
+            <span className="h-[78%] rounded-t bg-[#ddb159]" />
+            <span className="h-full rounded-t bg-[#ddb159]" />
+          </div>
+        </>
+      )}
+
+      {variant === "watchlist" && (
+        <>
+          <div className="absolute right-[8%] top-[12%] h-[300px] w-[300px] rounded-full border border-[#ddb159]/12" />
+          <div className="absolute right-[15%] top-[21%] text-[190px] leading-none text-[#ddb159]/[0.055]">
+            ☆
+          </div>
+        </>
+      )}
+
+      {variant === "alerts" && (
+        <>
+          <div className="absolute right-[8%] top-[10%] h-[260px] w-[460px] rounded-full bg-red-500/[0.035] blur-2xl" />
+          <div className="absolute right-[13%] top-[14%] h-[160px] w-[300px] rounded-[999px] border border-[#ddb159]/10" />
+          <div className="absolute right-[18%] top-[24%] h-[10px] w-[10px] rounded-full bg-[#ddb159]/20" />
+          <div className="absolute right-[28%] top-[36%] h-[7px] w-[7px] rounded-full bg-[#ddb159]/20" />
+        </>
+      )}
+
+      {variant === "news" && (
+        <>
+          <div className="absolute right-[5%] top-[9%] h-[340px] w-[520px] rotate-[-4deg] rounded-[36px] border border-[#ddb159]/10 bg-[#faf6f0]/[0.025]" />
+          <div className="absolute right-[11%] top-[16%] h-[1px] w-[340px] bg-[#ddb159]/12" />
+          <div className="absolute right-[13%] top-[24%] h-[1px] w-[260px] bg-[#ddb159]/10" />
+          <div className="absolute right-[10%] top-[32%] h-[1px] w-[300px] bg-[#ddb159]/10" />
+        </>
+      )}
+
+      {variant === "settings" && (
+        <>
+          <div className="absolute right-[10%] top-[13%] h-[260px] w-[260px] rounded-full border border-[#ddb159]/10" />
+          <div className="absolute right-[15%] top-[20%] h-[160px] w-[160px] rounded-full border border-[#ddb159]/10" />
+          <div className="absolute right-[20%] top-[27%] h-[70px] w-[70px] rounded-full bg-[#ddb159]/[0.055]" />
+        </>
+      )}
+
+      {variant === "default" && (
+        <svg
+          className="absolute right-[5%] top-[12%] h-[220px] w-[500px] opacity-[0.1]"
+          viewBox="0 0 500 220"
+          fill="none"
+        >
+          <path
+            d="M5 185 C86 140 130 172 202 96 C262 34 315 100 374 58 C410 32 448 28 496 16"
+            stroke="#ddb159"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export async function AppShell({
   children,
   activePath,
@@ -175,8 +288,9 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.08),transparent_28%),linear-gradient(180deg,#072116,#051a11)] p-3 pb-[72px] sm:p-3 lg:pb-3">
-          {children}
+        <section className="relative min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[72px] sm:p-3 lg:pb-3">
+          <PageBackdrop activePath={activePath} />
+          <div className="relative z-10 h-full min-h-0">{children}</div>
         </section>
       </div>
 
