@@ -86,81 +86,17 @@ export default async function Home() {
   return (
     <AppShell activePath="/">
       <main className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-        <WelcomeBanner />
-
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {/* ── LEFT: stats + chart/movers + top 10 ── */}
           <section className="grid gap-3">
-            {/* Stats — small/reverted */}
+            <WelcomeBanner />
+
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <StatBlock label="Top Ranked" main={topRanked?.ticker ?? "—"} sub={topRanked?.company ?? "—"} />
-              <StatBlock label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
-              <StatBlock label="Total" main="500" sub="ranked daily" />
-              <StatBlock label="Updated" main={formatUpdatedTime(topRanked?.updated_at)} sub="latest refresh" />
+              <StatBlock icon="♛" label="Top Ranked" main={topRanked?.ticker ?? "—"} sub={topRanked?.company ?? "—"} />
+              <StatBlock icon="↗" label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
+              <StatBlock icon="▦" label="Total" main="500" sub="ranked daily" />
+              <StatBlock icon="◷" label="Updated" main={formatUpdatedTime(topRanked?.updated_at)} sub="latest refresh" />
             </div>
 
-            {/* ✦ Chart + Top Movers side-by-side on the LEFT */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {/* S&P 500 chart */}
-              <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-2.5 backdrop-blur">
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                  ✦ Market Overview
-                </p>
-                <h3 className="mt-0.5 text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
-                  S&amp;P 500
-                </h3>
-                <div className="mt-1.5">
-                  <StockChart
-                    ticker="S&P 500"
-                    data={sp500Data}
-                    initialRange="6M"
-                    height={118}
-                  />
-                </div>
-              </div>
-
-              {/* Top Movers */}
-              <div className="rounded-2xl bg-[#faf6f0] p-2.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
-                  ✦ Top Movers · 5d
-                </p>
-                <div className="mt-1.5 grid gap-1">
-                  {moversToShow.length > 0 ? (
-                    moversToShow.map((m) => {
-                      const isUp = m.changePct >= 0;
-                      return (
-                        <Link
-                          key={m.ticker}
-                          href={`/stock/${m.ticker}`}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1 transition hover:border-[#ddb159]"
-                        >
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className={`inline-block size-1.5 shrink-0 rounded-full ${isUp ? "bg-emerald-500" : "bg-red-500"}`} />
-                            <p className="text-[12px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>
-                              {m.ticker}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[11px] font-bold tabular-nums" style={{ color: "#072116" }}>
-                              ${m.currentPrice.toFixed(2)}
-                            </p>
-                            <p className={`text-[10px] font-black tabular-nums ${isUp ? "text-emerald-600" : "text-red-600"}`}>
-                              {isUp ? "+" : ""}{m.changePct.toFixed(2)}%
-                            </p>
-                          </div>
-                        </Link>
-                      );
-                    })
-                  ) : (
-                    <p className="py-2 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
-                      Loading movers...
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Top 10 rankings */}
             <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
               <div className="mb-2 flex items-start justify-between">
                 <div>
@@ -222,11 +158,7 @@ export default async function Home() {
                 )}
               </div>
             </div>
-          </section>
 
-          {/* ── RIGHT: portfolio promo + news (like the original) ── */}
-          <aside className="grid gap-3 lg:grid-rows-[auto_minmax(0,1fr)]">
-            {/* Portfolio promo — compact, clean */}
             <Link
               href="/portfolio"
               className="group relative overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
@@ -247,9 +179,73 @@ export default async function Home() {
                 </p>
               </div>
             </Link>
+          </section>
 
-            {/* News — 3 cards stretching to fill the rest of the column */}
-            <div className="grid min-h-0 grid-rows-3 gap-3">
+          <aside className="grid content-start gap-3">
+            <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+                    ✦ Market Overview
+                  </p>
+                  <h3 className="mt-0.5 text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
+                    S&amp;P 500
+                  </h3>
+                </div>
+                <p className="rounded-full border border-[#ddb159]/20 px-2 py-1 text-[9px] font-black text-[#ddb159]">
+                  6M
+                </p>
+              </div>
+              <div className="mt-2">
+                <StockChart
+                  ticker="S&P 500"
+                  data={sp500Data}
+                  initialRange="6M"
+                  height={150}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
+                ✦ Top Movers · 5d
+              </p>
+              <div className="mt-2 grid gap-1.5">
+                {moversToShow.length > 0 ? (
+                  moversToShow.map((m) => {
+                    const isUp = m.changePct >= 0;
+                    return (
+                      <Link
+                        key={m.ticker}
+                        href={`/stock/${m.ticker}`}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className={`inline-block size-1.5 shrink-0 rounded-full ${isUp ? "bg-emerald-500" : "bg-red-500"}`} />
+                          <p className="text-[12px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>
+                            {m.ticker}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] font-bold tabular-nums" style={{ color: "#072116" }}>
+                            ${m.currentPrice.toFixed(2)}
+                          </p>
+                          <p className={`text-[10px] font-black tabular-nums ${isUp ? "text-emerald-600" : "text-red-600"}`}>
+                            {isUp ? "+" : ""}{m.changePct.toFixed(2)}%
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <p className="py-3 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
+                    Loading movers...
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-3">
               {news.length > 0 ? (
                 news.map((article) => {
                   const href = article.url || "/world-news";
@@ -316,19 +312,23 @@ export default async function Home() {
   );
 }
 
-// ✦ Reverted to compact size
-function StatBlock({ label, main, sub }: { label: string; main: string; sub: string }) {
+function StatBlock({ icon, label, main, sub }: { icon: string; label: string; main: string; sub: string }) {
   return (
-    <div className="rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
-      <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-[16px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
-        {main}
-      </p>
-      <p className="truncate text-[9px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
-        {sub}
-      </p>
+    <div className="flex items-center gap-3 rounded-xl bg-[#faf6f0] px-3 py-2.5 text-[#072116] shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[17px] font-black text-[#ddb159]">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.1em]" style={{ color: "rgba(7,33,22,0.55)" }}>
+          {label}
+        </p>
+        <p className="mt-0.5 truncate text-[16px] font-black leading-tight tracking-[-0.02em]" style={{ color: "#072116" }}>
+          {main}
+        </p>
+        <p className="truncate text-[9px] font-semibold" style={{ color: "rgba(7,33,22,0.55)" }}>
+          {sub}
+        </p>
+      </div>
     </div>
   );
 }
