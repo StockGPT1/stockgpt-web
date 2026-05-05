@@ -6,8 +6,9 @@ import { SearchBar } from "@/components/SearchBar";
 const navItems = [
   { href: "/", label: "Dashboard", icon: "▦" },
   { href: "/rankings", label: "Rankings", icon: "♛" },
+  { href: "/portfolio", label: "Portfolio", icon: "✦" },
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
-  { href: "/world-news", label: "World News", icon: "✦" },
+  { href: "/world-news", label: "World News", icon: "◈" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
