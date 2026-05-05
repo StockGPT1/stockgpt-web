@@ -79,7 +79,8 @@ export default async function Home() {
           ? "Cautious market"
           : "Weak market";
 
-  const gridCols = "grid-cols-[44px_88px_minmax(0,1fr)_115px_75px_72px]";
+  const dashboardRankingsGrid =
+    "grid-cols-[40px_110px_minmax(0,1fr)_128px_84px_76px]";
 
   const moversToShow = [
     ...movers.gainers.slice(0, 2),
@@ -145,23 +146,25 @@ export default async function Home() {
               </div>
 
               <div className="flex h-[calc(100%-58px)] min-h-0 flex-col overflow-hidden">
-                <div className={`grid ${gridCols} bg-[#072116] text-[#faf6f0]`}>
-                  <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                <div
+                  className={`grid ${dashboardRankingsGrid} h-[28px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
+                >
+                  <div className="px-2.5 text-[9px] font-bold uppercase tracking-wide">
                     #
                   </div>
-                  <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  <div className="px-2.5 text-[9px] font-bold uppercase tracking-wide">
                     Ticker
                   </div>
-                  <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  <div className="px-2.5 text-[9px] font-bold uppercase tracking-wide">
                     Company
                   </div>
-                  <div className="hidden px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide sm:block">
+                  <div className="hidden px-2.5 text-[9px] font-bold uppercase tracking-wide sm:block">
                     Sector
                   </div>
-                  <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  <div className="px-2.5 text-right text-[9px] font-bold uppercase tracking-wide">
                     Price
                   </div>
-                  <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
+                  <div className="px-2.5 text-right text-[9px] font-bold uppercase tracking-wide">
                     Score
                   </div>
                 </div>
@@ -173,39 +176,41 @@ export default async function Home() {
                         key={stock.id}
                         href={`/stock/${stock.ticker}`}
                         style={{ color: "#072116" }}
-                        className={`grid ${gridCols} h-[10%] items-center border-b border-[#072116]/8 text-[12px] transition last:border-b-0 hover:bg-[#ddb159]/10`}
+                        className={`grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[11px] transition last:border-b-0 hover:bg-[#ddb159]/10`}
                       >
-                        <div className="px-2.5 py-1.5 font-bold">
+                        <div className="px-2.5 font-bold tabular-nums text-[#072116]/80">
                           {stock.rank ?? "—"}
                         </div>
 
-                        <div className="flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 font-black">
+                        <div className="flex min-w-0 items-center gap-2 px-2.5 font-black">
                           <StockLogo
                             ticker={stock.ticker}
                             company={stock.company}
-                            size={18}
+                            size={17}
                           />
-                          <span className="truncate">{stock.ticker ?? "—"}</span>
+                          <span className="min-w-0 truncate tracking-[-0.01em]">
+                            {stock.ticker ?? "—"}
+                          </span>
                         </div>
 
-                        <div className="truncate px-2.5 py-1.5 font-semibold">
+                        <div className="min-w-0 truncate px-2.5 font-semibold tracking-[-0.01em]">
                           {stock.company ?? "—"}
                         </div>
 
                         <div
-                          className="hidden truncate px-2.5 py-1.5 sm:block"
-                          style={{ color: "rgba(7,33,22,0.65)" }}
+                          className="hidden min-w-0 truncate px-2.5 sm:block"
+                          style={{ color: "rgba(7,33,22,0.62)" }}
                         >
                           {stock.sector ?? "—"}
                         </div>
 
-                        <div className="px-2.5 py-1.5 font-semibold tabular-nums">
+                        <div className="px-2.5 text-right font-semibold tabular-nums">
                           {formatPrice(stock.price)}
                         </div>
 
-                        <div className="px-2.5 py-1.5">
+                        <div className="flex justify-end px-2.5">
                           <span
-                            className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[10px] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+                            className="inline-flex min-w-[54px] justify-center rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
                             style={{
                               backgroundColor: "#ddb159",
                               color: "#072116",
