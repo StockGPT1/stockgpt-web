@@ -9,8 +9,8 @@ export function WatchlistRemoveButton({ ticker }: { ticker: string }) {
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    startTransition(async () => {
-      await removeFromWatchlist(ticker);
+    startTransition(() => {
+      removeFromWatchlist(ticker);
     });
   }
 
