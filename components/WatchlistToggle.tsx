@@ -23,14 +23,12 @@ export function WatchlistToggle({
       return;
     }
 
-    // Optimistic update
     const previous = inWatchlist;
     setInWatchlist(!inWatchlist);
 
     startTransition(async () => {
       const result = await toggleWatchlist(ticker);
       if (!result.success) {
-        // Revert on error
         setInWatchlist(previous);
         if (result.error === "not_authenticated") router.push("/login");
       } else if (result.inWatchlist !== undefined) {
