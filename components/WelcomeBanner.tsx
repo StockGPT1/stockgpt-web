@@ -3,116 +3,144 @@
 import { useEffect, useState } from "react";
 
 const taglines = [
-"Make smarter investment decisions.",
-"500 stocks. Scored. Ranked.",
-"Trade the signal, skip the noise.",
-"AI conviction for every position.",
-"Ranked by data, not by hype.",
-"The model ran. Check the results.",
-"Your edge isn't luck. It's data.",
-"Rankings update as the market does.",
-"Cut through the noise of 500 stocks.",
+  "Make smarter investment decisions.",
+  "500 stocks. Scored. Ranked.",
+  "Trade the signal, skip the noise.",
+  "AI conviction for every position.",
+  "Ranked by data, not by hype.",
+  "The model ran. Check the results.",
+  "Your edge isn't luck. It's data.",
+  "Rankings update as the market does.",
+  "Cut through the noise of 500 stocks.",
 ];
 
 const sublines: Record<number, string> = {
-0: "Markets are closed — use the quiet to review your watchlist.",
-1: "New week, new rankings — see what the model thinks.",
-2: "Tuesday — the quietest tape often has the loudest signal.",
-3: "Midweek — time to re-check the top movers.",
-4: "Thursday — earnings season favourite. Stay sharp.",
-5: "Friday close incoming — review your positions.",
-6: "Weekend mode — catch up on the latest research.",
+  0: "Markets are closed — use the quiet to review your watchlist.",
+  1: "New week, new rankings — see what the model thinks.",
+  2: "Tuesday — the quietest tape often has the loudest signal.",
+  3: "Midweek — time to re-check the top movers.",
+  4: "Thursday — earnings season favourite. Stay sharp.",
+  5: "Friday close incoming — review your positions.",
+  6: "Weekend mode — catch up on the latest research.",
 };
 
 function pick<T>(arr: T[]): T {
-return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function getMarketStatus(now: Date) {
-const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-const day = et.getDay();
-const mins = et.getHours() * 60 + et.getMinutes();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = et.getDay();
+  const mins = et.getHours() * 60 + et.getMinutes();
 
-if (day === 0 || day === 6) return { label: "Markets closed", tone: "closed" as const };
-if (mins < 4 * 60) return { label: "Markets closed", tone: "closed" as const };
-if (mins < 9 * 60 + 30) return { label: "Pre-market session", tone: "pre" as const };
-if (mins < 16 * 60) return { label: "Markets open", tone: "open" as const };
-if (mins < 20 * 60) return { label: "After-hours session", tone: "pre" as const };
-return { label: "Markets closed", tone: "closed" as const };
+  if (day === 0 || day === 6) return { label: "Markets closed", tone: "closed" as const };
+  if (mins < 4 * 60) return { label: "Markets closed", tone: "closed" as const };
+  if (mins < 9 * 60 + 30) return { label: "Pre-market session", tone: "pre" as const };
+  if (mins < 16 * 60) return { label: "Markets open", tone: "open" as const };
+  if (mins < 20 * 60) return { label: "After-hours session", tone: "pre" as const };
+  return { label: "Markets closed", tone: "closed" as const };
 }
 
 function getGreeting(now: Date, name?: string) {
-const h = now.getHours();
-const base =
-h < 5 ? "Late session"
-: h < 12 ? "Good morning"
-: h < 17 ? "Good afternoon"
-: h < 22 ? "Good evening"
-: "Late session";
+  const h = now.getHours();
+  const base =
+    h < 5
+      ? "Late session"
+      : h < 12
+        ? "Good morning"
+        : h < 17
+          ? "Good afternoon"
+          : h < 22
+            ? "Good evening"
+            : "Late session";
 
-return name ? `${base}, ${name}` : base;
+  return name ? `${base}, ${name}` : base;
 }
 
 export function WelcomeBanner({ name }: { name?: string }) {
-const [state, setState] = useState<null | {
-greeting: string;
-tagline: string;
-subline: string;
-market: ReturnType<typeof getMarketStatus>;
-}>(null);
+  const [state, setState] = useState<null | {
+    greeting: string;
+    tagline: string;
+    subline: string;
+    market: ReturnType<typeof getMarketStatus>;
+  }>(null);
 
-useEffect(() => {
-const now = new Date();
-setState({
-greeting: getGreeting(now, name),
-tagline: pick(taglines),
-subline: sublines[now.getDay()] ?? "",
-market: getMarketStatus(now),
-});
-}, [name]);
+  useEffect(() => {
+    const now = new Date();
+    setState({
+      greeting: getGreeting(now, name),
+      tagline: pick(taglines),
+      subline: sublines[now.getDay()] ?? "",
+      market: getMarketStatus(now),
+    });
+  }, [name]);
 
-if (!state) return <div className="min-h-[180px] rounded-3xl bg-[#082519]" />;
+  if (!state) {
+    return <div className="min-h-[150px] rounded-3xl bg-[#082519]" />;
+  }
 
-const dotColor =
-state.market.tone === "open"
-? "bg-emerald-400"
-: state.market.tone === "pre"
-? "bg-[#ddb159]"
-: "bg-[#faf6f0]/40";
+  const dotColor =
+    state.market.tone === "open"
+      ? "bg-emerald-400"
+      : state.market.tone === "pre"
+        ? "bg-[#ddb159]"
+        : "bg-[#faf6f0]/40";
 
-return ( <div className="relative min-h-[180px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-6 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+  return (
+    <div className="relative min-h-[150px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-5 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(221,177,89,0.22),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.1] [background-image:linear-gradient(#fff1_1px,transparent_1px),linear-gradient(90deg,#fff1_1px,transparent_1px)] [background-size:32px_32px]" />
 
-```
-  {/* Glow */}
-  <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(221,177,89,0.25),transparent_35%)]" />
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[54%] opacity-75 sm:block"
+        viewBox="0 0 500 200"
+        fill="none"
+      >
+        <path
+          d="M10 170 L90 140 L160 150 L240 100 L310 120 L390 60 L490 40"
+          stroke="#ddb159"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M10 170 L90 140 L160 150 L240 100 L310 120 L390 60 L490 40 V200 H10 Z"
+          fill="url(#welcomeChartFill)"
+        />
+        <defs>
+          <linearGradient id="welcomeChartFill" x1="250" y1="40" x2="250" y2="200" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#ddb159" stopOpacity="0.24" />
+            <stop offset="1" stopColor="#ddb159" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      </svg>
 
-  {/* Grid */}
-  <div className="absolute inset-0 opacity-[0.1] [background-image:linear-gradient(#fff1_1px,transparent_1px),linear-gradient(90deg,#fff1_1px,transparent_1px)] [background-size:32px_32px]" />
+      <div className="relative z-10 max-w-[620px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-luxury text-[13px] font-semibold leading-tight tracking-[0.01em] text-[#ddb159]">
+            {state.greeting}
+          </p>
 
-  {/* Chart graphic */}
-  <svg className="absolute right-0 bottom-0 w-[55%] opacity-80" viewBox="0 0 500 200">
-    <path d="M10 170 L90 140 L160 150 L240 100 L310 120 L390 60 L490 40"
-      stroke="#ddb159" strokeWidth="4" fill="none" />
-  </svg>
+          <span className="flex items-center gap-1.5 rounded-full border border-[#ddb159]/20 bg-[#072116]/70 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <span className="relative flex h-1.5 w-1.5">
+              {state.market.tone === "open" && (
+                <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dotColor} opacity-75`} />
+              )}
+              <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${dotColor}`} />
+            </span>
+            <span className="text-[9px] font-bold text-[#faf6f0]/70">{state.market.label}</span>
+          </span>
+        </div>
 
-  <div className="relative z-10 max-w-[600px]">
-    <div className="flex items-center gap-2">
-      <p className="text-[#ddb159] font-semibold">{state.greeting}</p>
-      <span className="flex items-center gap-1 text-xs text-[#faf6f0]/60">
-        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-        {state.market.label}
-      </span>
+        <h1 className="mt-2 text-[30px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] sm:text-[34px]">
+          {state.tagline}
+        </h1>
+
+        <p className="mt-1.5 max-w-[540px] text-xs font-medium leading-snug text-[#faf6f0]/60">
+          {state.subline}
+        </p>
+      </div>
     </div>
-
-    <h1 className="mt-3 text-[36px] font-black text-[#faf6f0] leading-tight">
-      {state.tagline}
-    </h1>
-
-    <p className="mt-2 text-[#faf6f0]/60 text-sm">
-      {state.subline}
-    </p>
-  </div>
-</div>
-
-);
+  );
 }
