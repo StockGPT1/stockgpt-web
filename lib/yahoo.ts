@@ -1,15 +1,8 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
-// ── Yahoo Finance chart endpoint ──
-// Free, no key. Returns OHLC data via ?range=...&interval=...
-// Docs (unofficial): https://github.com/ranaroussi/yfinance/blob/main/yfinance/scrapers/history.py
-
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
 
-type RangeConfig = {
-  range: string;     // Yahoo's "range" param
-  interval: string;  // Yahoo's "interval" param
-};
+type RangeConfig = { range: string; interval: string };
 
 const RANGE_CONFIG: Record<TimeRange, RangeConfig> = {
   "1D":  { range: "1d",  interval: "5m" },
@@ -26,15 +19,12 @@ type YahooChartResponse = {
     result: Array<{
       meta: { symbol: string; regularMarketPrice: number };
       timestamp: number[];
-      indicators: {
-        quote: Array<{ close: (number | null)[] }>;
-      };
+      indicators: { quote: Array<{ close: (number | null)[] }> };
     }> | null;
     error: { code: string; description: string } | null;
   };
 };
 
-// In-memory cache — refresh every 10 minutes
 type CacheEntry = { data: ChartPoint[]; fetchedAt: number };
 const cache: Map<string, CacheEntry> = new Map();
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -50,11 +40,9 @@ async function fetchYahooRange(ticker: string, range: TimeRange): Promise<ChartP
   try {
     const res = await fetch(url, {
       headers: {
-        // Yahoo blocks bare server-side requests without a UA
         "User-Agent": "Mozilla/5.0 (compatible; StockGPT/1.0)",
         "Accept": "application/json",
       },
-      // Next.js fetch cache — refresh every 10 minutes server-side
       next: { revalidate: 600 },
     });
 
@@ -64,10 +52,7 @@ async function fetchYahooRange(ticker: string, range: TimeRange): Promise<ChartP
     }
 
     const json = (await res.json()) as YahooChartResponse;
-
-    if (json.chart.error || !json.chart.result || json.chart.result.length === 0) {
-      return [];
-    }
+    if (json.chart.error || !json.chart.result || json.chart.result.length === 0) return [];
 
     const result = json.chart.result[0];
     const timestamps = result.timestamp ?? [];
@@ -82,7 +67,6 @@ async function fetchYahooRange(ticker: string, range: TimeRange): Promise<ChartP
         close: Math.round(close * 100) / 100,
       });
     }
-
     return points;
   } catch (err) {
     console.error(`Yahoo fetch failed for ${ticker} ${range}:`, err);
@@ -90,10 +74,6 @@ async function fetchYahooRange(ticker: string, range: TimeRange): Promise<ChartP
   }
 }
 
-/**
- * Fetch chart data for one ticker across multiple ranges.
- * Returns a partial map — ranges that failed will be missing.
- */
 export async function getStockChart(
   ticker: string,
   ranges: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]
@@ -101,7 +81,6 @@ export async function getStockChart(
   const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
   const now = Date.now();
 
-  // Check cache first
   const ranges_to_fetch: TimeRange[] = [];
   for (const range of ranges) {
     const key = cacheKey(ticker, range);
@@ -113,7 +92,6 @@ export async function getStockChart(
     }
   }
 
-  // Fetch the rest in parallel
   if (ranges_to_fetch.length > 0) {
     const fetched = await Promise.all(
       ranges_to_fetch.map(async (range) => {
@@ -133,19 +111,31 @@ export async function getStockChart(
   return result;
 }
 
-/**
- * Fetch the S&P 500 index chart (^GSPC). Used on dashboard.
- */
 export async function getSP500Chart(
-  ranges: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y"]
+  ranges: TimeRange[] = ["1M", "6M", "1Y", "5Y"]
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   return getStockChart("^GSPC", ranges);
 }
 
 /**
- * Fetch top movers — top gainers and losers from current rankings vs 5d ago.
- * Uses 5D chart data to compute simple % change.
+ * ✦ Single source of truth for "current price" — extracts from chart data.
+ * Tries shortest ranges first since they're most recent.
+ * Returns null if no data available.
  */
+export function getLatestPriceFromChart(
+  data: Partial<Record<TimeRange, ChartPoint[]>>
+): number | null {
+  const rangeOrder: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
+  for (const range of rangeOrder) {
+    const points = data[range];
+    if (points && points.length > 0) {
+      const last = points[points.length - 1].close;
+      if (Number.isFinite(last) && last > 0) return last;
+    }
+  }
+  return null;
+}
+
 export type Mover = {
   ticker: string;
   currentPrice: number;
@@ -157,8 +147,6 @@ export async function getTopMovers(
   limit = 5
 ): Promise<{ gainers: Mover[]; losers: Mover[] }> {
   if (tickers.length === 0) return { gainers: [], losers: [] };
-
-  // Limit to top 30 tickers to avoid spamming Yahoo
   const tickersToCheck = tickers.slice(0, 30);
 
   const results = await Promise.all(
@@ -176,6 +164,5 @@ export async function getTopMovers(
   const valid = results.filter((r): r is Mover => r !== null);
   const gainers = [...valid].sort((a, b) => b.changePct - a.changePct).slice(0, limit);
   const losers = [...valid].sort((a, b) => a.changePct - b.changePct).slice(0, limit);
-
   return { gainers, losers };
 }
