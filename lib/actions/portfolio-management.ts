@@ -10,7 +10,6 @@ export type ActionResult<T = void> = {
   error?: string;
 };
 
-// ── Save a generated portfolio (replaces existing if any) ──
 export async function savePortfolio(
   portfolio: Portfolio
 ): Promise<ActionResult<{ portfolioId: string }>> {
@@ -18,13 +17,8 @@ export async function savePortfolio(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "not_authenticated" };
 
-  // Delete existing portfolio (one per user for now)
-  await supabase
-    .from("user_portfolios")
-    .delete()
-    .eq("user_id", user.id);
+  await supabase.from("user_portfolios").delete().eq("user_id", user.id);
 
-  // Create new portfolio
   const { data: newPortfolio, error: pErr } = await supabase
     .from("user_portfolios")
     .insert({
@@ -41,12 +35,13 @@ export async function savePortfolio(
     return { success: false, error: pErr?.message ?? "Could not save portfolio" };
   }
 
-  // Insert all holdings with entry price = current price
+  // Save with explicit shares from the generated portfolio
   const holdingsToInsert = portfolio.holdings.map((h) => ({
     portfolio_id: newPortfolio.id,
     ticker: h.ticker,
     entry_price: h.price,
     allocation_pct: h.allocationPct,
+    shares: h.shares,
     score_at_entry: h.score,
     rank_at_entry: h.rank,
   }));
@@ -61,10 +56,10 @@ export async function savePortfolio(
   return { success: true, data: { portfolioId: newPortfolio.id } };
 }
 
-// ── Add a single stock to user's portfolio ──
 export async function addHolding(
   ticker: string,
-  entryPrice?: number
+  entryPrice?: number,
+  shares?: number
 ): Promise<ActionResult> {
   if (!ticker) return { success: false, error: "Missing ticker" };
 
@@ -74,16 +69,14 @@ export async function addHolding(
 
   const upperTicker = ticker.toUpperCase();
 
-  // Verify the stock exists
   const { data: stock } = await supabase
     .from("stock_rankings")
     .select("ticker, price, score, rank")
     .eq("ticker", upperTicker)
     .maybeSingle();
 
-  if (!stock) return { success: false, error: "Stock not found" };
+  if (!stock) return { success: false, error: "Stock not found in rankings" };
 
-  // Get or create portfolio
   let { data: portfolio } = await supabase
     .from("user_portfolios")
     .select("id")
@@ -101,6 +94,7 @@ export async function addHolding(
   }
 
   const finalEntryPrice = entryPrice ?? Number(stock.price);
+  const finalShares = shares ?? 1;
 
   const { error } = await supabase
     .from("portfolio_holdings")
@@ -109,6 +103,7 @@ export async function addHolding(
         portfolio_id: portfolio.id,
         ticker: upperTicker,
         entry_price: finalEntryPrice,
+        shares: finalShares,
         score_at_entry: stock.score,
         rank_at_entry: stock.rank,
       },
@@ -121,25 +116,18 @@ export async function addHolding(
   return { success: true };
 }
 
-// ── Remove a holding ──
 export async function removeHolding(ticker: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "not_authenticated" };
 
   const { data: portfolio } = await supabase
-    .from("user_portfolios")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
+    .from("user_portfolios").select("id").eq("user_id", user.id).maybeSingle();
   if (!portfolio) return { success: false, error: "No portfolio" };
 
   const { error } = await supabase
-    .from("portfolio_holdings")
-    .delete()
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", ticker.toUpperCase());
+    .from("portfolio_holdings").delete()
+    .eq("portfolio_id", portfolio.id).eq("ticker", ticker.toUpperCase());
 
   if (error) return { success: false, error: error.message };
 
@@ -147,7 +135,6 @@ export async function removeHolding(ticker: string): Promise<ActionResult> {
   return { success: true };
 }
 
-// ── Update entry price ──
 export async function updateEntryPrice(
   ticker: string,
   newPrice: number
@@ -161,18 +148,12 @@ export async function updateEntryPrice(
   if (!user) return { success: false, error: "not_authenticated" };
 
   const { data: portfolio } = await supabase
-    .from("user_portfolios")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
+    .from("user_portfolios").select("id").eq("user_id", user.id).maybeSingle();
   if (!portfolio) return { success: false, error: "No portfolio" };
 
   const { error } = await supabase
-    .from("portfolio_holdings")
-    .update({ entry_price: newPrice })
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", ticker.toUpperCase());
+    .from("portfolio_holdings").update({ entry_price: newPrice })
+    .eq("portfolio_id", portfolio.id).eq("ticker", ticker.toUpperCase());
 
   if (error) return { success: false, error: error.message };
 
@@ -180,25 +161,51 @@ export async function updateEntryPrice(
   return { success: true };
 }
 
-// ── Mark a holding as reviewed ──
+// ✦ NEW: Update shares (when user adds more or sells some)
+export async function updateShares(
+  ticker: string,
+  newShares: number
+): Promise<ActionResult> {
+  if (!Number.isFinite(newShares) || newShares < 0) {
+    return { success: false, error: "Invalid share count" };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const { data: portfolio } = await supabase
+    .from("user_portfolios").select("id").eq("user_id", user.id).maybeSingle();
+  if (!portfolio) return { success: false, error: "No portfolio" };
+
+  // If user sets shares to 0, remove the holding
+  if (newShares === 0) {
+    return removeHolding(ticker);
+  }
+
+  const { error } = await supabase
+    .from("portfolio_holdings").update({ shares: newShares })
+    .eq("portfolio_id", portfolio.id).eq("ticker", ticker.toUpperCase());
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/portfolio");
+  return { success: true };
+}
+
 export async function markReviewed(ticker: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "not_authenticated" };
 
   const { data: portfolio } = await supabase
-    .from("user_portfolios")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
+    .from("user_portfolios").select("id").eq("user_id", user.id).maybeSingle();
   if (!portfolio) return { success: false, error: "No portfolio" };
 
   const { error } = await supabase
     .from("portfolio_holdings")
     .update({ last_reviewed_at: new Date().toISOString() })
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", ticker.toUpperCase());
+    .eq("portfolio_id", portfolio.id).eq("ticker", ticker.toUpperCase());
 
   if (error) return { success: false, error: error.message };
 
@@ -206,17 +213,13 @@ export async function markReviewed(ticker: string): Promise<ActionResult> {
   return { success: true };
 }
 
-// ── Delete entire portfolio ──
 export async function deletePortfolio(): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "not_authenticated" };
 
   const { error } = await supabase
-    .from("user_portfolios")
-    .delete()
-    .eq("user_id", user.id);
-
+    .from("user_portfolios").delete().eq("user_id", user.id);
   if (error) return { success: false, error: error.message };
 
   revalidatePath("/portfolio");
