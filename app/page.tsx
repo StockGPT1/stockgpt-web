@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { createClient } from "@/utils/supabase/server";
 
@@ -48,11 +49,21 @@ function impactDot(impact: string | null) {
   return "bg-[#072116]/30";
 }
 
-function StatIcon({ type }: { type: "chart" | "crown" | "trending" | "clock" }) {
+function StatIcon({
+  type,
+}: {
+  type: "chart" | "crown" | "trending" | "clock";
+}) {
   return (
     <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[#ddb159]">
       {type === "chart" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
           <path d="M4 19h16" />
           <path d="M7 16V9" />
           <path d="M12 16V5" />
@@ -60,20 +71,41 @@ function StatIcon({ type }: { type: "chart" | "crown" | "trending" | "clock" }) 
           <path d="M5 10l6-5 4 4 4-6" />
         </svg>
       )}
+
       {type === "crown" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
           <path d="M4 18h16l1-10-5 4-4-7-4 7-5-4 1 10Z" />
           <path d="M5 21h14" />
         </svg>
       )}
+
       {type === "trending" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+        >
           <path d="M4 17 9 12l4 4 7-9" />
           <path d="M15 7h5v5" />
         </svg>
       )}
+
       {type === "clock" && (
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
           <circle cx="12" cy="12" r="8" />
           <path d="M12 7v5l4 2" />
         </svg>
@@ -126,7 +158,6 @@ export default async function Home() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // Bullish stocks count (% with strong AI signal)
   const { count: totalCount } = await supabase
     .from("stock_rankings")
     .select("*", { count: "exact", head: true });
@@ -140,6 +171,7 @@ export default async function Home() {
     totalCount && totalCount > 0
       ? Math.round(((bullishCount ?? 0) / totalCount) * 100)
       : 0;
+
   const sentiment =
     bullishPct >= 50
       ? "Strong market"
@@ -153,8 +185,7 @@ export default async function Home() {
   const news = (newsData ?? []) as NewsArticle[];
   const topRanked = rankings[0];
 
-  // Grid template — must match between header and rows
-  const gridCols = "grid-cols-[50px_76px_minmax(0,1fr)_135px_90px_88px]";
+  const gridCols = "grid-cols-[50px_92px_minmax(0,1fr)_135px_90px_88px]";
 
   return (
     <AppShell activePath="/">
@@ -199,6 +230,7 @@ export default async function Home() {
                   Live preview · click any row for full AI analysis
                 </p>
               </div>
+
               <Link
                 href="/rankings"
                 style={{
@@ -211,9 +243,7 @@ export default async function Home() {
               </Link>
             </div>
 
-            {/* ✦ FIXED: Replaced <table> with grid where each row is a Link */}
             <div className="h-[calc(100%-50px)] overflow-hidden rounded-xl border border-[#072116]/10">
-              {/* Header row */}
               <div className={`grid ${gridCols} bg-[#072116] text-[#faf6f0]`}>
                 <div className="px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide">
                   Rank
@@ -235,7 +265,6 @@ export default async function Home() {
                 </div>
               </div>
 
-              {/* Body — calculate row height for ~10 rows in remaining space */}
               <div
                 className="overflow-hidden"
                 style={{ height: "calc(100% - 26px)" }}
@@ -250,18 +279,28 @@ export default async function Home() {
                       <div className="px-2.5 font-bold">
                         {stock.rank ?? "—"}
                       </div>
-                      <div className="px-2.5 font-black">
-                        {stock.ticker ?? "—"}
+
+                      <div className="flex items-center gap-1.5 px-2.5 font-black">
+                        <StockLogo
+                          ticker={stock.ticker}
+                          company={stock.company}
+                          size={18}
+                        />
+                        <span>{stock.ticker ?? "—"}</span>
                       </div>
+
                       <div className="truncate px-2.5 font-semibold">
                         {stock.company ?? "—"}
                       </div>
+
                       <div className="truncate px-2.5 text-[#072116]/70">
                         {stock.sector ?? "—"}
                       </div>
+
                       <div className="px-2.5 font-semibold tabular-nums">
                         {formatPrice(stock.price)}
                       </div>
+
                       <div className="px-2.5">
                         <span className="inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
                           {formatScore(stock.score)}
@@ -280,7 +319,6 @@ export default async function Home() {
         </section>
 
         <aside className="grid min-h-0 grid-rows-[118px_minmax(0,1fr)] gap-3 overflow-hidden">
-          {/* Portfolio Builder promo */}
           <Link
             href="/portfolio"
             className="group relative overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519)] p-4 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:border-[#ddb159]"
@@ -352,6 +390,7 @@ export default async function Home() {
                           </span>
                         ))}
                       </div>
+
                       <p className="shrink-0 text-[10px] font-bold text-[#072116]/55 group-hover:text-[#072116]">
                         {isExternal ? "Read →" : "Open →"}
                       </p>
