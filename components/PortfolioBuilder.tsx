@@ -29,6 +29,19 @@ function colorFor(sector: string) {
   return SECTOR_COLORS[sector] ?? "#94a3b8";
 }
 
+function roleColor(role: string) {
+  switch (role) {
+    case "Defensive":
+      return { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" };
+    case "Growth":
+      return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" };
+    case "Income":
+      return { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" };
+    default:
+      return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
+  }
+}
+
 export function PortfolioBuilder() {
   const [risk, setRisk] = useState<RiskTolerance>("moderate");
   const [horizon, setHorizon] = useState<TimeHorizon>("medium");
@@ -36,6 +49,7 @@ export function PortfolioBuilder() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
   function handleGenerate() {
     setError(null);
@@ -45,55 +59,135 @@ export function PortfolioBuilder() {
         setError(result.error);
       } else {
         setPortfolio(result.portfolio);
+        setExpandedTicker(null);
       }
     });
   }
 
-  // ── RESULTS VIEW ────────────────────────────────────────
+  // ── RESULTS VIEW ───────────────────────────────────────
   if (portfolio) {
     return (
       <div className="grid gap-3">
-        {/* Summary header */}
-        <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(90deg,#082519,#123b25)] px-6 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#ddb159]/10 blur-3xl" />
+        {/* ✦ AI Analysis Hero */}
+        <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-6 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                Your AI-Generated Portfolio
-              </p>
-              <h1 className="mt-1 text-[28px] font-black tracking-[-0.04em] text-[#faf6f0]">
-                ${portfolio.totalInvested.toLocaleString()} ·{" "}
-                <span className="capitalize">{portfolio.riskTolerance}</span> ·{" "}
-                {portfolio.timeHorizon === "short"
-                  ? "3–5 years"
-                  : portfolio.timeHorizon === "medium"
-                    ? "5–10 years"
-                    : "10+ years"}
-              </h1>
-              <p className="mt-1 text-[13px] font-medium text-[#faf6f0]/55">
-                {portfolio.holdings.length} holdings across{" "}
-                {portfolio.sectorBreakdown.length} sectors · Avg AI score{" "}
-                {portfolio.avgScore.toLocaleString()}
-              </p>
+          <div className="relative">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+                  ✦ Your AI-Generated Portfolio
+                </p>
+                <h1 className="mt-1 text-[30px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">
+                  ${portfolio.totalInvested.toLocaleString()} ·{" "}
+                  <span className="capitalize">{portfolio.riskTolerance}</span>{" "}
+                  ·{" "}
+                  {portfolio.timeHorizon === "short"
+                    ? "3–5 yrs"
+                    : portfolio.timeHorizon === "medium"
+                      ? "5–10 yrs"
+                      : "10+ yrs"}
+                </h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPortfolio(null)}
+                className="rounded-full border border-[#ddb159]/40 px-4 py-2 text-[12px] font-bold text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10"
+              >
+                Edit preferences
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setPortfolio(null)}
-              className="rounded-full border border-[#ddb159]/40 px-4 py-2 text-[12px] font-bold text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10"
-            >
-              Edit preferences
-            </button>
+            {/* AI Analysis stats */}
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
+                  Holdings
+                </p>
+                <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em] text-[#faf6f0]">
+                  {portfolio.holdings.length}
+                </p>
+                <p className="text-[10px] font-semibold text-[#faf6f0]/45">
+                  {portfolio.sectorBreakdown.length} sectors
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
+                  Avg AI Score
+                </p>
+                <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em] text-[#faf6f0]">
+                  {portfolio.avgScore.toLocaleString()}
+                </p>
+                <p className="text-[10px] font-semibold text-[#faf6f0]/45">
+                  out of 10,000
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
+                  Expected Return
+                </p>
+                <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em] text-emerald-400">
+                  {portfolio.expectedAnnualReturn}%/yr
+                </p>
+                <p className="text-[10px] font-semibold text-[#faf6f0]/45">
+                  AI projection
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2.5">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
+                  Diversification
+                </p>
+                <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em] text-[#faf6f0]">
+                  {portfolio.diversificationScore}
+                  <span className="text-[12px] font-bold text-[#faf6f0]/45">
+                    /100
+                  </span>
+                </p>
+                <p className="text-[10px] font-semibold text-[#faf6f0]/45">
+                  {portfolio.diversificationScore >= 75
+                    ? "Excellent"
+                    : portfolio.diversificationScore >= 60
+                      ? "Strong"
+                      : portfolio.diversificationScore >= 45
+                        ? "Moderate"
+                        : "Concentrated"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Sector breakdown bar */}
-        <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+        {/* ✦ AI Strategy Narrative */}
+        <div className="rounded-2xl border border-[#ddb159]/30 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            Sector Allocation
+            ✦ AI Investment Strategy
+          </p>
+          <p className="mt-2 text-[13px] font-medium leading-relaxed text-[#072116]/85">
+            {portfolio.strategy}
           </p>
 
+          <div className="mt-3 rounded-lg border border-[#072116]/10 bg-white/60 p-3">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+              Risk Assessment
+            </p>
+            <p className="mt-1 text-[12px] font-medium leading-relaxed text-[#072116]/75">
+              {portfolio.riskAssessment}
+            </p>
+          </div>
+        </div>
+
+        {/* ✦ Sector Allocation with AI Reasoning */}
+        <div className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+            ✦ AI Sector Allocation
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
+            Why each sector is weighted this way
+          </p>
+
+          {/* Visual bar */}
           <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-[#072116]/8">
             {portfolio.sectorBreakdown.map((s) => (
               <div
@@ -107,26 +201,50 @@ export function PortfolioBuilder() {
             ))}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-3">
-            {portfolio.sectorBreakdown.map((s) => (
-              <div
-                key={s.sector}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-[#072116]/75"
-              >
-                <span
-                  className="inline-block size-2.5 rounded-sm"
-                  style={{ backgroundColor: colorFor(s.sector) }}
-                />
-                {s.sector} · {s.pct}%
-              </div>
-            ))}
+          {/* Sector cards with reasoning */}
+          <div className="mt-4 grid gap-2">
+            {portfolio.sectorBreakdown.map((s) => {
+              const role = roleColor(s.role);
+              return (
+                <div
+                  key={s.sector}
+                  className="rounded-xl border border-[#072116]/8 bg-white/70 p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="inline-block size-3 shrink-0 rounded-sm"
+                        style={{ backgroundColor: colorFor(s.sector) }}
+                      />
+                      <p className="truncate text-[13px] font-black tracking-[-0.02em]">
+                        {s.sector}
+                      </p>
+                      <span
+                        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider ${role.bg} ${role.text} ${role.border}`}
+                      >
+                        {s.role}
+                      </span>
+                    </div>
+                    <p className="shrink-0 text-[15px] font-black tabular-nums">
+                      {s.pct}%
+                    </p>
+                  </div>
+                  <p className="mt-1.5 text-[11px] font-medium leading-relaxed text-[#072116]/65">
+                    {s.rationale}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Holdings */}
-        <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+        {/* ✦ Holdings with AI reasoning */}
+        <div className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            Holdings
+            ✦ AI Stock Picks
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">
+            Sorted by allocation · click any stock for full AI analysis
           </p>
 
           <div className="mt-3 grid gap-2">
@@ -136,7 +254,6 @@ export function PortfolioBuilder() {
                 href={`/stock/${h.ticker}`}
                 className="group flex items-center gap-4 rounded-xl border border-[#072116]/8 bg-white px-4 py-3 transition hover:border-[#ddb159] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
               >
-                {/* Ticker block */}
                 <div className="w-16 shrink-0">
                   <p className="text-[16px] font-black tracking-[-0.02em] text-[#072116] group-hover:text-[#0b2b1d]">
                     {h.ticker}
@@ -146,7 +263,6 @@ export function PortfolioBuilder() {
                   </p>
                 </div>
 
-                {/* Company + sector */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-bold">{h.company}</p>
                   <div className="mt-0.5 flex items-center gap-2">
@@ -163,7 +279,6 @@ export function PortfolioBuilder() {
                   </p>
                 </div>
 
-                {/* Allocation */}
                 <div className="w-24 shrink-0 text-right">
                   <p className="text-[16px] font-black tracking-[-0.02em]">
                     {h.allocationPct}%
@@ -176,7 +291,6 @@ export function PortfolioBuilder() {
                   </p>
                 </div>
 
-                {/* AI score */}
                 <div className="w-16 shrink-0 text-right">
                   <span className="inline-flex min-w-[60px] justify-center rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
                     {h.score.toLocaleString()}
@@ -213,9 +327,9 @@ export function PortfolioBuilder() {
             Build a portfolio in 30 seconds.
           </h1>
           <p className="mt-2 max-w-xl text-[14px] font-medium text-[#faf6f0]/60">
-            Tell us your goals — our AI will generate a diversified S&P 500
-            portfolio with allocations, suggested entry, and reasoning for each
-            stock.
+            Tell us your goals — our AI generates a fully diversified S&P 500
+            portfolio with allocations, AI trade plans, and reasoning for every
+            stock pick.
           </p>
         </div>
       </div>
@@ -280,17 +394,17 @@ export function PortfolioBuilder() {
               {
                 key: "short" as const,
                 label: "3–5 years",
-                desc: "Short-term",
+                desc: "8 holdings",
               },
               {
                 key: "medium" as const,
                 label: "5–10 years",
-                desc: "Medium-term",
+                desc: "11 holdings",
               },
               {
                 key: "long" as const,
                 label: "10+ years",
-                desc: "Long-term",
+                desc: "15 holdings",
               },
             ].map((opt) => {
               const isSelected = horizon === opt.key;
@@ -358,14 +472,12 @@ export function PortfolioBuilder() {
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700">
             {error}
           </p>
         )}
 
-        {/* Submit */}
         <button
           type="button"
           onClick={handleGenerate}
@@ -378,11 +490,7 @@ export function PortfolioBuilder() {
         >
           {isPending ? (
             <>
-              <svg
-                className="size-4 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
+              <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle
                   cx="12"
                   cy="12"
@@ -393,11 +501,11 @@ export function PortfolioBuilder() {
                   strokeLinecap="round"
                 />
               </svg>
-              Generating your portfolio…
+              AI is building your portfolio…
             </>
           ) : (
             <>
-              ✦ Generate My Portfolio
+              ✦ Generate AI Portfolio
               <span>→</span>
             </>
           )}
