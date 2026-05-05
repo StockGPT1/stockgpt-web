@@ -20,6 +20,12 @@ type RankMove = {
   title: string;
 };
 
+type RankingsSearchParams = {
+  q?: string;
+  sector?: string;
+  move?: string;
+};
+
 function formatPrice(value: Ranking["price"]) {
   const n = Number(value);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
@@ -27,10 +33,13 @@ function formatPrice(value: Ranking["price"]) {
 
 function formatScore(value: Ranking["score"]) {
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString() : "—";
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-function getRankMove(currentRank: number | null, previousRank: number | null): RankMove {
+function getRankMove(
+  currentRank: number | null,
+  previousRank: number | null,
+): RankMove {
   if (currentRank == null || previousRank == null) {
     return {
       label: "—",
@@ -82,7 +91,25 @@ function moveClassName(tone: RankMove["tone"]) {
   return "border-[#072116]/8 bg-transparent text-[#072116]/35";
 }
 
-export default async function RankingsPage() {
+function matchesMoveFilter(stock: Ranking, moveFilter: string) {
+  if (!moveFilter || moveFilter === "all") return true;
+
+  const move = getRankMove(stock.rank, stock.previous_rank);
+
+  return move.tone === moveFilter;
+}
+
+export default async function RankingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<RankingsSearchParams>;
+}) {
+  const params = searchParams ? await searchParams : {};
+
+  const q = (params.q ?? "").trim().toLowerCase();
+  const sectorFilter = params.sector ?? "all";
+  const moveFilter = params.move ?? "all";
+
   const supabase = await createClient();
 
   const {
@@ -97,15 +124,33 @@ export default async function RankingsPage() {
     .order("rank", { ascending: true })
     .limit(hasAccess ? 500 : 10);
 
-  const rankings = (rankingsData ?? []) as Ranking[];
+  const allRankings = (rankingsData ?? []) as Ranking[];
+
+  const sectors = Array.from(
+    new Set(
+      allRankings
+        .map((stock) => stock.sector)
+        .filter((sector): sector is string => Boolean(sector)),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const rankings = allRankings.filter((stock) => {
+    const searchable = `${stock.ticker ?? ""} ${stock.company ?? ""}`.toLowerCase();
+    const matchesSearch = !q || searchable.includes(q);
+    const matchesSector =
+      sectorFilter === "all" || stock.sector === sectorFilter;
+    const matchesMove = matchesMoveFilter(stock, moveFilter);
+
+    return matchesSearch && matchesSector && matchesMove;
+  });
 
   const gridCols =
-    "grid-cols-[58px_76px_108px_minmax(0,1fr)_150px_100px_100px]";
+    "grid-cols-[58px_76px_108px_minmax(0,1fr)_150px_100px_108px]";
 
   return (
     <AppShell activePath="/rankings">
       <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-        <div className="flex shrink-0 items-end justify-between">
+        <div className="flex shrink-0 items-end justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-black tracking-[-0.03em] text-[#faf6f0]">
               Stock Rankings
@@ -113,7 +158,7 @@ export default async function RankingsPage() {
 
             <p className="mt-0.5 text-[13px] font-medium text-[#faf6f0]/50">
               {hasAccess
-                ? `${rankings.length} stocks ranked by AI score · click any row for full analysis`
+                ? `${rankings.length} stocks shown · ${allRankings.length} available`
                 : "Top 10 preview — sign in for full access"}
             </p>
           </div>
@@ -128,6 +173,56 @@ export default async function RankingsPage() {
             </Link>
           )}
         </div>
+
+        <form className="grid shrink-0 grid-cols-[minmax(0,1fr)_170px_140px_auto] gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f] p-2">
+          <input
+            name="q"
+            defaultValue={params.q ?? ""}
+            placeholder="Filter by ticker or company..."
+            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/60"
+          />
+
+          <select
+            name="sector"
+            defaultValue={sectorFilter}
+            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+          >
+            <option value="all">All sectors</option>
+            {sectors.map((sector) => (
+              <option key={sector} value={sector}>
+                {sector}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="move"
+            defaultValue={moveFilter}
+            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+          >
+            <option value="all">All moves</option>
+            <option value="up">Moved up</option>
+            <option value="down">Moved down</option>
+            <option value="flat">No change</option>
+            <option value="none">No previous data</option>
+          </select>
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="h-10 rounded-xl bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] transition hover:brightness-105"
+            >
+              Filter
+            </button>
+
+            <Link
+              href="/rankings"
+              className="grid h-10 place-items-center rounded-xl border border-[#ddb159]/20 px-4 text-[12px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/10"
+            >
+              Clear
+            </Link>
+          </div>
+        </form>
 
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
           <div
@@ -157,81 +252,90 @@ export default async function RankingsPage() {
           </div>
 
           <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
-            {rankings.map((stock) => {
-              const move = getRankMove(stock.rank, stock.previous_rank);
+            {rankings.length > 0 ? (
+              rankings.map((stock) => {
+                const move = getRankMove(stock.rank, stock.previous_rank);
 
-              return (
-                <Link
-                  key={stock.id}
-                  href={`/stock/${stock.ticker}`}
-                  style={{ color: "#072116" }}
-                  className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition hover:bg-[#ddb159]/8`}
-                >
-                  <div
-                    className="px-4 py-2.5 font-bold"
-                    style={{ color: "rgba(7,33,22,0.7)" }}
-                  >
-                    {stock.rank ?? "—"}
-                  </div>
-
-                  <div className="px-4 py-2.5">
-                    <span
-                      title={move.title}
-                      className={[
-                        "inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
-                        moveClassName(move.tone),
-                      ].join(" ")}
-                    >
-                      {move.label}
-                    </span>
-                  </div>
-
-                  <div
-                    className="flex items-center gap-2 px-4 py-2.5 font-black"
+                return (
+                  <Link
+                    key={stock.id}
+                    href={`/stock/${stock.ticker}`}
                     style={{ color: "#072116" }}
+                    className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition hover:bg-[#ddb159]/8`}
                   >
-                    <StockLogo
-                      ticker={stock.ticker}
-                      company={stock.company}
-                      size={22}
-                    />
-                    <span>{stock.ticker ?? "—"}</span>
-                  </div>
-
-                  <div
-                    className="truncate px-4 py-2.5 font-semibold"
-                    style={{ color: "#072116" }}
-                  >
-                    {stock.company ?? "—"}
-                  </div>
-
-                  <div className="px-4 py-2.5">
-                    <span
-                      className="inline-flex max-w-full truncate rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold"
-                      style={{ color: "rgba(7,33,22,0.6)" }}
+                    <div
+                      className="px-4 py-2.5 font-bold"
+                      style={{ color: "rgba(7,33,22,0.7)" }}
                     >
-                      {stock.sector ?? "—"}
-                    </span>
-                  </div>
+                      {stock.rank ?? "—"}
+                    </div>
 
-                  <div
-                    className="px-4 py-2.5 font-semibold tabular-nums"
-                    style={{ color: "#072116" }}
-                  >
-                    {formatPrice(stock.price)}
-                  </div>
+                    <div className="px-4 py-2.5">
+                      <span
+                        title={move.title}
+                        className={[
+                          "inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
+                          moveClassName(move.tone),
+                        ].join(" ")}
+                      >
+                        {move.label}
+                      </span>
+                    </div>
 
-                  <div className="px-4 py-2.5">
-                    <span
-                      className="inline-flex min-w-[60px] justify-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
-                      style={{ backgroundColor: "#ddb159", color: "#072116" }}
+                    <div
+                      className="flex items-center gap-2 px-4 py-2.5 font-black"
+                      style={{ color: "#072116" }}
                     >
-                      {formatScore(stock.score)}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+                      <StockLogo
+                        ticker={stock.ticker}
+                        company={stock.company}
+                        size={22}
+                      />
+                      <span>{stock.ticker ?? "—"}</span>
+                    </div>
+
+                    <div
+                      className="truncate px-4 py-2.5 font-semibold"
+                      style={{ color: "#072116" }}
+                    >
+                      {stock.company ?? "—"}
+                    </div>
+
+                    <div className="px-4 py-2.5">
+                      <span
+                        className="inline-flex max-w-full truncate rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold"
+                        style={{ color: "rgba(7,33,22,0.6)" }}
+                      >
+                        {stock.sector ?? "—"}
+                      </span>
+                    </div>
+
+                    <div
+                      className="px-4 py-2.5 font-semibold tabular-nums"
+                      style={{ color: "#072116" }}
+                    >
+                      {formatPrice(stock.price)}
+                    </div>
+
+                    <div className="px-4 py-2.5">
+                      <span
+                        className="inline-flex min-w-[68px] justify-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
+                        style={{ backgroundColor: "#ddb159", color: "#072116" }}
+                      >
+                        {formatScore(stock.score)}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              <div
+                className="px-4 py-10 text-center text-[13px] font-bold"
+                style={{ color: "rgba(7,33,22,0.55)" }}
+              >
+                No stocks match those filters.
+              </div>
+            )}
           </div>
         </div>
       </main>
