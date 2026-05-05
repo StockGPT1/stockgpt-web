@@ -31,7 +31,7 @@ function formatPrice(value: Ranking["price"]) {
 
 function formatScore(value: Ranking["score"]) {
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString() : "—";
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
 function formatUpdatedTime(value?: string | null) {
@@ -43,7 +43,10 @@ function formatUpdatedTime(value?: string | null) {
   });
 }
 
-function getRankMove(currentRank: number | null, previousRank: number | null): RankMove {
+function getRankMove(
+  currentRank: number | null,
+  previousRank: number | null,
+): RankMove {
   if (currentRank == null || previousRank == null) {
     return {
       label: "—",
@@ -140,7 +143,7 @@ export default async function Home() {
           : "Weak market";
 
   const dashboardRankingsGrid =
-    "grid-cols-[34px_52px_96px_minmax(0,1fr)_112px_76px_70px]";
+    "grid-cols-[34px_52px_92px_minmax(0,1fr)_112px_76px_78px]";
 
   const moversToShow = [
     ...movers.gainers.slice(0, 2),
@@ -293,7 +296,7 @@ export default async function Home() {
 
                           <div className="flex justify-end px-2">
                             <span
-                              className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
+                              className="inline-flex min-w-[58px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
                               style={{
                                 backgroundColor: "#ddb159",
                                 color: "#072116",
@@ -318,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[minmax(0,0.9fr)_minmax(0,0.88fr)_168px] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[205px_180px_minmax(180px,1fr)] gap-2 overflow-hidden">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -335,12 +338,12 @@ export default async function Home() {
                 </p>
               </div>
 
-              <div className="mt-2">
+              <div className="mt-1.5">
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={96}
+                  height={86}
                 />
               </div>
             </div>
@@ -363,7 +366,7 @@ export default async function Home() {
 
               <div className="mt-2 grid min-h-0 gap-1.5 overflow-hidden">
                 {moversToShow.length > 0 ? (
-                  moversToShow.map((m) => {
+                  moversToShow.slice(0, 3).map((m) => {
                     const isUp = m.changePct >= 0;
 
                     return (
@@ -498,17 +501,17 @@ function PortfolioPromoCard() {
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-2 line-clamp-2 min-h-[28px] text-[10px] font-medium leading-snug text-[#faf6f0]/65">
+        <p className="mt-2 min-h-[30px] text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
 
         <div className="mt-auto flex shrink-0 items-center justify-between gap-3 pt-3">
-          <p className="text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+          <p className="pb-0.5 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
 
-          <div className="flex items-end gap-1">
+          <div className="flex items-end gap-1 pb-0.5">
             <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4" />
             <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6" />
             <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8" />
