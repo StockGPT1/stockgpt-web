@@ -6,7 +6,7 @@ import { WatchlistToggle } from "@/components/WatchlistToggle";
 import { StockChart } from "@/components/StockChart";
 import { calculateTradeLevels } from "@/lib/trading-levels";
 import { createClient } from "@/utils/supabase/server";
-import { getStockChart } from "@/lib/yahoo";
+import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 
 type Stock = {
   id: string | number;
@@ -36,15 +36,21 @@ export default async function StockDetailPage({
   if (!stockData) notFound();
   const stock = stockData as Stock;
 
-  // Fetch in parallel
+  // ✦ Fetch chart FIRST so we can use its price as the canonical value
+  const chartData = await getStockChart(ticker, ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]);
+
+  // ✦ Single source of truth: Yahoo's most recent close from chart data
+  // Falls back to Supabase price if Yahoo is unavailable
+  const livePrice = getLatestPriceFromChart(chartData) ?? Number(stock.price) || 0;
+
   const { data: { user } } = await supabase.auth.getUser();
   const isAuthenticated = !!user;
 
-  const [chartData, tradeLevels, watchlistEntry, sectorPeers] = await Promise.all([
-    getStockChart(ticker, ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]),
+  const [tradeLevels, watchlistEntry, sectorPeers] = await Promise.all([
+    // ✦ Pass livePrice so trade levels match what's displayed
     calculateTradeLevels({
       ticker,
-      price: Number(stock.price) || 0,
+      price: livePrice,
       score: Number(stock.score) || 0,
       rank: Number(stock.rank) || null,
       sector: stock.sector ?? null,
@@ -107,8 +113,9 @@ export default async function StockDetailPage({
                   <p className="text-[16px] font-bold text-[#faf6f0]/70">{stock.company ?? "—"}</p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {/* ✦ Now using livePrice from same source as chart */}
                   <p className="text-[26px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
-                    ${Number(stock.price).toFixed(2)}
+                    ${livePrice.toFixed(2)}
                   </p>
                   <span
                     className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
@@ -144,7 +151,7 @@ export default async function StockDetailPage({
             </div>
           </div>
 
-          {/* TRADE SETUP + PEERS — 2 col on desktop, 1 on mobile */}
+          {/* TRADE SETUP + PEERS */}
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
             {tradeLevels && <TradeSetupCard levels={tradeLevels} />}
 
