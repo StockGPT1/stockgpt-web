@@ -102,29 +102,29 @@ export default async function Home() {
             {/* ✦ Chart + Top Movers side-by-side on the LEFT */}
             <div className="grid gap-3 sm:grid-cols-2">
               {/* S&P 500 chart */}
-              <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 backdrop-blur">
+              <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-2.5 backdrop-blur">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
                   ✦ Market Overview
                 </p>
                 <h3 className="mt-0.5 text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
                   S&amp;P 500
                 </h3>
-                <div className="mt-2">
+                <div className="mt-1.5">
                   <StockChart
                     ticker="S&P 500"
                     data={sp500Data}
                     initialRange="6M"
-                    height={140}
+                    height={118}
                   />
                 </div>
               </div>
 
               {/* Top Movers */}
-              <div className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+              <div className="rounded-2xl bg-[#faf6f0] p-2.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "rgba(7,33,22,0.55)" }}>
                   ✦ Top Movers · 5d
                 </p>
-                <div className="mt-2 grid gap-1.5">
+                <div className="mt-1.5 grid gap-1">
                   {moversToShow.length > 0 ? (
                     moversToShow.map((m) => {
                       const isUp = m.changePct >= 0;
@@ -132,7 +132,7 @@ export default async function Home() {
                         <Link
                           key={m.ticker}
                           href={`/stock/${m.ticker}`}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1 transition hover:border-[#ddb159]"
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className={`inline-block size-1.5 shrink-0 rounded-full ${isUp ? "bg-emerald-500" : "bg-red-500"}`} />
@@ -152,7 +152,7 @@ export default async function Home() {
                       );
                     })
                   ) : (
-                    <p className="py-3 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
+                    <p className="py-2 text-center text-[11px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>
                       Loading movers...
                     </p>
                   )}
