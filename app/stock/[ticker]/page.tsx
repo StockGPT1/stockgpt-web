@@ -41,7 +41,7 @@ export default async function StockDetailPage({
 
   // ✦ Single source of truth: Yahoo's most recent close from chart data
   // Falls back to Supabase price if Yahoo is unavailable
-  const livePrice = getLatestPriceFromChart(chartData) ?? Number(stock.price) || 0;
+  const livePrice = getLatestPriceFromChart(chartData) ?? (Number(stock.price) || 0);
 
   const { data: { user } } = await supabase.auth.getUser();
   const isAuthenticated = !!user;
