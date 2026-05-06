@@ -5,6 +5,11 @@ import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart } from "@/components/StockChart";
 import { createClient } from "@/utils/supabase/server";
 import { getSP500Chart, getTopMovers } from "@/lib/yahoo";
+import {
+  getRankMove24h,
+  getRankSnapshotMapAround24hAgo,
+  moveClassName,
+} from "@/lib/rank-history";
 
 type Ranking = {
   id: string | number;
@@ -114,9 +119,10 @@ export default async function Home() {
     .map((r) => r.ticker)
     .filter((t): t is string => !!t);
 
-  const [sp500Data, movers] = await Promise.all([
+  const [sp500Data, movers, snapshotMap] = await Promise.all([
     getSP500Chart(["1M", "6M", "1Y", "5Y"]),
     getTopMovers(tickerList, 4),
+    getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
   const { count: totalCount } = await supabase
@@ -306,7 +312,10 @@ export default async function Home() {
                 <div className="min-h-0 flex-1 overflow-hidden">
                   {rankings.length > 0 ? (
                     rankings.map((stock) => {
-                      const move = getRankMove(stock.rank, stock.previous_rank);
+                      const move = getRankMove24h(
+                        stock.rank,
+                        snapshotMap.get(stock.ticker ?? ""),
+                      );
 
                       return (
                         <Link
