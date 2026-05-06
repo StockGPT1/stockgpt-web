@@ -276,7 +276,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
               </span>
             )}
           </p>
-          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Top {Math.max(1, 100 - holding.scorePercentile)}% of stocks</p>
+          <p className="mt-1 text-[10px] font-semibold" style={{ color: "rgba(7,33,22,0.5)" }}>Top {Math.max(1, 100 - holding.rankPercentile)}% of stocks</p>
         </div>
       </div>
 
