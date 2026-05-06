@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { createClient } from "@/utils/supabase/server";
+import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -24,23 +25,48 @@ type RankingsSearchParams = {
   move?: string;
 };
 
-function formatPrice(value: Ranking["price"]) {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-
+function hasValidPrice(value: Ranking["price"]) {
   const n = Number(value);
+  return Number.isFinite(n) && n > 0;
+}
 
-  if (!Number.isFinite(n) || n <= 0) {
-    return "—";
-  }
-
-  return `$${n.toFixed(2)}`;
+function formatPrice(value: Ranking["price"]) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? `$${n.toFixed(2)}` : "—";
 }
 
 function formatScore(value: Ranking["score"]) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+}
+
+async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
+  if (hasValidPrice(stock.price)) {
+    return stock;
+  }
+
+  if (!stock.ticker) {
+    return stock;
+  }
+
+  const chartData = await getStockChart(stock.ticker, [
+    "1D",
+    "5D",
+    "1M",
+    "6M",
+    "1Y",
+  ]);
+
+  const livePrice = getLatestPriceFromChart(chartData);
+
+  if (!livePrice || !Number.isFinite(livePrice) || livePrice <= 0) {
+    return stock;
+  }
+
+  return {
+    ...stock,
+    price: livePrice,
+  };
 }
 
 function matchesMoveFilter(
@@ -84,7 +110,11 @@ export default async function RankingsPage({
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
-  const allRankings = (rankingsData ?? []) as Ranking[];
+  const rawRankings = (rankingsData ?? []) as Ranking[];
+
+  const allRankings = await Promise.all(
+    rawRankings.map((stock) => attachLivePriceIfMissing(stock)),
+  );
 
   const sectors = Array.from(
     new Set(
