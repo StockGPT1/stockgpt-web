@@ -1,0 +1,83 @@
+name: Patch Trading Level Wording
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Patch trading-level stop reason wording
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/trading-levels.ts')
+          text = path.read_text()
+
+          old_level = '''  const levelDesc = technical.source === "technical"
+    ? technical.support
+      ? `with risk invalidated below support near $${technical.support.toFixed(2)}`
+      : technical.ma50
+        ? `with risk invalidated below the 50-day area near $${technical.ma50.toFixed(2)}`
+        : "with technical levels checked but no clean nearby support found"
+    : "using fallback percentage levels because chart structure was unavailable";
+'''
+          new_level = '''  const stopNearSupport = technical.support
+    ? Math.abs(stopLoss - technical.support) / stopLoss <= 0.08
+    : false;
+  const stopNearMa50 = technical.ma50
+    ? Math.abs(stopLoss - technical.ma50) / stopLoss <= 0.08
+    : false;
+
+  const levelDesc = technical.source === "technical"
+    ? stopNearSupport && technical.support
+      ? `with risk invalidated just below support near $${technical.support.toFixed(2)}`
+      : stopNearMa50 && technical.ma50
+        ? `with risk invalidated around the 50-day area near $${technical.ma50.toFixed(2)}`
+        : technical.support
+          ? `using a medium-term volatility/invalidation stop; deeper structural support is around $${technical.support.toFixed(2)}`
+          : "using a medium-term volatility/invalidation stop because no clean nearby support was found"
+    : "using fallback percentage levels because chart structure was unavailable";
+'''
+
+          old_stop = '''  const stopReason = technical.support
+    ? `below support around $${technical.support.toFixed(2)}`
+    : technical.ma50
+      ? `below the 50-day area around $${technical.ma50.toFixed(2)}`
+      : "using volatility fallback because no clean support was detected";
+'''
+          new_stop = '''  const stopReason = stopNearSupport && technical.support
+    ? `just below support around $${technical.support.toFixed(2)}`
+    : stopNearMa50 && technical.ma50
+      ? `around the 50-day area near $${technical.ma50.toFixed(2)}`
+      : technical.support
+        ? `medium-term volatility/invalidation stop; deeper support is around $${technical.support.toFixed(2)}`
+        : technical.ma50
+          ? `medium-term volatility/invalidation stop; 50-day area is around $${technical.ma50.toFixed(2)}`
+          : "medium-term volatility fallback because no clean support was detected";
+'''
+
+          if old_level not in text:
+            raise SystemExit('levelDesc block not found')
+          if old_stop not in text:
+            raise SystemExit('stopReason block not found')
+
+          text = text.replace(old_level, new_level)
+          text = text.replace(old_stop, new_stop)
+          path.write_text(text)
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/trading-levels.ts
+          git commit -m "Fix trade level support wording"
+          git push
