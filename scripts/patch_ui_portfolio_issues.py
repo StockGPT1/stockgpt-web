@@ -17,7 +17,13 @@ def patch_portfolio_alerts():
   const triggers: HoldingTrigger[] = [];
   const now = new Date();
 
-  const conviction = p.scorePercentile; // rank-based: 100 = best, 0 = worst
+  // Rank is the source of truth. A #1 stock must always receive more room than a #100 stock,
+  // unless the user has an extreme concentration problem.
+  const rankConviction = p.rank && p.totalStocks
+    ? Math.max(0, Math.round(100 - ((p.rank - 1) / p.totalStocks) * 100))
+    : p.scorePercentile;
+  const conviction = rankConviction; // 100 = best, 0 = worst
+
   const isElite = conviction >= 90;
   const isStrong = conviction >= 75;
   const isHealthy = conviction >= 55;
@@ -32,49 +38,52 @@ def patch_portfolio_alerts():
 
   const clampPct = (value: number, min: number, max: number) =>
     Math.min(max, Math.max(min, value));
-
   const priceAt = (price: number, pct: number) => price * (1 + pct / 100);
   const money = (price: number) => `$${price.toFixed(2)}`;
 
   const sectorAdjustment =
-    p.sectorMomentum === "Booming" ? 1.5 :
+    p.sectorMomentum === "Booming" ? 2 :
     p.sectorMomentum === "Strong" ? 1 :
-    p.sectorMomentum === "Struggling" ? -2 :
-    p.sectorMomentum === "Weak" ? -1 :
+    p.sectorMomentum === "Struggling" ? -1.5 :
+    p.sectorMomentum === "Weak" ? -0.75 :
     0;
 
-  const concentrationAdjustment = isVeryLarge ? -3 : isLarge ? -1.5 : isSmall ? 1 : 0;
+  const concentrationAdjustment = isVeryLarge ? -2 : isLarge ? -1 : isSmall ? 0.5 : 0;
 
-  const baseRoomPct = isElite ? 14 : isStrong ? 12 : isHealthy ? 9 : 7;
+  const baseStopRoomPct = isElite ? 15 : isStrong ? 12 : isHealthy ? 9 : 6;
+  const minimumStopRoomPct = isElite ? 11 : isStrong ? 9 : isHealthy ? 7 : 4.5;
+  const maximumStopRoomPct = isElite ? 18 : isStrong ? 15 : isHealthy ? 12 : 8;
+
   const stopRoomPct = clampPct(
-    baseRoomPct + sectorAdjustment + concentrationAdjustment + (isRecentlyAdded ? 1 : 0),
-    isWeak ? 4.5 : 6,
-    isElite ? 17 : 13,
+    baseStopRoomPct + sectorAdjustment + concentrationAdjustment + (isRecentlyAdded ? 1 : 0),
+    minimumStopRoomPct,
+    maximumStopRoomPct,
   );
 
   const trailingRoomPct = clampPct(
-    (isElite ? 15 : isStrong ? 12 : isHealthy ? 9 : 6)
+    (isElite ? 16 : isStrong ? 13 : isHealthy ? 10 : 6)
       + sectorAdjustment
       + concentrationAdjustment
-      + (p.pnlPercent >= 75 ? -2 : 0),
-    5,
-    16,
+      + (p.pnlPercent >= 100 ? -2 : p.pnlPercent >= 60 ? -1 : 0),
+    isElite ? 12 : isStrong ? 9 : 5,
+    isElite ? 18 : isStrong ? 15 : 11,
   );
 
   const upsideTargetPct = clampPct(
-    (isElite ? 38 : isStrong ? 28 : isHealthy ? 18 : 10)
-      + (p.sectorMomentum === "Booming" ? 5 : 0)
+    (isElite ? 40 : isStrong ? 30 : isHealthy ? 20 : 10)
+      + (p.sectorMomentum === "Booming" ? 6 : 0)
       + (scoreChangePct > 0.12 ? 5 : 0)
-      - (isVeryLarge ? 8 : isLarge ? 4 : 0),
+      - (isVeryLarge ? 6 : isLarge ? 3 : 0),
     8,
-    48,
+    55,
   );
 
   // ══════════════════════════════════════════════════════
   // OVERRIDE: weak AI signal means preservation beats target-setting.
   // ══════════════════════════════════════════════════════
   if (isWeak || (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85)) {
-    const exitStop = priceAt(p.currentPrice, -5);
+    const exitStopPct = conviction < 20 ? 4 : 5.5;
+    const exitStop = priceAt(p.currentPrice, -exitStopPct);
     const reliefTarget = p.pnlPercent < 0
       ? Math.min(p.entryPrice, priceAt(p.currentPrice, 8))
       : priceAt(p.currentPrice, 6);
@@ -86,7 +95,7 @@ def patch_portfolio_alerts():
     });
     triggers.push({
       type: "stop_sell", icon: "shield", tone: "negative", priority: 2,
-      condition: `If ${p.ticker} falls to ${money(exitStop)} (-5% from current)`,
+      condition: `If ${p.ticker} falls to ${money(exitStop)} (-${exitStopPct.toFixed(1)}% from current)`,
       action: `Sell the position. Weak AI rank means downside protection matters more than giving it room.`,
     });
     triggers.push({
@@ -99,79 +108,76 @@ def patch_portfolio_alerts():
 
   // ══════════════════════════════════════════════════════
   // 1. DOWNSIDE / STOP LOGIC
+  // Stop width now follows rank hierarchy first. P&L changes whether it is described as
+  // a stop or trailing stop, but it cannot make an elite stock tighter than a healthy stock.
   // ══════════════════════════════════════════════════════
-  if (p.pnlPercent >= 60) {
+  if (p.pnlPercent >= 20) {
     const trailingStop = priceAt(p.currentPrice, -trailingRoomPct);
     triggers.push({
       type: "trailing_stop", icon: "shield", tone: "negative", priority: 1,
       condition: `If ${p.ticker} drops to ${money(trailingStop)} (-${trailingRoomPct.toFixed(0)}% from current)`,
-      action: isElite || isStrong
-        ? `Let the winner run, but protect the gain. Sell 25–50% only if the trailing stop breaks or AI rank weakens.`
-        : `Sell at least half. Big gains with only average conviction should be protected.`,
-    });
-  } else if (p.pnlPercent >= 20) {
-    const trailingStop = priceAt(p.currentPrice, -trailingRoomPct);
-    triggers.push({
-      type: "trailing_stop", icon: "shield", tone: "negative", priority: 1,
-      condition: `If ${p.ticker} drops to ${money(trailingStop)} (-${trailingRoomPct.toFixed(0)}% from current)`,
-      action: isStrong
-        ? `Hold unless the trailing stop breaks. Strong AI rank justifies giving the trade room.`
-        : `Trim 25–33% if this breaks. Protect a profitable but not elite setup.`,
+      action: isElite
+        ? `Elite rank: give it room and let it compound. Only trim if this trailing stop breaks or the AI rank deteriorates.`
+        : isStrong
+          ? `Strong rank: hold unless the trailing stop breaks. Do not sell purely because it is up.`
+          : `Protect the profit. Trim 25–33% if this breaks.`,
     });
   } else if (p.pnlPercent <= -12) {
-    const lossStopPct = isStrong ? 7 : 5;
+    const lossStopPct = stopRoomPct;
     const stopPrice = priceAt(p.currentPrice, -lossStopPct);
     triggers.push({
       type: "stop_sell", icon: "shield", tone: "negative", priority: 1,
-      condition: `If ${p.ticker} falls to ${money(stopPrice)} (-${lossStopPct}% from current)`,
-      action: isStrong
-        ? `Cut only if it keeps breaking down. AI rank is still strong, so avoid panic-selling the first drawdown.`
-        : `Sell. A losing position without strong conviction should not be allowed to grow into a portfolio problem.`,
+      condition: `If ${p.ticker} falls to ${money(stopPrice)} (-${lossStopPct.toFixed(0)}% from current)`,
+      action: isElite || isStrong
+        ? `AI rank is still strong, so avoid panic-selling. Break below this level suggests the drawdown is no longer normal noise.`
+        : `Sell. A losing position without high conviction should not be allowed to become a portfolio problem.`,
     });
   } else {
     const entryStop = priceAt(p.entryPrice, -stopRoomPct);
-    const currentStop = priceAt(p.currentPrice, -Math.min(stopRoomPct, 8));
+    const currentStop = priceAt(p.currentPrice, -stopRoomPct);
     const stopPrice = p.currentPrice > p.entryPrice
       ? Math.max(entryStop, currentStop)
       : Math.min(entryStop, currentStop);
 
     triggers.push({
       type: "stop_sell", icon: "shield", tone: "negative", priority: 1,
-      condition: `If ${p.ticker} falls to ${money(stopPrice)} (${stopRoomPct.toFixed(0)}% risk room)`,
-      action: isStrong
-        ? `Use this as a thesis-break level, not a panic button. Strong rank gets more room; break below this means reassess and cut.`
-        : `Sell or cut heavily. Average-ranked positions should not be given unlimited downside.`,
+      condition: `If ${p.ticker} falls to ${money(stopPrice)} (-${stopRoomPct.toFixed(0)}% risk room)`,
+      action: isElite
+        ? `Elite rank gets wider room. This is a thesis-break level, not a tight trading stop.`
+        : isStrong
+          ? `Strong rank gets reasonable room. Break below this means reassess and cut if the rank also weakens.`
+          : `Average-ranked positions should not be given unlimited downside.`,
     });
   }
 
   // ══════════════════════════════════════════════════════
   // 2. UPSIDE / TAKE-PROFIT LOGIC
   // ══════════════════════════════════════════════════════
-  if (isElite && p.pnlPercent < 75) {
+  if (isElite && p.pnlPercent < 100) {
     const target = priceAt(p.currentPrice, upsideTargetPct);
     triggers.push({
       type: "take_profit", icon: "target", tone: "positive", priority: 2,
       condition: `If ${p.ticker} reaches ${money(target)} (+${upsideTargetPct.toFixed(0)}% from current)`,
       action: isVeryLarge
-        ? `Trim 15–25% only because position size is high. Otherwise let the elite-ranked stock compound.`
-        : `Do not fully sell. For elite-ranked stocks, take only a small trim or keep riding with the trailing stop.`,
+        ? `Trim 15–25% only because the position is oversized. Otherwise keep a core position while it remains elite-ranked.`
+        : `Do not fully sell. Elite-ranked stocks should compound; use the trailing stop rather than a hard upside cap.`,
     });
-  } else if (isStrong && p.pnlPercent < 50) {
+  } else if (isStrong && p.pnlPercent < 75) {
     const target = priceAt(p.currentPrice, upsideTargetPct);
     triggers.push({
       type: "take_profit", icon: "target", tone: "positive", priority: 2,
       condition: `If ${p.ticker} reaches ${money(target)} (+${upsideTargetPct.toFixed(0)}% from current)`,
       action: isLarge
         ? `Trim 20–30% and keep the rest. Strong AI rank means avoid selling the whole winner.`
-        : `Take a partial profit only. Hold the core while rank remains top quartile.`,
+        : `Take only a partial profit. Hold the core while rank remains top quartile.`,
     });
-  } else if (p.pnlPercent >= 75) {
+  } else if (p.pnlPercent >= 100) {
     triggers.push({
       type: "take_profit", icon: "target", tone: "positive", priority: 2,
       condition: `${p.ticker} is already up ${p.pnlPercent.toFixed(0)}%`,
       action: isElite || isStrong
-        ? `No hard upside cap. Keep a core position and let it run; only trim 20–25% if it becomes oversized.`
-        : `Bank 33–50%. Very large gains with average conviction should be harvested.`,
+        ? `No hard upside cap. Keep a core position and let it run; only trim if it becomes oversized or rank weakens.`
+        : `Bank 33–50%. Very large gains with only average conviction should be harvested.`,
     });
   } else if (p.pnlPercent <= -8) {
     const recoveryTarget = isStrong ? p.entryPrice * 1.08 : p.entryPrice;
@@ -235,4 +241,4 @@ def patch_portfolio_alerts():
 
 
 patch_portfolio_alerts()
-print("Upgraded portfolio take-profit and stop-loss logic.")
+print("Fixed rank-first portfolio stop-loss hierarchy.")
