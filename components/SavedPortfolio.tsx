@@ -336,7 +336,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                     <div className="flex items-start gap-2">
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${style.bg} ${style.text}`}>{style.label}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p></div>
+                        <div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p></div></div>
                         <p className="mt-1 text-[12px] font-medium" style={{ color: "rgba(7,33,22,0.65)" }}>{alert.message}</p>
                         <div className="mt-2 rounded-lg bg-[#faf6f0] p-2">
                           <p className="text-[9px] font-extrabold uppercase tracking-wider" style={{ color: "rgba(7,33,22,0.45)" }}>✦ What to do</p>
