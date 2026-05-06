@@ -1,0 +1,47 @@
+name: Patch Portfolio Rank Percentile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Patch SavedPortfolio top-percent display
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('components/SavedPortfolio.tsx')
+          text = path.read_text()
+
+          replacements = {
+              'Top {Math.max(1, 100 - holding.scorePercentile)}% of stocks':
+              'Top {Math.max(1, 100 - holding.rankPercentile)}% of stocks',
+          }
+
+          changed = False
+          for old, new in replacements.items():
+              if old in text:
+                  text = text.replace(old, new)
+                  changed = True
+
+          if not changed:
+              raise SystemExit('No matching portfolio percentile text found to patch')
+
+          path.write_text(text)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add components/SavedPortfolio.tsx
+          git commit -m "Use rank percentile in portfolio AI score badge"
+          git push
