@@ -1,0 +1,32 @@
+name: Apply UI Portfolio Patch
+
+on:
+  push:
+    paths:
+      - scripts/patch_ui_portfolio_issues.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run patch script
+        run: python scripts/patch_ui_portfolio_issues.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx lib/portfolio-alerts.ts components/SavedPortfolio.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Fix portfolio sector percentiles logos and dashboard row"
+            git push
+          fi
