@@ -47,7 +47,10 @@ def patch_saved_portfolio_logos():
 
 
 def patch_portfolio_alerts_from_safe_base():
+    # GitHub Actions uses a shallow checkout, so fetch the known-good commit explicitly.
+    subprocess.run(["git", "fetch", "--depth=1", "origin", BASE_SAFE_COMMIT], check=True)
     subprocess.run(["git", "checkout", BASE_SAFE_COMMIT, "--", "lib/portfolio-alerts.ts"], check=True)
+
     path = Path("lib/portfolio-alerts.ts")
     text = path.read_text()
 
@@ -123,21 +126,17 @@ def patch_portfolio_alerts_from_safe_base():
 }
 '''
     if old_sector not in text:
-        raise SystemExit("Could not find original getSectorData block")
+        raise SystemExit("Could not find original getSectorData block after restoring safe file")
     text = text.replace(old_sector, new_sector)
 
-    text = re.sub(
-        r"const scorePercentile = Math\.round\(\(score / maxScore\) \* 100\);\n\s*const rankPercentile =([^;]+);",
-        r"const rankPercentile =\1;\n    const scorePercentile = rankPercentile;",
-        text,
-        count=1,
-    )
+    # Keep existing function signatures safe by making scorePercentile rank-based at source.
     text = re.sub(
         r"const scorePercentile = Math\.round\(\(current\.score / sectorData\.maxScore\) \* 100\);\n\s*const rankPercentile =([^;]+);",
         r"const rankPercentile =\1;\n    const scorePercentile = rankPercentile;",
         text,
         count=1,
     )
+
     path.write_text(text)
 
 
