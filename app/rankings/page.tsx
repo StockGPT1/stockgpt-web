@@ -228,6 +228,7 @@ export default async function RankingsPage({
           {rankings.length > 0 ? (
             rankings.map((stock) => {
               const move = getRankMove(stock.rank, stock.previous_rank);
+              const priceText = formatPrice(stock.price);
 
               return (
                 <Link
@@ -235,7 +236,7 @@ export default async function RankingsPage({
                   href={`/stock/${stock.ticker}`}
                   className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20 transition hover:bg-white"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[#072116] text-[12px] font-black text-[#ddb159]">
                         {stock.rank ?? "—"}
@@ -247,11 +248,11 @@ export default async function RankingsPage({
                         size={28}
                       />
 
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] font-black">
+                      <div className="flex min-h-[36px] min-w-0 flex-col justify-center">
+                        <p className="truncate text-[15px] font-black leading-[1.05]">
                           {stock.ticker ?? "—"}
                         </p>
-                        <p className="truncate text-[11px] font-semibold text-[#072116]/55">
+                        <p className="mt-0.5 truncate text-[11px] font-semibold leading-[1.05] text-[#072116]/55">
                           {stock.company ?? "—"}
                         </p>
                       </div>
@@ -288,8 +289,8 @@ export default async function RankingsPage({
                       <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
                         Price
                       </p>
-                      <p className="mt-1 truncate text-[11px] font-black tabular-nums">
-                        {formatPrice(stock.price)}
+                      <p className="mt-1 min-h-[16px] truncate text-[11px] font-black leading-none tabular-nums text-[#072116]">
+                        {priceText}
                       </p>
                     </div>
 
@@ -297,7 +298,7 @@ export default async function RankingsPage({
                       <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
                         Sector
                       </p>
-                      <p className="mt-1 truncate text-[10px] font-bold text-[#072116]/60">
+                      <p className="mt-1 min-h-[16px] truncate text-[10px] font-bold leading-none text-[#072116]/60">
                         {stock.sector ?? "—"}
                       </p>
                     </div>
