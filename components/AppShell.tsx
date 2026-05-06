@@ -168,7 +168,7 @@ export async function AppShell({
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
-        <div className="relative lg:hidden">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 lg:hidden">
           <MobileNav
             navItems={navItems}
             activePath={activePath}
@@ -178,19 +178,19 @@ export async function AppShell({
 
         <Link
           href="/"
-          className="relative h-[46px] w-[150px] shrink-0 transition duration-300 hover:scale-[1.015] sm:h-[52px] sm:w-[205px]"
+          className="absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
         >
           <Image
             src="/logo.png"
             alt="StockGPT"
             fill
             priority
-            className="object-contain object-left drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)]"
-            sizes="(max-width: 640px) 150px, 205px"
+            className="object-contain object-center drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)] md:object-left"
+            sizes="(max-width: 768px) 155px, 205px"
           />
         </Link>
 
-        <div className="hidden min-w-0 flex-1 sm:flex">
+        <div className="hidden min-w-0 flex-1 md:flex">
           <SearchBar />
         </div>
 
@@ -241,7 +241,7 @@ export async function AppShell({
         <Link
           href="/settings"
           aria-label="Account settings"
-          className="ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
+          className="absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
         >
           <svg
             viewBox="0 0 24 24"
@@ -258,8 +258,14 @@ export async function AppShell({
 
       <TickerTape />
 
-      <div className="shrink-0 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 sm:hidden">
-        <SearchBar />
+      <div className="flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
+        <div className="min-w-0 flex-1">
+          <SearchBar />
+        </div>
+
+        <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
+          <AskStockGPTButton />
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -306,9 +312,11 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="relative min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[72px] sm:p-3 lg:pb-3">
+        <section className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
           <PageBackdrop activePath={activePath} />
-          <div className="relative z-10 h-full min-h-0">{children}</div>
+          <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
+            {children}
+          </div>
         </section>
       </div>
 
