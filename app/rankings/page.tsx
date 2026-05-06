@@ -2,22 +2,20 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { createClient } from "@/utils/supabase/server";
+import {
+  getRankMove24h,
+  getRankSnapshotMapAround24hAgo,
+  moveClassName,
+} from "@/lib/rank-history";
 
 type Ranking = {
   id: string | number;
   rank: number | null;
-  previous_rank: number | null;
   ticker: string | null;
   company: string | null;
   sector: string | null;
   score: number | string | null;
   price: number | string | null;
-};
-
-type RankMove = {
-  label: string;
-  tone: "up" | "down" | "flat" | "none";
-  title: string;
 };
 
 type RankingsSearchParams = {
@@ -36,65 +34,15 @@ function formatScore(value: Ranking["score"]) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-function getRankMove(
-  currentRank: number | null,
-  previousRank: number | null,
-): RankMove {
-  if (currentRank == null || previousRank == null) {
-    return {
-      label: "—",
-      tone: "none",
-      title: "Previous rank unavailable",
-    };
-  }
-
-  const difference = previousRank - currentRank;
-
-  if (difference > 0) {
-    return {
-      label: `↑ ${difference}`,
-      tone: "up",
-      title: `Moved up ${difference} place${difference === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  if (difference < 0) {
-    const abs = Math.abs(difference);
-
-    return {
-      label: `↓ ${abs}`,
-      tone: "down",
-      title: `Moved down ${abs} place${abs === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  return {
-    label: "—",
-    tone: "flat",
-    title: "Rank unchanged since the previous model run",
-  };
-}
-
-function moveClassName(tone: RankMove["tone"]) {
-  if (tone === "up") {
-    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
-  }
-
-  if (tone === "down") {
-    return "border-red-500/25 bg-red-500/10 text-red-700";
-  }
-
-  if (tone === "flat") {
-    return "border-[#072116]/10 bg-[#072116]/5 text-[#072116]/45";
-  }
-
-  return "border-[#072116]/8 bg-transparent text-[#072116]/35";
-}
-
-function matchesMoveFilter(stock: Ranking, moveFilter: string) {
+function matchesMoveFilter(
+  stock: Ranking,
+  moveFilter: string,
+  snapshotMap: Map<string, number>,
+) {
   if (!moveFilter || moveFilter === "all") return true;
 
-  const move = getRankMove(stock.rank, stock.previous_rank);
+  const ticker = stock.ticker ?? "";
+  const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
 
   return move.tone === moveFilter;
 }
@@ -118,11 +66,14 @@ export default async function RankingsPage({
 
   const hasAccess = !!user;
 
-  const { data: rankingsData } = await supabase
-    .from("stock_rankings")
-    .select("id,rank,previous_rank,ticker,company,sector,score,price")
-    .order("rank", { ascending: true })
-    .limit(hasAccess ? 500 : 10);
+  const [{ data: rankingsData }, snapshotMap] = await Promise.all([
+    supabase
+      .from("stock_rankings")
+      .select("id,rank,ticker,company,sector,score,price")
+      .order("rank", { ascending: true })
+      .limit(hasAccess ? 500 : 10),
+    getRankSnapshotMapAround24hAgo(supabase),
+  ]);
 
   const allRankings = (rankingsData ?? []) as Ranking[];
 
@@ -139,7 +90,7 @@ export default async function RankingsPage({
     const matchesSearch = !q || searchable.includes(q);
     const matchesSector =
       sectorFilter === "all" || stock.sector === sectorFilter;
-    const matchesMove = matchesMoveFilter(stock, moveFilter);
+    const matchesMove = matchesMoveFilter(stock, moveFilter, snapshotMap);
 
     return matchesSearch && matchesSector && matchesMove;
   });
@@ -204,7 +155,7 @@ export default async function RankingsPage({
             <option value="up">Moved up</option>
             <option value="down">Moved down</option>
             <option value="flat">No change</option>
-            <option value="none">No previous data</option>
+            <option value="none">No 24h snapshot</option>
           </select>
 
           <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-1 lg:flex">
@@ -227,7 +178,8 @@ export default async function RankingsPage({
         <div className="grid gap-2 lg:hidden">
           {rankings.length > 0 ? (
             rankings.map((stock) => {
-              const move = getRankMove(stock.rank, stock.previous_rank);
+              const ticker = stock.ticker ?? "";
+              const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
               const priceText = formatPrice(stock.price);
 
               return (
@@ -343,7 +295,8 @@ export default async function RankingsPage({
           <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
             {rankings.length > 0 ? (
               rankings.map((stock) => {
-                const move = getRankMove(stock.rank, stock.previous_rank);
+                const ticker = stock.ticker ?? "";
+                const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
 
                 return (
                   <Link
