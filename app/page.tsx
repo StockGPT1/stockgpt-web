@@ -75,8 +75,9 @@ export default async function Home() {
     .filter((t): t is string => !!t);
 
   const [sp500Data, movers, snapshotMap] = await Promise.all([
-    getSP500Chart(["1M", "6M", "1Y", "5Y"]),
-    getTopMovers(tickerList, 4),
+    // ✦ Now also fetching 1D for the dashboard chart
+    getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
+    getTopMovers(tickerList, 8),
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
@@ -103,13 +104,13 @@ export default async function Home() {
           ? "Cautious market"
           : "Weak market";
 
+  // ✦ Reordered: # | Ticker (with logo) | Company | Move | Sector | Price | Score
   const dashboardRankingsGrid =
-    "grid-cols-[34px_52px_92px_minmax(0,1fr)_112px_76px_78px]";
+    "grid-cols-[34px_92px_minmax(0,1fr)_60px_112px_76px_78px]";
 
-  const moversToShow = [
-    ...movers.gainers.slice(0, 2),
-    ...movers.losers.slice(0, 2),
-  ].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+  // ✦ Split gainers/losers into separate top 3 lists for clarity
+  const topGainers = movers.gainers.slice(0, 3);
+  const topLosers = movers.losers.slice(0, 3);
 
   return (
     <AppShell activePath="/">
@@ -243,6 +244,7 @@ export default async function Home() {
               </div>
 
               <div className="hidden h-[calc(100%-66px)] min-h-0 flex-col overflow-hidden lg:flex">
+                {/* ✦ Reordered headers: # | Ticker | Company | Move | Sector | Price | Score */}
                 <div
                   className={`grid ${dashboardRankingsGrid} h-[27px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
                 >
@@ -250,13 +252,13 @@ export default async function Home() {
                     #
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    Move
-                  </div>
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
                     Ticker
                   </div>
                   <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
                     Company
+                  </div>
+                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                    Move
                   </div>
                   <div className="hidden px-2 text-[8px] font-bold uppercase tracking-wide sm:block">
                     Sector
@@ -288,18 +290,6 @@ export default async function Home() {
                             {stock.rank ?? "—"}
                           </div>
 
-                          <div className="px-2">
-                            <span
-                              title={move.title}
-                              className={[
-                                "inline-flex h-5 min-w-[38px] items-center justify-center rounded-full border px-1 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
-                                moveClassName(move.tone),
-                              ].join(" ")}
-                            >
-                              {move.label}
-                            </span>
-                          </div>
-
                           <div className="flex min-w-0 items-center gap-2 px-2 font-black">
                             <StockLogo
                               ticker={stock.ticker}
@@ -313,6 +303,18 @@ export default async function Home() {
 
                           <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
                             {stock.company ?? "—"}
+                          </div>
+
+                          <div className="px-2">
+                            <span
+                              title={move.title}
+                              className={[
+                                "inline-flex h-5 min-w-[38px] items-center justify-center rounded-full border px-1 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
+                                moveClassName(move.tone),
+                              ].join(" ")}
+                            >
+                              {move.label}
+                            </span>
                           </div>
 
                           <div
@@ -353,7 +355,8 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[156px_172px_minmax(0,1fr)] lg:gap-2 lg:overflow-hidden lg:pb-1">
+          {/* ✦ Right column rows: chart (small) / gainers + losers (LARGE, 1fr) / portfolio promo (compact) */}
+          <aside className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[156px_minmax(0,1fr)_88px] lg:gap-2 lg:overflow-hidden lg:pb-1">
             <div className="overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05] lg:min-h-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -365,16 +368,18 @@ export default async function Home() {
                   </h3>
                 </div>
 
+                {/* ✦ Range pill now reads 1D */}
                 <p className="rounded-full border border-[#ddb159]/20 bg-[#072116]/50 px-2 py-1 text-[9px] font-black text-[#ddb159]">
-                  6M
+                  1D
                 </p>
               </div>
 
+              {/* ✦ Both mobile and desktop charts now use 1D timeframe */}
               <div className="mt-2 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
-                  initialRange="6M"
+                  initialRange="1D"
                   height={150}
                   compact
                 />
@@ -384,89 +389,122 @@ export default async function Home() {
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
-                  initialRange="6M"
+                  initialRange="1D"
                   height={74}
                   compact
                 />
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)] lg:min-h-0">
-              <div className="flex h-[20px] items-center justify-between gap-3">
+            {/* ✦ Top Gainers & Losers — much bigger, split into two columns inside the card */}
+            <div className="overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)] lg:flex lg:min-h-0 lg:flex-col">
+              <div className="flex h-[20px] shrink-0 items-center justify-between gap-3">
                 <p
                   className="text-[9px] font-extrabold uppercase tracking-[0.14em]"
                   style={{ color: "rgba(7,33,22,0.55)" }}
                 >
-                  ✦ Top Movers · 5d
+                  ✦ Top Gainers &amp; Losers
                 </p>
                 <span
                   className="rounded-full border border-[#072116]/10 px-2 py-0.5 text-[8px] font-black"
                   style={{ color: "rgba(7,33,22,0.55)" }}
                 >
-                  Today
+                  5d
                 </span>
               </div>
 
-              <div className="mt-2 grid gap-1.5 overflow-hidden lg:h-[120px]">
-                {moversToShow.length > 0 ? (
-                  moversToShow.slice(0, 3).map((m) => {
-                    const isUp = m.changePct >= 0;
-
-                    return (
-                      <Link
-                        key={m.ticker}
-                        href={`/stock/${m.ticker}`}
-                        className="group flex min-h-[48px] items-center justify-between gap-2 rounded-xl border border-[#072116]/8 bg-white px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_8px_18px_rgba(0,0,0,0.1)] lg:min-h-0"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={`inline-block size-1.5 shrink-0 rounded-full transition group-hover:scale-125 ${
-                              isUp ? "bg-emerald-500" : "bg-red-500"
-                            }`}
-                          />
-                          <div className="min-w-0">
+              <div className="mt-2 grid min-h-0 flex-1 grid-rows-2 gap-2.5 overflow-hidden">
+                {/* GAINERS */}
+                <div className="flex min-h-0 flex-col">
+                  <p className="mb-1 text-[8px] font-extrabold uppercase tracking-wider text-emerald-700/80">
+                    ▲ Gainers
+                  </p>
+                  <div className="grid min-h-0 flex-1 gap-1.5 overflow-hidden">
+                    {topGainers.length > 0 ? (
+                      topGainers.map((m) => (
+                        <Link
+                          key={m.ticker}
+                          href={`/stock/${m.ticker}`}
+                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-50/40 px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:shadow-[0_6px_14px_rgba(16,185,129,0.15)]"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500 transition group-hover:scale-125" />
                             <p
                               className="truncate text-[12px] font-black tracking-[-0.01em]"
                               style={{ color: "#072116" }}
                             >
                               {m.ticker}
                             </p>
+                          </div>
+                          <div className="text-right">
                             <p
-                              className="truncate text-[9px] font-semibold"
-                              style={{ color: "rgba(7,33,22,0.45)" }}
+                              className="text-[10px] font-bold tabular-nums"
+                              style={{ color: "rgba(7,33,22,0.7)" }}
                             >
-                              {isUp ? "Gainer" : "Pullback"}
+                              ${m.currentPrice.toFixed(2)}
+                            </p>
+                            <p className="text-[10px] font-black tabular-nums text-emerald-600">
+                              +{m.changePct.toFixed(2)}%
                             </p>
                           </div>
-                        </div>
+                        </Link>
+                      ))
+                    ) : (
+                      <p
+                        className="py-2 text-center text-[10px] font-semibold"
+                        style={{ color: "rgba(7,33,22,0.5)" }}
+                      >
+                        No gainers yet
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-                        <div className="text-right">
-                          <p
-                            className="text-[11px] font-bold tabular-nums"
-                            style={{ color: "#072116" }}
-                          >
-                            ${m.currentPrice.toFixed(2)}
-                          </p>
-                          <p
-                            className={`text-[10px] font-black tabular-nums ${
-                              isUp ? "text-emerald-600" : "text-red-600"
-                            }`}
-                          >
-                            {isUp ? "+" : ""}
-                            {m.changePct.toFixed(2)}%
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  })
-                ) : (
-                  <p
-                    className="py-3 text-center text-[11px] font-semibold"
-                    style={{ color: "rgba(7,33,22,0.5)" }}
-                  >
-                    Loading movers...
+                {/* LOSERS */}
+                <div className="flex min-h-0 flex-col">
+                  <p className="mb-1 text-[8px] font-extrabold uppercase tracking-wider text-red-700/80">
+                    ▼ Losers
                   </p>
-                )}
+                  <div className="grid min-h-0 flex-1 gap-1.5 overflow-hidden">
+                    {topLosers.length > 0 ? (
+                      topLosers.map((m) => (
+                        <Link
+                          key={m.ticker}
+                          href={`/stock/${m.ticker}`}
+                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-red-500/20 bg-red-50/40 px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-red-500/50 hover:shadow-[0_6px_14px_rgba(239,68,68,0.15)]"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="inline-block size-1.5 shrink-0 rounded-full bg-red-500 transition group-hover:scale-125" />
+                            <p
+                              className="truncate text-[12px] font-black tracking-[-0.01em]"
+                              style={{ color: "#072116" }}
+                            >
+                              {m.ticker}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p
+                              className="text-[10px] font-bold tabular-nums"
+                              style={{ color: "rgba(7,33,22,0.7)" }}
+                            >
+                              ${m.currentPrice.toFixed(2)}
+                            </p>
+                            <p className="text-[10px] font-black tabular-nums text-red-600">
+                              {m.changePct.toFixed(2)}%
+                            </p>
+                          </div>
+                        </Link>
+                      ))
+                    ) : (
+                      <p
+                        className="py-2 text-center text-[10px] font-semibold"
+                        style={{ color: "rgba(7,33,22,0.5)" }}
+                      >
+                        No losers yet
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -521,46 +559,37 @@ function StatBlock({
   );
 }
 
+// ✦ Portfolio promo — shrunken to ~1/4 size (88px tall vs ~220-240px before)
+// Single horizontal row: icon + headline/sub + CTA
 function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative flex min-h-[220px] overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)] lg:h-full lg:min-h-0 lg:p-3"
+      className="group relative flex min-h-[88px] items-center gap-3 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)] lg:h-full lg:min-h-0"
     >
-      <div className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
-      <div className="pointer-events-none absolute -bottom-10 left-4 size-20 rounded-full bg-[#faf6f0]/5 blur-2xl" />
+      <div className="pointer-events-none absolute -right-8 -top-8 size-20 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
-      <div className="relative flex h-full min-h-0 w-full flex-col">
-        <div className="mb-3 flex size-8 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[16px] text-[#ddb159] transition duration-300 group-hover:scale-105 lg:mb-2 lg:size-7 lg:text-[15px]">
-          ♛
-        </div>
+      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+        ♛
+      </div>
 
-        <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] lg:text-[8px]">
+      <div className="relative flex min-w-0 flex-1 flex-col justify-center">
+        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
           ✦ AI-Powered
         </p>
-
-        <h2 className="mt-1.5 shrink-0 text-[20px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] lg:mt-1 lg:text-[15px]">
+        <h2 className="mt-0.5 truncate text-[14px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
-
-        <p className="mt-2 max-w-[270px] shrink-0 text-[12px] font-medium leading-[1.45] text-[#faf6f0]/68 lg:mt-1.5 lg:max-w-[250px] lg:text-[9.5px] lg:leading-[1.38]">
-          Tell the AI your goals. It picks the stocks, weights them, and watches
-          them for you.
+        <p className="mt-0.5 truncate text-[10px] font-medium text-[#faf6f0]/65">
+          AI picks, weights, and watches stocks for you.
         </p>
+      </div>
 
-        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-5 lg:pt-2">
-          <p className="pb-1 text-[12px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5 lg:text-[10px]">
-            Start in 30 seconds →
-          </p>
-
-          <div className="flex items-end gap-1 pb-1">
-            <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4 lg:h-2.5 lg:group-hover:h-3.5" />
-            <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6 lg:h-4 lg:group-hover:h-5" />
-            <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8 lg:h-6 lg:group-hover:h-7" />
-            <span className="h-9 w-1.5 rounded bg-[#ddb159] transition duration-300 group-hover:h-10 lg:h-7 lg:group-hover:h-8" />
-          </div>
-        </div>
+      <div className="relative shrink-0">
+        <span className="text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+          Start →
+        </span>
       </div>
     </Link>
   );
