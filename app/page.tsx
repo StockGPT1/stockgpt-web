@@ -321,7 +321,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <aside className="grid h-full min-h-0 grid-rows-[166px_184px_minmax(220px,1fr)] gap-2 overflow-hidden">
+          <aside className="grid h-full min-h-0 grid-rows-[156px_172px_minmax(0,1fr)] gap-2 overflow-hidden pb-1">
             <div className="min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -338,12 +338,12 @@ export default async function Home() {
                 </p>
               </div>
 
-              <div className="mt-1.5 h-[84px] overflow-hidden rounded-xl bg-[#072116]/35">
+              <div className="mt-1.5 h-[74px] overflow-hidden rounded-xl bg-[#072116]/35">
                 <StockChart
                   ticker="S&P 500"
                   data={sp500Data}
                   initialRange="6M"
-                  height={84}
+                  height={74}
                   compact
                 />
               </div>
@@ -365,7 +365,7 @@ export default async function Home() {
                 </span>
               </div>
 
-              <div className="mt-2 grid h-[132px] gap-1.5 overflow-hidden">
+              <div className="mt-2 grid h-[120px] gap-1.5 overflow-hidden">
                 {moversToShow.length > 0 ? (
                   moversToShow.slice(0, 3).map((m) => {
                     const isUp = m.changePct >= 0;
@@ -483,40 +483,40 @@ function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
+      className="group relative flex h-full min-h-0 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
-      <div className="pointer-events-none absolute -bottom-12 left-4 size-24 rounded-full bg-[#faf6f0]/5 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-10 left-4 size-20 rounded-full bg-[#faf6f0]/5 blur-2xl" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
-      <div className="relative flex h-full min-h-0 flex-col">
-        <div className="mb-2 flex size-8 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[17px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+      <div className="relative flex h-full min-h-0 w-full flex-col">
+        <div className="mb-2 flex size-7 shrink-0 items-center justify-center rounded-2xl border border-[#ddb159]/30 bg-[#072116]/80 text-[15px] text-[#ddb159] transition duration-300 group-hover:scale-105">
           ♛
         </div>
 
-        <p className="shrink-0 text-[8.5px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+        <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
           ✦ AI-Powered
         </p>
 
-        <h2 className="mt-1.5 shrink-0 text-[17px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
+        <h2 className="mt-1 shrink-0 text-[15px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
           Build Your AI Portfolio
         </h2>
 
-        <p className="mt-2 max-w-[250px] shrink-0 text-[10px] font-medium leading-[1.45] text-[#faf6f0]/68">
+        <p className="mt-1.5 max-w-[250px] shrink-0 text-[9.5px] font-medium leading-[1.38] text-[#faf6f0]/68">
           Tell the AI your goals. It picks the stocks, weights them, and watches
           them for you.
         </p>
 
-        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-4">
-          <p className="pb-2 text-[11px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
+        <div className="mt-auto flex shrink-0 items-end justify-between gap-3 pt-2">
+          <p className="pb-1 text-[10px] font-bold text-[#ddb159] transition duration-300 group-hover:translate-x-0.5">
             Start in 30 seconds →
           </p>
 
-          <div className="flex items-end gap-1 pb-2">
-            <span className="h-3 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-4" />
-            <span className="h-5 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-6" />
-            <span className="h-7 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-8" />
-            <span className="h-8 w-1.5 rounded bg-[#ddb159] transition duration-300 group-hover:h-9" />
+          <div className="flex items-end gap-1 pb-1">
+            <span className="h-2.5 w-1.5 rounded bg-[#ddb159]/40 transition duration-300 group-hover:h-3.5" />
+            <span className="h-4 w-1.5 rounded bg-[#ddb159]/55 transition duration-300 group-hover:h-5" />
+            <span className="h-5.5 w-1.5 rounded bg-[#ddb159]/75 transition duration-300 group-hover:h-6.5" />
+            <span className="h-7 w-1.5 rounded bg-[#ddb159] transition duration-300 group-hover:h-8" />
           </div>
         </div>
       </div>
