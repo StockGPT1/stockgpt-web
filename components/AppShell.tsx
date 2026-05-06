@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
-import { MobileNav } from "@/components/MobileNav";
 import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { getUnreadNotificationCount } from "@/lib/notifications";
@@ -168,14 +167,6 @@ export async function AppShell({
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 lg:hidden">
-          <MobileNav
-            navItems={navItems}
-            activePath={activePath}
-            unreadCount={unreadCount}
-          />
-        </div>
-
         <Link
           href="/"
           className="absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
