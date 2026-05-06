@@ -43,6 +43,8 @@ type TechnicalLevels = {
   source: "technical" | "fallback";
 };
 
+type StopSource = "support" | "ma50" | "fallback";
+
 const SECTOR_VOLATILITY: Record<string, number> = {
   Technology: 1.25,
   "Information Technology": 1.25,
@@ -110,16 +112,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
       .filter((price) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
-      return {
-        support: null,
-        resistance: null,
-        swingLow: null,
-        swingHigh: null,
-        ma50: null,
-        ma200: null,
-        atrPct: null,
-        source: "fallback",
-      };
+      return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
     }
 
     const recent = closes.slice(-126);
@@ -156,16 +149,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
       source: "technical",
     };
   } catch {
-    return {
-      support: null,
-      resistance: null,
-      swingLow: null,
-      swingHigh: null,
-      ma50: null,
-      ma200: null,
-      atrPct: null,
-      source: "fallback",
-    };
+    return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
   }
 }
 
@@ -212,6 +196,7 @@ function buildTradePlan({
   sector,
   technical,
   riskReward,
+  stopSource,
 }: {
   ticker: string;
   confidence: number;
@@ -225,6 +210,7 @@ function buildTradePlan({
   sector: string | null;
   technical: TechnicalLevels;
   riskReward: number;
+  stopSource: StopSource;
 }): TradePlan {
   const expectedAnnualReturn = round(8 + confidence * 18, 1);
   const expectedMonthsToTarget = Math.max(9, Math.min(30, Math.round((targetPct / expectedAnnualReturn) * 12)));
@@ -249,38 +235,17 @@ function buildTradePlan({
     : confidence >= 0.35 ? "moderate"
     : "weak";
 
-  const stopNearSupport = technical.support
-    ? Math.abs(stopLoss - technical.support) / stopLoss <= 0.08
-    : false;
-  const stopNearMa50 = technical.ma50
-    ? Math.abs(stopLoss - technical.ma50) / stopLoss <= 0.08
-    : false;
+  const stopReason = stopSource === "support" && technical.support
+    ? `just below support around $${technical.support.toFixed(2)}`
+    : stopSource === "ma50" && technical.ma50
+      ? `below the 50-day area around $${technical.ma50.toFixed(2)}`
+      : "volatility fallback because no usable nearby support was detected";
 
-  const levelDesc = technical.source === "technical"
-    ? stopNearSupport && technical.support
-      ? `with risk invalidated just below support near $${technical.support.toFixed(2)}`
-      : stopNearMa50 && technical.ma50
-        ? `with risk invalidated around the 50-day area near $${technical.ma50.toFixed(2)}`
-        : technical.support
-          ? `using a medium-term volatility/invalidation stop; deeper structural support is around $${technical.support.toFixed(2)}`
-          : "using a medium-term volatility/invalidation stop because no clean nearby support was found"
-    : "using fallback percentage levels because chart structure was unavailable";
-
-  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, ${levelDesc}.`;
+  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk invalidated ${stopReason}.`;
 
   const targetReason = technical.resistance
     ? `first checkpoint is prior resistance around $${technical.resistance.toFixed(2)}, but the medium-term target uses a measured extension beyond it`
     : "using a medium-term breakout-extension target because price is already above nearby resistance";
-
-  const stopReason = stopNearSupport && technical.support
-    ? `just below support around $${technical.support.toFixed(2)}`
-    : stopNearMa50 && technical.ma50
-      ? `around the 50-day area near $${technical.ma50.toFixed(2)}`
-      : technical.support
-        ? `medium-term volatility/invalidation stop; deeper support is around $${technical.support.toFixed(2)}`
-        : technical.ma50
-          ? `medium-term volatility/invalidation stop; 50-day area is around $${technical.ma50.toFixed(2)}`
-          : "medium-term volatility fallback because no clean support was detected";
 
   const triggers: TradeTrigger[] = [
     {
@@ -370,13 +335,15 @@ export async function calculateTradeLevels({
     : null;
   const fallbackStop = price * (1 - fallbackStopPct / 100);
 
-  const candidateStops = [supportStop, maStop, fallbackStop]
-    .filter((value): value is number => Boolean(value && Number.isFinite(value) && value > 0 && value < price));
+  let stopSource: StopSource = "fallback";
+  let stopLoss = fallbackStop;
 
-  let stopLoss = candidateStops.length ? Math.max(...candidateStops) : fallbackStop;
-  const stopDistancePct = ((price - stopLoss) / price) * 100;
-  if (stopDistancePct < Math.max(4, normalNoisePct * 0.75)) {
-    stopLoss = fallbackStop;
+  if (supportStop && Number.isFinite(supportStop) && supportStop > 0) {
+    stopLoss = supportStop;
+    stopSource = "support";
+  } else if (maStop && Number.isFinite(maStop) && maStop > 0) {
+    stopLoss = maStop;
+    stopSource = "ma50";
   }
 
   const entryDiscount = confidence >= 0.7 ? 0 : confidence >= 0.45 ? 0.015 : 0.03;
@@ -405,6 +372,17 @@ export async function calculateTradeLevels({
   else if (confidence >= 0.35) recommendation = "Hold / Watch";
   else recommendation = "Avoid";
 
+  const technicalStopLabel = stopSource === "support" && technical.support
+    ? `$${technical.support.toFixed(2)}`
+    : stopSource === "ma50" && technical.ma50
+      ? `$${technical.ma50.toFixed(2)}`
+      : "Fallback";
+  const technicalStopNote = stopSource === "support"
+    ? "Nearest support"
+    : stopSource === "ma50"
+      ? "50-day area"
+      : "No usable nearby support";
+
   const factors: TradeLevels["factors"] = [
     {
       label: "AI Score", value: score.toLocaleString(),
@@ -426,8 +404,8 @@ export async function calculateTradeLevels({
     },
     {
       label: "Technical stop",
-      value: technical.support ? `$${technical.support.toFixed(2)}` : technical.ma50 ? `$${technical.ma50.toFixed(2)}` : "Fallback",
-      note: technical.support ? "Nearest support" : technical.ma50 ? "50-day area" : "No clean support found",
+      value: technicalStopLabel,
+      note: technicalStopNote,
     },
     {
       label: "Technical target",
@@ -463,6 +441,7 @@ export async function calculateTradeLevels({
     sector,
     technical,
     riskReward: roundedRiskReward,
+    stopSource,
   }) : null;
 
   return {
