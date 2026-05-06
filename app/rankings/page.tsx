@@ -25,6 +25,20 @@ type RankingsSearchParams = {
   move?: string;
 };
 
+const MIN_DISPLAY_SCORE = 100;
+const NEUTRAL_DISPLAY_SCORE = 5000;
+const MAX_DISPLAY_SCORE = 9800;
+
+function normalizeDisplayScore(value: Ranking["score"]) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n) || n <= 0) {
+    return NEUTRAL_DISPLAY_SCORE;
+  }
+
+  return Math.round(Math.min(Math.max(n, MIN_DISPLAY_SCORE), MAX_DISPLAY_SCORE));
+}
+
 function hasValidPrice(value: Ranking["price"]) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0;
@@ -36,8 +50,7 @@ function formatPrice(value: Ranking["price"]) {
 }
 
 function formatScore(value: Ranking["score"]) {
-  const n = Number(value);
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+  return normalizeDisplayScore(value).toLocaleString();
 }
 
 async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
