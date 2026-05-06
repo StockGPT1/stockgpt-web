@@ -249,12 +249,21 @@ function buildTradePlan({
     : confidence >= 0.35 ? "moderate"
     : "weak";
 
+  const stopNearSupport = technical.support
+    ? Math.abs(stopLoss - technical.support) / stopLoss <= 0.08
+    : false;
+  const stopNearMa50 = technical.ma50
+    ? Math.abs(stopLoss - technical.ma50) / stopLoss <= 0.08
+    : false;
+
   const levelDesc = technical.source === "technical"
-    ? technical.support
-      ? `with risk invalidated below support near $${technical.support.toFixed(2)}`
-      : technical.ma50
-        ? `with risk invalidated below the 50-day area near $${technical.ma50.toFixed(2)}`
-        : "with technical levels checked but no clean nearby support found"
+    ? stopNearSupport && technical.support
+      ? `with risk invalidated just below support near $${technical.support.toFixed(2)}`
+      : stopNearMa50 && technical.ma50
+        ? `with risk invalidated around the 50-day area near $${technical.ma50.toFixed(2)}`
+        : technical.support
+          ? `using a medium-term volatility/invalidation stop; deeper structural support is around $${technical.support.toFixed(2)}`
+          : "using a medium-term volatility/invalidation stop because no clean nearby support was found"
     : "using fallback percentage levels because chart structure was unavailable";
 
   const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, ${levelDesc}.`;
@@ -263,11 +272,15 @@ function buildTradePlan({
     ? `first checkpoint is prior resistance around $${technical.resistance.toFixed(2)}, but the medium-term target uses a measured extension beyond it`
     : "using a medium-term breakout-extension target because price is already above nearby resistance";
 
-  const stopReason = technical.support
-    ? `below support around $${technical.support.toFixed(2)}`
-    : technical.ma50
-      ? `below the 50-day area around $${technical.ma50.toFixed(2)}`
-      : "using volatility fallback because no clean support was detected";
+  const stopReason = stopNearSupport && technical.support
+    ? `just below support around $${technical.support.toFixed(2)}`
+    : stopNearMa50 && technical.ma50
+      ? `around the 50-day area near $${technical.ma50.toFixed(2)}`
+      : technical.support
+        ? `medium-term volatility/invalidation stop; deeper support is around $${technical.support.toFixed(2)}`
+        : technical.ma50
+          ? `medium-term volatility/invalidation stop; 50-day area is around $${technical.ma50.toFixed(2)}`
+          : "medium-term volatility fallback because no clean support was detected";
 
   const triggers: TradeTrigger[] = [
     {
