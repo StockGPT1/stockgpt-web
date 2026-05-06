@@ -211,6 +211,7 @@ function buildTradePlan({
   rank,
   sector,
   technical,
+  riskReward,
 }: {
   ticker: string;
   confidence: number;
@@ -223,19 +224,20 @@ function buildTradePlan({
   rank: number | null;
   sector: string | null;
   technical: TechnicalLevels;
+  riskReward: number;
 }): TradePlan {
-  const expectedAnnualReturn = round(4 + confidence * 12, 1);
-  const expectedMonthsToTarget = Math.max(3, Math.round((targetPct / expectedAnnualReturn) * 12));
+  const expectedAnnualReturn = round(8 + confidence * 18, 1);
+  const expectedMonthsToTarget = Math.max(9, Math.min(30, Math.round((targetPct / expectedAnnualReturn) * 12)));
 
   const now = new Date();
   const targetDate = new Date(now);
   targetDate.setMonth(now.getMonth() + expectedMonthsToTarget);
 
   const reviewDate = new Date(now);
-  reviewDate.setMonth(now.getMonth() + Math.max(3, Math.round(expectedMonthsToTarget / 2)));
+  reviewDate.setMonth(now.getMonth() + 3);
 
-  const holdMin = Math.round(expectedMonthsToTarget * 0.7);
-  const holdMax = Math.round(expectedMonthsToTarget * 1.3);
+  const holdMin = Math.max(6, Math.round(expectedMonthsToTarget * 0.65));
+  const holdMax = Math.max(12, Math.round(expectedMonthsToTarget * 1.25));
   const recommendedHoldPeriod = `${holdMin}–${holdMax} months`;
 
   const sectorDesc = sector
@@ -249,17 +251,17 @@ function buildTradePlan({
 
   const levelDesc = technical.source === "technical"
     ? technical.support
-      ? `with the stop set below support near $${technical.support.toFixed(2)}`
+      ? `with risk invalidated below support near $${technical.support.toFixed(2)}`
       : technical.ma50
-        ? `with the stop set around the 50-day area near $${technical.ma50.toFixed(2)}`
+        ? `with risk invalidated below the 50-day area near $${technical.ma50.toFixed(2)}`
         : "with technical levels checked but no clean nearby support found"
     : "using fallback percentage levels because chart structure was unavailable";
 
-  const thesis = `Based on ${ticker}'s ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and chart structure, the model targets $${takeProfit.toFixed(2)} and uses $${stopLoss.toFixed(2)} as the invalidation level, ${levelDesc}.`;
+  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, ${levelDesc}.`;
 
   const targetReason = technical.resistance
-    ? `near prior resistance around $${technical.resistance.toFixed(2)}`
-    : "using a breakout-extension target because price is already above nearby resistance";
+    ? `first checkpoint is prior resistance around $${technical.resistance.toFixed(2)}, but the medium-term target uses a measured extension beyond it`
+    : "using a medium-term breakout-extension target because price is already above nearby resistance";
 
   const stopReason = technical.support
     ? `below support around $${technical.support.toFixed(2)}`
@@ -271,12 +273,12 @@ function buildTradePlan({
     {
       type: "take_profit", icon: "target", tone: "positive",
       condition: `If ${ticker} approaches $${takeProfit.toFixed(2)}`,
-      action: `Take partial profit (${targetReason}; +${targetPct}%) — likely by ${formatMonth(targetDate)}`,
+      action: `Medium-term take-profit zone (${targetReason}; +${targetPct}%) — likely by ${formatMonth(targetDate)}`,
     },
     {
       type: "stop_loss", icon: "shield", tone: "negative",
       condition: `If ${ticker} breaks $${stopLoss.toFixed(2)}`,
-      action: `Cut or trim (${stopReason}; −${stopPct}%) to protect capital`,
+      action: `Cut or trim (${stopReason}; −${stopPct}%). This is the thesis invalidation level, not a short-term noise stop.`,
     },
     {
       type: "score_drop", icon: "warning", tone: "neutral",
@@ -285,8 +287,8 @@ function buildTradePlan({
     },
     {
       type: "review", icon: "calendar", tone: "neutral",
-      condition: `On ${formatMonth(reviewDate)}`,
-      action: `Mid-position review regardless of price action`,
+      condition: `Every 3 months`,
+      action: `Review price structure, AI rank, news, and whether support/resistance has shifted`,
     },
   ];
 
@@ -336,14 +338,14 @@ export async function calculateTradeLevels({
   const confidence = scoreNorm * 0.6 + rankNorm * 0.25 + newsNorm * 0.15;
 
   const baseVol = SECTOR_VOLATILITY[sector ?? ""] ?? 1.0;
-  const normalNoisePct = Math.min(12, Math.max(4, (technical.atrPct ?? 2.0) * 2.2));
+  const normalNoisePct = Math.min(12, Math.max(4, (technical.atrPct ?? 2.0) * 2.4));
 
-  const rankBufferPct = confidence >= 0.75 ? 2.2 : confidence >= 0.55 ? 1.7 : confidence >= 0.35 ? 1.2 : 0.8;
+  const rankBufferPct = confidence >= 0.75 ? 2.5 : confidence >= 0.55 ? 2.0 : confidence >= 0.35 ? 1.5 : 1.0;
   const fallbackStopPct = Math.min(
-    confidence >= 0.75 ? 17 : confidence >= 0.55 ? 14 : confidence >= 0.35 ? 11 : 7,
+    confidence >= 0.75 ? 16 : confidence >= 0.55 ? 14 : confidence >= 0.35 ? 11 : 8,
     Math.max(
-      confidence >= 0.75 ? 10 : confidence >= 0.55 ? 8 : confidence >= 0.35 ? 6 : 4.5,
-      normalNoisePct + (confidence >= 0.75 ? 4 : confidence >= 0.55 ? 2.5 : 0),
+      confidence >= 0.75 ? 9 : confidence >= 0.55 ? 8 : confidence >= 0.35 ? 6 : 4.5,
+      normalNoisePct + (confidence >= 0.75 ? 3 : confidence >= 0.55 ? 2 : 0),
     ),
   );
 
@@ -351,7 +353,7 @@ export async function calculateTradeLevels({
     ? technical.support * (1 - rankBufferPct / 100)
     : null;
   const maStop = technical.ma50 && technical.ma50 < price
-    ? technical.ma50 * (1 - Math.max(1.1, rankBufferPct - 0.5) / 100)
+    ? technical.ma50 * (1 - Math.max(1.2, rankBufferPct - 0.5) / 100)
     : null;
   const fallbackStop = price * (1 - fallbackStopPct / 100);
 
@@ -360,25 +362,27 @@ export async function calculateTradeLevels({
 
   let stopLoss = candidateStops.length ? Math.max(...candidateStops) : fallbackStop;
   const stopDistancePct = ((price - stopLoss) / price) * 100;
-  if (stopDistancePct < Math.max(3.5, normalNoisePct * 0.75)) {
+  if (stopDistancePct < Math.max(4, normalNoisePct * 0.75)) {
     stopLoss = fallbackStop;
   }
-
-  const resistanceTarget = technical.resistance && technical.resistance > price
-    ? technical.resistance * 0.995
-    : null;
-  const recentRange = technical.support && technical.resistance
-    ? Math.max(technical.resistance - technical.support, price * 0.08)
-    : price * (confidence >= 0.75 ? 0.28 : confidence >= 0.55 ? 0.20 : 0.14);
-  const breakoutTarget = price + recentRange * (confidence >= 0.75 ? 1.0 : confidence >= 0.55 ? 0.75 : 0.55);
-  const takeProfit = resistanceTarget && resistanceTarget > price * 1.03 ? resistanceTarget : breakoutTarget;
 
   const entryDiscount = confidence >= 0.7 ? 0 : confidence >= 0.45 ? 0.015 : 0.03;
   const entry = price * (1 - entryDiscount);
   const adjustedStopLoss = Math.min(stopLoss, entry * 0.995);
-  const adjustedTakeProfit = Math.max(takeProfit, entry * 1.04);
-
   const stopPct = ((entry - adjustedStopLoss) / entry) * 100;
+
+  const targetRR = confidence >= 0.82 ? 5.0 : confidence >= 0.72 ? 4.5 : confidence >= 0.55 ? 3.5 : confidence >= 0.35 ? 2.5 : 1.8;
+  const rrTarget = entry + (entry - adjustedStopLoss) * targetRR;
+
+  const firstResistance = technical.resistance && technical.resistance > entry ? technical.resistance * 0.995 : null;
+  const recentRange = technical.support && technical.resistance
+    ? Math.max(technical.resistance - technical.support, entry * 0.12)
+    : entry * (confidence >= 0.75 ? 0.35 : confidence >= 0.55 ? 0.28 : 0.20);
+  const measuredMoveTarget = firstResistance
+    ? firstResistance + recentRange * (confidence >= 0.75 ? 1.25 : confidence >= 0.55 ? 0.9 : 0.55)
+    : entry + recentRange * (confidence >= 0.75 ? 1.6 : confidence >= 0.55 ? 1.15 : 0.75);
+
+  const adjustedTakeProfit = Math.max(rrTarget, measuredMoveTarget, entry * 1.12);
   const targetPct = ((adjustedTakeProfit - entry) / entry) * 100;
   const riskReward = targetPct / Math.max(stopPct, 0.1);
 
@@ -404,14 +408,18 @@ export async function calculateTradeLevels({
         : "Below median",
     },
     {
+      label: "Risk/reward", value: `1:${round(riskReward, 1)}`,
+      note: confidence >= 0.75 ? "Medium-term asymmetric target" : "Risk-adjusted target",
+    },
+    {
       label: "Technical stop",
       value: technical.support ? `$${technical.support.toFixed(2)}` : technical.ma50 ? `$${technical.ma50.toFixed(2)}` : "Fallback",
       note: technical.support ? "Nearest support" : technical.ma50 ? "50-day area" : "No clean support found",
     },
     {
       label: "Technical target",
-      value: technical.resistance ? `$${technical.resistance.toFixed(2)}` : "Breakout extension",
-      note: technical.resistance ? "Prior resistance" : "Above nearby resistance",
+      value: technical.resistance ? `$${technical.resistance.toFixed(2)}+` : "Measured extension",
+      note: technical.resistance ? "Resistance checkpoint, then extension" : "Medium-term measured move",
     },
     { label: "Sector", value: sector ?? "—", note: describeVolatility(baseVol) },
     {
@@ -427,6 +435,7 @@ export async function calculateTradeLevels({
   const roundedTarget = round(adjustedTakeProfit, 2);
   const roundedStopPct = round(stopPct, 1);
   const roundedTargetPct = round(targetPct, 1);
+  const roundedRiskReward = round(riskReward, 1);
 
   const plan = recommendation !== "Avoid" ? buildTradePlan({
     ticker,
@@ -440,6 +449,7 @@ export async function calculateTradeLevels({
     rank,
     sector,
     technical,
+    riskReward: roundedRiskReward,
   }) : null;
 
   return {
@@ -449,7 +459,7 @@ export async function calculateTradeLevels({
     takeProfit: roundedTarget,
     stopPct: roundedStopPct,
     targetPct: roundedTargetPct,
-    riskReward: round(riskReward, 1),
+    riskReward: roundedRiskReward,
     confidence: round(confidence, 2),
     factors,
     plan,
