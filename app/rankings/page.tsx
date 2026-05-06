@@ -25,8 +25,17 @@ type RankingsSearchParams = {
 };
 
 function formatPrice(value: Ranking["price"]) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
   const n = Number(value);
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
+
+  if (!Number.isFinite(n) || n <= 0) {
+    return "—";
+  }
+
+  return `$${n.toFixed(2)}`;
 }
 
 function formatScore(value: Ranking["score"]) {
