@@ -185,8 +185,10 @@ export async function getTopMovers(
 
   const results = await Promise.all(
     tickersToCheck.map(async (ticker) => {
-      const data = await getStockChart(ticker, ["5D"]);
-      const points = data["5D"] ?? [];
+      const data = await getStockChart(ticker, ["1D", "5D"]);
+      const points = (data["1D"] && data["1D"]!.length >= 2)
+        ? data["1D"]!
+        : data["5D"] ?? [];
 
       if (points.length < 2) return null;
 
