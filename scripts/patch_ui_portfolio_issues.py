@@ -1,6 +1,8 @@
 from pathlib import Path
 import re
 
+# Triggered after workflow creation. Applies portfolio/dashboard fixes safely.
+
 
 def replace(path: Path, old: str, new: str, required: bool = True):
     text = path.read_text()
@@ -85,14 +87,11 @@ function daysBetween''',
         count=1,
     )
 
-    # buildAlerts: poor signal should be based on rank percentile, not raw score percentile.
     text = text.replace("if (p.scorePercentile < 25) {", "if (p.rankPercentile < 25) {")
     text = text.replace(
         "title: `${p.ticker} has a poor AI signal — bottom ${p.scorePercentile}% of stocks`,",
         "title: `${p.ticker} has a poor AI signal — bottom ${rankBottomPct(p.rankPercentile)}% of stocks`,",
     )
-
-    # deriveRecommendation: rank is the source of truth for bottom quartile.
     text = re.sub(
         r"function deriveRecommendation\(\n  alerts: HoldingAlert\[\],\n  positionPct: number,\n  scorePercentile: number,\n  rank: number \| null,\n  totalStocks: number\n\): EnrichedHolding\[\"recommendation\"\] \{\n  // Bottom-quartile stocks get the most decisive recommendation\n  if \(scorePercentile < 25\) return \"Sell Immediately\";",
         '''function deriveRecommendation(
@@ -110,8 +109,6 @@ function daysBetween''',
         text,
         count=1,
     )
-
-    # buildDynamicTriggers type and poor signal wording.
     text = text.replace(
         "scorePercentile: number; rank: number | null; totalStocks: number;",
         "scorePercentile: number; rankPercentile: number; rank: number | null; totalStocks: number;",
@@ -125,16 +122,11 @@ function daysBetween''',
         "condition: `${p.ticker} is poorly rated (rank #${p.rank ?? \"—\"}, bottom ${p.scorePercentile}%)`,",
         "condition: `${p.ticker} is poorly rated (rank #${p.rank ?? \"—\"}, bottom ${rankBottomPct(p.rankPercentile)}%)`,",
     )
-
-    # buildAISummary type and all visible top/bottom wording.
     text = text.replace(
         "scorePercentile: number;\n  pnlPercent: number;",
         "scorePercentile: number;\n  rankPercentile: number;\n  pnlPercent: number;",
     )
-    text = text.replace(
-        "the AI signal is in the bottom 25%",
-        "the AI signal is in the bottom quartile",
-    )
+    text = text.replace("the AI signal is in the bottom 25%", "the AI signal is in the bottom quartile")
     text = text.replace("p.scorePercentile >= 75", "p.rankPercentile >= 75")
     text = text.replace("p.scorePercentile >= 70", "p.rankPercentile >= 70")
     text = text.replace("top ${100 - p.scorePercentile}%", "top ${rankTopPct(p.rankPercentile)}%")
@@ -142,8 +134,6 @@ function daysBetween''',
     text = text.replace("top ${100 - p.scorePercentile}%).", "top ${rankTopPct(p.rankPercentile)}%).")
     text = text.replace("top ${100 - p.scorePercentile}% AI score", "top ${rankTopPct(p.rankPercentile)}% AI rank")
     text = text.replace("top ${100 - p.scorePercentile}%)", "top ${rankTopPct(p.rankPercentile)}%)")
-
-    # Ensure calls pass rankPercentile into trigger/summary builders.
     text = text.replace(
         "scorePercentile,\n      rank: current.rank,",
         "scorePercentile,\n      rankPercentile,\n      rank: current.rank,",
