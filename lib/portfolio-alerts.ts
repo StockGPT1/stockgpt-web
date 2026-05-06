@@ -70,37 +70,46 @@ const RECENT_THRESHOLD_DAYS = 7;
 
 async function getSectorData() {
   const supabase = await createClient();
-  const { data: maxRow } = await supabase
-    .from("stock_rankings").select("score")
-    .order("score", { ascending: false }).limit(1).maybeSingle();
-  const maxScore = Math.max(Number(maxRow?.score) || 10000, 1);
-  const bullishThreshold = maxScore * 0.7;
 
   const { data: allStocks } = await supabase
-    .from("stock_rankings").select("sector, score");
+    .from("stock_rankings").select("sector, rank, score");
 
   const totalStocks = (allStocks ?? []).length || 500;
+  const topQuartileRank = Math.max(1, Math.ceil(totalStocks * 0.25));
+  const topHalfRank = Math.max(1, Math.ceil(totalStocks * 0.50));
+  const maxScore = Math.max(...(allStocks ?? []).map((s) => Number(s.score) || 0), 1);
 
-  const bySector: Record<string, { total: number; bullish: number }> = {};
+  const bySector: Record<string, { total: number; bullish: number; healthy: number }> = {};
   (allStocks ?? []).forEach((s) => {
     const sector = s.sector ?? "—";
-    if (!bySector[sector]) bySector[sector] = { total: 0, bullish: 0 };
+    const rank = Number(s.rank);
+    if (!bySector[sector]) bySector[sector] = { total: 0, bullish: 0, healthy: 0 };
     bySector[sector].total++;
-    if (Number(s.score) >= bullishThreshold) bySector[sector].bullish++;
+    if (Number.isFinite(rank) && rank > 0 && rank <= topQuartileRank) bySector[sector].bullish++;
+    if (Number.isFinite(rank) && rank > 0 && rank <= topHalfRank) bySector[sector].healthy++;
   });
 
   const momentum: Record<string, SectorMomentum> = {};
   const bullishPct: Record<string, number> = {};
-  Object.entries(bySector).forEach(([sector, { total, bullish }]) => {
+  Object.entries(bySector).forEach(([sector, { total, bullish, healthy }]) => {
     const pct = total > 0 ? Math.round((bullish / total) * 100) : 0;
+    const healthyPct = total > 0 ? Math.round((healthy / total) * 100) : 0;
     bullishPct[sector] = pct;
-    if (pct >= 50) momentum[sector] = "Booming";
-    else if (pct >= 35) momentum[sector] = "Strong";
-    else if (pct >= 20) momentum[sector] = "Mixed";
-    else if (pct >= 10) momentum[sector] = "Weak";
+    if (pct >= 35) momentum[sector] = "Booming";
+    else if (pct >= 25) momentum[sector] = "Strong";
+    else if (healthyPct >= 45) momentum[sector] = "Mixed";
+    else if (healthyPct >= 30) momentum[sector] = "Weak";
     else momentum[sector] = "Struggling";
   });
   return { momentum, bullishPct, maxScore, totalStocks };
+}
+
+function rankTopPct(rankPercentile: number) {
+  return Math.max(1, 100 - rankPercentile);
+}
+
+function rankBottomPct(rankPercentile: number) {
+  return Math.max(1, 100 - rankPercentile);
 }
 
 function daysBetween(a: Date, b: Date) {
@@ -131,10 +140,10 @@ function buildAlerts(p: {
   // ══════════════════════════════════════════════════════
   // 1. ABSOLUTE TERRIBLE SIGNAL — overrides everything else
   // ══════════════════════════════════════════════════════
-  if (p.scorePercentile < 25) {
+  if (p.rankPercentile < 25) {
     alerts.push({
       type: "poor_signal", severity: "critical",
-      title: `${p.ticker} has a poor AI signal — bottom ${p.scorePercentile}% of stocks`,
+      title: `${p.ticker} has a poor AI signal — bottom ${rankBottomPct(p.rankPercentile)}% of stocks`,
       message: `Score of ${p.score.toLocaleString()} is well below the threshold for a healthy hold. Hundreds of stocks are scoring better right now.`,
       recommendation: `Sell at the next opportunity. Don't wait for a price target — better-rated stocks exist to redeploy into.`,
     });
@@ -323,8 +332,11 @@ function deriveRecommendation(
   rank: number | null,
   totalStocks: number
 ): EnrichedHolding["recommendation"] {
+  const rankPercentile = rank && totalStocks
+    ? Math.max(0, Math.round(100 - ((rank - 1) / totalStocks) * 100))
+    : scorePercentile;
   // Bottom-quartile stocks get the most decisive recommendation
-  if (scorePercentile < 25) return "Sell Immediately";
+  if (rankPercentile < 25) return "Sell Immediately";
   if (rank && totalStocks && rank > totalStocks * 0.9) return "Sell Immediately";
 
   const isSmallPosition = positionPct < 5;
@@ -347,7 +359,7 @@ function buildDynamicTriggers(p: {
   score: number; scoreAtEntry: number | null;
   sector: string | null; sectorMomentum: SectorMomentum;
   daysSinceReview: number; daysHeld: number;
-  scorePercentile: number; rank: number | null; totalStocks: number;
+  scorePercentile: number; rankPercentile: number; rank: number | null; totalStocks: number;
 }): HoldingTrigger[] {
   const triggers: HoldingTrigger[] = [];
   const now = new Date();
@@ -355,10 +367,10 @@ function buildDynamicTriggers(p: {
   // ══════════════════════════════════════════════════════
   // OVERRIDE: Poorly rated stock → exit triggers, no entry/profit math
   // ══════════════════════════════════════════════════════
-  if (p.scorePercentile < 25 || (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85)) {
+  if (p.rankPercentile < 25 || (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85)) {
     triggers.push({
       type: "exit_all", icon: "exit", tone: "negative", priority: 1,
-      condition: `${p.ticker} is poorly rated (rank #${p.rank ?? "—"}, bottom ${p.scorePercentile}%)`,
+      condition: `${p.ticker} is poorly rated (rank #${p.rank ?? "—"}, bottom ${rankBottomPct(p.rankPercentile)}%)`,
       action: `Sell at the next reasonable opportunity. Better stocks exist — don't wait for a price target.`,
     });
     triggers.push({
@@ -491,6 +503,7 @@ function buildDynamicTriggers(p: {
 function buildAISummary(p: {
   recommendation: EnrichedHolding["recommendation"];
   scorePercentile: number;
+  rankPercentile: number;
   pnlPercent: number;
   sectorMomentum: SectorMomentum;
   alerts: HoldingAlert[];
@@ -506,17 +519,17 @@ function buildAISummary(p: {
   // ── Recently added — special case
   if (p.isRecentlyAdded) {
     if (p.recommendation === "Sell Immediately") {
-      return `⚠ Even though you just added ${p.ticker}, the AI signal is in the bottom 25%. This was a poor pick by the metrics — strongly consider selling and replacing with a top-100 ranked stock.`;
+      return `⚠ Even though you just added ${p.ticker}, the AI signal is in the bottom quartile. This was a poor pick by the metrics — strongly consider selling and replacing with a top-100 ranked stock.`;
     }
-    if (p.scorePercentile >= 75) {
-      return `Recently added — you bought a top ${100 - p.scorePercentile}% AI-rated stock. Give it 2–4 weeks to develop before judging. Standard alerts are paused until you've held it longer.`;
+    if (p.rankPercentile >= 75) {
+      return `Recently added — you bought a top ${rankTopPct(p.rankPercentile)}% AI-rated stock. Give it 2–4 weeks to develop before judging. Standard alerts are paused until you've held it longer.`;
     }
     return `Recently added (${p.daysHeld} ${p.daysHeld === 1 ? "day" : "days"} ago). The AI is giving this position a grace period — only critical signals will fire until you've held it for a week. Let the thesis develop.`;
   }
 
   // ── Poor signal — top priority
   if (p.recommendation === "Sell Immediately") {
-    return `⚠ Sell ${p.ticker}. It's ranked #${p.rank ?? "—"} of ${p.totalStocks} — bottom ${100 - p.scorePercentile}% of stocks. There are hundreds of better-rated stocks to redeploy this cash into. Don't try to make this work.`;
+    return `⚠ Sell ${p.ticker}. It's ranked #${p.rank ?? "—"} of ${p.totalStocks} — bottom ${rankBottomPct(p.rankPercentile)}% of stocks. There are hundreds of better-rated stocks to redeploy this cash into. Don't try to make this work.`;
   }
 
   // ── Sell whole — small position with warnings
@@ -542,8 +555,8 @@ function buildAISummary(p: {
 
   // ── Underwater
   if (p.pnlPercent <= -10) {
-    if (p.scorePercentile >= 70) {
-      return `${p.ticker} is down ${Math.abs(p.pnlPercent).toFixed(0)}%, but the AI signal remains strong (top ${100 - p.scorePercentile}%). This may be a buy-the-dip opportunity rather than a problem.`;
+    if (p.rankPercentile >= 70) {
+      return `${p.ticker} is down ${Math.abs(p.pnlPercent).toFixed(0)}%, but the AI signal remains strong (top ${rankTopPct(p.rankPercentile)}%). This may be a buy-the-dip opportunity rather than a problem.`;
     }
     return `${p.ticker} is down ${Math.abs(p.pnlPercent).toFixed(0)}% from your entry. ${p.currentAllocationPct.toFixed(1)}% of portfolio. ${p.recommendation === "Consider Trimming" ? "AI signal is weakening — consider cutting before losses grow." : "Reassess your thesis. If it still holds, this is a buy zone. If not, get out."}`;
   }
@@ -556,16 +569,16 @@ function buildAISummary(p: {
 
   // ── Buy more candidate
   if (p.recommendation === "Consider Buying More") {
-    return `${p.ticker} is set up well: top ${100 - p.scorePercentile}% AI score, ${p.sectorMomentum.toLowerCase()} sector backdrop. ${p.currentAllocationPct.toFixed(1)}% of portfolio. If you have cash, this is the kind of position you add to on any 5%+ dip.`;
+    return `${p.ticker} is set up well: top ${rankTopPct(p.rankPercentile)}% AI score, ${p.sectorMomentum.toLowerCase()} sector backdrop. ${p.currentAllocationPct.toFixed(1)}% of portfolio. If you have cash, this is the kind of position you add to on any 5%+ dip.`;
   }
 
   // ── Strong hold
   if (p.recommendation === "Strong Hold") {
-    return `${p.ticker} is performing as the AI expected — top ${100 - p.scorePercentile}% AI score in a ${p.sectorMomentum.toLowerCase()} sector. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Hold patiently; don't take profits early.`;
+    return `${p.ticker} is performing as the AI expected — top ${rankTopPct(p.rankPercentile)}% AI score in a ${p.sectorMomentum.toLowerCase()} sector. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Hold patiently; don't take profits early.`;
   }
 
   // ── Default hold
-  return `${p.ticker}: rank #${p.rank ?? "—"} (top ${100 - p.scorePercentile}%), sector is ${p.sectorMomentum.toLowerCase()}, ${p.currentAllocationPct.toFixed(1)}% of portfolio. No urgent action — let the thesis play out.`;
+  return `${p.ticker}: rank #${p.rank ?? "—"} (top ${rankTopPct(p.rankPercentile)}%), sector is ${p.sectorMomentum.toLowerCase()}, ${p.currentAllocationPct.toFixed(1)}% of portfolio. No urgent action — let the thesis play out.`;
 }
 
 export async function enrichHoldings(

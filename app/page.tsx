@@ -268,32 +268,6 @@ export default async function Home() {
                 className="hidden h-[calc(100%-66px)] min-h-0 overflow-hidden lg:block"
               >
                 <div className="flex h-full min-h-0 flex-col overflow-hidden">
-                  <div
-                    className={`grid ${dashboardRankingsGrid} h-[27px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
-                  >
-                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                      #
-                    </div>
-                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                      Ticker
-                    </div>
-                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                      Company
-                    </div>
-                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                      Move
-                    </div>
-                    <div className="hidden px-2 text-[8px] font-bold uppercase tracking-wide sm:block">
-                      Sector
-                    </div>
-                    <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
-                      Price
-                    </div>
-                    <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
-                      Score
-                    </div>
-                  </div>
-
                   <div className="min-h-0 flex-1 overflow-hidden">
                     {rankings.length > 0 ? (
                       rankings.map((stock) => {
@@ -429,7 +403,7 @@ export default async function Home() {
                   className="rounded-full border border-[#072116]/10 px-2 py-0.5 text-[8px] font-black"
                   style={{ color: "rgba(7,33,22,0.55)" }}
                 >
-                  5d
+                  1D
                 </span>
               </div>
 
