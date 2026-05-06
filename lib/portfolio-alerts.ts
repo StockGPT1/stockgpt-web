@@ -133,10 +133,10 @@ function buildAlerts(p: {
   // ══════════════════════════════════════════════════════
   // 1. ABSOLUTE TERRIBLE SIGNAL — overrides everything else
   // ══════════════════════════════════════════════════════
-  if (p.scorePercentile < 25) {
+  if (p.rankPercentile < 25) {
     alerts.push({
       type: "poor_signal", severity: "critical",
-      title: `${p.ticker} has a poor AI signal — bottom ${p.scorePercentile}% of stocks`,
+      title: `${p.ticker} has a poor AI signal — bottom ${Math.max(1, 100 - p.rankPercentile)}% of stocks`,
       message: `Score of ${p.score.toLocaleString()} is well below the threshold for a healthy hold. Hundreds of stocks are scoring better right now.`,
       recommendation: `Sell at the next opportunity. Don't wait for a price target — better-rated stocks exist to redeploy into.`,
     });
@@ -325,8 +325,11 @@ function deriveRecommendation(
   rank: number | null,
   totalStocks: number
 ): EnrichedHolding["recommendation"] {
+  const rankPercentile = rank && totalStocks
+    ? Math.max(0, Math.round(100 - ((rank - 1) / totalStocks) * 100))
+    : scorePercentile;
   // Bottom-quartile stocks get the most decisive recommendation
-  if (scorePercentile < 25) return "Sell Immediately";
+  if (rankPercentile < 25) return "Sell Immediately";
   if (rank && totalStocks && rank > totalStocks * 0.9) return "Sell Immediately";
 
   const isSmallPosition = positionPct < 5;
@@ -600,7 +603,7 @@ function buildAISummary(p: {
   // ── Recently added — special case
   if (p.isRecentlyAdded) {
     if (p.recommendation === "Sell Immediately") {
-      return `⚠ Even though you just added ${p.ticker}, the AI signal is in the bottom 25%. This was a poor pick by the metrics — strongly consider selling and replacing with a top-100 ranked stock.`;
+      return `⚠ Even though you just added ${p.ticker}, the AI signal is in the bottom quartile. This was a poor pick by the metrics — strongly consider selling and replacing with a top-100 ranked stock.`;
     }
     if (p.scorePercentile >= 75) {
       return `Recently added — you bought a top ${100 - p.scorePercentile}% AI-rated stock. Give it 2–4 weeks to develop before judging. Standard alerts are paused until you've held it longer.`;
