@@ -236,10 +236,10 @@ function buildTradePlan({
     : "weak";
 
   const stopReason = stopSource === "support" && technical.support
-    ? `just below support around $${technical.support.toFixed(2)}`
+    ? `just below qualified support around $${technical.support.toFixed(2)}`
     : stopSource === "ma50" && technical.ma50
       ? `below the 50-day area around $${technical.ma50.toFixed(2)}`
-      : "volatility fallback because no usable nearby support was detected";
+      : "volatility fallback because no qualified medium-term support was detected";
 
   const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk invalidated ${stopReason}.`;
 
@@ -319,21 +319,25 @@ export async function calculateTradeLevels({
   const normalNoisePct = Math.min(12, Math.max(4, (technical.atrPct ?? 2.0) * 2.4));
 
   const rankBufferPct = confidence >= 0.75 ? 2.5 : confidence >= 0.55 ? 2.0 : confidence >= 0.35 ? 1.5 : 1.0;
+  const minStopPct = confidence >= 0.75 ? 9 : confidence >= 0.55 ? 7 : confidence >= 0.35 ? 5 : 4;
+  const maxFallbackPct = confidence >= 0.75 ? 16 : confidence >= 0.55 ? 14 : confidence >= 0.35 ? 11 : 8;
   const fallbackStopPct = Math.min(
-    confidence >= 0.75 ? 16 : confidence >= 0.55 ? 14 : confidence >= 0.35 ? 11 : 8,
-    Math.max(
-      confidence >= 0.75 ? 9 : confidence >= 0.55 ? 8 : confidence >= 0.35 ? 6 : 4.5,
-      normalNoisePct + (confidence >= 0.75 ? 3 : confidence >= 0.55 ? 2 : 0),
-    ),
+    maxFallbackPct,
+    Math.max(minStopPct, normalNoisePct + (confidence >= 0.75 ? 3 : confidence >= 0.55 ? 2 : 0)),
   );
 
-  const supportStop = technical.support && technical.support < price
+  const rawSupportStop = technical.support && technical.support < price
     ? technical.support * (1 - rankBufferPct / 100)
     : null;
-  const maStop = technical.ma50 && technical.ma50 < price
+  const rawMaStop = technical.ma50 && technical.ma50 < price
     ? technical.ma50 * (1 - Math.max(1.2, rankBufferPct - 0.5) / 100)
     : null;
   const fallbackStop = price * (1 - fallbackStopPct / 100);
+
+  const supportStopPct = rawSupportStop ? ((price - rawSupportStop) / price) * 100 : null;
+  const maStopPct = rawMaStop ? ((price - rawMaStop) / price) * 100 : null;
+  const supportStop = supportStopPct != null && supportStopPct >= minStopPct ? rawSupportStop : null;
+  const maStop = maStopPct != null && maStopPct >= minStopPct ? rawMaStop : null;
 
   let stopSource: StopSource = "fallback";
   let stopLoss = fallbackStop;
@@ -378,10 +382,10 @@ export async function calculateTradeLevels({
       ? `$${technical.ma50.toFixed(2)}`
       : "Fallback";
   const technicalStopNote = stopSource === "support"
-    ? "Nearest support"
+    ? "Qualified support"
     : stopSource === "ma50"
-      ? "50-day area"
-      : "No usable nearby support";
+      ? "Qualified 50-day area"
+      : "Nearest support too tight or unavailable";
 
   const factors: TradeLevels["factors"] = [
     {
