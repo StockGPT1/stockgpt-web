@@ -8,13 +8,11 @@ import { getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
-  moveClassName,
 } from "@/lib/rank-history";
 
 type Ranking = {
   id: string | number;
   rank: number | null;
-  previous_rank: number | null;
   ticker: string | null;
   company: string | null;
   sector: string | null;
@@ -23,11 +21,7 @@ type Ranking = {
   updated_at: string | null;
 };
 
-type RankMove = {
-  label: string;
-  tone: "up" | "down" | "flat" | "none";
-  title: string;
-};
+type MoveTone = "up" | "down" | "flat" | "none";
 
 function formatPrice(value: Ranking["price"]) {
   const n = Number(value);
@@ -48,46 +42,7 @@ function formatUpdatedTime(value?: string | null) {
   });
 }
 
-function getRankMove(
-  currentRank: number | null,
-  previousRank: number | null,
-): RankMove {
-  if (currentRank == null || previousRank == null) {
-    return {
-      label: "—",
-      tone: "none",
-      title: "Previous rank unavailable",
-    };
-  }
-
-  const difference = previousRank - currentRank;
-
-  if (difference > 0) {
-    return {
-      label: `↑ ${difference}`,
-      tone: "up",
-      title: `Moved up ${difference} place${difference === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  if (difference < 0) {
-    const abs = Math.abs(difference);
-
-    return {
-      label: `↓ ${abs}`,
-      tone: "down",
-      title: `Moved down ${abs} place${abs === 1 ? "" : "s"} since the previous model run`,
-    };
-  }
-
-  return {
-    label: "—",
-    tone: "flat",
-    title: "Rank unchanged since the previous model run",
-  };
-}
-
-function moveClassName(tone: RankMove["tone"]) {
+function moveClassName(tone: MoveTone) {
   if (tone === "up") {
     return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
   }
@@ -108,7 +63,7 @@ export default async function Home() {
 
   const { data: rankingsData } = await supabase
     .from("stock_rankings")
-    .select("id,rank,previous_rank,ticker,company,sector,score,price,updated_at")
+    .select("id,rank,ticker,company,sector,score,price,updated_at")
     .order("rank", { ascending: true })
     .limit(10);
 
@@ -178,7 +133,12 @@ export default async function Home() {
                 sub={sentiment}
               />
 
-              <StatBlock icon="▦" label="Total" main="500" sub="ranked daily" />
+              <StatBlock
+                icon="▦"
+                label="Total"
+                main={(totalCount ?? rankings.length).toLocaleString()}
+                sub="stocks ranked"
+              />
 
               <StatBlock
                 icon="◷"
