@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart } from "@/components/StockChart";
+import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
 import { getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
@@ -61,6 +62,24 @@ function moveClassName(tone: MoveTone) {
 export default async function Home() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let hasSubscription = false;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    hasSubscription = profile?.subscription_status === "basic";
+  }
+
+  const rankingsLocked = !hasSubscription;
+
   const { data: rankingsData } = await supabase
     .from("stock_rankings")
     .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -75,7 +94,6 @@ export default async function Home() {
     .filter((t): t is string => !!t);
 
   const [sp500Data, movers, snapshotMap] = await Promise.all([
-    // ✦ Now also fetching 1D for the dashboard chart
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
     getTopMovers(tickerList, 8),
     getRankSnapshotMapAround24hAgo(supabase),
@@ -104,11 +122,9 @@ export default async function Home() {
           ? "Cautious market"
           : "Weak market";
 
-  // ✦ Reordered: # | Ticker (with logo) | Company | Move | Sector | Price | Score
   const dashboardRankingsGrid =
     "grid-cols-[34px_92px_minmax(0,1fr)_60px_112px_76px_78px]";
 
-  // ✦ Split gainers/losers into separate top 3 lists for clarity
   const topGainers = movers.gainers.slice(0, 3);
   const topLosers = movers.losers.slice(0, 3);
 
@@ -123,8 +139,8 @@ export default async function Home() {
               <StatBlock
                 icon="♛"
                 label="Top Ranked"
-                main={topRanked?.ticker ?? "—"}
-                sub={topRanked?.company ?? "—"}
+                main={rankingsLocked ? "Locked" : topRanked?.ticker ?? "—"}
+                sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}
               />
 
               <StatBlock
@@ -167,170 +183,67 @@ export default async function Home() {
                     className="mt-1 truncate text-[10px] font-semibold"
                     style={{ color: "rgba(7,33,22,0.55)" }}
                   >
-                    Click any row for full AI analysis
+                    {rankingsLocked
+                      ? "Subscribe to unlock full AI rankings"
+                      : "Click any row for full AI analysis"}
                   </p>
                 </div>
 
                 <Link
-                  href="/rankings"
+                  href={rankingsLocked ? "/pricing" : "/rankings"}
                   style={{ backgroundColor: "#ddb159", color: "#072116" }}
                   className="mt-1 shrink-0 rounded-full px-4 py-2 text-[10px] font-black shadow-[0_6px_16px_rgba(221,177,89,0.26)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(221,177,89,0.34)] hover:brightness-105"
                 >
-                  View All →
+                  {rankingsLocked ? "Unlock →" : "View All →"}
                 </Link>
               </div>
 
-              <div className="lg:hidden">
-                <div className="grid grid-cols-[32px_minmax(0,1fr)_72px_68px] bg-[#072116] px-3 py-2 text-[9px] font-black uppercase tracking-wide text-[#faf6f0]">
-                  <div>#</div>
-                  <div>Ticker</div>
-                  <div className="text-right">Price</div>
-                  <div className="text-right">Score</div>
-                </div>
-
-                <div className="divide-y divide-[#072116]/8">
-                  {rankings.length > 0 ? (
-                    rankings.map((stock) => (
-                      <Link
-                        key={stock.id}
-                        href={`/stock/${stock.ticker}`}
-                        className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 px-3 py-2 text-[11px] transition hover:bg-[#ddb159]/10"
-                        style={{ color: "#072116" }}
-                      >
-                        <div className="font-bold tabular-nums text-[#072116]/65">
-                          {stock.rank ?? "—"}
-                        </div>
-
-                        <div className="flex min-w-0 items-center gap-2">
-                          <StockLogo
-                            ticker={stock.ticker}
-                            company={stock.company}
-                            size={18}
-                          />
-
-                          <div className="min-w-0">
-                            <p className="truncate text-[12px] font-black">
-                              {stock.ticker ?? "—"}
-                            </p>
-                            <p className="truncate text-[9px] font-semibold text-[#072116]/45">
-                              {stock.company ?? "—"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right text-[10px] font-bold tabular-nums">
-                          {formatPrice(stock.price)}
-                        </div>
-
-                        <div className="flex justify-end">
-                          <span
-                            className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums"
-                            style={{
-                              backgroundColor: "#ddb159",
-                              color: "#072116",
-                            }}
-                          >
-                            {formatScore(stock.score)}
-                          </span>
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <div className="px-4 py-8 text-center text-[12px] font-semibold text-[#072116]/55">
-                      No ranking data available yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="hidden h-[calc(100%-66px)] min-h-0 flex-col overflow-hidden lg:flex">
-                {/* ✦ Reordered headers: # | Ticker | Company | Move | Sector | Price | Score */}
-                <div
-                  className={`grid ${dashboardRankingsGrid} h-[27px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
-                >
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    #
+              <RankingsLock isLocked={rankingsLocked} className="lg:hidden">
+                <div>
+                  <div className="grid grid-cols-[32px_minmax(0,1fr)_72px_68px] bg-[#072116] px-3 py-2 text-[9px] font-black uppercase tracking-wide text-[#faf6f0]">
+                    <div>#</div>
+                    <div>Ticker</div>
+                    <div className="text-right">Price</div>
+                    <div className="text-right">Score</div>
                   </div>
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    Ticker
-                  </div>
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    Company
-                  </div>
-                  <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
-                    Move
-                  </div>
-                  <div className="hidden px-2 text-[8px] font-bold uppercase tracking-wide sm:block">
-                    Sector
-                  </div>
-                  <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
-                    Price
-                  </div>
-                  <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
-                    Score
-                  </div>
-                </div>
 
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  {rankings.length > 0 ? (
-                    rankings.map((stock) => {
-                      const move = getRankMove24h(
-                        stock.rank,
-                        snapshotMap.get(stock.ticker ?? ""),
-                      );
-
-                      return (
+                  <div className="divide-y divide-[#072116]/8">
+                    {rankings.length > 0 ? (
+                      rankings.map((stock) => (
                         <Link
                           key={stock.id}
                           href={`/stock/${stock.ticker}`}
+                          className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 px-3 py-2 text-[11px] transition hover:bg-[#ddb159]/10"
                           style={{ color: "#072116" }}
-                          className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
                         >
-                          <div className="px-2 font-bold tabular-nums text-[#072116]/75">
+                          <div className="font-bold tabular-nums text-[#072116]/65">
                             {stock.rank ?? "—"}
                           </div>
 
-                          <div className="flex min-w-0 items-center gap-2 px-2 font-black">
+                          <div className="flex min-w-0 items-center gap-2">
                             <StockLogo
                               ticker={stock.ticker}
                               company={stock.company}
-                              size={17}
+                              size={18}
                             />
-                            <span className="min-w-0 truncate tracking-[-0.01em]">
-                              {stock.ticker ?? "—"}
-                            </span>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-[12px] font-black">
+                                {stock.ticker ?? "—"}
+                              </p>
+                              <p className="truncate text-[9px] font-semibold text-[#072116]/45">
+                                {stock.company ?? "—"}
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
-                            {stock.company ?? "—"}
-                          </div>
-
-                          <div className="px-2">
-                            <span
-                              title={move.title}
-                              className={[
-                                "inline-flex h-5 min-w-[38px] items-center justify-center rounded-full border px-1 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
-                                moveClassName(move.tone),
-                              ].join(" ")}
-                            >
-                              {move.label}
-                            </span>
-                          </div>
-
-                          <div
-                            className="hidden min-w-0 truncate px-2 sm:block"
-                            style={{ color: "rgba(7,33,22,0.6)" }}
-                          >
-                            {stock.sector ?? "—"}
-                          </div>
-
-                          <div className="px-2 text-right font-semibold tabular-nums">
+                          <div className="text-right text-[10px] font-bold tabular-nums">
                             {formatPrice(stock.price)}
                           </div>
 
-                          <div className="flex justify-end px-2">
+                          <div className="flex justify-end">
                             <span
-                              className="inline-flex min-w-[58px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
+                              className="inline-flex min-w-[52px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums"
                               style={{
                                 backgroundColor: "#ddb159",
                                 color: "#072116",
@@ -340,22 +253,132 @@ export default async function Home() {
                             </span>
                           </div>
                         </Link>
-                      );
-                    })
-                  ) : (
-                    <div
-                      className="px-4 py-8 text-center font-semibold"
-                      style={{ color: "rgba(7,33,22,0.6)" }}
-                    >
-                      No ranking data available yet.
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-center text-[12px] font-semibold text-[#072116]/55">
+                        No ranking data available yet.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </RankingsLock>
+
+              <RankingsLock
+                isLocked={rankingsLocked}
+                className="hidden h-[calc(100%-66px)] min-h-0 overflow-hidden lg:block"
+              >
+                <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                  <div
+                    className={`grid ${dashboardRankingsGrid} h-[27px] shrink-0 items-center bg-[#072116] text-[#faf6f0]`}
+                  >
+                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                      #
+                    </div>
+                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                      Ticker
+                    </div>
+                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                      Company
+                    </div>
+                    <div className="px-2 text-[8px] font-bold uppercase tracking-wide">
+                      Move
+                    </div>
+                    <div className="hidden px-2 text-[8px] font-bold uppercase tracking-wide sm:block">
+                      Sector
+                    </div>
+                    <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
+                      Price
+                    </div>
+                    <div className="px-2 text-right text-[8px] font-bold uppercase tracking-wide">
+                      Score
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-hidden">
+                    {rankings.length > 0 ? (
+                      rankings.map((stock) => {
+                        const move = getRankMove24h(
+                          stock.rank,
+                          snapshotMap.get(stock.ticker ?? ""),
+                        );
+
+                        return (
+                          <Link
+                            key={stock.id}
+                            href={`/stock/${stock.ticker}`}
+                            style={{ color: "#072116" }}
+                            className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
+                          >
+                            <div className="px-2 font-bold tabular-nums text-[#072116]/75">
+                              {stock.rank ?? "—"}
+                            </div>
+
+                            <div className="flex min-w-0 items-center gap-2 px-2 font-black">
+                              <StockLogo
+                                ticker={stock.ticker}
+                                company={stock.company}
+                                size={17}
+                              />
+                              <span className="min-w-0 truncate tracking-[-0.01em]">
+                                {stock.ticker ?? "—"}
+                              </span>
+                            </div>
+
+                            <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
+                              {stock.company ?? "—"}
+                            </div>
+
+                            <div className="px-2">
+                              <span
+                                title={move.title}
+                                className={[
+                                  "inline-flex h-5 min-w-[38px] items-center justify-center rounded-full border px-1 text-[8px] font-black tabular-nums transition duration-300 group-hover:scale-105",
+                                  moveClassName(move.tone),
+                                ].join(" ")}
+                              >
+                                {move.label}
+                              </span>
+                            </div>
+
+                            <div
+                              className="hidden min-w-0 truncate px-2 sm:block"
+                              style={{ color: "rgba(7,33,22,0.6)" }}
+                            >
+                              {stock.sector ?? "—"}
+                            </div>
+
+                            <div className="px-2 text-right font-semibold tabular-nums">
+                              {formatPrice(stock.price)}
+                            </div>
+
+                            <div className="flex justify-end px-2">
+                              <span
+                                className="inline-flex min-w-[58px] justify-center rounded-full px-2 py-0.5 text-[9px] font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition duration-300 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.38)]"
+                                style={{
+                                  backgroundColor: "#ddb159",
+                                  color: "#072116",
+                                }}
+                              >
+                                {formatScore(stock.score)}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })
+                    ) : (
+                      <div
+                        className="px-4 py-8 text-center font-semibold"
+                        style={{ color: "rgba(7,33,22,0.6)" }}
+                      >
+                        No ranking data available yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </RankingsLock>
             </div>
           </section>
 
-          {/* ✦ Right column rows: chart (small) / gainers + losers (LARGE, 1fr) / portfolio promo (compact) */}
           <aside className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[156px_minmax(0,1fr)_88px] lg:gap-2 lg:overflow-hidden lg:pb-1">
             <div className="overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05] lg:min-h-0">
               <div className="flex items-start justify-between gap-3">
@@ -368,13 +391,11 @@ export default async function Home() {
                   </h3>
                 </div>
 
-                {/* ✦ Range pill now reads 1D */}
                 <p className="rounded-full border border-[#ddb159]/20 bg-[#072116]/50 px-2 py-1 text-[9px] font-black text-[#ddb159]">
                   1D
                 </p>
               </div>
 
-              {/* ✦ Both mobile and desktop charts now use 1D timeframe */}
               <div className="mt-2 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">
                 <StockChart
                   ticker="S&P 500"
@@ -396,7 +417,6 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* ✦ Top Gainers & Losers — much bigger, split into two columns inside the card */}
             <div className="overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)] lg:flex lg:min-h-0 lg:flex-col">
               <div className="flex h-[20px] shrink-0 items-center justify-between gap-3">
                 <p
@@ -414,7 +434,6 @@ export default async function Home() {
               </div>
 
               <div className="mt-2 grid min-h-0 flex-1 grid-rows-2 gap-2.5 overflow-hidden">
-                {/* GAINERS */}
                 <div className="flex min-h-0 flex-col">
                   <p className="mb-1 text-[8px] font-extrabold uppercase tracking-wider text-emerald-700/80">
                     ▲ Gainers
@@ -460,7 +479,6 @@ export default async function Home() {
                   </div>
                 </div>
 
-                {/* LOSERS */}
                 <div className="flex min-h-0 flex-col">
                   <p className="mb-1 text-[8px] font-extrabold uppercase tracking-wider text-red-700/80">
                     ▼ Losers
@@ -559,8 +577,6 @@ function StatBlock({
   );
 }
 
-// ✦ Portfolio promo — shrunken to ~1/4 size (88px tall vs ~220-240px before)
-// Single horizontal row: icon + headline/sub + CTA
 function PortfolioPromoCard() {
   return (
     <Link
