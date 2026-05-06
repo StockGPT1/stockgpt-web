@@ -149,14 +149,14 @@ export default async function RankingsPage({
 
   return (
     <AppShell activePath="/rankings">
-      <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-        <div className="flex shrink-0 items-end justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] font-black tracking-[-0.03em] text-[#faf6f0]">
+      <main className="flex min-h-full flex-col gap-3 overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-black tracking-[-0.03em] text-[#faf6f0] sm:text-[28px]">
               Stock Rankings
             </h1>
 
-            <p className="mt-0.5 text-[13px] font-medium text-[#faf6f0]/50">
+            <p className="mt-0.5 text-[12px] font-medium text-[#faf6f0]/50 sm:text-[13px]">
               {hasAccess
                 ? `${rankings.length} stocks shown · ${allRankings.length} available`
                 : "Top 10 preview — sign in for full access"}
@@ -167,25 +167,25 @@ export default async function RankingsPage({
             <Link
               href="/pricing"
               style={{ backgroundColor: "#ddb159", color: "#072116" }}
-              className="rounded-full px-4 py-2 text-[12px] font-black transition hover:opacity-90"
+              className="w-fit rounded-full px-4 py-2 text-[12px] font-black transition hover:opacity-90"
             >
               Unlock full rankings
             </Link>
           )}
         </div>
 
-        <form className="grid shrink-0 grid-cols-[minmax(0,1fr)_170px_140px_auto] gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f] p-2">
+        <form className="grid shrink-0 grid-cols-1 gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f] p-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_170px_140px_auto]">
           <input
             name="q"
             defaultValue={params.q ?? ""}
             placeholder="Filter by ticker or company..."
-            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/60"
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/60"
           />
 
           <select
             name="sector"
             defaultValue={sectorFilter}
-            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
           >
             <option value="all">All sectors</option>
             {sectors.map((sector) => (
@@ -198,7 +198,7 @@ export default async function RankingsPage({
           <select
             name="move"
             defaultValue={moveFilter}
-            className="h-10 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
           >
             <option value="all">All moves</option>
             <option value="up">Moved up</option>
@@ -207,7 +207,7 @@ export default async function RankingsPage({
             <option value="none">No previous data</option>
           </select>
 
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-1 lg:flex">
             <button
               type="submit"
               className="h-10 rounded-xl bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] transition hover:brightness-105"
@@ -224,7 +224,95 @@ export default async function RankingsPage({
           </div>
         </form>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)]">
+        <div className="grid gap-2 lg:hidden">
+          {rankings.length > 0 ? (
+            rankings.map((stock) => {
+              const move = getRankMove(stock.rank, stock.previous_rank);
+
+              return (
+                <Link
+                  key={stock.id}
+                  href={`/stock/${stock.ticker}`}
+                  className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20 transition hover:bg-white"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[#072116] text-[12px] font-black text-[#ddb159]">
+                        {stock.rank ?? "—"}
+                      </div>
+
+                      <StockLogo
+                        ticker={stock.ticker}
+                        company={stock.company}
+                        size={28}
+                      />
+
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-black">
+                          {stock.ticker ?? "—"}
+                        </p>
+                        <p className="truncate text-[11px] font-semibold text-[#072116]/55">
+                          {stock.company ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black"
+                      style={{
+                        backgroundColor: "#ddb159",
+                        color: "#072116",
+                      }}
+                    >
+                      {formatScore(stock.score)}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
+                        Move
+                      </p>
+                      <span
+                        title={move.title}
+                        className={[
+                          "mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
+                          moveClassName(move.tone),
+                        ].join(" ")}
+                      >
+                        {move.label}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
+                        Price
+                      </p>
+                      <p className="mt-1 truncate text-[11px] font-black tabular-nums">
+                        {formatPrice(stock.price)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
+                        Sector
+                      </p>
+                      <p className="mt-1 truncate text-[10px] font-bold text-[#072116]/60">
+                        {stock.sector ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          ) : (
+            <div className="rounded-2xl bg-[#faf6f0] px-4 py-10 text-center text-[13px] font-bold text-[#072116]/55">
+              No stocks match those filters.
+            </div>
+          )}
+        </div>
+
+        <div className="relative hidden min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
           <div
             className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}
           >
