@@ -3,7 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "StockGPT — AI Stock Rankings & Portfolio Builder",
-  description: "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
+  description:
+    "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
