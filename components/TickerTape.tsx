@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTickerTape } from "@/lib/yahoo";
 
 function formatPrice(value: number) {
@@ -32,6 +33,41 @@ function arrow(value: number) {
   return "■";
 }
 
+function isStockTicker(yahooSymbol: string) {
+  return !yahooSymbol.startsWith("^");
+}
+
+function TickerInner({
+  symbol,
+  price,
+  changePct,
+}: {
+  symbol: string;
+  price: number;
+  changePct: number;
+}) {
+  return (
+    <>
+      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+        {symbol}
+      </span>
+
+      <span className="text-[9px] font-bold tabular-nums text-[#faf6f0]/78">
+        {formatPrice(price)}
+      </span>
+
+      <span
+        className={[
+          "text-[9px] font-extrabold tabular-nums",
+          toneClassName(changePct),
+        ].join(" ")}
+      >
+        {arrow(changePct)} {formatChangePct(changePct)}
+      </span>
+    </>
+  );
+}
+
 export async function TickerTape() {
   const tickerItems = await getTickerTape([
     "^GSPC",
@@ -58,32 +94,45 @@ export async function TickerTape() {
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-[#03140d] to-transparent" />
 
       <div className="stock-ticker-track flex h-full min-w-max items-center whitespace-nowrap">
-        {repeated.map((item, index) => (
-          <div
-            key={`${item.yahooSymbol}-${index}`}
-            className="flex h-full items-center gap-2 border-r border-[#ddb159]/12 px-4"
-            title={`${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
-              item.changePct,
-            )})`}
-          >
-            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-              {item.symbol}
-            </span>
+        {repeated.map((item, index) => {
+          const title = `${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
+            item.changePct,
+          )})`;
 
-            <span className="text-[9px] font-bold tabular-nums text-[#faf6f0]/78">
-              {formatPrice(item.price)}
-            </span>
+          const className =
+            "flex h-full items-center gap-2 border-r border-[#ddb159]/12 px-4 transition hover:bg-[#ddb159]/10";
 
-            <span
-              className={[
-                "text-[9px] font-extrabold tabular-nums",
-                toneClassName(item.changePct),
-              ].join(" ")}
+          if (isStockTicker(item.yahooSymbol)) {
+            return (
+              <Link
+                key={`${item.yahooSymbol}-${index}`}
+                href={`/stock/${encodeURIComponent(item.yahooSymbol)}`}
+                className={className}
+                title={`${title} — open ${item.yahooSymbol}`}
+              >
+                <TickerInner
+                  symbol={item.symbol}
+                  price={item.price}
+                  changePct={item.changePct}
+                />
+              </Link>
+            );
+          }
+
+          return (
+            <div
+              key={`${item.yahooSymbol}-${index}`}
+              className={className}
+              title={title}
             >
-              {arrow(item.changePct)} {formatChangePct(item.changePct)}
-            </span>
-          </div>
-        ))}
+              <TickerInner
+                symbol={item.symbol}
+                price={item.price}
+                changePct={item.changePct}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
