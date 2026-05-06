@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getStockChart } from "@/lib/yahoo";
 
 export type AlertSeverity = "critical" | "warning" | "info" | "success";
 export type AlertType =
@@ -340,6 +341,100 @@ function deriveRecommendation(
   if (successes >= 2 && warnings === 0) return "Consider Buying More";
   if (successes >= 1 && warnings === 0) return "Strong Hold";
   return "Hold";
+}
+
+type TechnicalLevels = {
+  support: number | null;
+  resistance: number | null;
+  swingLow: number | null;
+  swingHigh: number | null;
+  ma50: number | null;
+  ma200: number | null;
+  atrPct: number | null;
+  source: "technical" | "fallback";
+};
+
+function average(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function nearestBelow(values: number[], price: number) {
+  const candidates = values.filter((value) => Number.isFinite(value) && value > 0 && value < price * 0.995);
+  return candidates.length ? Math.max(...candidates) : null;
+}
+
+function nearestAbove(values: number[], price: number) {
+  const candidates = values.filter((value) => Number.isFinite(value) && value > price * 1.005);
+  return candidates.length ? Math.min(...candidates) : null;
+}
+
+function detectSwingLevels(closes: number[]) {
+  const swingLows: number[] = [];
+  const swingHighs: number[] = [];
+  for (let i = 2; i < closes.length - 2; i++) {
+    const value = closes[i];
+    if (
+      value < closes[i - 1] && value < closes[i - 2] &&
+      value <= closes[i + 1] && value <= closes[i + 2]
+    ) {
+      swingLows.push(value);
+    }
+    if (
+      value > closes[i - 1] && value > closes[i - 2] &&
+      value >= closes[i + 1] && value >= closes[i + 2]
+    ) {
+      swingHighs.push(value);
+    }
+  }
+  return { swingLows, swingHighs };
+}
+
+async function getTechnicalLevels(ticker: string, currentPrice: number): Promise<TechnicalLevels> {
+  try {
+    const chart = await getStockChart(ticker, ["6M", "1Y"]);
+    const points = (chart["6M"] && chart["6M"]!.length >= 80) ? chart["6M"]! : (chart["1Y"] ?? []);
+    const closes = points
+      .map((point) => Number(point.close))
+      .filter((price) => Number.isFinite(price) && price > 0);
+
+    if (closes.length < 40) {
+      return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+    }
+
+    const recent = closes.slice(-126);
+    const { swingLows, swingHighs } = detectSwingLevels(recent);
+    const ma50 = average(closes.slice(-50));
+    const ma200 = closes.length >= 200 ? average(closes.slice(-200)) : null;
+    const recentAbsMoves = closes.slice(-45).slice(1).map((price, index) => {
+      const previous = closes.slice(-45)[index];
+      return previous > 0 ? Math.abs((price - previous) / previous) : 0;
+    });
+    const atrPct = (average(recentAbsMoves) ?? 0.02) * 100;
+
+    const structuralSupports = [
+      ...swingLows,
+      Math.min(...recent.slice(-63)),
+      ...(ma50 && ma50 < currentPrice ? [ma50] : []),
+      ...(ma200 && ma200 < currentPrice ? [ma200] : []),
+    ];
+    const structuralResistances = [
+      ...swingHighs,
+      Math.max(...recent.slice(-126)),
+    ];
+
+    return {
+      support: nearestBelow(structuralSupports, currentPrice),
+      resistance: nearestAbove(structuralResistances, currentPrice),
+      swingLow: nearestBelow(swingLows, currentPrice),
+      swingHigh: nearestAbove(swingHighs, currentPrice),
+      ma50,
+      ma200,
+      atrPct,
+      source: "technical",
+    };
+  } catch {
+    return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+  }
 }
 
 function buildDynamicTriggers(p: {
@@ -693,7 +788,7 @@ export async function enrichHoldings(
     return sum + price * shares;
   }, 0);
 
-  return holdings.map((h) => {
+  return await Promise.all(holdings.map(async (h) => {
     const current = currentMap.get(h.ticker);
     const score = Number(current?.score) || 0;
     const currentPrice = Number(current?.price) || 0;
@@ -734,7 +829,7 @@ export async function enrichHoldings(
 
     const recommendation = deriveRecommendation(alerts, currentAllocationPct, scorePercentile, rank, totalStocks);
 
-    const triggers = buildDynamicTriggers({
+    const triggers = await buildDynamicTriggers({
       ticker: h.ticker, currentPrice, entryPrice, pnlPercent,
       currentAllocationPct, score, scoreAtEntry: h.score_at_entry,
       sector, sectorMomentum: sectorMomentumValue, daysSinceReview, daysHeld,
@@ -765,5 +860,5 @@ export async function enrichHoldings(
       sectorMomentum: sectorMomentumValue, sectorBullishPct: sectorBullishPctValue,
       scorePercentile, rankPercentile, triggers, aiSummary, isRecentlyAdded,
     };
-  });
+  }));
 }
