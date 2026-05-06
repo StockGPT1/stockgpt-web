@@ -120,8 +120,11 @@ export default async function StockDetailPage({
                   <Link href="/rankings" className="hover:text-[#ddb159]">
                     ← Rankings
                   </Link>
+
                   <span>·</span>
+
                   <span>Rank #{stock.rank ?? "—"}</span>
+
                   {stock.sector && (
                     <>
                       <span>·</span>
@@ -141,6 +144,7 @@ export default async function StockDetailPage({
                     <h1 className="text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">
                       {stock.ticker}
                     </h1>
+
                     <p className="mt-1 truncate text-[16px] font-bold text-[#faf6f0]/70">
                       {stock.company ?? "—"}
                     </p>
@@ -163,12 +167,6 @@ export default async function StockDetailPage({
                     Days at top · {formatDaysAtTop(daysAtTop)}
                   </span>
                 </div>
-
-                <p className="mt-2 max-w-xl text-[10px] font-semibold text-[#faf6f0]/45">
-                  Days at top is calculated from stored StockGPT daily ranking
-                  snapshots. If history only started recently, the count starts
-                  from the first real snapshot.
-                </p>
               </div>
 
               <div className="shrink-0">
@@ -185,6 +183,7 @@ export default async function StockDetailPage({
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
               ✦ Price Chart
             </p>
+
             <div className="mt-2">
               <StockChart
                 ticker={ticker}
@@ -206,6 +205,7 @@ export default async function StockDetailPage({
                 >
                   ✦ Sector Peers
                 </p>
+
                 <p
                   className="mt-1 text-[11px] font-semibold"
                   style={{ color: "rgba(7,33,22,0.55)" }}
@@ -227,6 +227,7 @@ export default async function StockDetailPage({
                         >
                           {p.ticker}
                         </p>
+
                         <p
                           className="truncate text-[10px] font-semibold"
                           style={{ color: "rgba(7,33,22,0.55)" }}
@@ -242,6 +243,7 @@ export default async function StockDetailPage({
                         >
                           #{p.rank}
                         </p>
+
                         <span
                           className="inline-flex justify-center rounded-full px-2 py-0.5 text-[9px] font-black"
                           style={{
