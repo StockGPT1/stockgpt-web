@@ -1,21 +1,39 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { EmailNewsDigestToggle } from "@/components/EmailNewsDigestToggle";
 import { createClient } from "@/utils/supabase/server";
+
+type Profile = {
+  subscription_status: string | null;
+  email_news_digests: boolean | null;
+};
 
 export default async function SettingsPage() {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 
-  // Watchlist count for the stats summary
-  const { count: watchlistCount } = await supabase
-    .from("watchlist")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  const [{ count: watchlistCount }, { data: profileData }] = await Promise.all([
+    supabase
+      .from("watchlist")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id),
+
+    supabase
+      .from("profiles")
+      .select("subscription_status,email_news_digests")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  const profile = profileData as Profile | null;
+  const plan = profile?.subscription_status ?? "basic";
+  const emailDigestEnabled = Boolean(profile?.email_news_digests);
 
   return (
     <AppShell activePath="/settings">
@@ -23,19 +41,21 @@ export default async function SettingsPage() {
         <h1 className="text-[28px] font-black tracking-[-0.03em] text-[#faf6f0]">
           Settings
         </h1>
+
         <p className="mt-1 text-[13px] font-medium text-[#faf6f0]/50">
           Manage your account, preferences, and security.
         </p>
 
         <div className="mt-6 grid max-w-2xl gap-4">
-          {/* ── Account ── */}
           <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em]">
               Account
             </h2>
+
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
               Your account details
             </p>
+
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-[#072116]/10 px-4 py-3">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
@@ -45,6 +65,7 @@ export default async function SettingsPage() {
                   {user.email ?? "—"}
                 </p>
               </div>
+
               <div className="rounded-xl border border-[#072116]/10 px-4 py-3">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
                   Member since
@@ -59,17 +80,19 @@ export default async function SettingsPage() {
                     : "—"}
                 </p>
               </div>
+
               <div className="rounded-xl border border-[#072116]/10 px-4 py-3">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
                   Plan
                 </p>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <p className="text-[13px] font-bold">Basic</p>
+                  <p className="text-[13px] font-bold capitalize">{plan}</p>
                   <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">
                     Active
                   </span>
                 </div>
               </div>
+
               <div className="rounded-xl border border-[#072116]/10 px-4 py-3">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
                   Watchlist
@@ -82,40 +105,29 @@ export default async function SettingsPage() {
             </div>
           </section>
 
-          {/* ── Preferences ── */}
           <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em]">
               Preferences
             </h2>
+
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
               Customise your experience
             </p>
+
             <div className="mt-4 space-y-3">
-              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#072116]/10 px-4 py-3 transition hover:border-[#ddb159]/40">
-                <div>
-                  <p className="text-[13px] font-bold">Email news digests</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/50">
-                    Receive a daily summary of top-ranked stocks and market
-                    news.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-[#ddb159]"
-                  defaultChecked
-                />
-              </label>
+              <EmailNewsDigestToggle initialEnabled={emailDigestEnabled} />
             </div>
           </section>
 
-          {/* ── Security ── */}
           <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em]">
               Security
             </h2>
+
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
               Keep your account secure
             </p>
+
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-[#072116]/10 px-4 py-3">
                 <div>
@@ -124,7 +136,7 @@ export default async function SettingsPage() {
                     Change your account password
                   </p>
                 </div>
-                {/* ✦ Fixed button — gold filled with dark text, no transparency tricks */}
+
                 <Link
                   href="/forgot-password"
                   style={{
@@ -156,14 +168,15 @@ export default async function SettingsPage() {
             </div>
           </section>
 
-          {/* ── Danger Zone ── */}
           <section className="rounded-2xl border-2 border-red-200 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em] text-red-600">
               Danger Zone
             </h2>
+
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
               Irreversible actions
             </p>
+
             <div className="mt-4">
               <div className="flex items-center justify-between rounded-xl border border-red-200 px-4 py-3">
                 <div>
@@ -172,6 +185,7 @@ export default async function SettingsPage() {
                     Permanently remove your account and all associated data.
                   </p>
                 </div>
+
                 <button
                   type="button"
                   className="shrink-0 rounded-full border border-red-400 px-3 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50"
