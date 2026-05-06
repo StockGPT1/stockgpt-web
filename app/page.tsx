@@ -166,7 +166,7 @@ export default async function Home() {
               />
 
               <StatBlock
-                icon="↗"
+                icon="↗︎"
                 label="Bullish %"
                 main={`${bullishPct}%`}
                 sub={sentiment}
@@ -522,7 +522,7 @@ function StatBlock({
 }) {
   return (
     <div className="group flex min-h-[74px] items-center gap-3 rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_6px_16px_rgba(0,0,0,0.14)] ring-1 ring-white/30 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(0,0,0,0.18)] hover:ring-[#ddb159]/35 lg:min-h-0">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.24)]">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_18px_rgba(221,177,89,0.24)] [font-variant-emoji:text]">
         {icon}
       </div>
 
