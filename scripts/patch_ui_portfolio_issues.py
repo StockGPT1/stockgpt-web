@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 
 def patch_portfolio_alerts():
@@ -43,16 +42,10 @@ function detectSwingLevels(closes: number[]) {
   const swingHighs: number[] = [];
   for (let i = 2; i < closes.length - 2; i++) {
     const value = closes[i];
-    if (
-      value < closes[i - 1] && value < closes[i - 2] &&
-      value <= closes[i + 1] && value <= closes[i + 2]
-    ) {
+    if (value < closes[i - 1] && value < closes[i - 2] && value <= closes[i + 1] && value <= closes[i + 2]) {
       swingLows.push(value);
     }
-    if (
-      value > closes[i - 1] && value > closes[i - 2] &&
-      value >= closes[i + 1] && value >= closes[i + 2]
-    ) {
+    if (value > closes[i - 1] && value > closes[i - 2] && value >= closes[i + 1] && value >= closes[i + 2]) {
       swingHighs.push(value);
     }
   }
@@ -63,9 +56,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
   try {
     const chart = await getStockChart(ticker, ["6M", "1Y"]);
     const points = (chart["6M"] && chart["6M"]!.length >= 80) ? chart["6M"]! : (chart["1Y"] ?? []);
-    const closes = points
-      .map((point) => Number(point.close))
-      .filter((price) => Number.isFinite(price) && price > 0);
+    const closes = points.map((point) => Number(point.close)).filter((price) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
       return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
@@ -75,8 +66,9 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
     const { swingLows, swingHighs } = detectSwingLevels(recent);
     const ma50 = average(closes.slice(-50));
     const ma200 = closes.length >= 200 ? average(closes.slice(-200)) : null;
-    const recentAbsMoves = closes.slice(-45).slice(1).map((price, index) => {
-      const previous = closes.slice(-45)[index];
+    const recentWindow = closes.slice(-45);
+    const recentAbsMoves = recentWindow.slice(1).map((price, index) => {
+      const previous = recentWindow[index];
       return previous > 0 ? Math.abs((price - previous) / previous) : 0;
     });
     const atrPct = (average(recentAbsMoves) ?? 0.02) * 100;
@@ -109,7 +101,10 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
 '''
 
     if "type TechnicalLevels =" not in text:
-        text = text.replace("\nfunction buildDynamicTriggers", helpers + "\nfunction buildDynamicTriggers", 1)
+        marker = "function buildDynamicTriggers"
+        if marker not in text:
+            raise SystemExit("buildDynamicTriggers not found for helper insertion")
+        text = text.replace("\n" + marker, helpers + "\n" + marker, 1)
 
     new_function = r'''async function buildDynamicTriggers(p: {
   ticker: string; currentPrice: number; entryPrice: number;
@@ -134,11 +129,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
   const isWeak = conviction < 35;
   const isSmall = p.currentAllocationPct < 5;
   const isLarge = p.currentAllocationPct > 15;
-  const isVeryLarge = p.currentAllocationPct > 25;
   const isRecentlyAdded = p.daysHeld < RECENT_THRESHOLD_DAYS;
-  const scoreChangePct = p.scoreAtEntry && p.scoreAtEntry > 0
-    ? (p.score - p.scoreAtEntry) / p.scoreAtEntry
-    : 0;
 
   const clampPct = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const priceAt = (price: number, pct: number) => price * (1 + pct / 100);
@@ -149,8 +140,8 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
   const rankBufferPct = isElite ? 2.2 : isStrong ? 1.8 : isHealthy ? 1.3 : 0.9;
   const maxFallbackStopPct = isElite ? 17 : isStrong ? 14 : isHealthy ? 11 : 7;
   const minFallbackStopPct = isElite ? 10 : isStrong ? 8 : isHealthy ? 6 : 4.5;
-
   const fallbackStopPct = clampPct(normalNoisePct + (isElite ? 4 : isStrong ? 2.5 : isHealthy ? 1 : 0), minFallbackStopPct, maxFallbackStopPct);
+
   const supportStop = technical.support && technical.support < p.currentPrice
     ? technical.support * (1 - rankBufferPct / 100)
     : null;
@@ -164,11 +155,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
 
   let stopPrice = candidateStops.length ? Math.max(...candidateStops) : fallbackStop;
   const stopDistance = pctDistance(stopPrice);
-
-  // If the nearest support is inside normal daily noise, step down to the fallback stop.
-  if (stopDistance < Math.max(3.5, normalNoisePct * 0.75)) {
-    stopPrice = fallbackStop;
-  }
+  if (stopDistance < Math.max(3.5, normalNoisePct * 0.75)) stopPrice = fallbackStop;
 
   const resistanceTarget = technical.resistance && technical.resistance > p.currentPrice
     ? technical.resistance * 0.995
@@ -177,9 +164,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
     ? Math.max(technical.resistance - technical.support, p.currentPrice * 0.08)
     : p.currentPrice * (isElite ? 0.28 : isStrong ? 0.20 : 0.14);
   const breakoutTarget = p.currentPrice + recentRange * (isElite ? 1.0 : isStrong ? 0.75 : 0.55);
-  const takeProfitTarget = resistanceTarget && resistanceTarget > p.currentPrice * 1.03
-    ? resistanceTarget
-    : breakoutTarget;
+  const takeProfitTarget = resistanceTarget && resistanceTarget > p.currentPrice * 1.03 ? resistanceTarget : breakoutTarget;
   const targetPct = ((takeProfitTarget - p.currentPrice) / p.currentPrice) * 100;
 
   const structureLabel = technical.source === "technical"
@@ -190,7 +175,6 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
         : "using volatility fallback because no clean support was found"
     : "using percentage fallback because chart structure was unavailable";
 
-  // Weak stocks: preserve capital, use relief bounces to exit.
   if (isWeak || (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85)) {
     const weakStop = technical.support && technical.support < p.currentPrice
       ? Math.max(technical.support * 0.995, priceAt(p.currentPrice, -6))
@@ -267,31 +251,27 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
 }
 '''
 
-    text = re.sub(
-        r"function buildDynamicTriggers\(p: \{(?:.|\n)*?\n\}\n\n// ✦ Much smarter, situation-aware AI summary",
-        new_function + "\n\n// ✦ Much smarter, situation-aware AI summary",
-        text,
-        count=1,
-    )
+    start = text.find("function buildDynamicTriggers")
+    end = text.find("\n// ✦ Much smarter, situation-aware AI summary", start)
+    if start == -1 or end == -1:
+        raise SystemExit("Could not locate exact buildDynamicTriggers block")
+
+    text = text[:start] + new_function + text[end:]
 
     text = text.replace("const triggers = buildDynamicTriggers({", "const triggers = await buildDynamicTriggers({")
 
-    # If enrichHoldings still maps synchronously, make the holdings map async and wrap it in Promise.all.
-    text = re.sub(
-        r"return holdings\.map\(\((\w+)\) => \{",
-        r"return await Promise.all(holdings.map(async (\1) => {",
-        text,
-        count=1,
-    )
-    marker = "return await Promise.all(holdings.map(async"
-    if marker in text:
-        start = text.index(marker)
-        end = text.find("\n  });\n}", start)
-        if end != -1:
-            text = text[:end] + "\n  }));\n}" + text[end + len("\n  });\n}"):]
+    if "return holdings.map((" in text:
+        text = text.replace("return holdings.map((holding) => {", "return await Promise.all(holdings.map(async (holding) => {", 1)
+        tail = "\n  });\n}"
+        idx = text.rfind(tail)
+        if idx != -1:
+            text = text[:idx] + "\n  }));\n}" + text[idx + len(tail):]
+
+    if "async function buildDynamicTriggers" not in text or "await getTechnicalLevels" not in text:
+        raise SystemExit("Technical trigger replacement failed")
 
     path.write_text(text)
 
 
 patch_portfolio_alerts()
-print("Patched portfolio stops and targets to use support/resistance when chart data is available.")
+print("Force-replaced portfolio trigger function with support/resistance-aware logic.")
