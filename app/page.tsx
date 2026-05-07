@@ -181,7 +181,7 @@ export default async function Home() {
               />
             </div>
 
-            <div className="overflow-hidden rounded-2xl bg-[#faf6f0] text-[#072116] shadow-[0_18px_42px_rgba(0,0,0,0.22)] ring-1 ring-white/20 lg:min-h-0">
+            <div className="ai-premium-card overflow-hidden rounded-2xl bg-[#faf6f0] text-[#072116] shadow-[0_18px_42px_rgba(0,0,0,0.22)] ring-1 ring-white/20 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_58px_rgba(0,0,0,0.28)] lg:min-h-0">
               <div className="flex h-[66px] items-start justify-between gap-3 border-b border-[#072116]/10 px-4 py-3">
                 <div className="min-w-0">
                   <p
@@ -201,14 +201,14 @@ export default async function Home() {
                   >
                     {rankingsLocked
                       ? "Subscribe to unlock full AI rankings"
-                      : "Click any row for full AI analysis"}
+                      : "Live model output · ranked by StockGPT AI"}
                   </p>
                 </div>
 
                 <Link
                   href={rankingsLocked ? "/pricing" : "/rankings"}
                   style={{ backgroundColor: "#ddb159", color: "#072116" }}
-                  className="mt-1 shrink-0 rounded-full px-4 py-2 text-[10px] font-black shadow-[0_6px_16px_rgba(221,177,89,0.26)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(221,177,89,0.34)] hover:brightness-105"
+                  className="ai-button mt-1 shrink-0 rounded-full px-4 py-2 text-[10px] font-black shadow-[0_6px_16px_rgba(221,177,89,0.26)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(221,177,89,0.34)] hover:brightness-105"
                 >
                   {rankingsLocked ? "Unlock →" : "View All →"}
                 </Link>
@@ -297,7 +297,7 @@ export default async function Home() {
                             key={stock.id}
                             href={`/stock/${stock.ticker}`}
                             style={{ color: "#072116" }}
-                            className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
+                            className={`group grid ${dashboardRankingsGrid} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[10.5px] transition duration-300 last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159,0_8px_22px_rgba(7,33,22,0.08)]`}
                           >
                             <div className="px-2 font-bold tabular-nums text-[#072116]/75">
                               {stock.rank ?? "—"}
@@ -370,7 +370,7 @@ export default async function Home() {
           </section>
 
           <aside className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[156px_minmax(0,1fr)_88px] lg:gap-2 lg:overflow-hidden lg:pb-1">
-            <div className="overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05] lg:min-h-0">
+            <div className="ai-premium-card overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#faf6f0]/[0.05] lg:min-h-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
@@ -420,7 +420,7 @@ export default async function Home() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)] lg:flex lg:min-h-0 lg:flex-col">
+            <div className="ai-premium-card overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(0,0,0,0.24)] lg:flex lg:min-h-0 lg:flex-col">
               <div className="flex h-[20px] shrink-0 items-center justify-between gap-3">
                 <p
                   className="text-[9px] font-extrabold uppercase tracking-[0.14em]"
@@ -584,12 +584,12 @@ function PortfolioPromoCard() {
   return (
     <Link
       href="/portfolio"
-      className="group relative flex min-h-[88px] items-center gap-3 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)] lg:h-full lg:min-h-0"
+      className="ai-premium-card group relative flex min-h-[88px] items-center gap-3 overflow-hidden rounded-2xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061f15)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ddb159] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)] lg:h-full lg:min-h-0"
     >
       <div className="pointer-events-none absolute -right-8 -top-8 size-20 rounded-full bg-[#ddb159]/20 blur-2xl transition duration-500 group-hover:bg-[#ddb159]/30" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.045),transparent)] opacity-0 transition duration-500 group-hover:opacity-100" />
 
-      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
+      <div className="ai-float relative flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ddb159]/30 bg-[#072116]/80 text-[18px] text-[#ddb159] transition duration-300 group-hover:scale-105">
         ♛
       </div>
 
