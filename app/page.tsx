@@ -194,15 +194,6 @@ export default async function Home() {
                   <h2 className="mt-1 truncate text-[18px] font-black leading-none tracking-[-0.04em]">
                     Top 10 Ranked Stocks
                   </h2>
-
-                  <p
-                    className="mt-1 truncate text-[10px] font-semibold"
-                    style={{ color: "rgba(7,33,22,0.55)" }}
-                  >
-                    {rankingsLocked
-                      ? "Subscribe to unlock full AI rankings"
-                      : "Live model output · ranked by StockGPT AI"}
-                  </p>
                 </div>
 
                 <Link
