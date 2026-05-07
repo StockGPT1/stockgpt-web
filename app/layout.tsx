@@ -1,31 +1,30 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const iconVersion = "10";
+const iconVersion = "30";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
   title: "StockGPT — AI Stock Rankings & Portfolio Builder",
   description:
     "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
-  manifest: "/site.webmanifest",
+  manifest: `/site.webmanifest?v=${iconVersion}`,
   icons: {
     icon: [
-      {
-        url: `/favicon.ico?v=${iconVersion}`,
-        sizes: "any",
-      },
-      {
-        url: `/icon.png?v=${iconVersion}`,
-        type: "image/png",
-        sizes: "512x512",
-      },
       {
         url: `/og-image.png?v=${iconVersion}`,
         type: "image/png",
       },
+      {
+        url: `/favicon.ico?v=${iconVersion}`,
+        sizes: "any",
+      },
     ],
     shortcut: [
+      {
+        url: `/og-image.png?v=${iconVersion}`,
+        type: "image/png",
+      },
       {
         url: `/favicon.ico?v=${iconVersion}`,
       },
@@ -39,6 +38,10 @@ export const metadata: Metadata = {
       {
         url: `/apple-touch-icon-precomposed.png?v=${iconVersion}`,
         sizes: "180x180",
+        type: "image/png",
+      },
+      {
+        url: `/og-image.png?v=${iconVersion}`,
         type: "image/png",
       },
     ],
@@ -83,15 +86,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href={`/favicon.ico?v=${iconVersion}`} sizes="any" />
-        <link rel="shortcut icon" href={`/favicon.ico?v=${iconVersion}`} />
-
         <link
           rel="icon"
           type="image/png"
-          href={`/icon.png?v=${iconVersion}`}
-          sizes="512x512"
+          href={`/og-image.png?v=${iconVersion}`}
         />
+
+        <link
+          rel="shortcut icon"
+          type="image/png"
+          href={`/og-image.png?v=${iconVersion}`}
+        />
+
+        <link rel="icon" href={`/favicon.ico?v=${iconVersion}`} sizes="any" />
 
         <link
           rel="apple-touch-icon"
