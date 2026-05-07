@@ -7,7 +7,19 @@ import { createClient } from "@/utils/supabase/server";
 type Profile = {
   subscription_status: string | null;
   email_news_digests: boolean | null;
+  stripe_customer_id: string | null;
 };
+
+function displayPlanName(status: string | null | undefined) {
+  if (status === "basic") return "Core";
+  if (status === "alpha") return "Alpha";
+  if (status === "none") return "No active plan";
+  return "No active plan";
+}
+
+function isPlanActive(status: string | null | undefined) {
+  return status === "basic" || status === "alpha";
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -26,13 +38,15 @@ export default async function SettingsPage() {
 
     supabase
       .from("profiles")
-      .select("subscription_status,email_news_digests")
+      .select("subscription_status,email_news_digests,stripe_customer_id")
       .eq("id", user.id)
       .single(),
   ]);
 
   const profile = profileData as Profile | null;
-  const plan = profile?.subscription_status ?? "basic";
+  const plan = displayPlanName(profile?.subscription_status);
+  const activePlan = isPlanActive(profile?.subscription_status);
+  const canManageSubscription = Boolean(profile?.stripe_customer_id);
   const emailDigestEnabled = Boolean(profile?.email_news_digests);
 
   return (
@@ -86,10 +100,16 @@ export default async function SettingsPage() {
                   Plan
                 </p>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <p className="text-[13px] font-bold capitalize">{plan}</p>
-                  <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">
-                    Active
-                  </span>
+                  <p className="text-[13px] font-bold">{plan}</p>
+                  {activePlan ? (
+                    <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-[#072116]/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#072116]/45">
+                      Locked
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -101,6 +121,55 @@ export default async function SettingsPage() {
                   {watchlistCount ?? 0} stock
                   {(watchlistCount ?? 0) !== 1 ? "s" : ""} tracked
                 </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+            <h2 className="text-[15px] font-black tracking-[-0.02em]">
+              Subscription
+            </h2>
+
+            <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
+              Manage your StockGPT access
+            </p>
+
+            <div className="mt-4 rounded-xl border border-[#072116]/10 px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[13px] font-bold">Current plan: {plan}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/50">
+                    {activePlan
+                      ? "Manage your billing, renewal and cancellation options."
+                      : "Subscribe to Core to unlock rankings and premium tools."}
+                  </p>
+                </div>
+
+                {canManageSubscription ? (
+                  <form action="/api/create-billing-portal-session" method="post">
+                    <button
+                      type="submit"
+                      style={{
+                        backgroundColor: "#ddb159",
+                        color: "#072116",
+                      }}
+                      className="shrink-0 rounded-full px-4 py-2 text-[12px] font-black transition hover:opacity-90"
+                    >
+                      Manage subscription
+                    </button>
+                  </form>
+                ) : (
+                  <Link
+                    href="/pricing"
+                    style={{
+                      backgroundColor: "#ddb159",
+                      color: "#072116",
+                    }}
+                    className="shrink-0 rounded-full px-4 py-2 text-center text-[12px] font-black transition hover:opacity-90"
+                  >
+                    View plans
+                  </Link>
+                )}
               </div>
             </div>
           </section>
