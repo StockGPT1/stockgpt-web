@@ -1,33 +1,31 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const iconVersion = "3";
+const iconVersion = "5";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
-  title: "StockGPT",
+  title: "StockGPT — AI Stock Rankings & Portfolio Builder",
   description:
     "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
       {
-        url: `/favicon.ico?v=${iconVersion}`,
-        sizes: "any",
-      },
-      {
-        url: `/logo.png?v=${iconVersion}`,
+        url: `/og-image.png?v=${iconVersion}`,
         type: "image/png",
+        sizes: "512x512",
       },
       {
         url: `/apple-touch-icon.png?v=${iconVersion}`,
-        sizes: "180x180",
         type: "image/png",
+        sizes: "180x180",
       },
     ],
     shortcut: [
       {
-        url: `/favicon.ico?v=${iconVersion}`,
+        url: `/og-image.png?v=${iconVersion}`,
+        type: "image/png",
       },
     ],
     apple: [
@@ -51,20 +49,20 @@ export const metadata: Metadata = {
     siteName: "StockGPT",
     images: [
       {
-        url: `/logo.png?v=${iconVersion}`,
-        width: 512,
-        height: 512,
+        url: `/og-image.png?v=${iconVersion}`,
+        width: 1200,
+        height: 630,
         alt: "StockGPT",
       },
     ],
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "StockGPT — AI Stock Rankings & Portfolio Builder",
     description:
       "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
-    images: [`/logo.png?v=${iconVersion}`],
+    images: [`/og-image.png?v=${iconVersion}`],
   },
 };
 
@@ -80,20 +78,28 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const iconHref = `/logo.png?v=${iconVersion}`;
-  const appleIconHref = `/apple-touch-icon.png?v=${iconVersion}`;
-  const faviconHref = `/favicon.ico?v=${iconVersion}`;
-
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href={faviconHref} sizes="any" />
-        <link rel="shortcut icon" href={faviconHref} />
-        <link rel="icon" type="image/png" href={iconHref} />
-        <link rel="apple-touch-icon" href={appleIconHref} />
+        <link
+          rel="icon"
+          type="image/png"
+          href={`/og-image.png?v=${iconVersion}`}
+        />
+        <link
+          rel="shortcut icon"
+          type="image/png"
+          href={`/og-image.png?v=${iconVersion}`}
+        />
+        <link
+          rel="apple-touch-icon"
+          href={`/apple-touch-icon.png?v=${iconVersion}`}
+          sizes="180x180"
+        />
         <link
           rel="apple-touch-icon-precomposed"
           href={`/apple-touch-icon-precomposed.png?v=${iconVersion}`}
+          sizes="180x180"
         />
         <meta name="apple-mobile-web-app-title" content="StockGPT" />
         <meta name="application-name" content="StockGPT" />
