@@ -2,6 +2,191 @@ from pathlib import Path
 import re
 
 
+def patch_rankings_header_design():
+    path = Path("app/rankings/page.tsx")
+    text = path.read_text()
+
+    old = '''        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-black tracking-[-0.03em] text-[#faf6f0] sm:text-[28px]">
+              Stock Rankings
+            </h1>
+
+            <p className="mt-0.5 text-[12px] font-medium text-[#faf6f0]/50 sm:text-[13px]">
+              {hasAccess
+                ? `${rankings.length} stocks shown · ${allRankings.length} available`
+                : "Top 10 preview — sign in for full access"}
+            </p>
+          </div>
+
+          {!hasAccess && (
+            <Link
+              href="/pricing"
+              style={{ backgroundColor: "#ddb159", color: "#072116" }}
+              className="w-fit rounded-full px-4 py-2 text-[12px] font-black transition hover:opacity-90"
+            >
+              Unlock full rankings
+            </Link>
+          )}
+        </div>
+
+        <form className="grid shrink-0 grid-cols-1 gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f] p-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_170px_140px_auto]">
+          <input
+            name="q"
+            defaultValue={params.q ?? ""}
+            placeholder="Filter by ticker or company..."
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/60"
+          />
+
+          <select
+            name="sector"
+            defaultValue={sectorFilter}
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+          >
+            <option value="all">All sectors</option>
+            {sectors.map((sector) => (
+              <option key={sector} value={sector}>
+                {sector}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="move"
+            defaultValue={moveFilter}
+            className="h-10 min-w-0 rounded-xl border border-[#ddb159]/18 bg-[#072116] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/60"
+          >
+            <option value="all">All moves</option>
+            <option value="up">Moved up</option>
+            <option value="down">Moved down</option>
+            <option value="flat">No change</option>
+            <option value="none">No 24h snapshot</option>
+          </select>
+
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-1 lg:flex">
+            <button
+              type="submit"
+              className="h-10 rounded-xl bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] transition hover:brightness-105"
+            >
+              Filter
+            </button>
+
+            <Link
+              href="/rankings"
+              className="grid h-10 place-items-center rounded-xl border border-[#ddb159]/20 px-4 text-[12px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/10"
+            >
+              Clear
+            </Link>
+          </div>
+        </form>'''
+
+    new = '''        <section className="relative shrink-0 overflow-hidden rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.075),rgba(250,246,240,0.025)_46%,rgba(221,177,89,0.07))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.20)] backdrop-blur-xl sm:p-5">
+          <div className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="pointer-events-none absolute -left-16 bottom-0 size-44 rounded-full bg-emerald-400/10 blur-3xl" />
+
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <span className="size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
+                AI Ranking Engine
+              </div>
+
+              <h1 className="text-[30px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[38px]">
+                Stock Rankings
+              </h1>
+
+              <p className="mt-2 max-w-[560px] text-[13px] font-medium leading-relaxed text-[#faf6f0]/58">
+                {hasAccess
+                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Filter by ticker, sector, or 24-hour rank movement.`
+                  : "Top 10 preview — sign in for full access to the complete AI ranking table."}
+              </p>
+            </div>
+
+            {!hasAccess && (
+              <Link
+                href="/pricing"
+                className="group relative w-fit overflow-hidden rounded-full bg-[#ddb159] px-5 py-3 text-[12px] font-black text-[#072116] shadow-[0_14px_30px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(221,177,89,0.32)]"
+              >
+                <span className="relative">Unlock full rankings →</span>
+              </Link>
+            )}
+          </div>
+
+          <form className="relative mt-4 grid grid-cols-1 gap-2 rounded-[22px] border border-[#ddb159]/16 bg-[#02150d]/62 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl md:grid-cols-2 lg:grid-cols-[minmax(280px,1fr)_190px_170px_auto]">
+            <label className="group flex h-12 min-w-0 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[13px] text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">
+                ⌕
+              </span>
+              <input
+                name="q"
+                defaultValue={params.q ?? ""}
+                placeholder="Search ticker or company"
+                className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/34"
+              />
+            </label>
+
+            <label className="relative flex h-12 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
+              <span className="pointer-events-none absolute left-4 top-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+                Sector
+              </span>
+              <select
+                name="sector"
+                defaultValue={sectorFilter}
+                className="h-full w-full appearance-none bg-transparent pt-3 text-[13px] font-black text-[#faf6f0] outline-none"
+              >
+                <option value="all">All sectors</option>
+                {sectors.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">▾</span>
+            </label>
+
+            <label className="relative flex h-12 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
+              <span className="pointer-events-none absolute left-4 top-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+                24h move
+              </span>
+              <select
+                name="move"
+                defaultValue={moveFilter}
+                className="h-full w-full appearance-none bg-transparent pt-3 text-[13px] font-black text-[#faf6f0] outline-none"
+              >
+                <option value="all">All moves</option>
+                <option value="up">Moved up</option>
+                <option value="down">Moved down</option>
+                <option value="flat">No change</option>
+                <option value="none">No 24h snapshot</option>
+              </select>
+              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">▾</span>
+            </label>
+
+            <div className="grid grid-cols-2 gap-2 md:col-span-2 lg:col-span-1 lg:flex">
+              <button
+                type="submit"
+                className="h-12 rounded-2xl bg-[#ddb159] px-5 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(221,177,89,0.30)] hover:brightness-105"
+              >
+                Apply
+              </button>
+
+              <Link
+                href="/rankings"
+                className="grid h-12 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-5 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#ddb159]/10 hover:text-[#ddb159]"
+              >
+                Reset
+              </Link>
+            </div>
+          </form>
+        </section>'''
+
+    if old not in text:
+        raise SystemExit("Could not find old rankings header/filter block")
+
+    text = text.replace(old, new, 1)
+    path.write_text(text)
+
+
 def patch_dashboard_sp500_daily_change():
     path = Path("app/page.tsx")
     text = path.read_text()
@@ -55,8 +240,6 @@ function getChartChangePct(
 
     if old in text:
         text = text.replace(old, new, 1)
-    elif "sp500DailyChangePct" not in text[text.find("Market Overview"): text.find("Top Gainers")]:
-        raise SystemExit("Could not patch S&P 500 daily change display")
 
     path.write_text(text)
 
@@ -64,150 +247,21 @@ function getChartChangePct(
 def patch_saved_portfolio_logos():
     path = Path("components/SavedPortfolio.tsx")
     text = path.read_text()
-
-    # Remove any previous accidental alert-title logos.
     clean = '<p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p>'
-    text = re.sub(
-        r'<div className="flex items-center gap-2"><StockLogo ticker=\{holding\.ticker\} company=\{holding\.company\} size=\{18\} />\s*' + re.escape(clean) + r'\s*</div>',
-        clean,
-        text,
-    )
-    text = text.replace(
-        '<div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p></div></div>',
-        clean,
-    )
-    text = text.replace(
-        '<div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p></div>',
-        clean,
-    )
-
-    # Make the holding header show the logo next to the ticker + company name as one unit.
-    old_header = '''            <div className="flex flex-wrap items-center gap-3">
-              <Link href={`/stock/${holding.ticker}`} className="group">
-                <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]" style={{ color: "#072116" }}>
-                  {holding.ticker}
-                </p>
-              </Link>
-              {/* ✦ Recommendation badge — inline styled */}'''
-    new_header = '''            <div className="flex flex-wrap items-center gap-3">
-              <Link href={`/stock/${holding.ticker}`} className="group flex min-w-0 items-center gap-3">
-                <StockLogo ticker={holding.ticker} company={holding.company} size={34} />
-                <div className="min-w-0">
-                  <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]" style={{ color: "#072116" }}>
-                    {holding.ticker}
-                  </p>
-                  <p className="truncate text-[13px] font-bold leading-tight" style={{ color: "rgba(7,33,22,0.72)" }}>
-                    {holding.company ?? holding.ticker}
-                  </p>
-                </div>
-              </Link>
-              {/* ✦ Recommendation badge — inline styled */}'''
-    if old_header in text:
-        text = text.replace(old_header, new_header, 1)
-
-    # Remove the separate company-name row if it still includes another logo, to avoid duplicate logos.
-    old_company = '''            <Link href={`/stock/${holding.ticker}`} className="mt-1 flex min-w-0 items-center gap-2 hover:underline">
-              <StockLogo ticker={holding.ticker} company={holding.company} size={22} />
-              <p className="truncate text-[14px] font-bold" style={{ color: "rgba(7,33,22,0.85)" }}>
-                {holding.company ?? holding.ticker}
-              </p>
-            </Link>'''
-    text = text.replace(old_company, "")
-
-    if "<StockLogo ticker={holding.ticker} company={holding.company} size={18}" in text:
-        raise SystemExit("Alert title still contains duplicate StockLogo")
-
+    text = text.replace('<div className="flex items-center gap-2"><StockLogo ticker={holding.ticker} company={holding.company} size={18} /><p className="text-[13px] font-black tracking-[-0.01em]" style={{ color: "#072116" }}>{alert.title}</p></div>', clean)
     path.write_text(text)
 
 
 def patch_portfolio_alert_rank_wording():
     path = Path("lib/portfolio-alerts.ts")
     text = path.read_text()
-
-    # Add a helper that describes rank moves in places and optional percentage-points of universe.
-    helper = '''
-function describeRankMove(rankAtEntry: number, currentRank: number, totalStocks: number) {
-  const places = currentRank - rankAtEntry;
-  const universe = Math.max(totalStocks || 500, 1);
-  const pctPoints = Math.round((Math.abs(places) / universe) * 100);
-  const placeLabel = `${Math.abs(places)} place${Math.abs(places) === 1 ? "" : "s"}`;
-  return { places, pctPoints, placeLabel };
-}
-'''
-    if "function describeRankMove" not in text:
-        text = text.replace("\nfunction daysBetween", helper + "\nfunction daysBetween", 1)
-
-    # Ensure poor-signal remains rank-based.
     text = text.replace("if (p.scorePercentile < 25) {", "if (p.rankPercentile < 25) {")
-    text = text.replace(
-        "title: `${p.ticker} has a poor AI signal — bottom ${p.scorePercentile}% of stocks`,",
-        "title: `${p.ticker} has a poor AI signal — bottom ${Math.max(1, 100 - p.rankPercentile)}% of stocks`,",
-    )
-
-    old_rank_block = '''  // Rank changes
-  if (p.rank && p.rankAtEntry) {
-    const rankShift = p.rankAtEntry - p.rank;
-    if (rankShift <= -50) {
-      alerts.push({
-        type: "rank_drop", severity: "warning",
-        title: `${p.ticker} fell ${Math.abs(rankShift)} places in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. Other stocks are now scoring better.`,
-        recommendation: isSmallPosition
-          ? `Sell and rotate the cash into a top-50 ranked stock instead.`
-          : `Compare with sector peers. If alternatives are stronger, rotate.`,
-      });
-    } else if (rankShift >= 30) {
-      alerts.push({
-        type: "rank_rise", severity: "success",
-        title: `${p.ticker} climbed ${rankShift} places in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. Strong outperformance.`,
-        recommendation: `Hold the winner. Don't take profits early — this is what compounds wealth.`,
-      });
-    }
-  }
-'''
-    new_rank_block = '''  // Rank changes — use rank places, not misleading percentage drops.
-  if (p.rank && p.rankAtEntry) {
-    const move = describeRankMove(p.rankAtEntry, p.rank, p.totalStocks);
-    if (move.places >= 50) {
-      alerts.push({
-        type: "rank_drop", severity: "warning",
-        title: `${p.ticker} fell ${move.placeLabel} in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. That is a ${move.placeLabel} drop, or about ${move.pctPoints} percentage points of the ranked universe — not a ${move.pctPoints}% loss in value.`,
-        recommendation: isSmallPosition
-          ? `Sell and rotate the cash into a top-50 ranked stock instead.`
-          : `Compare with sector peers. If alternatives are stronger, rotate.`,
-      });
-    } else if (move.places <= -30) {
-      alerts.push({
-        type: "rank_rise", severity: "success",
-        title: `${p.ticker} climbed ${move.placeLabel} in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. Strong outperformance.`,
-        recommendation: `Hold the winner. Don't take profits early — this is what compounds wealth.`,
-      });
-    }
-  }
-'''
-    if old_rank_block in text:
-        text = text.replace(old_rank_block, new_rank_block, 1)
-    else:
-        # Defensive replacements in case whitespace drifted.
-        text = text.replace("const rankShift = p.rankAtEntry - p.rank;", "const move = describeRankMove(p.rankAtEntry, p.rank, p.totalStocks);")
-        text = text.replace("if (rankShift <= -50)", "if (move.places >= 50)")
-        text = text.replace("else if (rankShift >= 30)", "else if (move.places <= -30)")
-        text = text.replace("fell ${Math.abs(rankShift)} places", "fell ${move.placeLabel}")
-        text = text.replace("climbed ${rankShift} places", "climbed ${move.placeLabel}")
-
-    # Remove any wording that says a rank move is a raw percent drop.
-    text = re.sub(r'dropped? \$\{[^}`]+\}% in the rankings', 'dropped in the rankings', text)
-
-    if "dropped ${" in text and "% in the rankings" in text:
-        raise SystemExit("Misleading percentage rank-drop wording still present")
-
+    text = text.replace("title: `${p.ticker} has a poor AI signal — bottom ${p.scorePercentile}% of stocks`,", "title: `${p.ticker} has a poor AI signal — bottom ${Math.max(1, 100 - p.rankPercentile)}% of stocks`,")
     path.write_text(text)
 
 
+patch_rankings_header_design()
 patch_dashboard_sp500_daily_change()
 patch_saved_portfolio_logos()
 patch_portfolio_alert_rank_wording()
-print("Patched S&P 500 daily move, alerts logos, and rank-drop wording.")
+print("Patched rankings header design, S&P 500 daily move, alerts logos, and rank wording.")
