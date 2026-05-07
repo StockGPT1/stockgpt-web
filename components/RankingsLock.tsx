@@ -11,7 +11,7 @@ export function RankingsLock({
   className?: string;
 }) {
   if (!isLocked) {
-    return <>{children}</>;
+    return <div className={className}>{children}</div>;
   }
 
   return (
