@@ -826,7 +826,7 @@ export async function enrichHoldings(
       scorePercentile, rank, totalStocks,
     });
 
-    alerts.push(...buildTriggerHitAlerts(ticker, currentPrice, triggers));
+    alerts.push(...buildTriggerHitAlerts(h.ticker, currentPrice, triggers));
 
     const aiSummary = buildAISummary({
       recommendation, scorePercentile, pnlPercent,
