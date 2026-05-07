@@ -1,0 +1,30 @@
+{
+  "name": "StockGPT",
+  "short_name": "StockGPT",
+  "description": "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#072116",
+  "theme_color": "#072116",
+  "icons": [
+    {
+      "src": "/logo.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
