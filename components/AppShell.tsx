@@ -13,6 +13,7 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
   { href: "/notifications", label: "Alerts", icon: "◐" },
   { href: "/world-news", label: "World News", icon: "◈" },
+  { href: "/about", label: "About", icon: "◎" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
@@ -38,9 +39,11 @@ function PageBackdrop({ activePath }: { activePath: string }) {
             ? "alerts"
             : activePath === "/world-news"
               ? "news"
-              : activePath === "/settings"
-                ? "settings"
-                : "default";
+              : activePath === "/about"
+                ? "about"
+                : activePath === "/settings"
+                  ? "settings"
+                  : "default";
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -126,6 +129,20 @@ function PageBackdrop({ activePath }: { activePath: string }) {
             />
           </svg>
           <div className="absolute right-[10%] top-[28%] h-[1px] w-[420px] bg-gradient-to-r from-transparent via-[#faf6f0]/8 to-transparent" />
+        </>
+      )}
+
+      {variant === "about" && (
+        <>
+          <div className="absolute right-[5%] top-[8%] h-[340px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.035] blur-[1px]" />
+          <div className="absolute right-[14%] top-[15%] grid h-[160px] w-[360px] grid-cols-6 items-end gap-3 opacity-[0.08]">
+            <span className="h-[40%] rounded-t bg-[#ddb159]" />
+            <span className="h-[75%] rounded-t bg-[#ddb159]" />
+            <span className="h-[55%] rounded-t bg-[#ddb159]" />
+            <span className="h-full rounded-t bg-[#ddb159]" />
+            <span className="h-[68%] rounded-t bg-[#ddb159]" />
+            <span className="h-[88%] rounded-t bg-[#ddb159]" />
+          </div>
         </>
       )}
 
