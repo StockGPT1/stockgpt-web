@@ -1,9 +1,15 @@
-import { NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 
 export const dynamic = "force-static";
 
-export async function GET(request: Request) {
-  return NextResponse.redirect(new URL("/logo.png?v=3", request.url), {
-    status: 308,
+export async function GET() {
+  const file = await readFile(path.join(process.cwd(), "public", "og-image.png"));
+
+  return new Response(file, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    },
   });
 }
