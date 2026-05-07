@@ -317,9 +317,16 @@ function buildAlerts(p: {
   if (p.daysSinceReview >= 90) {
     alerts.push({
       type: "review_due", severity: "info",
-      title: `${p.ticker} hasn't been reviewed in ${p.daysSinceReview} days`,
+      title: `${p.ticker} review is overdue — ${p.daysSinceReview} days since last review`,
       message: "Quarterly review is best practice.",
       recommendation: `Open the stock page, check AI score, news, and trade plan, then mark as reviewed.`,
+    });
+  } else if (p.daysSinceReview >= 76) {
+    alerts.push({
+      type: "review_due", severity: "info",
+      title: `${p.ticker} review is due soon`,
+      message: `Next quarterly review is due in ${90 - p.daysSinceReview} days.`,
+      recommendation: `Check the stock page, AI rank, recent news, and trade plan before the review date.`,
     });
   }
 
@@ -592,6 +599,52 @@ async function buildDynamicTriggers(p: {
   return triggers.sort((a, b) => a.priority - b.priority);
 }
 
+function extractTriggerPrice(condition: string) {
+  const match = condition.match(/\$([0-9]+(?:\.[0-9]+)?)/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function buildTriggerHitAlerts(
+  ticker: string,
+  currentPrice: number,
+  triggers: HoldingTrigger[],
+): HoldingAlert[] {
+  const alerts: HoldingAlert[] = [];
+  const money = (value: number) => `$${value.toFixed(2)}`;
+
+  const stop = triggers.find((trigger) =>
+    trigger.type === "stop_sell" || trigger.type === "trailing_stop",
+  );
+  const stopPrice = stop ? extractTriggerPrice(stop.condition) : null;
+
+  if (stop && stopPrice && currentPrice <= stopPrice) {
+    alerts.push({
+      type: "price_stop",
+      severity: "critical",
+      title: `${ticker} has hit its stop-loss / invalidation level`,
+      message: `Current price ${money(currentPrice)} is at or below the plan level of ${money(stopPrice)}.`,
+      recommendation: stop.action,
+    });
+  }
+
+  const target = triggers.find((trigger) => trigger.type === "take_profit");
+  const targetPrice = target ? extractTriggerPrice(target.condition) : null;
+
+  if (target && targetPrice && currentPrice >= targetPrice) {
+    alerts.push({
+      type: "price_target",
+      severity: "success",
+      title: `${ticker} has reached its take-profit zone`,
+      message: `Current price ${money(currentPrice)} is at or above the plan target of ${money(targetPrice)}.`,
+      recommendation: target.action,
+    });
+  }
+
+  return alerts;
+}
+
 // ✦ Much smarter, situation-aware AI summary
 function buildAISummary(p: {
   recommendation: EnrichedHolding["recommendation"];
@@ -772,6 +825,8 @@ export async function enrichHoldings(
       sector, sectorMomentum: sectorMomentumValue, daysSinceReview, daysHeld,
       scorePercentile, rank, totalStocks,
     });
+
+    alerts.push(...buildTriggerHitAlerts(ticker, currentPrice, triggers));
 
     const aiSummary = buildAISummary({
       recommendation, scorePercentile, pnlPercent,
