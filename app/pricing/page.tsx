@@ -112,7 +112,7 @@ export default async function PricingPage({
           </div>
 
           <div className="mt-6 grid gap-4 pb-6 sm:mt-8 lg:mt-6 lg:grid-cols-2 lg:items-stretch lg:gap-5 lg:pb-0">
-            <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#ddb159]/65 bg-[#0d3420]/58 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
+            <div className="relative flex min-h-[455px] overflow-hidden rounded-3xl border border-[#ddb159]/65 bg-[#0d3420]/58 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:min-h-[465px] sm:p-6 lg:h-[430px] lg:min-h-0 lg:p-5">
               <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ddb159]/12 blur-3xl" />
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),transparent_42%,rgba(221,177,89,0.05))]" />
 
@@ -150,6 +150,8 @@ export default async function PricingPage({
                   method="post"
                   className="mt-auto pt-5"
                 >
+                  <div className="mb-2 hidden h-10 lg:block" />
+
                   <button
                     type="submit"
                     className="flex h-11 w-full items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.2)] transition hover:bg-[#c9a04f] sm:h-12 sm:text-[14px] lg:h-11"
@@ -160,7 +162,7 @@ export default async function PricingPage({
               </div>
             </div>
 
-            <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#faf6f0]/12 bg-[#061b12]/62 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
+            <div className="relative flex min-h-[455px] overflow-hidden rounded-3xl border border-[#faf6f0]/12 bg-[#061b12]/62 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:min-h-[465px] sm:p-6 lg:h-[430px] lg:min-h-0 lg:p-5">
               <div className="pointer-events-none absolute -left-16 bottom-0 h-44 w-44 rounded-full bg-[#ddb159]/7 blur-3xl" />
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.035),transparent_45%,rgba(221,177,89,0.035))]" />
 
