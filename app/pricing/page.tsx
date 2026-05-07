@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+type PricingSearchParams = {
+  waitlist?: string;
+};
+
 function CheckIcon() {
   return (
     <svg
@@ -38,7 +42,7 @@ const coreFeatures = [
   "Email weekly market briefings",
 ];
 
-const alphaFeatures = [
+const premiumFeatures = [
   "Everything in Core",
   "Real-time score updates",
   "Historical AI score charts",
@@ -48,7 +52,14 @@ const alphaFeatures = [
   "Priority support",
 ];
 
-export default function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PricingSearchParams>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const waitlistStatus = params.waitlist;
+
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <div className="pointer-events-none fixed inset-0">
@@ -80,6 +91,24 @@ export default function PricingPage() {
             <p className="mx-auto mt-3 max-w-2xl text-[14px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[16px] lg:mt-2 lg:text-[15px]">
               Access the full ranking engine, insights, and market intelligence.
             </p>
+
+            {waitlistStatus === "joined" && (
+              <p className="mx-auto mt-3 max-w-md rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-[12px] font-bold text-emerald-200">
+                You have joined the Premium waitlist.
+              </p>
+            )}
+
+            {waitlistStatus === "error" && (
+              <p className="mx-auto mt-3 max-w-md rounded-full border border-red-400/25 bg-red-500/10 px-4 py-2 text-[12px] font-bold text-red-200">
+                Something went wrong. Please try again.
+              </p>
+            )}
+
+            {waitlistStatus === "missing-email" && (
+              <p className="mx-auto mt-3 max-w-md rounded-full border border-red-400/25 bg-red-500/10 px-4 py-2 text-[12px] font-bold text-red-200">
+                Please enter an email address to join the waitlist.
+              </p>
+            )}
           </div>
 
           <div className="mt-6 grid gap-4 pb-6 sm:mt-8 lg:mt-6 lg:grid-cols-2 lg:items-stretch lg:gap-5 lg:pb-0">
@@ -139,7 +168,7 @@ export default function PricingPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#faf6f0]/45 sm:text-[11px]">
-                      Alpha
+                      Premium
                     </p>
 
                     <h2 className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/38 sm:text-[40px] lg:text-[38px]">
@@ -157,7 +186,7 @@ export default function PricingPage() {
                 </p>
 
                 <div className="mt-5 space-y-2 lg:mt-4">
-                  {alphaFeatures.map((feature) => (
+                  {premiumFeatures.map((feature) => (
                     <div key={feature} className="flex items-start gap-2.5">
                       <LockIcon />
                       <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/38 sm:text-[13px] lg:text-[12.5px]">
@@ -168,15 +197,23 @@ export default function PricingPage() {
                 </div>
 
                 <form
-                  action="/api/alpha-waitlist"
+                  action="/api/premium-waitlist"
                   method="post"
                   className="mt-auto pt-5"
                 >
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="Email for waitlist"
+                    className="mb-2 h-10 w-full rounded-full border border-[#ddb159]/20 bg-[#04180f]/70 px-4 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/60"
+                  />
+
                   <button
                     type="submit"
                     className="flex h-11 w-full items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116]/55 text-[13px] font-black text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 sm:h-12 sm:text-[14px] lg:h-11"
                   >
-                    Join Alpha waitlist
+                    Join Premium waitlist
                   </button>
                 </form>
               </div>
