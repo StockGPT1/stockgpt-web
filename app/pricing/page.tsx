@@ -50,14 +50,14 @@ const alphaFeatures = [
 
 export default function PricingPage() {
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-y-auto bg-[#072116] text-[#faf6f0] lg:h-dvh lg:overflow-hidden">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(221,177,89,0.13),transparent_28%),radial-gradient(circle_at_82%_22%,rgba(16,185,129,0.10),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(221,177,89,0.08),transparent_34%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.035)_0_1px,transparent_1px_42px)] opacity-25" />
         <div className="absolute left-1/2 top-[55%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ddb159]/8" />
       </div>
 
-      <div className="relative z-10 flex shrink-0 items-center border-b border-[#ddb159]/15 bg-[#04180f]/88 px-4 py-3 backdrop-blur sm:px-6 lg:h-[58px] lg:py-0">
+      <div className="relative z-10 flex h-[58px] shrink-0 items-center border-b border-[#ddb159]/15 bg-[#04180f]/88 px-4 backdrop-blur sm:px-6">
         <Link
           href="/"
           className="inline-flex items-center text-[18px] font-black text-[#faf6f0] transition hover:text-[#ddb159] sm:text-[20px]"
@@ -66,126 +66,128 @@ export default function PricingPage() {
         </Link>
       </div>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:h-[calc(100dvh-58px)] lg:min-h-0 lg:justify-center lg:overflow-hidden lg:py-4">
-        <div className="shrink-0 text-center">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[11px]">
-            Pricing
-          </p>
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 lg:overflow-hidden lg:py-4">
+        <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col lg:h-full lg:min-h-0 lg:justify-center">
+          <div className="shrink-0 text-center">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[11px]">
+              Pricing
+            </p>
 
-          <h1 className="mt-2 text-[34px] font-black leading-[0.95] tracking-[-0.045em] sm:text-[42px] lg:text-[42px]">
-            Unlock StockGPT
-          </h1>
+            <h1 className="mt-2 text-[34px] font-black leading-[0.95] tracking-[-0.045em] sm:text-[42px] lg:text-[42px]">
+              Unlock StockGPT
+            </h1>
 
-          <p className="mx-auto mt-3 max-w-2xl text-[14px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[16px] lg:mt-2 lg:text-[15px]">
-            Access the full ranking engine, insights, and market intelligence.
-          </p>
-        </div>
+            <p className="mx-auto mt-3 max-w-2xl text-[14px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[16px] lg:mt-2 lg:text-[15px]">
+              Access the full ranking engine, insights, and market intelligence.
+            </p>
+          </div>
 
-        <div className="mt-6 grid gap-4 sm:mt-8 lg:mt-6 lg:grid-cols-2 lg:items-stretch lg:gap-5">
-          <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#ddb159]/65 bg-[#0d3420]/58 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
-            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ddb159]/12 blur-3xl" />
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),transparent_42%,rgba(221,177,89,0.05))]" />
+          <div className="mt-6 grid gap-4 pb-6 sm:mt-8 lg:mt-6 lg:grid-cols-2 lg:items-stretch lg:gap-5 lg:pb-0">
+            <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#ddb159]/65 bg-[#0d3420]/58 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
+              <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ddb159]/12 blur-3xl" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.06),transparent_42%,rgba(221,177,89,0.05))]" />
 
-            <div className="relative flex w-full flex-col">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[11px]">
-                Core
-              </p>
-
-              <div className="mt-2 flex items-end gap-2">
-                <h2 className="text-[34px] font-black leading-none tracking-[-0.04em] sm:text-[40px] lg:text-[38px]">
-                  £12
-                </h2>
-                <p className="pb-1 text-[13px] font-bold text-[#faf6f0]/55">
-                  / month
+              <div className="relative flex w-full flex-col">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[11px]">
+                  Core
                 </p>
-              </div>
 
-              <p className="mt-2 text-[12px] font-medium text-[#faf6f0]/58 sm:text-[13px]">
-                Full access to the core platform
-              </p>
-
-              <div className="mt-5 space-y-2.5 lg:mt-4 lg:space-y-2">
-                {coreFeatures.map((feature) => (
-                  <div key={feature} className="flex items-start gap-2.5">
-                    <CheckIcon />
-                    <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/88 sm:text-[13px] lg:text-[12.5px]">
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <form
-                action="/api/create-checkout-session"
-                method="post"
-                className="mt-auto pt-5"
-              >
-                <button
-                  type="submit"
-                  className="flex h-11 w-full items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.2)] transition hover:bg-[#c9a04f] sm:h-12 sm:text-[14px] lg:h-11"
-                >
-                  Start Core subscription
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#faf6f0]/12 bg-[#061b12]/62 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
-            <div className="pointer-events-none absolute -left-16 bottom-0 h-44 w-44 rounded-full bg-[#ddb159]/7 blur-3xl" />
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.035),transparent_45%,rgba(221,177,89,0.035))]" />
-
-            <div className="relative flex w-full flex-col">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#faf6f0]/45 sm:text-[11px]">
-                    Alpha
-                  </p>
-
-                  <h2 className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/38 sm:text-[40px] lg:text-[38px]">
-                    TBD
+                <div className="mt-2 flex items-end gap-2">
+                  <h2 className="text-[34px] font-black leading-none tracking-[-0.04em] sm:text-[40px] lg:text-[38px]">
+                    £12
                   </h2>
+                  <p className="pb-1 text-[13px] font-bold text-[#faf6f0]/55">
+                    / month
+                  </p>
                 </div>
 
-                <div className="shrink-0 rounded-full border border-[#ddb159]/30 bg-[#072116]/80 px-3 py-1 text-[9px] font-bold text-[#ddb159] sm:text-[10px]">
-                  Coming soon
+                <p className="mt-2 text-[12px] font-medium text-[#faf6f0]/58 sm:text-[13px]">
+                  Full access to the core platform
+                </p>
+
+                <div className="mt-5 space-y-2.5 lg:mt-4 lg:space-y-2">
+                  {coreFeatures.map((feature) => (
+                    <div key={feature} className="flex items-start gap-2.5">
+                      <CheckIcon />
+                      <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/88 sm:text-[13px] lg:text-[12.5px]">
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
 
-              <p className="mt-2 text-[12px] font-medium text-[#faf6f0]/35 sm:text-[13px]">
-                For serious investors and analysts
-              </p>
-
-              <div className="mt-5 space-y-2 lg:mt-4">
-                {alphaFeatures.map((feature) => (
-                  <div key={feature} className="flex items-start gap-2.5">
-                    <LockIcon />
-                    <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/38 sm:text-[13px] lg:text-[12.5px]">
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <form
-                action="/api/alpha-waitlist"
-                method="post"
-                className="mt-auto pt-5"
-              >
-                <button
-                  type="submit"
-                  className="flex h-11 w-full items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116]/55 text-[13px] font-black text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 sm:h-12 sm:text-[14px] lg:h-11"
+                <form
+                  action="/api/create-checkout-session"
+                  method="post"
+                  className="mt-auto pt-5"
                 >
-                  Join Alpha waitlist
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    className="flex h-11 w-full items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.2)] transition hover:bg-[#c9a04f] sm:h-12 sm:text-[14px] lg:h-11"
+                  >
+                    Start Core subscription
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="relative flex min-h-[420px] overflow-hidden rounded-3xl border border-[#faf6f0]/12 bg-[#061b12]/62 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-6 lg:h-[400px] lg:min-h-0 lg:p-5">
+              <div className="pointer-events-none absolute -left-16 bottom-0 h-44 w-44 rounded-full bg-[#ddb159]/7 blur-3xl" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.035),transparent_45%,rgba(221,177,89,0.035))]" />
+
+              <div className="relative flex w-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#faf6f0]/45 sm:text-[11px]">
+                      Alpha
+                    </p>
+
+                    <h2 className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/38 sm:text-[40px] lg:text-[38px]">
+                      TBD
+                    </h2>
+                  </div>
+
+                  <div className="shrink-0 rounded-full border border-[#ddb159]/30 bg-[#072116]/80 px-3 py-1 text-[9px] font-bold text-[#ddb159] sm:text-[10px]">
+                    Coming soon
+                  </div>
+                </div>
+
+                <p className="mt-2 text-[12px] font-medium text-[#faf6f0]/35 sm:text-[13px]">
+                  For serious investors and analysts
+                </p>
+
+                <div className="mt-5 space-y-2 lg:mt-4">
+                  {alphaFeatures.map((feature) => (
+                    <div key={feature} className="flex items-start gap-2.5">
+                      <LockIcon />
+                      <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/38 sm:text-[13px] lg:text-[12.5px]">
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <form
+                  action="/api/alpha-waitlist"
+                  method="post"
+                  className="mt-auto pt-5"
+                >
+                  <button
+                    type="submit"
+                    className="flex h-11 w-full items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116]/55 text-[13px] font-black text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 sm:h-12 sm:text-[14px] lg:h-11"
+                  >
+                    Join Alpha waitlist
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
 
-        <p className="mt-5 shrink-0 pb-2 text-center text-[11px] font-medium leading-relaxed text-[#faf6f0]/35 sm:mt-7 sm:text-[12px] lg:mt-5 lg:pb-0">
-          StockGPT provides AI-generated rankings for informational purposes only.
-          This is not financial advice.
-        </p>
+          <p className="shrink-0 pb-6 text-center text-[11px] font-medium leading-relaxed text-[#faf6f0]/35 sm:text-[12px] lg:mt-5 lg:pb-0">
+            StockGPT provides AI-generated rankings for informational purposes only.
+            This is not financial advice.
+          </p>
+        </div>
       </main>
     </div>
   );
