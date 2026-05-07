@@ -6,7 +6,7 @@ const indicatorGroups = [
     title: "Quality & Profitability",
     eyebrow: "Fundamental strength",
     description:
-      "We look for businesses that can turn capital, revenue and operations into durable profit — not just short-term share-price hype.",
+      "We evaluate whether a business can convert capital, revenue and operations into durable profitability over time.",
     indicators: [
       "Return on invested capital",
       "Return on equity",
@@ -21,7 +21,7 @@ const indicatorGroups = [
     title: "Growth Engine",
     eyebrow: "Compounding potential",
     description:
-      "Strong companies need a reason to keep getting stronger. StockGPT scores whether the business is still expanding in the right places.",
+      "The model assesses whether the company is continuing to expand through revenue, earnings and cash-flow progression.",
     indicators: [
       "Revenue growth",
       "EPS growth",
@@ -34,9 +34,9 @@ const indicatorGroups = [
   },
   {
     title: "Valuation Discipline",
-    eyebrow: "Avoiding overpaying",
+    eyebrow: "Price versus fundamentals",
     description:
-      "Great companies can still be bad investments at the wrong price. We compare valuation against market and sector context.",
+      "A strong company can still be unattractive at the wrong valuation. StockGPT compares valuation against market and sector context.",
     indicators: [
       "P/E relative value",
       "EV/EBITDA relative value",
@@ -51,7 +51,7 @@ const indicatorGroups = [
     title: "Technical Momentum",
     eyebrow: "Market confirmation",
     description:
-      "The model respects price action. We want fundamentally attractive names that the market is also starting to confirm.",
+      "The model incorporates price behaviour to identify when the market is confirming, weakening or rejecting the investment case.",
     indicators: [
       "12-month momentum excluding most recent month",
       "6-month momentum excluding most recent month",
@@ -64,9 +64,9 @@ const indicatorGroups = [
   },
   {
     title: "Risk & Drawdown Control",
-    eyebrow: "Survive first, compound second",
+    eyebrow: "Capital preservation",
     description:
-      "StockGPT penalises fragile names. A stock can be exciting, but if the risk profile is poor, it should not dominate the rankings.",
+      "StockGPT incorporates volatility, drawdown and balance-sheet risk so fragile companies do not appear artificially attractive.",
     indicators: [
       "Downside volatility",
       "Maximum drawdown",
@@ -79,9 +79,9 @@ const indicatorGroups = [
   },
   {
     title: "Income & Shareholder Return",
-    eyebrow: "Extra signal layer",
+    eyebrow: "Additional signal layer",
     description:
-      "Dividends are not the whole story, but they can add useful context when comparing mature, cash-generative companies.",
+      "Dividend and cash-return measures add useful context when comparing mature, cash-generative companies.",
     indicators: [
       "Dividend yield",
       "Income contribution",
@@ -96,16 +96,16 @@ const indicatorGroups = [
 
 const processSteps = [
   "Collect live ranking data, prices, fundamentals, sector context and market information.",
-  "Normalise each indicator so stocks can be compared fairly across sectors and market caps.",
-  "Score each stock across quality, growth, value, momentum, risk and income sleeves.",
-  "Apply risk controls so fragile, overextended or weak-ranked stocks do not look better than they are.",
-  "Rank the universe and refresh portfolio alerts, AI summaries, stop-loss plans and take-profit guidance.",
+  "Normalise each indicator so stocks can be compared fairly across sectors and market capitalisations.",
+  "Score each company across quality, growth, value, momentum, risk and income factor groups.",
+  "Apply risk controls so fragile, overextended or weak-ranked stocks are appropriately penalised.",
+  "Rank the investment universe and refresh portfolio alerts, AI summaries, stop-loss plans and take-profit guidance.",
 ];
 
 const stats = [
   { value: "50+", label: "technical, fundamental and risk signals" },
   { value: "500+", label: "large-cap US stocks ranked" },
-  { value: "6", label: "core factor sleeves" },
+  { value: "6", label: "core factor groups" },
   { value: "24h", label: "rank movement tracking" },
 ];
 
@@ -128,7 +128,7 @@ export default function AboutPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl text-[15px] font-medium leading-relaxed text-[#faf6f0]/68 sm:text-[17px]">
-              StockGPT ranks stocks using a multi-factor AI scoring system that blends fundamentals, technical momentum, valuation, risk and portfolio context. The goal is simple: help users see what is strong, what is weakening, and what deserves action.
+              StockGPT ranks stocks using a multi-factor AI scoring system that blends fundamentals, technical momentum, valuation, risk and portfolio context. The goal is to help users identify relative strength, emerging weakness and positions that may require action.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -165,13 +165,13 @@ export default function AboutPage() {
         <section className="mt-4 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-[30px] border border-[#ddb159]/18 bg-[#04180f] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.22)] sm:p-6">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-              How it works
+              Methodology
             </p>
             <h2 className="mt-2 text-[30px] font-black leading-none tracking-[-0.05em] text-[#faf6f0]">
-              A ranking system, not a vibes machine.
+              A structured multi-factor ranking framework.
             </h2>
             <p className="mt-4 text-[14px] font-medium leading-relaxed text-[#faf6f0]/62">
-              StockGPT does not just ask whether a stock is popular. It compares each company across a broad matrix of measurable signals, then turns that into a ranked list, portfolio alerts and practical trade-plan guidance.
+              StockGPT compares each company across a broad matrix of measurable signals, then converts those signals into rankings, portfolio alerts and practical trade-plan guidance.
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -193,18 +193,18 @@ export default function AboutPage() {
 
           <div className="rounded-[30px] border border-[#ddb159]/18 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_18px_44px_rgba(0,0,0,0.18)] sm:p-6">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#072116]/45">
-              What makes it different
+              Differentiation
             </p>
             <h2 className="mt-2 text-[30px] font-black leading-none tracking-[-0.05em]">
-              The model looks at the business, the chart, and the risk at the same time.
+              The model evaluates the business, the chart and the risk profile together.
             </h2>
 
             <div className="mt-5 grid gap-3">
               {[
-                ["Fundamental depth", "Quality, growth, value and balance-sheet indicators help separate real businesses from temporary hype."],
-                ["Technical confirmation", "Momentum and trend signals help identify when the market is actually agreeing with the thesis."],
-                ["Risk-aware ranking", "Volatility, drawdown and debt checks stop fragile names from looking artificially attractive."],
-                ["Portfolio intelligence", "The same engine powers alerts, AI summaries, sell/trim guidance, review dates and Ask StockGPT."],
+                ["Fundamental depth", "Quality, growth, value and balance-sheet indicators help distinguish durable businesses from temporary market enthusiasm."],
+                ["Technical confirmation", "Momentum and trend signals help identify whether the market is confirming or weakening the investment case."],
+                ["Risk-aware ranking", "Volatility, drawdown and debt checks help prevent fragile companies from ranking artificially well."],
+                ["Portfolio intelligence", "The same framework supports alerts, AI summaries, sell/trim guidance, review dates and Ask StockGPT."],
               ].map(([title, body]) => (
                 <div key={title} className="rounded-2xl border border-[#072116]/10 bg-[#072116]/[0.035] p-4">
                   <h3 className="text-[15px] font-black tracking-[-0.02em]">{title}</h3>
@@ -222,7 +222,7 @@ export default function AboutPage() {
                 Indicator library
               </p>
               <h2 className="text-[32px] font-black tracking-[-0.055em] text-[#faf6f0]">
-                Technicals and fundamentals, working together.
+                Technical and fundamental indicators, integrated into one ranking system.
               </h2>
             </div>
             <p className="max-w-[460px] text-[12px] font-semibold leading-relaxed text-[#faf6f0]/52">
@@ -265,13 +265,13 @@ export default function AboutPage() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#072116]/48">
-                The important bit
+                Decision support
               </p>
               <h2 className="mt-2 text-[34px] font-black leading-none tracking-[-0.06em] sm:text-[46px]">
-                StockGPT is built to turn market noise into ranked decisions.
+                StockGPT is designed to convert market information into ranked, actionable insight.
               </h2>
               <p className="mt-4 max-w-2xl text-[14px] font-semibold leading-relaxed text-[#072116]/66">
-                The system is designed to answer the questions investors actually care about: what is strongest, what is weakening, what should be watched, what should be trimmed, and what deserves more capital.
+                The system is designed to answer the practical questions investors care about: which stocks rank strongest, which positions are weakening, which holdings need review, and where capital may be better allocated.
               </p>
             </div>
 
