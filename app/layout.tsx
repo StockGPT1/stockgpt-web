@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const iconVersion = "5";
+const iconVersion = "7";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
@@ -12,20 +12,17 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: `/og-image.png?v=${iconVersion}`,
-        type: "image/png",
-        sizes: "512x512",
+        url: `/favicon.ico?v=${iconVersion}`,
+        sizes: "any",
       },
       {
-        url: `/apple-touch-icon.png?v=${iconVersion}`,
+        url: `/og-image.png?v=${iconVersion}`,
         type: "image/png",
-        sizes: "180x180",
       },
     ],
     shortcut: [
       {
-        url: `/og-image.png?v=${iconVersion}`,
-        type: "image/png",
+        url: `/favicon.ico?v=${iconVersion}`,
       },
     ],
     apple: [
@@ -81,26 +78,27 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href={`/favicon.ico?v=${iconVersion}`} sizes="any" />
+        <link rel="shortcut icon" href={`/favicon.ico?v=${iconVersion}`} />
+
         <link
           rel="icon"
           type="image/png"
           href={`/og-image.png?v=${iconVersion}`}
         />
-        <link
-          rel="shortcut icon"
-          type="image/png"
-          href={`/og-image.png?v=${iconVersion}`}
-        />
+
         <link
           rel="apple-touch-icon"
           href={`/apple-touch-icon.png?v=${iconVersion}`}
           sizes="180x180"
         />
+
         <link
           rel="apple-touch-icon-precomposed"
           href={`/apple-touch-icon-precomposed.png?v=${iconVersion}`}
           sizes="180x180"
         />
+
         <meta name="apple-mobile-web-app-title" content="StockGPT" />
         <meta name="application-name" content="StockGPT" />
         <meta name="theme-color" content="#072116" />
