@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
+import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
 import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
@@ -23,6 +24,10 @@ type RankingsSearchParams = {
   q?: string;
   sector?: string;
   move?: string;
+};
+
+type Profile = {
+  subscription_status: string | null;
 };
 
 const MIN_DISPLAY_SCORE = 100;
@@ -50,6 +55,10 @@ function formatPrice(value: Ranking["price"]) {
 function formatScore(value: Ranking["score"]) {
   const score = normalizeDisplayScore(value);
   return score == null ? "—" : score.toLocaleString();
+}
+
+function hasActiveSubscription(status: string | null | undefined) {
+  return status === "basic" || status === "core" || status === "premium";
 }
 
 async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
@@ -111,14 +120,27 @@ export default async function RankingsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const hasAccess = !!user;
+  let hasSubscription = false;
+
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profile = profileData as Profile | null;
+    hasSubscription = hasActiveSubscription(profile?.subscription_status);
+  }
+
+  const rankingsLocked = !hasSubscription;
 
   const [{ data: rankingsData }, snapshotMap] = await Promise.all([
     supabase
       .from("stock_rankings")
       .select("id,rank,ticker,company,sector,score,price")
       .order("rank", { ascending: true })
-      .limit(hasAccess ? 500 : 10),
+      .limit(hasSubscription ? 500 : 10),
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
@@ -168,13 +190,13 @@ export default async function RankingsPage({
               </h1>
 
               <p className="mt-2 max-w-[560px] text-[13px] font-medium leading-relaxed text-[#faf6f0]/58">
-                {hasAccess
+                {hasSubscription
                   ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Filter by ticker, sector, or 24-hour rank movement.`
-                  : "Top 10 preview — sign in for full access to the complete AI ranking table."}
+                  : "Rankings are locked. Subscribe to Core to unlock the AI ranking table."}
               </p>
             </div>
 
-            {!hasAccess && (
+            {rankingsLocked && (
               <Link
                 href="/pricing"
                 className="group relative w-fit overflow-hidden rounded-full bg-[#ddb159] px-5 py-3 text-[12px] font-black text-[#072116] shadow-[0_14px_30px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(221,177,89,0.32)]"
@@ -213,7 +235,9 @@ export default async function RankingsPage({
                   </option>
                 ))}
               </select>
-              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">▾</span>
+              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">
+                ▾
+              </span>
             </label>
 
             <label className="relative flex h-12 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
@@ -231,7 +255,9 @@ export default async function RankingsPage({
                 <option value="flat">No change</option>
                 <option value="none">No 24h snapshot</option>
               </select>
-              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">▾</span>
+              <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">
+                ▾
+              </span>
             </label>
 
             <div className="grid grid-cols-2 gap-2 md:col-span-2 lg:col-span-1 lg:flex">
@@ -252,7 +278,7 @@ export default async function RankingsPage({
           </form>
         </section>
 
-        <div className="grid gap-2 lg:hidden">
+        <RankingsLock isLocked={rankingsLocked} className="grid gap-2 lg:hidden">
           {rankings.length > 0 ? (
             rankings.map((stock) => {
               const ticker = stock.ticker ?? "";
@@ -340,123 +366,128 @@ export default async function RankingsPage({
               No stocks match those filters.
             </div>
           )}
-        </div>
+        </RankingsLock>
 
-        <div className="relative hidden min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
-          <div
-            className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}
-          >
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Rank
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Move
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Ticker
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Company
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Sector
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              Price
-            </div>
-            <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-              AI Score
-            </div>
-          </div>
-
-          <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
-            {rankings.length > 0 ? (
-              rankings.map((stock) => {
-                const ticker = stock.ticker ?? "";
-                const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-
-                return (
-                  <Link
-                    key={stock.id}
-                    href={`/stock/${stock.ticker}`}
-                    style={{ color: "#072116" }}
-                    className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition hover:bg-[#ddb159]/8`}
-                  >
-                    <div
-                      className="px-4 py-2.5 font-bold"
-                      style={{ color: "rgba(7,33,22,0.7)" }}
-                    >
-                      {stock.rank ?? "—"}
-                    </div>
-
-                    <div className="px-4 py-2.5">
-                      <span
-                        title={move.title}
-                        className={[
-                          "inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
-                          moveClassName(move.tone),
-                        ].join(" ")}
-                      >
-                        {move.label}
-                      </span>
-                    </div>
-
-                    <div
-                      className="flex items-center gap-2 px-4 py-2.5 font-black"
-                      style={{ color: "#072116" }}
-                    >
-                      <StockLogo
-                        ticker={stock.ticker}
-                        company={stock.company}
-                        size={22}
-                      />
-                      <span>{stock.ticker ?? "—"}</span>
-                    </div>
-
-                    <div
-                      className="truncate px-4 py-2.5 font-semibold"
-                      style={{ color: "#072116" }}
-                    >
-                      {stock.company ?? "—"}
-                    </div>
-
-                    <div className="px-4 py-2.5">
-                      <span
-                        className="inline-flex max-w-full truncate rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold"
-                        style={{ color: "rgba(7,33,22,0.6)" }}
-                      >
-                        {stock.sector ?? "—"}
-                      </span>
-                    </div>
-
-                    <div
-                      className="px-4 py-2.5 font-semibold tabular-nums"
-                      style={{ color: "#072116" }}
-                    >
-                      {formatPrice(stock.price)}
-                    </div>
-
-                    <div className="px-4 py-2.5">
-                      <span
-                        className="inline-flex min-w-[68px] justify-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
-                        style={{ backgroundColor: "#ddb159", color: "#072116" }}
-                      >
-                        {formatScore(stock.score)}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })
-            ) : (
-              <div
-                className="px-4 py-10 text-center text-[13px] font-bold"
-                style={{ color: "rgba(7,33,22,0.55)" }}
-              >
-                No stocks match those filters.
+        <RankingsLock
+          isLocked={rankingsLocked}
+          className="relative hidden min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block"
+        >
+          <div className="h-full">
+            <div
+              className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}
+            >
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Rank
               </div>
-            )}
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Move
+              </div>
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Ticker
+              </div>
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Company
+              </div>
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Sector
+              </div>
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                Price
+              </div>
+              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
+                AI Score
+              </div>
+            </div>
+
+            <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
+              {rankings.length > 0 ? (
+                rankings.map((stock) => {
+                  const ticker = stock.ticker ?? "";
+                  const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
+
+                  return (
+                    <Link
+                      key={stock.id}
+                      href={`/stock/${stock.ticker}`}
+                      style={{ color: "#072116" }}
+                      className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition hover:bg-[#ddb159]/8`}
+                    >
+                      <div
+                        className="px-4 py-2.5 font-bold"
+                        style={{ color: "rgba(7,33,22,0.7)" }}
+                      >
+                        {stock.rank ?? "—"}
+                      </div>
+
+                      <div className="px-4 py-2.5">
+                        <span
+                          title={move.title}
+                          className={[
+                            "inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
+                            moveClassName(move.tone),
+                          ].join(" ")}
+                        >
+                          {move.label}
+                        </span>
+                      </div>
+
+                      <div
+                        className="flex items-center gap-2 px-4 py-2.5 font-black"
+                        style={{ color: "#072116" }}
+                      >
+                        <StockLogo
+                          ticker={stock.ticker}
+                          company={stock.company}
+                          size={22}
+                        />
+                        <span>{stock.ticker ?? "—"}</span>
+                      </div>
+
+                      <div
+                        className="truncate px-4 py-2.5 font-semibold"
+                        style={{ color: "#072116" }}
+                      >
+                        {stock.company ?? "—"}
+                      </div>
+
+                      <div className="px-4 py-2.5">
+                        <span
+                          className="inline-flex max-w-full truncate rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold"
+                          style={{ color: "rgba(7,33,22,0.6)" }}
+                        >
+                          {stock.sector ?? "—"}
+                        </span>
+                      </div>
+
+                      <div
+                        className="px-4 py-2.5 font-semibold tabular-nums"
+                        style={{ color: "#072116" }}
+                      >
+                        {formatPrice(stock.price)}
+                      </div>
+
+                      <div className="px-4 py-2.5">
+                        <span
+                          className="inline-flex min-w-[68px] justify-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
+                          style={{ backgroundColor: "#ddb159", color: "#072116" }}
+                        >
+                          {formatScore(stock.score)}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })
+              ) : (
+                <div
+                  className="px-4 py-10 text-center text-[13px] font-bold"
+                  style={{ color: "rgba(7,33,22,0.55)" }}
+                >
+                  No stocks match those filters.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </RankingsLock>
       </main>
     </AppShell>
   );
