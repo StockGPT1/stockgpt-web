@@ -9,10 +9,11 @@ type ChatMessage = {
 };
 
 const starterQuestions = [
-  "What are the strongest stocks in the current rankings?",
-  "Why is the top ranked stock scoring highly?",
-  "Summarise today’s market news for my rankings.",
-  "Which ranked stocks look weakest right now?",
+  "What should I do with my weakest holding?",
+  "Which stocks in my portfolio should I trim, hold, or sell?",
+  "What are the key stop-loss and take-profit levels in my portfolio?",
+  "Which holdings need reviewing soon, and why?",
+  "Where is my portfolio overexposed by sector or position size?",
 ];
 
 export function AskStockGPTButton() {
@@ -22,7 +23,7 @@ export function AskStockGPTButton() {
     {
       role: "assistant",
       content:
-        "Ask me about the live StockGPT rankings, latest market news, sectors, scores, or why a stock is ranked where it is.",
+        "Ask me about your portfolio, holdings, alerts, P&L, rankings, stop-losses, take-profit levels, review dates, sector exposure, or what to do next.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -56,7 +57,8 @@ export function AskStockGPTButton() {
       content: text,
     };
 
-    setMessages((current) => [...current, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
 
     try {
       const res = await fetch("/api/ask-stockgpt", {
@@ -64,7 +66,10 @@ export function AskStockGPTButton() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: text }),
+        body: JSON.stringify({
+          question: text,
+          messages: nextMessages.slice(-8),
+        }),
       });
 
       const data = (await res.json().catch(() => null)) as {
@@ -125,7 +130,7 @@ export function AskStockGPTButton() {
             className="absolute inset-0 cursor-default"
           />
 
-          <div className="relative ml-auto flex h-full max-w-[420px] flex-col overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#061b12] text-[#faf6f0] shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="relative ml-auto flex h-full max-w-[440px] flex-col overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#061b12] text-[#faf6f0] shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="relative shrink-0 border-b border-[#ddb159]/18 bg-[radial-gradient(circle_at_80%_0%,rgba(221,177,89,0.18),transparent_38%),linear-gradient(135deg,#0d3420,#061b12)] p-4">
               <button
                 type="button"
@@ -137,16 +142,16 @@ export function AskStockGPTButton() {
               </button>
 
               <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                ✦ AI Assistant
+                ✦ Portfolio Intelligence
               </p>
 
               <h2 className="mt-1 text-[24px] font-black tracking-[-0.05em]">
                 Ask StockGPT
               </h2>
 
-              <p className="mt-2 max-w-[330px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/65">
-                Answers use your live StockGPT rankings and latest saved market
-                news. No fake prices, scores, or rankings.
+              <p className="mt-2 max-w-[360px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/65">
+                Answers use your saved portfolio, live rankings, alerts, P&amp;L,
+                stop-loss/take-profit plans, sector exposure, and recent market news.
               </p>
             </div>
 
@@ -156,7 +161,7 @@ export function AskStockGPTButton() {
                   <div
                     key={`${message.role}-${index}`}
                     className={[
-                      "rounded-2xl px-3 py-2.5 text-[12px] font-medium leading-relaxed",
+                      "whitespace-pre-wrap rounded-2xl px-3 py-2.5 text-[12px] font-medium leading-relaxed",
                       message.role === "user"
                         ? "ml-8 bg-[#ddb159] text-[#072116]"
                         : "mr-8 border border-[#ddb159]/18 bg-[#faf6f0] text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.14)]",
@@ -168,7 +173,7 @@ export function AskStockGPTButton() {
 
                 {loading && (
                   <div className="mr-8 rounded-2xl border border-[#ddb159]/18 bg-[#faf6f0] px-3 py-2.5 text-[12px] font-semibold text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.14)]">
-                    Thinking through the live StockGPT data…
+                    Analysing your portfolio, alerts, rankings, and action plan…
                   </div>
                 )}
 
@@ -212,7 +217,7 @@ export function AskStockGPTButton() {
                       void sendQuestion();
                     }
                   }}
-                  placeholder="Ask about rankings, stocks, sectors, news..."
+                  placeholder="Ask about your portfolio, a holding, stop-loss, take-profit, or review date..."
                   rows={3}
                   className="max-h-28 min-h-[64px] w-full resize-none bg-transparent px-2 py-1 text-[12px] font-medium leading-relaxed text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35"
                 />
