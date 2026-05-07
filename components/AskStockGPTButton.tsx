@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type ChatMessage = {
@@ -15,6 +15,22 @@ const starterQuestions = [
   "Which holdings need reviewing soon, and why?",
   "Where is my portfolio overexposed by sector or position size?",
 ];
+
+function renderMessageContent(content: string): ReactNode[] {
+  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return (
+        <strong key={index} className="font-black">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return <span key={index}>{part}</span>;
+  });
+}
 
 export function AskStockGPTButton() {
   const [open, setOpen] = useState(false);
@@ -167,7 +183,7 @@ export function AskStockGPTButton() {
                         : "mr-8 border border-[#ddb159]/18 bg-[#faf6f0] text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.14)]",
                     ].join(" ")}
                   >
-                    {message.content}
+                    {renderMessageContent(message.content)}
                   </div>
                 ))}
 
