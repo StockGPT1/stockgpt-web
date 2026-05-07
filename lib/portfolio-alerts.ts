@@ -105,6 +105,14 @@ async function getSectorData() {
   return { momentum, bullishPct, maxScore, totalStocks };
 }
 
+function describeRankMove(rankAtEntry: number, currentRank: number, totalStocks: number) {
+  const places = currentRank - rankAtEntry;
+  const universe = Math.max(totalStocks || 500, 1);
+  const pctPoints = Math.round((Math.abs(places) / universe) * 100);
+  const placeLabel = `${Math.abs(places)} place${Math.abs(places) === 1 ? "" : "s"}`;
+  return { places, pctPoints, placeLabel };
+}
+
 function daysBetween(a: Date, b: Date) {
   return Math.floor((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -218,22 +226,22 @@ function buildAlerts(p: {
     }
   }
 
-  // Rank changes
+  // Rank changes — use rank places, not misleading percentage drops.
   if (p.rank && p.rankAtEntry) {
-    const rankShift = p.rankAtEntry - p.rank;
-    if (rankShift <= -50) {
+    const move = describeRankMove(p.rankAtEntry, p.rank, p.totalStocks);
+    if (move.places >= 50) {
       alerts.push({
         type: "rank_drop", severity: "warning",
-        title: `${p.ticker} fell ${Math.abs(rankShift)} places in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. Other stocks are now scoring better.`,
+        title: `${p.ticker} fell ${move.placeLabel} in the rankings`,
+        message: `From #${p.rankAtEntry} to #${p.rank}. That is a ${move.placeLabel} drop, or about ${move.pctPoints} percentage points of the ranked universe — not a ${move.pctPoints}% loss in value.`,
         recommendation: isSmallPosition
           ? `Sell and rotate the cash into a top-50 ranked stock instead.`
           : `Compare with sector peers. If alternatives are stronger, rotate.`,
       });
-    } else if (rankShift >= 30) {
+    } else if (move.places <= -30) {
       alerts.push({
         type: "rank_rise", severity: "success",
-        title: `${p.ticker} climbed ${rankShift} places in the rankings`,
+        title: `${p.ticker} climbed ${move.placeLabel} in the rankings`,
         message: `From #${p.rankAtEntry} to #${p.rank}. Strong outperformance.`,
         recommendation: `Hold the winner. Don't take profits early — this is what compounds wealth.`,
       });

@@ -43,6 +43,21 @@ function formatUpdatedTime(value?: string | null) {
   });
 }
 
+function getChartChangePct(
+  data: Partial<Record<string, Array<{ close: number }>>>,
+  range = "1D",
+) {
+  const points = data[range];
+  if (!points || points.length < 2) return null;
+
+  const first = points.find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
+  const last = [...points].reverse().find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
+
+  if (!first || !last || first <= 0) return null;
+
+  return ((last - first) / first) * 100;
+}
+
 function moveClassName(tone: MoveTone) {
   if (tone === "up") {
     return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
@@ -125,6 +140,7 @@ export default async function Home() {
   const dashboardRankingsGrid =
     "grid-cols-[34px_92px_minmax(0,1fr)_60px_112px_76px_78px]";
 
+  const sp500DailyChangePct = getChartChangePct(sp500Data, "1D");
   const topGainers = movers.gainers.slice(0, 3);
   const topLosers = movers.losers.slice(0, 3);
 
@@ -365,9 +381,22 @@ export default async function Home() {
                   </h3>
                 </div>
 
-                <p className="rounded-full border border-[#ddb159]/20 bg-[#072116]/50 px-2 py-1 text-[9px] font-black text-[#ddb159]">
-                  1D
-                </p>
+                <div className="flex flex-col items-end gap-1">
+                  <p className="rounded-full border border-[#ddb159]/20 bg-[#072116]/50 px-2 py-1 text-[9px] font-black text-[#ddb159]">
+                    1D
+                  </p>
+                  {sp500DailyChangePct != null && (
+                    <p
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-black tabular-nums ${
+                        sp500DailyChangePct >= 0
+                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                          : "border-red-400/30 bg-red-500/10 text-red-300"
+                      }`}
+                    >
+                      {sp500DailyChangePct >= 0 ? "+" : ""}{sp500DailyChangePct.toFixed(2)}%
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="mt-2 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">

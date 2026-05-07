@@ -136,10 +136,16 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <Link href={`/stock/${holding.ticker}`} className="group">
-                <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]" style={{ color: "#072116" }}>
-                  {holding.ticker}
-                </p>
+              <Link href={`/stock/${holding.ticker}`} className="group flex min-w-0 items-center gap-3">
+                <StockLogo ticker={holding.ticker} company={holding.company} size={34} />
+                <div className="min-w-0">
+                  <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]" style={{ color: "#072116" }}>
+                    {holding.ticker}
+                  </p>
+                  <p className="truncate text-[13px] font-bold leading-tight" style={{ color: "rgba(7,33,22,0.72)" }}>
+                    {holding.company ?? holding.ticker}
+                  </p>
+                </div>
               </Link>
               {/* ✦ Recommendation badge — inline styled */}
               <span
@@ -158,12 +164,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
                 </span>
               )}
             </div>
-            <Link href={`/stock/${holding.ticker}`} className="mt-1 flex min-w-0 items-center gap-2 hover:underline">
-              <StockLogo ticker={holding.ticker} company={holding.company} size={22} />
-              <p className="truncate text-[14px] font-bold" style={{ color: "rgba(7,33,22,0.85)" }}>
-                {holding.company ?? holding.ticker}
-              </p>
-            </Link>
+
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span
                 className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-2 py-0.5 text-[10px] font-black"
