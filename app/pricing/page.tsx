@@ -50,83 +50,87 @@ const proFeatures = [
 
 export default function PricingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#072116] text-[#faf6f0]">
-      {/* Header */}
-      <div className="border-b border-[#ddb159]/15 bg-[#04180f] px-6 py-4">
-        <Link href="/" className="text-[20px] font-black text-[#ddb159]">
+    <div className="flex min-h-dvh flex-col overflow-y-auto bg-[#072116] text-[#faf6f0]">
+      <div className="shrink-0 border-b border-[#ddb159]/15 bg-[#04180f] px-4 py-3 sm:px-6 sm:py-4">
+        <Link href="/" className="text-[18px] font-black text-[#ddb159] sm:text-[20px]">
           ← StockGPT
         </Link>
       </div>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:justify-center lg:py-10">
         <div className="text-center">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159] sm:text-[11px]">
             Pricing
           </p>
-          <h1 className="mt-2 text-[40px] font-black leading-[0.95] tracking-[-0.045em]">
+
+          <h1 className="mt-2 text-[34px] font-black leading-[0.95] tracking-[-0.045em] sm:text-[40px]">
             Unlock StockGPT
           </h1>
-          <p className="mt-3 text-[16px] font-medium text-[#faf6f0]/55">
+
+          <p className="mx-auto mt-3 max-w-2xl text-[14px] font-medium leading-relaxed text-[#faf6f0]/55 sm:text-[16px]">
             Access the full ranking engine, insights, and market intelligence.
           </p>
         </div>
 
-        {/* Cards */}
-        <div className="mt-10 grid gap-5 sm:grid-cols-2">
-          {/* Basic */}
-          <div className="relative overflow-hidden rounded-3xl border border-[#ddb159] bg-[linear-gradient(160deg,#0d3420,#082519)] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
+        <div className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:mt-10">
+          <div className="relative overflow-hidden rounded-3xl border border-[#ddb159] bg-[linear-gradient(160deg,#0d3420,#082519)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:p-6">
             <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ddb159]/8 blur-3xl" />
 
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-              Basic
-            </p>
-            <h2 className="mt-1 text-[36px] font-black leading-none tracking-[-0.04em]">
-              Free
-            </h2>
-            <p className="mt-1 text-[13px] font-medium text-[#faf6f0]/50">
-              Full access to the core platform
-            </p>
+            <div className="relative">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159] sm:text-[11px]">
+                Basic
+              </p>
 
-            <div className="mt-6 space-y-3">
-              {basicFeatures.map((feature) => (
-                <div key={feature} className="flex items-start gap-2.5">
-                  <CheckIcon />
-                  <span className="text-[13px] font-semibold text-[#faf6f0]/85">
-                    {feature}
-                  </span>
-                </div>
-              ))}
+              <h2 className="mt-1 text-[32px] font-black leading-none tracking-[-0.04em] sm:text-[36px]">
+                Free
+              </h2>
+
+              <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/50 sm:text-[13px]">
+                Full access to the core platform
+              </p>
+
+              <div className="mt-5 space-y-2.5 sm:mt-6 sm:space-y-3">
+                {basicFeatures.map((feature) => (
+                  <div key={feature} className="flex items-start gap-2.5">
+                    <CheckIcon />
+                    <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/85 sm:text-[13px]">
+                      {feature}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href="/signup"
+                className="mt-6 flex h-11 items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] transition hover:bg-[#c9a04f] sm:mt-8 sm:h-12 sm:text-[14px]"
+              >
+                Get started — it&apos;s free
+              </Link>
             </div>
-
-            <Link
-              href="/signup"
-              className="mt-8 flex h-12 items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[14px] font-black text-[#072116] transition hover:bg-[#c9a04f]"
-            >
-              Get started — it&apos;s free
-            </Link>
           </div>
 
-          {/* Pro (coming soon) */}
-          <div className="relative overflow-hidden rounded-3xl border border-[#faf6f0]/10 bg-[#061b12] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
-            <div className="absolute right-4 top-4 rounded-full border border-[#ddb159]/30 bg-[#072116] px-3 py-1 text-[10px] font-bold text-[#ddb159]">
+          <div className="relative overflow-hidden rounded-3xl border border-[#faf6f0]/10 bg-[#061b12] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:p-6">
+            <div className="absolute right-4 top-4 rounded-full border border-[#ddb159]/30 bg-[#072116] px-3 py-1 text-[9px] font-bold text-[#ddb159] sm:text-[10px]">
               Coming soon
             </div>
 
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#faf6f0]/40">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#faf6f0]/40 sm:text-[11px]">
               Pro
             </p>
-            <h2 className="mt-1 text-[36px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/30">
+
+            <h2 className="mt-1 text-[32px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/30 sm:text-[36px]">
               TBD
             </h2>
-            <p className="mt-1 text-[13px] font-medium text-[#faf6f0]/30">
+
+            <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/30 sm:text-[13px]">
               For serious investors and analysts
             </p>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-5 space-y-2.5 sm:mt-6 sm:space-y-3">
               {proFeatures.map((feature) => (
                 <div key={feature} className="flex items-start gap-2.5">
                   <LockIcon />
-                  <span className="text-[13px] font-semibold text-[#faf6f0]/35">
+                  <span className="text-[12px] font-semibold leading-snug text-[#faf6f0]/35 sm:text-[13px]">
                     {feature}
                   </span>
                 </div>
@@ -136,17 +140,16 @@ export default function PricingPage() {
             <button
               type="button"
               disabled
-              className="mt-8 flex h-12 w-full cursor-not-allowed items-center justify-center rounded-full border border-[#faf6f0]/15 text-[14px] font-black text-[#faf6f0]/30"
+              className="mt-6 flex h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-[#faf6f0]/15 text-[13px] font-black text-[#faf6f0]/30 sm:mt-8 sm:h-12 sm:text-[14px]"
             >
               Join waitlist
             </button>
           </div>
         </div>
 
-        {/* Bottom note */}
-        <p className="mt-10 text-center text-[12px] font-medium text-[#faf6f0]/35">
-          StockGPT provides AI-generated rankings for informational purposes
-          only. This is not financial advice.
+        <p className="mt-6 pb-2 text-center text-[11px] font-medium leading-relaxed text-[#faf6f0]/35 sm:mt-8 sm:text-[12px] lg:mt-10">
+          StockGPT provides AI-generated rankings for informational purposes only.
+          This is not financial advice.
         </p>
       </main>
     </div>
