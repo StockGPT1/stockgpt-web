@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const iconVersion = "7";
+const iconVersion = "10";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
@@ -14,6 +14,11 @@ export const metadata: Metadata = {
       {
         url: `/favicon.ico?v=${iconVersion}`,
         sizes: "any",
+      },
+      {
+        url: `/icon.png?v=${iconVersion}`,
+        type: "image/png",
+        sizes: "512x512",
       },
       {
         url: `/og-image.png?v=${iconVersion}`,
@@ -84,7 +89,8 @@ export default function RootLayout({
         <link
           rel="icon"
           type="image/png"
-          href={`/og-image.png?v=${iconVersion}`}
+          href={`/icon.png?v=${iconVersion}`}
+          sizes="512x512"
         />
 
         <link
