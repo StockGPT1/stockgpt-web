@@ -22,6 +22,12 @@ type Ranking = {
   updated_at: string | null;
 };
 
+type Profile = {
+  subscription_status: string | null;
+  full_name?: string | null;
+  name?: string | null;
+};
+
 type MoveTone = "up" | "down" | "flat" | "none";
 
 function formatPrice(value: Ranking["price"]) {
@@ -51,7 +57,9 @@ function getChartChangePct(
   if (!points || points.length < 2) return null;
 
   const first = points.find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
-  const last = [...points].reverse().find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
+  const last = [...points]
+    .reverse()
+    .find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
 
   if (!first || !last || first <= 0) return null;
 
@@ -74,19 +82,25 @@ function moveClassName(tone: MoveTone) {
   return "border-[#072116]/8 bg-transparent text-[#072116]/35";
 }
 
+function firstNameFromValue(value?: string | null) {
+  const cleaned = value?.trim();
+
+  if (!cleaned) return undefined;
+
+  return cleaned.split(/\s+/)[0];
+}
+
 function getFirstNameFromUserMetadata(user: {
   user_metadata?: Record<string, unknown>;
 }) {
   const fullName =
     typeof user.user_metadata?.full_name === "string"
-      ? user.user_metadata.full_name.trim()
+      ? user.user_metadata.full_name
       : typeof user.user_metadata?.name === "string"
-        ? user.user_metadata.name.trim()
+        ? user.user_metadata.name
         : "";
 
-  if (!fullName) return undefined;
-
-  return fullName.split(/\s+/)[0];
+  return firstNameFromValue(fullName);
 }
 
 export default async function Home() {
@@ -102,13 +116,20 @@ export default async function Home() {
   if (user) {
     firstName = getFirstNameFromUserMetadata(user);
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from("profiles")
-      .select("subscription_status")
+      .select("subscription_status,full_name,name")
       .eq("id", user.id)
       .maybeSingle();
 
+    const profile = profileData as Profile | null;
+
     hasSubscription = profile?.subscription_status === "basic";
+
+    firstName =
+      firstName ??
+      firstNameFromValue(profile?.full_name) ??
+      firstNameFromValue(profile?.name);
   }
 
   const rankingsLocked = !hasSubscription;
