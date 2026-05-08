@@ -175,35 +175,52 @@ export type Mover = {
   changePct: number;
 };
 
+async function runInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+
+  return results;
+}
+
 export async function getTopMovers(
   tickers: string[],
   limit = 5,
 ): Promise<{ gainers: Mover[]; losers: Mover[] }> {
   if (tickers.length === 0) return { gainers: [], losers: [] };
 
-  const tickersToCheck = tickers.slice(0, 30);
+  const tickersToCheck = Array.from(
+    new Set(tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean)),
+  ).slice(0, 500);
 
-  const results = await Promise.all(
-    tickersToCheck.map(async (ticker) => {
-      const data = await getStockChart(ticker, ["1D", "5D"]);
-      const points = (data["1D"] && data["1D"]!.length >= 2)
-        ? data["1D"]!
-        : data["5D"] ?? [];
+  const results = await runInBatches(tickersToCheck, 35, async (ticker) => {
+    const data = await getStockChart(ticker, ["1D", "5D"]);
+    const points = (data["1D"] && data["1D"]!.length >= 2)
+      ? data["1D"]!
+      : data["5D"] ?? [];
 
-      if (points.length < 2) return null;
+    if (points.length < 2) return null;
 
-      const first = points[0].close;
-      const last = points[points.length - 1].close;
+    const validCloses = points
+      .map((point) => point.close)
+      .filter((close) => Number.isFinite(close) && close > 0);
 
-      if (!Number.isFinite(first) || !Number.isFinite(last) || first <= 0) {
-        return null;
-      }
+    if (validCloses.length < 2) return null;
 
-      const changePct = ((last - first) / first) * 100;
+    const first = validCloses[0];
+    const last = validCloses[validCloses.length - 1];
+    const changePct = ((last - first) / first) * 100;
 
-      return { ticker, currentPrice: last, changePct };
-    }),
-  );
+    return { ticker, currentPrice: last, changePct };
+  });
 
   const valid = results.filter((r): r is Mover => r !== null);
 
