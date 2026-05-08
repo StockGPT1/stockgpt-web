@@ -74,6 +74,21 @@ function moveClassName(tone: MoveTone) {
   return "border-[#072116]/8 bg-transparent text-[#072116]/35";
 }
 
+function getFirstNameFromUserMetadata(user: {
+  user_metadata?: Record<string, unknown>;
+}) {
+  const fullName =
+    typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name.trim()
+      : typeof user.user_metadata?.name === "string"
+        ? user.user_metadata.name.trim()
+        : "";
+
+  if (!fullName) return undefined;
+
+  return fullName.split(/\s+/)[0];
+}
+
 export default async function Home() {
   const supabase = await createClient();
 
@@ -82,8 +97,11 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   let hasSubscription = false;
+  let firstName: string | undefined;
 
   if (user) {
+    firstName = getFirstNameFromUserMetadata(user);
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("subscription_status")
@@ -149,7 +167,7 @@ export default async function Home() {
       <main className="min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-2">
           <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[150px_68px_minmax(0,1fr)] lg:gap-2 lg:overflow-hidden">
-            <WelcomeBanner />
+            <WelcomeBanner name={firstName} />
 
             <div className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4">
               <StatBlock
@@ -384,7 +402,8 @@ export default async function Home() {
                           : "border-red-400/30 bg-red-500/10 text-red-300"
                       }`}
                     >
-                      {sp500DailyChangePct >= 0 ? "+" : ""}{sp500DailyChangePct.toFixed(2)}%
+                      {sp500DailyChangePct >= 0 ? "+" : ""}
+                      {sp500DailyChangePct.toFixed(2)}%
                     </p>
                   )}
                 </div>
