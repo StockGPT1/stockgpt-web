@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
-import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
+import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -90,6 +90,42 @@ async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
   };
 }
 
+function dailyMoveClassName(changePct: number | null | undefined) {
+  if (!Number.isFinite(changePct)) {
+    return "border-[#072116]/8 bg-transparent text-[#072116]/35";
+  }
+
+  if (Number(changePct) >= 0) {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
+  }
+
+  return "border-red-500/25 bg-red-500/10 text-red-700";
+}
+
+function DailyMovePill({
+  changePct,
+  className = "h-6 min-w-[46px] px-2 text-[10px]",
+}: {
+  changePct: number | null | undefined;
+  className?: string;
+}) {
+  const valid = Number.isFinite(changePct);
+  const value = valid ? Number(changePct) : null;
+
+  return (
+    <span
+      title="1D price move"
+      className={[
+        "inline-flex shrink-0 items-center justify-center rounded-full border font-black tabular-nums",
+        className,
+        dailyMoveClassName(value),
+      ].join(" ")}
+    >
+      {value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}
+    </span>
+  );
+}
+
 function matchesMoveFilter(
   stock: Ranking,
   moveFilter: string,
@@ -149,6 +185,9 @@ export default async function RankingsPage({
   const allRankings = await Promise.all(
     rawRankings.map((stock) => attachLivePriceIfMissing(stock)),
   );
+  const dailyMoveMap = await getOneDayMoveMap(
+    allRankings.map((stock) => stock.ticker).filter((ticker): ticker is string => !!ticker),
+  );
 
   const sectors = Array.from(
     new Set(
@@ -169,7 +208,7 @@ export default async function RankingsPage({
   });
 
   const gridCols =
-    "grid-cols-[58px_76px_108px_minmax(0,1fr)_150px_100px_108px]";
+    "grid-cols-[58px_76px_108px_minmax(0,1fr)_minmax(170px,220px)_92px_96px]";
 
   return (
     <AppShell activePath="/rankings">
@@ -307,9 +346,12 @@ export default async function RankingsPage({
                         <p className="truncate text-[15px] font-black leading-[1.05]">
                           {stock.ticker ?? "—"}
                         </p>
-                        <p className="mt-0.5 truncate text-[11px] font-semibold leading-[1.05] text-[#072116]/55">
-                          {stock.company ?? "—"}
-                        </p>
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                          <p className="min-w-0 truncate text-[11px] font-semibold leading-[1.05] text-[#072116]/55">
+                            {stock.company ?? "—"}
+                          </p>
+                          <DailyMovePill changePct={dailyMoveMap.get(ticker)?.changePct} className="h-5 min-w-[42px] px-1.5 text-[8px]" />
+                        </div>
                       </div>
                     </div>
 
@@ -444,18 +486,20 @@ export default async function RankingsPage({
                       </div>
 
                       <div
-                        className="truncate px-4 py-2.5 font-semibold"
+                        className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold"
                         style={{ color: "#072116" }}
                       >
-                        {stock.company ?? "—"}
+                        <span className="min-w-0 truncate">{stock.company ?? "—"}</span>
+                        <DailyMovePill changePct={dailyMoveMap.get(ticker)?.changePct} />
                       </div>
 
-                      <div className="px-4 py-2.5">
+                      <div className="min-w-0 px-4 py-2.5">
                         <span
-                          className="inline-flex max-w-full truncate rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold"
+                          title={stock.sector ?? "—"}
+                          className="inline-flex max-w-full rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold leading-tight"
                           style={{ color: "rgba(7,33,22,0.6)" }}
                         >
-                          {stock.sector ?? "—"}
+                          <span className="min-w-0 truncate">{stock.sector ?? "—"}</span>
                         </span>
                       </div>
 

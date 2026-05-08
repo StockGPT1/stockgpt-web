@@ -5,7 +5,7 @@ import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart } from "@/components/StockChart";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
-import { getSP500Chart, getTopMovers } from "@/lib/yahoo";
+import { getOneDayMoveMap, getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -74,6 +74,42 @@ function moveClassName(tone: MoveTone) {
   return "border-[#072116]/8 bg-transparent text-[#072116]/35";
 }
 
+function dailyMoveClassName(changePct: number | null | undefined) {
+  if (!Number.isFinite(changePct)) {
+    return "border-[#072116]/8 bg-transparent text-[#072116]/35";
+  }
+
+  if (Number(changePct) >= 0) {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
+  }
+
+  return "border-red-500/25 bg-red-500/10 text-red-700";
+}
+
+function DailyMovePill({
+  changePct,
+  className = "h-5 min-w-[42px] px-1 text-[8px]",
+}: {
+  changePct: number | null | undefined;
+  className?: string;
+}) {
+  const valid = Number.isFinite(changePct);
+  const value = valid ? Number(changePct) : null;
+
+  return (
+    <span
+      title="1D price move"
+      className={[
+        "inline-flex shrink-0 items-center justify-center rounded-full border font-black tabular-nums",
+        className,
+        dailyMoveClassName(value),
+      ].join(" ")}
+    >
+      {value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}
+    </span>
+  );
+}
+
 function getFirstNameFromUserMetadata(user: {
   user_metadata?: Record<string, unknown>;
 }) {
@@ -136,11 +172,15 @@ export default async function Home() {
         .filter((t): t is string => !!t),
     ),
   );
+  const dashboardTickerList = rankings
+    .map((r) => r.ticker)
+    .filter((t): t is string => !!t);
 
-  const [sp500Data, movers, snapshotMap] = await Promise.all([
+  const [sp500Data, movers, snapshotMap, dailyMoveMap] = await Promise.all([
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
     getTopMovers(moverTickerList, 8),
     getRankSnapshotMapAround24hAgo(supabase),
+    getOneDayMoveMap(dashboardTickerList),
   ]);
 
   const { count: totalCount } = await supabase
@@ -267,9 +307,12 @@ export default async function Home() {
                               <p className="truncate text-[12px] font-black">
                                 {stock.ticker ?? "—"}
                               </p>
-                              <p className="truncate text-[9px] font-semibold text-[#072116]/45">
-                                {stock.company ?? "—"}
-                              </p>
+                              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                                <p className="min-w-0 truncate text-[9px] font-semibold text-[#072116]/45">
+                                  {stock.company ?? "—"}
+                                </p>
+                                <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} className="h-4 min-w-[38px] px-1 text-[7.5px]" />
+                              </div>
                             </div>
                           </div>
 
@@ -334,8 +377,9 @@ export default async function Home() {
                               </span>
                             </div>
 
-                            <div className="min-w-0 truncate px-2 font-semibold tracking-[-0.01em]">
-                              {stock.company ?? "—"}
+                            <div className="flex min-w-0 items-center gap-2 px-2 font-semibold tracking-[-0.01em]">
+                              <span className="min-w-0 truncate">{stock.company ?? "—"}</span>
+                              <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} />
                             </div>
 
                             <div className="px-2">
