@@ -11,8 +11,10 @@ type ProfileEmailRow = {
   email: string | null;
 };
 
+type SupabaseAdminClient = ReturnType<typeof createClient<any>>;
+
 async function getProfileEmail(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseAdminClient,
   userId: string,
 ) {
   const { data } = await supabaseAdmin
@@ -27,7 +29,7 @@ async function getProfileEmail(
 }
 
 async function getProfileEmailByStripeCustomer(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseAdminClient,
   customerId: string,
 ) {
   const { data } = await supabaseAdmin
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const stripe = new Stripe(stripeKey);
-  const supabaseAdmin = createClient(supabaseUrl, serviceRole);
+  const supabaseAdmin = createClient<any>(supabaseUrl, serviceRole);
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
