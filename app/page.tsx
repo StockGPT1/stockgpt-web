@@ -113,22 +113,33 @@ export default async function Home() {
 
   const rankingsLocked = !hasSubscription;
 
-  const { data: rankingsData } = await supabase
-    .from("stock_rankings")
-    .select("id,rank,ticker,company,sector,score,price,updated_at")
-    .order("rank", { ascending: true })
-    .limit(10);
+  const [{ data: rankingsData }, { data: moverUniverseData }] = await Promise.all([
+    supabase
+      .from("stock_rankings")
+      .select("id,rank,ticker,company,sector,score,price,updated_at")
+      .order("rank", { ascending: true })
+      .limit(10),
+    supabase
+      .from("stock_rankings")
+      .select("ticker")
+      .order("rank", { ascending: true })
+      .limit(500),
+  ]);
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const topRanked = rankings[0];
 
-  const tickerList = rankings
-    .map((r) => r.ticker)
-    .filter((t): t is string => !!t);
+  const moverTickerList = Array.from(
+    new Set(
+      ((moverUniverseData ?? []) as Array<{ ticker: string | null }>)
+        .map((r) => r.ticker)
+        .filter((t): t is string => !!t),
+    ),
+  );
 
   const [sp500Data, movers, snapshotMap] = await Promise.all([
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
-    getTopMovers(tickerList, 8),
+    getTopMovers(moverTickerList, 8),
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
