@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { sendPremiumWaitlistEmail } from "@/lib/transactional-email";
 
 function cleanEmail(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
       status: 303,
     });
   }
+
+  await sendPremiumWaitlistEmail(email);
 
   return NextResponse.redirect(new URL("/pricing?waitlist=joined", request.url), {
     status: 303,
