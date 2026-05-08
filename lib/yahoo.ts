@@ -191,38 +191,49 @@ async function runInBatches<T, R>(
   return results;
 }
 
+function cleanTickerUniverse(tickers: string[], max = 500) {
+  return Array.from(
+    new Set(tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean)),
+  ).slice(0, max);
+}
+
+async function getOneDayMover(ticker: string): Promise<Mover | null> {
+  const data = await getStockChart(ticker, ["1D", "5D"]);
+  const points = (data["1D"] && data["1D"]!.length >= 2)
+    ? data["1D"]!
+    : data["5D"] ?? [];
+
+  if (points.length < 2) return null;
+
+  const validCloses = points
+    .map((point) => point.close)
+    .filter((close) => Number.isFinite(close) && close > 0);
+
+  if (validCloses.length < 2) return null;
+
+  const first = validCloses[0];
+  const last = validCloses[validCloses.length - 1];
+  const changePct = ((last - first) / first) * 100;
+
+  return { ticker, currentPrice: last, changePct };
+}
+
+export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
+  const tickersToCheck = cleanTickerUniverse(tickers, 500);
+  const results = await runInBatches(tickersToCheck, 35, getOneDayMover);
+  const valid = results.filter((r): r is Mover => r !== null);
+
+  return new Map(valid.map((mover) => [mover.ticker, mover]));
+}
+
 export async function getTopMovers(
   tickers: string[],
   limit = 5,
 ): Promise<{ gainers: Mover[]; losers: Mover[] }> {
   if (tickers.length === 0) return { gainers: [], losers: [] };
 
-  const tickersToCheck = Array.from(
-    new Set(tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean)),
-  ).slice(0, 500);
-
-  const results = await runInBatches(tickersToCheck, 35, async (ticker) => {
-    const data = await getStockChart(ticker, ["1D", "5D"]);
-    const points = (data["1D"] && data["1D"]!.length >= 2)
-      ? data["1D"]!
-      : data["5D"] ?? [];
-
-    if (points.length < 2) return null;
-
-    const validCloses = points
-      .map((point) => point.close)
-      .filter((close) => Number.isFinite(close) && close > 0);
-
-    if (validCloses.length < 2) return null;
-
-    const first = validCloses[0];
-    const last = validCloses[validCloses.length - 1];
-    const changePct = ((last - first) / first) * 100;
-
-    return { ticker, currentPrice: last, changePct };
-  });
-
-  const valid = results.filter((r): r is Mover => r !== null);
+  const moveMap = await getOneDayMoveMap(tickers);
+  const valid = Array.from(moveMap.values());
 
   const gainers = [...valid]
     .sort((a, b) => b.changePct - a.changePct)
