@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { EmailNewsDigestToggle } from "@/components/EmailNewsDigestToggle";
 import { createClient } from "@/utils/supabase/server";
+import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
 
 type Profile = {
   subscription_status: string | null;
@@ -10,16 +11,6 @@ type Profile = {
   stripe_customer_id: string | null;
 };
 
-function displayPlanName(status: string | null | undefined) {
-  if (status === "basic") return "Core";
-  if (status === "alpha") return "Alpha";
-  if (status === "none") return "No active plan";
-  return "No active plan";
-}
-
-function isPlanActive(status: string | null | undefined) {
-  return status === "basic" || status === "alpha";
-}
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -45,7 +36,7 @@ export default async function SettingsPage() {
 
   const profile = profileData as Profile | null;
   const plan = displayPlanName(profile?.subscription_status);
-  const activePlan = isPlanActive(profile?.subscription_status);
+  const activePlan = hasActiveSubscription(profile?.subscription_status);
   const canManageSubscription = Boolean(profile?.stripe_customer_id);
   const emailDigestEnabled = Boolean(profile?.email_news_digests);
 

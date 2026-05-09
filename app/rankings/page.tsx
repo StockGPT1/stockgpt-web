@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
+import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
   getRankMove24h,
@@ -57,9 +58,6 @@ function formatScore(value: Ranking["score"]) {
   return score == null ? "—" : score.toLocaleString();
 }
 
-function hasActiveSubscription(status: string | null | undefined) {
-  return status === "basic" || status === "core" || status === "premium";
-}
 
 async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
   if (hasValidPrice(stock.price)) {

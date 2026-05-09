@@ -5,6 +5,7 @@ import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart } from "@/components/StockChart";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
+import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
   getRankMove24h,
@@ -144,7 +145,7 @@ export default async function Home() {
       .eq("id", user.id)
       .maybeSingle();
 
-    hasSubscription = profile?.subscription_status === "basic";
+    hasSubscription = hasActiveSubscription(profile?.subscription_status);
   }
 
   const rankingsLocked = !hasSubscription;
