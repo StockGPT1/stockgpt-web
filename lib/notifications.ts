@@ -1,12 +1,19 @@
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type HoldingAlert, type RiskTolerance } from "@/lib/portfolio-alerts";
+import {
+  enrichHoldings,
+  type AlertSeverity,
+  type AlertType,
+  type HoldingAlert,
+  type HoldingTrigger,
+  type RiskTolerance,
+} from "@/lib/portfolio-alerts";
 
 export type Notification = {
   key: string;
   ticker: string;
   company: string | null;
-  type: HoldingAlert["type"];
-  severity: HoldingAlert["severity"];
+  type: AlertType;
+  severity: AlertSeverity;
   title: string;
   message: string;
   recommendation: string;
@@ -22,6 +29,65 @@ function buildAlertKey(ticker: string, type: string, dateStr: string): string {
   return `${ticker}:${type}:${year}w${week}`;
 }
 
+function buildTriggerKey(ticker: string, type: string, level: number): string {
+  return `${ticker}:${type}:${level.toFixed(2)}`;
+}
+
+function extractDollarLevel(text: string): number | null {
+  const match = text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.\d+)?)/);
+  if (!match) return null;
+
+  const level = Number(match[1].replace(/,/g, ""));
+  return Number.isFinite(level) && level > 0 ? level : null;
+}
+
+function buildTriggeredPriceNotification({
+  ticker,
+  company,
+  currentPrice,
+  trigger,
+  today,
+}: {
+  ticker: string;
+  company: string | null;
+  currentPrice: number;
+  trigger: HoldingTrigger;
+  today: string;
+}): Notification | null {
+  const level = extractDollarLevel(trigger.condition);
+  if (!level || !Number.isFinite(currentPrice) || currentPrice <= 0) return null;
+
+  if (trigger.type === "take_profit" && currentPrice >= level) {
+    return {
+      key: buildTriggerKey(ticker, "take_profit_hit", level),
+      ticker,
+      company,
+      type: "price_target",
+      severity: "success",
+      title: `${ticker} has hit its take-profit area`,
+      message: `Current price is $${currentPrice.toFixed(2)}, above the take-profit level near $${level.toFixed(2)}.`,
+      recommendation: trigger.action,
+      createdAt: today,
+    };
+  }
+
+  if ((trigger.type === "stop_sell" || trigger.type === "trailing_stop") && currentPrice <= level) {
+    return {
+      key: buildTriggerKey(ticker, "stop_loss_hit", level),
+      ticker,
+      company,
+      type: "price_stop",
+      severity: "critical",
+      title: `${ticker} has hit its stop-loss area`,
+      message: `Current price is $${currentPrice.toFixed(2)}, below the risk level near $${level.toFixed(2)}.`,
+      recommendation: trigger.action,
+      createdAt: today,
+    };
+  }
+
+  return null;
+}
+
 export async function getUserNotifications({
   includeDismissed = false,
 }: {
@@ -35,7 +101,6 @@ export async function getUserNotifications({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { unread: [], read: [], unreadCount: 0 };
 
-  // ✦ Now fetching risk_tolerance to pass through
   const { data: portfolio } = await supabase
     .from("user_portfolios")
     .select("id, risk_tolerance")
@@ -81,7 +146,7 @@ export async function getUserNotifications({
   const allNotifications: Notification[] = [];
 
   enriched.forEach((h) => {
-    h.alerts.forEach((alert) => {
+    h.alerts.forEach((alert: HoldingAlert) => {
       const key = buildAlertKey(h.ticker, alert.type, today);
       allNotifications.push({
         key,
@@ -94,6 +159,18 @@ export async function getUserNotifications({
         recommendation: alert.recommendation,
         createdAt: today,
       });
+    });
+
+    h.triggers.forEach((trigger) => {
+      const notification = buildTriggeredPriceNotification({
+        ticker: h.ticker,
+        company: h.company,
+        currentPrice: h.currentPrice,
+        trigger,
+        today,
+      });
+
+      if (notification) allNotifications.push(notification);
     });
   });
 
