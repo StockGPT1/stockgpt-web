@@ -145,16 +145,20 @@ export default async function PricingPage({
                   ))}
                 </div>
 
-                <div className="mt-auto pt-5 lg:pt-3 xl:pt-4">
+                <form
+                  action="/api/create-checkout-session"
+                  method="post"
+                  className="mt-auto pt-5 lg:pt-3 xl:pt-4"
+                >
                   <div className="mb-2 hidden h-9 lg:block xl:h-10" />
 
-                  <Link
-                    href="/signup?plan=core"
+                  <button
+                    type="submit"
                     className="flex h-11 w-full items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.2)] transition hover:bg-[#c9a04f] sm:h-12 sm:text-[14px] lg:h-10 lg:text-[13px] xl:h-11"
                   >
-                    Choose Core & create account
-                  </Link>
-                </div>
+                    Start Core subscription
+                  </button>
+                </form>
               </div>
             </div>
 
