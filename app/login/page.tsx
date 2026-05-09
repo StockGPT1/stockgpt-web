@@ -117,8 +117,8 @@ export default function LoginPage() {
               Forgotten password?
             </Link>
 
-            <Link href="/signup" className="transition hover:text-[#ddb159]">
-              Create an account
+            <Link href="/pricing" className="transition hover:text-[#ddb159]">
+              Choose a plan
             </Link>
           </div>
         </div>
