@@ -17,8 +17,11 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setErrorMessage("");
 
+    const siteUrl = window.location.origin;
+    const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent("/update-password")}`;
+
     const { error } = await createClient().auth.resetPasswordForEmail(email, {
-      redirectTo: "https://stockgpt.pro/update-password",
+      redirectTo,
     });
 
     setLoading(false);
