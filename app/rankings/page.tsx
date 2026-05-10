@@ -210,7 +210,7 @@ export default async function RankingsPage({
 
   return (
     <AppShell activePath="/rankings">
-      <main className="flex min-h-full flex-col gap-3 overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
+      <main className="flex min-h-full flex-col gap-3 overflow-x-hidden lg:h-full lg:min-h-0 lg:overflow-hidden">
         <section className="relative shrink-0 overflow-hidden rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.075),rgba(250,246,240,0.025)_46%,rgba(221,177,89,0.07))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.20)] backdrop-blur-xl sm:p-5">
           <div className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#ddb159]/12 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 bottom-0 size-44 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -327,7 +327,7 @@ export default async function RankingsPage({
           </form>
         </section>
 
-        <RankingsLock isLocked={rankingsLocked} className="grid gap-2 lg:hidden">
+        <RankingsLock isLocked={rankingsLocked} className="grid min-w-0 max-w-full gap-2 overflow-hidden lg:hidden">
           {rankings.length > 0 ? (
             rankings.map((stock) => {
               const ticker = stock.ticker ?? "";
@@ -338,35 +338,38 @@ export default async function RankingsPage({
                 <Link
                   key={stock.id}
                   href={`/stock/${stock.ticker}`}
-                  className="rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20 transition hover:bg-white"
+                  className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20 transition hover:bg-white"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[#072116] text-[12px] font-black text-[#ddb159]">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159] min-[380px]:size-9 min-[380px]:text-[12px]">
                         {stock.rank ?? "—"}
                       </div>
 
                       <StockLogo
                         ticker={stock.ticker}
                         company={stock.company}
-                        size={28}
+                        size={26}
                       />
 
                       <div className="flex min-h-[36px] min-w-0 flex-col justify-center">
-                        <p className="truncate text-[15px] font-black leading-[1.05]">
+                        <p className="truncate text-[14px] font-black leading-[1.05] min-[380px]:text-[15px]">
                           {stock.ticker ?? "—"}
                         </p>
                         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                          <p className="min-w-0 truncate text-[11px] font-semibold leading-[1.05] text-[#072116]/55">
+                          <p className="min-w-0 truncate text-[10px] font-semibold leading-[1.05] text-[#072116]/55 min-[380px]:text-[11px]">
                             {stock.company ?? "—"}
                           </p>
-                          <DailyMovePill changePct={dailyMoveMap.get(ticker)?.changePct} className="h-5 min-w-[42px] px-1.5 text-[8px]" />
+                          <DailyMovePill
+                            changePct={dailyMoveMap.get(ticker)?.changePct}
+                            className="h-5 min-w-[38px] px-1 text-[7.5px] min-[380px]:min-w-[42px] min-[380px]:px-1.5 min-[380px]:text-[8px]"
+                          />
                         </div>
                       </div>
                     </div>
 
                     <span
-                      className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black"
+                      className="shrink-0 rounded-full px-2 py-1 text-[9px] font-black min-[380px]:px-2.5 min-[380px]:text-[10px]"
                       style={{
                         backgroundColor: "#ddb159",
                         color: "#072116",
@@ -376,8 +379,8 @@ export default async function RankingsPage({
                     </span>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                  <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 min-[430px]:grid-cols-3">
+                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
                       <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
                         Move
                       </p>
@@ -392,7 +395,7 @@ export default async function RankingsPage({
                       </span>
                     </div>
 
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
                       <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
                         Price
                       </p>
@@ -401,7 +404,7 @@ export default async function RankingsPage({
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2">
+                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
                       <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
                         Sector
                       </p>
