@@ -513,7 +513,7 @@ export default async function Home() {
                         <Link
                           key={m.ticker}
                           href={`/stock/${m.ticker}`}
-                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-50/40 py-1.5 pl-2.5 pr-4 transition duration-300 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:shadow-[0_6px_14px_rgba(16,185,129,0.15)] sm:pr-5"
+                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-50/40 px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:shadow-[0_6px_14px_rgba(16,185,129,0.15)]"
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500 transition group-hover:scale-125" />
@@ -524,14 +524,15 @@ export default async function Home() {
                               {m.ticker}
                             </p>
                           </div>
-                          <div className="shrink-0 text-right">
+
+                          <div className="flex shrink-0 flex-col items-end justify-center gap-0.5 text-right">
                             <p
-                              className="text-[10px] font-bold tabular-nums"
+                              className="text-[10px] font-bold leading-none tabular-nums"
                               style={{ color: "rgba(7,33,22,0.7)" }}
                             >
                               ${m.currentPrice.toFixed(2)}
                             </p>
-                            <p className="text-[10px] font-black tabular-nums text-emerald-600">
+                            <p className="text-[10px] font-black leading-none tabular-nums text-emerald-600">
                               +{m.changePct.toFixed(2)}%
                             </p>
                           </div>
@@ -558,7 +559,7 @@ export default async function Home() {
                         <Link
                           key={m.ticker}
                           href={`/stock/${m.ticker}`}
-                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-red-500/20 bg-red-50/40 py-1.5 pl-2.5 pr-4 transition duration-300 hover:-translate-y-0.5 hover:border-red-500/50 hover:shadow-[0_6px_14px_rgba(239,68,68,0.15)] sm:pr-5"
+                          className="group flex min-h-0 items-center justify-between gap-2 rounded-lg border border-red-500/20 bg-red-50/40 px-2.5 py-1.5 transition duration-300 hover:-translate-y-0.5 hover:border-red-500/50 hover:shadow-[0_6px_14px_rgba(239,68,68,0.15)]"
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="inline-block size-1.5 shrink-0 rounded-full bg-red-500 transition group-hover:scale-125" />
@@ -569,14 +570,15 @@ export default async function Home() {
                               {m.ticker}
                             </p>
                           </div>
-                          <div className="shrink-0 text-right">
+
+                          <div className="flex shrink-0 flex-col items-end justify-center gap-0.5 text-right">
                             <p
-                              className="text-[10px] font-bold tabular-nums"
+                              className="text-[10px] font-bold leading-none tabular-nums"
                               style={{ color: "rgba(7,33,22,0.7)" }}
                             >
                               ${m.currentPrice.toFixed(2)}
                             </p>
-                            <p className="text-[10px] font-black tabular-nums text-red-600">
+                            <p className="text-[10px] font-black leading-none tabular-nums text-red-600">
                               {m.changePct.toFixed(2)}%
                             </p>
                           </div>
