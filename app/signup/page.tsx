@@ -5,14 +5,9 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
 export default function SignupPage() {
-  const searchParams = useSearchParams();
-  const selectedPlan = searchParams.get("plan") ?? "";
-  const hasSelectedPlan = selectedPlan === "core";
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
@@ -32,11 +27,6 @@ export default function SignupPage() {
 
     setErrorMessage("");
 
-    if (!hasSelectedPlan) {
-      setErrorMessage("Please choose a plan before creating your account.");
-      return;
-    }
-
     if (!cleanFirstName || !cleanLastName || !cleanEmail || !password) {
       setErrorMessage("Please complete your first name, last name, email and password.");
       return;
@@ -44,15 +34,11 @@ export default function SignupPage() {
 
     setLoading(true);
 
-    const siteUrl = window.location.origin;
-    const checkoutPath = `/api/create-checkout-session?plan=${encodeURIComponent(selectedPlan)}`;
-    const emailRedirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(checkoutPath)}`;
-
-    const { data, error } = await createClient().auth.signUp({
+    const { error } = await createClient().auth.signUp({
       email: cleanEmail,
       password,
       options: {
-        emailRedirectTo,
+        emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/account",
         data: {
           first_name: cleanFirstName,
           last_name: cleanLastName,
@@ -67,11 +53,6 @@ export default function SignupPage() {
 
     if (error) {
       setErrorMessage(error.message);
-      return;
-    }
-
-    if (data.session) {
-      window.location.href = checkoutPath;
       return;
     }
 
@@ -102,7 +83,7 @@ export default function SignupPage() {
 
         <div className="text-center sm:text-left">
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
-            Step 2 of 3 · Create account
+            Private access
           </p>
 
           <h1 className="mt-1.5 text-[28px] font-black leading-none tracking-[-0.04em] sm:text-[34px]">
@@ -110,30 +91,14 @@ export default function SignupPage() {
           </h1>
 
           <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#faf6f0]/62 sm:text-[13px]">
-            {hasSelectedPlan
-              ? "Core selected. Create your account, then continue straight to secure payment."
-              : "Choose a plan first, then create your account and continue to payment."}
+            Join StockGPT to access AI rankings, watchlists, portfolio tools and
+            premium market intelligence.
           </p>
-
-          <div className="mt-3 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/55 p-3 text-[11px] font-bold text-[#faf6f0]/70">
-            {hasSelectedPlan ? (
-              <div className="flex items-center justify-between gap-3">
-                <span>Selected plan</span>
-                <span className="rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black text-[#072116]">
-                  Core · £12/month
-                </span>
-              </div>
-            ) : (
-              <Link href="/pricing" className="inline-flex font-black text-[#ddb159] hover:underline">
-                Choose a plan to continue →
-              </Link>
-            )}
-          </div>
         </div>
 
         {sent ? (
           <div className="mt-5 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4 text-center text-[13px] font-bold leading-relaxed text-emerald-100 sm:text-left">
-            Check your email to verify your account. After verification, you will be taken straight to secure payment.
+            Check your email to verify your account.
           </div>
         ) : (
           <div className="mt-4 space-y-2.5 sm:space-y-3">
@@ -228,16 +193,12 @@ export default function SignupPage() {
               disabled={loading}
               className="mt-1 h-11 w-full rounded-full bg-[#ddb159] px-4 text-[14px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.22)] transition hover:brightness-105 disabled:opacity-60"
             >
-              {loading ? "Creating..." : hasSelectedPlan ? "Create account & continue to payment" : "Choose a plan first"}
+              {loading ? "Creating..." : "Create account"}
             </button>
 
             <div className="pt-1 text-center text-[12px] font-semibold text-[#faf6f0]/65 sm:text-[13px]">
               <Link href="/login" className="transition hover:text-[#ddb159]">
                 Already have an account? Log in
-              </Link>
-              <span className="text-[#faf6f0]/30">·</span>
-              <Link href="/pricing" className="transition hover:text-[#ddb159]">
-                Change plan
               </Link>
             </div>
           </div>
