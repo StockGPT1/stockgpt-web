@@ -58,7 +58,6 @@ function formatScore(value: Ranking["score"]) {
   return score == null ? "—" : score.toLocaleString();
 }
 
-
 async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
   if (hasValidPrice(stock.price)) {
     return stock;
@@ -183,6 +182,7 @@ export default async function RankingsPage({
   const allRankings = await Promise.all(
     rawRankings.map((stock) => attachLivePriceIfMissing(stock)),
   );
+
   const dailyMoveMap = await getOneDayMoveMap(
     allRankings.map((stock) => stock.ticker).filter((ticker): ticker is string => !!ticker),
   );
@@ -265,9 +265,11 @@ export default async function RankingsPage({
                 defaultValue={sectorFilter}
                 className="h-full w-full appearance-none bg-transparent pt-3 text-[13px] font-black text-[#faf6f0] outline-none"
               >
-                <option value="all">All sectors</option>
+                <option className="text-black" value="all">
+                  All sectors
+                </option>
                 {sectors.map((sector) => (
-                  <option key={sector} value={sector}>
+                  <option className="text-black" key={sector} value={sector}>
                     {sector}
                   </option>
                 ))}
@@ -286,11 +288,21 @@ export default async function RankingsPage({
                 defaultValue={moveFilter}
                 className="h-full w-full appearance-none bg-transparent pt-3 text-[13px] font-black text-[#faf6f0] outline-none"
               >
-                <option value="all">All moves</option>
-                <option value="up">Moved up</option>
-                <option value="down">Moved down</option>
-                <option value="flat">No change</option>
-                <option value="none">No 24h snapshot</option>
+                <option className="text-black" value="all">
+                  All moves
+                </option>
+                <option className="text-black" value="up">
+                  Moved up
+                </option>
+                <option className="text-black" value="down">
+                  Moved down
+                </option>
+                <option className="text-black" value="flat">
+                  No change
+                </option>
+                <option className="text-black" value="none">
+                  No 24h snapshot
+                </option>
               </select>
               <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">
                 ▾
