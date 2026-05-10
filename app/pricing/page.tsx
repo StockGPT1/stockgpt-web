@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 
 type PricingSearchParams = {
   waitlist?: string;
