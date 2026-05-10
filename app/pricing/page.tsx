@@ -151,6 +151,7 @@ export default async function PricingPage({
                   method="post"
                   className="mt-auto pt-5 lg:pt-3 xl:pt-4"
                 >
+                  <EndorselyReferralInput />
                   <div className="mb-2 hidden h-9 lg:block xl:h-10" />
 
                   <button
