@@ -31,6 +31,13 @@ async function createCheckoutSession(request: Request) {
     });
   }
 
+  let endorselyReferral = "";
+
+  if (request.method === "POST") {
+    const formData = await request.formData();
+    endorselyReferral = String(formData.get("endorsely_referral") ?? "");
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: user.email,
@@ -43,6 +50,14 @@ async function createCheckoutSession(request: Request) {
     metadata: {
       user_id: user.id,
       plan: "core",
+      endorsely_referral: endorselyReferral,
+    },
+    subscription_data: {
+      metadata: {
+        user_id: user.id,
+        plan: "core",
+        endorsely_referral: endorselyReferral,
+      },
     },
     success_url: `${siteUrl}/account?success=true`,
     cancel_url: `${siteUrl}/pricing`,
