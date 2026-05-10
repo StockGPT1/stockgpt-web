@@ -125,6 +125,7 @@ function concentrationThreshold(risk: RiskTolerance): number {
 }
 
 
+
 function formatFactorName(factor: string) {
   return factor
     .replace(/_/g, " ")
