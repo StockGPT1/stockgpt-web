@@ -86,11 +86,19 @@ function articleText(article: WorldNewsArticle) {
 function inferCountry(article: WorldNewsArticle) {
   const text = articleText(article);
 
-  if (/\b(us|u\.s\.|usa|america|american|washington|white house|fed)\b/i.test(text)) {
+  if (
+    /\b(us|u\.s\.|usa|america|american|washington|white house|fed|federal reserve)\b/i.test(
+      text
+    )
+  ) {
     return "United States";
   }
 
-  if (/\b(uk|u\.k\.|britain|british|england|london|bank of england|boe)\b/i.test(text)) {
+  if (
+    /\b(uk|u\.k\.|britain|british|england|london|bank of england|boe)\b/i.test(
+      text
+    )
+  ) {
     return "United Kingdom";
   }
 
@@ -98,7 +106,9 @@ function inferCountry(article: WorldNewsArticle) {
     return "China";
   }
 
-  if (/\b(europe|european|eurozone|ecb|germany|france|italy|spain)\b/i.test(text)) {
+  if (
+    /\b(europe|european|eurozone|ecb|germany|france|italy|spain)\b/i.test(text)
+  ) {
     return "Europe";
   }
 
@@ -106,7 +116,9 @@ function inferCountry(article: WorldNewsArticle) {
     return "Japan";
   }
 
-  if (/\b(middle east|israel|iran|saudi|qatar|uae|dubai|opec)\b/i.test(text)) {
+  if (
+    /\b(middle east|israel|iran|saudi|qatar|uae|dubai|opec)\b/i.test(text)
+  ) {
     return "Middle East";
   }
 
@@ -117,7 +129,7 @@ function inferTopic(article: WorldNewsArticle) {
   const text = articleText(article);
 
   if (
-    /\b(election|government|policy|tariff|regulation|sanction|war|conflict|president|prime minister|congress|senate|tax|budget|geopolitical|parliament)\b/i.test(
+    /\b(election|government|policy|tariff|regulation|sanction|war|conflict|president|prime minister|congress|senate|tax|budget|geopolitical|parliament|central bank|rates|fed|federal reserve)\b/i.test(
       text
     )
   ) {
@@ -137,6 +149,45 @@ function displaySummary(article: WorldNewsArticle) {
   }
 
   return "No full description is currently available for this article.";
+}
+
+function getInsight(article: WorldNewsArticle) {
+  const impact = (article.impact ?? "").toLowerCase().trim();
+  const tickers = article.affectedStocks.map((stock) => stock.ticker);
+  const sectors = Array.from(
+    new Set(
+      article.affectedStocks
+        .map((stock) => stock.sector)
+        .filter((sector): sector is string => Boolean(sector))
+    )
+  );
+
+  if (article.impact_reason) {
+    return article.impact_reason;
+  }
+
+  if (tickers.length > 0) {
+    const direction =
+      impact === "positive"
+        ? "could create a supportive backdrop for"
+        : impact === "negative"
+          ? "could add pressure or uncertainty around"
+          : "could be worth monitoring for";
+
+    return `This story ${direction} ${tickers.slice(0, 3).join(", ")}${
+      tickers.length > 3 ? ` and ${tickers.length - 3} more linked stocks` : ""
+    }. Watch whether the market impact is short-term sentiment or something that changes earnings expectations.`;
+  }
+
+  if (sectors.length > 0) {
+    return `This story appears most relevant to the ${sectors
+      .slice(0, 2)
+      .join(" and ")} sector${
+      sectors.length > 2 ? "s" : ""
+    }. The key question is whether it changes demand, margins, regulation, financing costs or investor sentiment.`;
+  }
+
+  return "This article is worth monitoring because macro and geopolitical headlines can quickly affect rates, risk appetite, sector rotation and investor positioning.";
 }
 
 export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) {
@@ -212,7 +263,8 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
       const matchesImpact =
         impactFilter === "All impacts" ||
-        (article.impact ?? "neutral").toLowerCase() === impactFilter.toLowerCase();
+        (article.impact ?? "neutral").toLowerCase() ===
+          impactFilter.toLowerCase();
 
       const matchesIndustry =
         industryFilter === "All industries" ||
@@ -245,18 +297,18 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   const selectedStyle = selectedArticle ? impactStyle(selectedArticle.impact) : null;
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+    <main className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-1.5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-[26px] font-black tracking-[-0.03em] text-[#faf6f0] sm:text-[28px]">
+          <h1 className="text-[24px] font-black tracking-[-0.03em] text-[#faf6f0] sm:text-[27px]">
             World News
           </h1>
-          <p className="mt-0.5 text-[12px] font-medium text-[#faf6f0]/50 sm:text-[13px]">
+          <p className="text-[11px] font-medium text-[#faf6f0]/50 sm:text-[12px]">
             {articles.length} articles with AI sentiment analysis
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold sm:gap-4 sm:text-[11px]">
+        <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-bold sm:gap-4 sm:text-[11px]">
           <span className="flex items-center gap-1.5 text-emerald-400">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
             {counts.positive} positive
@@ -287,19 +339,19 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         />
       </div>
 
-      <div className="shrink-0 rounded-xl border border-[#ddb159]/15 bg-[#061b12] p-2">
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-[1.35fr_0.85fr_0.9fr_0.9fr_0.9fr_auto]">
+      <div className="shrink-0 rounded-xl border border-[#ddb159]/15 bg-[#061b12] px-2 py-1.5">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-[1.45fr_0.8fr_0.92fr_0.92fr_0.92fr_auto]">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search news, ticker, source..."
-            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2.5 text-[11px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/30 focus:border-[#ddb159]/50"
+            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2.5 text-[11px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/30 focus:border-[#ddb159]/50"
           />
 
           <select
             value={impactFilter}
             onChange={(event) => setImpactFilter(event.target.value)}
-            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
               <option key={option}>{option}</option>
@@ -309,7 +361,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={industryFilter}
             onChange={(event) => setIndustryFilter(event.target.value)}
-            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {industries.map((option) => (
               <option key={option}>{option}</option>
@@ -319,7 +371,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={countryFilter}
             onChange={(event) => setCountryFilter(event.target.value)}
-            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {countries.map((option) => (
               <option key={option}>{option}</option>
@@ -329,7 +381,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={topicFilter}
             onChange={(event) => setTopicFilter(event.target.value)}
-            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {["All topics", "Politics", "Company activity"].map((option) => (
               <option key={option}>{option}</option>
@@ -345,14 +397,14 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
               setCountryFilter("All countries");
               setTopicFilter("All topics");
             }}
-            className="h-8 rounded-lg border border-[#ddb159]/20 px-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 md:col-span-2 xl:col-span-1"
+            className="h-7 rounded-lg border border-[#ddb159]/20 px-2.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 md:col-span-2 xl:col-span-1"
           >
             Reset
           </button>
         </div>
 
-        <p className="mt-1.5 text-[9px] font-bold text-[#faf6f0]/32">
-          Showing {filteredArticles.length} of {articles.length} articles
+        <p className="mt-1 text-[8px] font-bold text-[#faf6f0]/30">
+          Showing {filteredArticles.length} of {articles.length}
         </p>
       </div>
 
@@ -455,14 +507,14 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
       {selectedArticle && selectedStyle && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 backdrop-blur-md sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/72 p-3 backdrop-blur-md sm:p-5"
           onClick={() => setSelectedArticle(null)}
         >
           <div
-            className="grid h-[96dvh] w-full max-w-5xl grid-rows-[160px_1fr] overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.65)] sm:h-[92dvh] sm:grid-rows-[220px_1fr] lg:h-[82dvh] lg:grid-cols-[0.82fr_1.18fr] lg:grid-rows-1 xl:h-[78dvh]"
+            className="grid h-[calc(100dvh-96px)] max-h-[720px] min-h-0 w-full max-w-[1180px] overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.68)] sm:h-[calc(100dvh-120px)] lg:grid-cols-[0.82fr_1.18fr]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative min-h-0 overflow-hidden bg-[#0b2b1d]">
+            <div className="relative hidden min-h-0 overflow-hidden bg-[#0b2b1d] lg:block">
               {selectedArticle.image_url ? (
                 <img
                   src={selectedArticle.image_url}
@@ -479,57 +531,62 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
               <div className="absolute inset-0 bg-gradient-to-t from-[#061b12] via-transparent to-black/10" />
 
-              <div className="absolute bottom-3 left-3 right-3">
-                <p className="line-clamp-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="line-clamp-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
                   {selectedArticle.source ?? "News source"}
                 </p>
-                <p className="mt-0.5 text-[10px] font-semibold text-[#faf6f0]/70">
+                <p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/70">
                   {formatFullDate(selectedArticle.published_at)}
                 </p>
               </div>
             </div>
 
-            <div className="relative flex min-h-0 flex-col p-3 sm:p-4 lg:p-5">
+            <div className="relative flex min-h-0 flex-col p-4 sm:p-5 lg:p-6">
               <button
                 type="button"
                 onClick={() => setSelectedArticle(null)}
-                className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-3 py-1 text-[11px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+                className="absolute right-4 top-4 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-3 py-1 text-[11px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
               >
                 Close
               </button>
 
               <div className="shrink-0 pr-16">
-                <span
-                  className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em] ${selectedStyle.bg} ${selectedStyle.text} ${selectedStyle.border}`}
-                >
-                  {selectedStyle.label} impact
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em] ${selectedStyle.bg} ${selectedStyle.text} ${selectedStyle.border}`}
+                  >
+                    {selectedStyle.label} impact
+                  </span>
 
-                <h2 className="mt-2 line-clamp-2 text-[18px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[22px] lg:text-[24px]">
+                  <span className="text-[10px] font-bold text-[#faf6f0]/38 lg:hidden">
+                    {selectedArticle.source ?? "News source"} ·{" "}
+                    {formatFullDate(selectedArticle.published_at)}
+                  </span>
+                </div>
+
+                <h2 className="mt-2 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[24px] xl:text-[28px]">
                   {selectedArticle.title ?? "Untitled article"}
                 </h2>
               </div>
 
-              <div className="mt-3 grid min-h-0 flex-1 gap-3 lg:grid-rows-[minmax(0,1fr)_auto]">
-                <div className="min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-3">
+              <div className="mt-3 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] gap-3">
+                <div className="min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-3 sm:p-4">
                   <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                     Full description
                   </p>
 
-                  <p className="mt-1.5 line-clamp-4 text-[12px] font-medium leading-5 text-[#faf6f0]/68 sm:line-clamp-5 lg:text-[13px] lg:leading-6 xl:line-clamp-6">
+                  <p className="mt-1.5 line-clamp-4 text-[12px] font-medium leading-5 text-[#faf6f0]/70 sm:line-clamp-5 sm:text-[13px] sm:leading-6 xl:line-clamp-6">
                     {displaySummary(selectedArticle)}
                   </p>
 
-                  {selectedArticle.impact_reason && (
-                    <div className="mt-2 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2">
-                      <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                        Why this matters
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/62 sm:line-clamp-3">
-                        {selectedArticle.impact_reason}
-                      </p>
-                    </div>
-                  )}
+                  <div className="mt-3 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2.5">
+                    <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                      StockGPT insight
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-[11px] font-semibold leading-5 text-[#faf6f0]/64 sm:text-[12px]">
+                      {getInsight(selectedArticle)}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="min-h-0">
@@ -542,7 +599,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                     </p>
                   </div>
 
-                  <div className="mt-2 grid max-h-[112px] gap-2 overflow-hidden sm:grid-cols-2 lg:max-h-[132px]">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {selectedArticle.affectedStocks.length > 0 ? (
                       selectedArticle.affectedStocks.slice(0, 4).map((stock) => (
                         <Link
@@ -593,31 +650,31 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                       +{selectedArticle.affectedStocks.length - 4} more linked stocks hidden to keep the briefing compact.
                     </p>
                   )}
+                </div>
 
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    {selectedArticle.url ? (
-                      <a
-                        href={selectedArticle.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
-                      >
-                        Read more
-                      </a>
-                    ) : (
-                      <span className="inline-flex h-10 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35">
-                        External link unavailable
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setSelectedArticle(null)}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  {selectedArticle.url ? (
+                    <a
+                      href={selectedArticle.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
                     >
-                      Back to feed
-                    </button>
-                  </div>
+                      Read more
+                    </a>
+                  ) : (
+                    <span className="inline-flex h-10 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35">
+                      External link unavailable
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedArticle(null)}
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+                  >
+                    Back to feed
+                  </button>
                 </div>
               </div>
             </div>
