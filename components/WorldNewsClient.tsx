@@ -426,8 +426,8 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
       </div>
 
       <div className="shrink-0 rounded-[1.35rem] border border-[#ddb159]/18 bg-[#061b12]/85 px-2.5 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[1.45fr_0.78fr_0.92fr_0.92fr_0.92fr_88px_88px]">
-          <label className="flex h-9 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-2.5 transition focus-within:border-[#ddb159]/45">
+        <div className="grid gap-2">
+          <label className="flex h-9 w-full items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-2.5 transition focus-within:border-[#ddb159]/45">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/12 text-[#ddb159]">
               <svg
                 viewBox="0 0 24 24"
@@ -452,85 +452,97 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
             />
           </label>
 
-          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
-            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-              Impact
-            </span>
-            <select
-              value={draftImpactFilter}
-              onChange={(event) => setDraftImpactFilter(event.target.value)}
-              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_88px_88px]">
+            <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+              <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+                Impact
+              </span>
+              <select
+                value={draftImpactFilter}
+                onChange={(event) => setDraftImpactFilter(event.target.value)}
+                className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+              >
+                {["All impacts", "Positive", "Neutral", "Negative"].map(
+                  (option) => (
+                    <option key={option} className="bg-white text-black">
+                      {option}
+                    </option>
+                  )
+                )}
+              </select>
+              <SelectChevron />
+            </label>
+
+            <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+              <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+                Industry
+              </span>
+              <select
+                value={draftIndustryFilter}
+                onChange={(event) => setDraftIndustryFilter(event.target.value)}
+                className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+              >
+                {industries.map((option) => (
+                  <option key={option} className="bg-white text-black">
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <SelectChevron />
+            </label>
+
+            <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+              <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+                Country
+              </span>
+              <select
+                value={draftCountryFilter}
+                onChange={(event) => setDraftCountryFilter(event.target.value)}
+                className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+              >
+                {countries.map((option) => (
+                  <option key={option} className="bg-white text-black">
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <SelectChevron />
+            </label>
+
+            <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+              <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+                Topic
+              </span>
+              <select
+                value={draftTopicFilter}
+                onChange={(event) => setDraftTopicFilter(event.target.value)}
+                className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+              >
+                {["All topics", "Politics", "Company activity"].map((option) => (
+                  <option key={option} className="bg-white text-black">
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <SelectChevron />
+            </label>
+
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="h-9 rounded-2xl bg-[#ddb159] px-3 text-[12px] font-black text-[#061b12] transition hover:brightness-110"
             >
-              {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-            <SelectChevron />
-          </label>
+              Apply
+            </button>
 
-          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
-            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-              Industry
-            </span>
-            <select
-              value={draftIndustryFilter}
-              onChange={(event) => setDraftIndustryFilter(event.target.value)}
-              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="h-9 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.035] px-3 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
             >
-              {industries.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-            <SelectChevron />
-          </label>
-
-          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
-            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-              Country
-            </span>
-            <select
-              value={draftCountryFilter}
-              onChange={(event) => setDraftCountryFilter(event.target.value)}
-              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
-            >
-              {countries.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-            <SelectChevron />
-          </label>
-
-          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
-            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-              Topic
-            </span>
-            <select
-              value={draftTopicFilter}
-              onChange={(event) => setDraftTopicFilter(event.target.value)}
-              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
-            >
-              {["All topics", "Politics", "Company activity"].map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-            <SelectChevron />
-          </label>
-
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="h-9 rounded-2xl bg-[#ddb159] px-3 text-[12px] font-black text-[#061b12] transition hover:brightness-110"
-          >
-            Apply
-          </button>
-
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="h-9 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.035] px-3 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
-          >
-            Reset
-          </button>
+              Reset
+            </button>
+          </div>
         </div>
 
         <p className="mt-1.5 text-[8px] font-bold text-[#faf6f0]/30">
