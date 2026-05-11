@@ -153,6 +153,49 @@ function displaySummary(article: WorldNewsArticle) {
 
 function getInsight(article: WorldNewsArticle) {
   const impact = (article.impact ?? "").toLowerCase().trim();
+
+  const tickers = article.affectedStocks
+    .map((stock) => stock.ticker)
+    .filter(Boolean);
+
+  const sectors = Array.from(
+    new Set(
+      article.affectedStocks
+        .map((stock) => stock.sector)
+        .filter((sector): sector is string => Boolean(sector))
+    )
+  );
+
+  if (article.impact_reason) {
+    return article.impact_reason;
+  }
+
+  if (tickers.length > 0) {
+    const direction =
+      impact === "positive"
+        ? "could support sentiment around"
+        : impact === "negative"
+          ? "could create pressure or uncertainty for"
+          : "should be monitored for";
+
+    return `This story ${direction} ${tickers.slice(0, 3).join(", ")}${
+      tickers.length > 3 ? ` and ${tickers.length - 3} other linked names` : ""
+    }. The key question is whether the headline affects earnings expectations, valuation multiples, financing costs or short-term risk appetite.`;
+  }
+
+  if (sectors.length > 0) {
+    return `This story is most relevant to the ${sectors
+      .slice(0, 2)
+      .join(" and ")} sector${
+      sectors.length > 2 ? "s" : ""
+    }. Watch for changes in demand, margins, regulation, funding costs or investor positioning.`;
+  }
+
+  return "This is a macro or geopolitical story worth monitoring because it may influence interest-rate expectations, sector rotation, risk appetite and broader market sentiment.";
+}
+
+function getCardInsight(article: WorldNewsArticle) {
+  const impact = (article.impact ?? "").toLowerCase().trim();
   const tickers = article.affectedStocks.map((stock) => stock.ticker);
   const sectors = Array.from(
     new Set(
@@ -169,25 +212,21 @@ function getInsight(article: WorldNewsArticle) {
   if (tickers.length > 0) {
     const direction =
       impact === "positive"
-        ? "could create a supportive backdrop for"
+        ? "Potential support for"
         : impact === "negative"
-          ? "could add pressure or uncertainty around"
-          : "could be worth monitoring for";
+          ? "Potential pressure on"
+          : "Worth monitoring for";
 
-    return `This story ${direction} ${tickers.slice(0, 3).join(", ")}${
-      tickers.length > 3 ? ` and ${tickers.length - 3} more linked stocks` : ""
-    }. Watch whether the market impact is short-term sentiment or something that changes earnings expectations.`;
+    return `${direction} ${tickers.slice(0, 3).join(", ")}${
+      tickers.length > 3 ? ` and ${tickers.length - 3} more` : ""
+    }.`;
   }
 
   if (sectors.length > 0) {
-    return `This story appears most relevant to the ${sectors
-      .slice(0, 2)
-      .join(" and ")} sector${
-      sectors.length > 2 ? "s" : ""
-    }. The key question is whether it changes demand, margins, regulation, financing costs or investor sentiment.`;
+    return `Relevant to ${sectors.slice(0, 2).join(" and ")} sentiment.`;
   }
 
-  return "This article is worth monitoring because macro and geopolitical headlines can quickly affect rates, risk appetite, sector rotation and investor positioning.";
+  return "Macro impact: watch rates, risk appetite and sector rotation.";
 }
 
 export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) {
@@ -458,12 +497,13 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                       {article.title ?? "Untitled article"}
                     </h3>
 
-                    {article.summary &&
-                      article.summary !== "No summary available." && (
-                        <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-relaxed text-[#faf6f0]/45">
-                          {article.summary}
-                        </p>
-                      )}
+                    <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-relaxed text-[#faf6f0]/45">
+                      {displaySummary(article)}
+                    </p>
+
+                    <p className="mt-1 line-clamp-1 text-[10px] font-semibold leading-relaxed text-[#ddb159]/65">
+                      StockGPT view: {getCardInsight(article)}
+                    </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {article.affectedStocks.map((stock) => (
@@ -474,12 +514,6 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                           {stock.ticker}
                         </span>
                       ))}
-
-                      {article.impact_reason && (
-                        <span className="line-clamp-1 text-[10px] font-medium text-[#faf6f0]/25">
-                          {article.impact_reason}
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -507,11 +541,11 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
       {selectedArticle && selectedStyle && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/72 p-3 backdrop-blur-md sm:p-5"
+          className="fixed inset-x-0 bottom-4 top-[118px] z-[9999] flex items-start justify-center overflow-hidden bg-black/72 px-3 py-3 backdrop-blur-md sm:bottom-5 sm:top-[124px] sm:px-5 lg:top-[132px]"
           onClick={() => setSelectedArticle(null)}
         >
           <div
-            className="grid h-[calc(100dvh-96px)] max-h-[720px] min-h-0 w-full max-w-[1180px] overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.68)] sm:h-[calc(100dvh-120px)] lg:grid-cols-[0.82fr_1.18fr]"
+            className="grid h-full min-h-0 w-full max-w-[1140px] overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.68)] lg:grid-cols-[0.78fr_1.22fr]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="relative hidden min-h-0 overflow-hidden bg-[#0b2b1d] lg:block">
@@ -564,7 +598,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                   </span>
                 </div>
 
-                <h2 className="mt-2 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[24px] xl:text-[28px]">
+                <h2 className="mt-2 line-clamp-2 text-[19px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[23px] xl:text-[27px]">
                   {selectedArticle.title ?? "Untitled article"}
                 </h2>
               </div>
