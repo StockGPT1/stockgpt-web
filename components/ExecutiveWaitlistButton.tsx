@@ -51,7 +51,7 @@ export function ExecutiveWaitlistButton({
         type="button"
         onClick={joinWaitlist}
         disabled={joined || disabled || isPending}
-        className={`flex h-12 w-full items-center justify-center rounded-2xl px-5 text-[12px] font-black uppercase tracking-[0.14em] transition ${
+        className={`mx-auto flex h-10 w-full max-w-[620px] items-center justify-center rounded-xl px-5 text-[11px] font-black uppercase tracking-[0.14em] transition sm:h-11 xl:h-11 ${
           joined || disabled
             ? "cursor-default border border-[#ddb159]/24 bg-[#ddb159]/12 text-[#ddb159]"
             : "bg-[#ddb159] text-[#061b12] hover:brightness-110"
