@@ -229,6 +229,23 @@ function getCardInsight(article: WorldNewsArticle) {
   return "Macro impact: watch rates, risk appetite and sector rotation.";
 }
 
+function SelectChevron() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className="pointer-events-none absolute right-3 top-1/2 size-3 -translate-y-1/2 text-[#ddb159]/55"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) {
   const [selectedArticle, setSelectedArticle] =
     useState<WorldNewsArticle | null>(null);
@@ -238,6 +255,14 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   const [industryFilter, setIndustryFilter] = useState("All industries");
   const [countryFilter, setCountryFilter] = useState("All countries");
   const [topicFilter, setTopicFilter] = useState("All topics");
+
+  const [draftSearch, setDraftSearch] = useState("");
+  const [draftImpactFilter, setDraftImpactFilter] = useState("All impacts");
+  const [draftIndustryFilter, setDraftIndustryFilter] =
+    useState("All industries");
+  const [draftCountryFilter, setDraftCountryFilter] =
+    useState("All countries");
+  const [draftTopicFilter, setDraftTopicFilter] = useState("All topics");
 
   const enrichedArticles = useMemo(
     () =>
@@ -335,6 +360,28 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   const total = counts.positive + counts.negative + counts.neutral || 1;
   const selectedStyle = selectedArticle ? impactStyle(selectedArticle.impact) : null;
 
+  function applyFilters() {
+    setSearch(draftSearch);
+    setImpactFilter(draftImpactFilter);
+    setIndustryFilter(draftIndustryFilter);
+    setCountryFilter(draftCountryFilter);
+    setTopicFilter(draftTopicFilter);
+  }
+
+  function resetFilters() {
+    setSearch("");
+    setImpactFilter("All impacts");
+    setIndustryFilter("All industries");
+    setCountryFilter("All countries");
+    setTopicFilter("All topics");
+
+    setDraftSearch("");
+    setDraftImpactFilter("All impacts");
+    setDraftIndustryFilter("All industries");
+    setDraftCountryFilter("All countries");
+    setDraftTopicFilter("All topics");
+  }
+
   return (
     <main className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex shrink-0 flex-col gap-1.5 lg:flex-row lg:items-end lg:justify-between">
@@ -378,71 +425,115 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         />
       </div>
 
-      <div className="shrink-0 rounded-xl border border-[#ddb159]/15 bg-[#061b12] px-2 py-1.5">
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-[1.45fr_0.8fr_0.92fr_0.92fr_0.92fr_auto]">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search news, ticker, source..."
-            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2.5 text-[11px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/30 focus:border-[#ddb159]/50"
-          />
+      <div className="shrink-0 rounded-[1.35rem] border border-[#ddb159]/18 bg-[#061b12]/85 px-2.5 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[1.45fr_0.78fr_0.92fr_0.92fr_0.92fr_88px_88px]">
+          <label className="flex h-9 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-2.5 transition focus-within:border-[#ddb159]/45">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/12 text-[#ddb159]">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16.5 16.5 4 4" />
+              </svg>
+            </span>
 
-          <select
-            value={impactFilter}
-            onChange={(event) => setImpactFilter(event.target.value)}
-            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
-          >
-            {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
+            <input
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") applyFilters();
+              }}
+              placeholder="Search news, ticker, source..."
+              className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/32"
+            />
+          </label>
 
-          <select
-            value={industryFilter}
-            onChange={(event) => setIndustryFilter(event.target.value)}
-            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
-          >
-            {industries.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
+          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+              Impact
+            </span>
+            <select
+              value={draftImpactFilter}
+              onChange={(event) => setDraftImpactFilter(event.target.value)}
+              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+            >
+              {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+            <SelectChevron />
+          </label>
 
-          <select
-            value={countryFilter}
-            onChange={(event) => setCountryFilter(event.target.value)}
-            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
-          >
-            {countries.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
+          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+              Industry
+            </span>
+            <select
+              value={draftIndustryFilter}
+              onChange={(event) => setDraftIndustryFilter(event.target.value)}
+              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+            >
+              {industries.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+            <SelectChevron />
+          </label>
 
-          <select
-            value={topicFilter}
-            onChange={(event) => setTopicFilter(event.target.value)}
-            className="h-7 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[10px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
-          >
-            {["All topics", "Politics", "Company activity"].map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
+          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+              Country
+            </span>
+            <select
+              value={draftCountryFilter}
+              onChange={(event) => setDraftCountryFilter(event.target.value)}
+              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+            >
+              {countries.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+            <SelectChevron />
+          </label>
+
+          <label className="relative h-9 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 transition focus-within:border-[#ddb159]/45">
+            <span className="absolute left-3 top-1 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+              Topic
+            </span>
+            <select
+              value={draftTopicFilter}
+              onChange={(event) => setDraftTopicFilter(event.target.value)}
+              className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
+            >
+              {["All topics", "Politics", "Company activity"].map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+            <SelectChevron />
+          </label>
 
           <button
             type="button"
-            onClick={() => {
-              setSearch("");
-              setImpactFilter("All impacts");
-              setIndustryFilter("All industries");
-              setCountryFilter("All countries");
-              setTopicFilter("All topics");
-            }}
-            className="h-7 rounded-lg border border-[#ddb159]/20 px-2.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 md:col-span-2 xl:col-span-1"
+            onClick={applyFilters}
+            className="h-9 rounded-2xl bg-[#ddb159] px-3 text-[12px] font-black text-[#061b12] transition hover:brightness-110"
+          >
+            Apply
+          </button>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="h-9 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.035] px-3 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
           >
             Reset
           </button>
         </div>
 
-        <p className="mt-1 text-[8px] font-bold text-[#faf6f0]/30">
+        <p className="mt-1.5 text-[8px] font-bold text-[#faf6f0]/30">
           Showing {filteredArticles.length} of {articles.length}
         </p>
       </div>
