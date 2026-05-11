@@ -649,7 +649,7 @@ export function TradeSetupCard({
       </p>
 
       {modal && (
-        <div className="fixed inset-x-0 bottom-0 top-[88px] z-[9999] overflow-hidden sm:top-[88px] lg:top-[88px]">
+        <div className="fixed inset-0 z-[999999] overflow-hidden">
           <button
             type="button"
             aria-label="Close explanation"
@@ -657,7 +657,7 @@ export function TradeSetupCard({
             onClick={() => setModal(null)}
           />
 
-          <div className="relative z-10 flex h-full items-center justify-center px-3 py-3 sm:px-5 sm:py-5">
+          <div className="relative z-10 flex h-full items-center justify-center px-3 pb-[calc(92px+env(safe-area-inset-bottom))] pt-[calc(92px+env(safe-area-inset-top))] sm:px-5 sm:py-5">
             <div className="relative z-10 flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_30px_90px_rgba(0,0,0,0.45)]">
               <div
                 className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${
