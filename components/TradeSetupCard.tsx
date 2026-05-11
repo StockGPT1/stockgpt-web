@@ -649,29 +649,29 @@ export function TradeSetupCard({
       </p>
 
       {modal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 p-4 backdrop-blur-md">
+        <div className="fixed inset-x-0 bottom-0 top-[88px] z-[9999] overflow-hidden sm:top-[88px] lg:top-[88px]">
           <button
             type="button"
             aria-label="Close explanation"
-            className="absolute inset-0 h-full w-full cursor-default"
+            className="absolute inset-0 h-full w-full cursor-default bg-black/35 backdrop-blur-[28px] backdrop-saturate-50"
             onClick={() => setModal(null)}
           />
 
-          <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_30px_90px_rgba(0,0,0,0.45)]">
-            <div
-              className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${
-                modalToneStyle(modal.tone).glow
-              }`}
-            />
+          <div className="relative z-10 flex h-full items-center justify-center px-3 py-3 sm:px-5 sm:py-5">
+            <div className="relative z-10 flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_30px_90px_rgba(0,0,0,0.45)]">
+              <div
+                className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${
+                  modalToneStyle(modal.tone).glow
+                }`}
+              />
 
-            <div className="relative p-5 sm:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-[#072116]/50">
+              <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#072116]/8 p-4 pb-3 sm:p-6 sm:pb-4">
+                <div className="min-w-0">
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#072116]/50 sm:text-[9px]">
                     ✦ Trade Plan Explainer
                   </p>
 
-                  <h3 className="mt-1 text-[24px] font-black leading-tight tracking-[-0.04em]">
+                  <h3 className="mt-1 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.04em] sm:text-[24px]">
                     {modal.title}
                   </h3>
                 </div>
@@ -679,53 +679,55 @@ export function TradeSetupCard({
                 <button
                   type="button"
                   onClick={() => setModal(null)}
-                  className="shrink-0 rounded-full border border-[#072116]/10 bg-white/60 px-3 py-1 text-[11px] font-black text-[#072116]/60 transition hover:border-[#ddb159]/50 hover:text-[#072116]"
+                  className="shrink-0 rounded-full border border-[#072116]/10 bg-white/60 px-3 py-1 text-[10px] font-black text-[#072116]/60 transition hover:border-[#ddb159]/50 hover:text-[#072116] sm:text-[11px]"
                 >
                   Close
                 </button>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.1em] ${
-                    modalToneStyle(modal.tone).chip
-                  }`}
-                >
-                  {modal.value}
-                </span>
+              <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pt-3 sm:p-6 sm:pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`max-w-full break-words rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] sm:text-[11px] ${
+                      modalToneStyle(modal.tone).chip
+                    }`}
+                  >
+                    {modal.value}
+                  </span>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[#072116]/8 bg-white/65 p-3 sm:p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
+                    What this means
+                  </p>
+
+                  <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+                    {modal.meaning}
+                  </p>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 p-3 sm:p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
+                    Why StockGPT chose this
+                  </p>
+
+                  <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+                    {modal.reasoning}
+                  </p>
+                </div>
+
+                {modal.detail && (
+                  <p className="mt-4 text-[12px] font-medium leading-5 text-[#072116]/55">
+                    {modal.detail}
+                  </p>
+                )}
+
+                <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/42">
+                  Educational explanation only. This is not personal financial
+                  advice and should not be used as the sole basis for an
+                  investment decision.
+                </p>
               </div>
-
-              <div className="mt-4 rounded-2xl border border-[#072116]/8 bg-white/65 p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                  What this means
-                </p>
-
-                <p className="mt-2 text-[14px] font-semibold leading-6 text-[#072116]/78">
-                  {modal.meaning}
-                </p>
-              </div>
-
-              <div className="mt-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/55">
-                  Why StockGPT chose this
-                </p>
-
-                <p className="mt-2 text-[14px] font-semibold leading-6 text-[#072116]/78">
-                  {modal.reasoning}
-                </p>
-              </div>
-
-              {modal.detail && (
-                <p className="mt-4 text-[12px] font-medium leading-5 text-[#072116]/55">
-                  {modal.detail}
-                </p>
-              )}
-
-              <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/42">
-                Educational explanation only. This is not personal financial
-                advice and should not be used as the sole basis for an
-                investment decision.
-              </p>
             </div>
           </div>
         </div>
