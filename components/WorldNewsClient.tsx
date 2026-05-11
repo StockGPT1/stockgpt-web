@@ -196,7 +196,9 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   const countries = useMemo(
     () => [
       "All countries",
-      ...Array.from(new Set(enrichedArticles.map((article) => article.country))).sort(),
+      ...Array.from(
+        new Set(enrichedArticles.map((article) => article.country))
+      ).sort(),
     ],
     [enrichedArticles]
   );
@@ -240,20 +242,21 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   ]);
 
   const total = counts.positive + counts.negative + counts.neutral || 1;
+  const selectedStyle = selectedArticle ? impactStyle(selectedArticle.impact) : null;
 
   return (
-    <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-[28px] font-black tracking-[-0.03em] text-[#faf6f0]">
+          <h1 className="text-[26px] font-black tracking-[-0.03em] text-[#faf6f0] sm:text-[28px]">
             World News
           </h1>
-          <p className="mt-0.5 text-[13px] font-medium text-[#faf6f0]/50">
+          <p className="mt-0.5 text-[12px] font-medium text-[#faf6f0]/50 sm:text-[13px]">
             {articles.length} articles with AI sentiment analysis
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold">
+        <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold sm:gap-4 sm:text-[11px]">
           <span className="flex items-center gap-1.5 text-emerald-400">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
             {counts.positive} positive
@@ -269,7 +272,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         </div>
       </div>
 
-      <div className="flex h-1.5 shrink-0 overflow-hidden rounded-full bg-[#faf6f0]/8">
+      <div className="flex h-1 shrink-0 overflow-hidden rounded-full bg-[#faf6f0]/8">
         <div
           className="bg-emerald-400 transition-all"
           style={{ width: `${(counts.positive / total) * 100}%` }}
@@ -284,19 +287,19 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         />
       </div>
 
-      <div className="shrink-0 rounded-2xl border border-[#ddb159]/15 bg-[#061b12] p-3">
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+      <div className="shrink-0 rounded-xl border border-[#ddb159]/15 bg-[#061b12] p-2">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-[1.35fr_0.85fr_0.9fr_0.9fr_0.9fr_auto]">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search news, ticker, source..."
-            className="h-10 rounded-xl border border-[#ddb159]/15 bg-[#0b2b1d] px-3 text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/30 focus:border-[#ddb159]/50"
+            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2.5 text-[11px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/30 focus:border-[#ddb159]/50"
           />
 
           <select
             value={impactFilter}
             onChange={(event) => setImpactFilter(event.target.value)}
-            className="h-10 rounded-xl border border-[#ddb159]/15 bg-[#0b2b1d] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
               <option key={option}>{option}</option>
@@ -306,7 +309,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={industryFilter}
             onChange={(event) => setIndustryFilter(event.target.value)}
-            className="h-10 rounded-xl border border-[#ddb159]/15 bg-[#0b2b1d] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {industries.map((option) => (
               <option key={option}>{option}</option>
@@ -316,7 +319,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={countryFilter}
             onChange={(event) => setCountryFilter(event.target.value)}
-            className="h-10 rounded-xl border border-[#ddb159]/15 bg-[#0b2b1d] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {countries.map((option) => (
               <option key={option}>{option}</option>
@@ -326,18 +329,12 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           <select
             value={topicFilter}
             onChange={(event) => setTopicFilter(event.target.value)}
-            className="h-10 rounded-xl border border-[#ddb159]/15 bg-[#0b2b1d] px-3 text-[12px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
+            className="h-8 rounded-lg border border-[#ddb159]/15 bg-[#0b2b1d] px-2 text-[11px] font-bold text-[#faf6f0] outline-none focus:border-[#ddb159]/50"
           >
             {["All topics", "Politics", "Company activity"].map((option) => (
               <option key={option}>{option}</option>
             ))}
           </select>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-bold text-[#faf6f0]/35">
-            Showing {filteredArticles.length} of {articles.length} articles
-          </p>
 
           <button
             type="button"
@@ -348,11 +345,15 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
               setCountryFilter("All countries");
               setTopicFilter("All topics");
             }}
-            className="rounded-full border border-[#ddb159]/20 px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+            className="h-8 rounded-lg border border-[#ddb159]/20 px-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 md:col-span-2 xl:col-span-1"
           >
-            Reset filters
+            Reset
           </button>
         </div>
+
+        <p className="mt-1.5 text-[9px] font-bold text-[#faf6f0]/32">
+          Showing {filteredArticles.length} of {articles.length} articles
+        </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -452,126 +453,127 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         </div>
       </div>
 
-      {selectedArticle && (
+      {selectedArticle && selectedStyle && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 backdrop-blur-md sm:p-4"
           onClick={() => setSelectedArticle(null)}
         >
           <div
-            className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
+            className="grid h-[96dvh] w-full max-w-5xl grid-rows-[160px_1fr] overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.65)] sm:h-[92dvh] sm:grid-rows-[220px_1fr] lg:h-[82dvh] lg:grid-cols-[0.82fr_1.18fr] lg:grid-rows-1 xl:h-[78dvh]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="grid lg:grid-cols-[0.95fr_1.2fr]">
-              <div className="relative min-h-[240px] overflow-hidden bg-[#0b2b1d]">
-                {selectedArticle.image_url ? (
-                  <img
-                    src={selectedArticle.image_url}
-                    alt=""
-                    className="h-full min-h-[240px] w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full min-h-[240px] items-center justify-center bg-[radial-gradient(circle_at_40%_20%,rgba(221,177,89,0.22),transparent_35%),linear-gradient(135deg,#061b12,#0b2b1d)]">
-                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#ddb159]/60">
-                      StockGPT Intelligence
-                    </span>
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-gradient-to-t from-[#061b12] via-transparent to-black/10" />
-
-                <div className="absolute bottom-4 left-4 right-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                    {selectedArticle.source ?? "News source"}
-                  </p>
-                  <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/70">
-                    {formatFullDate(selectedArticle.published_at)}
-                  </p>
+            <div className="relative min-h-0 overflow-hidden bg-[#0b2b1d]">
+              {selectedArticle.image_url ? (
+                <img
+                  src={selectedArticle.image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_40%_20%,rgba(221,177,89,0.22),transparent_35%),linear-gradient(135deg,#061b12,#0b2b1d)]">
+                  <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]/60">
+                    StockGPT Intelligence
+                  </span>
                 </div>
+              )}
+
+              <div className="absolute inset-0 bg-gradient-to-t from-[#061b12] via-transparent to-black/10" />
+
+              <div className="absolute bottom-3 left-3 right-3">
+                <p className="line-clamp-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+                  {selectedArticle.source ?? "News source"}
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold text-[#faf6f0]/70">
+                  {formatFullDate(selectedArticle.published_at)}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative flex min-h-0 flex-col p-3 sm:p-4 lg:p-5">
+              <button
+                type="button"
+                onClick={() => setSelectedArticle(null)}
+                className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-3 py-1 text-[11px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+              >
+                Close
+              </button>
+
+              <div className="shrink-0 pr-16">
+                <span
+                  className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em] ${selectedStyle.bg} ${selectedStyle.text} ${selectedStyle.border}`}
+                >
+                  {selectedStyle.label} impact
+                </span>
+
+                <h2 className="mt-2 line-clamp-2 text-[18px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[22px] lg:text-[24px]">
+                  {selectedArticle.title ?? "Untitled article"}
+                </h2>
               </div>
 
-              <div className="relative p-5 sm:p-6">
-                <button
-                  type="button"
-                  onClick={() => setSelectedArticle(null)}
-                  className="absolute right-4 top-4 rounded-full border border-[#faf6f0]/12 bg-[#faf6f0]/8 px-3 py-1 text-[12px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
-                >
-                  Close
-                </button>
-
-                <div className="pr-16">
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] ${
-                      impactStyle(selectedArticle.impact).bg
-                    } ${impactStyle(selectedArticle.impact).text} ${
-                      impactStyle(selectedArticle.impact).border
-                    }`}
-                  >
-                    {impactStyle(selectedArticle.impact).label} impact
-                  </span>
-
-                  <h2 className="mt-4 text-[26px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0]">
-                    {selectedArticle.title ?? "Untitled article"}
-                  </h2>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              <div className="mt-3 grid min-h-0 flex-1 gap-3 lg:grid-rows-[minmax(0,1fr)_auto]">
+                <div className="min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                     Full description
                   </p>
 
-                  <p className="mt-2 text-[14px] font-medium leading-7 text-[#faf6f0]/68">
+                  <p className="mt-1.5 line-clamp-4 text-[12px] font-medium leading-5 text-[#faf6f0]/68 sm:line-clamp-5 lg:text-[13px] lg:leading-6 xl:line-clamp-6">
                     {displaySummary(selectedArticle)}
                   </p>
 
                   {selectedArticle.impact_reason && (
-                    <div className="mt-4 rounded-2xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                    <div className="mt-2 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2">
+                      <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                         Why this matters
                       </p>
-                      <p className="mt-1 text-[13px] font-semibold leading-6 text-[#faf6f0]/62">
+                      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/62 sm:line-clamp-3">
                         {selectedArticle.impact_reason}
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                    Stocks that could be affected
-                  </p>
+                <div className="min-h-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                      Affected stocks
+                    </p>
+                    <p className="text-[9px] font-bold text-[#faf6f0]/35">
+                      Click ticker to open page
+                    </p>
+                  </div>
 
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-2 grid max-h-[112px] gap-2 overflow-hidden sm:grid-cols-2 lg:max-h-[132px]">
                     {selectedArticle.affectedStocks.length > 0 ? (
-                      selectedArticle.affectedStocks.map((stock) => (
+                      selectedArticle.affectedStocks.slice(0, 4).map((stock) => (
                         <Link
                           key={stock.ticker}
                           href={`/stock/${stock.ticker}`}
-                          className="rounded-2xl border border-[#ddb159]/16 bg-[#0b2b1d] p-3 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
+                          className="rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
                         >
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-[16px] font-black text-[#ddb159]">
+                              <p className="text-[13px] font-black text-[#ddb159]">
                                 {stock.ticker}
                               </p>
-                              <p className="truncate text-[12px] font-bold text-[#faf6f0]/62">
+                              <p className="truncate text-[10px] font-bold text-[#faf6f0]/62">
                                 {stock.company ?? "Company data unavailable"}
                               </p>
                               {stock.sector && (
-                                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#faf6f0]/30">
+                                <p className="mt-0.5 truncate text-[8px] font-bold uppercase tracking-wider text-[#faf6f0]/30">
                                   {stock.sector}
                                 </p>
                               )}
                             </div>
 
-                            <div className="text-right">
+                            <div className="shrink-0 text-right">
                               {stock.rank != null && (
-                                <p className="text-[10px] font-black text-[#faf6f0]/45">
+                                <p className="text-[9px] font-black text-[#faf6f0]/45">
                                   #{stock.rank}
                                 </p>
                               )}
 
                               {stock.score != null && (
-                                <span className="mt-1 inline-flex rounded-full bg-[#ddb159] px-2 py-0.5 text-[9px] font-black text-[#061b12]">
+                                <span className="mt-0.5 inline-flex rounded-full bg-[#ddb159] px-1.5 py-0.5 text-[8px] font-black text-[#061b12]">
                                   {Number(stock.score).toLocaleString()}
                                 </span>
                               )}
@@ -580,36 +582,42 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                         </Link>
                       ))
                     ) : (
-                      <div className="rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-4 text-[13px] font-semibold text-[#faf6f0]/45 sm:col-span-2">
+                      <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-3 text-[11px] font-semibold text-[#faf6f0]/45 sm:col-span-2">
                         No specific tickers are linked to this article yet.
                       </div>
                     )}
                   </div>
-                </div>
 
-                <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                  {selectedArticle.url ? (
-                    <a
-                      href={selectedArticle.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center rounded-2xl bg-[#ddb159] px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
-                    >
-                      Read more
-                    </a>
-                  ) : (
-                    <span className="inline-flex items-center justify-center rounded-2xl border border-[#faf6f0]/12 px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/35">
-                      External link unavailable
-                    </span>
+                  {selectedArticle.affectedStocks.length > 4 && (
+                    <p className="mt-1 text-[9px] font-bold text-[#faf6f0]/35">
+                      +{selectedArticle.affectedStocks.length - 4} more linked stocks hidden to keep the briefing compact.
+                    </p>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedArticle(null)}
-                    className="inline-flex items-center justify-center rounded-2xl border border-[#ddb159]/22 px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
-                  >
-                    Back to feed
-                  </button>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    {selectedArticle.url ? (
+                      <a
+                        href={selectedArticle.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
+                      >
+                        Read more
+                      </a>
+                    ) : (
+                      <span className="inline-flex h-10 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35">
+                        External link unavailable
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedArticle(null)}
+                      className="inline-flex h-10 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+                    >
+                      Back to feed
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
