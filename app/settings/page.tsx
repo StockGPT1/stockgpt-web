@@ -11,7 +11,6 @@ type Profile = {
   stripe_customer_id: string | null;
 };
 
-
 export default async function SettingsPage() {
   const supabase = await createClient();
 
@@ -37,7 +36,6 @@ export default async function SettingsPage() {
   const profile = profileData as Profile | null;
   const plan = displayPlanName(profile?.subscription_status);
   const activePlan = hasActiveSubscription(profile?.subscription_status);
-  const canManageSubscription = Boolean(profile?.stripe_customer_id);
   const emailDigestEnabled = Boolean(profile?.email_news_digests);
 
   return (
@@ -122,7 +120,7 @@ export default async function SettingsPage() {
             </h2>
 
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
-              Manage your StockGPT access
+              Review your StockGPT tier before going to billing.
             </p>
 
             <div className="mt-4 rounded-xl border border-[#072116]/10 px-4 py-3">
@@ -130,37 +128,21 @@ export default async function SettingsPage() {
                 <div>
                   <p className="text-[13px] font-bold">Current plan: {plan}</p>
                   <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/50">
-                    {activePlan
-                      ? "Manage your billing, renewal and cancellation options."
-                      : "Subscribe to Core to unlock rankings and premium tools."}
+                    View your current tier, manage billing, or join the
+                    Executive waitlist.
                   </p>
                 </div>
 
-                {canManageSubscription ? (
-                  <form action="/api/create-billing-portal-session" method="post">
-                    <button
-                      type="submit"
-                      style={{
-                        backgroundColor: "#ddb159",
-                        color: "#072116",
-                      }}
-                      className="shrink-0 rounded-full px-4 py-2 text-[12px] font-black transition hover:opacity-90"
-                    >
-                      Manage subscription
-                    </button>
-                  </form>
-                ) : (
-                  <Link
-                    href="/pricing"
-                    style={{
-                      backgroundColor: "#ddb159",
-                      color: "#072116",
-                    }}
-                    className="shrink-0 rounded-full px-4 py-2 text-center text-[12px] font-black transition hover:opacity-90"
-                  >
-                    View plans
-                  </Link>
-                )}
+                <Link
+                  href="/subscription"
+                  style={{
+                    backgroundColor: "#ddb159",
+                    color: "#072116",
+                  }}
+                  className="shrink-0 rounded-full px-4 py-2 text-center text-[12px] font-black transition hover:opacity-90"
+                >
+                  Manage subscription
+                </Link>
               </div>
             </div>
           </section>
