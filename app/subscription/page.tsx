@@ -56,60 +56,62 @@ export default async function SubscriptionPage() {
     <AppShell activePath="/settings">
       <main className="relative h-full min-h-0 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-          <div className="absolute -left-28 top-8 h-80 w-80 rounded-full bg-[#ddb159]/10 blur-3xl" />
-          <div className="absolute right-0 top-20 h-96 w-96 rounded-full bg-emerald-400/8 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#faf6f0]/5 blur-3xl" />
+          <div className="absolute -left-28 top-8 h-72 w-72 rounded-full bg-[#ddb159]/10 blur-3xl" />
+          <div className="absolute right-0 top-16 h-80 w-80 rounded-full bg-emerald-400/8 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[#faf6f0]/5 blur-3xl" />
+          <div className="absolute right-16 top-10 hidden h-[420px] w-[420px] rounded-full border border-[#ddb159]/10 lg:block" />
+          <div className="absolute right-24 top-24 hidden h-[280px] w-[280px] rounded-full border border-[#ddb159]/8 lg:block" />
         </div>
 
-        <div className="relative flex h-full min-h-0 flex-col overflow-y-auto pr-1 lg:overflow-hidden">
-          <div className="shrink-0">
+        <div className="relative flex h-full min-h-0 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))] pr-1 lg:overflow-hidden lg:pb-0">
+          <header className="shrink-0">
             <Link
               href="/settings"
-              className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75 transition hover:text-[#ddb159]"
+              className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75 transition hover:text-[#ddb159]"
             >
               ← Back to settings
             </Link>
 
-            <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
                   ✦ StockGPT Membership
                 </p>
 
-                <h1 className="mt-1 text-[32px] font-black leading-none tracking-[-0.05em] text-[#faf6f0] sm:text-[42px]">
+                <h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#faf6f0] sm:text-[38px] lg:text-[40px]">
                   Subscription options
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-[13px] font-medium leading-6 text-[#faf6f0]/55">
+                <p className="mt-1.5 max-w-2xl text-[12px] font-medium leading-5 text-[#faf6f0]/55 sm:text-[13px]">
                   Review your current StockGPT tier, manage billing through
                   Stripe, or join the waitlist for the upcoming Executive tier.
                 </p>
               </div>
 
-              <div className="w-fit rounded-full border border-[#ddb159]/25 bg-[#061b12]/70 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#ddb159] shadow-[0_12px_32px_rgba(0,0,0,0.24)]">
+              <div className="w-fit rounded-full border border-[#ddb159]/25 bg-[#061b12]/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159] shadow-[0_12px_32px_rgba(0,0,0,0.24)]">
                 Current plan · {plan}
               </div>
             </div>
-          </div>
+          </header>
 
-          <section className="mt-4 grid min-h-0 flex-1 gap-4 pb-6 lg:grid-cols-2 lg:pb-0">
-            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/24 bg-[#0b2b1d]/72 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+          <section className="mt-3 grid min-h-0 flex-1 gap-3 pb-4 lg:grid-cols-2 lg:pb-0 xl:gap-4">
+            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/24 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
               <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#ddb159]/10 blur-3xl" />
 
-              <div className="relative flex flex-1 flex-col">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
                       Your current tier
                     </p>
 
-                    <h2 className="mt-2 text-[30px] font-black tracking-[-0.045em] text-[#faf6f0]">
+                    <h2 className="mt-1.5 text-[28px] font-black tracking-[-0.045em] text-[#faf6f0] lg:text-[30px]">
                       {plan}
                     </h2>
                   </div>
 
                   <span
-                    className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wider sm:text-[10px] ${
                       activePlan
                         ? "bg-emerald-400/15 text-emerald-300"
                         : "bg-[#faf6f0]/10 text-[#faf6f0]/45"
@@ -119,13 +121,13 @@ export default async function SubscriptionPage() {
                   </span>
                 </div>
 
-                <p className="mt-3 text-[13px] font-medium leading-6 text-[#faf6f0]/58">
+                <p className="mt-3 shrink-0 text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
                   This is the plan currently linked to your StockGPT account.
                   Billing, payment method, renewal and cancellation are handled
                   securely through Stripe.
                 </p>
 
-                <div className="mt-5 grid gap-2">
+                <div className="mt-4 grid shrink-0 gap-1.5 sm:gap-2 lg:mt-3">
                   {[
                     "AI stock rankings and scoring",
                     "Individual stock pages and trade plans",
@@ -134,24 +136,24 @@ export default async function SubscriptionPage() {
                   ].map((feature) => (
                     <div
                       key={feature}
-                      className="flex items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-2"
+                      className="flex min-h-0 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:py-2 lg:py-1.5 xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
                         ✓
                       </span>
-                      <span className="text-[12px] font-semibold text-[#faf6f0]/68">
+                      <span className="min-w-0 text-[12px] font-semibold leading-5 text-[#faf6f0]/68">
                         {feature}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-auto pt-5">
+                <div className="mt-auto shrink-0 pt-4 lg:pt-3 xl:pt-5">
                   {canManageSubscription ? (
                     <form action="/api/create-billing-portal-session" method="post">
                       <button
                         type="submit"
-                        className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
+                        className="flex h-10 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-12 sm:text-[12px] lg:h-10 xl:h-12"
                       >
                         Manage current plan
                       </button>
@@ -159,47 +161,47 @@ export default async function SubscriptionPage() {
                   ) : (
                     <Link
                       href="/pricing"
-                      className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
+                      className="flex h-10 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-12 sm:text-[12px] lg:h-10 xl:h-12"
                     >
                       View available plans
                     </Link>
                   )}
 
-                  <p className="mt-2 text-center text-[10px] font-medium text-[#faf6f0]/34">
+                  <p className="mt-1.5 text-center text-[10px] font-medium text-[#faf6f0]/34">
                     Opens Stripe only after this confirmation step.
                   </p>
                 </div>
               </div>
             </article>
 
-            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/32 bg-[#0b2b1d]/72 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/32 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
               <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#ddb159]/16 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
 
-              <div className="relative flex flex-1 flex-col">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
                       Pending premium tier
                     </p>
 
-                    <h2 className="mt-2 text-[30px] font-black tracking-[-0.045em] text-[#faf6f0]">
+                    <h2 className="mt-1.5 text-[28px] font-black tracking-[-0.045em] text-[#faf6f0] lg:text-[30px]">
                       Executive
                     </h2>
                   </div>
 
-                  <span className="rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
+                  <span className="shrink-0 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-[#ddb159] sm:text-[10px]">
                     Waitlist
                   </span>
                 </div>
 
-                <p className="mt-3 text-[13px] font-medium leading-6 text-[#faf6f0]/58">
+                <p className="mt-3 shrink-0 text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
                   Executive is the upcoming higher-tier StockGPT experience for
-                  users who want earlier access to deeper intelligence,
-                  priority features and a more premium research workflow.
+                  users who want earlier access to deeper intelligence, priority
+                  features and a more premium research workflow.
                 </p>
 
-                <div className="mt-5 grid gap-2">
+                <div className="mt-4 grid shrink-0 gap-1.5 sm:gap-2 lg:mt-3">
                   {[
                     "Priority access to future premium tools",
                     "Early access to higher-conviction intelligence features",
@@ -208,25 +210,25 @@ export default async function SubscriptionPage() {
                   ].map((feature) => (
                     <div
                       key={feature}
-                      className="flex items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-2"
+                      className="flex min-h-0 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:py-2 lg:py-1.5 xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
                         ✦
                       </span>
-                      <span className="text-[12px] font-semibold text-[#faf6f0]/68">
+                      <span className="min-w-0 text-[12px] font-semibold leading-5 text-[#faf6f0]/68">
                         {feature}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-auto pt-5">
+                <div className="mt-auto shrink-0 pt-4 lg:pt-3 xl:pt-5">
                   <ExecutiveWaitlistButton
                     initialJoined={Boolean(waitlistEntry) || isExecutive}
                     disabled={isExecutive}
                   />
 
-                  <p className="mt-2 text-center text-[10px] font-medium text-[#faf6f0]/34">
+                  <p className="mt-1.5 text-center text-[10px] font-medium text-[#faf6f0]/34">
                     {isExecutive
                       ? "Your account is already on the Executive tier."
                       : "Joining does not change your current billing plan."}
