@@ -157,12 +157,12 @@ export default async function SubscriptionPage() {
                   ))}
                 </div>
 
-                <div className="pt-4 lg:pt-3 xl:pt-5">
+                <div className="pt-3 lg:pt-3 xl:pt-4">
                   {canManageSubscription ? (
                     <form action="/api/create-billing-portal-session" method="post">
                       <button
                         type="submit"
-                        className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
+                        className="mx-auto flex h-10 w-full max-w-[620px] items-center justify-center rounded-xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-11 sm:text-[11px] xl:h-11"
                       >
                         Manage current plan
                       </button>
@@ -170,13 +170,13 @@ export default async function SubscriptionPage() {
                   ) : (
                     <Link
                       href="/pricing"
-                      className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
+                      className="mx-auto flex h-10 w-full max-w-[620px] items-center justify-center rounded-xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-11 sm:text-[11px] xl:h-11"
                     >
                       View available plans
                     </Link>
                   )}
 
-                  <p className="mt-1.5 text-center text-[10px] font-medium text-[#faf6f0]/34">
+                  <p className="mt-1 text-center text-[9px] font-medium text-[#faf6f0]/34 sm:text-[10px]">
                     Opens Stripe only after this confirmation step.
                   </p>
                 </div>
@@ -226,13 +226,13 @@ export default async function SubscriptionPage() {
                   ))}
                 </div>
 
-                <div className="pt-4 lg:pt-3 xl:pt-5">
+                <div className="pt-3 lg:pt-3 xl:pt-4">
                   <ExecutiveWaitlistButton
                     initialJoined={Boolean(waitlistEntry) || isExecutive}
                     disabled={isExecutive}
                   />
 
-                  <p className="mt-1.5 text-center text-[10px] font-medium text-[#faf6f0]/34">
+                  <p className="mt-1 text-center text-[9px] font-medium text-[#faf6f0]/34 sm:text-[10px]">
                     {isExecutive
                       ? "Your account is already on the Executive tier."
                       : "Joining does not change your current billing plan."}
