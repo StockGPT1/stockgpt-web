@@ -19,6 +19,20 @@ function statusLabel(status: string | null | undefined) {
   return displayPlanName(status);
 }
 
+const currentTierFeatures = [
+  "AI stock rankings and scoring",
+  "Individual stock pages and trade plans",
+  "Watchlist tools and market intelligence",
+  "Billing and invoices managed by Stripe",
+];
+
+const executiveFeatures = [
+  "Priority access to future premium tools",
+  "Early access to higher-conviction intelligence features",
+  "Designed for more active portfolio decision-making",
+  "Waitlist stored securely on your StockGPT account",
+];
+
 export default async function SubscriptionPage() {
   const supabase = await createClient();
 
@@ -94,12 +108,12 @@ export default async function SubscriptionPage() {
             </div>
           </header>
 
-          <section className="mt-3 grid min-h-0 flex-1 gap-3 pb-4 lg:grid-cols-2 lg:pb-0 xl:gap-4">
-            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/24 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
+          <section className="mt-3 grid min-h-0 flex-1 gap-3 pb-4 lg:grid-cols-2 lg:items-stretch lg:pb-0 xl:gap-4">
+            <article className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/24 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
               <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#ddb159]/10 blur-3xl" />
 
-              <div className="relative flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-start justify-between gap-3">
+              <div className="relative grid min-h-0 flex-1 grid-rows-[auto_auto_1fr_auto]">
+                <div className="flex min-h-[60px] shrink-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
                       Your current tier
@@ -121,22 +135,17 @@ export default async function SubscriptionPage() {
                   </span>
                 </div>
 
-                <p className="mt-3 shrink-0 text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
+                <p className="mt-3 min-h-[64px] text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
                   This is the plan currently linked to your StockGPT account.
                   Billing, payment method, renewal and cancellation are handled
                   securely through Stripe.
                 </p>
 
-                <div className="mt-4 grid shrink-0 gap-1.5 sm:gap-2 lg:mt-3">
-                  {[
-                    "AI stock rankings and scoring",
-                    "Individual stock pages and trade plans",
-                    "Watchlist tools and market intelligence",
-                    "Billing and invoices managed by Stripe",
-                  ].map((feature) => (
+                <div className="mt-4 grid content-start gap-1.5 sm:gap-2 lg:mt-3">
+                  {currentTierFeatures.map((feature) => (
                     <div
                       key={feature}
-                      className="flex min-h-0 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:py-2 lg:py-1.5 xl:py-2"
+                      className="flex min-h-[38px] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:min-h-[42px] sm:py-2 lg:min-h-[38px] lg:py-1.5 xl:min-h-[42px] xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
                         ✓
@@ -148,12 +157,12 @@ export default async function SubscriptionPage() {
                   ))}
                 </div>
 
-                <div className="mt-auto shrink-0 pt-4 lg:pt-3 xl:pt-5">
+                <div className="pt-4 lg:pt-3 xl:pt-5">
                   {canManageSubscription ? (
                     <form action="/api/create-billing-portal-session" method="post">
                       <button
                         type="submit"
-                        className="flex h-10 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-12 sm:text-[12px] lg:h-10 xl:h-12"
+                        className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
                       >
                         Manage current plan
                       </button>
@@ -161,7 +170,7 @@ export default async function SubscriptionPage() {
                   ) : (
                     <Link
                       href="/pricing"
-                      className="flex h-10 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110 sm:h-12 sm:text-[12px] lg:h-10 xl:h-12"
+                      className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#061b12] transition hover:brightness-110"
                     >
                       View available plans
                     </Link>
@@ -174,12 +183,12 @@ export default async function SubscriptionPage() {
               </div>
             </article>
 
-            <article className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/32 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
+            <article className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[#ddb159]/32 bg-[#0b2b1d]/72 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-5 lg:p-4 xl:p-5">
               <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#ddb159]/16 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
 
-              <div className="relative flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-start justify-between gap-3">
+              <div className="relative grid min-h-0 flex-1 grid-rows-[auto_auto_1fr_auto]">
+                <div className="flex min-h-[60px] shrink-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
                       Pending premium tier
@@ -195,22 +204,17 @@ export default async function SubscriptionPage() {
                   </span>
                 </div>
 
-                <p className="mt-3 shrink-0 text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
+                <p className="mt-3 min-h-[64px] text-[12px] font-medium leading-5 text-[#faf6f0]/58 sm:text-[13px] sm:leading-6 lg:line-clamp-3">
                   Executive is the upcoming higher-tier StockGPT experience for
                   users who want earlier access to deeper intelligence, priority
                   features and a more premium research workflow.
                 </p>
 
-                <div className="mt-4 grid shrink-0 gap-1.5 sm:gap-2 lg:mt-3">
-                  {[
-                    "Priority access to future premium tools",
-                    "Early access to higher-conviction intelligence features",
-                    "Designed for more active portfolio decision-making",
-                    "Waitlist stored securely on your StockGPT account",
-                  ].map((feature) => (
+                <div className="mt-4 grid content-start gap-1.5 sm:gap-2 lg:mt-3">
+                  {executiveFeatures.map((feature) => (
                     <div
                       key={feature}
-                      className="flex min-h-0 items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:py-2 lg:py-1.5 xl:py-2"
+                      className="flex min-h-[38px] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:min-h-[42px] sm:py-2 lg:min-h-[38px] lg:py-1.5 xl:min-h-[42px] xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
                         ✦
@@ -222,7 +226,7 @@ export default async function SubscriptionPage() {
                   ))}
                 </div>
 
-                <div className="mt-auto shrink-0 pt-4 lg:pt-3 xl:pt-5">
+                <div className="pt-4 lg:pt-3 xl:pt-5">
                   <ExecutiveWaitlistButton
                     initialJoined={Boolean(waitlistEntry) || isExecutive}
                     disabled={isExecutive}
