@@ -548,9 +548,9 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
             onClick={() => setSelectedArticle(null)}
           />
 
-          <div className="relative z-10 flex h-full items-start justify-center px-3 py-3 sm:px-5">
+          <div className="relative z-10 flex h-full items-start justify-center px-2 py-2 sm:px-5 sm:py-3">
             <div
-              className="grid h-full min-h-0 w-full max-w-[1140px] overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.68)] lg:grid-cols-[0.78fr_1.22fr]"
+              className="grid h-full min-h-0 w-full max-w-[1140px] overflow-hidden rounded-[22px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.68)] sm:rounded-[28px] lg:grid-cols-[0.78fr_1.22fr]"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="relative hidden min-h-0 overflow-hidden bg-[#0b2b1d] lg:block">
@@ -580,49 +580,49 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                 </div>
               </div>
 
-              <div className="relative flex min-h-0 flex-col p-4 sm:p-5 lg:p-6">
+              <div className="relative flex min-h-0 flex-col overflow-y-auto overscroll-contain p-3 pb-4 sm:p-5 lg:overflow-hidden lg:p-6">
                 <button
                   type="button"
                   onClick={() => setSelectedArticle(null)}
-                  className="absolute right-4 top-4 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-3 py-1 text-[11px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+                  className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159] sm:right-4 sm:top-4 sm:px-3 sm:text-[11px]"
                 >
                   Close
                 </button>
 
-                <div className="shrink-0 pr-16">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="shrink-0 pr-14 sm:pr-16">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span
                       className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em] ${selectedStyle.bg} ${selectedStyle.text} ${selectedStyle.border}`}
                     >
                       {selectedStyle.label} impact
                     </span>
 
-                    <span className="text-[10px] font-bold text-[#faf6f0]/38 lg:hidden">
+                    <span className="line-clamp-1 max-w-[210px] text-[9px] font-bold text-[#faf6f0]/38 sm:max-w-none sm:text-[10px] lg:hidden">
                       {selectedArticle.source ?? "News source"} ·{" "}
                       {formatFullDate(selectedArticle.published_at)}
                     </span>
                   </div>
 
-                  <h2 className="mt-2 line-clamp-2 text-[19px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[23px] xl:text-[27px]">
+                  <h2 className="mt-2 line-clamp-2 text-[17px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] sm:text-[23px] xl:text-[27px]">
                     {selectedArticle.title ?? "Untitled article"}
                   </h2>
                 </div>
 
-                <div className="mt-3 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] gap-3">
-                  <div className="min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-3 sm:p-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 sm:mt-3 sm:gap-3 lg:grid lg:grid-rows-[minmax(0,1fr)_auto_auto]">
+                  <div className="min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] p-2.5 sm:p-4">
+                    <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[9px]">
                       Full description
                     </p>
 
-                    <p className="mt-1.5 line-clamp-4 text-[12px] font-medium leading-5 text-[#faf6f0]/70 sm:line-clamp-5 sm:text-[13px] sm:leading-6 xl:line-clamp-6">
+                    <p className="mt-1.5 line-clamp-3 text-[11px] font-medium leading-4 text-[#faf6f0]/70 sm:line-clamp-5 sm:text-[13px] sm:leading-6 xl:line-clamp-6">
                       {displaySummary(selectedArticle)}
                     </p>
 
-                    <div className="mt-3 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2.5">
+                    <div className="mt-2 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2 sm:mt-3 sm:p-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                         StockGPT insight
                       </p>
-                      <p className="mt-1 line-clamp-3 text-[11px] font-semibold leading-5 text-[#faf6f0]/64 sm:text-[12px]">
+                      <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/64 sm:line-clamp-3 sm:text-[12px] sm:leading-5">
                         {getInsight(selectedArticle)}
                       </p>
                     </div>
@@ -630,28 +630,28 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
                   <div className="min-h-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                      <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[9px]">
                         Affected stocks
                       </p>
-                      <p className="text-[9px] font-bold text-[#faf6f0]/35">
+                      <p className="hidden text-[9px] font-bold text-[#faf6f0]/35 sm:block">
                         Click ticker to open page
                       </p>
                     </div>
 
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div className="mt-1.5 grid gap-1.5 sm:mt-2 sm:grid-cols-2 sm:gap-2">
                       {selectedArticle.affectedStocks.length > 0 ? (
                         selectedArticle.affectedStocks.slice(0, 4).map((stock) => (
                           <Link
                             key={stock.ticker}
                             href={`/stock/${stock.ticker}`}
-                            className="rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
+                            className="min-w-0 rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-[13px] font-black text-[#ddb159]">
+                            <div className="flex min-w-0 items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[12px] font-black text-[#ddb159] sm:text-[13px]">
                                   {stock.ticker}
                                 </p>
-                                <p className="truncate text-[10px] font-bold text-[#faf6f0]/62">
+                                <p className="truncate text-[9px] font-bold text-[#faf6f0]/62 sm:text-[10px]">
                                   {stock.company ?? "Company data unavailable"}
                                 </p>
                                 {stock.sector && (
@@ -663,13 +663,13 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
                               <div className="shrink-0 text-right">
                                 {stock.rank != null && (
-                                  <p className="text-[9px] font-black text-[#faf6f0]/45">
+                                  <p className="text-[8px] font-black text-[#faf6f0]/45 sm:text-[9px]">
                                     #{stock.rank}
                                   </p>
                                 )}
 
                                 {stock.score != null && (
-                                  <span className="mt-0.5 inline-flex rounded-full bg-[#ddb159] px-1.5 py-0.5 text-[8px] font-black text-[#061b12]">
+                                  <span className="mt-0.5 inline-flex max-w-[56px] truncate rounded-full bg-[#ddb159] px-1.5 py-0.5 text-[8px] font-black text-[#061b12]">
                                     {Number(stock.score).toLocaleString()}
                                   </span>
                                 )}
@@ -678,31 +678,31 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                           </Link>
                         ))
                       ) : (
-                        <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-3 text-[11px] font-semibold text-[#faf6f0]/45 sm:col-span-2">
+                        <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-2.5 text-[10px] font-semibold text-[#faf6f0]/45 sm:col-span-2 sm:p-3 sm:text-[11px]">
                           No specific tickers are linked to this article yet.
                         </div>
                       )}
                     </div>
 
                     {selectedArticle.affectedStocks.length > 4 && (
-                      <p className="mt-1 text-[9px] font-bold text-[#faf6f0]/35">
+                      <p className="mt-1 text-[8px] font-bold text-[#faf6f0]/35 sm:text-[9px]">
                         +{selectedArticle.affectedStocks.length - 4} more linked stocks hidden to keep the briefing compact.
                       </p>
                     )}
                   </div>
 
-                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  <div className="flex shrink-0 flex-col gap-1.5 pt-1 sm:flex-row sm:gap-2 sm:pt-0">
                     {selectedArticle.url ? (
                       <a
                         href={selectedArticle.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
+                        className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110 sm:h-10 sm:text-[11px]"
                       >
                         Read more
                       </a>
                     ) : (
-                      <span className="inline-flex h-10 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35">
+                      <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35 sm:h-10 sm:text-[11px]">
                         External link unavailable
                       </span>
                     )}
@@ -710,7 +710,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                     <button
                       type="button"
                       onClick={() => setSelectedArticle(null)}
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+                      className="inline-flex h-9 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 sm:h-10 sm:text-[11px]"
                     >
                       Back to feed
                     </button>
