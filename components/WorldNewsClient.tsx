@@ -541,7 +541,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
       {selectedArticle && selectedStyle && (
         <div
-          className="fixed inset-x-0 bottom-4 top-[118px] z-[9999] flex items-start justify-center overflow-hidden bg-black/72 px-3 py-3 backdrop-blur-md sm:bottom-5 sm:top-[124px] sm:px-5 lg:top-[132px]"
+          className="fixed inset-x-0 bottom-4 top-[118px] z-[9999] flex items-start justify-center overflow-hidden bg-black/55 px-3 py-3 backdrop-blur-xl backdrop-saturate-50 sm:bottom-5 sm:top-[124px] sm:px-5 lg:top-[132px]"
           onClick={() => setSelectedArticle(null)}
         >
           <div
