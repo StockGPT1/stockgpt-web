@@ -540,7 +540,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
       </div>
 
       {selectedArticle && selectedStyle && (
-        <div className="fixed inset-x-0 bottom-0 top-[88px] z-[9999] overflow-hidden sm:top-[88px] lg:top-[88px]">
+        <div className="fixed inset-x-0 bottom-[calc(82px+env(safe-area-inset-bottom))] top-[88px] z-[9999] overflow-hidden sm:bottom-0 sm:top-[88px] lg:top-[88px]">
           <button
             type="button"
             aria-label="Close article popup"
