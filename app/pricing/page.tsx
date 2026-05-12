@@ -95,7 +95,7 @@ export default async function PricingPage({
 
             {waitlistStatus === "joined" && (
               <p className="mx-auto mt-3 max-w-md rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-[12px] font-bold text-emerald-200 lg:mt-2 lg:py-1.5">
-                You have joined the Premium waitlist.
+                You have joined the Executive waitlist.
               </p>
             )}
 
@@ -124,7 +124,7 @@ export default async function PricingPage({
 
                 <div className="mt-2 flex items-end gap-2 lg:mt-1">
                   <h2 className="text-[34px] font-black leading-none tracking-[-0.04em] sm:text-[40px] lg:text-[34px] xl:text-[38px]">
-                    £12
+                    £18.99
                   </h2>
                   <p className="pb-1 text-[13px] font-bold text-[#faf6f0]/55 lg:text-[12px]">
                     / month
@@ -172,7 +172,7 @@ export default async function PricingPage({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#faf6f0]/45 sm:text-[11px] lg:text-[10px]">
-                      Premium
+                      Executive
                     </p>
 
                     <h2 className="mt-2 text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/38 sm:text-[40px] lg:mt-1 lg:text-[34px] xl:text-[38px]">
@@ -217,7 +217,7 @@ export default async function PricingPage({
                     type="submit"
                     className="flex h-11 w-full items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116]/55 text-[13px] font-black text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 sm:h-12 sm:text-[14px] lg:h-10 lg:text-[13px] xl:h-11"
                   >
-                    Join Premium waitlist
+                    Join Executive waitlist
                   </button>
                 </form>
               </div>
