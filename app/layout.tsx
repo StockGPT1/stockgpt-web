@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 
@@ -118,13 +119,17 @@ export default function RootLayout({
         <meta name="theme-color" content="#072116" />
       </head>
 
-      <Script
-        src="https://asset.endorsely.com/endorsely.js"
-        data-endorsely="a00749c7-8bdd-47f8-a6de-1f57fb7702f5"
-        strategy="afterInteractive"
-      />
+      <body className="antialiased">
+        {children}
 
-      <body className="antialiased">{children}</body>
+        <Analytics />
+
+        <Script
+          src="https://asset.endorsely.com/endorsely.js"
+          data-endorsely="a00749c7-8bdd-47f8-a6de-1f57fb7702f5"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
