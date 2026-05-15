@@ -5,24 +5,26 @@
   --foreground: #faf6f0;
 
   /*
-    Keep a full-size scrollbar.
-    This controls the native scrollbar footprint, not the candle body.
+    Full-size native scrollbar footprint.
+    The candle design sits inside this space.
   */
-  --sg-scrollbar-size: 24px;
+  --sg-scrollbar-size: 22px;
 
   --sg-scrollbar-track: #f4f3ee;
   --sg-scrollbar-track-border: rgba(7, 33, 22, 0.18);
 
-  --sg-wick: rgba(7, 33, 22, 0.55);
-  --sg-wick-soft: rgba(7, 33, 22, 0.18);
+  /*
+    Wick = the long thin constant rectangle.
+    Body = the moving thicker rectangle.
+  */
+  --sg-wick: rgba(7, 33, 22, 0.72);
+  --sg-wick-soft: rgba(7, 33, 22, 0.16);
 
-  --sg-candle-body: #8e948f;
-  --sg-candle-body-light: #a9aea9;
-  --sg-candle-body-dark: #6f7670;
+  --sg-candle-body: #ddb159;
+  --sg-candle-body-light: #f0c867;
+  --sg-candle-body-dark: #9c7731;
 
-  --sg-candle-gold: #ddb159;
-  --sg-candle-gold-light: #f0c867;
-  --sg-candle-gold-dark: #9c7731;
+  --sg-candle-body-hover: #ffe39a;
 }
 
 @theme inline {
@@ -53,7 +55,9 @@ a {
 }
 
 button,
-input {
+input,
+textarea,
+select {
   font: inherit;
 }
 
@@ -80,23 +84,27 @@ h2 {
 }
 
 /* =========================================================
-   StockGPT candlestick scrollbar
+   StockGPT scrollbar
 
-   Track = long thin constant candle wick.
-   Thumb = slightly thicker moving candle body.
+   Track = long thin constant rectangle.
+   Thumb = moving slightly thicker rectangle.
+   No pill shape. No layout changes.
    ========================================================= */
 
+/* Firefox fallback: Firefox cannot fully style scrollbar parts */
 * {
   scrollbar-width: auto;
   scrollbar-color: var(--sg-candle-body) var(--sg-scrollbar-track);
 }
 
+/* Native scrollbar footprint */
 *::-webkit-scrollbar {
   width: var(--sg-scrollbar-size);
   height: var(--sg-scrollbar-size);
+  background: var(--sg-scrollbar-track);
 }
 
-/* Vertical chart track: white background with a long thin wick */
+/* Vertical track: constant thin rectangle down the centre */
 *::-webkit-scrollbar-track {
   background-color: var(--sg-scrollbar-track);
   border-left: 1px solid var(--sg-scrollbar-track-border);
@@ -104,32 +112,28 @@ h2 {
 
   background-image:
     linear-gradient(
-      90deg,
+      to right,
       transparent 0,
-      transparent calc(50% - 2px),
-      var(--sg-wick-soft) calc(50% - 2px),
+      transparent calc(50% - 1px),
       var(--sg-wick) calc(50% - 1px),
       var(--sg-wick) calc(50% + 1px),
-      var(--sg-wick-soft) calc(50% + 2px),
-      transparent calc(50% + 2px),
+      transparent calc(50% + 1px),
       transparent 100%
     ),
     repeating-linear-gradient(
-      180deg,
+      to bottom,
       transparent 0,
-      transparent 38px,
+      transparent 39px,
       rgba(7, 33, 22, 0.055) 39px,
-      transparent 40px
+      rgba(7, 33, 22, 0.055) 40px
     );
-  background-size:
-    100% 100%,
-    100% 80px;
-  background-position:
-    center,
-    0 0;
+
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 100%, 100% 40px;
+  background-position: center, center;
 }
 
-/* Horizontal chart track: same idea rotated */
+/* Horizontal track: same design rotated */
 *::-webkit-scrollbar-track:horizontal {
   border-left: 0;
   border-right: 0;
@@ -138,162 +142,189 @@ h2 {
 
   background-image:
     linear-gradient(
-      180deg,
+      to bottom,
       transparent 0,
-      transparent calc(50% - 2px),
-      var(--sg-wick-soft) calc(50% - 2px),
+      transparent calc(50% - 1px),
       var(--sg-wick) calc(50% - 1px),
       var(--sg-wick) calc(50% + 1px),
-      var(--sg-wick-soft) calc(50% + 2px),
-      transparent calc(50% + 2px),
+      transparent calc(50% + 1px),
       transparent 100%
     ),
     repeating-linear-gradient(
-      90deg,
+      to right,
       transparent 0,
-      transparent 38px,
+      transparent 39px,
       rgba(7, 33, 22, 0.055) 39px,
-      transparent 40px
+      rgba(7, 33, 22, 0.055) 40px
     );
-  background-size:
-    100% 100%,
-    80px 100%;
-  background-position:
-    center,
-    0 0;
+
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 100%, 40px 100%;
+  background-position: center, center;
 }
 
 /*
   Vertical moving candle body.
-  Important:
-  - The scrollbar itself stays full width.
-  - Transparent side borders make the visible candle body thinner.
-  - Border-radius is small, not pill-shaped.
+
+  Scrollbar width = 22px.
+  Transparent side borders = 6px + 6px.
+  Visible candle body = 10px wide.
 */
 *::-webkit-scrollbar-thumb {
-  min-height: 70px;
+  min-height: 80px;
 
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 2px solid transparent;
-  border-bottom: 2px solid transparent;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
 
-  border-radius: 3px;
+  border-radius: 2px;
 
   background:
     linear-gradient(
-      180deg,
+      to right,
       var(--sg-candle-body-light) 0%,
-      var(--sg-candle-body) 16%,
-      var(--sg-candle-body) 78%,
+      var(--sg-candle-body) 28%,
+      var(--sg-candle-body) 72%,
       var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.32),
-    inset 1px 0 0 rgba(255, 255, 255, 0.28),
-    inset -1px 0 0 rgba(7, 33, 22, 0.18);
+    inset 0 0 0 1px rgba(7, 33, 22, 0.42),
+    inset 1px 0 0 rgba(255, 245, 215, 0.44),
+    inset -1px 0 0 rgba(7, 33, 22, 0.28),
+    inset 0 1px 0 rgba(255, 245, 215, 0.35),
+    inset 0 -1px 0 rgba(7, 33, 22, 0.28),
+    0 0 12px rgba(221, 177, 89, 0.28);
 }
 
-/* Horizontal moving candle body */
+/*
+  Horizontal moving candle body.
+
+  Scrollbar height = 22px.
+  Transparent top/bottom borders = 6px + 6px.
+  Visible candle body = 10px high.
+*/
 *::-webkit-scrollbar-thumb:horizontal {
-  min-width: 70px;
+  min-width: 80px;
 
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-left: 2px solid transparent;
-  border-right: 2px solid transparent;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
 
-  border-radius: 3px;
+  border-radius: 2px;
 
   background:
     linear-gradient(
-      90deg,
+      to bottom,
       var(--sg-candle-body-light) 0%,
-      var(--sg-candle-body) 16%,
-      var(--sg-candle-body) 78%,
+      var(--sg-candle-body) 28%,
+      var(--sg-candle-body) 72%,
       var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 33, 22, 0.42),
+    inset 0 1px 0 rgba(255, 245, 215, 0.44),
+    inset 0 -1px 0 rgba(7, 33, 22, 0.28),
+    inset 1px 0 0 rgba(255, 245, 215, 0.35),
+    inset -1px 0 0 rgba(7, 33, 22, 0.28),
+    0 0 12px rgba(221, 177, 89, 0.28);
 }
 
-/* Hover = gold moving candle body */
+/* Hover: brighter moving candle body */
 *::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(
-      180deg,
-      var(--sg-candle-gold-light) 0%,
-      var(--sg-candle-gold) 46%,
-      var(--sg-candle-gold-dark) 100%
+      to right,
+      var(--sg-candle-body-hover) 0%,
+      var(--sg-candle-body-light) 32%,
+      var(--sg-candle-body) 70%,
+      var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.36),
-    inset 1px 0 0 rgba(255, 255, 255, 0.38),
-    inset -1px 0 0 rgba(7, 33, 22, 0.2),
-    0 0 18px rgba(221, 177, 89, 0.48);
+    inset 0 0 0 1px rgba(7, 33, 22, 0.5),
+    inset 1px 0 0 rgba(255, 245, 215, 0.58),
+    inset -1px 0 0 rgba(7, 33, 22, 0.32),
+    inset 0 1px 0 rgba(255, 245, 215, 0.5),
+    inset 0 -1px 0 rgba(7, 33, 22, 0.35),
+    0 0 22px rgba(221, 177, 89, 0.62);
 }
 
 *::-webkit-scrollbar-thumb:horizontal:hover {
   background:
     linear-gradient(
-      90deg,
-      var(--sg-candle-gold-light) 0%,
-      var(--sg-candle-gold) 46%,
-      var(--sg-candle-gold-dark) 100%
+      to bottom,
+      var(--sg-candle-body-hover) 0%,
+      var(--sg-candle-body-light) 32%,
+      var(--sg-candle-body) 70%,
+      var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
 }
 
-/* Active drag = brighter candle body */
+/* Active drag: strongest moving candle body */
 *::-webkit-scrollbar-thumb:active {
   background:
     linear-gradient(
-      180deg,
-      #ffe39a 0%,
-      #f0c867 45%,
-      #b98b35 100%
+      to right,
+      #fff0c0 0%,
+      #ffe39a 30%,
+      var(--sg-candle-body-light) 62%,
+      var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.4),
-    0 0 22px rgba(221, 177, 89, 0.72);
+    inset 0 0 0 1px rgba(7, 33, 22, 0.55),
+    inset 1px 0 0 rgba(255, 250, 225, 0.7),
+    inset -1px 0 0 rgba(7, 33, 22, 0.35),
+    0 0 28px rgba(221, 177, 89, 0.86);
 }
 
 *::-webkit-scrollbar-thumb:horizontal:active {
   background:
     linear-gradient(
-      90deg,
-      #ffe39a 0%,
-      #f0c867 45%,
-      #b98b35 100%
+      to bottom,
+      #fff0c0 0%,
+      #ffe39a 30%,
+      var(--sg-candle-body-light) 62%,
+      var(--sg-candle-body-dark) 100%
     )
     padding-box;
 
   background-clip: padding-box;
+  -webkit-background-clip: padding-box;
 }
 
+/* Corner where vertical and horizontal scrollbars meet */
 *::-webkit-scrollbar-corner {
-  background: var(--sg-scrollbar-track);
+  background-color: var(--sg-scrollbar-track);
+  border-left: 1px solid var(--sg-scrollbar-track-border);
+  border-top: 1px solid var(--sg-scrollbar-track-border);
 }
 
-/*
-  Keep arrow button areas large so the scrollbar does not feel smaller.
-  They stay visually quiet so the candle shape is the focus.
-*/
+/* Native arrow button areas kept full-size */
 *::-webkit-scrollbar-button:single-button {
   width: var(--sg-scrollbar-size);
   height: var(--sg-scrollbar-size);
@@ -310,19 +341,19 @@ h2 {
 }
 
 *::-webkit-scrollbar-button:single-button:vertical:decrement {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2 L9 8 H1 Z' fill='%23072116' fill-opacity='0.48'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2 L9 8 H1 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
 *::-webkit-scrollbar-button:single-button:vertical:increment {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 8 L9 2 H1 Z' fill='%23072116' fill-opacity='0.48'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 8 L9 2 H1 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
 *::-webkit-scrollbar-button:single-button:horizontal:decrement {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 L8 1 V9 Z' fill='%23072116' fill-opacity='0.48'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 L8 1 V9 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
 *::-webkit-scrollbar-button:single-button:horizontal:increment {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 5 L2 1 V9 Z' fill='%23072116' fill-opacity='0.48'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 5 L2 1 V9 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
 /* =========================================================
