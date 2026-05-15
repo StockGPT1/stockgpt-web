@@ -2,29 +2,28 @@
 
 import { useEffect } from "react";
 
-const INTERACTIVE_SELECTOR = [
+const CLICKABLE_SELECTOR = [
   ".sg-app-shell a[href]",
   ".sg-app-shell button:not(:disabled)",
   ".sg-app-shell [role='button']",
-].join(",");
-
-const HIGHLIGHT_SELECTOR = [
-  ".sg-app-shell article",
-  ".sg-app-shell section > div",
-  ".sg-app-shell [class*='rounded-2xl']",
-  ".sg-app-shell [class*='rounded-3xl']",
 ].join(",");
 
 function classText(element: HTMLElement) {
   return typeof element.className === "string" ? element.className : "";
 }
 
-function shouldSkipElement(element: HTMLElement) {
+function shouldSkipClickable(element: HTMLElement) {
   const tagName = element.tagName.toLowerCase();
   const classes = classText(element);
 
   if (element.closest(".sg-no-premium")) return true;
-  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+
+  if (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    tagName === "svg"
+  ) {
     return true;
   }
 
@@ -32,29 +31,7 @@ function shouldSkipElement(element: HTMLElement) {
     return true;
   }
 
-  if (tagName === "svg") return true;
-
   return false;
-}
-
-function shouldSkipHighlight(element: HTMLElement) {
-  const tagName = element.tagName.toLowerCase();
-  const classes = classText(element);
-
-  if (shouldSkipElement(element)) return true;
-  if (element.classList.contains("sg-premium-hover")) return true;
-  if (["a", "button", "input", "textarea", "select", "svg"].includes(tagName)) {
-    return true;
-  }
-
-  const looksLikeCard =
-    classes.includes("rounded") &&
-    (classes.includes("bg-") ||
-      classes.includes("border") ||
-      classes.includes("shadow") ||
-      classes.includes("backdrop"));
-
-  return !looksLikeCard;
 }
 
 function setPointerVars(element: HTMLElement, event: MouseEvent) {
@@ -80,11 +57,11 @@ export function PremiumInteractionEffects() {
     const appRoot: HTMLElement = root;
     const cleanupMap = new Map<HTMLElement, () => void>();
 
-    function enhance(element: HTMLElement, className: string) {
+    function enhance(element: HTMLElement) {
       if (cleanupMap.has(element)) return;
-      if (shouldSkipElement(element)) return;
+      if (shouldSkipClickable(element)) return;
 
-      element.classList.add(className);
+      element.classList.add("sg-premium-hover");
 
       const handleMove = (event: MouseEvent) => {
         setPointerVars(element, event);
@@ -94,25 +71,15 @@ export function PremiumInteractionEffects() {
 
       cleanupMap.set(element, () => {
         element.removeEventListener("mousemove", handleMove);
-        element.classList.remove(className);
+        element.classList.remove("sg-premium-hover");
       });
     }
 
     function scan() {
       appRoot
-        .querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR)
+        .querySelectorAll<HTMLElement>(CLICKABLE_SELECTOR)
         .forEach((node) => {
-          if (!shouldSkipElement(node)) {
-            enhance(node, "sg-premium-hover");
-          }
-        });
-
-      appRoot
-        .querySelectorAll<HTMLElement>(HIGHLIGHT_SELECTOR)
-        .forEach((node) => {
-          if (!shouldSkipHighlight(node)) {
-            enhance(node, "sg-premium-hover");
-          }
+          enhance(node);
         });
     }
 
