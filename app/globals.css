@@ -5,25 +5,26 @@
   --foreground: #faf6f0;
 
   /*
-    Full-size native scrollbar footprint.
-    The candle design sits inside this space.
+    Native scrollbar footprint.
+    The design sits inside this width, so it does not shrink the scroll area.
   */
   --sg-scrollbar-size: 22px;
 
+  /*
+    Candlestick scrollbar colours.
+    Track = chart rail.
+    Wick = long thin constant rectangle.
+    Body = moving thicker rectangle.
+  */
   --sg-scrollbar-track: #f4f3ee;
   --sg-scrollbar-track-border: rgba(7, 33, 22, 0.18);
 
-  /*
-    Wick = the long thin constant rectangle.
-    Body = the moving thicker rectangle.
-  */
   --sg-wick: rgba(7, 33, 22, 0.72);
   --sg-wick-soft: rgba(7, 33, 22, 0.16);
 
   --sg-candle-body: #ddb159;
   --sg-candle-body-light: #f0c867;
   --sg-candle-body-dark: #9c7731;
-
   --sg-candle-body-hover: #ffe39a;
 }
 
@@ -84,31 +85,33 @@ h2 {
 }
 
 /* =========================================================
-   StockGPT scrollbar
+   StockGPT candlestick scrollbar
+
+   Apply this class to the real scrolling container:
+
+   className="sg-candle-scrollbar ... overflow-y-auto ..."
 
    Track = long thin constant rectangle.
-   Thumb = moving slightly thicker rectangle.
-   No pill shape. No layout changes.
+   Thumb = moving slightly thicker candle body.
+
+   IMPORTANT:
+   Do NOT set global scrollbar-color here.
+   In Edge/Chrome, scrollbar-color can override ::-webkit-scrollbar styling.
    ========================================================= */
 
-/* Firefox fallback: Firefox cannot fully style scrollbar parts */
-* {
-  scrollbar-width: auto;
-  scrollbar-color: var(--sg-candle-body) var(--sg-scrollbar-track);
-}
-
-/* Native scrollbar footprint */
-*::-webkit-scrollbar {
+.sg-candle-scrollbar::-webkit-scrollbar,
+.sg-candle-scrollbar *::-webkit-scrollbar {
   width: var(--sg-scrollbar-size);
   height: var(--sg-scrollbar-size);
-  background: var(--sg-scrollbar-track);
+  background-color: var(--sg-scrollbar-track);
 }
 
-/* Vertical track: constant thin rectangle down the centre */
-*::-webkit-scrollbar-track {
+/* Vertical track: the long thin constant candle wick */
+.sg-candle-scrollbar::-webkit-scrollbar-track,
+.sg-candle-scrollbar *::-webkit-scrollbar-track {
   background-color: var(--sg-scrollbar-track);
   border-left: 1px solid var(--sg-scrollbar-track-border);
-  border-right: 1px solid rgba(255, 255, 255, 0.7);
+  border-right: 1px solid rgba(255, 255, 255, 0.72);
 
   background-image:
     linear-gradient(
@@ -133,12 +136,13 @@ h2 {
   background-position: center, center;
 }
 
-/* Horizontal track: same design rotated */
-*::-webkit-scrollbar-track:horizontal {
+/* Horizontal track: same candle wick, rotated */
+.sg-candle-scrollbar::-webkit-scrollbar-track:horizontal,
+.sg-candle-scrollbar *::-webkit-scrollbar-track:horizontal {
   border-left: 0;
   border-right: 0;
   border-top: 1px solid var(--sg-scrollbar-track-border);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.72);
 
   background-image:
     linear-gradient(
@@ -166,11 +170,12 @@ h2 {
 /*
   Vertical moving candle body.
 
-  Scrollbar width = 22px.
+  Native scrollbar width = 22px.
   Transparent side borders = 6px + 6px.
-  Visible candle body = 10px wide.
+  Visible moving body = 10px wide.
 */
-*::-webkit-scrollbar-thumb {
+.sg-candle-scrollbar::-webkit-scrollbar-thumb,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb {
   min-height: 80px;
 
   border-left: 6px solid transparent;
@@ -194,22 +199,23 @@ h2 {
   -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.42),
-    inset 1px 0 0 rgba(255, 245, 215, 0.44),
+    inset 0 0 0 1px rgba(7, 33, 22, 0.45),
+    inset 1px 0 0 rgba(255, 245, 215, 0.45),
     inset -1px 0 0 rgba(7, 33, 22, 0.28),
-    inset 0 1px 0 rgba(255, 245, 215, 0.35),
-    inset 0 -1px 0 rgba(7, 33, 22, 0.28),
+    inset 0 1px 0 rgba(255, 245, 215, 0.36),
+    inset 0 -1px 0 rgba(7, 33, 22, 0.3),
     0 0 12px rgba(221, 177, 89, 0.28);
 }
 
 /*
   Horizontal moving candle body.
 
-  Scrollbar height = 22px.
+  Native scrollbar height = 22px.
   Transparent top/bottom borders = 6px + 6px.
-  Visible candle body = 10px high.
+  Visible moving body = 10px high.
 */
-*::-webkit-scrollbar-thumb:horizontal {
+.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb:horizontal {
   min-width: 80px;
 
   border-top: 6px solid transparent;
@@ -233,16 +239,17 @@ h2 {
   -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.42),
-    inset 0 1px 0 rgba(255, 245, 215, 0.44),
+    inset 0 0 0 1px rgba(7, 33, 22, 0.45),
+    inset 0 1px 0 rgba(255, 245, 215, 0.45),
     inset 0 -1px 0 rgba(7, 33, 22, 0.28),
-    inset 1px 0 0 rgba(255, 245, 215, 0.35),
-    inset -1px 0 0 rgba(7, 33, 22, 0.28),
+    inset 1px 0 0 rgba(255, 245, 215, 0.36),
+    inset -1px 0 0 rgba(7, 33, 22, 0.3),
     0 0 12px rgba(221, 177, 89, 0.28);
 }
 
 /* Hover: brighter moving candle body */
-*::-webkit-scrollbar-thumb:hover {
+.sg-candle-scrollbar::-webkit-scrollbar-thumb:hover,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(
       to right,
@@ -257,15 +264,16 @@ h2 {
   -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.5),
-    inset 1px 0 0 rgba(255, 245, 215, 0.58),
-    inset -1px 0 0 rgba(7, 33, 22, 0.32),
-    inset 0 1px 0 rgba(255, 245, 215, 0.5),
-    inset 0 -1px 0 rgba(7, 33, 22, 0.35),
-    0 0 22px rgba(221, 177, 89, 0.62);
+    inset 0 0 0 1px rgba(7, 33, 22, 0.52),
+    inset 1px 0 0 rgba(255, 245, 215, 0.6),
+    inset -1px 0 0 rgba(7, 33, 22, 0.34),
+    inset 0 1px 0 rgba(255, 245, 215, 0.52),
+    inset 0 -1px 0 rgba(7, 33, 22, 0.36),
+    0 0 22px rgba(221, 177, 89, 0.65);
 }
 
-*::-webkit-scrollbar-thumb:horizontal:hover {
+.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal:hover,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb:horizontal:hover {
   background:
     linear-gradient(
       to bottom,
@@ -280,8 +288,9 @@ h2 {
   -webkit-background-clip: padding-box;
 }
 
-/* Active drag: strongest moving candle body */
-*::-webkit-scrollbar-thumb:active {
+/* Active drag: strongest candle body */
+.sg-candle-scrollbar::-webkit-scrollbar-thumb:active,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb:active {
   background:
     linear-gradient(
       to right,
@@ -296,13 +305,14 @@ h2 {
   -webkit-background-clip: padding-box;
 
   box-shadow:
-    inset 0 0 0 1px rgba(7, 33, 22, 0.55),
-    inset 1px 0 0 rgba(255, 250, 225, 0.7),
-    inset -1px 0 0 rgba(7, 33, 22, 0.35),
-    0 0 28px rgba(221, 177, 89, 0.86);
+    inset 0 0 0 1px rgba(7, 33, 22, 0.58),
+    inset 1px 0 0 rgba(255, 250, 225, 0.72),
+    inset -1px 0 0 rgba(7, 33, 22, 0.38),
+    0 0 28px rgba(221, 177, 89, 0.88);
 }
 
-*::-webkit-scrollbar-thumb:horizontal:active {
+.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal:active,
+.sg-candle-scrollbar *::-webkit-scrollbar-thumb:horizontal:active {
   background:
     linear-gradient(
       to bottom,
@@ -317,43 +327,63 @@ h2 {
   -webkit-background-clip: padding-box;
 }
 
-/* Corner where vertical and horizontal scrollbars meet */
-*::-webkit-scrollbar-corner {
+/* Corner where vertical + horizontal scrollbars meet */
+.sg-candle-scrollbar::-webkit-scrollbar-corner,
+.sg-candle-scrollbar *::-webkit-scrollbar-corner {
   background-color: var(--sg-scrollbar-track);
   border-left: 1px solid var(--sg-scrollbar-track-border);
   border-top: 1px solid var(--sg-scrollbar-track-border);
 }
 
-/* Native arrow button areas kept full-size */
-*::-webkit-scrollbar-button:single-button {
+/*
+  Native arrow button areas.
+  Kept full-size so the scrollbar footprint stays normal.
+*/
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button {
   width: var(--sg-scrollbar-size);
   height: var(--sg-scrollbar-size);
   border-left: 1px solid var(--sg-scrollbar-track-border);
-  border-right: 1px solid rgba(255, 255, 255, 0.7);
+  border-right: 1px solid rgba(255, 255, 255, 0.72);
   background-color: var(--sg-scrollbar-track);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 9px 9px;
 }
 
-*::-webkit-scrollbar-button:single-button:hover {
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:hover,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button:hover {
   background-color: #ebe3cd;
 }
 
-*::-webkit-scrollbar-button:single-button:vertical:decrement {
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:vertical:decrement,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button:vertical:decrement {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2 L9 8 H1 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
-*::-webkit-scrollbar-button:single-button:vertical:increment {
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:vertical:increment,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button:vertical:increment {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 8 L9 2 H1 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
-*::-webkit-scrollbar-button:single-button:horizontal:decrement {
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:horizontal:decrement,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button:horizontal:decrement {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 L8 1 V9 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
 }
 
-*::-webkit-scrollbar-button:single-button:horizontal:increment {
+.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:horizontal:increment,
+.sg-candle-scrollbar *::-webkit-scrollbar-button:single-button:horizontal:increment {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 5 L2 1 V9 Z' fill='%23072116' fill-opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* Firefox fallback only.
+   Kept out of Chrome/Edge so it does not override WebKit scrollbar styling. */
+@supports not selector(::-webkit-scrollbar) {
+  .sg-candle-scrollbar,
+  .sg-candle-scrollbar * {
+    scrollbar-width: auto;
+    scrollbar-color: var(--sg-candle-body) var(--sg-scrollbar-track);
+  }
 }
 
 /* =========================================================
