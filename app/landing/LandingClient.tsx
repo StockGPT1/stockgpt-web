@@ -130,23 +130,23 @@ const navLinks = [
 ];
 
 const sparkStyles = [
-  { left: "8%", top: "24%", delay: "0s", duration: "9s" },
-  { left: "18%", top: "68%", delay: "1.8s", duration: "11s" },
-  { left: "34%", top: "18%", delay: "0.7s", duration: "10s" },
-  { left: "49%", top: "78%", delay: "2.4s", duration: "12s" },
-  { left: "63%", top: "28%", delay: "1.1s", duration: "9.5s" },
-  { left: "77%", top: "62%", delay: "3.2s", duration: "13s" },
-  { left: "88%", top: "20%", delay: "2s", duration: "10.8s" },
-  { left: "92%", top: "82%", delay: "4s", duration: "14s" },
+  { left: "8%", top: "20%", delay: "0s", duration: "9s" },
+  { left: "18%", top: "62%", delay: "1.8s", duration: "11s" },
+  { left: "34%", top: "16%", delay: "0.7s", duration: "10s" },
+  { left: "49%", top: "70%", delay: "2.4s", duration: "12s" },
+  { left: "63%", top: "24%", delay: "1.1s", duration: "9.5s" },
+  { left: "77%", top: "58%", delay: "3.2s", duration: "13s" },
+  { left: "88%", top: "18%", delay: "2s", duration: "10.8s" },
+  { left: "92%", top: "78%", delay: "4s", duration: "14s" },
 ];
 
 const candleStyles = [
-  { left: "10%", top: "36%", height: "44px", delay: "0.2s" },
-  { left: "22%", top: "18%", height: "68px", delay: "1.5s" },
-  { left: "36%", top: "48%", height: "52px", delay: "0.8s" },
-  { left: "52%", top: "30%", height: "74px", delay: "2.1s" },
-  { left: "66%", top: "60%", height: "46px", delay: "1.1s" },
-  { left: "82%", top: "24%", height: "64px", delay: "2.8s" },
+  { left: "10%", top: "28%", height: "44px", delay: "0.2s" },
+  { left: "22%", top: "15%", height: "68px", delay: "1.5s" },
+  { left: "36%", top: "42%", height: "52px", delay: "0.8s" },
+  { left: "52%", top: "25%", height: "74px", delay: "2.1s" },
+  { left: "66%", top: "54%", height: "46px", delay: "1.1s" },
+  { left: "82%", top: "22%", height: "64px", delay: "2.8s" },
 ];
 
 function formatMoney(value: number | null) {
@@ -188,14 +188,14 @@ function CheckoutButton({
     <form
       action="/api/create-checkout-session"
       method="post"
-      className={full ? "w-full" : "w-fit"}
+      className={full ? "w-full" : "w-fit max-sm:w-full"}
     >
       <EndorselyReferralInput />
       <button
         type="submit"
         className={[
           "group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-[#00ff88] font-black uppercase tracking-[0.16em] text-[#03140c] shadow-[0_18px_52px_rgba(0,255,136,0.20)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,255,136,0.34)] active:translate-y-0",
-          full ? "w-full" : "",
+          full ? "w-full" : "max-sm:w-full",
           compact ? "px-4 py-2.5 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
         ].join(" ")}
       >
@@ -224,7 +224,7 @@ function GhostButton({
     <Link
       href={href}
       className={[
-        "inline-flex items-center justify-center rounded-full border border-[#00ff88]/40 bg-white/[0.03] font-black uppercase tracking-[0.16em] text-[#e8f5e9] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-[#00ff88] hover:bg-[#00ff88]/10 hover:text-[#00ff88]",
+        "inline-flex items-center justify-center rounded-full border border-[#D4AF37]/50 bg-white/[0.03] font-black uppercase tracking-[0.16em] text-[#e8f5e9] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 hover:text-[#D4AF37] max-sm:w-full",
         compact ? "px-4 py-2.5 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
       ].join(" ")}
     >
@@ -235,7 +235,7 @@ function GhostButton({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#00ff88]/20 bg-[#00ff88]/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#00ff88]">
+    <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.08)]">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00ff88] shadow-[0_0_18px_rgba(0,255,136,0.8)]" />
       {children}
     </p>
@@ -271,7 +271,7 @@ function StatCounter({
 function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   if (tickerTape.length === 0) {
     return (
-      <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm font-bold text-[#94a3b8] backdrop-blur">
+      <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm font-bold text-[#94a3b8] backdrop-blur sm:mt-8">
         Live ticker data is loading from the market feed.
       </div>
     );
@@ -280,7 +280,7 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   const repeated = [...tickerTape, ...tickerTape];
 
   return (
-    <div className="mt-8 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] py-3 shadow-[0_20px_80px_rgba(0,0,0,0.22)] backdrop-blur">
+    <div className="mt-6 overflow-hidden rounded-2xl border border-[#D4AF37]/18 bg-white/[0.035] py-3 shadow-[0_20px_80px_rgba(0,0,0,0.22)] backdrop-blur sm:mt-8">
       <div className="sg-marquee-track flex w-max items-center gap-3">
         {repeated.map((item, index) => (
           <Link
@@ -290,10 +290,12 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
                 ? "/"
                 : `/stocks/${encodeURIComponent(item.yahooSymbol)}`
             }
-            className="group flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#06180f]/80 px-3 py-2 text-xs font-black text-[#e8f5e9] transition hover:border-[#00ff88]/40 hover:bg-[#00ff88]/8"
+            className="group flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#06180f]/80 px-3 py-2 text-xs font-black text-[#e8f5e9] transition hover:border-[#D4AF37]/45 hover:bg-[#D4AF37]/10"
           >
             <span className="sg-data text-[#e8f5e9]">{item.symbol}</span>
-            <span className="sg-data text-[#94a3b8]">{formatMoney(item.price)}</span>
+            <span className="sg-data text-[#94a3b8]">
+              {formatMoney(item.price)}
+            </span>
             <span className={["sg-data", toneClass(item.changePct)].join(" ")}>
               {item.changePct > 0 ? "▲" : item.changePct < 0 ? "▼" : "■"}{" "}
               {formatMove(item.changePct)}
@@ -315,14 +317,14 @@ function DashboardPreview({
   return (
     <div
       id="rankings-preview"
-      className="sg-monitor sg-reveal relative scroll-mt-28 overflow-hidden rounded-[2rem] border border-[#00ff88]/18 bg-[#06180f]/86 p-3 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_40px_130px_rgba(0,0,0,0.58),0_0_90px_rgba(0,255,136,0.16)] backdrop-blur-xl"
+      className="sg-monitor sg-reveal relative scroll-mt-28 overflow-hidden rounded-[1.5rem] border border-[#D4AF37]/24 bg-[#06180f]/86 p-2 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_40px_130px_rgba(0,0,0,0.58),0_0_90px_rgba(212,175,55,0.12)] backdrop-blur-xl sm:rounded-[2rem] sm:p-3"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(0,255,136,0.14),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(212,175,55,0.14),transparent_28%),radial-gradient(circle_at_18%_8%,rgba(0,255,136,0.10),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_42%)]" />
 
-      <div className="relative rounded-[1.55rem] border border-white/[0.08] bg-[#03140c]/92">
-        <div className="flex flex-col gap-4 border-b border-white/[0.08] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative overflow-hidden rounded-[1.2rem] border border-white/[0.08] bg-[#03140c]/92 sm:rounded-[1.55rem]">
+        <div className="flex flex-col gap-3 border-b border-white/[0.08] p-3 sm:gap-4 sm:p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#00ff88]">
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#D4AF37] sm:text-[10px]">
               ✦ Live AI Rankings
             </p>
             <h2 className="sg-heading mt-1 text-2xl font-black text-[#e8f5e9] sm:text-3xl">
@@ -331,22 +333,22 @@ function DashboardPreview({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[#00ff88]/25 bg-[#00ff88]/8 px-3 py-1.5 text-[11px] font-black text-[#00ff88]">
-              Bullish %: {metrics.bullishPct}% — {metrics.sentiment}
+            <span className="rounded-full border border-[#00ff88]/25 bg-[#00ff88]/8 px-3 py-1.5 text-[10px] font-black text-[#00ff88] sm:text-[11px]">
+              Bullish: {metrics.bullishPct}% — {metrics.sentiment}
             </span>
-            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[#94a3b8]">
+            <span className="rounded-full border border-[#D4AF37]/20 bg-[#D4AF37]/8 px-3 py-1.5 text-[10px] font-bold text-[#D4AF37] sm:text-[11px]">
               Updated: {metrics.lastUpdatedLabel}
             </span>
           </div>
         </div>
 
         <div className="relative overflow-hidden">
-          <div className="grid grid-cols-[38px_1.4fr_0.9fr_0.9fr] border-b border-white/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#94a3b8] sm:grid-cols-[42px_1.2fr_minmax(170px,1.6fr)_0.8fr_0.8fr]">
+          <div className="grid grid-cols-[34px_minmax(0,1fr)_82px] border-b border-white/[0.08] px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-[#94a3b8] sm:px-4 md:grid-cols-[42px_112px_minmax(150px,1fr)_90px_90px] md:text-[10px]">
             <span>#</span>
             <span>Ticker</span>
-            <span className="hidden sm:block">Company</span>
-            <span>Price</span>
-            <span>Score</span>
+            <span className="hidden md:block">Company</span>
+            <span className="hidden md:block">Price</span>
+            <span className="text-right md:text-left">Score</span>
           </div>
 
           {rankings.length === 0 ? (
@@ -360,12 +362,12 @@ function DashboardPreview({
                 <Link
                   key={row.id}
                   href={`/stocks/${encodeURIComponent(row.ticker)}`}
-                  className="group grid grid-cols-[38px_1.4fr_0.9fr_0.9fr] items-center border-b border-white/[0.06] px-4 py-3 transition duration-300 hover:bg-[#00ff88]/6 sm:grid-cols-[42px_1.2fr_minmax(170px,1.6fr)_0.8fr_0.8fr]"
+                  className="group grid grid-cols-[34px_minmax(0,1fr)_82px] items-center border-b border-white/[0.06] px-3 py-3 transition duration-300 hover:bg-[#D4AF37]/8 sm:px-4 md:grid-cols-[42px_112px_minmax(150px,1fr)_90px_90px]"
                 >
                   <span
                     className={[
                       "sg-data text-sm font-black",
-                      row.rank <= 3 ? "text-[#00ff88]" : "text-[#94a3b8]",
+                      row.rank <= 3 ? "text-[#D4AF37]" : "text-[#94a3b8]",
                       row.locked ? "blur-[2px]" : "",
                     ].join(" ")}
                   >
@@ -378,14 +380,27 @@ function DashboardPreview({
                       row.locked ? "blur-[2px]" : "",
                     ].join(" ")}
                   >
-                    <StockLogo ticker={row.ticker} company={row.company} size={24} />
+                    <StockLogo
+                      ticker={row.ticker}
+                      company={row.company}
+                      size={24}
+                    />
                     <span className="min-w-0">
-                      <span className="sg-data block text-sm font-black text-[#e8f5e9]">
+                      <span className="sg-data block truncate text-sm font-black text-[#e8f5e9]">
                         {row.ticker}
+                      </span>
+                      <span className="block truncate text-[10px] font-bold text-[#94a3b8] md:hidden">
+                        {row.company}
+                      </span>
+                      <span className="sg-data block text-[10px] text-[#94a3b8] md:hidden">
+                        {formatMoney(row.price)} ·{" "}
+                        <span className={toneClass(row.movePct)}>
+                          {formatMove(row.movePct)}
+                        </span>
                       </span>
                       <span
                         className={[
-                          "sg-data block text-[10px]",
+                          "sg-data hidden text-[10px] md:block",
                           toneClass(row.movePct),
                         ].join(" ")}
                       >
@@ -396,7 +411,7 @@ function DashboardPreview({
 
                   <span
                     className={[
-                      "hidden truncate text-sm font-bold text-[#94a3b8] sm:block",
+                      "hidden truncate text-sm font-bold text-[#94a3b8] md:block",
                       row.locked ? "blur-[2px]" : "",
                     ].join(" ")}
                   >
@@ -405,7 +420,7 @@ function DashboardPreview({
 
                   <span
                     className={[
-                      "sg-data text-sm font-bold text-[#e8f5e9]",
+                      "sg-data hidden text-sm font-bold text-[#e8f5e9] md:block",
                       row.locked ? "blur-[2px]" : "",
                     ].join(" ")}
                   >
@@ -414,7 +429,7 @@ function DashboardPreview({
 
                   <span
                     className={[
-                      "sg-data text-sm font-black text-[#00ff88] drop-shadow-[0_0_14px_rgba(0,255,136,0.35)]",
+                      "sg-data text-right text-sm font-black text-[#00ff88] drop-shadow-[0_0_14px_rgba(0,255,136,0.35)] md:text-left",
                       row.locked ? "blur-[2px]" : "",
                     ].join(" ")}
                   >
@@ -426,8 +441,8 @@ function DashboardPreview({
           )}
 
           {rankings.length > 5 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[44%] items-center justify-center bg-gradient-to-b from-[#06180f]/10 via-[#06180f]/72 to-[#06180f]/94">
-              <div className="pointer-events-auto rounded-full border border-[#00ff88]/30 bg-[#03140c]/92 px-5 py-3 text-sm font-black text-[#e8f5e9] shadow-[0_0_36px_rgba(0,255,136,0.16)] backdrop-blur-xl">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[44%] items-center justify-center bg-gradient-to-b from-[#06180f]/10 via-[#06180f]/72 to-[#06180f]/94 px-4">
+              <div className="pointer-events-auto rounded-full border border-[#D4AF37]/35 bg-[#03140c]/92 px-4 py-3 text-center text-xs font-black text-[#e8f5e9] shadow-[0_0_36px_rgba(212,175,55,0.16)] backdrop-blur-xl sm:px-5 sm:text-sm">
                 🔒 Subscribe to unlock full rankings
               </div>
             </div>
@@ -453,7 +468,7 @@ export function LandingClient({
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const handleScroll = () => {
-      setNavScrolled(page.scrollTop > 70);
+      setNavScrolled(page.scrollTop > 44);
     };
 
     page.addEventListener("scroll", handleScroll, { passive: true });
@@ -465,7 +480,7 @@ export function LandingClient({
           if (entry.isIntersecting) entry.target.classList.add("is-visible");
         });
       },
-      { root: page, threshold: 0.16 },
+      { root: page, threshold: 0.14 },
     );
 
     page.querySelectorAll(".sg-reveal").forEach((element) => {
@@ -517,7 +532,7 @@ export function LandingClient({
           if (entry.isIntersecting) animateCounter(entry.target as HTMLElement);
         });
       },
-      { root: page, threshold: 0.4 },
+      { root: page, threshold: 0.38 },
     );
 
     page.querySelectorAll(".sg-counter").forEach((element) => {
@@ -545,10 +560,11 @@ export function LandingClient({
           --sg-green: #00ff88;
           --sg-heading: #e8f5e9;
           --sg-body: #94a3b8;
-          --sg-amber: #ddb159;
+          --sg-gold: #D4AF37;
+          --sg-gold-soft: #ddb159;
           font-family: "DM Sans", Inter, Arial, sans-serif;
           scrollbar-width: thin;
-          scrollbar-color: rgba(0,255,136,0.32) rgba(255,255,255,0.04);
+          scrollbar-color: rgba(212,175,55,0.42) rgba(255,255,255,0.04);
           scroll-behavior: smooth;
         }
 
@@ -569,18 +585,18 @@ export function LandingClient({
         }
 
         .sg-nav-scrolled {
-          border-bottom-color: rgba(0,255,136,0.22);
-          background: rgba(3,20,12,0.82);
-          box-shadow: 0 16px 50px rgba(0,0,0,0.22);
+          border-bottom-color: rgba(212,175,55,0.28);
+          background: rgba(3,20,12,0.88);
+          box-shadow: 0 16px 50px rgba(0,0,0,0.28);
         }
 
         .sg-hero-grid {
           background-image:
-            linear-gradient(rgba(0,255,136,0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,255,136,0.055) 1px, transparent 1px);
+            linear-gradient(rgba(212,175,55,0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,255,136,0.045) 1px, transparent 1px);
           background-size: 72px 72px;
           animation: sgGridMove 22s linear infinite;
-          mask-image: radial-gradient(circle at 50% 30%, black 0%, transparent 76%);
+          mask-image: radial-gradient(circle at 50% 18%, black 0%, transparent 76%);
         }
 
         .sg-hero-glow {
@@ -608,8 +624,8 @@ export function LandingClient({
           height: 3px;
           width: 3px;
           border-radius: 999px;
-          background: var(--sg-green);
-          box-shadow: 0 0 18px rgba(0,255,136,0.9);
+          background: var(--sg-gold);
+          box-shadow: 0 0 18px rgba(212,175,55,0.9);
           opacity: 0;
           animation: sgSparkFloat var(--spark-duration) ease-in-out infinite;
           animation-delay: var(--spark-delay);
@@ -619,7 +635,7 @@ export function LandingClient({
           position: absolute;
           width: 1px;
           height: var(--candle-height);
-          background: rgba(0,255,136,0.28);
+          background: rgba(212,175,55,0.28);
           opacity: 0.4;
           animation: sgCandlePulse 4.6s ease-in-out infinite;
           animation-delay: var(--candle-delay);
@@ -632,8 +648,8 @@ export function LandingClient({
           top: 35%;
           height: 18px;
           width: 8px;
-          border: 1px solid rgba(0,255,136,0.32);
-          background: rgba(0,255,136,0.08);
+          border: 1px solid rgba(212,175,55,0.34);
+          background: rgba(212,175,55,0.08);
           border-radius: 2px;
         }
 
@@ -657,9 +673,9 @@ export function LandingClient({
 
         .sg-card:hover {
           transform: translateY(-6px);
-          border-color: rgba(0,255,136,0.34);
-          background: rgba(0,255,136,0.055);
-          box-shadow: 0 28px 100px rgba(0,0,0,0.32), 0 0 44px rgba(0,255,136,0.10);
+          border-color: rgba(212,175,55,0.42);
+          background: rgba(212,175,55,0.055);
+          box-shadow: 0 28px 100px rgba(0,0,0,0.32), 0 0 44px rgba(212,175,55,0.12);
         }
 
         .sg-engine-line {
@@ -678,8 +694,8 @@ export function LandingClient({
         }
 
         @keyframes sgPulseGlow {
-          0%, 100% { opacity: 0.38; transform: scale(0.98); }
-          50% { opacity: 0.72; transform: scale(1.05); }
+          0%, 100% { opacity: 0.34; transform: scale(0.98); }
+          50% { opacity: 0.68; transform: scale(1.05); }
         }
 
         @keyframes sgWordIn {
@@ -737,34 +753,34 @@ export function LandingClient({
 
       <nav
         className={[
-          "sg-nav sticky top-0 z-50 border-b border-transparent bg-[#03140c]/58",
+          "sg-nav sticky top-0 z-50 border-b border-transparent bg-[#03140c]/66",
           navScrolled ? "sg-nav-scrolled" : "",
         ].join(" ")}
       >
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-[64px] max-w-7xl items-center justify-between px-4 sm:h-[70px] sm:px-6 lg:px-8">
           <Link href="/landing" className="flex items-center gap-3">
-            <div className="relative h-10 w-[138px] sm:w-[155px]">
+            <div className="relative h-9 w-[132px] sm:h-10 sm:w-[155px]">
               <Image
                 src="/logo.png"
                 alt="StockGPT"
                 fill
                 priority
-                className="object-contain object-left drop-shadow-[0_0_18px_rgba(0,255,136,0.10)]"
+                className="object-contain object-left drop-shadow-[0_0_18px_rgba(212,175,55,0.16)]"
                 sizes="155px"
               />
             </div>
-            <span className="hidden text-sm font-black text-[#00ff88] lg:inline">
+            <span className="hidden text-sm font-black text-[#D4AF37] lg:inline">
               ✦
             </span>
           </Link>
 
-          <div className="hidden items-center gap-7 md:flex">
+          <div className="hidden items-center gap-7 lg:flex">
             {navLinks.map((item) =>
               item.href.startsWith("#") ? (
                 <a
                   key={item.href}
                   href={item.href}
-                  className="text-sm font-bold text-[#94a3b8] transition hover:text-[#00ff88]"
+                  className="text-sm font-bold text-[#e8f5e9]/80 transition hover:text-[#D4AF37]"
                 >
                   {item.label}
                 </a>
@@ -772,7 +788,7 @@ export function LandingClient({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm font-bold text-[#94a3b8] transition hover:text-[#00ff88]"
+                  className="text-sm font-bold text-[#e8f5e9]/80 transition hover:text-[#D4AF37]"
                 >
                   {item.label}
                 </Link>
@@ -780,16 +796,25 @@ export function LandingClient({
             )}
           </div>
 
-          <GhostButton href="/login" compact>
-            Log In →
-          </GhostButton>
+          <div className="hidden sm:block">
+            <GhostButton href="/login" compact>
+              Log In →
+            </GhostButton>
+          </div>
+
+          <Link
+            href="/login"
+            className="rounded-full border border-[#D4AF37]/45 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#D4AF37] sm:hidden"
+          >
+            Login
+          </Link>
         </div>
       </nav>
 
-      <section className="relative min-h-[calc(100dvh-72px)] overflow-hidden px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden px-4 pb-14 pt-6 sm:px-6 sm:pb-20 sm:pt-8 lg:px-8 lg:pt-10">
         <div className="sg-hero-grid pointer-events-none absolute inset-0 opacity-60" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,rgba(0,255,136,0.12),transparent_28%),radial-gradient(circle_at_80%_50%,rgba(34,197,94,0.07),transparent_34%),linear-gradient(180deg,rgba(7,33,22,0.06),#072116_88%)]" />
-        <div className="sg-hero-glow pointer-events-none absolute left-1/2 top-[18%] h-[360px] w-[680px] -translate-x-1/2 rounded-full bg-[#00ff88]/12 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_45%_10%,rgba(212,175,55,0.13),transparent_26%),radial-gradient(circle_at_82%_34%,rgba(0,255,136,0.07),transparent_34%),linear-gradient(180deg,rgba(7,33,22,0.04),#072116_88%)]" />
+        <div className="sg-hero-glow pointer-events-none absolute left-1/2 top-[6%] h-[300px] w-[640px] -translate-x-1/2 rounded-full bg-[#D4AF37]/12 blur-3xl" />
 
         {sparkStyles.map((spark, index) => (
           <span
@@ -821,9 +846,9 @@ export function LandingClient({
           />
         ))}
 
-        <div className="relative z-10 mx-auto grid min-h-[calc(100dvh-120px)] max-w-7xl items-center gap-12 lg:grid-cols-[0.88fr_1.12fr]">
-          <div>
-            <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-[#00ff88]/20 bg-[#00ff88]/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#00ff88]">
+        <div className="relative z-10 mx-auto grid max-w-7xl items-start gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:gap-10 xl:gap-12">
+          <div className="pt-4 sm:pt-6 lg:pt-8">
+            <div className="mb-5 inline-flex items-center gap-3 rounded-full border border-[#D4AF37]/28 bg-[#D4AF37]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#D4AF37] shadow-[0_0_34px_rgba(212,175,55,0.08)] sm:text-[11px]">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00ff88] opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00ff88]" />
@@ -831,7 +856,7 @@ export function LandingClient({
               ✦ AI-Powered Stock Intelligence
             </div>
 
-            <h1 className="sg-heading max-w-4xl text-5xl font-black leading-[0.92] text-[#e8f5e9] sm:text-6xl lg:text-7xl xl:text-[86px]">
+            <h1 className="sg-heading max-w-4xl text-[46px] font-black leading-[0.92] text-[#e8f5e9] sm:text-6xl lg:text-[70px] xl:text-[82px]">
               {"The market ranks itself. You just need to know who's at the top."
                 .split(" ")
                 .map((word, index) => (
@@ -845,13 +870,13 @@ export function LandingClient({
                 ))}
             </h1>
 
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-[#94a3b8] sm:text-xl">
+            <p className="mt-5 max-w-2xl text-base leading-8 text-[#94a3b8] sm:mt-6 sm:text-lg lg:text-xl">
               StockGPT ranks {metrics.totalStocks.toLocaleString("en-GB")} US
               stocks using AI signals across fundamentals, momentum and risk, so
               you always know where to look.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <CheckoutButton>Unlock Access</CheckoutButton>
               <GhostButton href="/login">Log In</GhostButton>
             </div>
@@ -859,11 +884,13 @@ export function LandingClient({
             <TickerMarquee tickerTape={tickerTape} />
           </div>
 
-          <DashboardPreview rankings={rankings} metrics={metrics} />
+          <div className="pt-0 lg:pt-8">
+            <DashboardPreview rankings={rankings} metrics={metrics} />
+          </div>
         </div>
       </section>
 
-      <section className="border-y border-white/[0.08] bg-[#06180f] px-4 py-24 sm:px-6 lg:px-8">
+      <section className="border-y border-white/[0.08] bg-[#06180f] px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="sg-reveal">
             <SectionLabel>Illustrative Returns</SectionLabel>
@@ -877,13 +904,16 @@ export function LandingClient({
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-4">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {resultStats.map((stat) => (
-              <div key={stat.label} className="sg-card sg-reveal rounded-[1.6rem] p-6">
+              <div
+                key={stat.label}
+                className="sg-card sg-reveal rounded-[1.6rem] p-6"
+              >
                 <p className="min-h-[42px] text-[11px] font-black uppercase tracking-[0.18em] text-[#94a3b8]">
                   {stat.label}
                 </p>
-                <p className="mt-5 text-5xl font-black text-[#00ff88] drop-shadow-[0_0_22px_rgba(0,255,136,0.26)]">
+                <p className="mt-5 text-5xl font-black text-[#D4AF37] drop-shadow-[0_0_22px_rgba(212,175,55,0.24)]">
                   <StatCounter
                     target={stat.target}
                     prefix={stat.prefix}
@@ -900,13 +930,25 @@ export function LandingClient({
 
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
-              ["Momentum rotation example", "+22.8%", "Illustrative top-ranked basket return"],
-              ["Risk reduction example", "-28.0%", "Illustrative drawdown avoided after risk deterioration"],
-              ["Portfolio reallocation example", "+14.6%", "Illustrative uplift from replacing weak-ranked holdings"],
+              [
+                "Momentum rotation example",
+                "+22.8%",
+                "Illustrative top-ranked basket return",
+              ],
+              [
+                "Risk reduction example",
+                "-28.0%",
+                "Illustrative drawdown avoided after risk deterioration",
+              ],
+              [
+                "Portfolio reallocation example",
+                "+14.6%",
+                "Illustrative uplift from replacing weak-ranked holdings",
+              ],
             ].map(([title, value, detail]) => (
               <article
                 key={title}
-                className="sg-card sg-reveal rounded-[1.6rem] border-l-2 border-l-[#00ff88] p-6"
+                className="sg-card sg-reveal rounded-[1.6rem] border-l-2 border-l-[#D4AF37] p-6"
               >
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[#94a3b8]">
                   {title}
@@ -923,7 +965,7 @@ export function LandingClient({
         </div>
       </section>
 
-      <section className="px-4 py-24 sm:px-6 lg:px-8">
+      <section className="px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="sg-reveal text-center">
             <SectionLabel>Core Features</SectionLabel>
@@ -939,7 +981,7 @@ export function LandingClient({
                 key={feature.title}
                 className="sg-card sg-reveal scroll-mt-28 rounded-[1.8rem] p-7"
               >
-                <div className="mb-7 flex h-13 w-13 items-center justify-center rounded-2xl border border-[#00ff88]/22 bg-[#00ff88]/8 text-3xl text-[#00ff88] shadow-[0_0_28px_rgba(0,255,136,0.08)]">
+                <div className="mb-7 flex h-[52px] w-[52px] items-center justify-center rounded-2xl border border-[#D4AF37]/28 bg-[#D4AF37]/10 text-3xl text-[#D4AF37] shadow-[0_0_28px_rgba(212,175,55,0.10)]">
                   {feature.icon}
                 </div>
                 <h3 className="sg-heading text-3xl font-black text-[#e8f5e9]">
@@ -954,7 +996,7 @@ export function LandingClient({
         </div>
       </section>
 
-      <section className="border-y border-white/[0.08] bg-[#06180f] px-4 py-24 sm:px-6 lg:px-8">
+      <section className="border-y border-white/[0.08] bg-[#06180f] px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="sg-reveal">
             <SectionLabel>How StockGPT Works</SectionLabel>
@@ -967,7 +1009,7 @@ export function LandingClient({
           </div>
 
           <div className="engine-flow sg-reveal relative mt-14">
-            <div className="sg-engine-line absolute left-0 top-[31px] hidden h-px w-full bg-gradient-to-r from-[#00ff88] via-[#00ff88]/40 to-transparent lg:block" />
+            <div className="sg-engine-line absolute left-0 top-[31px] hidden h-px w-full bg-gradient-to-r from-[#D4AF37] via-[#D4AF37]/45 to-transparent lg:block" />
 
             <div className="grid gap-5 lg:grid-cols-5">
               {engineSteps.map((step, index) => (
@@ -975,7 +1017,7 @@ export function LandingClient({
                   key={step.title}
                   className="relative rounded-[1.5rem] border border-white/[0.08] bg-white/[0.04] p-5 backdrop-blur"
                 >
-                  <div className="sg-data mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#00ff88]/35 bg-[#00ff88]/10 text-lg font-black text-[#00ff88] shadow-[0_0_26px_rgba(0,255,136,0.12)]">
+                  <div className="sg-data mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#D4AF37]/38 bg-[#D4AF37]/10 text-lg font-black text-[#D4AF37] shadow-[0_0_26px_rgba(212,175,55,0.12)]">
                     {String(index + 1).padStart(2, "0")}
                   </div>
                   <h3 className="sg-heading text-2xl font-black text-[#e8f5e9]">
@@ -991,7 +1033,10 @@ export function LandingClient({
         </div>
       </section>
 
-      <section id="pricing" className="bg-[#0a2a1c] px-4 py-24 sm:px-6 lg:px-8">
+      <section
+        id="pricing"
+        className="bg-[#0a2a1c] px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+      >
         <div className="mx-auto max-w-4xl text-center">
           <div className="sg-reveal">
             <SectionLabel>Pricing</SectionLabel>
@@ -1000,9 +1045,9 @@ export function LandingClient({
             </h2>
           </div>
 
-          <div className="sg-card sg-reveal mx-auto mt-12 max-w-xl rounded-[2rem] p-7 text-left sm:p-8">
-            <div className="flex items-center justify-between gap-4">
-              <p className="rounded-full border border-[#00ff88]/25 bg-[#00ff88]/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#00ff88]">
+          <div className="sg-card sg-reveal mx-auto mt-12 max-w-xl rounded-[2rem] p-6 text-left sm:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="w-fit rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#D4AF37]">
                 ✦ Core Plan
               </p>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#94a3b8]">
@@ -1011,15 +1056,19 @@ export function LandingClient({
             </div>
 
             <div className="mt-8 flex items-end gap-3">
-              <p className="sg-data text-6xl font-black text-[#e8f5e9]">
+              <p className="sg-data text-5xl font-black text-[#e8f5e9] sm:text-6xl">
                 £18.99
               </p>
-              <p className="pb-2 text-base font-bold text-[#94a3b8]">/ month</p>
+              <p className="pb-2 text-base font-bold text-[#94a3b8]">
+                / month
+              </p>
             </div>
 
             <ul className="mt-8 space-y-4 text-base font-bold text-[#e8f5e9]">
               {[
-                `Full AI stock rankings: ${metrics.totalStocks.toLocaleString("en-GB")} stocks`,
+                `Full AI stock rankings: ${metrics.totalStocks.toLocaleString(
+                  "en-GB",
+                )} stocks`,
                 "Daily AI scores and rank movements",
                 "World news and stock market impact",
                 "AI Portfolio Builder and alerts",
@@ -1052,11 +1101,11 @@ export function LandingClient({
                   type="email"
                   required
                   placeholder="Email address"
-                  className="min-h-11 flex-1 rounded-full border border-white/[0.08] bg-[#03140c] px-4 text-sm font-bold text-[#e8f5e9] outline-none placeholder:text-[#94a3b8]/60 focus:border-[#00ff88]/50"
+                  className="min-h-11 flex-1 rounded-full border border-white/[0.08] bg-[#03140c] px-4 text-sm font-bold text-[#e8f5e9] outline-none placeholder:text-[#94a3b8]/60 focus:border-[#D4AF37]/50"
                 />
                 <button
                   type="submit"
-                  className="rounded-full border border-[#00ff88]/35 px-5 py-3 text-sm font-black text-[#00ff88] transition hover:bg-[#00ff88]/10"
+                  className="rounded-full border border-[#D4AF37]/35 px-5 py-3 text-sm font-black text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
                 >
                   Join →
                 </button>
@@ -1066,10 +1115,10 @@ export function LandingClient({
         </div>
       </section>
 
-      <section id="affiliate" className="px-4 py-24 sm:px-6 lg:px-8">
-        <div className="sg-reveal mx-auto grid max-w-7xl gap-8 rounded-[2rem] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(221,177,89,0.10),rgba(255,255,255,0.035)_38%,rgba(0,255,136,0.035))] p-7 shadow-[0_30px_100px_rgba(0,0,0,0.28)] md:p-10 lg:grid-cols-[1fr_0.72fr] lg:items-center">
+      <section id="affiliate" className="px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+        <div className="sg-reveal mx-auto grid max-w-7xl gap-8 rounded-[2rem] border border-[#D4AF37]/20 bg-[linear-gradient(135deg,rgba(212,175,55,0.12),rgba(255,255,255,0.035)_38%,rgba(0,255,136,0.035))] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.28)] sm:p-8 md:p-10 lg:grid-cols-[1fr_0.72fr] lg:items-center">
           <div>
-            <p className="mb-4 inline-flex rounded-full border border-[#ddb159]/28 bg-[#ddb159]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+            <p className="mb-4 inline-flex rounded-full border border-[#D4AF37]/28 bg-[#D4AF37]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#D4AF37]">
               Affiliate Program
             </p>
             <h2 className="sg-heading text-4xl font-black text-[#e8f5e9] sm:text-5xl">
@@ -1083,7 +1132,7 @@ export function LandingClient({
           </div>
 
           <div className="rounded-[1.5rem] border border-white/[0.08] bg-white/[0.04] p-6">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#ddb159]">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D4AF37]">
               Creator partner route
             </p>
             <p className="mt-4 text-sm leading-7 text-[#94a3b8]">
@@ -1092,7 +1141,7 @@ export function LandingClient({
             </p>
             <Link
               href="/affiliate"
-              className="mt-7 inline-flex rounded-full border border-[#ddb159]/55 px-6 py-3 text-sm font-black uppercase tracking-[0.15em] text-[#ddb159] transition hover:-translate-y-1 hover:bg-[#ddb159]/10 hover:shadow-[0_20px_60px_rgba(221,177,89,0.12)]"
+              className="mt-7 inline-flex w-full justify-center rounded-full border border-[#D4AF37]/55 px-6 py-3 text-sm font-black uppercase tracking-[0.15em] text-[#D4AF37] transition hover:-translate-y-1 hover:bg-[#D4AF37]/10 hover:shadow-[0_20px_60px_rgba(212,175,55,0.12)] sm:w-auto"
             >
               Become an Affiliate →
             </Link>
@@ -1100,8 +1149,8 @@ export function LandingClient({
         </div>
       </section>
 
-      <section className="relative overflow-hidden border-y border-white/[0.08] bg-[#03140c] px-4 py-24 sm:px-6 lg:px-8">
-        <div className="sg-hero-glow pointer-events-none absolute left-1/2 top-1/2 h-[320px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#00ff88]/10 blur-3xl" />
+      <section className="relative overflow-hidden border-y border-white/[0.08] bg-[#03140c] px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+        <div className="sg-hero-glow pointer-events-none absolute left-1/2 top-1/2 h-[320px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D4AF37]/10 blur-3xl" />
         <div className="sg-reveal relative z-10 mx-auto max-w-4xl text-center">
           <h2 className="sg-heading text-5xl font-black leading-tight text-[#e8f5e9] sm:text-6xl">
             Stop guessing. Start ranking.
@@ -1137,50 +1186,54 @@ export function LandingClient({
               <span className="sg-data text-xs font-bold text-[#4a6a5a]">
                 #072116
               </span>
+              <span className="h-6 w-6 rounded-md border border-white/[0.08] bg-[#D4AF37]" />
+              <span className="sg-data text-xs font-bold text-[#4a6a5a]">
+                #D4AF37
+              </span>
             </div>
           </div>
 
           <div>
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-[#00ff88]">
+            <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">
               Platform
             </p>
             <div className="grid grid-cols-2 gap-3 text-sm font-bold text-[#94a3b8]">
-              <Link href="/" className="hover:text-[#00ff88]">
+              <Link href="/" className="hover:text-[#D4AF37]">
                 Dashboard
               </Link>
-              <Link href="/rankings" className="hover:text-[#00ff88]">
+              <Link href="/rankings" className="hover:text-[#D4AF37]">
                 Rankings
               </Link>
-              <Link href="/portfolio" className="hover:text-[#00ff88]">
+              <Link href="/portfolio" className="hover:text-[#D4AF37]">
                 Portfolio
               </Link>
-              <Link href="/world-news" className="hover:text-[#00ff88]">
+              <Link href="/world-news" className="hover:text-[#D4AF37]">
                 News
               </Link>
-              <Link href="/pricing" className="hover:text-[#00ff88]">
+              <Link href="/pricing" className="hover:text-[#D4AF37]">
                 Pricing
               </Link>
-              <Link href="/affiliate" className="hover:text-[#00ff88]">
+              <Link href="/affiliate" className="hover:text-[#D4AF37]">
                 Affiliate
               </Link>
-              <Link href="/about" className="hover:text-[#00ff88]">
+              <Link href="/about" className="hover:text-[#D4AF37]">
                 About
               </Link>
             </div>
           </div>
 
           <div>
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-[#00ff88]">
+            <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">
               Access
             </p>
             <div className="space-y-3 text-sm font-bold text-[#94a3b8]">
-              <Link href="/login" className="block hover:text-[#00ff88]">
+              <Link href="/login" className="block hover:text-[#D4AF37]">
                 Log In →
               </Link>
-              <Link href="/affiliate" className="block hover:text-[#ddb159]">
+              <Link href="/affiliate" className="block hover:text-[#D4AF37]">
                 Apply as affiliate →
               </Link>
-              <Link href="/pricing" className="block hover:text-[#00ff88]">
+              <Link href="/pricing" className="block hover:text-[#D4AF37]">
                 Subscription →
               </Link>
             </div>
