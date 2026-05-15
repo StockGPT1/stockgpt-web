@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/utils/supabase/server";
-import { getOneDayMoveMap, getTickerTape } from "@/lib/yahoo";
-import {
-  LandingClient,
-  type LandingRanking,
-  type LandingTicker,
-} from "./LandingClient";
+import { getTickerTape } from "@/lib/yahoo";
+import { LandingClient, type LandingTicker } from "./LandingClient";
 
 export const dynamic = "force-dynamic";
 
@@ -14,22 +10,6 @@ export const metadata: Metadata = {
   description:
     "Unlock AI-powered stock rankings, portfolio tools, market news and investment research for investors who want clarity, not noise.",
 };
-
-type RankingRow = {
-  id: string | number;
-  rank: number | null;
-  ticker: string | null;
-  company: string | null;
-  sector: string | null;
-  score: number | string | null;
-  price: number | string | null;
-  updated_at: string | null;
-};
-
-function numberOrNull(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function formatUpdatedAt(value: string | null | undefined) {
   if (!value) return "Awaiting live update";
@@ -53,67 +33,38 @@ function getSentiment(bullishPct: number) {
 export default async function LandingPage() {
   const supabase = await createClient();
 
-  const [{ data: rankingsData }, { count: totalCount }, { count: bullishCount }] =
+  const [{ count: totalCount }, { count: bullishCount }, { data: latestRows }] =
     await Promise.all([
-      supabase
-        .from("stock_rankings")
-        .select("id,rank,ticker,company,sector,score,price,updated_at")
-        .order("rank", { ascending: true })
-        .limit(10),
       supabase.from("stock_rankings").select("*", { count: "exact", head: true }),
       supabase
         .from("stock_rankings")
         .select("*", { count: "exact", head: true })
         .gte("score", 7000),
+      supabase
+        .from("stock_rankings")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1),
     ]);
 
-  const rankings = (rankingsData ?? []) as RankingRow[];
+  const publicTickerUniverse = [
+    "^GSPC",
+    "^IXIC",
+    "^DJI",
+    "^VIX",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "GOOGL",
+    "META",
+    "TSLA",
+    "JPM",
+    "V",
+    "MA",
+  ];
 
-  const rankingTickers = rankings
-    .map((row) => row.ticker?.trim().toUpperCase())
-    .filter((ticker): ticker is string => Boolean(ticker));
-
-  const tickerUniverse = Array.from(
-    new Set([
-      "^GSPC",
-      "^IXIC",
-      "^DJI",
-      "^VIX",
-      ...rankingTickers.slice(0, 10),
-      "AAPL",
-      "MSFT",
-      "NVDA",
-      "AMZN",
-      "GOOGL",
-      "META",
-    ]),
-  );
-
-  const [moveMap, tickerTapeData] = await Promise.all([
-    getOneDayMoveMap(rankingTickers),
-    getTickerTape(tickerUniverse),
-  ]);
-
-  const liveRankings: LandingRanking[] = rankings.map((row, index) => {
-    const ticker = row.ticker?.trim().toUpperCase() ?? "";
-    const liveMove = ticker ? moveMap.get(ticker) : undefined;
-    const dbPrice = numberOrNull(row.price);
-    const livePrice = liveMove?.currentPrice ?? dbPrice;
-    const score = numberOrNull(row.score);
-
-    return {
-      id: String(row.id ?? `${ticker}-${index}`),
-      rank: row.rank ?? index + 1,
-      ticker,
-      company: row.company ?? ticker,
-      sector: row.sector ?? "—",
-      price: livePrice,
-      score,
-      movePct: liveMove?.changePct ?? null,
-      updatedAt: row.updated_at,
-      locked: true,
-    };
-  });
+  const tickerTapeData = await getTickerTape(publicTickerUniverse);
 
   const liveTickerTape: LandingTicker[] = tickerTapeData.map((item) => ({
     symbol: item.symbol,
@@ -123,19 +74,14 @@ export default async function LandingPage() {
     changePct: item.changePct,
   }));
 
-  const totalStocks = totalCount ?? rankings.length;
+  const totalStocks = totalCount ?? 0;
   const bullishPct =
     totalStocks > 0 ? Math.round(((bullishCount ?? 0) / totalStocks) * 100) : 0;
 
-  const latestUpdate =
-    rankings
-      .map((row) => row.updated_at)
-      .filter((value): value is string => Boolean(value))
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+  const latestUpdate = latestRows?.[0]?.updated_at ?? null;
 
   return (
     <LandingClient
-      rankings={liveRankings}
       tickerTape={liveTickerTape}
       metrics={{
         totalStocks,
