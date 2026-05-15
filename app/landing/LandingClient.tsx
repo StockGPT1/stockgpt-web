@@ -267,6 +267,7 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
     <div className="sg-marquee-wrap relative overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#061b12]/78 py-2.5 shadow-[0_20px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#061b12] to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#061b12] to-transparent" />
+
       <div className="sg-marquee-track flex w-max items-center gap-2.5">
         {repeated.map((item, index) => (
           <Link
@@ -441,6 +442,7 @@ function LockedRankingPreview({ metrics }: { metrics: LandingMetrics }) {
     </div>
   );
 }
+
 export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
   const pageRef = useRef<HTMLElement | null>(null);
   const [navScrolled, setNavScrolled] = useState(false);
@@ -1082,18 +1084,35 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               )}
             </div>
 
-            <div className="hidden sm:block">
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link
+                href="/"
+                className="sg-magnetic group relative inline-flex items-center justify-center overflow-hidden rounded-full border border-[#00ff88]/35 bg-[#00ff88]/[0.06] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#00ff88] backdrop-blur transition-all duration-500 hover:-translate-y-1 hover:border-[#00ff88] hover:bg-[#00ff88]/10 hover:shadow-[0_18px_50px_rgba(0,255,136,0.14)]"
+              >
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#00ff88]/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                <span className="relative z-10">View Dashboard →</span>
+              </Link>
+
               <GhostButton href="/login" compact>
                 Log In →
               </GhostButton>
             </div>
 
-            <Link
-              href="/login"
-              className="rounded-full border border-[#ddb159]/45 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] sm:hidden"
-            >
-              Login
-            </Link>
+            <div className="flex items-center gap-2 sm:hidden">
+              <Link
+                href="/"
+                className="rounded-full border border-[#00ff88]/40 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#00ff88]"
+              >
+                Dashboard
+              </Link>
+
+              <Link
+                href="/login"
+                className="rounded-full border border-[#ddb159]/45 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]"
+              >
+                Login
+              </Link>
+            </div>
           </div>
         </nav>
 
@@ -1165,7 +1184,13 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   <div className="pointer-events-none absolute -right-20 -top-20 h-[360px] w-[360px] opacity-[0.07]">
                     <svg viewBox="0 0 500 600" className="h-full w-full">
                       <defs>
-                        <linearGradient id="heroFlame" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <linearGradient
+                          id="heroFlame"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="100%"
+                        >
                           <stop offset="0%" stopColor="#ddb159" />
                           <stop offset="100%" stopColor="#f0c867" />
                         </linearGradient>
