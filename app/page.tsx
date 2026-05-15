@@ -150,7 +150,11 @@ export default async function Home() {
 
   const rankingsLocked = !hasSubscription;
 
-  const [{ data: rankingsData }, { data: moverUniverseData }] = await Promise.all([
+  const [
+    { data: rankingsData },
+    { data: topGainerUniverseData },
+    { data: loserUniverseData },
+  ] = await Promise.all([
     supabase
       .from("stock_rankings")
       .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -160,15 +164,28 @@ export default async function Home() {
       .from("stock_rankings")
       .select("ticker")
       .order("rank", { ascending: true })
-      .limit(500),
+      .limit(20),
+    supabase
+      .from("stock_rankings")
+      .select("ticker,rank")
+      .order("rank", { ascending: true })
+      .gte("rank", 252)
+      .limit(260),
   ]);
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const topRanked = rankings[0];
 
-  const moverTickerList = Array.from(
+  const topGainerTickerList = Array.from(
     new Set(
-      ((moverUniverseData ?? []) as Array<{ ticker: string | null }>)
+      ((topGainerUniverseData ?? []) as Array<{ ticker: string | null }>)
+        .map((r) => r.ticker)
+        .filter((t): t is string => !!t),
+    ),
+  );
+  const loserTickerList = Array.from(
+    new Set(
+      ((loserUniverseData ?? []) as Array<{ ticker: string | null; rank: number | null }>)
         .map((r) => r.ticker)
         .filter((t): t is string => !!t),
     ),
@@ -177,9 +194,10 @@ export default async function Home() {
     .map((r) => r.ticker)
     .filter((t): t is string => !!t);
 
-  const [sp500Data, movers, snapshotMap, dailyMoveMap] = await Promise.all([
+  const [sp500Data, topGainerMovers, topLoserMovers, snapshotMap, dailyMoveMap] = await Promise.all([
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
-    getTopMovers(moverTickerList, 8),
+    getTopMovers(topGainerTickerList, 8),
+    getTopMovers(loserTickerList, 8),
     getRankSnapshotMapAround24hAgo(supabase),
     getOneDayMoveMap(dashboardTickerList),
   ]);
@@ -211,8 +229,8 @@ export default async function Home() {
     "grid-cols-[34px_92px_minmax(0,1fr)_60px_112px_76px_78px]";
 
   const sp500DailyChangePct = getChartChangePct(sp500Data, "1D");
-  const topGainers = movers.gainers.slice(0, 3);
-  const topLosers = movers.losers.slice(0, 3);
+  const topGainers = topGainerMovers.gainers.slice(0, 3);
+  const topLosers = topLoserMovers.losers.slice(0, 3);
 
   return (
     <AppShell activePath="/">
