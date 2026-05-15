@@ -306,7 +306,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
+        <section className="sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
