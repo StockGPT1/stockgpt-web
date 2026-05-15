@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
-import { StockLogo } from "@/components/StockLogo";
 
 export type LandingRanking = {
   id: string;
@@ -78,23 +77,23 @@ const features = [
   {
     id: "rankings",
     icon: "♛",
-    title: "AI Stock Rankings",
+    title: "Locked AI Rankings",
     copy:
-      "Every trading day, StockGPT scores the market across quality, growth, valuation, momentum, risk and income. The result is a ranked list that tells you where the strongest opportunities sit.",
+      "See which stocks StockGPT ranks highest right now. The public page shows that the engine is live, but the actual tickers, scores and ranking order stay locked for subscribers.",
   },
   {
     id: "portfolio",
     icon: "✦",
-    title: "AI Portfolio Builder",
+    title: "Portfolio Builder",
     copy:
-      "Add your holdings and let the AI evaluate them against the ranking engine. See when a position weakens, where capital may be better allocated, and how risk is changing across your portfolio.",
+      "Turn ranking intelligence into a structured portfolio workflow. Compare holdings, spot weakening positions, and avoid relying on scattered apps or guesswork.",
   },
   {
     id: "news",
     icon: "◈",
-    title: "AI Chatbot & Market News",
+    title: "AI News Context",
     copy:
-      "Ask StockGPT about a stock, sector or portfolio. Get instant summaries of world news and market impact, filtered and ranked without the noise.",
+      "Combine market news, stock movement and ranking context in one dashboard. StockGPT helps users focus on what could matter, instead of drowning in noise.",
   },
 ];
 
@@ -117,14 +116,13 @@ const engineSteps = [
   },
   {
     title: "Rank & Deliver",
-    copy: "The final ranked list is delivered with AI summaries, portfolio context, news and research tools.",
+    copy: "Subscribers see the locked ranking table, AI summaries, portfolio context and market research tools.",
   },
 ];
 
 const navLinks = [
   { label: "Rankings", href: "#rankings-preview" },
-  { label: "Portfolio", href: "#portfolio" },
-  { label: "News", href: "#news" },
+  { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
   { label: "Affiliate", href: "/affiliate" },
 ];
@@ -158,21 +156,16 @@ function formatMoney(value: number | null) {
   })}`;
 }
 
-function formatScore(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return Math.round(value).toLocaleString("en-GB");
-}
-
 function formatMove(value: number | null) {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function toneClass(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return "text-[#94a3b8]";
+  if (value == null || !Number.isFinite(value)) return "text-[#faf6f0]/48";
   if (value > 0) return "text-[#00ff88]";
   if (value < 0) return "text-red-300";
-  return "text-[#94a3b8]";
+  return "text-[#faf6f0]/48";
 }
 
 function CheckoutButton({
@@ -194,12 +187,12 @@ function CheckoutButton({
       <button
         type="submit"
         className={[
-          "group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-[#ddb159] font-black uppercase tracking-[0.16em] text-[#06180f] shadow-[0_18px_52px_rgba(221,177,89,0.20)] transition duration-300 hover:-translate-y-1 hover:bg-[#f0c867] hover:shadow-[0_24px_70px_rgba(221,177,89,0.34)] active:translate-y-0",
+          "group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-[#ddb159] font-black uppercase tracking-[0.16em] text-[#06180f] shadow-[0_18px_52px_rgba(221,177,89,0.22)] transition duration-300 hover:-translate-y-1 hover:bg-[#f0c867] hover:shadow-[0_24px_70px_rgba(221,177,89,0.36)] active:translate-y-0",
           full ? "w-full" : "max-sm:w-full",
           compact ? "px-4 py-2.5 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
         ].join(" ")}
       >
-        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent transition duration-700 group-hover:translate-x-full" />
+        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition duration-700 group-hover:translate-x-full" />
         <span className="relative z-10">
           {children}{" "}
           <span className="inline-block transition group-hover:translate-x-1">
@@ -336,13 +329,15 @@ function MetricCard({
   );
 }
 
-function DashboardPreview({
+function LockedRankingPreview({
   rankings,
   metrics,
 }: {
   rankings: LandingRanking[];
   metrics: LandingMetrics;
 }) {
+  const lockedRows = rankings.length > 0 ? rankings.slice(0, 8) : Array.from({ length: 8 });
+
   return (
     <div
       id="rankings-preview"
@@ -354,16 +349,16 @@ function DashboardPreview({
         <div className="flex flex-col gap-3 border-b border-[#ddb159]/16 p-3 sm:p-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#ddb159] sm:text-[10px]">
-              ✦ Live AI Rankings
+              ✦ Subscriber Intelligence
             </p>
             <h2 className="sg-heading mt-1 text-2xl font-black text-[#faf6f0] sm:text-3xl">
-              Top Ranked Stocks
+              Live Rankings Locked
             </h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-[#00ff88]/25 bg-[#00ff88]/8 px-3 py-1.5 text-[10px] font-black text-[#00ff88] sm:text-[11px]">
-              Bullish: {metrics.bullishPct}% — {metrics.sentiment}
+              Engine live
             </span>
             <span className="rounded-full border border-[#ddb159]/20 bg-[#ddb159]/8 px-3 py-1.5 text-[10px] font-bold text-[#ddb159] sm:text-[11px]">
               Updated: {metrics.lastUpdatedLabel}
@@ -372,110 +367,70 @@ function DashboardPreview({
         </div>
 
         <div className="relative overflow-hidden">
-          <div className="grid grid-cols-[34px_minmax(0,1fr)_82px] border-b border-white/[0.08] px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-[#faf6f0]/45 sm:px-4 md:grid-cols-[42px_112px_minmax(150px,1fr)_90px_90px] md:text-[10px]">
+          <div className="grid grid-cols-[42px_minmax(0,1fr)_90px] border-b border-white/[0.08] px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-[#faf6f0]/45 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px] md:text-[10px]">
             <span>#</span>
-            <span>Ticker</span>
-            <span className="hidden md:block">Company</span>
+            <span>Stock</span>
+            <span className="hidden md:block">Signal</span>
             <span className="hidden md:block">Price</span>
             <span className="text-right md:text-left">Score</span>
           </div>
 
-          {rankings.length === 0 ? (
-            <div className="p-6 text-sm font-bold text-[#faf6f0]/50">
-              Live rankings are loading. Once the ranking job runs, this preview
-              will display the current top stocks automatically.
-            </div>
-          ) : (
-            <div>
-              {rankings.map((row) => (
-                <Link
-                  key={row.id}
-                  href={`/stocks/${encodeURIComponent(row.ticker)}`}
-                  className="group grid grid-cols-[34px_minmax(0,1fr)_82px] items-center border-b border-white/[0.06] px-3 py-3 transition duration-300 hover:bg-[#ddb159]/8 sm:px-4 md:grid-cols-[42px_112px_minmax(150px,1fr)_90px_90px]"
-                >
-                  <span
-                    className={[
-                      "sg-data text-sm font-black",
-                      row.rank <= 3 ? "text-[#ddb159]" : "text-[#faf6f0]/48",
-                      row.locked ? "blur-[2px]" : "",
-                    ].join(" ")}
-                  >
-                    {row.rank}
-                  </span>
+          <div>
+            {lockedRows.map((_, index) => (
+              <div
+                key={`locked-${index}`}
+                className="grid grid-cols-[42px_minmax(0,1fr)_90px] items-center border-b border-white/[0.06] px-3 py-3 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px]"
+              >
+                <span className="sg-data text-sm font-black text-[#ddb159]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
 
-                  <span
-                    className={[
-                      "flex min-w-0 items-center gap-2",
-                      row.locked ? "blur-[2px]" : "",
-                    ].join(" ")}
-                  >
-                    <StockLogo
-                      ticker={row.ticker}
-                      company={row.company}
-                      size={24}
-                    />
-                    <span className="min-w-0">
-                      <span className="sg-data block truncate text-sm font-black text-[#faf6f0]">
-                        {row.ticker}
-                      </span>
-                      <span className="block truncate text-[10px] font-bold text-[#faf6f0]/45 md:hidden">
-                        {row.company}
-                      </span>
-                      <span className="sg-data block text-[10px] text-[#faf6f0]/45 md:hidden">
-                        {formatMoney(row.price)} ·{" "}
-                        <span className={toneClass(row.movePct)}>
-                          {formatMove(row.movePct)}
-                        </span>
-                      </span>
-                      <span
-                        className={[
-                          "sg-data hidden text-[10px] md:block",
-                          toneClass(row.movePct),
-                        ].join(" ")}
-                      >
-                        {formatMove(row.movePct)}
-                      </span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/25 bg-[#ddb159]/10 text-[9px] font-black text-[#ddb159]">
+                    🔒
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#faf6f0]">
+                      Subscriber stock locked
+                    </span>
+                    <span className="block truncate text-[10px] font-bold text-[#faf6f0]/38">
+                      Unlock to view ticker, company and rank movement
                     </span>
                   </span>
+                </span>
 
-                  <span
-                    className={[
-                      "hidden truncate text-sm font-bold text-[#faf6f0]/50 md:block",
-                      row.locked ? "blur-[2px]" : "",
-                    ].join(" ")}
-                  >
-                    {row.company}
-                  </span>
+                <span className="hidden truncate text-sm font-bold text-[#faf6f0]/42 md:block">
+                  AI signal hidden
+                </span>
 
-                  <span
-                    className={[
-                      "sg-data hidden text-sm font-bold text-[#faf6f0]/82 md:block",
-                      row.locked ? "blur-[2px]" : "",
-                    ].join(" ")}
-                  >
-                    {formatMoney(row.price)}
-                  </span>
+                <span className="sg-data hidden text-sm font-bold text-[#faf6f0]/38 md:block">
+                  Locked
+                </span>
 
-                  <span
-                    className={[
-                      "sg-data text-right text-sm font-black text-[#00ff88] drop-shadow-[0_0_14px_rgba(0,255,136,0.35)] md:text-left",
-                      row.locked ? "blur-[2px]" : "",
-                    ].join(" ")}
-                  >
-                    {formatScore(row.score)}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
+                <span className="sg-data text-right text-sm font-black text-[#00ff88] md:text-left">
+                  ••••
+                </span>
+              </div>
+            ))}
+          </div>
 
-          {rankings.length > 5 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[44%] items-center justify-center bg-gradient-to-b from-[#06180f]/10 via-[#06180f]/72 to-[#06180f]/94 px-4">
-              <div className="pointer-events-auto rounded-full border border-[#ddb159]/35 bg-[#04180f]/92 px-4 py-3 text-center text-xs font-black text-[#faf6f0] shadow-[0_0_36px_rgba(221,177,89,0.16)] backdrop-blur-xl sm:px-5 sm:text-sm">
-                🔒 Subscribe to unlock full rankings
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-[#04180f]/22 via-[#04180f]/70 to-[#04180f]/92 px-4">
+            <div className="pointer-events-auto max-w-[420px] rounded-[1.4rem] border border-[#ddb159]/35 bg-[#04180f]/94 p-5 text-center shadow-[0_0_46px_rgba(221,177,89,0.20)] backdrop-blur-xl">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+                Rankings are subscriber-only
+              </p>
+              <h3 className="sg-heading mt-2 text-3xl font-black text-[#faf6f0]">
+                Unlock the actual tickers.
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-[#faf6f0]/52">
+                The engine is live. The ranking order, scores and stock names are
+                protected for paying members.
+              </p>
+              <div className="mt-5 flex justify-center">
+                <CheckoutButton compact>Unlock Rankings</CheckoutButton>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -575,8 +530,6 @@ export function LandingClient({
     };
   }, []);
 
-  const topRanked = rankings[0];
-
   return (
     <main
       ref={pageRef}
@@ -614,15 +567,44 @@ export function LandingClient({
           transition: border-color 320ms ease, background-color 320ms ease, box-shadow 320ms ease;
         }
 
+        .sg-nav::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            linear-gradient(90deg, transparent, rgba(221,177,89,0.08), transparent),
+            radial-gradient(circle at 50% 0%, rgba(221,177,89,0.10), transparent 48%);
+          opacity: 0.8;
+        }
+
         .sg-nav-scrolled {
-          border-bottom-color: rgba(221,177,89,0.28);
-          background: rgba(4,24,15,0.94);
-          box-shadow: 0 16px 50px rgba(0,0,0,0.28);
+          border-bottom-color: rgba(221,177,89,0.34);
+          background: rgba(4,24,15,0.96);
+          box-shadow: 0 16px 50px rgba(0,0,0,0.32);
+        }
+
+        .sg-nav-pill {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .sg-nav-pill::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-110%);
+          background: linear-gradient(90deg, transparent, rgba(221,177,89,0.20), transparent);
+          transition: transform 700ms ease;
+        }
+
+        .sg-nav-pill:hover::after {
+          transform: translateX(110%);
         }
 
         .sg-page-bg {
           background:
-            radial-gradient(circle at 18% 8%, rgba(221,177,89,0.12), transparent 24%),
+            radial-gradient(circle at 18% 8%, rgba(221,177,89,0.13), transparent 24%),
             radial-gradient(circle at 82% 18%, rgba(0,255,136,0.07), transparent 28%),
             linear-gradient(180deg, #072116 0%, #051a11 44%, #03140c 100%);
         }
@@ -825,11 +807,11 @@ export function LandingClient({
 
         <nav
           className={[
-            "sg-nav sticky top-0 z-50 border-b border-[#ddb159]/14 bg-[#04180f]/82",
+            "sg-nav sticky top-0 z-50 border-b border-[#ddb159]/16 bg-[#04180f]/88",
             navScrolled ? "sg-nav-scrolled" : "",
           ].join(" ")}
         >
-          <div className="mx-auto flex h-[62px] max-w-[1540px] items-center justify-between px-4 sm:h-[68px] sm:px-6 lg:px-8">
+          <div className="relative mx-auto flex h-[64px] max-w-[1540px] items-center justify-between px-4 sm:h-[70px] sm:px-6 lg:px-8">
             <Link href="/landing" className="flex items-center gap-3">
               <div className="relative h-9 w-[132px] sm:h-10 sm:w-[155px]">
                 <Image
@@ -837,7 +819,7 @@ export function LandingClient({
                   alt="StockGPT"
                   fill
                   priority
-                  className="object-contain object-left drop-shadow-[0_0_18px_rgba(221,177,89,0.16)]"
+                  className="object-contain object-left drop-shadow-[0_0_18px_rgba(221,177,89,0.18)]"
                   sizes="155px"
                 />
               </div>
@@ -846,13 +828,13 @@ export function LandingClient({
               </span>
             </Link>
 
-            <div className="hidden items-center gap-7 lg:flex">
+            <div className="hidden rounded-full border border-[#ddb159]/18 bg-[#061b12]/72 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_14px_40px_rgba(0,0,0,0.20)] lg:flex">
               {navLinks.map((item) =>
                 item.href.startsWith("#") ? (
                   <a
                     key={item.href}
                     href={item.href}
-                    className="text-sm font-bold text-[#faf6f0]/78 transition hover:text-[#ddb159]"
+                    className="sg-nav-pill rounded-full px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-[#faf6f0]/72 transition hover:bg-[#ddb159]/10 hover:text-[#ddb159]"
                   >
                     {item.label}
                   </a>
@@ -860,7 +842,7 @@ export function LandingClient({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="text-sm font-bold text-[#faf6f0]/78 transition hover:text-[#ddb159]"
+                    className="sg-nav-pill rounded-full px-5 py-2 text-sm font-black uppercase tracking-[0.12em] text-[#faf6f0]/72 transition hover:bg-[#ddb159]/10 hover:text-[#ddb159]"
                   >
                     {item.label}
                   </Link>
@@ -894,15 +876,14 @@ export function LandingClient({
                   {metrics.totalStocks.toLocaleString("en-GB")}
                 </p>
                 <p className="mt-1 text-xs font-bold text-[#faf6f0]/42">
-                  stocks ranked
+                  stocks scanned
                 </p>
               </div>
 
               <nav className="space-y-2">
                 {[
                   ["♛", "Rankings", "#rankings-preview"],
-                  ["✦", "Portfolio", "#portfolio"],
-                  ["◈", "News", "#news"],
+                  ["✦", "Features", "#features"],
                   ["◎", "Pricing", "#pricing"],
                   ["◇", "Affiliate", "/affiliate"],
                 ].map(([icon, label, href]) =>
@@ -940,7 +921,7 @@ export function LandingClient({
                   {metrics.sentiment}
                 </p>
                 <p className="mt-1 text-xs font-bold leading-5 text-[#faf6f0]/42">
-                  Based on live bullish percentage from the ranking table.
+                  Live ranking engine active. Full table unlocks after access.
                 </p>
               </div>
             </aside>
@@ -953,11 +934,11 @@ export function LandingClient({
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00ff88] opacity-75" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00ff88]" />
                     </span>
-                    AI-Powered Stock Intelligence
+                    Subscriber-only stock intelligence
                   </div>
 
                   <h1 className="sg-heading mt-5 max-w-4xl text-[42px] font-black leading-[0.92] text-[#faf6f0] sm:text-[58px] lg:text-[64px] 2xl:text-[76px]">
-                    {"The market ranks itself. You just need to know who's at the top."
+                    {"Unlock the stocks StockGPT ranks highest before the noise catches up."
                       .split(" ")
                       .map((word, index) => (
                         <span
@@ -973,24 +954,24 @@ export function LandingClient({
                   </h1>
 
                   <p className="mt-5 max-w-2xl text-base leading-8 text-[#faf6f0]/58 sm:text-lg">
-                    StockGPT ranks{" "}
+                    StockGPT scans{" "}
                     <span className="sg-data font-black text-[#ddb159]">
                       {metrics.totalStocks.toLocaleString("en-GB")}
                     </span>{" "}
-                    US stocks using AI signals across fundamentals, momentum and
-                    risk, so you always know where to look.
+                    US stocks and locks the actual ranking order, tickers and AI
+                    scores behind subscriber access.
                   </p>
 
                   <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                    <CheckoutButton>Unlock Access</CheckoutButton>
+                    <CheckoutButton>Unlock Rankings</CheckoutButton>
                     <GhostButton href="/login">Log In</GhostButton>
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-3">
                     <MetricCard
-                      label="Top ranked"
-                      value={topRanked?.ticker ?? "—"}
-                      sub={topRanked?.company ?? "live ranking"}
+                      label="Ranking table"
+                      value="Locked"
+                      sub="subscriber-only tickers"
                     />
                     <MetricCard
                       label="Bullish %"
@@ -1000,14 +981,17 @@ export function LandingClient({
                     />
                     <MetricCard
                       label="Updated"
-                      value={metrics.lastUpdatedLabel.split(",")[0] ?? metrics.lastUpdatedLabel}
+                      value={
+                        metrics.lastUpdatedLabel.split(",")[0] ??
+                        metrics.lastUpdatedLabel
+                      }
                       sub="latest model run"
                     />
                   </div>
                 </div>
 
                 <div className="grid gap-3">
-                  <DashboardPreview rankings={rankings} metrics={metrics} />
+                  <LockedRankingPreview rankings={rankings} metrics={metrics} />
                   <TickerMarquee tickerTape={tickerTape} />
                 </div>
               </section>
@@ -1015,43 +999,78 @@ export function LandingClient({
               <section className="grid gap-3 md:grid-cols-3">
                 <div className="sg-card sg-reveal rounded-3xl p-5">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                    Rankings
+                    Immediate value
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-black">
-                    Live AI table.
+                    Know where to look.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
-                    See the strongest ranked names first, with subscriber rows
-                    intentionally locked to mirror the actual product.
+                    Instead of checking endless apps, start with the stocks the
+                    ranking engine believes deserve attention.
                   </p>
                 </div>
 
                 <div className="sg-card sg-reveal rounded-3xl p-5">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                    Portfolio
+                    Protected edge
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-black">
-                    Cleaner decisions.
+                    No free table.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
-                    Build a structured portfolio workflow instead of relying on
-                    scattered apps, headlines and guesswork.
+                    The public page proves the system is live, but subscribers
+                    unlock the real stock names, scores and order.
                   </p>
                 </div>
 
                 <div className="sg-card sg-reveal rounded-3xl p-5">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                    Intelligence
+                    Premium workflow
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-black">
-                    News with context.
+                    Research faster.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
-                    Combine rankings, market news and AI research in one premium
-                    dashboard-style experience.
+                    Rankings, portfolio context, market news and AI research sit
+                    inside one dashboard-style experience.
                   </p>
                 </div>
               </section>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
+          <div className="mx-auto max-w-[1540px] rounded-3xl border border-white/[0.08] bg-[#04180f]/74 p-5 shadow-[0_28px_100px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:p-7">
+            <div className="sg-reveal text-center">
+              <SectionLabel>Core Features</SectionLabel>
+              <h2 className="sg-heading text-4xl font-black leading-tight text-[#faf6f0] sm:text-5xl">
+                Everything needed to justify the subscription.
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-[#faf6f0]/52">
+                The ranking table is the hook. The full platform is what keeps
+                subscribers using StockGPT every day.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+              {features.map((feature) => (
+                <article
+                  id={feature.id}
+                  key={feature.title}
+                  className="sg-card sg-reveal scroll-mt-28 rounded-3xl p-6"
+                >
+                  <div className="mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-2xl border border-[#ddb159]/28 bg-[#ddb159]/10 text-3xl text-[#ddb159] shadow-[0_0_28px_rgba(221,177,89,0.10)]">
+                    {feature.icon}
+                  </div>
+                  <h3 className="sg-heading text-3xl font-black text-[#faf6f0]">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-4 text-base leading-8 text-[#faf6f0]/52">
+                    {feature.copy}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
         </section>
@@ -1136,37 +1155,6 @@ export function LandingClient({
         </section>
 
         <section className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
-          <div className="mx-auto max-w-[1540px] rounded-3xl border border-white/[0.08] bg-[#04180f]/74 p-5 shadow-[0_28px_100px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:p-7">
-            <div className="sg-reveal text-center">
-              <SectionLabel>Core Features</SectionLabel>
-              <h2 className="sg-heading text-4xl font-black leading-tight text-[#faf6f0] sm:text-5xl">
-                Everything you need. Nothing you don&apos;t.
-              </h2>
-            </div>
-
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
-              {features.map((feature) => (
-                <article
-                  id={feature.id}
-                  key={feature.title}
-                  className="sg-card sg-reveal scroll-mt-28 rounded-3xl p-6"
-                >
-                  <div className="mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-2xl border border-[#ddb159]/28 bg-[#ddb159]/10 text-3xl text-[#ddb159] shadow-[0_0_28px_rgba(221,177,89,0.10)]">
-                    {feature.icon}
-                  </div>
-                  <h3 className="sg-heading text-3xl font-black text-[#faf6f0]">
-                    {feature.title}
-                  </h3>
-                  <p className="mt-4 text-base leading-8 text-[#faf6f0]/52">
-                    {feature.copy}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
           <div className="mx-auto max-w-[1540px] rounded-3xl border border-white/[0.08] bg-[#061b12]/64 p-5 shadow-[0_28px_100px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:p-7">
             <div className="sg-reveal">
               <SectionLabel>How StockGPT Works</SectionLabel>
@@ -1174,7 +1162,8 @@ export function LandingClient({
                 How the engine thinks.
               </h2>
               <p className="mt-3 text-lg text-[#faf6f0]/52">
-                Live market inputs. AI scoring. One ranked list.
+                Live market inputs. AI scoring. A locked ranked list for
+                subscribers.
               </p>
             </div>
 
@@ -1237,7 +1226,7 @@ export function LandingClient({
 
                 <ul className="mt-7 space-y-4 text-base font-bold text-[#faf6f0]">
                   {[
-                    `Full AI stock rankings: ${metrics.totalStocks.toLocaleString(
+                    `Full locked AI stock rankings: ${metrics.totalStocks.toLocaleString(
                       "en-GB",
                     )} stocks`,
                     "Daily AI scores and rank movements",
@@ -1325,14 +1314,14 @@ export function LandingClient({
           <div className="mx-auto rounded-3xl border border-white/[0.08] bg-[#03140c]/90 p-7 text-center shadow-[0_28px_100px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-10">
             <div className="sg-reveal mx-auto max-w-4xl">
               <h2 className="sg-heading text-5xl font-black leading-tight text-[#faf6f0] sm:text-6xl">
-                Stop guessing. Start ranking.
+                Stop watching from the outside.
               </h2>
               <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#faf6f0]/52">
-                Join investors who let the AI organise the market — and focus on
-                the decisions that matter.
+                The table is live. The rankings are locked. Unlock the stock
+                names, scores and AI workflow inside StockGPT.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <CheckoutButton>Unlock Access</CheckoutButton>
+                <CheckoutButton>Unlock Rankings</CheckoutButton>
                 <GhostButton href="/login">Log In</GhostButton>
               </div>
             </div>
@@ -1355,16 +1344,6 @@ export function LandingClient({
                 AI-powered stock rankings, portfolio tools and market
                 intelligence.
               </p>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <span className="h-6 w-6 rounded-md border border-white/[0.08] bg-[#072116]" />
-                <span className="sg-data text-xs font-bold text-[#4a6a5a]">
-                  #072116
-                </span>
-                <span className="h-6 w-6 rounded-md border border-white/[0.08] bg-[#ddb159]" />
-                <span className="sg-data text-xs font-bold text-[#4a6a5a]">
-                  #ddb159
-                </span>
-              </div>
             </div>
 
             <div>
