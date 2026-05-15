@@ -46,7 +46,7 @@ export default async function SettingsPage() {
         </h1>
 
         <p className="mt-1 text-[13px] font-medium text-[#faf6f0]/50">
-          Manage your account, preferences, and security.
+          Manage your account, preferences, and StockGPT access.
         </p>
 
         <div className="mt-6 grid max-w-2xl gap-4">
@@ -144,6 +144,42 @@ export default async function SettingsPage() {
                   Manage subscription
                 </Link>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#ddb159]/35 bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-[15px] font-black tracking-[-0.02em]">
+                  Affiliate Program
+                </h2>
+
+                <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
+                  Apply to become a StockGPT partner and refer subscribers.
+                </p>
+              </div>
+
+              <Link
+                href="/affiliate"
+                style={{
+                  backgroundColor: "#072116",
+                  color: "#ddb159",
+                }}
+                className="shrink-0 rounded-full border border-[#ddb159]/40 px-4 py-2 text-center text-[12px] font-black transition hover:opacity-90"
+              >
+                Apply to be an affiliate →
+              </Link>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-[#072116]/10 px-4 py-3">
+              <p className="text-[13px] font-bold">
+                Built for finance creators, communities and partners.
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold leading-5 text-[#072116]/50">
+                The application page collects your platform, audience and
+                contact details. Approved partners receive their tracking setup
+                separately.
+              </p>
             </div>
           </section>
 
