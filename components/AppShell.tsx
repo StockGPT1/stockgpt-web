@@ -14,7 +14,6 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
   { href: "/notifications", label: "Alerts", icon: "◐" },
   { href: "/world-news", label: "World News", icon: "◈" },
-  { href: "/about", label: "About", icon: "◎" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ] as const;
 
@@ -27,64 +26,32 @@ const mobileBottomNav = [
 ] as const;
 
 function PageBackdrop({ activePath }: { activePath: string }) {
+  if (activePath === "/") return null;
+
   const variant =
-    activePath === "/"
-      ? "dashboard"
-      : activePath === "/rankings"
-        ? "rankings"
-        : activePath === "/portfolio"
-          ? "portfolio"
-          : activePath === "/watchlist"
-            ? "watchlist"
-            : activePath === "/notifications"
-              ? "alerts"
-              : activePath === "/world-news"
-                ? "news"
-                : activePath === "/about"
-                  ? "about"
-                  : activePath === "/settings"
-                    ? "settings"
-                    : "default";
+    activePath === "/rankings"
+      ? "rankings"
+      : activePath === "/portfolio"
+        ? "portfolio"
+        : activePath === "/watchlist"
+          ? "watchlist"
+          : activePath === "/notifications"
+            ? "alerts"
+            : activePath === "/world-news"
+              ? "news"
+              : activePath === "/settings"
+                ? "settings"
+                : "default";
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(221,177,89,0.08),transparent_30%),radial-gradient(circle_at_82%_14%,rgba(0,255,136,0.045),transparent_28%),linear-gradient(180deg,rgba(250,246,240,0.015),transparent_38%)]" />
-
-      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(221,177,89,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(221,177,89,0.035)_1px,transparent_1px)] [background-size:72px_72px] [mask-image:radial-gradient(circle_at_50%_18%,black,transparent_76%)] motion-safe:animate-[sgAmbientGrid_28s_linear_infinite]" />
-
-      <div className="absolute left-[18%] top-[-18%] h-[420px] w-[640px] rounded-full bg-[#ddb159]/[0.055] blur-3xl motion-safe:animate-[sgAmbientGlow_7s_ease-in-out_infinite]" />
-      <div className="absolute bottom-[-18%] right-[-10%] h-[420px] w-[520px] rounded-full bg-[#00ff88]/[0.035] blur-3xl motion-safe:animate-[sgAmbientGlow_9s_ease-in-out_infinite]" />
-
-      {variant === "dashboard" && (
-        <>
-          <div className="absolute right-[4%] top-[8%] h-[340px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.03] blur-[1px]" />
-          <svg
-            className="absolute right-[5%] top-[11%] h-[230px] w-[540px] opacity-[0.12]"
-            viewBox="0 0 540 230"
-            fill="none"
-          >
-            <path
-              d="M8 188 C74 154 116 162 168 118 C228 66 260 102 322 72 C392 38 442 58 532 18"
-              stroke="#ddb159"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
-            <path
-              d="M8 188 C74 154 116 162 168 118 C228 66 260 102 322 72 C392 38 442 58 532 18"
-              stroke="#faf6f0"
-              strokeWidth="1"
-              strokeLinecap="round"
-              opacity="0.35"
-            />
-          </svg>
-        </>
-      )}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.065),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(250,246,240,0.035),transparent_26%)]" />
 
       {variant === "rankings" && (
         <>
-          <div className="absolute right-[-8%] top-[8%] h-[320px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[linear-gradient(135deg,rgba(221,177,89,0.09),transparent_55%)] blur-[1px]" />
+          <div className="absolute right-[-8%] top-[8%] h-[320px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[linear-gradient(135deg,rgba(221,177,89,0.08),transparent_55%)] blur-[1px]" />
           <svg
-            className="absolute right-[4%] top-[10%] h-[230px] w-[520px] opacity-[0.14]"
+            className="absolute right-[4%] top-[10%] h-[230px] w-[520px] opacity-[0.13]"
             viewBox="0 0 520 230"
             fill="none"
           >
@@ -108,7 +75,7 @@ function PageBackdrop({ activePath }: { activePath: string }) {
       {variant === "portfolio" && (
         <>
           <div className="absolute bottom-[-18%] right-[3%] h-[420px] w-[420px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.045] blur-[2px]" />
-          <div className="absolute right-[9%] top-[16%] grid h-[180px] w-[230px] grid-cols-5 items-end gap-3 opacity-[0.1]">
+          <div className="absolute right-[9%] top-[16%] grid h-[180px] w-[230px] grid-cols-5 items-end gap-3 opacity-[0.09]">
             <span className="h-[42%] rounded-t bg-[#ddb159]" />
             <span className="h-[62%] rounded-t bg-[#ddb159]" />
             <span className="h-[35%] rounded-t bg-[#ddb159]" />
@@ -121,7 +88,7 @@ function PageBackdrop({ activePath }: { activePath: string }) {
       {variant === "watchlist" && (
         <>
           <div className="absolute right-[8%] top-[12%] h-[300px] w-[300px] rounded-full border border-[#ddb159]/12" />
-          <div className="absolute right-[15%] top-[21%] text-[190px] leading-none text-[#ddb159]/[0.06]">
+          <div className="absolute right-[15%] top-[21%] text-[190px] leading-none text-[#ddb159]/[0.055]">
             ☆
           </div>
         </>
@@ -138,10 +105,10 @@ function PageBackdrop({ activePath }: { activePath: string }) {
 
       {variant === "news" && (
         <>
-          <div className="absolute right-[7%] top-[6%] h-[300px] w-[620px] rounded-full bg-[#ddb159]/[0.045] blur-3xl" />
-          <div className="absolute left-[20%] top-[14%] h-px w-[62%] bg-gradient-to-r from-transparent via-[#ddb159]/16 to-transparent" />
+          <div className="absolute right-[7%] top-[6%] h-[300px] w-[620px] rounded-full bg-[#ddb159]/[0.035] blur-3xl" />
+          <div className="absolute left-[20%] top-[14%] h-px w-[62%] bg-gradient-to-r from-transparent via-[#ddb159]/12 to-transparent" />
           <svg
-            className="absolute right-[6%] top-[9%] h-[170px] w-[520px] opacity-[0.08]"
+            className="absolute right-[6%] top-[9%] h-[170px] w-[520px] opacity-[0.07]"
             viewBox="0 0 520 170"
             fill="none"
           >
@@ -163,31 +130,17 @@ function PageBackdrop({ activePath }: { activePath: string }) {
         </>
       )}
 
-      {variant === "about" && (
-        <>
-          <div className="absolute right-[5%] top-[8%] h-[340px] w-[620px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.04] blur-[1px]" />
-          <div className="absolute right-[14%] top-[15%] grid h-[160px] w-[360px] grid-cols-6 items-end gap-3 opacity-[0.09]">
-            <span className="h-[40%] rounded-t bg-[#ddb159]" />
-            <span className="h-[75%] rounded-t bg-[#ddb159]" />
-            <span className="h-[55%] rounded-t bg-[#ddb159]" />
-            <span className="h-full rounded-t bg-[#ddb159]" />
-            <span className="h-[68%] rounded-t bg-[#ddb159]" />
-            <span className="h-[88%] rounded-t bg-[#ddb159]" />
-          </div>
-        </>
-      )}
-
       {variant === "settings" && (
         <>
           <div className="absolute right-[10%] top-[13%] h-[260px] w-[260px] rounded-full border border-[#ddb159]/10" />
           <div className="absolute right-[15%] top-[20%] h-[160px] w-[160px] rounded-full border border-[#ddb159]/10" />
-          <div className="absolute right-[20%] top-[27%] h-[70px] w-[70px] rounded-full bg-[#ddb159]/[0.06]" />
+          <div className="absolute right-[20%] top-[27%] h-[70px] w-[70px] rounded-full bg-[#ddb159]/[0.055]" />
         </>
       )}
 
       {variant === "default" && (
         <svg
-          className="absolute right-[5%] top-[12%] h-[220px] w-[500px] opacity-[0.11]"
+          className="absolute right-[5%] top-[12%] h-[220px] w-[500px] opacity-[0.1]"
           viewBox="0 0 500 220"
           fill="none"
         >
@@ -216,9 +169,7 @@ export async function AppShell({
     <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <PremiumInteractionEffects />
 
-      <header className="sg-glass-panel relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-x-0 border-t-0 border-[#ddb159]/20 bg-[#04180f]/94 px-3 shadow-[0_8px_34px_rgba(0,0,0,0.32),0_0_70px_rgba(221,177,89,0.045)] sm:px-5">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(221,177,89,0.10),transparent_52%),linear-gradient(90deg,transparent,rgba(221,177,89,0.055),transparent)]" />
-
+      <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
         <Link
           href="/"
           className="sg-no-premium absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
@@ -228,22 +179,22 @@ export async function AppShell({
             alt="StockGPT"
             fill
             priority
-            className="object-contain object-center drop-shadow-[0_6px_16px_rgba(221,177,89,0.16)] md:object-left"
+            className="object-contain object-center drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)] md:object-left"
             sizes="(max-width: 768px) 155px, 205px"
           />
         </Link>
 
-        <div className="relative hidden min-w-0 flex-1 md:flex">
+        <div className="hidden min-w-0 flex-1 md:flex">
           <SearchBar />
         </div>
 
-        <div className="relative ml-auto hidden shrink-0 items-center gap-2 md:flex">
+        <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
           <AskStockGPTButton />
 
           <Link
             href="/notifications"
             aria-label="Notifications"
-            className="sg-app-sheen relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 bg-[#061b12]/70 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_22px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.16)]"
+            className="relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -266,7 +217,7 @@ export async function AppShell({
           <Link
             href="/settings"
             aria-label="Account settings"
-            className="sg-app-sheen grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 bg-[#061b12]/70 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_22px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.16)]"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -284,7 +235,7 @@ export async function AppShell({
         <Link
           href="/settings"
           aria-label="Account settings"
-          className="sg-no-premium absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 bg-[#061b12]/70 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
+          className="absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
         >
           <svg
             viewBox="0 0 24 24"
@@ -301,7 +252,7 @@ export async function AppShell({
 
       <TickerTape />
 
-      <div className="sg-glass-panel flex shrink-0 items-center gap-2 border-x-0 border-t-0 border-[#ddb159]/18 bg-[#04180f]/92 px-3 py-2 md:hidden">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
         <div className="min-w-0 flex-1">
           <SearchBar />
         </div>
@@ -312,7 +263,7 @@ export async function AppShell({
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="sg-glass-panel hidden h-full w-[178px] shrink-0 border-y-0 border-l-0 border-[#ddb159]/16 bg-[#061b12]/84 px-3 py-4 shadow-[10px_0_30px_rgba(0,0,0,0.20)] lg:block">
+        <aside className="hidden h-full w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4 lg:block">
           <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
@@ -323,9 +274,9 @@ export async function AppShell({
                   key={item.href}
                   href={item.href}
                   className={[
-                    "sg-app-sheen group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
+                    "group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
                     isActive
-                      ? "border-[#ddb159] bg-[#ddb159]/14 text-[#faf6f0] shadow-[0_0_26px_rgba(221,177,89,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]"
+                      ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0] shadow-[0_0_22px_rgba(221,177,89,0.08)]"
                       : "border-transparent text-[#faf6f0]/78 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 hover:text-[#faf6f0]",
                   ].join(" ")}
                 >
@@ -338,7 +289,7 @@ export async function AppShell({
                     ].join(" ")}
                   />
 
-                  <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_10px_rgba(221,177,89,0.35)]">
+                  <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110">
                     {item.icon}
                   </span>
 
@@ -355,16 +306,15 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11_46%,#03140c)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
+        <section className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
           <PageBackdrop activePath={activePath} />
-
-          <div className="relative z-10 min-h-full motion-safe:animate-[sgFloatUp_520ms_ease-out] lg:h-full lg:min-h-0">
+          <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
           </div>
         </section>
       </div>
 
-      <nav className="sg-glass-panel fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-x-0 border-b-0 border-t border-[#ddb159]/22 bg-[#04180f]/94 shadow-[0_-10px_30px_rgba(0,0,0,0.34),0_0_40px_rgba(221,177,89,0.05)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
         {mobileBottomNav.map((item) => {
           const isActive = activePath === item.href;
           const isAlerts = item.href === "/notifications";
@@ -373,15 +323,12 @@ export async function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              className={`group relative flex flex-1 flex-col items-center justify-center gap-0.5 overflow-hidden transition ${
+              className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
                 isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"
               }`}
             >
-              <span className="absolute inset-0 opacity-0 transition group-hover:bg-[#ddb159]/8 group-hover:opacity-100" />
-              <span className="relative text-xl transition duration-300 group-hover:-translate-y-0.5 group-hover:scale-110 group-hover:drop-shadow-[0_0_10px_rgba(221,177,89,0.3)]">
-                {item.icon}
-              </span>
-              <span className="relative text-[10px] font-bold">{item.label}</span>
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-[10px] font-bold">{item.label}</span>
 
               {isAlerts && unreadCount > 0 && (
                 <span className="absolute right-2 top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
@@ -390,7 +337,7 @@ export async function AppShell({
               )}
 
               {isActive && (
-                <span className="absolute inset-x-4 top-0 h-[2px] rounded-b-full bg-[#ddb159] shadow-[0_0_14px_rgba(221,177,89,0.55)]" />
+                <span className="absolute inset-x-4 top-0 h-[2px] bg-[#ddb159]" />
               )}
             </Link>
           );
