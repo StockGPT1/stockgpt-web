@@ -90,7 +90,12 @@ function resetPointerVars(element: HTMLElement) {
 export function PremiumInteractionEffects() {
   useEffect(() => {
     const root = document.querySelector<HTMLElement>(".sg-app-shell");
-    if (!root) return;
+
+    if (!root) {
+      return undefined;
+    }
+
+    const appRoot: HTMLElement = root;
 
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -161,11 +166,13 @@ export function PremiumInteractionEffects() {
     }
 
     function scan() {
-      root.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR).forEach((node) => {
-        enhanceInteractive(node);
-      });
+      appRoot
+        .querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR)
+        .forEach((node) => {
+          enhanceInteractive(node);
+        });
 
-      root.querySelectorAll<HTMLElement>(CARD_SELECTOR).forEach((node) => {
+      appRoot.querySelectorAll<HTMLElement>(CARD_SELECTOR).forEach((node) => {
         enhanceCard(node);
       });
     }
@@ -176,7 +183,7 @@ export function PremiumInteractionEffects() {
       scan();
     });
 
-    observer.observe(root, {
+    observer.observe(appRoot, {
       childList: true,
       subtree: true,
     });
