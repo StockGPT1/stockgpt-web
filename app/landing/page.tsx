@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { createClient } from "@/utils/supabase/server";
 import { getOneDayMoveMap, getTickerTape } from "@/lib/yahoo";
-import { LandingClient, type LandingRanking, type LandingTicker } from "./LandingClient";
+import {
+  LandingClient,
+  type LandingRanking,
+  type LandingTicker,
+} from "./LandingClient";
 
 export const dynamic = "force-dynamic";
 
