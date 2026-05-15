@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "StockGPT — AI Stock Rankings & Portfolio Intelligence",
   description:
-    "AI-powered stock rankings, portfolio tools, market news and investment research for investors who want clarity, not noise.",
+    "Unlock AI-powered stock rankings, portfolio tools, market news and investment research for investors who want clarity, not noise.",
 };
 
 type RankingRow = {
@@ -111,7 +111,7 @@ export default async function LandingPage() {
       score,
       movePct: liveMove?.changePct ?? null,
       updatedAt: row.updated_at,
-      locked: index >= 5,
+      locked: true,
     };
   });
 
