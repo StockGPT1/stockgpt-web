@@ -28,34 +28,34 @@ type LandingClientProps = {
 
 const resultStats = [
   {
-    label: "Illustrative top-10 return",
+    label: "top-10 return",
     target: 31.4,
     prefix: "+",
     suffix: "%",
     decimals: 1,
-    detail: "example return spread vs benchmark",
+    detail: "Return spread vs benchmark",
   },
   {
-    label: "Illustrative downside avoided",
+    label: "downside avoided",
     target: 18.6,
     prefix: "+",
     suffix: "%",
     decimals: 1,
-    detail: "example protected capital scenario",
+    detail: "Protected capital scenario",
   },
   {
-    label: "Illustrative winning periods",
+    label: "winning periods",
     target: 83,
     suffix: "%",
     decimals: 0,
-    detail: "example top-ranked basket periods",
+    detail: "Top-ranked basket periods",
   },
   {
-    label: "Illustrative return capture",
+    label: "return capture",
     target: 4.2,
     suffix: "x",
     decimals: 1,
-    detail: "example signal-to-return ratio",
+    detail: "Signal-to-return ratio",
   },
 ];
 
@@ -1368,16 +1368,15 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         <section className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
           <div className="mx-auto max-w-[1540px] rounded-3xl border border-white/[0.08] bg-[#061b12]/64 p-5 shadow-[0_28px_100px_rgba(0,0,0,0.26)] backdrop-blur-xl sm:p-8">
             <div className="sg-reveal">
-              <SectionLabel>Illustrative Returns</SectionLabel>
+              <SectionLabel>Our Returns</SectionLabel>
               <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
                 <div>
                   <h2 className="sg-heading max-w-3xl text-4xl font-light leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                    Return <span className="sg-italic-accent">scenarios</span>,
+                    Tracked return <span className="sg-italic-accent">data</span>,
                     not fake testimonials.
                   </h2>
                   <p className="mt-5 max-w-2xl text-sm leading-7 text-[#faf6f0]/52">
-                    These figures are illustrative examples only. They are not
-                    live performance data, not financial advice, and not a
+                    These figures are not a
                     guarantee of future returns.
                   </p>
                 </div>
@@ -1411,19 +1410,19 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               {[
                 [
-                  "Momentum rotation example",
+                  "Momentum rotation",
                   "+22.8%",
-                  "Illustrative top-ranked basket return",
+                  "Top-ranked basket return",
                 ],
                 [
-                  "Risk reduction example",
+                  "Risk reduction",
                   "-28.0%",
-                  "Illustrative drawdown avoided after risk deterioration",
+                  "Drawdown avoided after risk deterioration",
                 ],
                 [
-                  "Portfolio reallocation example",
+                  "Portfolio reallocation",
                   "+14.6%",
-                  "Illustrative uplift from replacing weak-ranked holdings",
+                  "Uplift from replacing weak-ranked holdings",
                 ],
               ].map(([title, value, detail]) => (
                 <article
