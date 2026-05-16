@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { TradeSetupCard } from "@/components/TradeSetupCard";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
@@ -115,16 +116,37 @@ function getEventSummary(stock: Stock, articles: NewsArticle[]) {
   } to ${stock.ticker}. The current stored event impact is ${direction}: ${positive} positive, ${neutral} neutral and ${negative} negative.`;
 }
 
+function LockIcon({ className = "size-3" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      <path d="M12 14v2" />
+    </svg>
+  );
+}
+
 function LockedInlineValue({
   unlocked,
   children,
-  placeholder = "LOCKED",
+  placeholder = "29,429",
   className = "",
+  dark = false,
 }: {
   unlocked: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   placeholder?: string;
   className?: string;
+  dark?: boolean;
 }) {
   if (unlocked) {
     return <span className={className}>{children}</span>;
@@ -133,18 +155,75 @@ function LockedInlineValue({
   return (
     <span
       className={[
-        "relative inline-flex select-none items-center gap-1.5 overflow-hidden rounded-full border border-[#ddb159]/35 bg-[linear-gradient(135deg,rgba(221,177,89,0.22),rgba(221,177,89,0.08))] px-2 py-0.5 align-middle text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159] shadow-[0_0_18px_rgba(221,177,89,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "relative inline-flex min-w-[56px] select-none items-center justify-center overflow-hidden rounded-full px-2 py-0.5 align-middle text-[10px] font-black tabular-nums tracking-[-0.02em]",
+        dark
+          ? "border border-[#072116]/20 bg-[#072116]/10 text-[#072116]/65"
+          : "border border-[#ddb159]/22 bg-[#ddb159]/10 text-[#ddb159]/80",
         className,
       ].join(" ")}
-      aria-label="Locked subscriber data"
-      title="Subscriber-only StockGPT ranking data"
+      aria-label="Subscriber-only StockGPT data"
+      title="Subscriber-only StockGPT data"
     >
-      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.16),transparent)] opacity-60" />
-      <span className="relative flex h-4 w-4 items-center justify-center rounded-full border border-[#ddb159]/40 bg-[#04180f] text-[9px] leading-none text-[#ddb159] shadow-[0_0_10px_rgba(221,177,89,0.18)]">
-        🔒
-      </span>
-      <span className="relative">{placeholder}</span>
+      <span className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.16),transparent)]" />
+      <span className="relative blur-[4px]">{placeholder}</span>
     </span>
+  );
+}
+
+function LockedMetricPreview({
+  label,
+  placeholder,
+}: {
+  label: string;
+  placeholder: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/42 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]/58">
+        {label}
+      </p>
+
+      <div className="mt-2 h-5 max-w-[96px] rounded-full border border-[#ddb159]/18 bg-[#ddb159]/10 px-2">
+        <div className="h-full w-full rounded-full bg-[linear-gradient(90deg,rgba(221,177,89,0.18),rgba(250,246,240,0.42),rgba(221,177,89,0.18))] blur-[4px]" />
+      </div>
+
+      <p className="sr-only">{placeholder}</p>
+    </div>
+  );
+}
+
+function SubscriberLockNotice() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#ddb159]/22 bg-[#04180f]/78 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#ddb159]/14 blur-3xl" />
+
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/28 bg-[#ddb159]/10 text-[#ddb159] shadow-[0_0_22px_rgba(221,177,89,0.12)]">
+            <LockIcon className="size-4" />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              Subscriber research layer
+            </p>
+
+            <p className="mt-1 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/54">
+              Ranking, AI score, valuation and trade-plan data are hidden until
+              access is unlocked. The page remains visible so you can see the
+              research structure available inside StockGPT.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/login"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105"
+        >
+          Log in to unlock →
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -162,22 +241,26 @@ function LockedTradePlanCard() {
             </p>
 
             <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
-              Suggested Levels Locked
+              Suggested Levels
             </h3>
           </div>
 
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#072116] text-lg text-[#ddb159] shadow-[0_0_24px_rgba(221,177,89,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
-            🔒
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#072116] text-[#ddb159] shadow-[0_0_24px_rgba(221,177,89,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <LockIcon className="size-4" />
           </div>
         </div>
 
         <p className="mt-3 text-[13px] font-semibold leading-6 text-[#072116]/60">
-          Sign in to view AI ranking context, AI score inputs, and the full
-          trade-plan explanation for this stock.
+          Entry, stop-loss and take-profit levels are calculated from the
+          StockGPT ranking model and live price context.
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
-          {["Entry", "Stop Loss", "Take Profit"].map((label) => (
+          {[
+            ["Entry", "$482.00"],
+            ["Stop Loss", "$451.40"],
+            ["Take Profit", "$536.80"],
+          ].map(([label, placeholder]) => (
             <div
               key={label}
               className="relative overflow-hidden rounded-xl border border-[#072116]/10 bg-white px-3 py-3"
@@ -188,16 +271,12 @@ function LockedTradePlanCard() {
                 {label}
               </p>
 
-              <div className="relative mt-2 flex h-8 items-center gap-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#ddb159]/30 bg-[#072116] text-[11px] text-[#ddb159]">
-                  🔒
-                </span>
+              <p className="relative mt-1 select-none text-[22px] font-black leading-none tracking-[-0.04em] text-[#072116]/80 blur-[5px]">
+                {placeholder}
+              </p>
 
-                <span className="h-3 flex-1 rounded-full bg-[linear-gradient(90deg,rgba(7,33,22,0.14),rgba(221,177,89,0.34),rgba(7,33,22,0.14))]" />
-              </div>
-
-              <p className="relative mt-1 text-[10px] font-semibold text-[#072116]/50">
-                Subscriber insight
+              <p className="relative mt-1 text-[10px] font-semibold text-[#072116]/48">
+                Subscriber data
               </p>
             </div>
           ))}
@@ -324,7 +403,7 @@ export default async function StockDetailPage({
 
             <div className="relative flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-[#ddb159]/70">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-[#ddb159]/70">
                   <Link href="/rankings" className="hover:text-[#ddb159]">
                     ← Rankings
                   </Link>
@@ -335,7 +414,7 @@ export default async function StockDetailPage({
                     Rank #
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="LOCKED"
+                      placeholder="128"
                     >
                       {stock.rank ?? "—"}
                     </LockedInlineValue>
@@ -379,8 +458,8 @@ export default async function StockDetailPage({
                     AI Score ·{" "}
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="LOCKED"
-                      className="border-[#072116]/30 bg-[#072116]/90 text-[#ddb159]"
+                      placeholder="29,429"
+                      dark
                     >
                       {Number(stock.score).toLocaleString()}
                     </LockedInlineValue>
@@ -390,12 +469,21 @@ export default async function StockDetailPage({
                     Days at top ·{" "}
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="LOCKED"
+                      placeholder="14"
                     >
                       {formatDaysAtTop(daysAtTop)}
                     </LockedInlineValue>
                   </span>
                 </div>
+
+                {!canSeeRankAndScore && (
+                  <div className="mt-4 grid max-w-3xl gap-2 sm:grid-cols-4">
+                    <LockedMetricPreview label="P/E Ratio" placeholder="24.6x" />
+                    <LockedMetricPreview label="Rank Movement" placeholder="+7" />
+                    <LockedMetricPreview label="Risk Grade" placeholder="B+" />
+                    <LockedMetricPreview label="Model Signal" placeholder="Bullish" />
+                  </div>
+                )}
               </div>
 
               <div className="shrink-0">
@@ -407,6 +495,8 @@ export default async function StockDetailPage({
               </div>
             </div>
           </div>
+
+          {!canSeeRankAndScore && <SubscriberLockNotice />}
 
           <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
@@ -565,8 +655,8 @@ export default async function StockDetailPage({
                           #
                           <LockedInlineValue
                             unlocked={canSeeRankAndScore}
-                            placeholder="LOCKED"
-                            className="border-[#072116]/15 bg-[#072116]/5 text-[#072116]/70"
+                            placeholder="128"
+                            dark
                           >
                             {p.rank}
                           </LockedInlineValue>
@@ -581,8 +671,8 @@ export default async function StockDetailPage({
                         >
                           <LockedInlineValue
                             unlocked={canSeeRankAndScore}
-                            placeholder="LOCKED"
-                            className="border-[#072116]/30 bg-[#072116]/90 text-[#ddb159]"
+                            placeholder="29,429"
+                            dark
                           >
                             {Number(p.score).toLocaleString()}
                           </LockedInlineValue>
