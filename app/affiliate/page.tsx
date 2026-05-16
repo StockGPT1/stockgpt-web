@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { AffiliateCandleScrollbar } from "@/components/AffiliateCandleScrollbar";
 
 export const metadata: Metadata = {
   title: "StockGPT Affiliate Program",
@@ -49,16 +50,24 @@ export default async function AffiliatePage({
   const params = searchParams ? await searchParams : {};
 
   return (
-    <main 
+    <main
       id="affiliate-scroll-root"
-      className="affiliate-page sg-candle-scrollbar sg-public-candle-scrollbar h-[100dvh] overflow-y-scroll bg-[#072116] text-[#e8f5e9]"
+      className="affiliate-page h-[100dvh] overflow-y-scroll bg-[#072116] pr-[22px] text-[#e8f5e9]"
     >
+      <AffiliateCandleScrollbar />
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600;700&family=Playfair+Display:wght@700;800;900&display=swap');
 
         .affiliate-page {
           font-family: "DM Sans", Inter, Arial, sans-serif;
           scroll-behavior: smooth;
+          scrollbar-width: none;
+        }
+
+        .affiliate-page::-webkit-scrollbar {
+          width: 0;
+          height: 0;
         }
 
         .affiliate-heading {
@@ -125,7 +134,10 @@ export default async function AffiliatePage({
 
       <header className="sticky top-0 z-40 border-b border-[#D4AF37]/18 bg-[#03140c]/82 px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/landing" className="relative h-9 w-[132px] sm:h-10 sm:w-[155px]">
+          <Link
+            href="/landing"
+            className="relative h-9 w-[132px] sm:h-10 sm:w-[155px]"
+          >
             <Image
               src="/logo.png"
               alt="StockGPT"
@@ -185,10 +197,7 @@ export default async function AffiliatePage({
                 ["12 mo", "recurring window"],
                 ["30 day", "tracking window"],
               ].map(([main, sub]) => (
-                <div
-                  key={sub}
-                  className="affiliate-card rounded-3xl p-5"
-                >
+                <div key={sub} className="affiliate-card rounded-3xl p-5">
                   <p className="affiliate-data text-4xl font-black text-[#D4AF37] drop-shadow-[0_0_22px_rgba(212,175,55,0.22)]">
                     {main}
                   </p>
@@ -235,7 +244,11 @@ export default async function AffiliatePage({
               <StatusMessage status={params.application} />
             </div>
 
-            <form action="/api/affiliate-application" method="post" className="space-y-4">
+            <form
+              action="/api/affiliate-application"
+              method="post"
+              className="space-y-4"
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#D4AF37]">
@@ -350,10 +363,7 @@ export default async function AffiliatePage({
                 "Ideal partners have audiences interested in investing, business, finance careers, AI tools or market research.",
               ],
             ].map(([title, copy]) => (
-              <article
-                key={title}
-                className="affiliate-card rounded-[1.7rem] p-6"
-              >
+              <article key={title} className="affiliate-card rounded-[1.7rem] p-6">
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#D4AF37]/28 bg-[#D4AF37]/10 text-2xl text-[#D4AF37] shadow-[0_0_28px_rgba(212,175,55,0.10)]">
                   ✦
                 </div>
@@ -384,19 +394,17 @@ export default async function AffiliatePage({
             </div>
 
             <div className="flex flex-col gap-3">
-              <a
-                href="#top"
-                className="hidden"
-                aria-hidden="true"
-              >
+              <a href="#top" className="hidden" aria-hidden="true">
                 Top
               </a>
+
               <Link
                 href="/landing"
                 className="inline-flex w-full items-center justify-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/10 px-6 py-3 text-sm font-black uppercase tracking-[0.16em] text-[#D4AF37] transition hover:-translate-y-1 hover:bg-[#D4AF37]/16"
               >
                 View Landing Page →
               </Link>
+
               <Link
                 href="/pricing"
                 className="inline-flex w-full items-center justify-center rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-black uppercase tracking-[0.16em] text-[#03140c] transition hover:-translate-y-1 hover:bg-[#ddb159]"
