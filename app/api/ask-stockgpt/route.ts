@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type EnrichedHolding, type RiskTolerance } from "@/lib/portfolio-alerts";
+import {
+  enrichHoldings,
+  type EnrichedHolding,
+  type RiskTolerance,
+} from "@/lib/portfolio-alerts";
+import { hasActiveSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +80,8 @@ function cleanHistory(value: unknown): ChatMessage[] {
         m &&
         typeof m === "object" &&
         (m as ChatMessage).role !== undefined &&
-        ((m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant") &&
+        ((m as ChatMessage).role === "user" ||
+          (m as ChatMessage).role === "assistant") &&
         typeof (m as ChatMessage).content === "string"
       );
     })
@@ -90,14 +96,6 @@ function cleanHistory(value: unknown): ChatMessage[] {
 function safeNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
-}
-
-function pct(value: number | null | undefined, decimals = 1) {
-  return Number.isFinite(value) ? `${Number(value).toFixed(decimals)}%` : "—";
-}
-
-function money(value: number | null | undefined) {
-  return Number.isFinite(value) ? `$${Number(value).toFixed(2)}` : "—";
 }
 
 function compactRankings(rows: RankingRow[]) {
@@ -125,14 +123,12 @@ function compactNews(rows: NewsRow[]) {
   }));
 }
 
-function rankPercentile(rank: number | null, totalStocks: number) {
-  if (!rank || !totalStocks) return null;
-  return Math.max(0, Math.round(100 - ((rank - 1) / totalStocks) * 100));
-}
-
 function compactHolding(h: EnrichedHolding) {
-  const stopTrigger = h.triggers.find((t) =>
-    t.type === "stop_sell" || t.type === "trailing_stop" || t.type === "exit_all",
+  const stopTrigger = h.triggers.find(
+    (t) =>
+      t.type === "stop_sell" ||
+      t.type === "trailing_stop" ||
+      t.type === "exit_all",
   );
   const takeProfitTrigger = h.triggers.find((t) => t.type === "take_profit");
   const reviewTrigger = h.triggers.find((t) => t.type === "review");
@@ -174,13 +170,25 @@ function compactHolding(h: EnrichedHolding) {
     })),
     action_plan: {
       stop_or_exit: stopTrigger
-        ? { condition: stopTrigger.condition, action: stopTrigger.action, tone: stopTrigger.tone }
+        ? {
+            condition: stopTrigger.condition,
+            action: stopTrigger.action,
+            tone: stopTrigger.tone,
+          }
         : null,
       take_profit: takeProfitTrigger
-        ? { condition: takeProfitTrigger.condition, action: takeProfitTrigger.action, tone: takeProfitTrigger.tone }
+        ? {
+            condition: takeProfitTrigger.condition,
+            action: takeProfitTrigger.action,
+            tone: takeProfitTrigger.tone,
+          }
         : null,
       review: reviewTrigger
-        ? { condition: reviewTrigger.condition, action: reviewTrigger.action, tone: reviewTrigger.tone }
+        ? {
+            condition: reviewTrigger.condition,
+            action: reviewTrigger.action,
+            tone: reviewTrigger.tone,
+          }
         : null,
       all_triggers: h.triggers.map((t) => ({
         type: t.type,
@@ -197,23 +205,51 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
   const totalCost = holdings.reduce((sum, h) => sum + h.costBasis, 0);
   const totalPnL = holdings.reduce((sum, h) => sum + h.totalPnLDollars, 0);
   const pnlPct = totalCost > 0 ? (totalPnL / totalCost) * 100 : null;
-  const criticalAlerts = holdings.flatMap((h) => h.alerts.filter((a) => a.severity === "critical").map((a) => ({ ticker: h.ticker, title: a.title })));
-  const warningAlerts = holdings.flatMap((h) => h.alerts.filter((a) => a.severity === "warning").map((a) => ({ ticker: h.ticker, title: a.title })));
+
+  const criticalAlerts = holdings.flatMap((h) =>
+    h.alerts
+      .filter((a) => a.severity === "critical")
+      .map((a) => ({ ticker: h.ticker, title: a.title })),
+  );
+
+  const warningAlerts = holdings.flatMap((h) =>
+    h.alerts
+      .filter((a) => a.severity === "warning")
+      .map((a) => ({ ticker: h.ticker, title: a.title })),
+  );
 
   const sectorExposure: Record<string, number> = {};
+
   holdings.forEach((h) => {
     const sector = h.sector ?? "Unknown";
-    sectorExposure[sector] = (sectorExposure[sector] ?? 0) + h.currentAllocationPct;
+    sectorExposure[sector] =
+      (sectorExposure[sector] ?? 0) + h.currentAllocationPct;
   });
 
-  const best = [...holdings].sort((a, b) => b.pnlPercent - a.pnlPercent).slice(0, 3);
-  const worst = [...holdings].sort((a, b) => a.pnlPercent - b.pnlPercent).slice(0, 3);
-  const weakestRanked = [...holdings].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999)).reverse().slice(0, 3);
-  const topRanked = [...holdings].sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999)).slice(0, 3);
+  const best = [...holdings]
+    .sort((a, b) => b.pnlPercent - a.pnlPercent)
+    .slice(0, 3);
+
+  const worst = [...holdings]
+    .sort((a, b) => a.pnlPercent - b.pnlPercent)
+    .slice(0, 3);
+
+  const weakestRanked = [...holdings]
+    .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
+    .reverse()
+    .slice(0, 3);
+
+  const topRanked = [...holdings]
+    .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
+    .slice(0, 3);
+
   const reviewDue = holdings
     .filter((h) => h.daysSinceReview >= 75)
     .sort((a, b) => b.daysSinceReview - a.daysSinceReview)
-    .map((h) => ({ ticker: h.ticker, days_since_review: h.daysSinceReview }));
+    .map((h) => ({
+      ticker: h.ticker,
+      days_since_review: h.daysSinceReview,
+    }));
 
   return {
     total_value: totalValue,
@@ -224,24 +260,95 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
     critical_alerts: criticalAlerts,
     warning_alerts: warningAlerts,
     sector_exposure_pct: Object.fromEntries(
-      Object.entries(sectorExposure).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Number(v.toFixed(1))]),
+      Object.entries(sectorExposure)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => [k, Number(v.toFixed(1))]),
     ),
-    best_performers: best.map((h) => ({ ticker: h.ticker, pnl_percent: h.pnlPercent, rank: h.rank, recommendation: h.recommendation })),
-    worst_performers: worst.map((h) => ({ ticker: h.ticker, pnl_percent: h.pnlPercent, rank: h.rank, recommendation: h.recommendation })),
-    strongest_ranked_holdings: topRanked.map((h) => ({ ticker: h.ticker, rank: h.rank, score: h.score, recommendation: h.recommendation })),
-    weakest_ranked_holdings: weakestRanked.map((h) => ({ ticker: h.ticker, rank: h.rank, score: h.score, recommendation: h.recommendation })),
+    best_performers: best.map((h) => ({
+      ticker: h.ticker,
+      pnl_percent: h.pnlPercent,
+      rank: h.rank,
+      recommendation: h.recommendation,
+    })),
+    worst_performers: worst.map((h) => ({
+      ticker: h.ticker,
+      pnl_percent: h.pnlPercent,
+      rank: h.rank,
+      recommendation: h.recommendation,
+    })),
+    strongest_ranked_holdings: topRanked.map((h) => ({
+      ticker: h.ticker,
+      rank: h.rank,
+      score: h.score,
+      recommendation: h.recommendation,
+    })),
+    weakest_ranked_holdings: weakestRanked.map((h) => ({
+      ticker: h.ticker,
+      rank: h.rank,
+      score: h.score,
+      recommendation: h.recommendation,
+    })),
     review_due_or_soon: reviewDue,
   };
 }
 
 function extractPossibleTickers(question: string) {
   const words = question.toUpperCase().match(/\b[A-Z]{1,5}\b/g) ?? [];
-  const ignored = new Set(["AI", "THE", "AND", "FOR", "SELL", "BUY", "HOLD", "STOP", "LOSS", "TAKE", "PROFIT", "WHAT", "WHEN", "WHY", "HOW"]);
+  const ignored = new Set([
+    "AI",
+    "THE",
+    "AND",
+    "FOR",
+    "SELL",
+    "BUY",
+    "HOLD",
+    "STOP",
+    "LOSS",
+    "TAKE",
+    "PROFIT",
+    "WHAT",
+    "WHEN",
+    "WHY",
+    "HOW",
+  ]);
+
   return Array.from(new Set(words.filter((w) => !ignored.has(w)))).slice(0, 12);
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          answer:
+            "Ask StockGPT is available to active subscribers. Please log in and subscribe to use it.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!hasActiveSubscription(profile?.subscription_status)) {
+      return NextResponse.json(
+        {
+          answer:
+            "Ask StockGPT is available to active subscribers only. Upgrade your plan to unlock portfolio intelligence, ranking context, and AI answers.",
+        },
+        { status: 403 },
+      );
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     const model = process.env.OPENROUTER_MODEL ?? "openrouter/free";
 
@@ -266,12 +373,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     const possibleTickers = extractPossibleTickers(question);
 
     const [{ data: rankingsData }, { data: newsData }] = await Promise.all([
@@ -283,15 +384,17 @@ export async function POST(req: NextRequest) {
 
       supabase
         .from("news_articles")
-        .select("title,summary,source,affected_tickers,impact,impact_reason,published_at")
+        .select(
+          "title,summary,source,affected_tickers,impact,impact_reason,published_at",
+        )
         .order("published_at", { ascending: false })
         .limit(25),
     ]);
 
     const rankings = compactRankings((rankingsData ?? []) as RankingRow[]);
     const news = compactNews((newsData ?? []) as NewsRow[]);
-    const latestRankingUpdate = rankings.map((r) => r.updated_at).find(Boolean) ?? null;
-    const totalRanked = rankings.length || 500;
+    const latestRankingUpdate =
+      rankings.map((r) => r.updated_at).find(Boolean) ?? null;
 
     let portfolio: null | {
       meta: PortfolioRow;
@@ -299,56 +402,68 @@ export async function POST(req: NextRequest) {
       holdings: ReturnType<typeof compactHolding>[];
     } = null;
 
-    if (user) {
-      const { data: savedPortfolio } = await supabase
-        .from("user_portfolios")
-        .select("id,name,risk_tolerance,time_horizon,investment_amount")
-        .eq("user_id", user.id)
-        .maybeSingle();
+    const { data: savedPortfolio } = await supabase
+      .from("user_portfolios")
+      .select("id,name,risk_tolerance,time_horizon,investment_amount")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-      if (savedPortfolio) {
-        const portfolioRow = savedPortfolio as PortfolioRow;
-        const { data: holdingsData } = await supabase
-          .from("portfolio_holdings")
-          .select("ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct")
-          .eq("portfolio_id", portfolioRow.id)
-          .order("added_at", { ascending: false });
+    if (savedPortfolio) {
+      const portfolioRow = savedPortfolio as PortfolioRow;
 
-        const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
-          .filter((h) => Boolean(h.ticker))
-          .map((h) => ({
-            ticker: h.ticker as string,
-            entry_price: h.entry_price,
-            score_at_entry: h.score_at_entry,
-            rank_at_entry: h.rank_at_entry,
-            shares: h.shares,
-            allocation_pct: h.allocation_pct,
-            added_at: h.added_at ?? new Date().toISOString(),
-            last_reviewed_at: h.last_reviewed_at ?? h.added_at ?? new Date().toISOString(),
-          }));
+      const { data: holdingsData } = await supabase
+        .from("portfolio_holdings")
+        .select(
+          "ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct",
+        )
+        .eq("portfolio_id", portfolioRow.id)
+        .order("added_at", { ascending: false });
 
-        const enriched = await enrichHoldings(
-          rawHoldings,
-          (portfolioRow.risk_tolerance as RiskTolerance) ?? null,
-        );
+      const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
+        .filter((h) => Boolean(h.ticker))
+        .map((h) => ({
+          ticker: h.ticker as string,
+          entry_price: h.entry_price,
+          score_at_entry: h.score_at_entry,
+          rank_at_entry: h.rank_at_entry,
+          shares: h.shares,
+          allocation_pct: h.allocation_pct,
+          added_at: h.added_at ?? new Date().toISOString(),
+          last_reviewed_at:
+            h.last_reviewed_at ?? h.added_at ?? new Date().toISOString(),
+        }));
 
-        portfolio = {
-          meta: portfolioRow,
-          summary: buildPortfolioSummary(enriched),
-          holdings: enriched.map(compactHolding),
-        };
-      }
+      const enriched = await enrichHoldings(
+        rawHoldings,
+        (portfolioRow.risk_tolerance as RiskTolerance) ?? null,
+      );
+
+      portfolio = {
+        meta: portfolioRow,
+        summary: buildPortfolioSummary(enriched),
+        holdings: enriched.map(compactHolding),
+      };
     }
 
-    const mentionedRankings = rankings.filter((r) => r.ticker && possibleTickers.includes(r.ticker));
-    const mentionedHoldings = portfolio?.holdings.filter((h) => possibleTickers.includes(h.ticker)) ?? [];
+    const mentionedRankings = rankings.filter(
+      (r) => r.ticker && possibleTickers.includes(r.ticker),
+    );
+
+    const mentionedHoldings =
+      portfolio?.holdings.filter((h) => possibleTickers.includes(h.ticker)) ?? [];
+
     const relevantNews = news.filter((n) => {
-      const tickers = Array.isArray(n.affected_tickers) ? n.affected_tickers : [];
-      return possibleTickers.length === 0 || tickers.some((ticker) => possibleTickers.includes(ticker));
+      const tickers = Array.isArray(n.affected_tickers)
+        ? n.affected_tickers
+        : [];
+      return (
+        possibleTickers.length === 0 ||
+        tickers.some((ticker) => possibleTickers.includes(ticker))
+      );
     });
 
     const context = {
-      user_status: user ? "signed_in" : "signed_out",
+      user_status: "signed_in_subscribed",
       latest_ranking_update: latestRankingUpdate,
       data_as_of: new Date().toISOString(),
       rankings_context: {
@@ -366,17 +481,20 @@ export async function POST(req: NextRequest) {
           }
         : {
             available: false,
-            reason: user ? "No saved portfolio found." : "User is signed out, so personal portfolio holdings are unavailable.",
+            reason: "No saved portfolio found.",
           },
       news_context: {
         latest_news: news.slice(0, 15),
         relevant_news: relevantNews.slice(0, 10),
       },
       interpretation_rules: {
-        rank_percentile: "100 means rank #1 / best. 0 means bottom of ranked universe.",
+        rank_percentile:
+          "100 means rank #1 / best. 0 means bottom of ranked universe.",
         pnl: "P&L values are based on saved entry price, shares, and current StockGPT price context.",
-        action_plan: "Use each holding's action_plan triggers for stop-loss, take-profit, review dates, and sell/trim guidance.",
-        missing_data: "If the answer requires data not supplied here, explicitly say what is missing.",
+        action_plan:
+          "Use each holding's action_plan triggers for stop-loss, take-profit, review dates, and sell/trim guidance.",
+        missing_data:
+          "If the answer requires data not supplied here, explicitly say what is missing.",
       },
     };
 
@@ -418,23 +536,28 @@ ${JSON.stringify(context, null, 2)}
       },
     ];
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://stockgpt.pro",
-        "X-Title": "StockGPT",
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://stockgpt.pro",
+          "X-Title": "StockGPT",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.15,
+          max_tokens: 1100,
+        }),
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.15,
-        max_tokens: 1100,
-      }),
-    });
+    );
 
-    const data = (await response.json().catch(() => null)) as OpenRouterResponse | null;
+    const data = (await response.json().catch(() => null)) as
+      | OpenRouterResponse
+      | null;
 
     if (!response.ok) {
       console.error("[ask-stockgpt] OpenRouter error", data);
