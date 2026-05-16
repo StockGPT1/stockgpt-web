@@ -7,7 +7,34 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // Match ticker prefix OR company name substring
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isAuthenticated = !!user;
+
+  if (!isAuthenticated) {
+    const { data, error } = await supabase
+      .from("stock_rankings")
+      .select("ticker, company, sector")
+      .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
+      .order("ticker", { ascending: true, nullsFirst: false })
+      .limit(8);
+
+    if (error) {
+      console.error("[/api/search]", error);
+      return NextResponse.json([], { status: 200 });
+    }
+
+    return NextResponse.json(
+      (data ?? []).map((r) => ({
+        ticker: r.ticker,
+        company: r.company,
+        sector: r.sector,
+      })),
+    );
+  }
+
   const { data, error } = await supabase
     .from("stock_rankings")
     .select("ticker, company, sector, rank, score")
@@ -27,6 +54,6 @@ export async function GET(req: NextRequest) {
       sector: r.sector,
       rank: r.rank,
       score: r.score,
-    }))
+    })),
   );
 }
