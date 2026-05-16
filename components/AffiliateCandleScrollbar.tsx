@@ -1,6 +1,13 @@
 "use client";
 
-import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type ScrollMetrics = {
   scrollTop: number;
@@ -10,6 +17,10 @@ type ScrollMetrics = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getAffiliateScrollRoot() {
+  return document.getElementById("affiliate-scroll-root") as HTMLElement | null;
 }
 
 export function AffiliateCandleScrollbar() {
@@ -25,18 +36,22 @@ export function AffiliateCandleScrollbar() {
     startScrollTop: number;
   } | null>(null);
 
+  const updateMetrics = useCallback((root: HTMLElement) => {
+    setMetrics({
+      scrollTop: root.scrollTop,
+      scrollHeight: root.scrollHeight,
+      clientHeight: root.clientHeight,
+    });
+  }, []);
+
   useEffect(() => {
-    const root = document.getElementById("affiliate-scroll-root");
+    const root = getAffiliateScrollRoot();
 
     if (!root) return;
 
-    function update() {
-      setMetrics({
-        scrollTop: root.scrollTop,
-        scrollHeight: root.scrollHeight,
-        clientHeight: root.clientHeight,
-      });
-    }
+    const update = () => {
+      updateMetrics(root);
+    };
 
     update();
 
@@ -51,7 +66,7 @@ export function AffiliateCandleScrollbar() {
       window.removeEventListener("resize", update);
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [updateMetrics]);
 
   const geometry = useMemo(() => {
     const buttonSize = 22;
@@ -60,12 +75,9 @@ export function AffiliateCandleScrollbar() {
     const viewportHeight =
       typeof window === "undefined" ? metrics.clientHeight : window.innerHeight;
 
-    const trackHeight = Math.max(
-      1,
-      viewportHeight - trackTop - trackBottom,
-    );
-
+    const trackHeight = Math.max(1, viewportHeight - trackTop - trackBottom);
     const maxScroll = Math.max(1, metrics.scrollHeight - metrics.clientHeight);
+
     const rawThumbHeight =
       (metrics.clientHeight / Math.max(metrics.scrollHeight, 1)) * trackHeight;
 
@@ -87,7 +99,7 @@ export function AffiliateCandleScrollbar() {
   }, [metrics]);
 
   function scrollBy(delta: number) {
-    const root = document.getElementById("affiliate-scroll-root");
+    const root = getAffiliateScrollRoot();
 
     if (!root) return;
 
@@ -98,7 +110,7 @@ export function AffiliateCandleScrollbar() {
   }
 
   function handleTrackClick(e: React.MouseEvent<HTMLDivElement>) {
-    const root = document.getElementById("affiliate-scroll-root");
+    const root = getAffiliateScrollRoot();
 
     if (!root) return;
 
@@ -122,7 +134,7 @@ export function AffiliateCandleScrollbar() {
   }
 
   function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
-    const root = document.getElementById("affiliate-scroll-root");
+    const root = getAffiliateScrollRoot();
 
     if (!root) return;
 
@@ -137,7 +149,7 @@ export function AffiliateCandleScrollbar() {
   }
 
   function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
-    const root = document.getElementById("affiliate-scroll-root");
+    const root = getAffiliateScrollRoot();
     const drag = dragRef.current;
 
     if (!root || !drag || drag.pointerId !== e.pointerId) return;
