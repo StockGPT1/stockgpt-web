@@ -8,6 +8,11 @@ type ChatMessage = {
   content: string;
 };
 
+type AskStockGPTButtonProps = {
+  canUseAskStockGPT?: boolean;
+  isAuthenticated?: boolean;
+};
+
 const starterQuestions = [
   "What should I do with my weakest holding?",
   "Which stocks in my portfolio should I trim, hold, or sell?",
@@ -32,7 +37,10 @@ function renderMessageContent(content: string): ReactNode[] {
   });
 }
 
-export function AskStockGPTButton() {
+export function AskStockGPTButton({
+  canUseAskStockGPT = false,
+  isAuthenticated = false,
+}: AskStockGPTButtonProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -46,21 +54,26 @@ export function AskStockGPTButton() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const locked = !canUseAskStockGPT;
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || locked) return;
 
     const timeout = window.setTimeout(() => {
       textareaRef.current?.focus();
     }, 80);
 
     return () => window.clearTimeout(timeout);
-  }, [open]);
+  }, [open, locked]);
 
   useEffect(() => {
+    if (locked) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, locked]);
 
   async function sendQuestion(nextQuestion?: string) {
+    if (locked) return;
+
     const text = (nextQuestion ?? question).trim();
 
     if (!text || loading) return;
@@ -131,13 +144,86 @@ export function AskStockGPTButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#ddb159]/70 bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] shadow-[0_8px_22px_rgba(221,177,89,0.16)] transition duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_12px_30px_rgba(221,177,89,0.28)]"
+        className={[
+          "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[12px] font-black shadow-[0_8px_22px_rgba(221,177,89,0.16)] transition duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_12px_30px_rgba(221,177,89,0.28)]",
+          locked
+            ? "border-[#ddb159]/45 bg-[#ddb159]/15 text-[#ddb159]"
+            : "border-[#ddb159]/70 bg-[#ddb159] text-[#072116]",
+        ].join(" ")}
       >
-        <span>✦</span>
+        <span>{locked ? "🔒" : "✦"}</span>
         <span>Ask StockGPT</span>
       </button>
 
-      {open && (
+      {open && locked && (
+        <div className="fixed inset-0 z-[70] bg-black/45 p-3 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close Ask StockGPT access overlay"
+            onClick={handleClose}
+            className="absolute inset-0 cursor-default"
+          />
+
+          <div className="relative ml-auto flex h-full max-w-[440px] flex-col justify-between overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#061b12] text-[#faf6f0] shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+            <div className="relative border-b border-[#ddb159]/18 bg-[radial-gradient(circle_at_80%_0%,rgba(221,177,89,0.18),transparent_38%),linear-gradient(135deg,#0d3420,#061b12)] p-5">
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Close Ask StockGPT"
+                className="absolute right-3 top-3 grid size-8 place-items-center rounded-full border border-[#ddb159]/30 text-[#ddb159] transition hover:bg-[#ddb159]/10"
+              >
+                ×
+              </button>
+
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                ✦ Subscriber Feature
+              </p>
+
+              <h2 className="mt-2 text-[28px] font-black tracking-[-0.05em]">
+                Ask StockGPT is locked.
+              </h2>
+
+              <p className="mt-3 max-w-[360px] text-[13px] font-medium leading-6 text-[#faf6f0]/65">
+                Ask StockGPT uses your saved portfolio, rankings, alerts,
+                stop-loss/take-profit plans, sector exposure and recent market
+                news. It is only available to active subscribers.
+              </p>
+            </div>
+
+            <div className="grid gap-3 p-5">
+              <div className="rounded-2xl border border-[#ddb159]/18 bg-[#faf6f0]/[0.035] p-4">
+                <p className="text-[12px] font-black text-[#faf6f0]">
+                  What unlocks:
+                </p>
+                <ul className="mt-3 grid gap-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/62">
+                  <li>✓ Portfolio-specific answers</li>
+                  <li>✓ Ranking and AI score context</li>
+                  <li>✓ Stop-loss and take-profit explanations</li>
+                  <li>✓ Market/news interpretation</li>
+                </ul>
+              </div>
+
+              <Link
+                href={isAuthenticated ? "/subscription" : "/login"}
+                onClick={handleClose}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#072116] transition hover:brightness-105"
+              >
+                {isAuthenticated ? "Upgrade Access →" : "Log In →"}
+              </Link>
+
+              <Link
+                href="/landing"
+                onClick={handleClose}
+                className="text-center text-[11px] font-bold text-[#ddb159]/75 transition hover:text-[#ddb159]"
+              >
+                View what StockGPT includes
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {open && !locked && (
         <div className="fixed inset-0 z-[70] bg-black/45 p-3 backdrop-blur-sm">
           <button
             type="button"
