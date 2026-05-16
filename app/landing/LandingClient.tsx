@@ -586,7 +586,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
   return (
     <main
       ref={pageRef}
-      className="sg-landing h-[100dvh] overflow-y-auto bg-[#072116] text-[#faf6f0]"
+      className="sg-landing sg-candle-scrollbar h-[100dvh] overflow-y-auto bg-[#072116] text-[#faf6f0]"
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
@@ -604,13 +604,6 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           scrollbar-width: thin;
           scrollbar-color: rgba(221,177,89,0.42) rgba(255,255,255,0.04);
           scroll-behavior: smooth;
-        }
-
-        .sg-landing::-webkit-scrollbar { width: 8px; }
-        .sg-landing::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-        .sg-landing::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, rgba(221,177,89,0.5), rgba(221,177,89,0.2));
-          border-radius: 999px;
         }
 
         .sg-heading {
