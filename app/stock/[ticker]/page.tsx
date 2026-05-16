@@ -143,7 +143,7 @@ function BlurredNumber({
   light = false,
 }: {
   unlocked: boolean;
-  children: ReactNode;
+  children?: ReactNode;
   placeholder?: string;
   className?: string;
   light?: boolean;
