@@ -118,7 +118,7 @@ function getEventSummary(stock: Stock, articles: NewsArticle[]) {
 function LockedInlineValue({
   unlocked,
   children,
-  placeholder = "••••",
+  placeholder = "LOCKED",
   className = "",
 }: {
   unlocked: boolean;
@@ -133,12 +133,17 @@ function LockedInlineValue({
   return (
     <span
       className={[
-        "inline-flex select-none items-center gap-1 blur-[4px]",
+        "relative inline-flex select-none items-center gap-1.5 overflow-hidden rounded-full border border-[#ddb159]/35 bg-[linear-gradient(135deg,rgba(221,177,89,0.22),rgba(221,177,89,0.08))] px-2 py-0.5 align-middle text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159] shadow-[0_0_18px_rgba(221,177,89,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]",
         className,
       ].join(" ")}
       aria-label="Locked subscriber data"
+      title="Subscriber-only StockGPT ranking data"
     >
-      {placeholder}
+      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.16),transparent)] opacity-60" />
+      <span className="relative flex h-4 w-4 items-center justify-center rounded-full border border-[#ddb159]/40 bg-[#04180f] text-[9px] leading-none text-[#ddb159] shadow-[0_0_10px_rgba(221,177,89,0.18)]">
+        🔒
+      </span>
+      <span className="relative">{placeholder}</span>
     </span>
   );
 }
@@ -147,15 +152,24 @@ function LockedTradePlanCard() {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#ddb159]/25 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(221,177,89,0.18),transparent_34%),linear-gradient(135deg,rgba(221,177,89,0.10),transparent_42%)]" />
 
       <div className="relative">
-        <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-          ✦ AI Trade Plan
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+              ✦ AI Trade Plan
+            </p>
 
-        <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
-          Suggested Levels Locked
-        </h3>
+            <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
+              Suggested Levels Locked
+            </h3>
+          </div>
+
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#072116] text-lg text-[#ddb159] shadow-[0_0_24px_rgba(221,177,89,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+            🔒
+          </div>
+        </div>
 
         <p className="mt-3 text-[13px] font-semibold leading-6 text-[#072116]/60">
           Sign in to view AI ranking context, AI score inputs, and the full
@@ -166,16 +180,24 @@ function LockedTradePlanCard() {
           {["Entry", "Stop Loss", "Take Profit"].map((label) => (
             <div
               key={label}
-              className="rounded-xl border border-[#072116]/10 bg-white px-3 py-3"
+              className="relative overflow-hidden rounded-xl border border-[#072116]/10 bg-white px-3 py-3"
             >
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent,rgba(221,177,89,0.14),transparent)]" />
+
+              <p className="relative text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
                 {label}
               </p>
-              <p className="mt-1 select-none text-[22px] font-black leading-none tracking-[-0.03em] blur-[5px]">
-                $000.00
-              </p>
-              <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-                Locked
+
+              <div className="relative mt-2 flex h-8 items-center gap-2">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#ddb159]/30 bg-[#072116] text-[11px] text-[#ddb159]">
+                  🔒
+                </span>
+
+                <span className="h-3 flex-1 rounded-full bg-[linear-gradient(90deg,rgba(7,33,22,0.14),rgba(221,177,89,0.34),rgba(7,33,22,0.14))]" />
+              </div>
+
+              <p className="relative mt-1 text-[10px] font-semibold text-[#072116]/50">
+                Subscriber insight
               </p>
             </div>
           ))}
@@ -309,11 +331,11 @@ export default async function StockDetailPage({
 
                   <span>·</span>
 
-                  <span>
+                  <span className="inline-flex items-center gap-1.5">
                     Rank #
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="00"
+                      placeholder="LOCKED"
                     >
                       {stock.rank ?? "—"}
                     </LockedInlineValue>
@@ -351,23 +373,24 @@ export default async function StockDetailPage({
                   </p>
 
                   <span
-                    className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
                     style={{ backgroundColor: "#ddb159", color: "#072116" }}
                   >
                     AI Score ·{" "}
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="88,888"
+                      placeholder="LOCKED"
+                      className="border-[#072116]/30 bg-[#072116]/90 text-[#ddb159]"
                     >
                       {Number(stock.score).toLocaleString()}
                     </LockedInlineValue>
                   </span>
 
-                  <span className="rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
                     Days at top ·{" "}
                     <LockedInlineValue
                       unlocked={canSeeRankAndScore}
-                      placeholder="000"
+                      placeholder="LOCKED"
                     >
                       {formatDaysAtTop(daysAtTop)}
                     </LockedInlineValue>
@@ -536,20 +559,21 @@ export default async function StockDetailPage({
 
                       <div className="text-right">
                         <p
-                          className="text-[10px] font-bold"
+                          className="flex items-center justify-end gap-1 text-[10px] font-bold"
                           style={{ color: "rgba(7,33,22,0.65)" }}
                         >
                           #
                           <LockedInlineValue
                             unlocked={canSeeRankAndScore}
-                            placeholder="00"
+                            placeholder="LOCKED"
+                            className="border-[#072116]/15 bg-[#072116]/5 text-[#072116]/70"
                           >
                             {p.rank}
                           </LockedInlineValue>
                         </p>
 
                         <span
-                          className="inline-flex justify-center rounded-full px-2 py-0.5 text-[9px] font-black"
+                          className="mt-1 inline-flex justify-center rounded-full px-2 py-0.5 text-[9px] font-black"
                           style={{
                             backgroundColor: "#ddb159",
                             color: "#072116",
@@ -557,7 +581,8 @@ export default async function StockDetailPage({
                         >
                           <LockedInlineValue
                             unlocked={canSeeRankAndScore}
-                            placeholder="88,888"
+                            placeholder="LOCKED"
+                            className="border-[#072116]/30 bg-[#072116]/90 text-[#ddb159]"
                           >
                             {Number(p.score).toLocaleString()}
                           </LockedInlineValue>
