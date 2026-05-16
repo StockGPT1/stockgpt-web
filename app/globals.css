@@ -457,6 +457,322 @@ h2 {
 }
 
 /* =========================================================
+   Public pages using the same StockGPT candle scrollbar
+   Landing + Affiliate
+
+   This force layer is deliberately placed after the main
+   scrollbar rules. It handles standalone public scroll
+   containers that are not inside the app shell.
+   ========================================================= */
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar {
+  scrollbar-width: auto;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar {
+  width: var(--sg-scrollbar-size) !important;
+  height: var(--sg-scrollbar-size) !important;
+  background-color: var(--sg-scrollbar-track) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-track {
+  background-color: var(--sg-scrollbar-track) !important;
+  border-left: 1px solid rgba(221, 177, 89, 0.18) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(50% - 1px),
+      var(--sg-wick-soft) calc(50% - 1px),
+      var(--sg-wick) 50%,
+      var(--sg-wick-soft) calc(50% + 1px),
+      transparent calc(50% + 1px),
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 39px,
+      rgba(221, 177, 89, 0.075) 39px,
+      rgba(221, 177, 89, 0.075) 40px
+    ),
+    linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.035),
+      transparent 18%,
+      transparent 82%,
+      rgba(0, 0, 0, 0.18)
+    ),
+    linear-gradient(
+      to bottom,
+      #061b12 0%,
+      var(--sg-scrollbar-track) 42%,
+      var(--sg-scrollbar-track-deep) 100%
+    ) !important;
+
+  background-repeat: no-repeat, repeat, no-repeat, no-repeat !important;
+  background-size:
+    100% 100%,
+    100% 40px,
+    100% 100%,
+    100% 100% !important;
+  background-position:
+    center,
+    center,
+    center,
+    center !important;
+
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.035),
+    inset -1px 0 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-track:horizontal {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-top: 1px solid rgba(221, 177, 89, 0.18) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+
+  background-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(50% - 1px),
+      var(--sg-wick-soft) calc(50% - 1px),
+      var(--sg-wick) 50%,
+      var(--sg-wick-soft) calc(50% + 1px),
+      transparent calc(50% + 1px),
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent 39px,
+      rgba(221, 177, 89, 0.075) 39px,
+      rgba(221, 177, 89, 0.075) 40px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.035),
+      transparent 18%,
+      transparent 82%,
+      rgba(0, 0, 0, 0.18)
+    ),
+    linear-gradient(
+      to right,
+      #061b12 0%,
+      var(--sg-scrollbar-track) 42%,
+      var(--sg-scrollbar-track-deep) 100%
+    ) !important;
+
+  background-repeat: no-repeat, repeat, no-repeat, no-repeat !important;
+  background-size:
+    100% 100%,
+    40px 100%,
+    100% 100%,
+    100% 100% !important;
+  background-position:
+    center,
+    center,
+    center,
+    center !important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 80px !important;
+
+  border-left: 6px solid transparent !important;
+  border-right: 6px solid transparent !important;
+  border-top: 3px solid transparent !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 2px !important;
+
+  background:
+    linear-gradient(
+      to right,
+      #fff2bd 0%,
+      var(--sg-candle-body-light) 18%,
+      var(--sg-candle-body) 48%,
+      #c9973d 72%,
+      var(--sg-candle-body-dark) 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 33, 22, 0.52),
+    inset 1px 0 0 rgba(255, 248, 218, 0.62),
+    inset -1px 0 0 rgba(30, 18, 2, 0.35),
+    inset 0 1px 0 rgba(255, 245, 215, 0.55),
+    inset 0 -1px 0 rgba(34, 21, 3, 0.42),
+    0 0 12px rgba(221, 177, 89, 0.3),
+    0 0 2px rgba(221, 177, 89, 0.8) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal {
+  min-width: 80px !important;
+
+  border-top: 6px solid transparent !important;
+  border-bottom: 6px solid transparent !important;
+  border-left: 3px solid transparent !important;
+  border-right: 3px solid transparent !important;
+  border-radius: 2px !important;
+
+  background:
+    linear-gradient(
+      to bottom,
+      #fff2bd 0%,
+      var(--sg-candle-body-light) 18%,
+      var(--sg-candle-body) 48%,
+      #c9973d 72%,
+      var(--sg-candle-body-dark) 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 33, 22, 0.52),
+    inset 0 1px 0 rgba(255, 248, 218, 0.62),
+    inset 0 -1px 0 rgba(30, 18, 2, 0.35),
+    inset 1px 0 0 rgba(255, 245, 215, 0.55),
+    inset -1px 0 0 rgba(34, 21, 3, 0.42),
+    0 0 12px rgba(221, 177, 89, 0.3),
+    0 0 2px rgba(221, 177, 89, 0.8) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(
+      to right,
+      #fff7d6 0%,
+      var(--sg-candle-body-hover) 22%,
+      var(--sg-candle-body-light) 48%,
+      var(--sg-candle-body) 76%,
+      var(--sg-candle-body-dark) 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 33, 22, 0.58),
+    inset 1px 0 0 rgba(255, 250, 225, 0.76),
+    inset -1px 0 0 rgba(30, 18, 2, 0.4),
+    inset 0 1px 0 rgba(255, 250, 225, 0.66),
+    inset 0 -1px 0 rgba(34, 21, 3, 0.46),
+    0 0 18px rgba(221, 177, 89, 0.58),
+    0 0 3px rgba(255, 227, 154, 0.85) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+  background:
+    linear-gradient(
+      to bottom,
+      #fff7d6 0%,
+      var(--sg-candle-body-hover) 22%,
+      var(--sg-candle-body-light) 48%,
+      var(--sg-candle-body) 76%,
+      var(--sg-candle-body-dark) 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb:active {
+  background:
+    linear-gradient(
+      to right,
+      #fffbe8 0%,
+      #ffeeb8 22%,
+      #f0c867 54%,
+      #ddb159 76%,
+      #8f6b27 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 33, 22, 0.62),
+    inset 1px 0 0 rgba(255, 252, 232, 0.82),
+    inset -1px 0 0 rgba(30, 18, 2, 0.44),
+    0 0 24px rgba(221, 177, 89, 0.78),
+    0 0 5px rgba(255, 227, 154, 0.9) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-thumb:horizontal:active {
+  background:
+    linear-gradient(
+      to bottom,
+      #fffbe8 0%,
+      #ffeeb8 22%,
+      #f0c867 54%,
+      #ddb159 76%,
+      #8f6b27 100%
+    )
+    padding-box !important;
+
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-corner {
+  background-color: var(--sg-scrollbar-track) !important;
+  border-left: 1px solid rgba(221, 177, 89, 0.18) !important;
+  border-top: 1px solid rgba(221, 177, 89, 0.18) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button {
+  width: var(--sg-scrollbar-size) !important;
+  height: var(--sg-scrollbar-size) !important;
+  border-left: 1px solid rgba(221, 177, 89, 0.18) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+  background-color: var(--sg-scrollbar-track) !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 9px 9px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24) !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:hover {
+  background-color: #092318 !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2 L9 8 H1 Z' fill='%23ddb159' fill-opacity='0.78'/%3E%3C/svg%3E") !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 8 L9 2 H1 Z' fill='%23ddb159' fill-opacity='0.78'/%3E%3C/svg%3E") !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 L8 1 V9 Z' fill='%23ddb159' fill-opacity='0.78'/%3E%3C/svg%3E") !important;
+}
+
+.sg-public-candle-scrollbar.sg-candle-scrollbar::-webkit-scrollbar-button:single-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 5 L2 1 V9 Z' fill='%23ddb159' fill-opacity='0.78'/%3E%3C/svg%3E") !important;
+}
+
+/* =========================================================
    Clickable-only gold hover-follow effect
    ========================================================= */
 
