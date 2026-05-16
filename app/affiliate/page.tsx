@@ -49,14 +49,12 @@ export default async function AffiliatePage({
   const params = searchParams ? await searchParams : {};
 
   return (
-    <main className="affiliate-page h-[100dvh] overflow-y-auto bg-[#072116] text-[#e8f5e9]">
+    <main className="affiliate-page sg-candle-scrollbar h-[100dvh] overflow-y-auto bg-[#072116] text-[#e8f5e9]">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600;700&family=Playfair+Display:wght@700;800;900&display=swap');
 
         .affiliate-page {
           font-family: "DM Sans", Inter, Arial, sans-serif;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(212,175,55,0.42) rgba(255,255,255,0.04);
           scroll-behavior: smooth;
         }
 
