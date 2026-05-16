@@ -6,6 +6,8 @@ import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffects";
 import { getUnreadNotificationCount } from "@/lib/notifications";
+import { hasActiveSubscription } from "@/lib/subscription";
+import { createClient } from "@/utils/supabase/server";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "▦" },
@@ -163,7 +165,26 @@ export async function AppShell({
   children: ReactNode;
   activePath: string;
 }) {
-  const unreadCount = await getUnreadNotificationCount();
+  const supabase = await createClient();
+
+  const [
+    unreadCount,
+    {
+      data: { user },
+    },
+  ] = await Promise.all([getUnreadNotificationCount(), supabase.auth.getUser()]);
+
+  let canUseAskStockGPT = false;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    canUseAskStockGPT = hasActiveSubscription(profile?.subscription_status);
+  }
 
   return (
     <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
@@ -189,7 +210,10 @@ export async function AppShell({
         </div>
 
         <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
-          <AskStockGPTButton />
+          <AskStockGPTButton
+            canUseAskStockGPT={canUseAskStockGPT}
+            isAuthenticated={!!user}
+          />
 
           <Link
             href="/notifications"
@@ -258,7 +282,10 @@ export async function AppShell({
         </div>
 
         <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
-          <AskStockGPTButton />
+          <AskStockGPTButton
+            canUseAskStockGPT={canUseAskStockGPT}
+            isAuthenticated={!!user}
+          />
         </div>
       </div>
 
