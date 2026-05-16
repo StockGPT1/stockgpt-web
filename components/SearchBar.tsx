@@ -12,10 +12,24 @@ type SearchResult = {
   score?: number;
 };
 
+type SearchBarProps = {
+  showRankingData?: boolean;
+};
+
 const RECENT_KEY = "stockgpt:recent-searches";
 const MAX_RECENT = 5;
 
-export function SearchBar() {
+function cleanResultForAccess(item: SearchResult, showRankingData: boolean) {
+  if (showRankingData) return item;
+
+  return {
+    ticker: item.ticker,
+    company: item.company,
+    sector: item.sector,
+  };
+}
+
+export function SearchBar({ showRankingData = false }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -26,37 +40,42 @@ export function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  // Load recents from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RECENT_KEY);
-      if (raw) setRecents(JSON.parse(raw));
-    } catch {}
-  }, []);
 
-  // "/" hotkey to focus search from anywhere
+      if (raw) {
+        const parsed = JSON.parse(raw) as SearchResult[];
+        setRecents(
+          parsed.map((item) => cleanResultForAccess(item, showRankingData)),
+        );
+      }
+    } catch {}
+  }, [showRankingData]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (document.activeElement as HTMLElement)?.tagName;
+
       if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
         e.preventDefault();
         inputRef.current?.focus();
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Click outside closes dropdown
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Debounced search
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -70,11 +89,15 @@ export function SearchBar() {
       try {
         const res = await fetch(
           `/api/search?q=${encodeURIComponent(query.trim())}`,
-          { cache: "no-store" }
+          { cache: "no-store" },
         );
 
         const data: SearchResult[] = await res.json();
-        setResults(data);
+
+        setResults(
+          data.map((item) => cleanResultForAccess(item, showRankingData)),
+        );
+
         setActive(-1);
       } catch {
         setResults([]);
@@ -84,16 +107,18 @@ export function SearchBar() {
     }, 150);
 
     return () => clearTimeout(timeout);
-  }, [query]);
+  }, [query, showRankingData]);
 
   const list = query.trim() ? results : recents;
   const showDropdown = open && (list.length > 0 || loading || query.trim());
 
   function persistRecent(item: SearchResult) {
-    const next = [item, ...recents.filter((r) => r.ticker !== item.ticker)].slice(
-      0,
-      MAX_RECENT
-    );
+    const cleanedItem = cleanResultForAccess(item, showRankingData);
+
+    const next = [
+      cleanedItem,
+      ...recents.filter((r) => r.ticker !== cleanedItem.ticker),
+    ].slice(0, MAX_RECENT);
 
     setRecents(next);
 
@@ -137,7 +162,6 @@ export function SearchBar() {
 
   return (
     <div ref={wrapRef} className="relative mx-auto w-full max-w-[520px]">
-      {/* Input */}
       <div className="flex h-10 items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5">
         <input
           ref={inputRef}
@@ -153,7 +177,6 @@ export function SearchBar() {
           className="h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
         />
 
-        {/* "/" hint or clear button */}
         {query ? (
           <button
             type="button"
@@ -194,24 +217,20 @@ export function SearchBar() {
         </div>
       </div>
 
-      {/* Dropdown */}
       {showDropdown && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-[#ddb159]/25 bg-[#04180f] shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
-          {/* Section label */}
           {!query.trim() && recents.length > 0 && (
             <div className="px-4 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
               Recent
             </div>
           )}
 
-          {/* Loading */}
           {loading && query.trim() && (
             <div className="px-4 py-4 text-xs font-semibold text-[#faf6f0]/50">
               Searching…
             </div>
           )}
 
-          {/* No results */}
           {!loading && list.length === 0 && query.trim() && (
             <div className="px-4 py-4 text-xs font-semibold text-[#faf6f0]/50">
               No matches found. Press Enter to look up &quot;
@@ -219,7 +238,6 @@ export function SearchBar() {
             </div>
           )}
 
-          {/* Results */}
           {list.map((item, i) => (
             <button
               key={item.ticker}
@@ -230,7 +248,6 @@ export function SearchBar() {
                 i === active ? "bg-[#ddb159]/10" : "",
               ].join(" ")}
             >
-              {/* Company logo + ticker */}
               <span className="flex h-8 w-16 shrink-0 items-center gap-2 rounded-lg bg-[#072116] px-2">
                 <StockLogo ticker={item.ticker} company={item.company} size={20} />
                 <span className="text-xs font-black text-[#ddb159]">
@@ -238,7 +255,6 @@ export function SearchBar() {
                 </span>
               </span>
 
-              {/* Company & sector */}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-[#faf6f0]">
                   {item.company}
@@ -251,15 +267,13 @@ export function SearchBar() {
                 )}
               </div>
 
-              {/* AI Score */}
-              {item.score != null && (
+              {showRankingData && item.score != null && (
                 <span className="shrink-0 rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
                   {Number(item.score).toLocaleString()}
                 </span>
               )}
 
-              {/* Rank */}
-              {item.rank != null && (
+              {showRankingData && item.rank != null && (
                 <span className="shrink-0 text-[10px] font-bold text-[#faf6f0]/35">
                   #{item.rank}
                 </span>
