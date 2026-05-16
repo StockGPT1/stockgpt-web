@@ -94,11 +94,11 @@ function getEventSummary(stock: Stock, articles: NewsArticle[]) {
   }
 
   const positive = articles.filter(
-    (article) => (article.impact ?? "").toLowerCase().trim() === "positive"
+    (article) => (article.impact ?? "").toLowerCase().trim() === "positive",
   ).length;
 
   const negative = articles.filter(
-    (article) => (article.impact ?? "").toLowerCase().trim() === "negative"
+    (article) => (article.impact ?? "").toLowerCase().trim() === "negative",
   ).length;
 
   const neutral = articles.length - positive - negative;
@@ -113,6 +113,83 @@ function getEventSummary(stock: Stock, articles: NewsArticle[]) {
   return `StockGPT has linked ${articles.length} recent news ${
     articles.length === 1 ? "item" : "items"
   } to ${stock.ticker}. The current stored event impact is ${direction}: ${positive} positive, ${neutral} neutral and ${negative} negative.`;
+}
+
+function LockedInlineValue({
+  unlocked,
+  children,
+  placeholder = "••••",
+  className = "",
+}: {
+  unlocked: boolean;
+  children: React.ReactNode;
+  placeholder?: string;
+  className?: string;
+}) {
+  if (unlocked) {
+    return <span className={className}>{children}</span>;
+  }
+
+  return (
+    <span
+      className={[
+        "inline-flex select-none items-center gap-1 blur-[4px]",
+        className,
+      ].join(" ")}
+      aria-label="Locked subscriber data"
+    >
+      {placeholder}
+    </span>
+  );
+}
+
+function LockedTradePlanCard() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#ddb159]/25 blur-3xl" />
+
+      <div className="relative">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+          ✦ AI Trade Plan
+        </p>
+
+        <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
+          Suggested Levels Locked
+        </h3>
+
+        <p className="mt-3 text-[13px] font-semibold leading-6 text-[#072116]/60">
+          Sign in to view AI ranking context, AI score inputs, and the full
+          trade-plan explanation for this stock.
+        </p>
+
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {["Entry", "Stop Loss", "Take Profit"].map((label) => (
+            <div
+              key={label}
+              className="rounded-xl border border-[#072116]/10 bg-white px-3 py-3"
+            >
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
+                {label}
+              </p>
+              <p className="mt-1 select-none text-[22px] font-black leading-none tracking-[-0.03em] blur-[5px]">
+                $000.00
+              </p>
+              <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
+                Locked
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          href="/login"
+          className="mt-5 inline-flex rounded-full bg-[#ddb159] px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105"
+        >
+          Log in to unlock →
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 export default async function StockDetailPage({
@@ -152,6 +229,7 @@ export default async function StockDetailPage({
   } = await supabase.auth.getUser();
 
   const isAuthenticated = !!user;
+  const canSeeRankAndScore = isAuthenticated;
 
   const [
     tradeLevels,
@@ -163,8 +241,8 @@ export default async function StockDetailPage({
     calculateTradeLevels({
       ticker,
       price: livePrice,
-      score: Number(stock.score) || 0,
-      rank: Number(stock.rank) || null,
+      score: canSeeRankAndScore ? Number(stock.score) || 0 : 0,
+      rank: canSeeRankAndScore ? Number(stock.rank) || null : null,
       sector: stock.sector ?? null,
     }),
 
@@ -188,12 +266,14 @@ export default async function StockDetailPage({
           .limit(5)
       : Promise.resolve({ data: [] }),
 
-    getDaysAtTop(supabase, ticker, stock.rank),
+    canSeeRankAndScore
+      ? getDaysAtTop(supabase, ticker, stock.rank)
+      : Promise.resolve(null),
 
     supabase
       .from("news_articles")
       .select(
-        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at"
+        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
       )
       .order("published_at", { ascending: false })
       .limit(100),
@@ -229,7 +309,15 @@ export default async function StockDetailPage({
 
                   <span>·</span>
 
-                  <span>Rank #{stock.rank ?? "—"}</span>
+                  <span>
+                    Rank #
+                    <LockedInlineValue
+                      unlocked={canSeeRankAndScore}
+                      placeholder="00"
+                    >
+                      {stock.rank ?? "—"}
+                    </LockedInlineValue>
+                  </span>
 
                   {stock.sector && (
                     <>
@@ -266,11 +354,23 @@ export default async function StockDetailPage({
                     className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
                     style={{ backgroundColor: "#ddb159", color: "#072116" }}
                   >
-                    AI Score · {Number(stock.score).toLocaleString()}
+                    AI Score ·{" "}
+                    <LockedInlineValue
+                      unlocked={canSeeRankAndScore}
+                      placeholder="88,888"
+                    >
+                      {Number(stock.score).toLocaleString()}
+                    </LockedInlineValue>
                   </span>
 
                   <span className="rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
-                    Days at top · {formatDaysAtTop(daysAtTop)}
+                    Days at top ·{" "}
+                    <LockedInlineValue
+                      unlocked={canSeeRankAndScore}
+                      placeholder="000"
+                    >
+                      {formatDaysAtTop(daysAtTop)}
+                    </LockedInlineValue>
                   </span>
                 </div>
               </div>
@@ -355,7 +455,7 @@ export default async function StockDetailPage({
 
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${impactBadgeClass(
-                            article.impact
+                            article.impact,
                           )}`}
                         >
                           {impactLabel(article.impact)}
@@ -391,7 +491,9 @@ export default async function StockDetailPage({
           </section>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            {tradeLevels && <TradeSetupCard levels={tradeLevels} />}
+            {canSeeRankAndScore
+              ? tradeLevels && <TradeSetupCard levels={tradeLevels} />
+              : <LockedTradePlanCard />}
 
             {peers.length > 0 && (
               <aside className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
@@ -437,7 +539,13 @@ export default async function StockDetailPage({
                           className="text-[10px] font-bold"
                           style={{ color: "rgba(7,33,22,0.65)" }}
                         >
-                          #{p.rank}
+                          #
+                          <LockedInlineValue
+                            unlocked={canSeeRankAndScore}
+                            placeholder="00"
+                          >
+                            {p.rank}
+                          </LockedInlineValue>
                         </p>
 
                         <span
@@ -447,7 +555,12 @@ export default async function StockDetailPage({
                             color: "#072116",
                           }}
                         >
-                          {Number(p.score).toLocaleString()}
+                          <LockedInlineValue
+                            unlocked={canSeeRankAndScore}
+                            placeholder="88,888"
+                          >
+                            {Number(p.score).toLocaleString()}
+                          </LockedInlineValue>
                         </span>
                       </div>
                     </Link>
