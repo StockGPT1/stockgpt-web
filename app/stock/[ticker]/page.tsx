@@ -135,18 +135,18 @@ function LockIcon({ className = "size-3" }: { className?: string }) {
   );
 }
 
-function LockedInlineValue({
+function BlurredNumber({
   unlocked,
   children,
   placeholder = "29,429",
   className = "",
-  dark = false,
+  light = false,
 }: {
   unlocked: boolean;
   children: ReactNode;
   placeholder?: string;
   className?: string;
-  dark?: boolean;
+  light?: boolean;
 }) {
   if (unlocked) {
     return <span className={className}>{children}</span>;
@@ -154,41 +154,40 @@ function LockedInlineValue({
 
   return (
     <span
+      aria-label="Subscriber-only value"
       className={[
-        "relative inline-flex min-w-[56px] select-none items-center justify-center overflow-hidden rounded-full px-2 py-0.5 align-middle text-[10px] font-black tabular-nums tracking-[-0.02em]",
-        dark
-          ? "border border-[#072116]/20 bg-[#072116]/10 text-[#072116]/65"
-          : "border border-[#ddb159]/22 bg-[#ddb159]/10 text-[#ddb159]/80",
+        "relative inline-block select-none tabular-nums",
+        light ? "text-[#072116]/80" : "text-current",
         className,
       ].join(" ")}
-      aria-label="Subscriber-only StockGPT data"
-      title="Subscriber-only StockGPT data"
     >
-      <span className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.16),transparent)]" />
-      <span className="relative blur-[4px]">{placeholder}</span>
+      <span className="blur-[5px]">{placeholder}</span>
     </span>
   );
 }
 
-function LockedMetricPreview({
-  label,
+function BlurredText({
+  unlocked,
+  children,
   placeholder,
+  className = "",
 }: {
-  label: string;
+  unlocked: boolean;
+  children: ReactNode;
   placeholder: string;
+  className?: string;
 }) {
+  if (unlocked) {
+    return <span className={className}>{children}</span>;
+  }
+
   return (
-    <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/42 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]/58">
-        {label}
-      </p>
-
-      <div className="mt-2 h-5 max-w-[96px] rounded-full border border-[#ddb159]/18 bg-[#ddb159]/10 px-2">
-        <div className="h-full w-full rounded-full bg-[linear-gradient(90deg,rgba(221,177,89,0.18),rgba(250,246,240,0.42),rgba(221,177,89,0.18))] blur-[4px]" />
-      </div>
-
-      <p className="sr-only">{placeholder}</p>
-    </div>
+    <span
+      aria-label="Subscriber-only value"
+      className={["inline-block select-none blur-[5px]", className].join(" ")}
+    >
+      {placeholder}
+    </span>
   );
 }
 
@@ -209,9 +208,9 @@ function SubscriberLockNotice() {
             </p>
 
             <p className="mt-1 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/54">
-              Ranking, AI score, valuation and trade-plan data are hidden until
-              access is unlocked. The page remains visible so you can see the
-              research structure available inside StockGPT.
+              The full page structure is visible, but ranking numbers, score
+              values, trade levels and model metrics are hidden until access is
+              unlocked.
             </p>
           </div>
         </div>
@@ -227,68 +226,363 @@ function SubscriberLockNotice() {
   );
 }
 
-function LockedTradePlanCard() {
+function ClickHint() {
+  return (
+    <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-[#072116]/10 bg-white/70 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-[#072116]/40 opacity-0 transition group-hover:opacity-100">
+      Explain
+    </span>
+  );
+}
+
+function LockedLevelBox({
+  label,
+  value,
+  note,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  note: string;
+  tone?: "neutral" | "positive" | "negative";
+}) {
+  const classes =
+    tone === "positive"
+      ? "border-emerald-200 bg-emerald-50/50 text-emerald-700"
+      : tone === "negative"
+        ? "border-red-200 bg-red-50/50 text-red-700"
+        : "border-[#072116]/10 bg-white text-[#072116]";
+
+  return (
+    <button
+      type="button"
+      className={[
+        "group relative rounded-xl px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 hover:shadow-[0_8px_20px_rgba(7,33,22,0.12)]",
+        classes,
+      ].join(" ")}
+    >
+      <ClickHint />
+      <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] opacity-70">
+        {label}
+      </p>
+
+      <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em]">
+        <BlurredNumber unlocked={false} placeholder={value} light />
+      </p>
+
+      <p className="mt-1 text-[10px] font-semibold opacity-70">
+        <BlurredText unlocked={false} placeholder={note}>
+          {note}
+        </BlurredText>
+      </p>
+    </button>
+  );
+}
+
+function LockedFactorBox({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="group relative rounded-lg border border-[#072116]/8 bg-white/60 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/65 hover:bg-white hover:shadow-[0_8px_18px_rgba(7,33,22,0.1)]"
+    >
+      <ClickHint />
+
+      <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+        {label}
+      </p>
+
+      <p className="mt-0.5 truncate text-[12px] font-bold">
+        {label === "Sector" || label === "Recent news" ? (
+          value
+        ) : (
+          <BlurredText unlocked={false} placeholder={value}>
+            {value}
+          </BlurredText>
+        )}
+      </p>
+
+      <p className="mt-0.5 truncate text-[10px] font-semibold text-[#072116]/55">
+        {label === "Sector" || label === "Recent news" ? (
+          note
+        ) : (
+          <BlurredText unlocked={false} placeholder={note}>
+            {note}
+          </BlurredText>
+        )}
+      </p>
+    </button>
+  );
+}
+
+function LockedTradePlanCard({
+  ticker,
+  sector,
+}: {
+  ticker: string;
+  sector: string | null;
+}) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#ddb159]/25 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(221,177,89,0.18),transparent_34%),linear-gradient(135deg,rgba(221,177,89,0.10),transparent_42%)]" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/20 blur-3xl" />
 
-      <div className="relative">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-              ✦ AI Trade Plan
-            </p>
+      <div className="relative flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+            ✦ AI Trade Plan
+          </p>
 
-            <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
-              Suggested Levels
-            </h3>
+          <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
+            Suggested Levels
+          </h3>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-emerald-500 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-white">
+            Strong Buy
           </div>
 
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#072116] text-[#ddb159] shadow-[0_0_24px_rgba(221,177,89,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="grid size-9 place-items-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[#ddb159] shadow-[0_0_22px_rgba(221,177,89,0.16)]">
             <LockIcon className="size-4" />
           </div>
         </div>
+      </div>
 
-        <p className="mt-3 text-[13px] font-semibold leading-6 text-[#072116]/60">
-          Entry, stop-loss and take-profit levels are calculated from the
-          StockGPT ranking model and live price context.
+      <div className="relative mt-5 grid grid-cols-3 gap-3">
+        <LockedLevelBox label="Entry" value="$482.02" note="Suggested" />
+        <LockedLevelBox
+          label="Stop Loss"
+          value="$351.37"
+          note="−27.1%"
+          tone="negative"
+        />
+        <LockedLevelBox
+          label="Take Profit"
+          value="$1135.25"
+          note="+135.5%"
+          tone="positive"
+        />
+      </div>
+
+      <div className="relative mt-3 flex w-full items-center justify-between rounded-xl bg-[#072116] px-4 py-2.5 text-left">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]/80">
+          Risk / Reward
         </p>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {[
-            ["Entry", "$482.00"],
-            ["Stop Loss", "$451.40"],
-            ["Take Profit", "$536.80"],
-          ].map(([label, placeholder]) => (
-            <div
-              key={label}
-              className="relative overflow-hidden rounded-xl border border-[#072116]/10 bg-white px-3 py-3"
-            >
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent,rgba(221,177,89,0.14),transparent)]" />
+        <p className="text-[14px] font-black text-[#ddb159]">
+          <BlurredText unlocked={false} placeholder="1 : 5">
+            1 : 5
+          </BlurredText>
+        </p>
+      </div>
 
-              <p className="relative text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
-                {label}
-              </p>
+      <div className="relative mt-4 rounded-xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#fdf8ed,#faf6f0)] p-4">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+          ✦ AI Projected Timeline
+        </p>
 
-              <p className="relative mt-1 select-none text-[22px] font-black leading-none tracking-[-0.04em] text-[#072116]/80 blur-[5px]">
-                {placeholder}
-              </p>
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-transparent p-1 text-left">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+              Expected Return
+            </p>
+            <p className="mt-0.5 text-[18px] font-black tracking-[-0.02em] text-emerald-700">
+              <BlurredText unlocked={false} placeholder="24.7%/yr">
+                24.7%/yr
+              </BlurredText>
+            </p>
+          </div>
 
-              <p className="relative mt-1 text-[10px] font-semibold text-[#072116]/48">
-                Subscriber data
-              </p>
-            </div>
-          ))}
+          <div className="rounded-lg border border-transparent p-1 text-left">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+              Target Date
+            </p>
+            <p className="mt-0.5 text-[18px] font-black tracking-[-0.02em]">
+              <BlurredText unlocked={false} placeholder="Nov 2028">
+                Nov 2028
+              </BlurredText>
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-transparent p-1 text-left">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+              Hold Period
+            </p>
+            <p className="mt-0.5 text-[14px] font-black tracking-[-0.02em]">
+              <BlurredText unlocked={false} placeholder="20–38 months">
+                20–38 months
+              </BlurredText>
+            </p>
+          </div>
         </div>
 
-        <Link
-          href="/login"
-          className="mt-5 inline-flex rounded-full bg-[#ddb159] px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105"
-        >
-          Log in to unlock →
-        </Link>
+        <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#072116]/75">
+          Medium-term plan: {ticker} has an exceptionally strong AI signal
+          {" ("}
+          rank{" "}
+          <BlurredText unlocked={false} placeholder="#1">
+            #1
+          </BlurredText>
+          , score{" "}
+          <BlurredText unlocked={false} placeholder="23,568">
+            23,568
+          </BlurredText>
+          {")"}, {sector ?? "its sector"} high volatility, and an asymmetric
+          setup targeting{" "}
+          <BlurredText unlocked={false} placeholder="$1135.25">
+            $1135.25
+          </BlurredText>{" "}
+          against invalidation at{" "}
+          <BlurredText unlocked={false} placeholder="$351.37">
+            $351.37
+          </BlurredText>
+          . Risk/reward is about{" "}
+          <BlurredText unlocked={false} placeholder="1:5.0">
+            1:5.0
+          </BlurredText>
+          , with risk invalidated below the 50-day area around{" "}
+          <BlurredText unlocked={false} placeholder="$358.55">
+            $358.55
+          </BlurredText>
+          .
+        </p>
+
+        <div className="mt-4">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+            ✦ AI Action Plan — If This, Then That
+          </p>
+
+          <div className="mt-2 grid gap-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-[12px] font-black tracking-[-0.01em] text-emerald-900">
+                If {ticker} approaches{" "}
+                <BlurredText unlocked={false} placeholder="$1135.25">
+                  $1135.25
+                </BlurredText>
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
+                → Medium-term take-profit zone (first checkpoint is prior
+                resistance around{" "}
+                <BlurredText unlocked={false} placeholder="$515.83">
+                  $515.83
+                </BlurredText>
+                , but the medium-term target uses a measured extension beyond
+                it;{" "}
+                <BlurredText unlocked={false} placeholder="+135.5%">
+                  +135.5%
+                </BlurredText>
+                ) — likely by{" "}
+                <BlurredText unlocked={false} placeholder="Nov 2028">
+                  Nov 2028
+                </BlurredText>
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+              <p className="text-[12px] font-black tracking-[-0.01em] text-red-900">
+                If {ticker} breaks{" "}
+                <BlurredText unlocked={false} placeholder="$351.37">
+                  $351.37
+                </BlurredText>
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
+                → Cut or trim (below the 50-day area around{" "}
+                <BlurredText unlocked={false} placeholder="$358.55">
+                  $358.55
+                </BlurredText>
+                ;{" "}
+                <BlurredText unlocked={false} placeholder="−27.1%">
+                  −27.1%
+                </BlurredText>
+                ). This is the thesis invalidation level, not a short-term noise
+                stop.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-[#072116]/12 bg-[#072116]/4 px-3 py-2.5">
+              <p className="text-[12px] font-black tracking-[-0.01em] text-[#072116]">
+                If AI score drops by{" "}
+                <BlurredText unlocked={false} placeholder="25%">
+                  25%
+                </BlurredText>{" "}
+                from current
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
+                → Reassess thesis — model conviction has weakened
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-[#072116]/12 bg-[#072116]/4 px-3 py-2.5">
+              <p className="text-[12px] font-black tracking-[-0.01em] text-[#072116]">
+                Every{" "}
+                <BlurredText unlocked={false} placeholder="3 months">
+                  3 months
+                </BlurredText>
+              </p>
+              <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
+                → Review price structure, AI rank, news, and whether
+                support/resistance has shifted
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div className="relative mt-4">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+          ✦ Built From
+        </p>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <LockedFactorBox
+            label="AI Score"
+            value="23,568"
+            note="Top-tier signal"
+          />
+          <LockedFactorBox label="Rank" value="#1 of 500" note="Top 10%" />
+          <LockedFactorBox
+            label="Risk/reward"
+            value="1:5"
+            note="Medium-term asymmetric target"
+          />
+          <LockedFactorBox
+            label="Technical stop"
+            value="$358.55"
+            note="Qualified 50-day area"
+          />
+          <LockedFactorBox
+            label="Technical target"
+            value="$515.83+"
+            note="Resistance checkpoint, then extension"
+          />
+          <LockedFactorBox
+            label="P/E Ratio"
+            value="24.6x"
+            note="Valuation input"
+          />
+          <LockedFactorBox
+            label="Sector"
+            value={sector ?? "Sector unavailable"}
+            note="high volatility"
+          />
+          <LockedFactorBox
+            label="Recent news"
+            value="No recent coverage"
+            note="Neutral catalyst layer"
+          />
+        </div>
+      </div>
+
+      <p className="relative mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/45">
+        AI-generated trade plan based on quantitative factors. Not financial
+        advice. Past performance does not guarantee future results.
+      </p>
     </div>
   );
 }
@@ -389,7 +683,9 @@ export default async function StockDetailPage({
   }>;
 
   const relatedNews = ((relatedNewsResponse.data ?? []) as NewsArticle[])
-    .filter((article) => normaliseTickers(article.affected_tickers).includes(ticker))
+    .filter((article) =>
+      normaliseTickers(article.affected_tickers).includes(ticker),
+    )
     .slice(0, 5);
 
   const inWatchlist = !!watchlistEntry;
@@ -412,12 +708,12 @@ export default async function StockDetailPage({
 
                   <span className="inline-flex items-center gap-1.5">
                     Rank #
-                    <LockedInlineValue
+                    <BlurredNumber
                       unlocked={canSeeRankAndScore}
                       placeholder="128"
                     >
                       {stock.rank ?? "—"}
-                    </LockedInlineValue>
+                    </BlurredNumber>
                   </span>
 
                   {stock.sector && (
@@ -456,34 +752,25 @@ export default async function StockDetailPage({
                     style={{ backgroundColor: "#ddb159", color: "#072116" }}
                   >
                     AI Score ·{" "}
-                    <LockedInlineValue
+                    <BlurredNumber
                       unlocked={canSeeRankAndScore}
                       placeholder="29,429"
-                      dark
+                      light
                     >
                       {Number(stock.score).toLocaleString()}
-                    </LockedInlineValue>
+                    </BlurredNumber>
                   </span>
 
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
                     Days at top ·{" "}
-                    <LockedInlineValue
+                    <BlurredNumber
                       unlocked={canSeeRankAndScore}
                       placeholder="14"
                     >
                       {formatDaysAtTop(daysAtTop)}
-                    </LockedInlineValue>
+                    </BlurredNumber>
                   </span>
                 </div>
-
-                {!canSeeRankAndScore && (
-                  <div className="mt-4 grid max-w-3xl gap-2 sm:grid-cols-4">
-                    <LockedMetricPreview label="P/E Ratio" placeholder="24.6x" />
-                    <LockedMetricPreview label="Rank Movement" placeholder="+7" />
-                    <LockedMetricPreview label="Risk Grade" placeholder="B+" />
-                    <LockedMetricPreview label="Model Signal" placeholder="Bullish" />
-                  </div>
-                )}
               </div>
 
               <div className="shrink-0">
@@ -604,9 +891,11 @@ export default async function StockDetailPage({
           </section>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            {canSeeRankAndScore
-              ? tradeLevels && <TradeSetupCard levels={tradeLevels} />
-              : <LockedTradePlanCard />}
+            {canSeeRankAndScore ? (
+              tradeLevels && <TradeSetupCard levels={tradeLevels} />
+            ) : (
+              <LockedTradePlanCard ticker={ticker} sector={stock.sector} />
+            )}
 
             {peers.length > 0 && (
               <aside className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
@@ -653,13 +942,13 @@ export default async function StockDetailPage({
                           style={{ color: "rgba(7,33,22,0.65)" }}
                         >
                           #
-                          <LockedInlineValue
+                          <BlurredNumber
                             unlocked={canSeeRankAndScore}
                             placeholder="128"
-                            dark
+                            light
                           >
                             {p.rank}
-                          </LockedInlineValue>
+                          </BlurredNumber>
                         </p>
 
                         <span
@@ -669,13 +958,13 @@ export default async function StockDetailPage({
                             color: "#072116",
                           }}
                         >
-                          <LockedInlineValue
+                          <BlurredNumber
                             unlocked={canSeeRankAndScore}
                             placeholder="29,429"
-                            dark
+                            light
                           >
                             {Number(p.score).toLocaleString()}
-                          </LockedInlineValue>
+                          </BlurredNumber>
                         </span>
                       </div>
                     </Link>
