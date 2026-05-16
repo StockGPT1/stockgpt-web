@@ -206,7 +206,7 @@ export async function AppShell({
         </Link>
 
         <div className="hidden min-w-0 flex-1 md:flex">
-          <SearchBar />
+          <SearchBar showRankingData={!!user}/>
         </div>
 
         <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
@@ -278,7 +278,7 @@ export async function AppShell({
 
       <div className="flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
         <div className="min-w-0 flex-1">
-          <SearchBar />
+          <SearchBar showRankingData={!!user}/>
         </div>
 
         <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
