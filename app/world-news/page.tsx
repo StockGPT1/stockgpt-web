@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import {
   WorldNewsClient,
@@ -47,10 +48,18 @@ function normaliseTickers(value: NewsArticle["affected_tickers"]) {
 export default async function WorldNewsPage() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: newsData } = await supabase
     .from("news_articles")
     .select(
-      "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at"
+      "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
     )
     .order("published_at", { ascending: false })
     .limit(50);
@@ -58,7 +67,7 @@ export default async function WorldNewsPage() {
   const articles = (newsData ?? []) as NewsArticle[];
 
   const tickers = Array.from(
-    new Set(articles.flatMap((article) => normaliseTickers(article.affected_tickers)))
+    new Set(articles.flatMap((article) => normaliseTickers(article.affected_tickers))),
   );
 
   let stocksByTicker = new Map<string, StockMatch>();
@@ -72,7 +81,7 @@ export default async function WorldNewsPage() {
     stocksByTicker = new Map(
       ((stockData ?? []) as StockMatch[])
         .filter((stock) => stock.ticker)
-        .map((stock) => [String(stock.ticker).toUpperCase(), stock])
+        .map((stock) => [String(stock.ticker).toUpperCase(), stock]),
     );
   }
 
