@@ -811,7 +811,7 @@ export default function LegalPage() {
             <Subheading>4. Copyright complaints</Subheading>
             <p>
               If you believe content on StockGPT infringes your rights, contact
-              [LEGAL EMAIL] with sufficient information to identify the content,
+              sales@stockgpt.pro with sufficient information to identify the content,
               your ownership or authority, and the action requested.
             </p>
           </Section>
