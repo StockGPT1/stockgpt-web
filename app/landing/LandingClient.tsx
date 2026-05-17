@@ -1247,7 +1247,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
                   <div className="relative mt-7 flex flex-col gap-3 sm:flex-row">
                     <CheckoutButton>Start with StockGPT</CheckoutButton>
-                    <GhostButton href="/login">Log In</GhostButton>
+                    <GhostButton href="/login">Login</GhostButton>
                   </div>
 
                   <div className="relative mt-6 grid gap-3 sm:grid-cols-3">
