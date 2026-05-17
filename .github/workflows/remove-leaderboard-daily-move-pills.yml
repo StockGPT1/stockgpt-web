@@ -1,0 +1,32 @@
+name: Remove Leaderboard Daily Move Pills
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/remove_leaderboard_daily_move_pills.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Remove leaderboard daily move pills
+        run: python scripts/remove_leaderboard_daily_move_pills.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/rankings/page.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Remove leaderboard daily move pills"
+            git push
+          fi
