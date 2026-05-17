@@ -1032,7 +1032,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
         <nav
           className={[
-            "sg-nav sticky top-0 z-50 border-b border-[#ddb159]/16 bg-[#04180f]/88",
+            "sg-nav fixed left-0 right-0 top-0 z-50 border-b border-[#ddb159]/16 bg-[#04180f]/88",
             navScrolled ? "sg-nav-scrolled" : "",
           ].join(" ")}
         >
@@ -1077,7 +1077,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                href="/"
+                href="/dashboard"
                 className="sg-magnetic group relative inline-flex items-center justify-center overflow-hidden rounded-full border border-[#00ff88]/35 bg-[#00ff88]/[0.06] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#00ff88] backdrop-blur transition-all duration-500 hover:-translate-y-1 hover:border-[#00ff88] hover:bg-[#00ff88]/10 hover:shadow-[0_18px_50px_rgba(0,255,136,0.14)]"
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#00ff88]/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
@@ -1091,7 +1091,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
             <div className="flex items-center gap-2 sm:hidden">
               <Link
-                href="/"
+                href="/dashboard"
                 className="rounded-full border border-[#00ff88]/40 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#00ff88]"
               >
                 Dashboard
@@ -1107,7 +1107,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </nav>
 
-        <section className="relative z-10 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+        <section className="relative z-10 px-3 pb-3 pt-[calc(0.75rem+68px)] sm:px-4 sm:pb-4 sm:pt-[calc(1rem+76px)] lg:px-5">
           <div className="mx-auto grid max-w-[1540px] gap-3 xl:grid-cols-[250px_minmax(0,1fr)]">
             <aside className="hidden rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:block">
               <div className="mb-5 rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/8 p-4">
