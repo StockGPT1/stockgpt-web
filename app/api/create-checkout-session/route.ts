@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/utils/supabase/server";
 
+const LEGAL_VERSION = "2026-05-17";
+
 async function createCheckoutSession(request: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
 
@@ -42,6 +44,9 @@ async function createCheckoutSession(request: Request) {
     mode: "subscription",
     customer_email: user.email,
     allow_promotion_codes: true,
+    consent_collection: {
+      terms_of_service: "required",
+    },
     line_items: [
       {
         price: priceId,
@@ -52,12 +57,22 @@ async function createCheckoutSession(request: Request) {
       user_id: user.id,
       plan: "core",
       endorsely_referral: endorselyReferral,
+      legal_version: LEGAL_VERSION,
+      terms_url: `${siteUrl}/legal#terms`,
+      subscription_terms_url: `${siteUrl}/legal#subscription`,
+      privacy_url: `${siteUrl}/legal#privacy`,
+      disclaimer_url: `${siteUrl}/legal#disclaimer`,
     },
     subscription_data: {
       metadata: {
         user_id: user.id,
         plan: "core",
         endorsely_referral: endorselyReferral,
+        legal_version: LEGAL_VERSION,
+        terms_url: `${siteUrl}/legal#terms`,
+        subscription_terms_url: `${siteUrl}/legal#subscription`,
+        privacy_url: `${siteUrl}/legal#privacy`,
+        disclaimer_url: `${siteUrl}/legal#disclaimer`,
       },
     },
     success_url: `${siteUrl}/account?success=true`,
