@@ -8,6 +8,7 @@ import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffect
 import { getUnreadNotificationCount } from "@/lib/notifications";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
+import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
@@ -337,6 +338,7 @@ export async function AppShell({
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
+            <AppLegalDisclaimer />
           </div>
         </section>
       </div>
