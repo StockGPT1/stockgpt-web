@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
+import { LegalConsentLine } from "@/components/LegalConsentLine";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 type PricingSearchParams = {
   waitlist?: string;
@@ -69,12 +71,19 @@ export default async function PricingPage({
         <div className="absolute left-1/2 top-[55%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ddb159]/8" />
       </div>
 
-      <div className="relative z-10 flex h-[52px] shrink-0 items-center border-b border-[#ddb159]/15 bg-[#04180f]/88 px-4 backdrop-blur sm:px-6 lg:h-[52px]">
+      <div className="relative z-10 flex h-[52px] shrink-0 items-center justify-between border-b border-[#ddb159]/15 bg-[#04180f]/88 px-4 backdrop-blur sm:px-6 lg:h-[52px]">
         <Link
           href="/"
           className="inline-flex items-center text-[17px] font-black text-[#faf6f0] transition hover:text-[#ddb159] sm:text-[20px]"
         >
           ← StockGPT
+        </Link>
+
+        <Link
+          href="/legal"
+          className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ddb159] transition hover:text-[#f0c867]"
+        >
+          Legal
         </Link>
       </div>
 
@@ -160,6 +169,8 @@ export default async function PricingPage({
                   >
                     Start Core subscription
                   </button>
+
+                  <LegalConsentLine className="mt-3" />
                 </form>
               </div>
             </div>
@@ -224,10 +235,16 @@ export default async function PricingPage({
             </div>
           </div>
 
-          <p className="shrink-0 pb-6 text-center text-[11px] font-medium leading-relaxed text-[#faf6f0]/35 sm:text-[12px] lg:mt-3 lg:pb-0 lg:text-[11px] xl:mt-5 xl:text-[12px]">
-            StockGPT provides AI-generated rankings for informational purposes only.
-            This is not financial advice.
-          </p>
+          <div className="shrink-0 pb-6 text-center lg:mt-3 lg:pb-0 xl:mt-5">
+            <p className="text-[11px] font-medium leading-relaxed text-[#faf6f0]/35 sm:text-[12px] lg:text-[11px] xl:text-[12px]">
+              StockGPT provides AI-generated rankings for informational purposes only.
+              This is not financial advice.
+            </p>
+
+            <div className="mt-3 flex justify-center">
+              <LegalFooterLinks className="justify-center text-[#faf6f0]/42" />
+            </div>
+          </div>
         </div>
       </main>
     </div>
