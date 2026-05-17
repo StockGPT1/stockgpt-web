@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
+import { LegalConsentLine } from "@/components/LegalConsentLine";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export type LandingTicker = {
   symbol: string;
@@ -190,6 +192,8 @@ function CheckoutButton({
           </span>
         </span>
       </button>
+      
+      {!compact && <LegalConsentLine className="mt-3 max-w-[360px]" />}
     </form>
   );
 }
@@ -1626,7 +1630,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 Platform
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm font-bold text-[#faf6f0]/50">
-                <Link href="/" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/dashboard" className="transition-colors hover:text-[#ddb159]">
                   Dashboard
                 </Link>
                 <Link href="/rankings" className="transition-colors hover:text-[#ddb159]">
@@ -1664,6 +1668,9 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 <Link href="/pricing" className="block transition-colors hover:text-[#ddb159]">
                   Subscription →
                 </Link>
+              </div>
+              <div className="mt-5">
+                <LegalFooterLinks className="text-[#faf6f0]/50" />
               </div>
             </div>
 
