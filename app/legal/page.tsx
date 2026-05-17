@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LegalCandleScrollbar } from "@/components/LegalCandleScrollbar";
 
 export const metadata: Metadata = {
   title: "Legal | StockGPT",
@@ -56,7 +57,24 @@ function List({ children }: { children: React.ReactNode }) {
 
 export default function LegalPage() {
   return (
-    <main className="min-h-screen bg-[#072116] text-[#faf6f0]">
+    <main
+      id="legal-scroll-root"
+      className="legal-page h-[100dvh] overflow-y-scroll bg-[#072116] pr-[22px] text-[#faf6f0]"
+    >
+      <LegalCandleScrollbar />
+
+      <style>{`
+        .legal-page {
+          scroll-behavior: smooth;
+          scrollbar-width: none;
+        }
+
+        .legal-page::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+        }
+      `}</style>
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(221,177,89,0.13),transparent_26%),radial-gradient(circle_at_82%_16%,rgba(0,255,136,0.06),transparent_30%),linear-gradient(180deg,#072116,#03140c)]" />
         <div className="absolute left-1/2 top-[8%] h-[340px] w-[760px] -translate-x-1/2 rounded-full bg-[#ddb159]/10 blur-3xl" />
@@ -212,13 +230,24 @@ export default function LegalPage() {
             <p>You must not:</p>
             <List>
               <li>use StockGPT for unlawful, fraudulent or harmful purposes;</li>
-              <li>copy, scrape, reverse-engineer or reproduce our rankings, models or interface;</li>
-              <li>attempt to bypass authentication, subscription gates or rate limits;</li>
-              <li>use the service to create misleading financial promotions;</li>
+              <li>
+                copy, scrape, reverse-engineer or reproduce our rankings, models
+                or interface;
+              </li>
+              <li>
+                attempt to bypass authentication, subscription gates or rate
+                limits;
+              </li>
+              <li>
+                use the service to create misleading financial promotions;
+              </li>
               <li>use outputs as the sole basis for investment decisions;</li>
               <li>upload malware, spam, malicious scripts or harmful content;</li>
               <li>misrepresent your affiliation with StockGPT;</li>
-              <li>use StockGPT to provide regulated advice unless you are properly authorised to do so.</li>
+              <li>
+                use StockGPT to provide regulated advice unless you are properly
+                authorised to do so.
+              </li>
             </List>
 
             <Subheading>8. Intellectual property</Subheading>
@@ -316,9 +345,7 @@ export default function LegalPage() {
             </p>
 
             <Subheading>18. Contact</Subheading>
-            <p>
-              For questions about these Terms, contact us at [SUPPORT EMAIL].
-            </p>
+            <p>For questions about these Terms, contact us at [SUPPORT EMAIL].</p>
           </Section>
 
           <Section
@@ -424,11 +451,26 @@ export default function LegalPage() {
             <List>
               <li>account data, including name, email address and login details;</li>
               <li>subscription and billing data processed through Stripe;</li>
-              <li>portfolio inputs you choose to provide, such as ticker symbols, holdings, entry prices, allocation data and watchlists;</li>
-              <li>usage data, including pages viewed, clicks, feature usage, device information, IP address and log data;</li>
-              <li>communications, including support messages and affiliate applications;</li>
-              <li>technical data needed for authentication, fraud prevention, analytics and security;</li>
-              <li>AI interaction data, including questions submitted to Ask StockGPT and generated responses.</li>
+              <li>
+                portfolio inputs you choose to provide, such as ticker symbols,
+                holdings, entry prices, allocation data and watchlists;
+              </li>
+              <li>
+                usage data, including pages viewed, clicks, feature usage,
+                device information, IP address and log data;
+              </li>
+              <li>
+                communications, including support messages and affiliate
+                applications;
+              </li>
+              <li>
+                technical data needed for authentication, fraud prevention,
+                analytics and security;
+              </li>
+              <li>
+                AI interaction data, including questions submitted to Ask
+                StockGPT and generated responses.
+              </li>
             </List>
 
             <Subheading>3. How we use personal data</Subheading>
@@ -441,7 +483,10 @@ export default function LegalPage() {
               <li>respond to support requests;</li>
               <li>improve the product, user experience and performance;</li>
               <li>detect fraud, abuse and security issues;</li>
-              <li>send service messages, legal updates and important account notices;</li>
+              <li>
+                send service messages, legal updates and important account
+                notices;
+              </li>
               <li>process affiliate applications and partner relationships;</li>
               <li>comply with legal obligations.</li>
             </List>
