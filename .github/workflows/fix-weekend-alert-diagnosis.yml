@@ -1,0 +1,32 @@
+name: Fix Weekend Alert Diagnosis
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix_weekend_alert_diagnosis.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Fix weekend alert diagnosis
+        run: python scripts/fix_weekend_alert_diagnosis.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/portfolio-alerts.ts
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Fix weekend alert diagnosis"
+            git push
+          fi
