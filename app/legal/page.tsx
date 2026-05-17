@@ -126,11 +126,6 @@ export default function LegalPage() {
             regulatory compliance adviser.
           </p>
 
-          <div className="mt-5 rounded-2xl border border-red-400/22 bg-red-500/10 p-4 text-sm font-bold leading-6 text-red-100">
-            Important: replace all placeholders such as [LEGAL COMPANY NAME],
-            [COMPANY NUMBER], [REGISTERED ADDRESS], [SUPPORT EMAIL] and [ICO
-            REGISTRATION NUMBER] before publishing.
-          </div>
         </section>
 
         <div className="grid gap-6">
@@ -147,11 +142,8 @@ export default function LegalPage() {
             </p>
 
             <p>
-              The service is operated by [LEGAL COMPANY NAME], a company
-              registered in [England and Wales / relevant jurisdiction] under
-              company number [COMPANY NUMBER], with registered office at
-              [REGISTERED ADDRESS]. In these Terms, “StockGPT”, “we”, “us” and
-              “our” mean that legal entity.
+              The service is operated by StockGPT, a company
+              based in the United Kingdom.
             </p>
 
             <Subheading>1. Acceptance of these Terms</Subheading>
@@ -345,7 +337,7 @@ export default function LegalPage() {
             </p>
 
             <Subheading>18. Contact</Subheading>
-            <p>For questions about these Terms, contact us at [SUPPORT EMAIL].</p>
+            <p>For questions about these Terms, contact us at sales@stockgpt.pro.</p>
           </Section>
 
           <Section
@@ -441,9 +433,8 @@ export default function LegalPage() {
 
             <Subheading>1. Controller</Subheading>
             <p>
-              The controller is [LEGAL COMPANY NAME], [COMPANY NUMBER],
-              [REGISTERED ADDRESS]. Contact: [PRIVACY EMAIL]. ICO registration:
-              [ICO REGISTRATION NUMBER, if applicable].
+              The controller is StockGPT, UK.
+              Contact: sales@stockgpt.pro.
             </p>
 
             <Subheading>2. Personal data we collect</Subheading>
@@ -573,7 +564,7 @@ export default function LegalPage() {
 
             <Subheading>14. Contact</Subheading>
             <p>
-              For privacy requests, contact [PRIVACY EMAIL]. You may also have
+              For privacy requests, contact sales@stockgpt.pro. You may also have
               the right to complain to the UK Information Commissioner’s Office
               or your local data-protection authority.
             </p>
@@ -828,7 +819,7 @@ export default function LegalPage() {
 
         <footer className="mt-10 border-t border-[#ddb159]/14 py-8 text-xs font-medium leading-6 text-[#faf6f0]/38">
           <p>
-            © {new Date().getFullYear()} [LEGAL COMPANY NAME]. All rights
+            © {new Date().getFullYear()} StockGPT. All rights
             reserved.
           </p>
 
