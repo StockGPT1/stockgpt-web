@@ -10,7 +10,7 @@ import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: "▦" },
+  { href: "/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/rankings", label: "Rankings", icon: "♛" },
   { href: "/portfolio", label: "Portfolio", icon: "✦" },
   { href: "/watchlist", label: "Watchlist", icon: "☆" },
@@ -20,7 +20,7 @@ const navItems = [
 ] as const;
 
 const mobileBottomNav = [
-  { href: "/", label: "Home", icon: "▦" },
+  { href: "/dashboard", label: "Home", icon: "▦" },
   { href: "/rankings", label: "Rankings", icon: "♛" },
   { href: "/portfolio", label: "Portfolio", icon: "✦" },
   { href: "/notifications", label: "Alerts", icon: "◐" },
@@ -28,7 +28,7 @@ const mobileBottomNav = [
 ] as const;
 
 function PageBackdrop({ activePath }: { activePath: string }) {
-  if (activePath === "/") return null;
+  if (activePath === "/dashboard") return null;
 
   const variant =
     activePath === "/rankings"
@@ -192,7 +192,7 @@ export async function AppShell({
 
       <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
         <Link
-          href="/"
+          href="/dashboard"
           className="sg-no-premium absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
         >
           <Image
