@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { AffiliateCandleScrollbar } from "@/components/AffiliateCandleScrollbar";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const metadata: Metadata = {
   title: "StockGPT Affiliate Program",
@@ -437,16 +438,24 @@ export default async function AffiliatePage({
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 text-sm font-bold text-[#94a3b8] sm:flex-row sm:justify-end">
-            <Link href="/landing" className="hover:text-[#D4AF37]">
-              Landing
-            </Link>
-            <Link href="/pricing" className="hover:text-[#D4AF37]">
-              Pricing
-            </Link>
-            <Link href="/login" className="hover:text-[#D4AF37]">
-              Log In
-            </Link>
+          <div className="flex flex-col gap-4 text-sm font-bold text-[#94a3b8] sm:items-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Link href="/" className="hover:text-[#D4AF37]">
+                Landing
+              </Link>
+              <Link href="/pricing" className="hover:text-[#D4AF37]">
+                Pricing
+              </Link>
+              <Link href="/login" className="hover:text-[#D4AF37]">
+                Log In
+              </Link>
+            </div>
+            
+            <LegalFooterLinks
+              gold="#D4AF37"
+              includeAffiliate
+              className="justify-start text-[#94a3b8] sm:justify-end"
+            />
           </div>
         </div>
       </footer>
