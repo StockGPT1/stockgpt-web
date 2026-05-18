@@ -551,7 +551,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     ],
     factorInput: "growth, quality, estimate revision and momentum inputs",
     explanation:
-      "company results or guidance can change analyst expectations and investor sentiment",
+      "changes to results or guidance can affect analyst expectations, valuation and investor confidence",
   },
   {
     id: "demand",
@@ -582,7 +582,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     ],
     factorInput: "revenue growth, momentum and forward-demand inputs",
     explanation:
-      "changes in demand can feed into revenue expectations and relative stock strength",
+      "changes in demand can feed into future revenue expectations and relative stock strength",
   },
   {
     id: "margin",
@@ -616,7 +616,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     ],
     factorInput: "profitability, quality and risk inputs",
     explanation:
-      "pricing power or cost pressure can change profitability and model risk",
+      "pricing power or cost pressure can change profitability, risk and valuation",
   },
   {
     id: "rates",
@@ -637,7 +637,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     negativeTerms: ["rate hike", "rate hikes", "yields rise", "higher rates"],
     factorInput: "valuation, financing-cost and sector-rotation inputs",
     explanation:
-      "rates change discount rates, funding costs and appetite for defensive or long-duration assets",
+      "rates can affect discount rates, borrowing costs and how investors rotate between sectors",
     sectors: [
       "Financials",
       "Real Estate",
@@ -666,7 +666,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     negativeTerms: ["oil falls", "crude falls", "prices fall", "oversupply"],
     factorInput: "margin, inflation and sector momentum inputs",
     explanation:
-      "commodity moves affect producers, transport costs, input costs and inflation expectations",
+      "commodity moves can affect producers, transport costs, input costs and inflation expectations",
     sectors: ["Energy", "Materials", "Industrials", "Consumer Discretionary"],
   },
   {
@@ -699,7 +699,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     ],
     factorInput: "risk, sentiment and valuation inputs",
     explanation:
-      "regulatory outcomes can change risk premia, addressable markets and valuation multiples",
+      "regulatory outcomes can change risk, addressable markets and valuation multiples",
   },
   {
     id: "supply-chain",
@@ -749,7 +749,7 @@ const CAUSAL_CHANNELS: CausalChannel[] = [
     negativeTerms: ["debt rises", "credit downgrade", "cash burn", "higher capex"],
     factorInput: "quality, income, balance-sheet and risk inputs",
     explanation:
-      "capital allocation affects shareholder returns, financial resilience and model quality scores",
+      "capital allocation affects shareholder returns, financial resilience and quality scores",
   },
 ];
 
@@ -1276,6 +1276,34 @@ function containsTickerAsWord(rawText: string, ticker: string) {
   );
 }
 
+function getArticleMainIssue(article: NewsArticleDisplayLike) {
+  const text = articleCoreTextLower(article);
+
+  const channel = getMatchedChannels(article).sort((a, b) => b.score - a.score)[0];
+
+  if (channel) {
+    return channel.channel.label;
+  }
+
+  if (containsTerm(text, "earnings") || containsTerm(text, "revenue")) {
+    return "earnings expectations";
+  }
+
+  if (containsTerm(text, "lawsuit") || containsTerm(text, "investigation")) {
+    return "legal / regulatory risk";
+  }
+
+  if (containsTerm(text, "demand") || containsTerm(text, "sales")) {
+    return "demand";
+  }
+
+  if (containsTerm(text, "margin") || containsTerm(text, "cost")) {
+    return "margins";
+  }
+
+  return "market expectations";
+}
+
 function getDirectStockMatch(
   article: NewsArticleDisplayLike,
   stock: StockLike,
@@ -1288,22 +1316,23 @@ function getDirectStockMatch(
   const rawCore = articleCoreText(article);
   const title = articleTitleLower(article);
   const core = articleCoreTextLower(article);
+  const mainIssue = getArticleMainIssue(article);
+
+  const directCompanyChain = `The article is directly connected to this company. The practical question is whether it changes ${mainIssue}, investor confidence, valuation, or the risk/reward setup for the stock.`;
 
   if (containsExplicitTickerSymbol(rawTitle, ticker)) {
     return {
       rating: 10,
-      reason: "Ticker appears explicitly in the headline",
-      causalChain:
-        "The article names the stock symbol directly, so this is treated as a company-specific signal.",
+      reason: `This looks like a company-specific catalyst focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
   if (containsExplicitTickerSymbol(rawCore, ticker)) {
     return {
       rating: 9,
-      reason: "Ticker appears explicitly in the article",
-      causalChain:
-        "The article names the stock symbol directly, so the story is linked to that company.",
+      reason: `This looks like a direct company update focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
@@ -1313,18 +1342,16 @@ function getDirectStockMatch(
   if (primaryCompany && containsTerm(title, primaryCompany)) {
     return {
       rating: 10,
-      reason: "Company is named in the headline",
-      causalChain:
-        "The company is named in the headline, making this a direct company catalyst.",
+      reason: `This looks like a company-specific catalyst focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
   if (primaryCompany && containsTerm(core, primaryCompany)) {
     return {
       rating: 8,
-      reason: "Company is named in the article",
-      causalChain:
-        "The company is named in the article body, making the story directly relevant.",
+      reason: `This looks like a direct company update focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
@@ -1334,36 +1361,34 @@ function getDirectStockMatch(
   if (titleCompanyHits.length >= 2) {
     return {
       rating: 9,
-      reason: "Multiple company identifiers appear in the headline",
-      causalChain:
-        "Several company identifiers appear in the headline, so this is treated as a high-confidence company link.",
+      reason: `This looks like a high-confidence company update focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
   if (bodyCompanyHits.length >= 2) {
     return {
       rating: 7,
-      reason: "Multiple company identifiers appear in the article",
+      reason: `This looks like a direct company read-through focused on ${mainIssue}.`,
       causalChain:
-        "Several company identifiers appear in the article, so this is treated as a likely company link.",
+        "The article appears to be connected to this company. The impact depends on whether investors treat it as material enough to shift price action, AI score, analyst expectations or risk perception.",
     };
   }
 
   if (containsTickerAsWord(rawTitle, ticker)) {
     return {
       rating: 9,
-      reason: "Unambiguous ticker appears in the headline",
-      causalChain:
-        "The headline contains an unambiguous ticker symbol, so the stock is directly linked.",
+      reason: `This looks like a high-confidence stock-specific update focused on ${mainIssue}.`,
+      causalChain: directCompanyChain,
     };
   }
 
   if (containsTickerAsWord(rawCore, ticker)) {
     return {
       rating: 7,
-      reason: "Unambiguous ticker appears in the article",
+      reason: `This looks like a direct stock read-through focused on ${mainIssue}.`,
       causalChain:
-        "The article contains an unambiguous ticker symbol, so the stock is likely linked.",
+        "The article appears connected to this stock. The impact depends on whether the story changes sentiment, expectations, risk, or technical momentum.",
     };
   }
 
@@ -1633,8 +1658,8 @@ function getIndustryThemeMatch(
 
   return {
     rating,
-    reason: `${theme.reason} through ${channel.channel.label}`,
-    causalChain: `${theme.name} → ${channel.channel.label} → possible change in ${channel.channel.factorInput}`,
+    reason: `This is a ${theme.reason} driven by ${channel.channel.label}.`,
+    causalChain: `${theme.name} theme → ${channel.channel.label} → possible effect on ${channel.channel.factorInput}.`,
   };
 }
 
@@ -1661,8 +1686,8 @@ function getMacroSectorMatch(
 
   return {
     rating: 4,
-    reason: `macro read-through for ${sector} via ${channel.channel.label}`,
-    causalChain: `${channel.channel.label} → ${channel.channel.explanation} → possible change in ${channel.channel.factorInput}`,
+    reason: `This is a macro read-through for ${sector} through ${channel.channel.label}.`,
+    causalChain: `${channel.channel.label} → ${channel.channel.explanation} → possible effect on ${channel.channel.factorInput}.`,
   };
 }
 
@@ -1782,7 +1807,7 @@ export function getArticleImpactRating(
   if (!ticker) {
     return {
       rating: 1,
-      reason: "no stock match",
+      reason: "No valid stock link was detected.",
       causalChain: "No ticker or company data is available.",
     };
   }
@@ -1796,7 +1821,7 @@ export function getArticleImpactRating(
   if (!articleDecision.relevant) {
     return {
       rating: 1,
-      reason: "article is not market-relevant enough",
+      reason: "The article is not market-relevant enough.",
       causalChain: articleDecision.reason,
     };
   }
@@ -1811,28 +1836,98 @@ export function getArticleImpactRating(
 
   return {
     rating: 1,
-    reason: "no valid stock link",
+    reason: "No valid stock-specific, sector-specific or macro path was detected.",
     causalChain:
       "The article may be relevant to markets generally, but no defensible path to this specific stock was detected.",
   };
 }
 
 function getImpactType(rating: number) {
-  if (rating >= 9) return "Direct company catalyst";
-  if (rating >= 7) return "Direct company reference";
+  if (rating >= 9) return "Major company-specific catalyst";
+  if (rating >= 7) return "Direct company read-through";
   if (rating >= 5) return "Sector read-through";
-  return "Macro / sector watch item";
+  return "Market context signal";
 }
 
-function getModelReadThrough(direction: ImpactDirection, causalChain: string) {
-  const directionText =
+function getPlainEnglishImpactType(rating: number) {
+  if (rating >= 9) return "major company-specific update";
+  if (rating >= 7) return "direct company update";
+  if (rating >= 5) return "sector read-through";
+  return "market context signal";
+}
+
+function getInvestorActionFrame(direction: ImpactDirection, rating: number) {
+  if (rating >= 8) {
+    if (direction === "Positive") {
+      return "For you, this is worth watching as a potential positive catalyst. It does not automatically mean buy, but it may strengthen the thesis if price action, volume, analyst revisions, or the AI score begin confirming it.";
+    }
+
+    if (direction === "Negative") {
+      return "For you, this is a risk signal to monitor. It does not automatically mean sell, but it may weaken the thesis if the AI score falls, momentum breaks down, or follow-up news confirms the risk.";
+    }
+
+    return "For you, this is a high-relevance update, but the direction is not clear yet. The sensible move is to monitor follow-up news, price reaction, volume, and any change in the AI score.";
+  }
+
+  if (rating >= 5) {
+    if (direction === "Positive") {
+      return "For you, this is a sector-level positive read-through. It matters if the theme starts lifting similar stocks, improving sentiment, or supporting the company’s growth outlook.";
+    }
+
+    if (direction === "Negative") {
+      return "For you, this is a sector-level risk. It matters if the pressure spreads across peers, affects margins, or starts dragging on the company’s relative strength.";
+    }
+
+    return "For you, this is a sector-level watch item. It is not stock-specific enough to act on alone, but it may become important if the theme continues.";
+  }
+
+  if (direction === "Positive") {
+    return "For you, this is a lower-confidence positive read-through. Treat it as background context unless the stock itself starts reacting.";
+  }
+
+  if (direction === "Negative") {
+    return "For you, this is a lower-confidence risk read-through. Monitor it, but do not treat it as a direct reason to change position unless stronger confirmation appears.";
+  }
+
+  return "For you, this is useful context rather than a direct signal. The main value is knowing which market theme could become relevant later.";
+}
+
+function getWatchListText(direction: ImpactDirection, rating: number) {
+  if (rating >= 8) {
+    if (direction === "Positive") {
+      return "Watch for upward AI score movement, stronger price momentum, analyst upgrades, rising volume, and positive follow-up headlines.";
+    }
+
+    if (direction === "Negative") {
+      return "Watch for a falling AI score, rank deterioration, broken support levels, negative follow-up headlines, or analyst downgrades.";
+    }
+
+    return "Watch whether the market starts treating this as positive or negative through price movement, volume, analyst commentary, and AI score changes.";
+  }
+
+  if (rating >= 5) {
+    return "Watch whether the wider sector starts moving, whether peer stocks react, and whether this theme appears in more headlines.";
+  }
+
+  return "Watch for confirmation. On its own, this is not enough to change a thesis.";
+}
+
+function getModelReadThrough(
+  direction: ImpactDirection,
+  causalChain: string,
+  rating = 1,
+) {
+  const modelDirection =
     direction === "Positive"
       ? "support"
       : direction === "Negative"
         ? "pressure"
-        : "move";
+        : "influence";
 
-  return `This could ${directionText} the model if it starts affecting sentiment, momentum, margins, estimate revisions, valuation or risk.`;
+  const userFrame = getInvestorActionFrame(direction, rating);
+  const watchText = getWatchListText(direction, rating);
+
+  return `${causalChain} This could ${modelDirection} the StockGPT model if it starts affecting sentiment, momentum, margins, estimate revisions, valuation, or risk. ${userFrame} ${watchText}`;
 }
 
 export function getScoreEffectText(
@@ -1854,24 +1949,27 @@ export function getScoreEffectText(
   const rankLabel =
     Number.isFinite(rank) && rank > 0 ? `rank #${rank}` : "rank unavailable";
 
-  return `${ticker}: ${impactType}. ${direction}. ${reason}. ${causalChain}. ${modelReadThrough} ${scoreLabel}; ${rankLabel}.`;
+  return `${ticker}: ${impactType}. ${direction}. ${reason} ${causalChain} ${modelReadThrough} ${scoreLabel}; ${rankLabel}.`;
 }
 
 function getCustomerSummary(
   stock: StockLike,
   direction: ImpactDirection,
-  impactType: string,
-  reason: string,
+  rating = 1,
 ) {
   const ticker = stock.ticker ?? "This stock";
-  const directionText =
-    direction === "Positive"
-      ? "supportive"
-      : direction === "Negative"
-        ? "a risk factor"
-        : "worth monitoring";
+  const company = stock.company ?? ticker;
+  const plainType = getPlainEnglishImpactType(rating);
 
-  return `${ticker} is linked because this is a ${impactType.toLowerCase()}. The current read is ${directionText}. Reason: ${reason}.`;
+  if (direction === "Positive") {
+    return `${ticker} is linked because this looks like a ${plainType} for ${company}. The current read is supportive, meaning it could strengthen the investment case if the market starts pricing in better growth, margins, sentiment, or lower risk. This is not a standalone buy signal, but it is something to monitor closely.`;
+  }
+
+  if (direction === "Negative") {
+    return `${ticker} is linked because this looks like a ${plainType} for ${company}. The current read is a risk factor, meaning it could weaken the investment case if it pressures sentiment, margins, demand, earnings expectations, or valuation. This is not a standalone sell signal, but it is a clear watch item.`;
+  }
+
+  return `${ticker} is linked because this looks like a ${plainType} for ${company}. The direction is not clear yet, so the useful takeaway is not to act immediately, but to watch whether price action, AI score, analyst commentary, or follow-up headlines confirm a positive or negative trend.`;
 }
 
 export function getAffectedStockInsight(
@@ -1886,15 +1984,17 @@ export function getAffectedStockInsight(
 
   const impactDirection = getImpactDirection(article);
   const impactType = getImpactType(ratingData.rating);
-  const modelReadThrough = getModelReadThrough(
-    impactDirection,
-    ratingData.causalChain,
-  );
+
   const customerSummary = getCustomerSummary(
     stock,
     impactDirection,
-    impactType,
-    ratingData.reason,
+    ratingData.rating,
+  );
+
+  const modelReadThrough = getModelReadThrough(
+    impactDirection,
+    ratingData.causalChain,
+    ratingData.rating,
   );
 
   return {
