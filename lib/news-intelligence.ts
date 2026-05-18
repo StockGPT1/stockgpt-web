@@ -45,6 +45,20 @@ export type EnrichedNewsArticle = {
   affectedStocks: AffectedStockInsight[];
 };
 
+export type NewsArticleDisplayLike = {
+  id?: string | number;
+  title: string | null;
+  summary: string | null;
+  source: string | null;
+  url?: string | null;
+  image_url?: string | null;
+  affected_tickers?: string[] | string | null;
+  affectedStocks?: AffectedStockInsight[];
+  impact: string | null;
+  impact_reason: string | null;
+  published_at?: string | null;
+};
+
 const COMPANY_STOP_WORDS = new Set([
   "inc",
   "inc.",
@@ -236,12 +250,15 @@ function containsTerm(text: string, term: string) {
     return text.includes(cleaned);
   }
 
-  return new RegExp(`(^|[^a-z0-9])${escapeRegExp(cleaned)}([^a-z0-9]|$)`, "i").test(
-    text,
-  );
+  return new RegExp(
+    `(^|[^a-z0-9])${escapeRegExp(cleaned)}([^a-z0-9]|$)`,
+    "i",
+  ).test(text);
 }
 
-export function normaliseTickers(value: BaseNewsArticle["affected_tickers"]) {
+export function normaliseTickers(
+  value: BaseNewsArticle["affected_tickers"] | undefined,
+) {
   if (Array.isArray(value)) {
     return value
       .map((ticker) => String(ticker).trim().toUpperCase())
@@ -258,7 +275,27 @@ export function normaliseTickers(value: BaseNewsArticle["affected_tickers"]) {
   return [];
 }
 
-export function articleText(article: BaseNewsArticle) {
+function affectedStockText(article: NewsArticleDisplayLike) {
+  if (!article.affectedStocks || article.affectedStocks.length === 0) {
+    return "";
+  }
+
+  return article.affectedStocks
+    .map((stock) =>
+      [
+        stock.ticker,
+        stock.company,
+        stock.sector,
+        stock.matchReason,
+        stock.scoreEffect,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(" ");
+}
+
+export function articleText(article: NewsArticleDisplayLike) {
   return [
     article.title,
     article.summary,
@@ -266,13 +303,14 @@ export function articleText(article: BaseNewsArticle) {
     article.impact,
     article.impact_reason,
     normaliseTickers(article.affected_tickers).join(" "),
+    affectedStockText(article),
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 }
 
-function titleText(article: BaseNewsArticle) {
+function titleText(article: NewsArticleDisplayLike) {
   return (article.title ?? "").toLowerCase();
 }
 
@@ -300,10 +338,14 @@ function sectorTerms(sector: string | null) {
   return SECTOR_KEYWORDS[sector] ?? [sector.toLowerCase()];
 }
 
-export function inferImpact(article: BaseNewsArticle) {
+export function inferImpact(article: NewsArticleDisplayLike) {
   const explicit = (article.impact ?? "").toLowerCase().trim();
 
-  if (explicit === "positive" || explicit === "negative" || explicit === "neutral") {
+  if (
+    explicit === "positive" ||
+    explicit === "negative" ||
+    explicit === "neutral"
+  ) {
     return explicit;
   }
 
@@ -360,8 +402,13 @@ export function inferImpact(article: BaseNewsArticle) {
     "expands",
   ];
 
-  const negativeHits = negativeWords.filter((word) => containsTerm(text, word)).length;
-  const positiveHits = positiveWords.filter((word) => containsTerm(text, word)).length;
+  const negativeHits = negativeWords.filter((word) =>
+    containsTerm(text, word),
+  ).length;
+
+  const positiveHits = positiveWords.filter((word) =>
+    containsTerm(text, word),
+  ).length;
 
   if (negativeHits > positiveHits) return "negative";
   if (positiveHits > negativeHits) return "positive";
@@ -369,7 +416,13 @@ export function inferImpact(article: BaseNewsArticle) {
 }
 
 export function impactStyle(impact: string | null) {
-  const s = inferImpact({ impact } as BaseNewsArticle);
+  const s = inferImpact({
+    title: null,
+    summary: null,
+    source: null,
+    impact,
+    impact_reason: null,
+  });
 
   if (s === "positive") {
     return {
@@ -397,7 +450,7 @@ export function impactStyle(impact: string | null) {
   };
 }
 
-export function formatNewsDate(dateStr: string | null) {
+export function formatNewsDate(dateStr: string | null | undefined) {
   if (!dateStr) return "Date unavailable";
 
   return new Date(dateStr).toLocaleString("en-GB", {
@@ -410,7 +463,7 @@ export function formatNewsDate(dateStr: string | null) {
   });
 }
 
-export function formatShortNewsDate(dateStr: string | null) {
+export function formatShortNewsDate(dateStr: string | null | undefined) {
   if (!dateStr) return "Date unavailable";
 
   return new Date(dateStr).toLocaleString("en-GB", {
@@ -421,8 +474,12 @@ export function formatShortNewsDate(dateStr: string | null) {
   });
 }
 
-export function displaySummary(article: BaseNewsArticle) {
-  if (article.summary && article.summary.trim() && article.summary !== "No summary available.") {
+export function displaySummary(article: NewsArticleDisplayLike) {
+  if (
+    article.summary &&
+    article.summary.trim() &&
+    article.summary !== "No summary available."
+  ) {
     return article.summary;
   }
 
@@ -433,7 +490,10 @@ export function displaySummary(article: BaseNewsArticle) {
   return "No full description is currently available for this article.";
 }
 
-export function getArticleImpactRating(article: BaseNewsArticle, stock: StockLike) {
+export function getArticleImpactRating(
+  article: NewsArticleDisplayLike,
+  stock: StockLike,
+) {
   const ticker = String(stock.ticker ?? "").toUpperCase();
   const text = articleText(article);
   const title = titleText(article);
@@ -470,7 +530,6 @@ export function getArticleImpactRating(article: BaseNewsArticle, stock: StockLik
   }
 
   const terms = companyTerms(company);
-
   const phrase = terms[0];
 
   if (phrase && phrase.length >= 5 && title.includes(phrase)) {
@@ -498,8 +557,12 @@ export function getArticleImpactRating(article: BaseNewsArticle, stock: StockLik
     };
   }
 
-  const sectorHits = sectorTerms(sector).filter((term) => containsTerm(text, term));
-  const sectorTitleHits = sectorTerms(sector).filter((term) => containsTerm(title, term));
+  const sectorHits = sectorTerms(sector).filter((term) =>
+    containsTerm(text, term),
+  );
+  const sectorTitleHits = sectorTerms(sector).filter((term) =>
+    containsTerm(title, term),
+  );
 
   if (sectorTitleHits.length > 0) {
     return {
@@ -533,7 +596,7 @@ export function getArticleImpactRating(article: BaseNewsArticle, stock: StockLik
 }
 
 export function getScoreEffectText(
-  article: BaseNewsArticle,
+  article: NewsArticleDisplayLike,
   stock: StockLike,
   rating: number,
 ) {
@@ -546,7 +609,8 @@ export function getScoreEffectText(
     ? `current AI score ${Math.round(score).toLocaleString()}`
     : "current AI score unavailable";
 
-  const rankLabel = Number.isFinite(rank) && rank > 0 ? `rank #${rank}` : "rank unavailable";
+  const rankLabel =
+    Number.isFinite(rank) && rank > 0 ? `rank #${rank}` : "rank unavailable";
 
   const strength =
     rating >= 8
@@ -606,7 +670,9 @@ export function enrichArticleWithStockInsights(
       const explicitB = explicitTickers.includes(b.ticker) ? 1 : 0;
 
       if (explicitA !== explicitB) return explicitB - explicitA;
-      if (b.impactRating !== a.impactRating) return b.impactRating - a.impactRating;
+      if (b.impactRating !== a.impactRating) {
+        return b.impactRating - a.impactRating;
+      }
 
       const rankA = a.rank ?? 9999;
       const rankB = b.rank ?? 9999;
@@ -681,7 +747,10 @@ export function getNewsInsight(article: EnrichedNewsArticle) {
   return "Market impact should be monitored through sector rotation, risk appetite, interest-rate expectations and earnings-expectation changes.";
 }
 
-export function getStockNewsSummary(ticker: string, articles: EnrichedNewsArticle[]) {
+export function getStockNewsSummary(
+  ticker: string,
+  articles: EnrichedNewsArticle[],
+) {
   if (articles.length === 0) {
     return `No recent direct company or industry news is currently linked to ${ticker}.`;
   }
@@ -692,12 +761,21 @@ export function getStockNewsSummary(ticker: string, articles: EnrichedNewsArticl
 
   const maxRating = Math.max(...ratings, 1);
   const avgRating = Math.round(
-    ratings.reduce((sum, rating) => sum + rating, 0) / Math.max(ratings.length, 1),
+    ratings.reduce((sum, rating) => sum + rating, 0) /
+      Math.max(ratings.length, 1),
   );
 
-  const positive = articles.filter((article) => inferImpact(article) === "positive").length;
-  const negative = articles.filter((article) => inferImpact(article) === "negative").length;
+  const positive = articles.filter(
+    (article) => inferImpact(article) === "positive",
+  ).length;
+
+  const negative = articles.filter(
+    (article) => inferImpact(article) === "negative",
+  ).length;
+
   const neutral = articles.length - positive - negative;
 
-  return `${articles.length} relevant item${articles.length === 1 ? "" : "s"} found for ${ticker}. Highest impact rating ${maxRating}/10, average ${avgRating}/10. Current mix: ${positive} positive, ${neutral} neutral, ${negative} negative.`;
+  return `${articles.length} relevant item${
+    articles.length === 1 ? "" : "s"
+  } found for ${ticker}. Highest impact rating ${maxRating}/10, average ${avgRating}/10. Current mix: ${positive} positive, ${neutral} neutral, ${negative} negative.`;
 }
