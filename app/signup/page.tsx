@@ -38,7 +38,7 @@ export default function SignupPage() {
       email: cleanEmail,
       password,
       options: {
-        emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/account",
+        emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/dashboard",
         data: {
           first_name: cleanFirstName,
           last_name: cleanLastName,
