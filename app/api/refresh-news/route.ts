@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import {
   enrichArticleWithStockInsights,
+  getDirectlyConfirmedAffectedTickers,
   inferImpact,
+  isMarketRelevantArticle,
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
@@ -21,14 +23,15 @@ type ExternalArticle = {
 
 const NEWS_QUERIES = [
   "stock market earnings federal reserve inflation",
-  "S&P 500 Nasdaq market movers today",
-  "technology stocks AI semiconductors cloud software",
-  "bank stocks interest rates credit lending",
-  "healthcare pharma biotech FDA stocks",
-  "energy oil gas OPEC stocks",
-  "consumer retail ecommerce auto stocks",
-  "industrial aerospace defence manufacturing stocks",
+  "S&P 500 Nasdaq market movers earnings today",
+  "technology stocks AI semiconductors cloud software earnings",
+  "bank stocks interest rates credit lending earnings",
+  "healthcare pharma biotech FDA stocks earnings",
+  "energy oil gas OPEC stocks crude prices",
+  "consumer retail ecommerce auto stocks earnings",
+  "industrial aerospace defence manufacturing stocks earnings",
   "mega cap stocks earnings guidance analyst upgrade downgrade",
+  "tariffs sanctions regulation stocks market impact",
 ];
 
 function getAdminClient() {
@@ -47,7 +50,6 @@ function getAdminClient() {
   });
 }
 
-// ES2017-safe CDATA parsing for Vercel build compatibility.
 function decodeHtml(value: string) {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -66,6 +68,7 @@ function stripHtml(value: string) {
 
 function between(value: string, start: string, end: string) {
   const startIndex = value.indexOf(start);
+
   if (startIndex === -1) return null;
 
   const from = startIndex + start.length;
@@ -103,7 +106,9 @@ function parseGoogleNewsRss(xml: string): ExternalArticle[] {
       source: sourceMatch?.[1] ? stripHtml(sourceMatch[1]) : "Google News",
       url: link ? decodeHtml(link) : null,
       image_url: null,
-      published_at: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+      published_at: pubDate
+        ? new Date(pubDate).toISOString()
+        : new Date().toISOString(),
     };
   });
 }
@@ -218,12 +223,27 @@ function uniqueArticles(articles: ExternalArticle[]) {
   );
 }
 
+function toBaseArticle(article: ExternalArticle): BaseNewsArticle {
+  return {
+    id: article.url ?? article.title ?? crypto.randomUUID(),
+    title: article.title,
+    summary: article.summary,
+    source: article.source,
+    url: article.url,
+    image_url: article.image_url,
+    affected_tickers: null,
+    impact: null,
+    impact_reason: null,
+    published_at: article.published_at,
+  };
+}
+
 function buildImpactReason(article: BaseNewsArticle, stocks: StockLike[]) {
   const enriched = enrichArticleWithStockInsights(article, stocks, 8);
   const impact = inferImpact(article);
 
   if (enriched.affectedStocks.length === 0) {
-    return "StockGPT view: Broad market story. Watch rates, risk appetite, sector rotation and earnings-expectation changes. No single stock has a direct enough match for a high-confidence link.";
+    return "StockGPT view: Market-relevant article, but no high-confidence S&P 500 stock link was detected. Treat as broad context only.";
   }
 
   const top = enriched.affectedStocks[0];
@@ -239,24 +259,12 @@ function buildImpactReason(article: BaseNewsArticle, stocks: StockLike[]) {
         ? "negative"
         : "mixed/neutral";
 
-  return `StockGPT view: ${direction} market read-through. Most affected: ${tickers}. ${top.scoreEffect}`;
+  return `StockGPT view: ${direction} read-through. Most relevant linked stocks: ${tickers}. Strongest link: ${top.ticker}, because ${top.matchReason.toLowerCase()}. ${top.scoreEffect}`;
 }
 
 function buildDbRow(article: ExternalArticle, stocks: StockLike[]) {
-  const base: BaseNewsArticle = {
-    id: article.url ?? article.title ?? crypto.randomUUID(),
-    title: article.title,
-    summary: article.summary,
-    source: article.source,
-    url: article.url,
-    image_url: article.image_url,
-    affected_tickers: null,
-    impact: null,
-    impact_reason: null,
-    published_at: article.published_at,
-  };
-
-  const enriched = enrichArticleWithStockInsights(base, stocks, 8);
+  const base = toBaseArticle(article);
+  const directTickers = getDirectlyConfirmedAffectedTickers(base, stocks);
   const impact = inferImpact(base);
 
   return {
@@ -265,7 +273,7 @@ function buildDbRow(article: ExternalArticle, stocks: StockLike[]) {
     source: article.source ?? "Market news",
     url: article.url,
     image_url: article.image_url,
-    affected_tickers: enriched.affectedStocks.map((stock) => stock.ticker),
+    affected_tickers: directTickers.length > 0 ? directTickers : null,
     impact,
     impact_reason: buildImpactReason(base, stocks),
     published_at: article.published_at ?? new Date().toISOString(),
@@ -307,12 +315,16 @@ export async function GET(request: NextRequest) {
     fetchGoogleNews(),
   ]);
 
-  const externalArticles = uniqueArticles([...newsApiArticles, ...googleArticles]).slice(
-    0,
-    90,
-  );
+  const allExternalArticles = uniqueArticles([
+    ...newsApiArticles,
+    ...googleArticles,
+  ]);
 
-  const urls = externalArticles
+  const relevantExternalArticles = allExternalArticles
+    .filter((article) => isMarketRelevantArticle(toBaseArticle(article), stocks))
+    .slice(0, 90);
+
+  const urls = relevantExternalArticles
     .map((article) => article.url)
     .filter((url): url is string => Boolean(url));
 
@@ -327,12 +339,14 @@ export async function GET(request: NextRequest) {
     existingUrls = new Set((existing ?? []).map((item) => String(item.url)));
   }
 
-  const newRows = externalArticles
+  const newRows = relevantExternalArticles
     .filter((article) => article.url && !existingUrls.has(article.url))
     .map((article) => buildDbRow(article, stocks));
 
   if (newRows.length > 0) {
-    const { error: insertError } = await supabase.from("news_articles").insert(newRows);
+    const { error: insertError } = await supabase
+      .from("news_articles")
+      .insert(newRows);
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
@@ -341,8 +355,10 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    fetched: externalArticles.length,
+    fetched: allExternalArticles.length,
+    relevant: relevantExternalArticles.length,
     inserted: newRows.length,
-    skipped_existing: externalArticles.length - newRows.length,
+    skipped_irrelevant: allExternalArticles.length - relevantExternalArticles.length,
+    skipped_existing: relevantExternalArticles.length - newRows.length,
   });
 }
