@@ -4,6 +4,7 @@ import { WorldNewsClient } from "@/components/WorldNewsClient";
 import { createClient } from "@/utils/supabase/server";
 import {
   enrichArticleWithStockInsights,
+  isMarketRelevantArticle,
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
@@ -40,9 +41,9 @@ export default async function WorldNewsPage() {
   const articles = (newsData ?? []) as BaseNewsArticle[];
   const stocks = (stockData ?? []) as StockLike[];
 
-  const enrichedArticles = articles.map((article) =>
-    enrichArticleWithStockInsights(article, stocks, 8),
-  );
+  const enrichedArticles = articles
+    .filter((article) => isMarketRelevantArticle(article, stocks))
+    .map((article) => enrichArticleWithStockInsights(article, stocks, 8));
 
   return (
     <AppShell activePath="/world-news">
