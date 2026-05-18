@@ -26,9 +26,12 @@ export default async function PortfolioPage({
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto pr-1">
-          <div className="grid gap-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
             <PortfolioBuilder />
-            <ManualPortfolioEntry isAuthenticated={true} />
+
+            <div className="xl:sticky xl:top-4 xl:self-start">
+              <ManualPortfolioEntry isAuthenticated={true} />
+            </div>
           </div>
         </main>
       </AppShell>
@@ -45,33 +48,11 @@ export default async function PortfolioPage({
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto pr-1">
-          <div className="grid gap-4">
-            <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-6 sm:py-6">
-              <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/10 blur-3xl" />
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+            <PortfolioBuilder />
 
-              <div className="relative">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                  ✦ Portfolio
-                </p>
-
-                <h1 className="mt-1 text-[30px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[34px]">
-                  Generate with AI or add your holdings manually.
-                </h1>
-
-                <p className="mt-2 max-w-2xl text-[13px] font-medium text-[#faf6f0]/60 sm:text-[14px]">
-                  Use the AI builder to create a portfolio, or enter your real
-                  holdings so StockGPT can track value, AI score movement,
-                  rank changes and alerts.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
-              <PortfolioBuilder />
-
-              <div className="xl:sticky xl:top-4 xl:self-start">
-                <ManualPortfolioEntry isAuthenticated={true} />
-              </div>
+            <div className="xl:sticky xl:top-4 xl:self-start">
+              <ManualPortfolioEntry isAuthenticated={true} />
             </div>
           </div>
         </main>
