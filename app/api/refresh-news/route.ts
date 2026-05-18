@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import {
+  analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
   getDirectlyConfirmedAffectedTickers,
   inferImpact,
@@ -22,14 +23,14 @@ type ExternalArticle = {
 };
 
 const NEWS_QUERIES = [
-  "stock market earnings federal reserve inflation",
-  "S&P 500 Nasdaq market movers earnings today",
+  "stock market earnings federal reserve inflation S&P 500",
+  "S&P 500 Nasdaq market movers earnings guidance today",
   "technology stocks AI semiconductors cloud software earnings",
   "bank stocks interest rates credit lending earnings",
   "healthcare pharma biotech FDA stocks earnings",
   "energy oil gas OPEC stocks crude prices",
-  "consumer retail ecommerce auto stocks earnings",
-  "industrial aerospace defence manufacturing stocks earnings",
+  "consumer retail ecommerce auto stocks earnings margins",
+  "industrial aerospace defence manufacturing stocks earnings supply chain",
   "mega cap stocks earnings guidance analyst upgrade downgrade",
   "tariffs sanctions regulation stocks market impact",
 ];
@@ -239,11 +240,12 @@ function toBaseArticle(article: ExternalArticle): BaseNewsArticle {
 }
 
 function buildImpactReason(article: BaseNewsArticle, stocks: StockLike[]) {
+  const relevance = analyseArticleForMarketRelevance(article, stocks);
   const enriched = enrichArticleWithStockInsights(article, stocks, 8);
   const impact = inferImpact(article);
 
   if (enriched.affectedStocks.length === 0) {
-    return "StockGPT view: Market-relevant article, but no high-confidence S&P 500 stock link was detected. Treat as broad context only.";
+    return `StockGPT view: ${relevance.reason} No high-confidence S&P 500 stock link was detected, so this should be treated as broad market context only.`;
   }
 
   const top = enriched.affectedStocks[0];
@@ -259,7 +261,7 @@ function buildImpactReason(article: BaseNewsArticle, stocks: StockLike[]) {
         ? "negative"
         : "mixed/neutral";
 
-  return `StockGPT view: ${direction} read-through. Most relevant linked stocks: ${tickers}. Strongest link: ${top.ticker}, because ${top.matchReason.toLowerCase()}. ${top.scoreEffect}`;
+  return `StockGPT view: ${direction} read-through. ${relevance.reason} Most relevant linked stocks: ${tickers}. Strongest link: ${top.ticker}, because ${top.matchReason}. ${top.scoreEffect}`;
 }
 
 function buildDbRow(article: ExternalArticle, stocks: StockLike[]) {
@@ -320,8 +322,20 @@ export async function GET(request: NextRequest) {
     ...googleArticles,
   ]);
 
-  const relevantExternalArticles = allExternalArticles
-    .filter((article) => isMarketRelevantArticle(toBaseArticle(article), stocks))
+  const relevanceAudits = allExternalArticles.map((article) => {
+    const base = toBaseArticle(article);
+    const decision = analyseArticleForMarketRelevance(base, stocks);
+
+    return {
+      article,
+      decision,
+    };
+  });
+
+  const relevantExternalArticles = relevanceAudits
+    .filter(({ decision }) => decision.relevant)
+    .sort((a, b) => b.decision.score - a.decision.score)
+    .map(({ article }) => article)
     .slice(0, 90);
 
   const urls = relevantExternalArticles
@@ -360,5 +374,11 @@ export async function GET(request: NextRequest) {
     inserted: newRows.length,
     skipped_irrelevant: allExternalArticles.length - relevantExternalArticles.length,
     skipped_existing: relevantExternalArticles.length - newRows.length,
+    relevance_sample: relevanceAudits.slice(0, 10).map(({ article, decision }) => ({
+      title: article.title,
+      relevant: decision.relevant,
+      score: decision.score,
+      reason: decision.reason,
+    })),
   });
 }
