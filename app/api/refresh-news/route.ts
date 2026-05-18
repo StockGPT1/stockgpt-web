@@ -47,6 +47,7 @@ function getAdminClient() {
   });
 }
 
+// ES2017-safe CDATA parsing for Vercel build compatibility.
 function decodeHtml(value: string) {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
