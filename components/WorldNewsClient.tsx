@@ -2,103 +2,27 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { EnrichedNewsArticle } from "@/lib/news-intelligence";
+import {
+  articleText,
+  displaySummary,
+  formatNewsDate,
+  formatShortNewsDate,
+  getNewsInsight,
+  impactStyle,
+  inferImpact,
+} from "@/lib/news-intelligence";
 
-export type WorldNewsArticle = {
-  id: string;
-  title: string | null;
-  summary: string | null;
-  source: string | null;
-  url: string | null;
-  image_url: string | null;
-  impact: string | null;
-  impact_reason: string | null;
-  published_at: string | null;
-  affectedStocks: Array<{
-    ticker: string;
-    company: string | null;
-    sector: string | null;
-    rank: number | null;
-    score: number | string | null;
-    price: number | string | null;
-  }>;
-};
-
-function impactStyle(impact: string | null) {
-  const s = (impact ?? "").toLowerCase().trim();
-
-  if (s === "positive") {
-    return {
-      bg: "bg-emerald-500/12",
-      text: "text-emerald-400",
-      border: "border-emerald-500/25",
-      label: "Positive",
-    };
-  }
-
-  if (s === "negative") {
-    return {
-      bg: "bg-red-500/12",
-      text: "text-red-400",
-      border: "border-red-500/25",
-      label: "Negative",
-    };
-  }
-
-  return {
-    bg: "bg-[#faf6f0]/8",
-    text: "text-[#faf6f0]/50",
-    border: "border-[#faf6f0]/12",
-    label: "Neutral",
-  };
-}
-
-function formatFullDate(dateStr: string | null) {
-  if (!dateStr) return "Date unavailable";
-
-  return new Date(dateStr).toLocaleString("en-GB", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function articleText(article: WorldNewsArticle) {
-  return [
-    article.title,
-    article.summary,
-    article.source,
-    article.impact,
-    article.impact_reason,
-    ...article.affectedStocks.flatMap((stock) => [
-      stock.ticker,
-      stock.company,
-      stock.sector,
-    ]),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
+export type WorldNewsArticle = EnrichedNewsArticle;
 
 function inferCountry(article: WorldNewsArticle) {
   const text = articleText(article);
 
-  if (
-    /\b(us|u\.s\.|usa|america|american|washington|white house|fed|federal reserve)\b/i.test(
-      text
-    )
-  ) {
+  if (/\b(us|u\.s\.|usa|america|american|washington|white house|fed|federal reserve)\b/i.test(text)) {
     return "United States";
   }
 
-  if (
-    /\b(uk|u\.k\.|britain|british|england|london|bank of england|boe)\b/i.test(
-      text
-    )
-  ) {
+  if (/\b(uk|u\.k\.|britain|british|england|london|bank of england|boe)\b/i.test(text)) {
     return "United Kingdom";
   }
 
@@ -106,9 +30,7 @@ function inferCountry(article: WorldNewsArticle) {
     return "China";
   }
 
-  if (
-    /\b(europe|european|eurozone|ecb|germany|france|italy|spain)\b/i.test(text)
-  ) {
+  if (/\b(europe|european|eurozone|ecb|germany|france|italy|spain)\b/i.test(text)) {
     return "Europe";
   }
 
@@ -116,9 +38,7 @@ function inferCountry(article: WorldNewsArticle) {
     return "Japan";
   }
 
-  if (
-    /\b(middle east|israel|iran|saudi|qatar|uae|dubai|opec)\b/i.test(text)
-  ) {
+  if (/\b(middle east|israel|iran|saudi|qatar|uae|dubai|opec)\b/i.test(text)) {
     return "Middle East";
   }
 
@@ -130,103 +50,21 @@ function inferTopic(article: WorldNewsArticle) {
 
   if (
     /\b(election|government|policy|tariff|regulation|sanction|war|conflict|president|prime minister|congress|senate|tax|budget|geopolitical|parliament|central bank|rates|fed|federal reserve)\b/i.test(
-      text
+      text,
     )
   ) {
-    return "Politics";
+    return "Politics / Macro";
   }
 
-  return "Company activity";
-}
-
-function displaySummary(article: WorldNewsArticle) {
-  if (article.summary && article.summary !== "No summary available.") {
-    return article.summary;
+  if (article.affectedStocks.some((stock) => stock.impactRating >= 8)) {
+    return "Company-specific";
   }
 
-  if (article.impact_reason) {
-    return article.impact_reason;
+  if (article.affectedStocks.some((stock) => stock.impactRating >= 4)) {
+    return "Sector read-through";
   }
 
-  return "No full description is currently available for this article.";
-}
-
-function getInsight(article: WorldNewsArticle) {
-  const impact = (article.impact ?? "").toLowerCase().trim();
-
-  const tickers = article.affectedStocks
-    .map((stock) => stock.ticker)
-    .filter(Boolean);
-
-  const sectors = Array.from(
-    new Set(
-      article.affectedStocks
-        .map((stock) => stock.sector)
-        .filter((sector): sector is string => Boolean(sector))
-    )
-  );
-
-  if (article.impact_reason) {
-    return article.impact_reason;
-  }
-
-  if (tickers.length > 0) {
-    const direction =
-      impact === "positive"
-        ? "could support sentiment around"
-        : impact === "negative"
-          ? "could create pressure or uncertainty for"
-          : "should be monitored for";
-
-    return `This story ${direction} ${tickers.slice(0, 3).join(", ")}${
-      tickers.length > 3 ? ` and ${tickers.length - 3} other linked names` : ""
-    }. The key question is whether the headline affects earnings expectations, valuation multiples, financing costs or short-term risk appetite.`;
-  }
-
-  if (sectors.length > 0) {
-    return `This story is most relevant to the ${sectors
-      .slice(0, 2)
-      .join(" and ")} sector${
-      sectors.length > 2 ? "s" : ""
-    }. Watch for changes in demand, margins, regulation, funding costs or investor positioning.`;
-  }
-
-  return "This is a macro or geopolitical story worth monitoring because it may influence interest-rate expectations, sector rotation, risk appetite and broader market sentiment.";
-}
-
-function getCardInsight(article: WorldNewsArticle) {
-  const impact = (article.impact ?? "").toLowerCase().trim();
-  const tickers = article.affectedStocks.map((stock) => stock.ticker);
-  const sectors = Array.from(
-    new Set(
-      article.affectedStocks
-        .map((stock) => stock.sector)
-        .filter((sector): sector is string => Boolean(sector))
-    )
-  );
-
-  if (article.impact_reason) {
-    return article.impact_reason;
-  }
-
-  if (tickers.length > 0) {
-    const direction =
-      impact === "positive"
-        ? "Potential support for"
-        : impact === "negative"
-          ? "Potential pressure on"
-          : "Worth monitoring for";
-
-    return `${direction} ${tickers.slice(0, 3).join(", ")}${
-      tickers.length > 3 ? ` and ${tickers.length - 3} more` : ""
-    }.`;
-  }
-
-  if (sectors.length > 0) {
-    return `Relevant to ${sectors.slice(0, 2).join(" and ")} sentiment.`;
-  }
-
-  return "Macro impact: watch rates, risk appetite and sector rotation.";
+  return "Market activity";
 }
 
 function SelectChevron() {
@@ -247,8 +85,9 @@ function SelectChevron() {
 }
 
 export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) {
-  const [selectedArticle, setSelectedArticle] =
-    useState<WorldNewsArticle | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<WorldNewsArticle | null>(
+    null,
+  );
 
   const [search, setSearch] = useState("");
   const [impactFilter, setImpactFilter] = useState("All impacts");
@@ -258,10 +97,8 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
   const [draftSearch, setDraftSearch] = useState("");
   const [draftImpactFilter, setDraftImpactFilter] = useState("All impacts");
-  const [draftIndustryFilter, setDraftIndustryFilter] =
-    useState("All industries");
-  const [draftCountryFilter, setDraftCountryFilter] =
-    useState("All countries");
+  const [draftIndustryFilter, setDraftIndustryFilter] = useState("All industries");
+  const [draftCountryFilter, setDraftCountryFilter] = useState("All countries");
   const [draftTopicFilter, setDraftTopicFilter] = useState("All topics");
 
   const enrichedArticles = useMemo(
@@ -274,61 +111,77 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           new Set(
             article.affectedStocks
               .map((stock) => stock.sector)
-              .filter((sector): sector is string => Boolean(sector))
-          )
+              .filter((sector): sector is string => Boolean(sector)),
+          ),
+        ),
+        highestImpactRating: Math.max(
+          ...article.affectedStocks.map((stock) => stock.impactRating),
+          1,
         ),
       })),
-    [articles]
+    [articles],
   );
 
   const counts = useMemo(
     () =>
       articles.reduce(
         (acc, article) => {
-          const s = (article.impact ?? "").toLowerCase().trim();
+          const impact = inferImpact(article);
 
-          if (s === "positive") acc.positive++;
-          else if (s === "negative") acc.negative++;
+          if (impact === "positive") acc.positive++;
+          else if (impact === "negative") acc.negative++;
           else acc.neutral++;
 
           return acc;
         },
-        { positive: 0, negative: 0, neutral: 0 }
+        { positive: 0, negative: 0, neutral: 0 },
       ),
-    [articles]
+    [articles],
   );
 
   const industries = useMemo(
     () => [
       "All industries",
       ...Array.from(
-        new Set(enrichedArticles.flatMap((article) => article.industries))
+        new Set(enrichedArticles.flatMap((article) => article.industries)),
       ).sort(),
     ],
-    [enrichedArticles]
+    [enrichedArticles],
   );
 
   const countries = useMemo(
     () => [
       "All countries",
-      ...Array.from(
-        new Set(enrichedArticles.map((article) => article.country))
-      ).sort(),
+      ...Array.from(new Set(enrichedArticles.map((article) => article.country))).sort(),
     ],
-    [enrichedArticles]
+    [enrichedArticles],
+  );
+
+  const topics = useMemo(
+    () => [
+      "All topics",
+      ...Array.from(new Set(enrichedArticles.map((article) => article.topic))).sort(),
+    ],
+    [enrichedArticles],
   );
 
   const filteredArticles = useMemo(() => {
     return enrichedArticles.filter((article) => {
-      const text = articleText(article);
+      const text = [
+        articleText(article),
+        article.affectedStocks
+          .map((stock) => `${stock.ticker} ${stock.company} ${stock.sector} ${stock.scoreEffect}`)
+          .join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
 
       const matchesSearch =
         !search.trim() || text.includes(search.trim().toLowerCase());
 
       const matchesImpact =
         impactFilter === "All impacts" ||
-        (article.impact ?? "neutral").toLowerCase() ===
-          impactFilter.toLowerCase();
+        inferImpact(article) === impactFilter.toLowerCase();
 
       const matchesIndustry =
         industryFilter === "All industries" ||
@@ -390,7 +243,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
             World News
           </h1>
           <p className="text-[11px] font-medium text-[#faf6f0]/50 sm:text-[12px]">
-            {articles.length} articles with AI sentiment analysis
+            {articles.length} articles · AI-linked stocks · impact rating /10
           </p>
         </div>
 
@@ -399,10 +252,12 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
             {counts.positive} positive
           </span>
+
           <span className="flex items-center gap-1.5 text-[#faf6f0]/50">
             <span className="inline-block h-2 w-2 rounded-full bg-[#faf6f0]/40" />
             {counts.neutral} neutral
           </span>
+
           <span className="flex items-center gap-1.5 text-red-400">
             <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
             {counts.negative} negative
@@ -447,7 +302,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
               onKeyDown={(event) => {
                 if (event.key === "Enter") applyFilters();
               }}
-              placeholder="Search news, ticker, source..."
+              placeholder="Search news, ticker, company, source..."
               className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/32"
             />
           </label>
@@ -462,13 +317,11 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                 onChange={(event) => setDraftImpactFilter(event.target.value)}
                 className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
               >
-                {["All impacts", "Positive", "Neutral", "Negative"].map(
-                  (option) => (
-                    <option key={option} className="bg-white text-black">
-                      {option}
-                    </option>
-                  )
-                )}
+                {["All impacts", "Positive", "Neutral", "Negative"].map((option) => (
+                  <option key={option} className="bg-white text-black">
+                    {option}
+                  </option>
+                ))}
               </select>
               <SelectChevron />
             </label>
@@ -518,7 +371,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                 onChange={(event) => setDraftTopicFilter(event.target.value)}
                 className="h-full w-full appearance-none bg-transparent pb-0.5 pt-3 text-[12px] font-black text-[#faf6f0] outline-none"
               >
-                {["All topics", "Politics", "Company activity"].map((option) => (
+                {topics.map((option) => (
                   <option key={option} className="bg-white text-black">
                     {option}
                   </option>
@@ -555,7 +408,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
           {filteredArticles.length > 0 ? (
             filteredArticles.map((article) => {
               const style = impactStyle(article.impact);
-              const hasImage = !!article.image_url;
+              const topStock = article.affectedStocks[0];
 
               return (
                 <button
@@ -564,10 +417,10 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                   onClick={() => setSelectedArticle(article)}
                   className="group flex gap-4 rounded-2xl border border-[#ddb159]/15 bg-[#0b2b1d]/60 p-4 text-left transition hover:border-[#ddb159]/40 hover:bg-[#0b2b1d]"
                 >
-                  {hasImage && (
+                  {article.image_url && (
                     <div className="hidden h-20 w-28 shrink-0 overflow-hidden rounded-lg sm:block">
                       <img
-                        src={article.image_url!}
+                        src={article.image_url}
                         alt=""
                         className="h-full w-full object-cover transition group-hover:scale-105"
                         loading="lazy"
@@ -589,9 +442,15 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                         {style.label}
                       </span>
 
+                      {topStock && (
+                        <span className="rounded-full border border-[#ddb159]/25 bg-[#ddb159]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+                          {topStock.impactRating}/10 impact
+                        </span>
+                      )}
+
                       {article.published_at && (
                         <span className="text-[10px] font-semibold text-[#faf6f0]/35">
-                          {formatFullDate(article.published_at)}
+                          {formatShortNewsDate(article.published_at)}
                         </span>
                       )}
                     </div>
@@ -605,16 +464,16 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                     </p>
 
                     <p className="mt-1 line-clamp-1 text-[10px] font-semibold leading-relaxed text-[#ddb159]/65">
-                      StockGPT view: {getCardInsight(article)}
+                      {getNewsInsight(article)}
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {article.affectedStocks.map((stock) => (
+                      {article.affectedStocks.slice(0, 8).map((stock) => (
                         <span
                           key={stock.ticker}
                           className="rounded bg-[#ddb159]/15 px-1.5 py-0.5 text-[9px] font-black text-[#ddb159]"
                         >
-                          {stock.ticker}
+                          {stock.ticker} · {stock.impactRating}/10
                         </span>
                       ))}
                     </div>
@@ -643,7 +502,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
       </div>
 
       {selectedArticle && selectedStyle && (
-        <div className="fixed inset-x-0 bottom-[calc(82px+env(safe-area-inset-bottom))] top-[88px] z-[9999] overflow-hidden sm:bottom-0 sm:top-[88px] lg:top-[88px]">
+        <div className="fixed inset-x-0 bottom-[calc(82px+env(safe-area-inset-bottom))] top-[88px] z-[9999] overflow-hidden sm:bottom-0">
           <button
             type="button"
             aria-label="Close article popup"
@@ -678,7 +537,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                     {selectedArticle.source ?? "News source"}
                   </p>
                   <p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/70">
-                    {formatFullDate(selectedArticle.published_at)}
+                    {formatNewsDate(selectedArticle.published_at)}
                   </p>
                 </div>
               </div>
@@ -687,7 +546,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                 <button
                   type="button"
                   onClick={() => setSelectedArticle(null)}
-                  className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159] sm:right-4 sm:top-4 sm:px-3 sm:text-[11px]"
+                  className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
                 >
                   Close
                 </button>
@@ -700,9 +559,9 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                       {selectedStyle.label} impact
                     </span>
 
-                    <span className="line-clamp-1 max-w-[210px] text-[9px] font-bold text-[#faf6f0]/38 sm:max-w-none sm:text-[10px] lg:hidden">
+                    <span className="line-clamp-1 max-w-[260px] text-[9px] font-bold text-[#faf6f0]/38 sm:max-w-none sm:text-[10px] lg:hidden">
                       {selectedArticle.source ?? "News source"} ·{" "}
-                      {formatFullDate(selectedArticle.published_at)}
+                      {formatNewsDate(selectedArticle.published_at)}
                     </span>
                   </div>
 
@@ -717,16 +576,16 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                       Full description
                     </p>
 
-                    <p className="mt-1.5 line-clamp-3 text-[11px] font-medium leading-4 text-[#faf6f0]/70 sm:line-clamp-5 sm:text-[13px] sm:leading-6 xl:line-clamp-6">
+                    <div className="mt-1.5 max-h-[22dvh] overflow-y-auto pr-1 text-[11px] font-medium leading-5 text-[#faf6f0]/70 sm:max-h-[26dvh] sm:text-[13px] sm:leading-6">
                       {displaySummary(selectedArticle)}
-                    </p>
+                    </div>
 
                     <div className="mt-2 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2 sm:mt-3 sm:p-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                         StockGPT insight
                       </p>
-                      <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/64 sm:line-clamp-3 sm:text-[12px] sm:leading-5">
-                        {getInsight(selectedArticle)}
+                      <p className="mt-1 line-clamp-3 text-[10px] font-semibold leading-4 text-[#faf6f0]/64 sm:text-[12px] sm:leading-5">
+                        {getNewsInsight(selectedArticle)}
                       </p>
                     </div>
                   </div>
@@ -743,7 +602,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
                     <div className="mt-1.5 grid gap-1.5 sm:mt-2 sm:grid-cols-2 sm:gap-2">
                       {selectedArticle.affectedStocks.length > 0 ? (
-                        selectedArticle.affectedStocks.slice(0, 4).map((stock) => (
+                        selectedArticle.affectedStocks.slice(0, 6).map((stock) => (
                           <Link
                             key={stock.ticker}
                             href={`/stock/${stock.ticker}`}
@@ -757,39 +616,39 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                                 <p className="truncate text-[9px] font-bold text-[#faf6f0]/62 sm:text-[10px]">
                                   {stock.company ?? "Company data unavailable"}
                                 </p>
-                                {stock.sector && (
-                                  <p className="mt-0.5 truncate text-[8px] font-bold uppercase tracking-wider text-[#faf6f0]/30">
-                                    {stock.sector}
-                                  </p>
-                                )}
+                                <p className="mt-0.5 truncate text-[8px] font-bold uppercase tracking-wider text-[#faf6f0]/30">
+                                  {stock.matchReason}
+                                </p>
                               </div>
 
                               <div className="shrink-0 text-right">
-                                {stock.rank != null && (
-                                  <p className="text-[8px] font-black text-[#faf6f0]/45 sm:text-[9px]">
-                                    #{stock.rank}
-                                  </p>
-                                )}
+                                <span className="inline-flex rounded-full bg-[#ddb159] px-1.5 py-0.5 text-[8px] font-black text-[#061b12]">
+                                  {stock.impactRating}/10
+                                </span>
 
                                 {stock.score != null && (
-                                  <span className="mt-0.5 inline-flex max-w-[56px] truncate rounded-full bg-[#ddb159] px-1.5 py-0.5 text-[8px] font-black text-[#061b12]">
+                                  <p className="mt-1 text-[8px] font-black text-[#faf6f0]/45">
                                     {Number(stock.score).toLocaleString()}
-                                  </span>
+                                  </p>
                                 )}
                               </div>
                             </div>
+
+                            <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-[#faf6f0]/45">
+                              {stock.scoreEffect}
+                            </p>
                           </Link>
                         ))
                       ) : (
-                        <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-2.5 text-[10px] font-semibold text-[#faf6f0]/45 sm:col-span-2 sm:p-3 sm:text-[11px]">
+                        <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-2.5 text-[10px] font-semibold text-[#faf6f0]/45 sm:col-span-2">
                           No specific tickers are linked to this article yet.
                         </div>
                       )}
                     </div>
 
-                    {selectedArticle.affectedStocks.length > 4 && (
+                    {selectedArticle.affectedStocks.length > 6 && (
                       <p className="mt-1 text-[8px] font-bold text-[#faf6f0]/35 sm:text-[9px]">
-                        +{selectedArticle.affectedStocks.length - 4} more linked stocks hidden to keep the briefing compact.
+                        +{selectedArticle.affectedStocks.length - 6} more linked stocks hidden to keep the briefing compact.
                       </p>
                     )}
                   </div>
@@ -802,7 +661,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                         rel="noopener noreferrer"
                         className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110 sm:h-10 sm:text-[11px]"
                       >
-                        Read more
+                        Read source
                       </a>
                     ) : (
                       <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#faf6f0]/12 px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#faf6f0]/35 sm:h-10 sm:text-[11px]">
