@@ -62,14 +62,40 @@ export type NewsArticleDisplayLike = {
 type RatingResult = {
   rating: number;
   reason: string;
+  causalChain: string;
+};
+
+type CausalChannel = {
+  id: string;
+  label: string;
+  terms: string[];
+  positiveTerms: string[];
+  negativeTerms: string[];
+  factorInput: string;
+  explanation: string;
+  sectors?: string[];
 };
 
 type IndustryTheme = {
+  id: string;
   name: string;
   terms: string[];
   tickers: string[];
-  rating: number;
+  sectors?: string[];
+  baseRating: number;
   reason: string;
+};
+
+type RelevanceDecision = {
+  relevant: boolean;
+  score: number;
+  reason: string;
+  directCompanyMatch: boolean;
+  marketHits: number;
+  catalystHits: number;
+  softHits: number;
+  channelHits: string[];
+  industryHits: string[];
 };
 
 const COMPANY_STOP_WORDS = new Set([
@@ -199,7 +225,56 @@ const AMBIGUOUS_TICKERS = new Set([
   "WAT",
 ]);
 
-const MARKET_RELEVANCE_TERMS = [
+const COMPANY_ALIASES: Record<string, string[]> = {
+  AAPL: ["apple"],
+  MSFT: ["microsoft"],
+  NVDA: ["nvidia"],
+  AMZN: ["amazon", "aws"],
+  GOOGL: ["alphabet", "google", "youtube"],
+  GOOG: ["alphabet", "google", "youtube"],
+  META: ["meta", "facebook", "instagram", "whatsapp"],
+  TSLA: ["tesla"],
+  WDC: ["western digital"],
+  SNDK: ["sandisk", "san disk"],
+  MU: ["micron"],
+  STX: ["seagate"],
+  JPM: ["jpmorgan", "jp morgan", "jpmorgan chase", "chase"],
+  BAC: ["bank of america"],
+  WFC: ["wells fargo"],
+  C: ["citigroup", "citi"],
+  GS: ["goldman sachs"],
+  MS: ["morgan stanley"],
+  V: ["visa"],
+  MA: ["mastercard"],
+  XOM: ["exxon", "exxonmobil", "exxon mobil"],
+  CVX: ["chevron"],
+  LLY: ["eli lilly", "lilly"],
+  JNJ: ["johnson and johnson", "johnson & johnson"],
+  MRK: ["merck"],
+  PFE: ["pfizer"],
+  UNH: ["unitedhealth", "united health"],
+  NKE: ["nike"],
+  LULU: ["lululemon"],
+  TGT: ["target"],
+  WMT: ["walmart", "wal-mart"],
+  COST: ["costco"],
+  HD: ["home depot"],
+  LOW: ["lowe's", "lowes"],
+  BA: ["boeing"],
+  LMT: ["lockheed martin"],
+  RTX: ["rtx", "raytheon"],
+  DIS: ["disney", "walt disney"],
+  NFLX: ["netflix"],
+  CRM: ["salesforce"],
+  ORCL: ["oracle"],
+  ADBE: ["adobe"],
+  INTC: ["intel"],
+  AMD: ["advanced micro devices", "amd"],
+  AVGO: ["broadcom"],
+  QCOM: ["qualcomm"],
+};
+
+const HARD_MARKET_TERMS = [
   "stock",
   "stocks",
   "share",
@@ -210,6 +285,7 @@ const MARKET_RELEVANCE_TERMS = [
   "investors",
   "market",
   "markets",
+  "wall street",
   "nasdaq",
   "nyse",
   "dow",
@@ -235,50 +311,20 @@ const MARKET_RELEVANCE_TERMS = [
   "ipo",
   "dividend",
   "buyback",
-  "merger",
-  "acquisition",
-  "acquires",
-  "acquired",
-  "deal",
-  "antitrust",
-  "lawsuit",
-  "probe",
-  "investigation",
-  "regulator",
-  "regulation",
-  "fda",
-  "approval",
-  "recall",
-  "tariff",
-  "sanction",
-  "fed",
-  "federal reserve",
-  "interest rate",
-  "interest rates",
-  "inflation",
-  "treasury",
-  "yield",
-  "yields",
-  "oil",
-  "crude",
-  "opec",
-  "gold",
-  "copper",
-  "semiconductor",
-  "chip",
-  "chips",
-  "ai chip",
-  "data center",
-  "cloud",
-  "cybersecurity",
+  "valuation",
+  "multiple",
+  "free cash flow",
+  "cash flow",
 ];
 
-const BUSINESS_EVENT_TERMS = [
+const BUSINESS_CATALYST_TERMS = [
   "earnings",
   "revenue",
+  "sales",
   "profit",
   "profits",
   "margin",
+  "margins",
   "guidance",
   "forecast",
   "outlook",
@@ -294,9 +340,11 @@ const BUSINESS_EVENT_TERMS = [
   "sells",
   "selling",
   "spinoff",
+  "spin-off",
   "ipo",
   "layoffs",
-  "cuts",
+  "job cuts",
+  "cost cuts",
   "recall",
   "lawsuit",
   "probe",
@@ -311,6 +359,90 @@ const BUSINESS_EVENT_TERMS = [
   "partnership",
   "launch",
   "expansion",
+  "supply chain",
+  "shipments",
+  "deliveries",
+  "orders",
+  "demand",
+  "pricing",
+  "price hike",
+  "price cuts",
+];
+
+const MACRO_MARKET_TERMS = [
+  "fed",
+  "federal reserve",
+  "interest rate",
+  "interest rates",
+  "rate cut",
+  "rate cuts",
+  "rate hike",
+  "rate hikes",
+  "inflation",
+  "cpi",
+  "ppi",
+  "jobs report",
+  "payrolls",
+  "unemployment",
+  "recession",
+  "gdp",
+  "treasury",
+  "treasuries",
+  "yield",
+  "yields",
+  "dollar",
+  "oil",
+  "crude",
+  "brent",
+  "wti",
+  "opec",
+  "tariff",
+  "tariffs",
+  "sanction",
+  "sanctions",
+  "trade war",
+  "geopolitical",
+];
+
+const SOFT_NEWS_TERMS = [
+  "husband",
+  "wife",
+  "girlfriend",
+  "boyfriend",
+  "wedding",
+  "bride",
+  "groom",
+  "celebrity",
+  "actor",
+  "actress",
+  "singer",
+  "movie",
+  "film",
+  "tv show",
+  "football",
+  "soccer",
+  "nba",
+  "nfl",
+  "mlb",
+  "recipe",
+  "doughnut",
+  "donut",
+  "restaurant review",
+  "holiday",
+  "vacation",
+  "travel guide",
+  "tiktok",
+  "viral",
+  "reddit",
+  "meme",
+  "horoscope",
+  "puzzle",
+  "quiz",
+  "photos",
+  "fans react",
+  "office prank",
+  "landed a job",
+  "job by bringing",
 ];
 
 const POSITIVE_WORDS = [
@@ -339,6 +471,9 @@ const POSITIVE_WORDS = [
   "expands",
   "wins",
   "outperform",
+  "demand rises",
+  "margin expansion",
+  "cost savings",
 ];
 
 const NEGATIVE_WORDS = [
@@ -371,334 +506,186 @@ const NEGATIVE_WORDS = [
   "pressure",
   "decline",
   "declines",
+  "margin pressure",
+  "demand weakens",
+];
+
+const CAUSAL_CHANNELS: CausalChannel[] = [
+  {
+    id: "earnings",
+    label: "earnings expectations",
+    terms: ["earnings", "revenue", "profit", "guidance", "forecast", "outlook", "sales", "eps"],
+    positiveTerms: ["beats", "raises", "strong", "record", "growth", "profit", "outperform"],
+    negativeTerms: ["misses", "cuts", "weak", "warning", "loss", "decline", "downgrade"],
+    factorInput: "growth, quality, estimate revision and momentum inputs",
+    explanation: "company results or guidance can change analyst expectations and investor sentiment",
+  },
+  {
+    id: "demand",
+    label: "demand",
+    terms: ["demand", "orders", "shipments", "deliveries", "bookings", "traffic", "consumer spending", "sales"],
+    positiveTerms: ["strong demand", "orders rise", "sales rise", "deliveries rise", "bookings rise"],
+    negativeTerms: ["weak demand", "orders fall", "sales fall", "deliveries fall", "demand weakens"],
+    factorInput: "revenue growth, momentum and forward-demand inputs",
+    explanation: "changes in demand can feed into revenue expectations and relative stock strength",
+  },
+  {
+    id: "margin",
+    label: "margin / cost pressure",
+    terms: ["margin", "margins", "cost", "costs", "pricing", "price cuts", "price hikes", "wages", "tariff", "tariffs", "input costs"],
+    positiveTerms: ["margin expansion", "cost savings", "pricing power", "price hikes"],
+    negativeTerms: ["margin pressure", "cost pressure", "price cuts", "tariff", "tariffs", "higher costs"],
+    factorInput: "profitability, quality and risk inputs",
+    explanation: "pricing power or cost pressure can change profitability and model risk",
+  },
+  {
+    id: "rates",
+    label: "interest-rate sensitivity",
+    terms: ["fed", "federal reserve", "interest rates", "rate cut", "rate cuts", "rate hike", "rate hikes", "treasury", "yield", "yields"],
+    positiveTerms: ["rate cut", "rate cuts", "yields fall", "lower rates"],
+    negativeTerms: ["rate hike", "rate hikes", "yields rise", "higher rates"],
+    factorInput: "valuation, financing-cost and sector-rotation inputs",
+    explanation: "rates change discount rates, funding costs and appetite for defensive or long-duration assets",
+    sectors: ["Financials", "Real Estate", "Utilities", "Information Technology", "Consumer Discretionary"],
+  },
+  {
+    id: "commodity",
+    label: "commodity / input prices",
+    terms: ["oil", "crude", "brent", "wti", "opec", "gas", "lng", "copper", "gold", "lithium", "steel"],
+    positiveTerms: ["oil rises", "crude rises", "prices rise", "supply cut"],
+    negativeTerms: ["oil falls", "crude falls", "prices fall", "oversupply"],
+    factorInput: "margin, inflation and sector momentum inputs",
+    explanation: "commodity moves affect producers, transport costs, input costs and inflation expectations",
+    sectors: ["Energy", "Materials", "Industrials", "Consumer Discretionary"],
+  },
+  {
+    id: "regulation",
+    label: "regulatory / legal risk",
+    terms: ["regulation", "regulator", "antitrust", "lawsuit", "probe", "investigation", "sec", "doj", "fda", "approval", "ban", "sanction", "sanctions"],
+    positiveTerms: ["approval", "approved", "cleared", "settlement"],
+    negativeTerms: ["lawsuit", "probe", "investigation", "ban", "sanction", "blocked", "fine"],
+    factorInput: "risk, sentiment and valuation inputs",
+    explanation: "regulatory outcomes can change risk premia, addressable markets and valuation multiples",
+  },
+  {
+    id: "supply-chain",
+    label: "supply chain",
+    terms: ["supply chain", "shortage", "inventory", "production", "factory", "manufacturing", "supplier", "exports", "export controls"],
+    positiveTerms: ["production rises", "supply improves", "inventory clears"],
+    negativeTerms: ["shortage", "export controls", "supply disruption", "factory shutdown"],
+    factorInput: "revenue reliability, margin and risk inputs",
+    explanation: "supply-chain changes can affect production volumes, revenue timing and margins",
+  },
+  {
+    id: "capital-allocation",
+    label: "capital allocation",
+    terms: ["buyback", "dividend", "debt", "leverage", "credit rating", "cash flow", "free cash flow", "capex", "investment"],
+    positiveTerms: ["buyback", "dividend increase", "debt reduction", "free cash flow"],
+    negativeTerms: ["debt rises", "credit downgrade", "cash burn", "higher capex"],
+    factorInput: "quality, income, balance-sheet and risk inputs",
+    explanation: "capital allocation affects shareholder returns, financial resilience and model quality scores",
+  },
 ];
 
 const INDUSTRY_THEMES: IndustryTheme[] = [
   {
+    id: "semiconductors",
     name: "AI chips and semiconductors",
-    terms: [
-      "semiconductor",
-      "semiconductors",
-      "chip",
-      "chips",
-      "gpu",
-      "ai chip",
-      "ai chips",
-      "accelerator",
-      "accelerators",
-      "foundry",
-      "wafer",
-      "memory chip",
-      "hbm",
-      "data center chip",
-    ],
-    tickers: [
-      "NVDA",
-      "AMD",
-      "AVGO",
-      "QCOM",
-      "INTC",
-      "MU",
-      "MRVL",
-      "ON",
-      "TXN",
-      "ADI",
-      "MCHP",
-      "AMAT",
-      "LRCX",
-      "KLAC",
-      "TER",
-      "MPWR",
-      "NXPI",
-      "SWKS",
-      "QRVO",
-    ],
-    rating: 6,
-    reason: "Semiconductor industry read-through",
+    terms: ["semiconductor", "semiconductors", "chip", "chips", "gpu", "ai chip", "ai chips", "accelerator", "foundry", "wafer", "hbm", "data center chip"],
+    tickers: ["NVDA", "AMD", "AVGO", "QCOM", "INTC", "MU", "MRVL", "ON", "TXN", "ADI", "MCHP", "AMAT", "LRCX", "KLAC", "TER", "MPWR", "NXPI", "SWKS", "QRVO"],
+    sectors: ["Information Technology"],
+    baseRating: 6,
+    reason: "semiconductor industry read-through",
   },
   {
-    name: "data centers, cloud and enterprise software",
-    terms: [
-      "cloud",
-      "data center",
-      "data centres",
-      "data centers",
-      "enterprise software",
-      "cybersecurity",
-      "saas",
-      "server",
-      "servers",
-      "ai infrastructure",
-    ],
-    tickers: [
-      "MSFT",
-      "AMZN",
-      "GOOGL",
-      "META",
-      "ORCL",
-      "CRM",
-      "NOW",
-      "ADBE",
-      "PANW",
-      "CRWD",
-      "ANET",
-      "DELL",
-      "HPE",
-      "IBM",
-    ],
-    rating: 5,
-    reason: "Cloud/software infrastructure read-through",
+    id: "cloud-software",
+    name: "cloud, data centres and enterprise software",
+    terms: ["cloud", "data center", "data centres", "data centers", "enterprise software", "cybersecurity", "saas", "server", "servers", "ai infrastructure"],
+    tickers: ["MSFT", "AMZN", "GOOGL", "META", "ORCL", "CRM", "NOW", "ADBE", "PANW", "CRWD", "ANET", "DELL", "HPE", "IBM"],
+    sectors: ["Information Technology", "Communication Services"],
+    baseRating: 5,
+    reason: "cloud/software infrastructure read-through",
   },
   {
+    id: "memory-storage",
     name: "memory and storage",
-    terms: [
-      "memory",
-      "dram",
-      "nand",
-      "flash storage",
-      "hard drive",
-      "hard drives",
-      "ssd",
-      "storage",
-      "data storage",
-    ],
+    terms: ["memory", "dram", "nand", "flash storage", "hard drive", "hard drives", "ssd", "storage", "data storage"],
     tickers: ["MU", "WDC", "STX", "SNDK"],
-    rating: 6,
-    reason: "Memory/storage industry read-through",
+    sectors: ["Information Technology"],
+    baseRating: 6,
+    reason: "memory/storage industry read-through",
   },
   {
+    id: "banks-credit",
     name: "banks, rates and credit",
-    terms: [
-      "bank",
-      "banks",
-      "banking",
-      "loan",
-      "loans",
-      "credit",
-      "deposit",
-      "deposits",
-      "net interest income",
-      "interest rates",
-      "fed",
-      "federal reserve",
-      "yield curve",
-      "capital markets",
-    ],
-    tickers: [
-      "JPM",
-      "BAC",
-      "WFC",
-      "C",
-      "GS",
-      "MS",
-      "PNC",
-      "USB",
-      "TFC",
-      "COF",
-      "AXP",
-      "BK",
-      "STT",
-    ],
-    rating: 5,
-    reason: "Banking/credit read-through",
+    terms: ["bank", "banks", "banking", "loan", "loans", "credit", "deposit", "deposits", "net interest income", "interest rates", "fed", "federal reserve", "yield curve", "capital markets"],
+    tickers: ["JPM", "BAC", "WFC", "C", "GS", "MS", "PNC", "USB", "TFC", "COF", "AXP", "BK", "STT"],
+    sectors: ["Financials"],
+    baseRating: 5,
+    reason: "banking/credit read-through",
   },
   {
+    id: "energy",
     name: "energy and oil",
-    terms: [
-      "oil",
-      "crude",
-      "brent",
-      "wti",
-      "opec",
-      "gas",
-      "lng",
-      "pipeline",
-      "refinery",
-      "refining",
-      "drilling",
-    ],
-    tickers: [
-      "XOM",
-      "CVX",
-      "COP",
-      "EOG",
-      "SLB",
-      "MPC",
-      "PSX",
-      "VLO",
-      "KMI",
-      "OKE",
-      "WMB",
-    ],
-    rating: 5,
-    reason: "Energy commodity read-through",
+    terms: ["oil", "crude", "brent", "wti", "opec", "gas", "lng", "pipeline", "refinery", "refining", "drilling"],
+    tickers: ["XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "KMI", "OKE", "WMB"],
+    sectors: ["Energy"],
+    baseRating: 5,
+    reason: "energy commodity read-through",
   },
   {
+    id: "healthcare",
     name: "healthcare, pharma and biotech",
-    terms: [
-      "fda",
-      "drug",
-      "drugs",
-      "medicine",
-      "pharma",
-      "biotech",
-      "clinical trial",
-      "medicare",
-      "hospital",
-      "healthcare",
-      "health care",
-      "vaccine",
-      "therapy",
-    ],
-    tickers: [
-      "LLY",
-      "JNJ",
-      "MRK",
-      "ABBV",
-      "PFE",
-      "BMY",
-      "AMGN",
-      "GILD",
-      "REGN",
-      "VRTX",
-      "ISRG",
-      "MDT",
-      "SYK",
-      "TMO",
-      "DHR",
-      "ABT",
-      "UNH",
-      "HUM",
-      "CI",
-      "CVS",
-    ],
-    rating: 5,
-    reason: "Healthcare/pharma read-through",
+    terms: ["fda", "drug", "drugs", "medicine", "pharma", "biotech", "clinical trial", "medicare", "hospital", "healthcare", "health care", "vaccine", "therapy"],
+    tickers: ["LLY", "JNJ", "MRK", "ABBV", "PFE", "BMY", "AMGN", "GILD", "REGN", "VRTX", "ISRG", "MDT", "SYK", "TMO", "DHR", "ABT", "UNH", "HUM", "CI", "CVS"],
+    sectors: ["Health Care", "Healthcare"],
+    baseRating: 5,
+    reason: "healthcare/pharma read-through",
   },
   {
+    id: "autos-ev",
     name: "autos and electric vehicles",
-    terms: [
-      "auto",
-      "autos",
-      "automaker",
-      "automakers",
-      "vehicle",
-      "vehicles",
-      "car",
-      "cars",
-      "ev",
-      "electric vehicle",
-      "electric vehicles",
-      "battery",
-      "batteries",
-      "charging",
-      "deliveries",
-    ],
+    terms: ["auto", "autos", "automaker", "automakers", "vehicle", "vehicles", "car", "cars", "ev", "electric vehicle", "electric vehicles", "battery", "batteries", "charging", "deliveries"],
     tickers: ["TSLA", "GM", "F"],
-    rating: 5,
-    reason: "Auto/EV industry read-through",
+    sectors: ["Consumer Discretionary"],
+    baseRating: 5,
+    reason: "auto/EV industry read-through",
   },
   {
-    name: "apparel and specialist retail",
-    terms: [
-      "fashion",
-      "apparel",
-      "clothing",
-      "retail",
-      "retailer",
-      "retailers",
-      "luxury",
-      "sportswear",
-      "sneakers",
-      "footwear",
-      "fast fashion",
-      "department store",
-    ],
-    tickers: [
-      "NKE",
-      "LULU",
-      "TJX",
-      "ROST",
-      "TPR",
-      "RL",
-      "VFC",
-      "BBY",
-      "TGT",
-      "WMT",
-      "COST",
-      "HD",
-      "LOW",
-    ],
-    rating: 4,
-    reason: "Retail/apparel read-through",
+    id: "retail-apparel",
+    name: "apparel and listed retail",
+    terms: ["fashion", "apparel", "clothing", "retail", "retailer", "retailers", "luxury", "sportswear", "sneakers", "footwear", "fast fashion", "department store"],
+    tickers: ["NKE", "LULU", "TJX", "ROST", "TPR", "RL", "VFC", "BBY", "TGT", "WMT", "COST", "HD", "LOW"],
+    sectors: ["Consumer Discretionary", "Consumer Staples"],
+    baseRating: 4,
+    reason: "retail/apparel read-through",
   },
   {
+    id: "travel-leisure",
     name: "travel, airlines and leisure",
-    terms: [
-      "airline",
-      "airlines",
-      "travel",
-      "hotel",
-      "hotels",
-      "cruise",
-      "booking",
-      "tourism",
-      "leisure",
-    ],
+    terms: ["airline", "airlines", "travel", "hotel", "hotels", "cruise", "booking", "tourism", "leisure"],
     tickers: ["DAL", "UAL", "AAL", "LUV", "MAR", "HLT", "BKNG", "RCL", "CCL"],
-    rating: 4,
-    reason: "Travel/leisure read-through",
+    sectors: ["Industrials", "Consumer Discretionary"],
+    baseRating: 4,
+    reason: "travel/leisure read-through",
   },
   {
+    id: "defence-aerospace",
     name: "defence and aerospace",
-    terms: [
-      "defense",
-      "defence",
-      "aerospace",
-      "missile",
-      "military",
-      "pentagon",
-      "war",
-      "weapons",
-      "aircraft",
-      "jet",
-      "jets",
-    ],
+    terms: ["defense", "defence", "aerospace", "missile", "military", "pentagon", "war", "weapons", "aircraft", "jet", "jets"],
     tickers: ["LMT", "RTX", "NOC", "GD", "BA", "TXT", "HWM"],
-    rating: 5,
-    reason: "Defence/aerospace read-through",
+    sectors: ["Industrials"],
+    baseRating: 5,
+    reason: "defence/aerospace read-through",
   },
   {
+    id: "real-estate",
     name: "housing, mortgages and real estate",
-    terms: [
-      "housing",
-      "mortgage",
-      "mortgages",
-      "homebuilder",
-      "homebuilders",
-      "commercial real estate",
-      "office property",
-      "reit",
-      "property",
-      "rents",
-    ],
-    tickers: [
-      "PLD",
-      "AMT",
-      "EQIX",
-      "SPG",
-      "O",
-      "DLR",
-      "WELL",
-      "PSA",
-      "AVB",
-      "EQR",
-      "DHI",
-      "LEN",
-      "PHM",
-    ],
-    rating: 4,
-    reason: "Real estate/housing read-through",
+    terms: ["housing", "mortgage", "mortgages", "homebuilder", "homebuilders", "commercial real estate", "office property", "reit", "property", "rents"],
+    tickers: ["PLD", "AMT", "EQIX", "SPG", "O", "DLR", "WELL", "PSA", "AVB", "EQR", "DHI", "LEN", "PHM"],
+    sectors: ["Real Estate"],
+    baseRating: 4,
+    reason: "real estate/housing read-through",
   },
 ];
 
@@ -755,6 +742,10 @@ function containsTerm(text: string, term: string) {
 
 function countTermHits(text: string, terms: string[]) {
   return terms.filter((term) => containsTerm(text, term)).length;
+}
+
+function matchedTerms(text: string, terms: string[]) {
+  return terms.filter((term) => containsTerm(text, term));
 }
 
 export function normaliseTickers(
@@ -818,10 +809,10 @@ function cleanedCompanyName(company: string | null) {
     .toLowerCase();
 }
 
-function companyTerms(company: string | null) {
-  const clean = cleanedCompanyName(company);
-
-  if (!clean) return [];
+function companyTerms(stock: StockLike) {
+  const ticker = String(stock.ticker ?? "").toUpperCase();
+  const clean = cleanedCompanyName(stock.company);
+  const aliases = COMPANY_ALIASES[ticker] ?? [];
 
   const words = clean
     .split(" ")
@@ -833,13 +824,15 @@ function companyTerms(company: string | null) {
         !GENERIC_COMPANY_TERMS.has(word),
     );
 
-  const terms = [clean, ...words];
+  const terms = [clean, ...aliases, ...words];
 
   if (clean.includes(" and ")) {
     terms.push(clean.replace(/\s+and\s+/g, " "));
   }
 
-  return Array.from(new Set(terms)).filter((term) => term.length >= 4);
+  return Array.from(new Set(terms))
+    .map((term) => term.trim().toLowerCase())
+    .filter((term) => term.length >= 4);
 }
 
 function containsExplicitTickerSymbol(rawText: string, ticker: string) {
@@ -854,9 +847,7 @@ function containsExplicitTickerSymbol(rawText: string, ticker: string) {
     patterns.push(`\\(${t}\\)`);
   }
 
-  return patterns.some((pattern) =>
-    new RegExp(pattern, "i").test(rawText),
-  );
+  return patterns.some((pattern) => new RegExp(pattern, "i").test(rawText));
 }
 
 function containsTickerAsWord(rawText: string, ticker: string) {
@@ -883,31 +874,39 @@ function getDirectStockMatch(
   if (containsExplicitTickerSymbol(rawTitle, ticker)) {
     return {
       rating: 10,
-      reason: "Ticker symbol appears explicitly in headline",
+      reason: "ticker symbol appears explicitly in headline",
+      causalChain:
+        "explicit ticker in headline → direct company relevance → strongest possible stock-specific news link",
     };
   }
 
   if (containsExplicitTickerSymbol(rawCore, ticker)) {
     return {
       rating: 9,
-      reason: "Ticker symbol appears explicitly in article text",
+      reason: "ticker symbol appears explicitly in article text",
+      causalChain:
+        "explicit ticker in article text → direct company relevance → stock-specific news link",
     };
   }
 
-  const terms = companyTerms(stock.company);
+  const terms = companyTerms(stock);
   const primaryCompany = terms[0];
 
   if (primaryCompany && containsTerm(title, primaryCompany)) {
     return {
       rating: 10,
-      reason: "Company name appears in headline",
+      reason: "company name appears in headline",
+      causalChain:
+        "company named in headline → direct company catalyst → highest-confidence stock link",
     };
   }
 
   if (primaryCompany && containsTerm(core, primaryCompany)) {
     return {
       rating: 8,
-      reason: "Company name appears in article text",
+      reason: "company name appears in article text",
+      causalChain:
+        "company named in article body → direct company reference → high-confidence stock link",
     };
   }
 
@@ -917,36 +916,257 @@ function getDirectStockMatch(
   if (titleCompanyHits.length >= 2) {
     return {
       rating: 9,
-      reason: "Multiple company identifiers appear in headline",
+      reason: "multiple company identifiers appear in headline",
+      causalChain:
+        "multiple company identifiers in headline → direct company relevance → high-confidence stock link",
     };
   }
 
   if (bodyCompanyHits.length >= 2) {
     return {
       rating: 7,
-      reason: "Multiple company identifiers appear in article text",
+      reason: "multiple company identifiers appear in article text",
+      causalChain:
+        "multiple company identifiers in article text → likely company relevance → medium/high-confidence stock link",
     };
   }
 
   if (containsTickerAsWord(rawTitle, ticker)) {
     return {
       rating: 9,
-      reason: "Ticker appears in headline",
+      reason: "unambiguous ticker appears in headline",
+      causalChain:
+        "unambiguous ticker in headline → direct company relevance → high-confidence stock link",
     };
   }
 
   if (containsTickerAsWord(rawCore, ticker)) {
     return {
       rating: 7,
-      reason: "Ticker appears in article text",
+      reason: "unambiguous ticker appears in article text",
+      causalChain:
+        "unambiguous ticker in article text → likely company relevance → medium/high-confidence stock link",
     };
   }
 
   return null;
 }
 
+function getMatchedChannels(article: NewsArticleDisplayLike) {
+  const text = articleCoreTextLower(article);
+
+  return CAUSAL_CHANNELS.map((channel) => {
+    const terms = matchedTerms(text, channel.terms);
+    const positiveTerms = matchedTerms(text, channel.positiveTerms);
+    const negativeTerms = matchedTerms(text, channel.negativeTerms);
+
+    if (terms.length === 0 && positiveTerms.length === 0 && negativeTerms.length === 0) {
+      return null;
+    }
+
+    return {
+      channel,
+      terms,
+      positiveTerms,
+      negativeTerms,
+      score:
+        terms.length +
+        positiveTerms.length * 1.5 +
+        negativeTerms.length * 1.5,
+    };
+  }).filter(
+    (
+      item,
+    ): item is {
+      channel: CausalChannel;
+      terms: string[];
+      positiveTerms: string[];
+      negativeTerms: string[];
+      score: number;
+    } => Boolean(item),
+  );
+}
+
+function getPrimaryChannel(article: NewsArticleDisplayLike, stock?: StockLike) {
+  const sector = stock?.sector ?? null;
+
+  const channels = getMatchedChannels(article)
+    .filter((item) => {
+      if (!sector || !item.channel.sectors) return true;
+      return item.channel.sectors.includes(sector);
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return channels[0] ?? getMatchedChannels(article).sort((a, b) => b.score - a.score)[0] ?? null;
+}
+
 function themeMatchesArticle(theme: IndustryTheme, text: string) {
   return theme.terms.some((term) => containsTerm(text, term));
+}
+
+function getMatchedThemes(article: NewsArticleDisplayLike) {
+  const text = articleCoreTextLower(article);
+
+  return INDUSTRY_THEMES.filter((theme) => themeMatchesArticle(theme, text));
+}
+
+function hasPublicMarketBridge(article: NewsArticleDisplayLike) {
+  const text = articleCoreTextLower(article);
+
+  return (
+    countTermHits(text, HARD_MARKET_TERMS) > 0 ||
+    countTermHits(text, MACRO_MARKET_TERMS) > 0 ||
+    /\b(publicly traded|listed|wall street|investors|shareholders|valuation|earnings|guidance|margins|revenue|profits)\b/i.test(
+      text,
+    )
+  );
+}
+
+function hasAnyDirectStockMatch(article: NewsArticleDisplayLike, stocks: StockLike[]) {
+  return stocks.some((stock) => Boolean(getDirectStockMatch(article, stock)));
+}
+
+export function analyseArticleForMarketRelevance(
+  article: NewsArticleDisplayLike,
+  stocks: StockLike[] = [],
+): RelevanceDecision {
+  const text = articleCoreTextLower(article);
+
+  if (!text || text.length < 40) {
+    return {
+      relevant: false,
+      score: 0,
+      reason: "Too little article text to analyse reliably.",
+      directCompanyMatch: false,
+      marketHits: 0,
+      catalystHits: 0,
+      softHits: 0,
+      channelHits: [],
+      industryHits: [],
+    };
+  }
+
+  const directCompanyMatch = stocks.length > 0 && hasAnyDirectStockMatch(article, stocks);
+  const marketHits = countTermHits(text, HARD_MARKET_TERMS);
+  const macroHits = countTermHits(text, MACRO_MARKET_TERMS);
+  const catalystHits = countTermHits(text, BUSINESS_CATALYST_TERMS);
+  const softHits = countTermHits(text, SOFT_NEWS_TERMS);
+  const channels = getMatchedChannels(article);
+  const themes = getMatchedThemes(article);
+  const channelHits = channels.map((item) => item.channel.label);
+  const industryHits = themes.map((theme) => theme.name);
+  const bridge = hasPublicMarketBridge(article);
+
+  let score = 0;
+
+  if (directCompanyMatch) score += 8;
+  score += Math.min(marketHits, 4) * 1.5;
+  score += Math.min(macroHits, 3) * 1.5;
+  score += Math.min(catalystHits, 4) * 1.25;
+  score += Math.min(channels.length, 3) * 1.5;
+  score += Math.min(themes.length, 2);
+  if (bridge) score += 1.5;
+  if (softHits > 0 && !directCompanyMatch) score -= softHits * 2.5;
+
+  const clearlySoft =
+    softHits >= 1 &&
+    !directCompanyMatch &&
+    marketHits === 0 &&
+    macroHits === 0 &&
+    catalystHits < 2 &&
+    channels.length === 0;
+
+  if (clearlySoft) {
+    return {
+      relevant: false,
+      score,
+      reason:
+        "Rejected as soft/lifestyle news with no market catalyst, public-market bridge or direct company link.",
+      directCompanyMatch,
+      marketHits,
+      catalystHits,
+      softHits,
+      channelHits,
+      industryHits,
+    };
+  }
+
+  if (directCompanyMatch) {
+    return {
+      relevant: true,
+      score,
+      reason: "Accepted because a listed company/ticker is directly identified.",
+      directCompanyMatch,
+      marketHits,
+      catalystHits,
+      softHits,
+      channelHits,
+      industryHits,
+    };
+  }
+
+  if (macroHits > 0 && (marketHits > 0 || channels.length > 0)) {
+    return {
+      relevant: true,
+      score,
+      reason: "Accepted as macro news with a clear market transmission channel.",
+      directCompanyMatch,
+      marketHits,
+      catalystHits,
+      softHits,
+      channelHits,
+      industryHits,
+    };
+  }
+
+  if (themes.length > 0 && channels.length > 0 && bridge) {
+    return {
+      relevant: true,
+      score,
+      reason:
+        "Accepted as industry news because it contains a sector theme, a causal channel and a public-market bridge.",
+      directCompanyMatch,
+      marketHits,
+      catalystHits,
+      softHits,
+      channelHits,
+      industryHits,
+    };
+  }
+
+  if (marketHits >= 2 && catalystHits >= 1) {
+    return {
+      relevant: true,
+      score,
+      reason: "Accepted because it combines market language with a business catalyst.",
+      directCompanyMatch,
+      marketHits,
+      catalystHits,
+      softHits,
+      channelHits,
+      industryHits,
+    };
+  }
+
+  return {
+    relevant: false,
+    score,
+    reason:
+      "Rejected because it lacks a direct stock link, macro market channel, or sufficiently clear listed-sector read-through.",
+    directCompanyMatch,
+    marketHits,
+    catalystHits,
+    softHits,
+    channelHits,
+    industryHits,
+  };
+}
+
+export function isMarketRelevantArticle(
+  article: NewsArticleDisplayLike,
+  stocks: StockLike[] = [],
+) {
+  return analyseArticleForMarketRelevance(article, stocks).relevant;
 }
 
 function getIndustryThemeMatch(
@@ -954,24 +1174,35 @@ function getIndustryThemeMatch(
   stock: StockLike,
 ): RatingResult | null {
   const ticker = String(stock.ticker ?? "").trim().toUpperCase();
+  const sector = stock.sector ?? "";
   const text = articleCoreTextLower(article);
 
   if (!ticker || !text) return null;
 
   const theme = INDUSTRY_THEMES.find(
-    (item) => item.tickers.includes(ticker) && themeMatchesArticle(item, text),
+    (item) =>
+      item.tickers.includes(ticker) &&
+      themeMatchesArticle(item, text) &&
+      (!item.sectors || item.sectors.includes(sector)),
   );
 
   if (!theme) return null;
 
-  const businessHits = countTermHits(text, BUSINESS_EVENT_TERMS);
-  const marketHits = countTermHits(text, MARKET_RELEVANCE_TERMS);
+  const channel = getPrimaryChannel(article, stock);
+  const bridge = hasPublicMarketBridge(article);
+  const catalystHits = countTermHits(text, BUSINESS_CATALYST_TERMS);
 
-  if (businessHits === 0 && marketHits === 0) return null;
+  if (!channel || (!bridge && catalystHits < 2)) return null;
+
+  const rating = Math.min(
+    7,
+    theme.baseRating + (channel.score >= 2 ? 1 : 0) + (bridge ? 0 : -1),
+  );
 
   return {
-    rating: theme.rating,
-    reason: theme.reason,
+    rating,
+    reason: `${theme.reason} through the ${channel.channel.label} channel`,
+    causalChain: `${theme.name} theme detected → ${channel.channel.explanation} → possible effect on ${channel.channel.factorInput}`,
   };
 }
 
@@ -981,84 +1212,23 @@ function getMacroSectorMatch(
 ): RatingResult | null {
   const sector = stock.sector ?? "";
   const text = articleCoreTextLower(article);
+  const channel = getPrimaryChannel(article, stock);
 
-  if (!sector || !text) return null;
+  if (!sector || !text || !channel) return null;
 
-  if (
-    sector === "Financials" &&
-    /\b(fed|federal reserve|interest rates|yield curve|credit|banking|loan|loans|deposits)\b/i.test(
-      text,
-    )
-  ) {
-    return {
-      rating: 4,
-      reason: "Macro read-through for financial stocks",
-    };
+  if (!channel.channel.sectors || !channel.channel.sectors.includes(sector)) {
+    return null;
   }
 
-  if (
-    sector === "Energy" &&
-    /\b(oil|crude|brent|wti|opec|gas|lng|pipeline|refining)\b/i.test(text)
-  ) {
-    return {
-      rating: 4,
-      reason: "Commodity read-through for energy stocks",
-    };
+  if (!hasPublicMarketBridge(article) && countTermHits(text, MACRO_MARKET_TERMS) < 2) {
+    return null;
   }
 
-  if (
-    sector === "Real Estate" &&
-    /\b(mortgage|mortgages|interest rates|commercial real estate|housing|reit|property)\b/i.test(
-      text,
-    )
-  ) {
-    return {
-      rating: 4,
-      reason: "Rates/property read-through for real estate stocks",
-    };
-  }
-
-  if (
-    sector === "Utilities" &&
-    /\b(interest rates|electricity|power grid|grid|renewable energy|natural gas)\b/i.test(
-      text,
-    )
-  ) {
-    return {
-      rating: 4,
-      reason: "Rates/energy read-through for utilities",
-    };
-  }
-
-  return null;
-}
-
-function hasAnyDirectStockMatch(article: NewsArticleDisplayLike, stocks: StockLike[]) {
-  return stocks.some((stock) => Boolean(getDirectStockMatch(article, stock)));
-}
-
-export function isMarketRelevantArticle(
-  article: NewsArticleDisplayLike,
-  stocks: StockLike[] = [],
-) {
-  const text = articleCoreTextLower(article);
-
-  if (!text || text.length < 20) return false;
-
-  if (stocks.length > 0 && hasAnyDirectStockMatch(article, stocks)) {
-    return true;
-  }
-
-  const marketHits = countTermHits(text, MARKET_RELEVANCE_TERMS);
-
-  if (marketHits > 0) return true;
-
-  const businessHits = countTermHits(text, BUSINESS_EVENT_TERMS);
-  const themeHits = INDUSTRY_THEMES.filter((theme) =>
-    themeMatchesArticle(theme, text),
-  ).length;
-
-  return businessHits > 0 && themeHits > 0;
+  return {
+    rating: 4,
+    reason: `macro read-through for ${sector} via ${channel.channel.label}`,
+    causalChain: `${channel.channel.label} catalyst → ${channel.channel.explanation} → possible effect on ${channel.channel.factorInput}`,
+  };
 }
 
 export function inferImpact(article: NewsArticleDisplayLike) {
@@ -1073,9 +1243,15 @@ export function inferImpact(article: NewsArticleDisplayLike) {
   }
 
   const text = articleCoreTextLower(article);
+  const channels = getMatchedChannels(article);
 
-  const negativeHits = countTermHits(text, NEGATIVE_WORDS);
-  const positiveHits = countTermHits(text, POSITIVE_WORDS);
+  const negativeHits =
+    countTermHits(text, NEGATIVE_WORDS) +
+    channels.reduce((sum, item) => sum + item.negativeTerms.length, 0);
+
+  const positiveHits =
+    countTermHits(text, POSITIVE_WORDS) +
+    channels.reduce((sum, item) => sum + item.positiveTerms.length, 0);
 
   if (negativeHits > positiveHits) return "negative";
   if (positiveHits > negativeHits) return "positive";
@@ -1163,7 +1339,8 @@ export function getArticleImpactRating(
   if (!ticker) {
     return {
       rating: 1,
-      reason: "No stock match",
+      reason: "no stock match",
+      causalChain: "no ticker or company available → no valid stock link",
     };
   }
 
@@ -1171,10 +1348,13 @@ export function getArticleImpactRating(
 
   if (direct) return direct;
 
-  if (!isMarketRelevantArticle(article)) {
+  const articleDecision = analyseArticleForMarketRelevance(article);
+
+  if (!articleDecision.relevant) {
     return {
       rating: 1,
-      reason: "Article is not market-relevant enough",
+      reason: "article is not market-relevant enough",
+      causalChain: articleDecision.reason,
     };
   }
 
@@ -1188,7 +1368,9 @@ export function getArticleImpactRating(
 
   return {
     rating: 1,
-    reason: "No valid stock-specific or sector-specific link",
+    reason: "no valid stock-specific, sector-specific or macro transmission channel",
+    causalChain:
+      "article may be market relevant generally, but no defensible causal path to this specific stock was detected",
   };
 }
 
@@ -1197,6 +1379,7 @@ export function getScoreEffectText(
   stock: StockLike,
   rating: number,
   reason: string,
+  causalChain: string,
 ) {
   const impact = inferImpact(article);
   const ticker = stock.ticker ?? "this stock";
@@ -1217,7 +1400,7 @@ export function getScoreEffectText(
         ? "direct company reference"
         : rating >= 5
           ? "sector/industry read-through"
-          : "low-confidence macro read-through";
+          : "macro/sector watch item";
 
   const direction =
     impact === "positive"
@@ -1226,7 +1409,7 @@ export function getScoreEffectText(
         ? "Negative"
         : "Neutral/mixed";
 
-  return `${ticker}: ${relationship}. ${direction} article. Link reason: ${reason}. This may influence sentiment, momentum, estimate-revision or risk inputs only if the story is confirmed as material. ${scoreLabel}; ${rankLabel}.`;
+  return `${ticker}: ${relationship}. ${direction} article. Link reason: ${reason}. Chain: ${causalChain}. This should affect the model only if the story is material enough to change sentiment, momentum, estimate revisions, margins, valuation or risk. ${scoreLabel}; ${rankLabel}.`;
 }
 
 export function getAffectedStockInsight(
@@ -1253,6 +1436,7 @@ export function getAffectedStockInsight(
       stock,
       ratingData.rating,
       ratingData.reason,
+      ratingData.causalChain,
     ),
   };
 }
@@ -1313,7 +1497,7 @@ export function selectRelevantNewsForStock(
 ): EnrichedNewsArticle[] {
   return articles
     .map((article) => {
-      if (!isMarketRelevantArticle(article)) return null;
+      if (!isMarketRelevantArticle(article, [stock])) return null;
 
       const insight = getAffectedStockInsight(article, stock);
 
