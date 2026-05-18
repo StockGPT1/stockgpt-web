@@ -193,12 +193,12 @@ function StockImpactPopup({
 }) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#061b12]/78 p-3 backdrop-blur-xl">
-      <div className="flex max-h-full w-full max-w-[680px] flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]">
-        <div className="shrink-0 border-b border-[#ddb159]/14 bg-[#04180f]/92 p-4 pr-16">
+      <div className="relative flex max-h-full w-full max-w-[680px] flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]">
+        <div className="relative shrink-0 border-b border-[#ddb159]/14 bg-[#04180f]/92 p-4 pr-28 sm:p-5 sm:pr-32">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-6 top-6 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+            className="absolute right-4 top-4 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/95 px-3 py-1.5 text-[10px] font-black text-[#faf6f0]/70 shadow-[0_8px_20px_rgba(0,0,0,0.28)] transition hover:border-[#ddb159]/50 hover:bg-[#0b2b1d] hover:text-[#ddb159]"
           >
             Close
           </button>
@@ -830,11 +830,11 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                   />
                 )}
 
-                <div className="shrink-0 border-b border-[#ddb159]/14 bg-[#061b12]/95 p-3 pr-14 sm:p-5 sm:pr-16">
+                <div className="relative shrink-0 border-b border-[#ddb159]/14 bg-[#061b12]/95 p-3 pr-24 sm:p-5 sm:pr-28">
                   <button
                     type="button"
                     onClick={closeArticle}
-                    className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+                    className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/95 px-3 py-1.5 text-[10px] font-black text-[#faf6f0]/70 shadow-[0_8px_20px_rgba(0,0,0,0.24)] transition hover:border-[#ddb159]/50 hover:bg-[#0b2b1d] hover:text-[#ddb159]"
                   >
                     Close
                   </button>
