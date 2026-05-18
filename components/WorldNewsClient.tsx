@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { EnrichedNewsArticle } from "@/lib/news-intelligence";
+import type {
+  AffectedStockInsight,
+  EnrichedNewsArticle,
+} from "@/lib/news-intelligence";
 import {
   articleText,
   displaySummary,
@@ -96,9 +99,132 @@ function SelectChevron() {
   );
 }
 
+function StockImpactPopup({
+  stock,
+  onClose,
+}: {
+  stock: AffectedStockInsight;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#061b12]/78 p-3 backdrop-blur-xl">
+      <div className="flex max-h-full w-full max-w-[620px] flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]">
+        <div className="shrink-0 border-b border-[#ddb159]/14 bg-[#04180f]/92 p-4 pr-16">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-6 top-6 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
+          >
+            Close
+          </button>
+
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+            Stock impact briefing
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[28px] font-black leading-none tracking-[-0.04em] text-[#ddb159]">
+                {stock.ticker}
+              </h3>
+
+              <p className="mt-1 truncate text-[13px] font-bold text-[#faf6f0]/62">
+                {stock.company ?? "Company data unavailable"}
+              </p>
+            </div>
+
+            <div className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#061b12]">
+              {stock.impactRating}/10 affected
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                Why this stock is linked
+              </p>
+
+              <p className="mt-2 text-[13px] font-bold leading-6 text-[#faf6f0]/72">
+                {stock.matchReason}
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                Full StockGPT impact text
+              </p>
+
+              <p className="mt-2 text-[13px] font-medium leading-6 text-[#faf6f0]/70">
+                {stock.scoreEffect}
+              </p>
+            </section>
+
+            <section className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[#ddb159]/12 bg-[#0b2b1d] p-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/35">
+                  Sector
+                </p>
+
+                <p className="mt-1 truncate text-[12px] font-black text-[#faf6f0]/80">
+                  {stock.sector ?? "Unavailable"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#ddb159]/12 bg-[#0b2b1d] p-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/35">
+                  AI score
+                </p>
+
+                <p className="mt-1 text-[12px] font-black text-[#faf6f0]/80">
+                  {stock.score != null
+                    ? Number(stock.score).toLocaleString()
+                    : "Unavailable"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#ddb159]/12 bg-[#0b2b1d] p-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/35">
+                  Rank
+                </p>
+
+                <p className="mt-1 text-[12px] font-black text-[#faf6f0]/80">
+                  {stock.rank != null ? `#${stock.rank}` : "Unavailable"}
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-[#ddb159]/14 bg-[#04180f]/92 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={`/stock/${stock.ticker}`}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
+            >
+              View stock →
+            </Link>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+            >
+              Back to article
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) {
   const [selectedArticle, setSelectedArticle] =
     useState<WorldNewsArticle | null>(null);
+  const [selectedStock, setSelectedStock] =
+    useState<AffectedStockInsight | null>(null);
 
   const [search, setSearch] = useState("");
   const [impactFilter, setImpactFilter] = useState("All impacts");
@@ -234,6 +360,16 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
   const selectedStyle = selectedArticle
     ? impactStyle(selectedArticle.impact)
     : null;
+
+  function openArticle(article: WorldNewsArticle) {
+    setSelectedArticle(article);
+    setSelectedStock(null);
+  }
+
+  function closeArticle() {
+    setSelectedArticle(null);
+    setSelectedStock(null);
+  }
 
   function applyFilters() {
     setSearch(draftSearch);
@@ -438,7 +574,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                 <button
                   key={article.id}
                   type="button"
-                  onClick={() => setSelectedArticle(article)}
+                  onClick={() => openArticle(article)}
                   className="group flex gap-4 rounded-2xl border border-[#ddb159]/15 bg-[#0b2b1d]/60 p-4 text-left transition hover:border-[#ddb159]/40 hover:bg-[#0b2b1d]"
                 >
                   {article.image_url && (
@@ -531,7 +667,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
             type="button"
             aria-label="Close article popup"
             className="absolute inset-0 h-full w-full cursor-default bg-transparent backdrop-blur-[38px] backdrop-brightness-[0.42] backdrop-saturate-50"
-            onClick={() => setSelectedArticle(null)}
+            onClick={closeArticle}
           />
 
           <div className="relative z-10 flex h-full items-center justify-center px-2 py-2 sm:px-5 sm:py-4">
@@ -567,10 +703,17 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
               </div>
 
               <div className="relative flex min-h-0 flex-col overflow-hidden">
+                {selectedStock && (
+                  <StockImpactPopup
+                    stock={selectedStock}
+                    onClose={() => setSelectedStock(null)}
+                  />
+                )}
+
                 <div className="shrink-0 border-b border-[#ddb159]/14 bg-[#061b12]/95 p-3 pr-14 sm:p-5 sm:pr-16">
                   <button
                     type="button"
-                    onClick={() => setSelectedArticle(null)}
+                    onClick={closeArticle}
                     className="absolute right-3 top-3 z-10 rounded-full border border-[#faf6f0]/12 bg-[#061b12]/90 px-2.5 py-1 text-[10px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/50 hover:text-[#ddb159]"
                   >
                     Close
@@ -621,17 +764,18 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                           Affected stocks
                         </p>
                         <p className="hidden text-[9px] font-bold text-[#faf6f0]/35 sm:block">
-                          Click ticker to open page
+                          Click a card for full impact text
                         </p>
                       </div>
 
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         {selectedArticle.affectedStocks.length > 0 ? (
                           selectedArticle.affectedStocks.map((stock) => (
-                            <Link
+                            <button
                               key={stock.ticker}
-                              href={`/stock/${stock.ticker}`}
-                              className="min-w-0 rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
+                              type="button"
+                              onClick={() => setSelectedStock(stock)}
+                              className="group min-w-0 rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#103522] hover:shadow-[0_12px_26px_rgba(0,0,0,0.22)]"
                             >
                               <div className="flex min-w-0 items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
@@ -660,10 +804,14 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                                 </div>
                               </div>
 
-                              <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-[#faf6f0]/45">
+                              <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-[#faf6f0]/45 group-hover:text-[#faf6f0]/60">
                                 {stock.scoreEffect}
                               </p>
-                            </Link>
+
+                              <p className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/58">
+                                Open impact briefing →
+                              </p>
+                            </button>
                           ))
                         ) : (
                           <div className="rounded-xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.03] p-2.5 text-[10px] font-semibold text-[#faf6f0]/45 sm:col-span-2">
@@ -694,7 +842,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
                     <button
                       type="button"
-                      onClick={() => setSelectedArticle(null)}
+                      onClick={closeArticle}
                       className="inline-flex h-9 items-center justify-center rounded-xl border border-[#ddb159]/22 px-4 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 sm:h-10 sm:text-[11px]"
                     >
                       Back to feed
