@@ -3,8 +3,8 @@ import { AppShell } from "@/components/AppShell";
 import { WorldNewsClient } from "@/components/WorldNewsClient";
 import { createClient } from "@/utils/supabase/server";
 import {
+  analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
-  isMarketRelevantArticle,
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
@@ -29,7 +29,7 @@ export default async function WorldNewsPage() {
         "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
       )
       .order("published_at", { ascending: false })
-      .limit(150),
+      .limit(180),
 
     supabase
       .from("stock_rankings")
@@ -42,8 +42,13 @@ export default async function WorldNewsPage() {
   const stocks = (stockData ?? []) as StockLike[];
 
   const enrichedArticles = articles
-    .filter((article) => isMarketRelevantArticle(article, stocks))
-    .map((article) => enrichArticleWithStockInsights(article, stocks, 8));
+    .map((article) => ({
+      article,
+      decision: analyseArticleForMarketRelevance(article, stocks),
+    }))
+    .filter(({ decision }) => decision.relevant)
+    .sort((a, b) => b.decision.score - a.decision.score)
+    .map(({ article }) => enrichArticleWithStockInsights(article, stocks, 8));
 
   return (
     <AppShell activePath="/world-news">
