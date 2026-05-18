@@ -99,6 +99,91 @@ function SelectChevron() {
   );
 }
 
+function DirectionBadge({ direction }: { direction: string }) {
+  const cls =
+    direction === "Positive"
+      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+      : direction === "Negative"
+        ? "border-red-400/25 bg-red-400/10 text-red-300"
+        : "border-[#faf6f0]/12 bg-[#faf6f0]/8 text-[#faf6f0]/55";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] ${cls}`}
+    >
+      {direction}
+    </span>
+  );
+}
+
+function ImpactRatingMeter({ rating }: { rating: number }) {
+  const safeRating = Math.max(0, Math.min(10, rating));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#faf6f0]/35">
+          Relevance score
+        </p>
+        <p className="text-[11px] font-black text-[#ddb159]">
+          {safeRating}/10
+        </p>
+      </div>
+
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#faf6f0]/8">
+        <div
+          className="h-full rounded-full bg-[#ddb159]"
+          style={{ width: `${safeRating * 10}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ArticleInsightPanel({ article }: { article: WorldNewsArticle }) {
+  const topStock = article.affectedStocks[0];
+
+  if (!topStock) {
+    return (
+      <div className="mt-3 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-3">
+        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+          StockGPT insight
+        </p>
+        <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/62">
+          No high-confidence stock link was detected. Treat this as broad market
+          context rather than a direct catalyst.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#ddb159]/[0.07] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+          StockGPT insight
+        </p>
+        <DirectionBadge direction={topStock.impactDirection} />
+      </div>
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
+        <div>
+          <p className="text-[12px] font-black leading-5 text-[#faf6f0]/82">
+            Most relevant stock:{" "}
+            <span className="text-[#ddb159]">{topStock.ticker}</span>
+          </p>
+
+          <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/62">
+            {topStock.customerSummary}
+          </p>
+        </div>
+
+        <ImpactRatingMeter rating={topStock.impactRating} />
+      </div>
+    </div>
+  );
+}
+
 function StockImpactPopup({
   stock,
   onClose,
@@ -108,7 +193,7 @@ function StockImpactPopup({
 }) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#061b12]/78 p-3 backdrop-blur-xl">
-      <div className="flex max-h-full w-full max-w-[620px] flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]">
+      <div className="flex max-h-full w-full max-w-[680px] flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/35 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]">
         <div className="shrink-0 border-b border-[#ddb159]/14 bg-[#04180f]/92 p-4 pr-16">
           <button
             type="button"
@@ -134,7 +219,7 @@ function StockImpactPopup({
             </div>
 
             <div className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#061b12]">
-              {stock.impactRating}/10 affected
+              {stock.impactRating}/10 relevance
             </div>
           </div>
         </div>
@@ -142,22 +227,57 @@ function StockImpactPopup({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div className="grid gap-3">
             <section className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                Why this stock is linked
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  Plain-English read
+                </p>
+                <DirectionBadge direction={stock.impactDirection} />
+              </div>
 
-              <p className="mt-2 text-[13px] font-bold leading-6 text-[#faf6f0]/72">
-                {stock.matchReason}
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#faf6f0]/75">
+                {stock.customerSummary}
               </p>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  Why linked
+                </p>
+
+                <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/70">
+                  {stock.matchReason}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  Link type
+                </p>
+
+                <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/70">
+                  {stock.impactType}
+                </p>
+              </div>
             </section>
 
             <section className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
               <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                Full StockGPT impact text
+                Chain of events
               </p>
 
               <p className="mt-2 text-[13px] font-medium leading-6 text-[#faf6f0]/70">
-                {stock.scoreEffect}
+                {stock.causalChain}
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/[0.07] p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                Potential model effect
+              </p>
+
+              <p className="mt-2 text-[13px] font-medium leading-6 text-[#faf6f0]/70">
+                {stock.modelReadThrough}
               </p>
             </section>
 
@@ -315,7 +435,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
         article.affectedStocks
           .map(
             (stock) =>
-              `${stock.ticker} ${stock.company} ${stock.sector} ${stock.scoreEffect}`,
+              `${stock.ticker} ${stock.company} ${stock.sector} ${stock.customerSummary} ${stock.matchReason}`,
           )
           .join(" "),
       ]
@@ -604,7 +724,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
 
                       {topStock && (
                         <span className="rounded-full border border-[#ddb159]/25 bg-[#ddb159]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
-                          {topStock.impactRating}/10 impact
+                          {topStock.ticker} · {topStock.impactRating}/10
                         </span>
                       )}
 
@@ -748,14 +868,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                         {displaySummary(selectedArticle)}
                       </p>
 
-                      <div className="mt-3 rounded-xl border border-[#ddb159]/12 bg-[#ddb159]/8 p-2 sm:p-3">
-                        <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                          StockGPT insight
-                        </p>
-                        <p className="mt-1 text-[10px] font-semibold leading-4 text-[#faf6f0]/64 sm:text-[12px] sm:leading-5">
-                          {getNewsInsight(selectedArticle)}
-                        </p>
-                      </div>
+                      <ArticleInsightPanel article={selectedArticle} />
                     </section>
 
                     <section className="min-h-0">
@@ -775,7 +888,7 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                               key={stock.ticker}
                               type="button"
                               onClick={() => setSelectedStock(stock)}
-                              className="group min-w-0 rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#103522] hover:shadow-[0_12px_26px_rgba(0,0,0,0.22)]"
+                              className="group min-w-0 rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-2.5 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#103522] hover:shadow-[0_12px_26px_rgba(0,0,0,0.22)]"
                             >
                               <div className="flex min-w-0 items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
@@ -785,9 +898,6 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                                   <p className="truncate text-[9px] font-bold text-[#faf6f0]/62 sm:text-[10px]">
                                     {stock.company ??
                                       "Company data unavailable"}
-                                  </p>
-                                  <p className="mt-0.5 truncate text-[8px] font-bold uppercase tracking-wider text-[#faf6f0]/30">
-                                    {stock.matchReason}
                                   </p>
                                 </div>
 
@@ -804,8 +914,12 @@ export function WorldNewsClient({ articles }: { articles: WorldNewsArticle[] }) 
                                 </div>
                               </div>
 
-                              <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-[#faf6f0]/45 group-hover:text-[#faf6f0]/60">
-                                {stock.scoreEffect}
+                              <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/30">
+                                {stock.impactType}
+                              </p>
+
+                              <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/50 group-hover:text-[#faf6f0]/65">
+                                {stock.customerSummary}
                               </p>
 
                               <p className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/58">
