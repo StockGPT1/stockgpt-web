@@ -242,7 +242,7 @@ function StockImpactPopup({
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
                 <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                  Why linked
+                  Why it matters
                 </p>
 
                 <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/70">
@@ -252,7 +252,7 @@ function StockImpactPopup({
 
               <div className="rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] p-4">
                 <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                  Link type
+                  Signal type
                 </p>
 
                 <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/70">
@@ -273,7 +273,7 @@ function StockImpactPopup({
 
             <section className="rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/[0.07] p-4">
               <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                Potential model effect
+                What this means for you
               </p>
 
               <p className="mt-2 text-[13px] font-medium leading-6 text-[#faf6f0]/70">
