@@ -111,16 +111,16 @@ function BlurredText({
 
 function SubscriberLockNotice() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#ddb159]/22 bg-[#04180f]/78 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="relative max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/22 bg-[#04180f]/78 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#ddb159]/14 blur-3xl" />
 
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
+      <div className="relative flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#ddb159]/28 bg-[#ddb159]/10 text-[#ddb159] shadow-[0_0_22px_rgba(221,177,89,0.12)]">
             <LockIcon className="size-4" />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
               Subscriber research layer
             </p>
@@ -174,7 +174,7 @@ function LockedLevelBox({
     <button
       type="button"
       className={[
-        "group relative rounded-xl px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 hover:shadow-[0_8px_20px_rgba(7,33,22,0.12)]",
+        "group relative min-w-0 rounded-xl px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 hover:shadow-[0_8px_20px_rgba(7,33,22,0.12)]",
         classes,
       ].join(" ")}
     >
@@ -207,7 +207,7 @@ function LockedTimelineBox({
   tone?: "neutral" | "positive";
 }) {
   return (
-    <div className="rounded-lg border border-transparent p-1 text-left">
+    <div className="min-w-0 rounded-lg border border-transparent p-1 text-left">
       <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
         {label}
       </p>
@@ -252,7 +252,7 @@ function LockedActionBox({
         : "text-[#072116]";
 
   return (
-    <div className={["rounded-lg border px-3 py-2.5", classes].join(" ")}>
+    <div className={["min-w-0 rounded-lg border px-3 py-2.5", classes].join(" ")}>
       <p
         className={[
           "text-[12px] font-black tracking-[-0.01em]",
@@ -283,7 +283,7 @@ function LockedFactorBox({
   return (
     <button
       type="button"
-      className="group relative rounded-lg border border-[#072116]/8 bg-white/60 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/65 hover:bg-white hover:shadow-[0_8px_18px_rgba(7,33,22,0.1)]"
+      className="group relative min-w-0 rounded-lg border border-[#072116]/8 bg-white/60 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/65 hover:bg-white hover:shadow-[0_8px_18px_rgba(7,33,22,0.1)]"
     >
       <ClickHint />
 
@@ -314,11 +314,11 @@ function LockedTradePlanCard({
   sector: string | null;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+    <div className="relative max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/20 blur-3xl" />
 
-      <div className="relative flex items-start justify-between gap-3">
-        <div>
+      <div className="relative flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
             ✦ AI Trade Plan
           </p>
@@ -341,7 +341,7 @@ function LockedTradePlanCard({
         </div>
       </div>
 
-      <div className="relative mt-5 grid grid-cols-3 gap-3">
+      <div className="relative mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
         <LockedLevelBox label="Entry" value="$482.02" note="Suggested" />
 
         <LockedLevelBox
@@ -359,7 +359,7 @@ function LockedTradePlanCard({
         />
       </div>
 
-      <div className="relative mt-3 flex w-full items-center justify-between rounded-xl bg-[#072116] px-4 py-2.5 text-left">
+      <div className="relative mt-3 flex w-full min-w-0 items-center justify-between rounded-xl bg-[#072116] px-4 py-2.5 text-left">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]/80">
           Risk / Reward
         </p>
@@ -371,12 +371,12 @@ function LockedTradePlanCard({
         </p>
       </div>
 
-      <div className="relative mt-4 rounded-xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#fdf8ed,#faf6f0)] p-4">
+      <div className="relative mt-4 max-w-full overflow-hidden rounded-xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#fdf8ed,#faf6f0)] p-4">
         <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
           ✦ AI Projected Timeline
         </p>
 
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
           <LockedTimelineBox
             label="Expected Return"
             value="24.7%/yr"
@@ -388,7 +388,7 @@ function LockedTradePlanCard({
           <LockedTimelineBox label="Hold Period" value="20–38 months" />
         </div>
 
-        <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#072116]/75">
+        <p className="mt-3 break-words text-[12px] font-medium leading-relaxed text-[#072116]/75">
           <BlurredText
             unlocked={false}
             placeholder={`Medium-term plan: ${ticker} has an exceptionally strong AI signal (rank #1, score 23,568), ${
@@ -408,7 +408,7 @@ function LockedTradePlanCard({
             ✦ AI Action Plan — If This, Then That
           </p>
 
-          <div className="mt-2 grid gap-2">
+          <div className="mt-2 grid min-w-0 gap-2">
             <LockedActionBox
               title="Take-profit scenario"
               detail={`If ${ticker} approaches $1135.25 → Medium-term take-profit zone. First checkpoint is prior resistance around $515.83, but the medium-term target uses a measured extension beyond it; +135.5%. Likely by Nov 2028.`}
@@ -439,7 +439,7 @@ function LockedTradePlanCard({
           ✦ Built From
         </p>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
           <LockedFactorBox
             label="AI Score"
             value="23,568"
@@ -611,14 +611,14 @@ export default async function StockDetailPage({
 
   return (
     <AppShell activePath="/rankings">
-      <main className="h-full min-h-0 overflow-y-auto pr-1">
-        <div className="grid gap-3">
-          <div className="relative overflow-visible rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
+      <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
+        <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
+          <div className="relative max-w-full overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
             <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
 
-            <div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-[#ddb159]/70">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-bold text-[#ddb159]/70">
                   <Link href="/rankings" className="hover:text-[#ddb159]">
                     ← Rankings
                   </Link>
@@ -661,7 +661,7 @@ export default async function StockDetailPage({
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3">
                   <p className="text-[26px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
                     ${livePrice.toFixed(2)}
                   </p>
@@ -692,7 +692,7 @@ export default async function StockDetailPage({
                 </div>
               </div>
 
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end">
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end">
                 <WatchlistToggle
                   ticker={ticker}
                   initialInWatchlist={inWatchlist}
@@ -710,12 +710,12 @@ export default async function StockDetailPage({
 
           {!canSeeRankAndScore && <SubscriberLockNotice />}
 
-          <div className="rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur">
+          <div className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
               ✦ Price Chart
             </p>
 
-            <div className="mt-2">
+            <div className="mt-2 min-w-0 max-w-full overflow-hidden">
               <StockChart
                 ticker={ticker}
                 data={chartData}
@@ -725,17 +725,21 @@ export default async function StockDetailPage({
             </div>
           </div>
 
-          <StockRelatedNews ticker={ticker} articles={relevantNews} />
+          <div className="min-w-0 max-w-full overflow-hidden">
+            <StockRelatedNews ticker={ticker} articles={relevantNews} />
+          </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            {canSeeRankAndScore ? (
-              tradeLevels && <TradeSetupCard levels={tradeLevels} />
-            ) : (
-              <LockedTradePlanCard ticker={ticker} sector={stock.sector} />
-            )}
+          <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 max-w-full overflow-hidden">
+              {canSeeRankAndScore ? (
+                tradeLevels && <TradeSetupCard levels={tradeLevels} />
+              ) : (
+                <LockedTradePlanCard ticker={ticker} sector={stock.sector} />
+              )}
+            </div>
 
             {peers.length > 0 && (
-              <aside className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+              <aside className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
                 <p
                   className="text-[9px] font-extrabold uppercase tracking-[0.14em]"
                   style={{ color: "rgba(7,33,22,0.55)" }}
@@ -750,12 +754,12 @@ export default async function StockDetailPage({
                   Top 5 in {stock.sector}
                 </p>
 
-                <div className="mt-3 grid gap-1.5">
+                <div className="mt-3 grid min-w-0 gap-1.5">
                   {peers.map((p) => (
                     <Link
                       key={p.ticker}
                       href={`/stock/${p.ticker}`}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
+                      className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]"
                     >
                       <div className="min-w-0">
                         <p
@@ -773,7 +777,7 @@ export default async function StockDetailPage({
                         </p>
                       </div>
 
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p
                           className="flex items-center justify-end gap-1 text-[10px] font-bold"
                           style={{ color: "rgba(7,33,22,0.65)" }}
