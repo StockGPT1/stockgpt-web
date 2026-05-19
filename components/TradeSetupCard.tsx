@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { TradeLevels, TradeTrigger } from "@/lib/trading-levels";
 
 type ExplanationModal = {
@@ -245,6 +246,120 @@ function ClickHint() {
   );
 }
 
+function ExplanationPortal({
+  modal,
+  onClose,
+}: {
+  modal: ExplanationModal;
+  onClose: () => void;
+}) {
+  const styles = modalToneStyle(modal.tone);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscroll;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483647] overflow-hidden">
+      <button
+        type="button"
+        aria-label="Close explanation"
+        className="absolute inset-0 h-full w-full cursor-default bg-black/45 backdrop-blur-[30px] backdrop-saturate-50"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[calc(132px+env(safe-area-inset-top))] sm:px-5 sm:pb-8 sm:pt-[calc(118px+env(safe-area-inset-top))] lg:pt-[calc(132px+env(safe-area-inset-top))]">
+        <div
+          className="relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-[26px] border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_34px_110px_rgba(0,0,0,0.62)]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div
+            className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${styles.glow}`}
+          />
+
+          <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#072116]/8 p-4 pb-3 sm:p-6 sm:pb-4">
+            <div className="min-w-0">
+              <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#072116]/50 sm:text-[9px]">
+                ✦ Trade Plan Explainer
+              </p>
+
+              <h3 className="mt-1 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.04em] sm:text-[24px]">
+                {modal.title}
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-full border border-[#072116]/10 bg-white/70 px-3 py-1.5 text-[10px] font-black text-[#072116]/60 shadow-[0_8px_20px_rgba(0,0,0,0.1)] transition hover:border-[#ddb159]/50 hover:text-[#072116] sm:text-[11px]"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pt-3 sm:p-6 sm:pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`max-w-full break-words rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] sm:text-[11px] ${styles.chip}`}
+              >
+                {modal.value}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[#072116]/8 bg-white/65 p-3 sm:p-4">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
+                What this means
+              </p>
+
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+                {modal.meaning}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 p-3 sm:p-4">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
+                Why StockGPT chose this
+              </p>
+
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+                {modal.reasoning}
+              </p>
+            </div>
+
+            {modal.detail && (
+              <p className="mt-4 text-[12px] font-medium leading-5 text-[#072116]/55">
+                {modal.detail}
+              </p>
+            )}
+
+            <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/42">
+              Educational explanation only. This is not personal financial
+              advice and should not be used as the sole basis for an investment
+              decision.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function TradeSetupCard({
   levels,
   currency = "$",
@@ -258,16 +373,17 @@ export function TradeSetupCard({
   const showLevels = levels.recommendation !== "Avoid";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+    <div className="relative max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
       <div
         className={`pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl ${recStyle.glow}`}
       />
 
-      <div className="relative flex items-center justify-between">
-        <div>
+      <div className="relative flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
             ✦ AI Trade Plan
           </p>
+
           <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
             Suggested Levels
           </h3>
@@ -296,7 +412,7 @@ export function TradeSetupCard({
                     : "neutral",
             })
           }
-          className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider transition hover:scale-[1.02] ${recStyle.bg} ${recStyle.text}`}
+          className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider transition hover:scale-[1.02] ${recStyle.bg} ${recStyle.text}`}
         >
           {levels.recommendation}
         </button>
@@ -304,7 +420,7 @@ export function TradeSetupCard({
 
       {showLevels ? (
         <>
-          <div className="relative mt-5 grid grid-cols-3 gap-3">
+          <div className="relative mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() =>
@@ -314,7 +430,7 @@ export function TradeSetupCard({
                   meaning:
                     "Entry is the suggested price area where the trade plan starts. It is the reference point used to calculate downside risk and upside target.",
                   reasoning: `StockGPT’s suggested entry is ${currency}${levels.entry.toFixed(
-                    2
+                    2,
                   )}. The stop loss and take-profit levels are calculated from this entry area, so it acts as the centre point of the trade plan.`,
                   detail:
                     "A real market price can move quickly. The entry level is a planning reference, not a guaranteed execution price.",
@@ -324,13 +440,16 @@ export function TradeSetupCard({
               className="group relative rounded-xl border border-[#072116]/10 bg-white px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 hover:shadow-[0_8px_20px_rgba(7,33,22,0.12)]"
             >
               <ClickHint />
+
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
                 Entry
               </p>
+
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em]">
                 {currency}
                 {levels.entry.toFixed(2)}
               </p>
+
               <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
                 Suggested
               </p>
@@ -345,7 +464,7 @@ export function TradeSetupCard({
                   meaning:
                     "Stop loss is the downside level where the trade idea is considered wrong or too risky to continue holding.",
                   reasoning: `The stop loss is set at ${currency}${levels.stopLoss.toFixed(
-                    2
+                    2,
                   )}, which is ${levels.stopPct}% below the suggested entry. This level is designed to define the risk before entering the trade.`,
                   detail:
                     "A stop loss is not a prediction that the stock will fall. It is a risk-control boundary that says where the plan should be reviewed or exited.",
@@ -355,13 +474,16 @@ export function TradeSetupCard({
               className="group relative rounded-xl border border-red-200 bg-red-50/50 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-[0_8px_20px_rgba(127,29,29,0.12)]"
             >
               <ClickHint />
+
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-red-700/70">
                 Stop Loss
               </p>
+
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em] text-red-700">
                 {currency}
                 {levels.stopLoss.toFixed(2)}
               </p>
+
               <p className="mt-1 text-[10px] font-semibold text-red-700/70">
                 −{levels.stopPct}%
               </p>
@@ -376,7 +498,7 @@ export function TradeSetupCard({
                   meaning:
                     "Take profit is the upside target where the plan would consider locking in gains or reducing the position.",
                   reasoning: `The take-profit level is ${currency}${levels.takeProfit.toFixed(
-                    2
+                    2,
                   )}, which is ${levels.targetPct}% above the suggested entry. This is the reward side of the trade plan.`,
                   detail:
                     "The target is usually based on a mix of risk/reward, resistance areas and medium-term measured move potential.",
@@ -386,13 +508,16 @@ export function TradeSetupCard({
               className="group relative rounded-xl border border-emerald-200 bg-emerald-50/50 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_8px_20px_rgba(6,95,70,0.12)]"
             >
               <ClickHint />
+
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-emerald-700/70">
                 Take Profit
               </p>
+
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em] text-emerald-700">
                 {currency}
                 {levels.takeProfit.toFixed(2)}
               </p>
+
               <p className="mt-1 text-[10px] font-semibold text-emerald-700/70">
                 +{levels.targetPct}%
               </p>
@@ -418,6 +543,7 @@ export function TradeSetupCard({
             <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#ddb159]/80">
               Risk / Reward
             </p>
+
             <p className="text-[14px] font-black text-[#ddb159]">
               1 : {levels.riskReward}
             </p>
@@ -429,7 +555,7 @@ export function TradeSetupCard({
                 ✦ AI Projected Timeline
               </p>
 
-              <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -449,6 +575,7 @@ export function TradeSetupCard({
                   <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
                     Expected Return
                   </p>
+
                   <p className="mt-0.5 text-[18px] font-black tracking-[-0.02em] text-emerald-700">
                     {levels.plan.expectedAnnualReturn}%/yr
                   </p>
@@ -473,6 +600,7 @@ export function TradeSetupCard({
                   <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
                     Target Date
                   </p>
+
                   <p className="mt-0.5 text-[18px] font-black tracking-[-0.02em]">
                     {levels.plan.expectedTargetDate}
                   </p>
@@ -497,6 +625,7 @@ export function TradeSetupCard({
                   <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
                     Hold Period
                   </p>
+
                   <p className="mt-0.5 text-[14px] font-black tracking-[-0.02em]">
                     {levels.plan.recommendedHoldPeriod}
                   </p>
@@ -548,7 +677,7 @@ export function TradeSetupCard({
                             tone: trigger.tone,
                           })
                         }
-                        className={`flex items-start gap-3 rounded-lg border text-left transition hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(7,33,22,0.1)] ${tone.border} ${tone.bg} px-3 py-2.5`}
+                        className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(7,33,22,0.1)] ${tone.border} ${tone.bg}`}
                       >
                         <div className={`shrink-0 ${tone.icon}`}>
                           <TriggerIcon icon={trigger.icon} />
@@ -560,6 +689,7 @@ export function TradeSetupCard({
                           >
                             {trigger.condition}
                           </p>
+
                           <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
                             → {trigger.action}
                           </p>
@@ -593,6 +723,7 @@ export function TradeSetupCard({
           <p className="text-[13px] font-bold text-red-700">
             Insufficient signal strength to suggest entry levels.
           </p>
+
           <p className="mt-1 text-[11px] font-semibold text-red-700/70">
             The AI recommends waiting for a better setup.
           </p>
@@ -604,7 +735,7 @@ export function TradeSetupCard({
           ✦ Built From
         </p>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {levels.factors.map((f) => (
             <button
               key={f.label}
@@ -632,9 +763,11 @@ export function TradeSetupCard({
               <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
                 {f.label}
               </p>
+
               <p className="mt-0.5 truncate text-[12px] font-bold">
                 {f.value}
               </p>
+
               <p className="mt-0.5 truncate text-[10px] font-semibold text-[#072116]/55">
                 {f.note}
               </p>
@@ -649,88 +782,7 @@ export function TradeSetupCard({
       </p>
 
       {modal && (
-        <div className="fixed inset-0 z-[999999] overflow-hidden">
-          <button
-            type="button"
-            aria-label="Close explanation"
-            className="absolute inset-0 h-full w-full cursor-default bg-black/35 backdrop-blur-[28px] backdrop-saturate-50"
-            onClick={() => setModal(null)}
-          />
-
-          <div className="relative z-10 flex h-full items-center justify-center px-3 pb-[calc(92px+env(safe-area-inset-bottom))] pt-[calc(92px+env(safe-area-inset-top))] sm:px-5 sm:py-5">
-            <div className="relative z-10 flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_30px_90px_rgba(0,0,0,0.45)]">
-              <div
-                className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${
-                  modalToneStyle(modal.tone).glow
-                }`}
-              />
-
-              <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#072116]/8 p-4 pb-3 sm:p-6 sm:pb-4">
-                <div className="min-w-0">
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#072116]/50 sm:text-[9px]">
-                    ✦ Trade Plan Explainer
-                  </p>
-
-                  <h3 className="mt-1 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.04em] sm:text-[24px]">
-                    {modal.title}
-                  </h3>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setModal(null)}
-                  className="shrink-0 rounded-full border border-[#072116]/10 bg-white/60 px-3 py-1 text-[10px] font-black text-[#072116]/60 transition hover:border-[#ddb159]/50 hover:text-[#072116] sm:text-[11px]"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pt-3 sm:p-6 sm:pt-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`max-w-full break-words rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] sm:text-[11px] ${
-                      modalToneStyle(modal.tone).chip
-                    }`}
-                  >
-                    {modal.value}
-                  </span>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-[#072116]/8 bg-white/65 p-3 sm:p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
-                    What this means
-                  </p>
-
-                  <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
-                    {modal.meaning}
-                  </p>
-                </div>
-
-                <div className="mt-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 p-3 sm:p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-                    Why StockGPT chose this
-                  </p>
-
-                  <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
-                    {modal.reasoning}
-                  </p>
-                </div>
-
-                {modal.detail && (
-                  <p className="mt-4 text-[12px] font-medium leading-5 text-[#072116]/55">
-                    {modal.detail}
-                  </p>
-                )}
-
-                <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/42">
-                  Educational explanation only. This is not personal financial
-                  advice and should not be used as the sole basis for an
-                  investment decision.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ExplanationPortal modal={modal} onClose={() => setModal(null)} />
       )}
     </div>
   );
