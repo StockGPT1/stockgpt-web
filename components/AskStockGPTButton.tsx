@@ -20,12 +20,41 @@ type AskStockGPTButtonProps = {
   isAuthenticated?: boolean;
 };
 
+type Mode = "portfolio" | "rankings" | "learn" | "account";
+
 type StarterPrompt = {
   label: string;
   prompt: string;
   eyebrow: string;
-  mode: "portfolio" | "rankings" | "learn" | "account";
+  mode: Mode;
 };
+
+const modeOptions: Array<{
+  mode: Mode;
+  label: string;
+  description: string;
+}> = [
+  {
+    mode: "portfolio",
+    label: "Portfolio",
+    description: "Holdings, alerts, P&L",
+  },
+  {
+    mode: "rankings",
+    label: "Rankings",
+    description: "Scores, sectors, leaders",
+  },
+  {
+    mode: "learn",
+    label: "Learn",
+    description: "Trading concepts",
+  },
+  {
+    mode: "account",
+    label: "Account",
+    description: "Membership and billing",
+  },
+];
 
 const starterPrompts: StarterPrompt[] = [
   {
@@ -37,7 +66,8 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Action plan",
     label: "Trim, hold, sell, or buy more",
-    prompt: "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
+    prompt:
+      "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
     mode: "portfolio",
   },
   {
@@ -67,7 +97,8 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Learning",
     label: "Stop-loss theory",
-    prompt: "Explain how stop-losses should be used without getting shaken out too early.",
+    prompt:
+      "Explain how stop-losses should be used without getting shaken out too early.",
     mode: "learn",
   },
   {
@@ -79,12 +110,11 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Account",
     label: "Subscription help",
-    prompt: "Who should I contact if I have a StockGPT subscription or payment issue?",
+    prompt:
+      "Who should I contact if I have a StockGPT subscription or payment issue?",
     mode: "account",
   },
 ];
-
-const mobileStarterPrompts = starterPrompts.slice(0, 4);
 
 function renderInlineMarkdown(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
@@ -176,7 +206,9 @@ function PremiumOrb() {
   return (
     <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#ddb159]/40 bg-[#092418] shadow-[0_10px_35px_rgba(221,177,89,0.18)]">
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.28),transparent_24%),radial-gradient(circle_at_70%_80%,rgba(221,177,89,0.22),transparent_42%)]" />
-      <span className="relative text-[15px] font-black text-[#ddb159]">S</span>
+      <span className="relative text-[15px] font-black text-[#ddb159]">
+        S
+      </span>
     </span>
   );
 }
@@ -185,10 +217,15 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
 
   return (
-    <div className={["flex w-full", isUser ? "justify-end" : "justify-start"].join(" ")}>
+    <div
+      className={[
+        "flex w-full min-w-0",
+        isUser ? "justify-end" : "justify-start",
+      ].join(" ")}
+    >
       <div
         className={[
-          "max-w-[92%] rounded-[26px] px-4 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[78%]",
+          "max-w-[94%] break-words rounded-[24px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:px-4 md:max-w-[76%]",
           isUser
             ? "rounded-br-md bg-[#ddb159] text-[#07170f]"
             : "rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] text-[#07170f]",
@@ -205,9 +242,47 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
+        <div className="[&>p:first-child]:mt-0">
+          {renderMessageContent(message.content)}
+        </div>
       </div>
     </div>
+  );
+}
+
+function PromptCard({
+  starter,
+  onClick,
+  compact = false,
+}: {
+  starter: StarterPrompt;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "group w-full rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10",
+        compact ? "px-3 py-2.5" : "px-3.5 py-3.5",
+      ].join(" ")}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+            {starter.eyebrow}
+          </p>
+          <p className="mt-1 text-[12px] font-bold leading-snug text-[#fbf4e5]/78">
+            {starter.label}
+          </p>
+        </div>
+
+        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 text-[11px] font-black text-[#ddb159]/60 transition group-hover:border-[#ddb159]/45 group-hover:text-[#ddb159]">
+          →
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -219,7 +294,7 @@ function LockedExperience({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[90] overflow-hidden bg-black/55 p-3 backdrop-blur-md sm:p-5">
+    <div className="fixed inset-0 z-[90] overflow-hidden bg-black/60 p-0 backdrop-blur-md sm:p-3 lg:p-5">
       <button
         type="button"
         aria-label="Close Ask StockGPT"
@@ -227,24 +302,24 @@ function LockedExperience({
         className="absolute inset-0 cursor-default"
       />
 
-      <div className="relative mx-auto flex h-[min(820px,calc(100dvh-1.5rem))] max-w-5xl overflow-hidden rounded-[34px] border border-[#ddb159]/35 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[min(820px,calc(100dvh-2.5rem))]">
+      <div className="relative mx-auto grid h-[100dvh] w-full overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:max-w-5xl sm:rounded-[34px] lg:h-[min(820px,calc(100dvh-2.5rem))]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.18),transparent_32%),radial-gradient(circle_at_90%_10%,rgba(72,140,94,0.18),transparent_35%),linear-gradient(135deg,#06140d,#0b2417_48%,#06140d)]" />
 
         <button
           type="button"
           onClick={onClose}
           aria-label="Close Ask StockGPT"
-          className="absolute right-4 top-4 z-10 grid size-10 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/70 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10"
+          className="absolute right-3 top-3 z-10 grid size-10 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/70 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:right-4 sm:top-4"
         >
           ×
         </button>
 
-        <div className="relative grid w-full gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex flex-col justify-between p-6 sm:p-8 lg:p-10">
+        <div className="relative grid min-h-0 w-full lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="flex min-h-0 flex-col justify-between overflow-y-auto p-5 pt-16 sm:p-8 sm:pt-20 lg:p-10">
             <div>
               <div className="flex items-center gap-3">
                 <PremiumOrb />
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
                     Premium intelligence
                   </p>
@@ -254,11 +329,11 @@ function LockedExperience({
                 </div>
               </div>
 
-              <h2 className="mt-8 max-w-xl text-[42px] font-black leading-[0.94] tracking-[-0.06em] text-[#fbf4e5] sm:text-[58px]">
+              <h2 className="mt-7 max-w-xl text-[38px] font-black leading-[0.94] tracking-[-0.06em] text-[#fbf4e5] sm:text-[52px] lg:text-[58px]">
                 Ask StockGPT is a subscriber feature.
               </h2>
 
-              <p className="mt-5 max-w-xl text-[15px] font-medium leading-7 text-[#fbf4e5]/64">
+              <p className="mt-5 max-w-xl text-[14px] font-medium leading-7 text-[#fbf4e5]/64 sm:text-[15px]">
                 Unlock a premium market coach that can explain your portfolio,
                 alerts, rankings, stop-loss levels, take-profit zones, news
                 impact and trading concepts in plain English.
@@ -283,7 +358,7 @@ function LockedExperience({
             </div>
           </section>
 
-          <aside className="hidden border-l border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] p-8 lg:block">
+          <aside className="hidden min-h-0 overflow-y-auto border-l border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] p-8 lg:block">
             <div className="rounded-[28px] border border-[#ddb159]/25 bg-[#06140d]/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
                 What it answers
@@ -309,9 +384,12 @@ function LockedExperience({
             </div>
 
             <p className="mt-5 text-[12px] font-medium leading-6 text-[#fbf4e5]/42">
-              For account-specific billing, refunds, or anything not shown in the app,
-              users are directed to{" "}
-              <span className="font-black text-[#ddb159]">sales@stockgpt.pro</span>.
+              For account-specific billing, refunds, or anything not shown in
+              the app, users are directed to{" "}
+              <span className="font-black text-[#ddb159]">
+                sales@stockgpt.pro
+              </span>
+              .
             </p>
           </aside>
         </div>
@@ -334,17 +412,21 @@ export function AskStockGPTButton({
     },
   ]);
   const [loading, setLoading] = useState(false);
-  const [activeMode, setActiveMode] = useState<"portfolio" | "rankings" | "learn" | "account">(
-    "portfolio",
-  );
+  const [activeMode, setActiveMode] = useState<Mode>("portfolio");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const locked = !canUseAskStockGPT;
 
   const visibleStarters = useMemo(() => {
-    return starterPrompts.filter((prompt) => prompt.mode === activeMode).slice(0, 3);
+    return starterPrompts.filter((prompt) => prompt.mode === activeMode);
   }, [activeMode]);
+
+  const mobileStarters = useMemo(() => {
+    return visibleStarters.slice(0, 3);
+  }, [visibleStarters]);
+
+  const showMobilePrompts = messages.length <= 1 && !loading;
 
   useEffect(() => {
     if (!open) return;
@@ -457,11 +539,14 @@ export function AskStockGPTButton({
       </button>
 
       {open && locked && (
-        <LockedExperience isAuthenticated={isAuthenticated} onClose={handleClose} />
+        <LockedExperience
+          isAuthenticated={isAuthenticated}
+          onClose={handleClose}
+        />
       )}
 
       {open && !locked && (
-        <div className="fixed inset-0 z-[90] overflow-hidden bg-black/55 p-2 backdrop-blur-md sm:p-5">
+        <div className="fixed inset-0 z-[90] overflow-hidden bg-black/60 p-0 backdrop-blur-md sm:p-3 xl:p-5">
           <button
             type="button"
             aria-label="Close Ask StockGPT"
@@ -469,12 +554,12 @@ export function AskStockGPTButton({
             className="absolute inset-0 cursor-default"
           />
 
-          <div className="relative mx-auto flex h-[calc(100dvh-1rem)] max-w-6xl overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[min(860px,calc(100dvh-2.5rem))] sm:rounded-[36px]">
+          <div className="relative mx-auto grid h-[100dvh] w-full overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:rounded-[30px] xl:h-[min(860px,calc(100dvh-2.5rem))] xl:max-w-6xl xl:rounded-[36px]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(221,177,89,0.18),transparent_30%),radial-gradient(circle_at_92%_14%,rgba(80,160,108,0.16),transparent_34%),linear-gradient(135deg,#06140d,#0a2015_48%,#06140d)]" />
 
-            <div className="relative grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[330px_minmax(0,1fr)] lg:grid-rows-1">
-              <aside className="hidden min-h-0 border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
-                <div className="px-6 pb-5 pt-6">
+            <div className="relative grid h-full min-h-0 w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]">
+              <aside className="hidden min-h-0 border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto]">
+                <div className="shrink-0 px-5 pb-4 pt-5 xl:px-6 xl:pt-6">
                   <div className="flex items-center gap-3">
                     <PremiumOrb />
                     <div className="min-w-0">
@@ -488,30 +573,21 @@ export function AskStockGPTButton({
                   </div>
                 </div>
 
-                <div className="px-6 pb-4">
-                  <div className="rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/60 p-4">
+                <div className="min-h-0 overflow-y-auto px-5 pb-4 xl:px-6">
+                  <div className="rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/60 p-3.5 xl:p-4">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
                       Mode
                     </p>
 
                     <div className="mt-3 grid gap-2">
-                      {[
-                        ["portfolio", "Portfolio", "Holdings, alerts, P&L"],
-                        ["rankings", "Rankings", "Scores, sectors, leaders"],
-                        ["learn", "Learn", "Trading concepts"],
-                        ["account", "Account", "Membership and billing"],
-                      ].map(([mode, label, description]) => {
-                        const selected = activeMode === mode;
+                      {modeOptions.map((option) => {
+                        const selected = activeMode === option.mode;
 
                         return (
                           <button
-                            key={mode}
+                            key={option.mode}
                             type="button"
-                            onClick={() =>
-                              setActiveMode(
-                                mode as "portfolio" | "rankings" | "learn" | "account",
-                              )
-                            }
+                            onClick={() => setActiveMode(option.mode)}
                             className={[
                               "rounded-2xl border px-3 py-2.5 text-left transition",
                               selected
@@ -520,59 +596,40 @@ export function AskStockGPTButton({
                             ].join(" ")}
                           >
                             <p className="text-[13px] font-black leading-tight text-[#fbf4e5]">
-                              {label}
+                              {option.label}
                             </p>
                             <p className="mt-0.5 text-[10px] font-semibold leading-tight text-[#fbf4e5]/42">
-                              {description}
+                              {option.description}
                             </p>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                </div>
 
-                <div className="min-h-0 px-6 pb-4">
-                  <div className="flex h-full min-h-[220px] flex-col rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/45 p-4">
-                    <div className="shrink-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                        Suggested prompts
-                      </p>
-                      <p className="mt-1 text-[11px] font-semibold leading-5 text-[#fbf4e5]/42">
-                        Tailored to the mode you select.
-                      </p>
-                    </div>
+                  <div className="mt-4 rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/45 p-3.5 xl:p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+                      Suggested prompts
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-[#fbf4e5]/42">
+                      Tailored to the selected mode.
+                    </p>
 
-                    <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-hidden">
-                      {visibleStarters.map((starter) => (
-                        <button
+                    <div className="mt-3 grid gap-2">
+                      {visibleStarters.slice(0, 3).map((starter) => (
+                        <PromptCard
                           key={starter.prompt}
-                          type="button"
+                          starter={starter}
+                          compact
                           onClick={() => void sendQuestion(starter.prompt)}
-                          className="group rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] px-3 py-3 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-                                {starter.eyebrow}
-                              </p>
-                              <p className="mt-1 text-[12px] font-bold leading-snug text-[#fbf4e5]/78">
-                                {starter.label}
-                              </p>
-                            </div>
-
-                            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 text-[11px] font-black text-[#ddb159]/60 transition group-hover:border-[#ddb159]/45 group-hover:text-[#ddb159]">
-                              →
-                            </span>
-                          </div>
-                        </button>
+                        />
                       ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="border-t border-[#ddb159]/12 px-6 py-4">
-                  <p className="text-[11px] font-medium leading-5 text-[#fbf4e5]/38">
+                <div className="shrink-0 border-t border-[#ddb159]/12 px-5 py-3 xl:px-6 xl:py-4">
+                  <p className="text-[10.5px] font-medium leading-5 text-[#fbf4e5]/38">
                     Uses live StockGPT app context where available. For billing,
                     refunds or unclear account queries, use{" "}
                     <span className="font-bold text-[#ddb159]/75">
@@ -583,66 +640,98 @@ export function AskStockGPTButton({
                 </div>
               </aside>
 
-              <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]">
-                <header className="relative border-b border-[#ddb159]/14 px-4 py-4 sm:px-5">
+              <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:col-start-2">
+                <header className="relative shrink-0 border-b border-[#ddb159]/14 px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
                   <button
                     type="button"
                     onClick={handleClose}
                     aria-label="Close Ask StockGPT"
-                    className="absolute right-3 top-3 grid size-10 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/75 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10"
+                    className="absolute right-2 top-2 grid size-9 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/75 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:right-3 sm:top-3 sm:size-10"
                   >
                     ×
                   </button>
 
-                  <div className="flex items-center gap-3 pr-12 lg:hidden">
+                  <div className="flex items-center gap-3 pr-11 lg:hidden">
                     <PremiumOrb />
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+                    <div className="min-w-0">
+                      <p className="truncate text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
                         Ask StockGPT
                       </p>
-                      <p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">
+                      <p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">
                         Portfolio intelligence coach
                       </p>
                     </div>
                   </div>
 
-                  <div className="hidden lg:block">
+                  <div className="hidden pr-12 lg:block">
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
                       ✦ Portfolio intelligence
                     </p>
-                    <h2 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5]">
+                    <h2 className="mt-1 text-[28px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[30px]">
                       Ask StockGPT
                     </h2>
                   </div>
 
-                  <p className="mt-3 max-w-3xl text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px]">
+                  <p className="mt-3 max-w-3xl pr-11 text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px] lg:pr-0">
                     A premium market coach for your portfolio, rankings, news,
                     alerts, trading concepts and membership questions.
                   </p>
 
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                    {mobileStarterPrompts.map((starter) => (
-                      <button
-                        key={starter.prompt}
-                        type="button"
-                        onClick={() => void sendQuestion(starter.prompt)}
-                        className="shrink-0 rounded-full border border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] px-3 py-2 text-[11px] font-bold text-[#fbf4e5]/75"
-                      >
-                        {starter.label}
-                      </button>
-                    ))}
+                    {modeOptions.map((option) => {
+                      const selected = activeMode === option.mode;
+
+                      return (
+                        <button
+                          key={option.mode}
+                          type="button"
+                          onClick={() => setActiveMode(option.mode)}
+                          className={[
+                            "shrink-0 rounded-full border px-3 py-2 text-[11px] font-black transition",
+                            selected
+                              ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]"
+                              : "border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/72",
+                          ].join(" ")}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {showMobilePrompts && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+                      {mobileStarters.map((starter) => (
+                        <button
+                          key={starter.prompt}
+                          type="button"
+                          onClick={() => void sendQuestion(starter.prompt)}
+                          className="max-w-[240px] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-3 py-2 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/76"
+                        >
+                          <span className="block text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+                            {starter.eyebrow}
+                          </span>
+                          <span className="mt-0.5 block truncate">
+                            {starter.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </header>
 
-                <main className="min-h-0 overflow-y-auto px-3 py-4 sm:px-5">
+                <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
                   <div className="mx-auto grid max-w-3xl gap-3">
                     {messages.map((message, index) => (
-                      <MessageBubble key={`${message.role}-${index}`} message={message} />
+                      <MessageBubble
+                        key={`${message.role}-${index}`}
+                        message={message}
+                      />
                     ))}
 
                     {loading && (
                       <div className="flex justify-start">
-                        <div className="max-w-[88%] rounded-[26px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-4 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[74%]">
+                        <div className="max-w-[94%] rounded-[24px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:px-4 md:max-w-[76%]">
                           <div className="mb-1.5 flex items-center gap-2">
                             <span className="grid size-5 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
                               S
@@ -652,7 +741,7 @@ export function AskStockGPTButton({
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-[13px] font-semibold text-[#07170f]/72">
+                          <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-[#07170f]/72">
                             <span>Reviewing rankings, portfolio and news</span>
                             <span className="flex gap-1">
                               <span className="size-1.5 animate-bounce rounded-full bg-[#07170f]/45 [animation-delay:0ms]" />
@@ -670,9 +759,9 @@ export function AskStockGPTButton({
 
                 <form
                   onSubmit={handleSubmit}
-                  className="border-t border-[#ddb159]/14 bg-[#04140c]/92 p-3 sm:p-4"
+                  className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/92 p-2.5 sm:p-3 lg:p-4"
                 >
-                  <div className="mx-auto max-w-3xl rounded-[26px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)]">
+                  <div className="mx-auto max-w-3xl rounded-[22px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)] sm:rounded-[26px]">
                     <textarea
                       ref={textareaRef}
                       value={question}
@@ -685,7 +774,7 @@ export function AskStockGPTButton({
                       }}
                       placeholder="Ask about your portfolio, rankings, market news, trading theory, alerts, membership..."
                       rows={2}
-                      className="max-h-32 min-h-[58px] w-full resize-none bg-transparent px-3 py-2 text-[14px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34"
+                      className="max-h-28 min-h-[50px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
                     />
 
                     <div className="flex items-center justify-between gap-2 px-2 pb-1">
@@ -705,7 +794,7 @@ export function AskStockGPTButton({
                         <button
                           type="submit"
                           disabled={!question.trim() || loading}
-                          className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+                          className="inline-flex h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:h-10 sm:px-5 sm:text-[12px]"
                         >
                           {loading ? "Thinking" : "Send"}
                         </button>
