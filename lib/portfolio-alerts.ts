@@ -2,25 +2,46 @@ import { createClient } from "@/utils/supabase/server";
 import { getStockChart } from "@/lib/yahoo";
 
 export type AlertSeverity = "critical" | "warning" | "info" | "success";
+export type AlertCategory = "event" | "action";
+
+export type AlertAction = "none" | "review" | "buy_more" | "trim" | "sell";
+
 export type AlertType =
-  | "score_drop" | "score_rise" | "rank_drop" | "rank_rise"
-  | "price_target" | "price_stop" | "review_due"
-  | "negative_news" | "positive_news"
-  | "sector_weak" | "sector_strong"
-  | "position_oversize" | "position_tiny"
-  | "poor_signal" | "weak_rank";
+  | "score_event"
+  | "rank_event"
+  | "news_event"
+  | "sector_event"
+  | "price_event"
+  | "sell_action"
+  | "trim_action"
+  | "buy_more_action"
+  | "review_action";
 
 export type HoldingAlert = {
+  id: string;
+  category: AlertCategory;
   type: AlertType;
   severity: AlertSeverity;
+  action: AlertAction;
   title: string;
   message: string;
   recommendation: string;
+  evidence: string[];
+  priority: number;
+  expiresWhen: string;
 };
 
 export type SectorMomentum = "Booming" | "Strong" | "Mixed" | "Weak" | "Struggling" | "Unknown";
-
 export type RiskTolerance = "conservative" | "moderate" | "aggressive" | null;
+
+export type HoldingTrigger = {
+  type: "stop_loss" | "take_profit" | "score_floor" | "review";
+  icon: "shield" | "target" | "warning" | "calendar";
+  condition: string;
+  action: string;
+  tone: "positive" | "negative" | "neutral";
+  priority: number;
+};
 
 export type EnrichedHolding = {
   ticker: string;
@@ -48,105 +69,96 @@ export type EnrichedHolding = {
   rankChange: number;
   daysSinceReview: number;
   alerts: HoldingAlert[];
-  recommendation: "Hold" | "Consider Buying More" | "Consider Trimming" | "Strong Hold" | "Review Urgently" | "Sell Whole Position" | "Sell Immediately";
+  eventAlerts: HoldingAlert[];
+  actionAlerts: HoldingAlert[];
+  recommendation:
+    | "Hold"
+    | "Strong Hold"
+    | "Consider Buying More"
+    | "Consider Trimming"
+    | "Review Urgently"
+    | "Sell Whole Position"
+    | "Sell Immediately";
   sectorMomentum: SectorMomentum;
   sectorBullishPct: number;
   scorePercentile: number;
-  rankPercentile: number; // 0-100, where 100 is rank #1
+  rankPercentile: number;
   triggers: HoldingTrigger[];
   aiSummary: string;
   isRecentlyAdded: boolean;
 };
 
-export type HoldingTrigger = {
-  type: "stop_sell" | "take_profit" | "trailing_stop" | "score_alert" | "review" | "rebalance" | "exit_all";
-  icon: "shield" | "target" | "warning" | "calendar" | "scales" | "exit";
-  condition: string;
-  action: string;
-  tone: "positive" | "negative" | "neutral";
-  priority: number;
+type TechnicalLevels = {
+  stopLoss: number | null;
+  takeProfit: number | null;
+  support: number | null;
+  resistance: number | null;
+  ma50: number | null;
+  volatilityPct: number | null;
+  source: "technical" | "fallback";
 };
 
-const RECENT_THRESHOLD_DAYS = 7;
+type AlertContext = {
+  ticker: string;
+  company: string | null;
+  sector: string | null;
+  score: number;
+  scoreAtEntry: number | null;
+  rank: number | null;
+  rankAtEntry: number | null;
+  currentPrice: number;
+  entryPrice: number;
+  pnlPercent: number;
+  currentAllocationPct: number;
+  targetAllocationPct: number | null;
+  daysHeld: number;
+  daysSinceReview: number;
+  isRecentlyAdded: boolean;
+  rankPercentile: number;
+  scorePercentile: number;
+  totalStocks: number;
+  sectorMomentum: SectorMomentum;
+  sectorBullishPct: number;
+  recentNegativeNewsCount: number;
+  recentPositiveNewsCount: number;
+  latestNegativeHeadline: string | null;
+  latestPositiveHeadline: string | null;
+  riskTolerance: RiskTolerance;
+  factorDiagnostics?: Record<string, any> | null;
+  technical: TechnicalLevels;
+};
 
-async function getSectorData() {
-  const supabase = await createClient();
+const RECENT_HOLDING_GRACE_DAYS = 7;
+const NEWS_WINDOW_DAYS = 14;
 
-  const { data: allStocks } = await supabase
-    .from("stock_rankings").select("sector, rank, score");
-
-  const totalStocks = (allStocks ?? []).length || 500;
-  const topQuartileRank = Math.max(1, Math.ceil(totalStocks * 0.25));
-  const topHalfRank = Math.max(1, Math.ceil(totalStocks * 0.50));
-  const maxScore = Math.max(...(allStocks ?? []).map((s) => Number(s.score) || 0), 1);
-
-  const bySector: Record<string, { total: number; bullish: number; healthy: number }> = {};
-  (allStocks ?? []).forEach((s) => {
-    const sector = s.sector ?? "—";
-    const rank = Number(s.rank);
-    if (!bySector[sector]) bySector[sector] = { total: 0, bullish: 0, healthy: 0 };
-    bySector[sector].total++;
-    if (Number.isFinite(rank) && rank > 0 && rank <= topQuartileRank) bySector[sector].bullish++;
-    if (Number.isFinite(rank) && rank > 0 && rank <= topHalfRank) bySector[sector].healthy++;
-  });
-
-  const momentum: Record<string, SectorMomentum> = {};
-  const bullishPct: Record<string, number> = {};
-  Object.entries(bySector).forEach(([sector, { total, bullish, healthy }]) => {
-    const pct = total > 0 ? Math.round((bullish / total) * 100) : 0;
-    const healthyPct = total > 0 ? Math.round((healthy / total) * 100) : 0;
-    bullishPct[sector] = pct;
-    if (pct >= 35) momentum[sector] = "Booming";
-    else if (pct >= 25) momentum[sector] = "Strong";
-    else if (healthyPct >= 45) momentum[sector] = "Mixed";
-    else if (healthyPct >= 30) momentum[sector] = "Weak";
-    else momentum[sector] = "Struggling";
-  });
-  return { momentum, bullishPct, maxScore, totalStocks };
+function finiteNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function describeRankMove(rankAtEntry: number, currentRank: number, totalStocks: number) {
-  const places = currentRank - rankAtEntry;
-  const universe = Math.max(totalStocks || 500, 1);
-  const pctPoints = Math.round((Math.abs(places) / universe) * 100);
-  const placeLabel = `${Math.abs(places)} place${Math.abs(places) === 1 ? "" : "s"}`;
-  return { places, pctPoints, placeLabel };
+function nullableNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pctChange(current: number | null, previous: number | null) {
+  if (!current || !previous || previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+function money(value: number) {
+  return `$${value.toFixed(2)}`;
 }
 
 function daysBetween(a: Date, b: Date) {
   return Math.floor((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// ── Risk-aware concentration thresholds ──
-function isNonTradingDay(date = new Date()) {
-  const day = date.getUTCDay();
-  return day === 0 || day === 6;
-}
-
-function looksLikeWeekendRecalibration(p: {
-  daysHeld: number;
-  pnlPercent: number;
-  factorDiagnostics?: Record<string, any> | null;
-}) {
-  const hasExactDiagnostics = Boolean(
-    p.factorDiagnostics &&
-    (Array.isArray(p.factorDiagnostics.top_negative_factors) ||
-      Number.isFinite(Number(p.factorDiagnostics.momentum_change)) ||
-      Number.isFinite(Number(p.factorDiagnostics.growth_change)) ||
-      Number.isFinite(Number(p.factorDiagnostics.quality_change)) ||
-      Number.isFinite(Number(p.factorDiagnostics.value_change)))
-  );
-
-  return isNonTradingDay() && p.daysHeld <= 3 && Math.abs(p.pnlPercent) < 2 && !hasExactDiagnostics;
-}
-
-function concentrationThreshold(risk: RiskTolerance): number {
+function concentrationThreshold(risk: RiskTolerance) {
   if (risk === "conservative") return 18;
   if (risk === "aggressive") return 32;
   return 25;
 }
-
-
 
 function formatFactorName(factor: string) {
   return factor
@@ -158,534 +170,153 @@ function formatFactorName(factor: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatSleeveChange(label: string, value: unknown) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || Math.abs(n) < 0.00001) return null;
-  return `${label} ${n < 0 ? "fell" : "rose"} by ${Math.abs(n).toFixed(3)} contribution points`;
+function round1(value: number) {
+  return Math.round(value * 10) / 10;
 }
 
-function explainScoreDrop(p: {
-  ticker: string;
-  scoreChange: number;
-  scoreAtEntry: number | null;
-  score: number;
-  rank: number | null;
-  rankAtEntry: number | null;
-  pnlPercent: number;
-  recentNegativeNewsCount: number;
-  recentPositiveNewsCount: number;
-  sectorMomentum: SectorMomentum;
-  sectorBullishPct: number;
-  sector: string | null;
-  rankPercentile: number;
-  scorePercentile: number;
-  totalStocks: number;
-  daysHeld?: number;
-  factorDiagnostics?: Record<string, any> | null;
-}, dropPct: number) {
-  const reasons: string[] = [];
-
-  if (looksLikeWeekendRecalibration({
-    daysHeld: p.daysHeld ?? 999,
-    pnlPercent: p.pnlPercent,
-    factorDiagnostics: p.factorDiagnostics,
-  })) {
-    reasons.push(
-      "this happened during a weekend/non-trading recalculation, with no meaningful price move since entry, so it is more likely a model/data refresh than confirmed stock deterioration"
-    );
-    reasons.push(
-      "exact factor diagnostics are not available yet for this move, so the system should wait for the next market session before treating it as a sell signal"
-    );
-  }
-
-  if (p.rank && p.rankAtEntry) {
-    const move = describeRankMove(p.rankAtEntry, p.rank, p.totalStocks);
-    if (move.places >= 50) {
-      reasons.push(`rank also weakened from #${p.rankAtEntry} to #${p.rank}`);
-    } else if (move.places > 0) {
-      reasons.push(`rank slipped only ${move.placeLabel} from #${p.rankAtEntry} to #${p.rank}, so this looks more like score compression than a full thesis collapse`);
-    } else if (move.places <= -10) {
-      reasons.push(`rank improved from #${p.rankAtEntry} to #${p.rank}, so the absolute score fell while relative position improved`);
-    } else {
-      reasons.push(`rank stayed broadly stable near #${p.rank}, so the move is likely absolute score recalibration rather than a major ranking collapse`);
-    }
-  }
-
-  if (p.pnlPercent <= -8) reasons.push(`price performance is also weak, with the position down ${Math.abs(p.pnlPercent).toFixed(1)}%`);
-  else if (p.pnlPercent >= 8) reasons.push(`price action is still positive, with the position up ${p.pnlPercent.toFixed(1)}%, so this is not simply a price-loss alert`);
-
-  if (p.recentNegativeNewsCount >= 3) reasons.push(`${p.recentNegativeNewsCount} recent negative news items are adding headline risk`);
-  else if (p.recentPositiveNewsCount >= 4) reasons.push(`recent news flow is still positive, so the score drop is more likely model/factor driven than news driven`);
-
-  if ((p.sectorMomentum === "Weak" || p.sectorMomentum === "Struggling") && p.sectorBullishPct <= 25) {
-    reasons.push(`${p.sector ?? "the sector"} is weak, with only ${p.sectorBullishPct}% of the sector in the top quartile`);
-  } else if (p.sectorMomentum === "Booming" || p.sectorMomentum === "Strong") {
-    reasons.push(`${p.sector ?? "the sector"} backdrop remains ${p.sectorMomentum.toLowerCase()}, so the issue is more stock-specific/model-specific`);
-  }
-
-  const diagnostics = p.factorDiagnostics;
-  if (diagnostics) {
-    const sleeveReasons = [
-      formatSleeveChange("Momentum", diagnostics.momentum_change),
-      formatSleeveChange("Growth", diagnostics.growth_change),
-      formatSleeveChange("Quality", diagnostics.quality_change),
-      formatSleeveChange("Value", diagnostics.value_change),
-      formatSleeveChange("Risk", diagnostics.risk_change),
-      formatSleeveChange("Income", diagnostics.income_change),
-    ].filter(Boolean) as string[];
-
-    if (sleeveReasons.length > 0) reasons.push(`exact sleeve drivers: ${sleeveReasons.slice(0, 3).join(", ")}`);
-
-    const negativeFactors = Array.isArray(diagnostics.top_negative_factors) ? diagnostics.top_negative_factors.slice(0, 4) : [];
-    if (negativeFactors.length > 0) {
-      const factorText = negativeFactors.map((item: any) => {
-        const factor = formatFactorName(String(item.factor ?? "Unknown factor"));
-        const change = Number(item.change);
-        return Number.isFinite(change) ? `${factor} (${change.toFixed(3)})` : factor;
-      }).join(", ");
-      reasons.push(`largest negative factor-level changes: ${factorText}`);
-    }
-
-    const previousScore = Number(diagnostics.previous_score);
-    const currentScore = Number(diagnostics.current_score ?? diagnostics.smoothed_score);
-    if (Number.isFinite(previousScore) && Number.isFinite(currentScore) && previousScore > 0) {
-      reasons.push(`diagnostic run score moved from ${Math.round(previousScore).toLocaleString()} to ${Math.round(currentScore).toLocaleString()}`);
-    }
-  }
-
-  if (dropPct <= -35) reasons.push("the size of the score move is unusually large, which often means one or more inputs changed materially or came back differently from the data provider");
-
-  return `Reason: ${reasons.length ? reasons.join(". ") : "the score fell materially versus the entry score"}.`;
+function makeAlert(input: Omit<HoldingAlert, "id"> & { ticker: string }): HoldingAlert {
+  const id = `${input.ticker}-${input.category}-${input.type}`;
+  const { ticker: _ticker, ...alert } = input;
+  return { id, ...alert };
 }
 
+function latestDiagnosticScore(diagnostics?: Record<string, any> | null) {
+  if (!diagnostics) return null;
+  return nullableNumber(diagnostics.smoothed_score) ?? nullableNumber(diagnostics.current_score);
+}
 
-function strongestFactorDrivers(diagnostics?: Record<string, any> | null) {
+function previousDiagnosticScore(diagnostics?: Record<string, any> | null) {
+  if (!diagnostics) return null;
+  return nullableNumber(diagnostics.previous_score);
+}
+
+function sleeveChanges(diagnostics?: Record<string, any> | null) {
   if (!diagnostics) return [];
 
-  const drivers: string[] = [];
-  const sleeveChanges = [
-    ["Momentum", Number(diagnostics.momentum_change)],
-    ["Growth", Number(diagnostics.growth_change)],
-    ["Quality", Number(diagnostics.quality_change)],
-    ["Value", Number(diagnostics.value_change)],
-    ["Risk", Number(diagnostics.risk_change)],
-    ["Income", Number(diagnostics.income_change)],
+  return [
+    ["Momentum", nullableNumber(diagnostics.momentum_change)],
+    ["Growth", nullableNumber(diagnostics.growth_change)],
+    ["Quality", nullableNumber(diagnostics.quality_change)],
+    ["Value", nullableNumber(diagnostics.value_change)],
+    ["Risk", nullableNumber(diagnostics.risk_change)],
+    ["Income", nullableNumber(diagnostics.income_change)],
   ]
-    .filter(([, value]) => Number.isFinite(value) && Math.abs(value as number) >= 0.01)
-    .sort((a, b) => Number(a[1]) - Number(b[1]));
+    .filter((entry): entry is [string, number] => entry[1] !== null)
+    .sort((a, b) => a[1] - b[1]);
+}
 
-  const negativeSleeves = sleeveChanges.filter(([, value]) => Number(value) < 0).slice(0, 3);
+function negativeFactorEvidence(diagnostics?: Record<string, any> | null) {
+  if (!diagnostics) return [];
+
+  const evidence: string[] = [];
+  const negativeSleeves = sleeveChanges(diagnostics)
+    .filter(([, value]) => value <= -0.025)
+    .slice(0, 3);
+
   if (negativeSleeves.length > 0) {
-    drivers.push(
-      `the biggest sleeve pressure came from ${negativeSleeves
-        .map(([label, value]) => `${label} (${Number(value).toFixed(3)})`)
-        .join(", ")}`
+    evidence.push(
+      `Pressure from ${negativeSleeves.map(([label, value]) => `${label} (${value.toFixed(3)})`).join(", ")}`,
     );
   }
 
-  const negativeFactors = Array.isArray(diagnostics.top_negative_factors)
+  const topNegative = Array.isArray(diagnostics.top_negative_factors)
     ? diagnostics.top_negative_factors.slice(0, 4)
     : [];
-  if (negativeFactors.length > 0) {
-    drivers.push(
-      `factor-level deterioration was led by ${negativeFactors
+
+  if (topNegative.length > 0) {
+    evidence.push(
+      `Weakest factors: ${topNegative
         .map((item: any) => {
-          const factor = formatFactorName(String(item.factor ?? "Unknown factor"));
-          const change = Number(item.change);
-          return Number.isFinite(change) ? `${factor} (${change.toFixed(3)})` : factor;
+          const factor = formatFactorName(String(item.factor ?? "Unknown"));
+          const change = nullableNumber(item.change);
+          return change === null ? factor : `${factor} (${change.toFixed(3)})`;
         })
-        .join(", ")}`
+        .join(", ")}`,
     );
   }
 
-  const previousScore = Number(diagnostics.previous_score);
-  const currentScore = Number(diagnostics.current_score ?? diagnostics.smoothed_score);
-  if (Number.isFinite(previousScore) && Number.isFinite(currentScore) && previousScore > 0) {
-    const scoreMovePct = ((currentScore - previousScore) / previousScore) * 100;
-    if (Number.isFinite(scoreMovePct) && Math.abs(scoreMovePct) >= 5) {
-      drivers.push(
-        `the diagnostic score moved from ${Math.round(previousScore).toLocaleString()} to ${Math.round(currentScore).toLocaleString()} (${scoreMovePct >= 0 ? "+" : ""}${scoreMovePct.toFixed(1)}%)`
-      );
-    }
+  const diagnosis = typeof diagnostics.diagnosis === "string" ? diagnostics.diagnosis : null;
+  if (diagnosis && diagnosis !== "no single factor driver exceeded the diagnostic threshold") {
+    evidence.push(diagnosis);
   }
 
-  return drivers;
+  return evidence;
 }
 
-function explainRankDrop(p: {
-  ticker: string;
-  rank: number | null;
-  rankAtEntry: number | null;
-  scoreChange: number;
-  scoreAtEntry: number | null;
-  score: number;
-  pnlPercent: number;
-  recentNegativeNewsCount: number;
-  recentPositiveNewsCount: number;
-  sectorMomentum: SectorMomentum;
-  sectorBullishPct: number;
-  sector: string | null;
-  daysHeld?: number;
-  factorDiagnostics?: Record<string, any> | null;
-}) {
-  const reasons: string[] = [];
-  const factorDrivers = strongestFactorDrivers(p.factorDiagnostics);
+function positiveFactorEvidence(diagnostics?: Record<string, any> | null) {
+  if (!diagnostics) return [];
 
-  if (looksLikeWeekendRecalibration({
-    daysHeld: p.daysHeld ?? 999,
-    pnlPercent: p.pnlPercent,
-    factorDiagnostics: p.factorDiagnostics,
-  })) {
-    reasons.push(
-      "this occurred during a weekend/non-trading recalculation, with no meaningful price move since entry, so it is more likely a model/data refresh than confirmed stock deterioration"
-    );
-    reasons.push(
-      "exact factor diagnostics are not available yet for this move; wait for the next live market session before treating the rank change as actionable"
+  const evidence: string[] = [];
+  const positiveSleeves = sleeveChanges(diagnostics)
+    .filter(([, value]) => value >= 0.025)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  if (positiveSleeves.length > 0) {
+    evidence.push(
+      `Strength from ${positiveSleeves.map(([label, value]) => `${label} (+${value.toFixed(3)})`).join(", ")}`,
     );
   }
 
-  reasons.push(...factorDrivers);
+  const topPositive = Array.isArray(diagnostics.top_positive_factors)
+    ? diagnostics.top_positive_factors.slice(0, 4)
+    : [];
 
-  if (p.scoreAtEntry && p.scoreAtEntry > 0) {
-    const scoreMovePct = (p.scoreChange / p.scoreAtEntry) * 100;
-    if (scoreMovePct <= -12) {
-      reasons.push(`AI score also fell ${Math.abs(scoreMovePct).toFixed(1)}% from the entry score, so the rank move is backed by weaker model conviction`);
-    } else if (scoreMovePct >= 5) {
-      reasons.push(`AI score is not falling materially, so this looks more like other stocks improving faster than ${p.ticker}`);
-    } else {
-      reasons.push(`AI score is broadly flat, so the rank drop may be mostly relative movement versus stronger peers`);
-    }
+  if (topPositive.length > 0) {
+    evidence.push(
+      `Improving factors: ${topPositive
+        .map((item: any) => {
+          const factor = formatFactorName(String(item.factor ?? "Unknown"));
+          const change = nullableNumber(item.change);
+          return change === null ? factor : `${factor} (+${change.toFixed(3)})`;
+        })
+        .join(", ")}`,
+    );
   }
 
-  if (p.pnlPercent <= -5) {
-    reasons.push(`price action is weak, with the position down ${Math.abs(p.pnlPercent).toFixed(1)}%`);
-  } else if (p.pnlPercent >= 5) {
-    reasons.push(`price action is still positive, so this is more likely factor/peer-relative deterioration than a simple sell-off`);
-  }
-
-  if (p.recentNegativeNewsCount >= 3) {
-    reasons.push(`${p.recentNegativeNewsCount} recent negative news items are adding headline risk`);
-  } else if (p.recentPositiveNewsCount >= 4) {
-    reasons.push(`recent news flow remains positive, so the rank move is more likely model/factor driven than news driven`);
-  }
-
-  if ((p.sectorMomentum === "Weak" || p.sectorMomentum === "Struggling") && p.sectorBullishPct <= 30) {
-    reasons.push(`${p.sector ?? "the sector"} backdrop is weak, with only ${p.sectorBullishPct}% of the sector in the top quartile`);
-  } else if (p.sectorMomentum === "Booming" || p.sectorMomentum === "Strong") {
-    reasons.push(`${p.sector ?? "the sector"} backdrop remains ${p.sectorMomentum.toLowerCase()}, so the issue is more stock-specific or peer-relative`);
-  }
-
-  return `Likely drivers: ${reasons.length ? reasons.join(". ") : "exact factor diagnostics are not available yet; this appears to be peer-relative movement or a data/model recalculation rather than a clearly identifiable stock-specific breakdown"}.`;
+  return evidence;
 }
 
-function explainWeakRank(p: {
-  ticker: string;
-  rank: number | null;
-  totalStocks: number;
-  score: number;
-  scoreAtEntry: number | null;
-  scoreChange: number;
-  pnlPercent: number;
-  sectorMomentum: SectorMomentum;
-  sectorBullishPct: number;
-  sector: string | null;
-  daysHeld?: number;
-  factorDiagnostics?: Record<string, any> | null;
-}) {
-  const reasons = strongestFactorDrivers(p.factorDiagnostics);
+async function getSectorData() {
+  const supabase = await createClient();
+  const { data } = await supabase.from("stock_rankings").select("sector, rank, score");
 
-  if (p.scoreAtEntry && p.scoreAtEntry > 0) {
-    const scoreMovePct = (p.scoreChange / p.scoreAtEntry) * 100;
-    if (scoreMovePct <= -10) reasons.push(`score has fallen ${Math.abs(scoreMovePct).toFixed(1)}% versus the entry score`);
-  }
+  const allStocks = (data ?? []) as Array<{ sector: string | null; rank: number | null; score: number | null }>;
+  const totalStocks = allStocks.length || 500;
+  const topQuartileRank = Math.max(1, Math.ceil(totalStocks * 0.25));
+  const topHalfRank = Math.max(1, Math.ceil(totalStocks * 0.5));
+  const scores = allStocks.map((stock) => finiteNumber(stock.score, 0)).filter((score) => score > 0);
+  const maxScore = scores.length ? Math.max(...scores, 1) : 1;
 
-  if (p.pnlPercent <= -5) reasons.push(`price action is also negative, with the position down ${Math.abs(p.pnlPercent).toFixed(1)}%`);
-  if ((p.sectorMomentum === "Weak" || p.sectorMomentum === "Struggling") && p.sectorBullishPct <= 30) {
-    reasons.push(`${p.sector ?? "the sector"} is weak, with only ${p.sectorBullishPct}% top-quartile participation`);
-  }
+  const bySector: Record<string, { total: number; bullish: number; healthy: number }> = {};
 
-  return `Likely drivers: ${reasons.length ? reasons.join(". ") : "the stock is being outscored by stronger peers across the current factor mix"}.`;
+  allStocks.forEach((stock) => {
+    const sector = stock.sector ?? "Unknown";
+    const rank = finiteNumber(stock.rank, 0);
+
+    if (!bySector[sector]) bySector[sector] = { total: 0, bullish: 0, healthy: 0 };
+    bySector[sector].total += 1;
+    if (rank > 0 && rank <= topQuartileRank) bySector[sector].bullish += 1;
+    if (rank > 0 && rank <= topHalfRank) bySector[sector].healthy += 1;
+  });
+
+  const momentum: Record<string, SectorMomentum> = {};
+  const bullishPct: Record<string, number> = {};
+
+  Object.entries(bySector).forEach(([sector, value]) => {
+    const bullish = value.total > 0 ? Math.round((value.bullish / value.total) * 100) : 0;
+    const healthy = value.total > 0 ? Math.round((value.healthy / value.total) * 100) : 0;
+
+    bullishPct[sector] = bullish;
+    if (bullish >= 35) momentum[sector] = "Booming";
+    else if (bullish >= 25) momentum[sector] = "Strong";
+    else if (healthy >= 45) momentum[sector] = "Mixed";
+    else if (healthy >= 30) momentum[sector] = "Weak";
+    else momentum[sector] = "Struggling";
+  });
+
+  return { momentum, bullishPct, maxScore, totalStocks };
 }
-
-function buildAlerts(p: {
-  ticker: string; scoreChange: number; pnlPercent: number; daysSinceReview: number;
-  scoreAtEntry: number | null; score: number; rank: number | null; rankAtEntry: number | null;
-  recentNegativeNewsCount: number; recentPositiveNewsCount: number;
-  sectorMomentum: SectorMomentum; sectorBullishPct: number;
-  sector: string | null; currentPrice: number; entryPrice: number;
-  currentAllocationPct: number; targetAllocationPct: number | null;
-  scorePercentile: number; rankPercentile: number;
-  daysHeld: number; riskTolerance: RiskTolerance; totalStocks: number;
-  factorDiagnostics?: Record<string, any> | null;
-}): HoldingAlert[] {
-  const alerts: HoldingAlert[] = [];
-  const isRecentlyAdded = p.daysHeld < RECENT_THRESHOLD_DAYS;
-  const isSmallPosition = p.currentAllocationPct < 5;
-
-  // ══════════════════════════════════════════════════════
-  // 1. ABSOLUTE TERRIBLE SIGNAL — overrides everything else
-  // ══════════════════════════════════════════════════════
-  if (p.rankPercentile < 25) {
-    const weekendRecalibration = looksLikeWeekendRecalibration(p);
-    alerts.push({
-      type: "poor_signal",
-      severity: weekendRecalibration ? "warning" : "critical",
-      title: weekendRecalibration
-        ? `${p.ticker} signal changed during a non-trading recalculation`
-        : `${p.ticker} has a poor AI signal — bottom ${Math.max(1, 100 - p.rankPercentile)}% of stocks`,
-      message: weekendRecalibration
-        ? `Score of ${p.score.toLocaleString()} is now below the healthy-hold threshold, but this happened on a weekend/non-trading recalculation with no meaningful price move. ${explainWeakRank(p)}`
-        : `Score of ${p.score.toLocaleString()} is well below the threshold for a healthy hold. ${explainWeakRank(p)}`,
-      recommendation: weekendRecalibration
-        ? `Do not sell solely because of this weekend recalculation. Wait for the next trading session or exact factor diagnostics to confirm whether the signal is real.`
-        : `Sell at the next opportunity. Don't wait for a price target — better-rated stocks exist to redeploy into.`,
-    });
-    // Don't bother with other alerts — this is the dominant signal
-    if (p.daysHeld >= RECENT_THRESHOLD_DAYS && p.daysSinceReview >= 90) {
-      alerts.push({
-        type: "review_due", severity: "info",
-        title: `${p.ticker} hasn't been reviewed in ${p.daysSinceReview} days`,
-        message: "Quarterly review overdue.",
-        recommendation: "Open the stock page and decide.",
-      });
-    }
-    return alerts;
-  }
-
-  if (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85) {
-    alerts.push({
-      type: "weak_rank", severity: "warning",
-      title: `${p.ticker} ranks #${p.rank} of ${p.totalStocks} — bottom 15%`,
-      message: `Most stocks are scoring better than ${p.ticker} right now. ${explainWeakRank(p)}`,
-      recommendation: `Consider rotating to a higher-ranked stock with better AI conviction.`,
-    });
-  }
-
-  // ══════════════════════════════════════════════════════
-  // 2. GRACE PERIOD — skip noise for recently added holdings
-  // ══════════════════════════════════════════════════════
-  if (isRecentlyAdded) {
-    // For new holdings, only show the most extreme signals.
-    // Skip sector weakness, news clusters, position drift — these need time.
-    if (p.scoreAtEntry && p.scoreAtEntry > 0) {
-      const dropPct = (p.scoreChange / p.scoreAtEntry) * 100;
-      if (dropPct <= -25) {
-        const reason = explainScoreDrop(p, dropPct);
-        const weekendRecalibration = looksLikeWeekendRecalibration(p);
-        alerts.push({
-          type: "score_drop",
-          severity: weekendRecalibration ? "warning" : "critical",
-          title: weekendRecalibration
-            ? `${p.ticker} score changed sharply during a non-trading recalculation`
-            : `${p.ticker} score collapsed within ${p.daysHeld} days`,
-          message: weekendRecalibration
-            ? `Score moved ${Math.abs(Math.round(dropPct))}% since you added it, but this happened while the market was closed and price has not meaningfully moved. ${reason}`
-            : `Score has crashed ${Math.abs(Math.round(dropPct))}% since you added it. ${reason}`,
-          recommendation: weekendRecalibration
-            ? `Do not sell purely from this alert. Wait for the next trading session and factor diagnostics confirmation before acting.`
-            : `Sell. The thesis broke before you even got going.`,
-        });
-      }
-    }
-    return alerts; // grace period — no other alerts
-  }
-
-  // ══════════════════════════════════════════════════════
-  // 3. NORMAL ALERTS (only after grace period)
-  // ══════════════════════════════════════════════════════
-
-  // Score drop
-  if (p.scoreAtEntry && p.scoreAtEntry > 0) {
-    const dropPct = (p.scoreChange / p.scoreAtEntry) * 100;
-    if (dropPct <= -25) {
-      const reason = explainScoreDrop(p, dropPct);
-      const weekendRecalibration = looksLikeWeekendRecalibration(p);
-      alerts.push({
-        type: "score_drop",
-        severity: weekendRecalibration ? "warning" : "critical",
-        title: weekendRecalibration
-          ? `${p.ticker} AI score changed sharply during a non-trading recalculation`
-          : `${p.ticker} AI conviction has crashed ${Math.abs(Math.round(dropPct))}%`,
-        message: `Score dropped from ${p.scoreAtEntry.toLocaleString()} to ${p.score.toLocaleString()} since you bought. ${reason}`,
-        recommendation: weekendRecalibration
-          ? `Do not sell purely from this alert. Wait for the next trading session and factor diagnostics confirmation before acting.`
-          : isSmallPosition
-            ? `Sell the entire ${p.currentAllocationPct.toFixed(1)}% position. Don't manage a small loser.`
-            : `Sell at least half. The AI's view has fundamentally shifted.`,
-      });
-    } else if (dropPct <= -12) {
-      const reason = explainScoreDrop(p, dropPct);
-      alerts.push({
-        type: "score_drop", severity: "warning",
-        title: `${p.ticker} AI score weakened ${Math.abs(Math.round(dropPct))}%`,
-        message: `From ${p.scoreAtEntry.toLocaleString()} to ${p.score.toLocaleString()}. ${reason}`,
-        recommendation: isSmallPosition
-          ? `Consider exiting the whole position. Small holdings aren't worth the babysitting.`
-          : `Don't add more. If score drops another 10%, sell at least half.`,
-      });
-    } else if (dropPct >= 12) {
-      alerts.push({
-        type: "score_rise", severity: "success",
-        title: `${p.ticker} AI conviction is rising — up ${Math.round(dropPct)}%`,
-        message: `From ${p.scoreAtEntry.toLocaleString()} to ${p.score.toLocaleString()}. The AI is more confident.`,
-        recommendation: isSmallPosition
-          ? `Build this up to 8–12% of portfolio. Add on dips.`
-          : `Hold. If price dips 5–8%, that's a buy-more opportunity.`,
-      });
-    }
-  }
-
-  // Rank changes — use rank places, not misleading percentage drops.
-  if (p.rank && p.rankAtEntry) {
-    const move = describeRankMove(p.rankAtEntry, p.rank, p.totalStocks);
-    if (move.places >= 50) {
-      const weekendRecalibration = looksLikeWeekendRecalibration(p);
-      alerts.push({
-        type: "rank_drop",
-        severity: "warning",
-        title: weekendRecalibration
-          ? `${p.ticker} ranking changed during a non-trading recalculation`
-          : `${p.ticker} fell ${move.placeLabel} in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. ${explainRankDrop(p)}`,
-        recommendation: weekendRecalibration
-          ? `Do not rotate purely because of a weekend rank move. Wait for the next trading session and exact factor diagnostics confirmation.`
-          : isSmallPosition
-            ? `Sell and rotate the cash into a top-50 ranked stock instead.`
-            : `Compare with sector peers. If alternatives are stronger, rotate.`,
-      });
-    } else if (move.places <= -30) {
-      alerts.push({
-        type: "rank_rise", severity: "success",
-        title: `${p.ticker} climbed ${move.placeLabel} in the rankings`,
-        message: `From #${p.rankAtEntry} to #${p.rank}. Strong outperformance.`,
-        recommendation: `Hold the winner. Don't take profits early — this is what compounds wealth.`,
-      });
-    }
-  }
-
-  // News
-  if (p.recentNegativeNewsCount >= 3) {
-    alerts.push({
-      type: "negative_news", severity: "warning",
-      title: `${p.recentNegativeNewsCount} negative articles in 14 days`,
-      message: `When negative coverage stacks like this, the market often follows.`,
-      recommendation: isSmallPosition
-        ? `Sell. Small positions don't justify the risk of being wrong on a story.`
-        : `Read the news section. Earnings/fundamentals concerns → sell. Just noise → hold.`,
-    });
-  } else if (p.recentPositiveNewsCount >= 4) {
-    alerts.push({
-      type: "positive_news", severity: "success",
-      title: `${p.ticker} has ${p.recentPositiveNewsCount} positive articles recently`,
-      message: `Strong narrative — typically supports the share price.`,
-      recommendation: `Hold and watch. If AI score also rises, consider adding.`,
-    });
-  }
-
-  // Sector momentum (only in mature positions)
-  if (p.sectorMomentum === "Struggling" && p.scoreChange < 0) {
-    alerts.push({
-      type: "sector_weak", severity: "warning",
-      title: `${p.sector ?? "Sector"} is struggling — only ${p.sectorBullishPct}% bullish`,
-      message: `Most ${p.sector ?? "sector"} stocks are underperforming. ${p.ticker} is fighting headwinds.`,
-      recommendation: isSmallPosition
-        ? `Cut the position. Re-deploy into a "Booming" sector.`
-        : `Consider rotating to stronger sectors like Tech or Communication Services.`,
-    });
-  } else if (p.sectorMomentum === "Booming") {
-    alerts.push({
-      type: "sector_strong", severity: "success",
-      title: `${p.sector ?? "Sector"} is booming — ${p.sectorBullishPct}% bullish`,
-      message: `Strong sector tailwind for ${p.ticker}.`,
-      recommendation: isSmallPosition
-        ? `Build this up while sector momentum is strong.`
-        : `Hold or add — sector momentum is real edge.`,
-    });
-  }
-
-  // ✦ RISK-AWARE concentration check — only flag if drift is significant
-  const threshold = concentrationThreshold(p.riskTolerance);
-  if (p.currentAllocationPct > threshold) {
-    const driftFromTarget = p.targetAllocationPct
-      ? p.currentAllocationPct - p.targetAllocationPct
-      : 0;
-
-    // Only flag if it's drifted significantly above target (or no target set)
-    const significantDrift = p.targetAllocationPct == null || driftFromTarget > 5;
-
-    if (significantDrift) {
-      const riskNote = p.riskTolerance === "aggressive"
-        ? "Even for an aggressive portfolio,"
-        : p.riskTolerance === "conservative"
-          ? "For your conservative profile,"
-          : "";
-
-      alerts.push({
-        type: "position_oversize", severity: "warning",
-        title: `${p.ticker} is ${p.currentAllocationPct.toFixed(1)}% of your portfolio`,
-        message: `${riskNote} ${p.currentAllocationPct.toFixed(1)}% in one stock concentrates your bets. ${p.targetAllocationPct ? `Target was ${p.targetAllocationPct.toFixed(1)}%.` : ""}`,
-        recommendation: `Trim to ${threshold - 5}–${threshold}% by selling shares. Use proceeds to buy a sector you're under-exposed to.`,
-      });
-    }
-  }
-
-  if (p.daysSinceReview >= 90) {
-    alerts.push({
-      type: "review_due", severity: "info",
-      title: `${p.ticker} review is overdue — ${p.daysSinceReview} days since last review`,
-      message: "Quarterly review is best practice.",
-      recommendation: `Open the stock page, check AI score, news, and trade plan, then mark as reviewed.`,
-    });
-  } else if (p.daysSinceReview >= 76) {
-    alerts.push({
-      type: "review_due", severity: "info",
-      title: `${p.ticker} review is due soon`,
-      message: `Next quarterly review is due in ${90 - p.daysSinceReview} days.`,
-      recommendation: `Check the stock page, AI rank, recent news, and trade plan before the review date.`,
-    });
-  }
-
-  return alerts;
-}
-
-function deriveRecommendation(
-  alerts: HoldingAlert[],
-  positionPct: number,
-  scorePercentile: number,
-  rank: number | null,
-  totalStocks: number
-): EnrichedHolding["recommendation"] {
-  const rankPercentile = rank && totalStocks
-    ? Math.max(0, Math.round(100 - ((rank - 1) / totalStocks) * 100))
-    : scorePercentile;
-  // Bottom-quartile stocks get the most decisive recommendation
-  if (rankPercentile < 25) return "Sell Immediately";
-  if (rank && totalStocks && rank > totalStocks * 0.9) return "Sell Immediately";
-
-  const isSmallPosition = positionPct < 5;
-  const hasCritical = alerts.some((a) => a.severity === "critical");
-  const warnings = alerts.filter((a) => a.severity === "warning").length;
-  const successes = alerts.filter((a) => a.severity === "success").length;
-
-  if (hasCritical && isSmallPosition) return "Sell Whole Position";
-  if (hasCritical) return "Review Urgently";
-  if (isSmallPosition && warnings >= 2) return "Sell Whole Position";
-  if (warnings >= 2) return "Consider Trimming";
-  if (successes >= 2 && warnings === 0) return "Consider Buying More";
-  if (successes >= 1 && warnings === 0) return "Strong Hold";
-  return "Hold";
-}
-
-type TechnicalLevels = {
-  support: number | null;
-  resistance: number | null;
-  swingLow: number | null;
-  swingHigh: number | null;
-  ma50: number | null;
-  ma200: number | null;
-  atrPct: number | null;
-  source: "technical" | "fallback";
-};
 
 function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -704,341 +335,535 @@ function nearestAbove(values: number[], price: number) {
 function detectSwingLevels(closes: number[]) {
   const swingLows: number[] = [];
   const swingHighs: number[] = [];
-  for (let i = 2; i < closes.length - 2; i++) {
+
+  for (let i = 2; i < closes.length - 2; i += 1) {
     const value = closes[i];
-    if (
-      value < closes[i - 1] && value < closes[i - 2] &&
-      value <= closes[i + 1] && value <= closes[i + 2]
-    ) {
+
+    if (value < closes[i - 1] && value < closes[i - 2] && value <= closes[i + 1] && value <= closes[i + 2]) {
       swingLows.push(value);
     }
-    if (
-      value > closes[i - 1] && value > closes[i - 2] &&
-      value >= closes[i + 1] && value >= closes[i + 2]
-    ) {
+
+    if (value > closes[i - 1] && value > closes[i - 2] && value >= closes[i + 1] && value >= closes[i + 2]) {
       swingHighs.push(value);
     }
   }
+
   return { swingLows, swingHighs };
 }
 
 async function getTechnicalLevels(ticker: string, currentPrice: number): Promise<TechnicalLevels> {
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return { stopLoss: null, takeProfit: null, support: null, resistance: null, ma50: null, volatilityPct: null, source: "fallback" };
+  }
+
   try {
     const chart = await getStockChart(ticker, ["6M", "1Y"]);
-    const points = (chart["6M"] && chart["6M"]!.length >= 80) ? chart["6M"]! : (chart["1Y"] ?? []);
+    const sixMonth = (chart as any)["6M"] ?? [];
+    const oneYear = (chart as any)["1Y"] ?? [];
+    const points = Array.isArray(sixMonth) && sixMonth.length >= 80 ? sixMonth : oneYear;
+
     const closes = points
-      .map((point) => Number(point.close))
-      .filter((price) => Number.isFinite(price) && price > 0);
+      .map((point: any) => finiteNumber(point.close, 0))
+      .filter((price: number) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
-      return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+      return {
+        stopLoss: currentPrice * 0.92,
+        takeProfit: currentPrice * 1.14,
+        support: null,
+        resistance: null,
+        ma50: null,
+        volatilityPct: 4,
+        source: "fallback",
+      };
     }
 
     const recent = closes.slice(-126);
     const { swingLows, swingHighs } = detectSwingLevels(recent);
     const ma50 = average(closes.slice(-50));
-    const ma200 = closes.length >= 200 ? average(closes.slice(-200)) : null;
-    const recentAbsMoves = closes.slice(-45).slice(1).map((price, index) => {
-      const previous = closes.slice(-45)[index];
+    const last45 = closes.slice(-45);
+    const recentAbsMoves = last45.slice(1).map((price, index) => {
+      const previous = last45[index];
       return previous > 0 ? Math.abs((price - previous) / previous) : 0;
     });
-    const atrPct = (average(recentAbsMoves) ?? 0.02) * 100;
 
-    const structuralSupports = [
-      ...swingLows,
-      Math.min(...recent.slice(-63)),
-      ...(ma50 && ma50 < currentPrice ? [ma50] : []),
-      ...(ma200 && ma200 < currentPrice ? [ma200] : []),
-    ];
-    const structuralResistances = [
-      ...swingHighs,
-      Math.max(...recent.slice(-126)),
-    ];
+    const volatilityPct = Math.max(1.5, Math.min(7, (average(recentAbsMoves) ?? 0.02) * 100));
+    const support = nearestBelow([...swingLows, Math.min(...recent.slice(-63)), ...(ma50 && ma50 < currentPrice ? [ma50] : [])], currentPrice);
+    const resistance = nearestAbove([...swingHighs, Math.max(...recent.slice(-126))], currentPrice);
+    const volatilityStop = currentPrice * (1 - Math.max(0.055, (volatilityPct * 2.2) / 100));
+    const supportStop = support ? support * 0.99 : null;
+    const stopLoss = Math.max(...[volatilityStop, supportStop].filter((value): value is number => value !== null && Number.isFinite(value) && value > 0));
+    const takeProfit = resistance && resistance > currentPrice * 1.04 ? resistance * 0.995 : currentPrice * (1 + Math.max(0.1, (volatilityPct * 3.2) / 100));
 
-    return {
-      support: nearestBelow(structuralSupports, currentPrice),
-      resistance: nearestAbove(structuralResistances, currentPrice),
-      swingLow: nearestBelow(swingLows, currentPrice),
-      swingHigh: nearestAbove(swingHighs, currentPrice),
-      ma50,
-      ma200,
-      atrPct,
-      source: "technical",
-    };
+    return { stopLoss, takeProfit, support, resistance, ma50, volatilityPct, source: "technical" };
   } catch {
-    return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+    return {
+      stopLoss: currentPrice * 0.92,
+      takeProfit: currentPrice * 1.14,
+      support: null,
+      resistance: null,
+      ma50: null,
+      volatilityPct: 4,
+      source: "fallback",
+    };
   }
 }
 
-async function buildDynamicTriggers(p: {
-  ticker: string; currentPrice: number; entryPrice: number;
-  pnlPercent: number; currentAllocationPct: number;
-  score: number; scoreAtEntry: number | null;
-  sector: string | null; sectorMomentum: SectorMomentum;
-  daysSinceReview: number; daysHeld: number;
-  scorePercentile: number; rank: number | null; totalStocks: number;
-}): Promise<HoldingTrigger[]> {
+function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
+  const alerts: HoldingAlert[] = [];
+  const heldPastGrace = ctx.daysHeld >= RECENT_HOLDING_GRACE_DAYS;
+  const scoreFromEntryPct = pctChange(ctx.score, ctx.scoreAtEntry);
+  const latestScorePct = pctChange(latestDiagnosticScore(ctx.factorDiagnostics), previousDiagnosticScore(ctx.factorDiagnostics));
+  const rankMove = ctx.rank && ctx.rankAtEntry ? ctx.rank - ctx.rankAtEntry : null;
+  const negativeEvidence = negativeFactorEvidence(ctx.factorDiagnostics);
+  const positiveEvidence = positiveFactorEvidence(ctx.factorDiagnostics);
+
+  if (latestScorePct !== null && latestScorePct <= -8) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "score_event",
+      severity: latestScorePct <= -14 ? "warning" : "info",
+      action: "review",
+      title: `${ctx.ticker} score moved sharply in the latest model run`,
+      message: `The latest diagnostics show a ${Math.abs(latestScorePct).toFixed(1)}% score decline versus the previous run.`,
+      recommendation: "Review the stock, but only act if the action alert also confirms deterioration.",
+      evidence: [`Latest run score change: ${latestScorePct.toFixed(1)}%`, ...negativeEvidence.slice(0, 3)],
+      priority: 30,
+      expiresWhen: "This alert disappears when the latest model-run score change is no longer material.",
+    }));
+  }
+
+  if (latestScorePct !== null && latestScorePct >= 10) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "score_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.ticker} score improved materially`,
+      message: `The latest diagnostics show a ${latestScorePct.toFixed(1)}% score improvement versus the previous run.`,
+      recommendation: "No automatic action. This supports holding, and may support adding only if the action alert confirms it.",
+      evidence: [`Latest run score change: +${latestScorePct.toFixed(1)}%`, ...positiveEvidence.slice(0, 3)],
+      priority: 70,
+      expiresWhen: "This alert disappears when the improvement is no longer present in the latest run.",
+    }));
+  }
+
+  if (heldPastGrace && scoreFromEntryPct !== null && scoreFromEntryPct <= -15) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "score_event",
+      severity: scoreFromEntryPct <= -25 ? "warning" : "info",
+      action: "review",
+      title: `${ctx.ticker} AI score is materially below your entry score`,
+      message: `The score is down ${Math.abs(scoreFromEntryPct).toFixed(1)}% since you added the position.`,
+      recommendation: "Review whether the original thesis still holds. This becomes actionable only with weak rank, price, news or factor confirmation.",
+      evidence: [`Entry score: ${ctx.scoreAtEntry?.toLocaleString() ?? "—"}`, `Current score: ${ctx.score.toLocaleString()}`, ...negativeEvidence.slice(0, 2)],
+      priority: 35,
+      expiresWhen: "This alert disappears when the score recovers above the material-deterioration threshold.",
+    }));
+  }
+
+  if (heldPastGrace && scoreFromEntryPct !== null && scoreFromEntryPct >= 18) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "score_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.ticker} AI score is stronger than at entry`,
+      message: `The score is up ${scoreFromEntryPct.toFixed(1)}% since you added the position.`,
+      recommendation: "This supports holding. Only buy more if the separate action alert confirms the stock is still attractively positioned.",
+      evidence: [`Entry score: ${ctx.scoreAtEntry?.toLocaleString() ?? "—"}`, `Current score: ${ctx.score.toLocaleString()}`, ...positiveEvidence.slice(0, 2)],
+      priority: 75,
+      expiresWhen: "This alert disappears when the score improvement fades.",
+    }));
+  }
+
+  if (heldPastGrace && rankMove !== null && rankMove >= 60) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "rank_event",
+      severity: rankMove >= 100 ? "warning" : "info",
+      action: "review",
+      title: `${ctx.ticker} fell ${rankMove} places in the rankings`,
+      message: `The stock moved from #${ctx.rankAtEntry} at entry to #${ctx.rank} now.`,
+      recommendation: "Review against stronger alternatives. This becomes a sell/trim only if the action logic confirms weak conviction.",
+      evidence: [`Entry rank: #${ctx.rankAtEntry}`, `Current rank: #${ctx.rank}`, `Current rank percentile: ${ctx.rankPercentile}/100`],
+      priority: 40,
+      expiresWhen: "This alert disappears when the rank recovers enough that the move is no longer material.",
+    }));
+  }
+
+  if (heldPastGrace && rankMove !== null && rankMove <= -40) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "rank_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.ticker} climbed ${Math.abs(rankMove)} places in the rankings`,
+      message: `The stock moved from #${ctx.rankAtEntry} at entry to #${ctx.rank} now.`,
+      recommendation: "Positive confirmation. Hold unless price or concentration risk says otherwise.",
+      evidence: [`Entry rank: #${ctx.rankAtEntry}`, `Current rank: #${ctx.rank}`, `Current rank percentile: ${ctx.rankPercentile}/100`],
+      priority: 80,
+      expiresWhen: "This alert disappears when the ranking improvement is no longer material.",
+    }));
+  }
+
+  if (ctx.recentNegativeNewsCount >= 3) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "news_event",
+      severity: "warning",
+      action: "review",
+      title: `${ctx.ticker} has a negative news cluster`,
+      message: `${ctx.recentNegativeNewsCount} negative articles were detected in the last ${NEWS_WINDOW_DAYS} days.`,
+      recommendation: "Read the recent news before adding. If the AI signal is also weakening, this may become an action alert.",
+      evidence: [`${ctx.recentNegativeNewsCount} negative articles`, ctx.latestNegativeHeadline ? `Latest: ${ctx.latestNegativeHeadline}` : "Recent negative coverage detected"],
+      priority: 32,
+      expiresWhen: "This alert disappears when the negative news cluster leaves the recent-news window.",
+    }));
+  }
+
+  if (ctx.recentPositiveNewsCount >= 4) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "news_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.ticker} has strong positive news flow`,
+      message: `${ctx.recentPositiveNewsCount} positive articles were detected in the last ${NEWS_WINDOW_DAYS} days.`,
+      recommendation: "Positive context, but not enough by itself to buy more.",
+      evidence: [`${ctx.recentPositiveNewsCount} positive articles`, ctx.latestPositiveHeadline ? `Latest: ${ctx.latestPositiveHeadline}` : "Recent positive coverage detected"],
+      priority: 85,
+      expiresWhen: "This alert disappears when the positive news cluster leaves the recent-news window.",
+    }));
+  }
+
+  if (heldPastGrace && ctx.sectorMomentum === "Struggling" && ctx.sectorBullishPct <= 20 && ctx.rankPercentile < 60) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "sector_event",
+      severity: "warning",
+      action: "review",
+      title: `${ctx.sector ?? "Sector"} backdrop has weakened`,
+      message: `Only ${ctx.sectorBullishPct}% of stocks in this sector are currently top-quartile ranked.`,
+      recommendation: "Avoid adding. Consider rotation only if the action alert confirms weak stock-specific conviction.",
+      evidence: [`Sector momentum: ${ctx.sectorMomentum}`, `Sector top-quartile participation: ${ctx.sectorBullishPct}%`, `Stock rank percentile: ${ctx.rankPercentile}/100`],
+      priority: 55,
+      expiresWhen: "This alert disappears when the sector backdrop improves or the stock regains strong relative rank.",
+    }));
+  }
+
+  if (ctx.sectorMomentum === "Booming" && ctx.sectorBullishPct >= 35 && ctx.rankPercentile >= 70) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "sector_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.sector ?? "Sector"} backdrop is strong`,
+      message: `${ctx.sectorBullishPct}% of stocks in this sector are currently top-quartile ranked.`,
+      recommendation: "Sector support improves the hold case. Buy more only if the action alert confirms the position is still underbuilt.",
+      evidence: [`Sector momentum: ${ctx.sectorMomentum}`, `Sector top-quartile participation: ${ctx.sectorBullishPct}%`, `Stock rank percentile: ${ctx.rankPercentile}/100`],
+      priority: 90,
+      expiresWhen: "This alert disappears when sector breadth or stock rank weakens.",
+    }));
+  }
+
+  if (heldPastGrace && ctx.pnlPercent <= -12) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "price_event",
+      severity: "info",
+      action: "review",
+      title: `${ctx.ticker} is down ${Math.abs(ctx.pnlPercent).toFixed(1)}% from entry`,
+      message: "The price move is large enough to review, but price alone is not treated as a sell signal.",
+      recommendation: "Check whether the AI score and rank still support the position.",
+      evidence: [`Entry price: ${money(ctx.entryPrice)}`, `Current price: ${money(ctx.currentPrice)}`, `P&L: ${ctx.pnlPercent.toFixed(1)}%`],
+      priority: 65,
+      expiresWhen: "This alert disappears when the drawdown is no longer material.",
+    }));
+  }
+
+  if (heldPastGrace && ctx.pnlPercent >= 30) {
+    alerts.push(makeAlert({
+      ticker: ctx.ticker,
+      category: "event",
+      type: "price_event",
+      severity: "success",
+      action: "none",
+      title: `${ctx.ticker} is up ${ctx.pnlPercent.toFixed(1)}% from entry`,
+      message: "The position has become a meaningful winner.",
+      recommendation: "Do not automatically sell winners. Trim only if the action alert flags concentration or weakening conviction.",
+      evidence: [`Entry price: ${money(ctx.entryPrice)}`, `Current price: ${money(ctx.currentPrice)}`, `P&L: +${ctx.pnlPercent.toFixed(1)}%`],
+      priority: 88,
+      expiresWhen: "This alert disappears when the gain is no longer material.",
+    }));
+  }
+
+  return alerts.sort((a, b) => a.priority - b.priority);
+}
+
+function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
+  const heldPastGrace = ctx.daysHeld >= RECENT_HOLDING_GRACE_DAYS;
+  const scoreFromEntryPct = pctChange(ctx.score, ctx.scoreAtEntry);
+  const latestScorePct = pctChange(latestDiagnosticScore(ctx.factorDiagnostics), previousDiagnosticScore(ctx.factorDiagnostics));
+  const rankMove = ctx.rank && ctx.rankAtEntry ? ctx.rank - ctx.rankAtEntry : null;
+  const rankImprovement = rankMove !== null ? -rankMove : 0;
+  const negativeEvidence = negativeFactorEvidence(ctx.factorDiagnostics);
+  const positiveEvidence = positiveFactorEvidence(ctx.factorDiagnostics);
+  const maxConcentration = concentrationThreshold(ctx.riskTolerance);
+  const driftFromTarget = ctx.targetAllocationPct !== null ? ctx.currentAllocationPct - ctx.targetAllocationPct : null;
+  const stopHit = ctx.technical.stopLoss !== null && ctx.currentPrice <= ctx.technical.stopLoss;
+  const targetUpsidePct = ctx.technical.takeProfit && ctx.technical.takeProfit > ctx.currentPrice ? ((ctx.technical.takeProfit - ctx.currentPrice) / ctx.currentPrice) * 100 : 0;
+  const sectorStrong = ctx.sectorMomentum === "Strong" || ctx.sectorMomentum === "Booming";
+
+  const clearDeterioration =
+    (scoreFromEntryPct !== null && scoreFromEntryPct <= -15) ||
+    (latestScorePct !== null && latestScorePct <= -8) ||
+    ctx.recentNegativeNewsCount >= 3 ||
+    negativeEvidence.length >= 2;
+
+  const strongConfirmation =
+    (scoreFromEntryPct !== null && scoreFromEntryPct >= 8) ||
+    (latestScorePct !== null && latestScorePct >= 5) ||
+    rankImprovement >= 30 ||
+    ctx.recentPositiveNewsCount >= 4 ||
+    positiveEvidence.length >= 2;
+
+  const underbuilt = ctx.targetAllocationPct !== null ? ctx.currentAllocationPct <= Math.max(2, ctx.targetAllocationPct - 3) : ctx.currentAllocationPct < 8;
+  const overbuilt = ctx.currentAllocationPct > maxConcentration && (driftFromTarget === null || driftFromTarget > 4);
+
+  if (heldPastGrace && stopHit && (ctx.rankPercentile < 60 || clearDeterioration)) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "sell_action",
+      severity: "critical",
+      action: "sell",
+      title: `Sell signal: ${ctx.ticker} broke its risk level`,
+      message: `Current price ${money(ctx.currentPrice)} is at or below the active risk level of ${money(ctx.technical.stopLoss!)}, and conviction is not strong enough to ignore it.`,
+      recommendation: "Sell or materially reduce the position. Do not average down into a broken setup.",
+      evidence: [`Current price: ${money(ctx.currentPrice)}`, `Risk level: ${money(ctx.technical.stopLoss!)}`, `Rank percentile: ${ctx.rankPercentile}/100`, ...(scoreFromEntryPct !== null ? [`Score from entry: ${scoreFromEntryPct.toFixed(1)}%`] : []), ...negativeEvidence.slice(0, 2)],
+      priority: 1,
+      expiresWhen: "This action disappears if price recovers above the risk level or AI conviction recovers.",
+    });
+  }
+
+  if (heldPastGrace && ctx.rankPercentile <= 25 && clearDeterioration) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "sell_action",
+      severity: "critical",
+      action: "sell",
+      title: `Sell signal: ${ctx.ticker} has lost AI conviction`,
+      message: `${ctx.ticker} is now bottom-quartile by StockGPT rank and has confirming deterioration.`,
+      recommendation: "Sell the position and redeploy into a stronger-ranked stock. This is not just noise.",
+      evidence: [`Rank percentile: ${ctx.rankPercentile}/100`, ctx.rank ? `Current rank: #${ctx.rank} of ${ctx.totalStocks}` : "Current rank unavailable", ...(scoreFromEntryPct !== null ? [`Score from entry: ${scoreFromEntryPct.toFixed(1)}%`] : []), ...(latestScorePct !== null ? [`Latest score move: ${latestScorePct.toFixed(1)}%`] : []), ...negativeEvidence.slice(0, 2)],
+      priority: 2,
+      expiresWhen: "This action disappears if the stock moves out of the bottom quartile or deterioration is no longer confirmed.",
+    });
+  }
+
+  if (heldPastGrace && scoreFromEntryPct !== null && scoreFromEntryPct <= -25 && ctx.rankPercentile < 55 && (negativeEvidence.length > 0 || ctx.recentNegativeNewsCount >= 2)) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "sell_action",
+      severity: "critical",
+      action: "sell",
+      title: `Sell signal: ${ctx.ticker} thesis has materially deteriorated`,
+      message: `The score is down ${Math.abs(scoreFromEntryPct).toFixed(1)}% since entry and the current rank is no longer strong enough to defend it.`,
+      recommendation: "Exit or cut heavily. Reassess only if the score and rank recover.",
+      evidence: [`Score from entry: ${scoreFromEntryPct.toFixed(1)}%`, `Rank percentile: ${ctx.rankPercentile}/100`, ...negativeEvidence.slice(0, 3)],
+      priority: 3,
+      expiresWhen: "This action disappears if the score/rank recovery invalidates the sell condition.",
+    });
+  }
+
+  if (overbuilt) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "trim_action",
+      severity: "warning",
+      action: "trim",
+      title: `Trim signal: ${ctx.ticker} is too large in the portfolio`,
+      message: `${ctx.ticker} is ${ctx.currentAllocationPct.toFixed(1)}% of the portfolio, above the ${maxConcentration}% risk threshold for this profile.`,
+      recommendation: `Trim the position back toward ${Math.max(5, maxConcentration - 5)}–${maxConcentration}%.`,
+      evidence: [`Current allocation: ${ctx.currentAllocationPct.toFixed(1)}%`, `Risk threshold: ${maxConcentration}%`, ...(ctx.targetAllocationPct !== null ? [`Target allocation: ${ctx.targetAllocationPct.toFixed(1)}%`] : ["No target allocation set"])],
+      priority: 10,
+      expiresWhen: "This action disappears once the position is no longer materially oversized.",
+    });
+  }
+
+  if (heldPastGrace && scoreFromEntryPct !== null && scoreFromEntryPct <= -15 && ctx.rankPercentile < 65) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "trim_action",
+      severity: "warning",
+      action: "trim",
+      title: `Trim signal: ${ctx.ticker} conviction is weakening`,
+      message: `The score has fallen ${Math.abs(scoreFromEntryPct).toFixed(1)}% since entry and rank is no longer high-conviction.`,
+      recommendation: "Trim rather than fully exit. Keep a smaller position only if the thesis still makes sense.",
+      evidence: [`Score from entry: ${scoreFromEntryPct.toFixed(1)}%`, `Rank percentile: ${ctx.rankPercentile}/100`, ...negativeEvidence.slice(0, 2)],
+      priority: 12,
+      expiresWhen: "This action disappears if the score or rank recovers.",
+    });
+  }
+
+  if (heldPastGrace && ctx.pnlPercent >= 35 && ctx.rankPercentile < 75) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "trim_action",
+      severity: "warning",
+      action: "trim",
+      title: `Trim signal: protect gains in ${ctx.ticker}`,
+      message: `${ctx.ticker} is up ${ctx.pnlPercent.toFixed(1)}%, but the AI rank is no longer top-tier.`,
+      recommendation: "Trim part of the winner and keep a core position only if rank stabilises.",
+      evidence: [`P&L: +${ctx.pnlPercent.toFixed(1)}%`, `Rank percentile: ${ctx.rankPercentile}/100`, ctx.technical.takeProfit ? `Nearest target area: ${money(ctx.technical.takeProfit)}` : "Technical target unavailable"],
+      priority: 14,
+      expiresWhen: "This action disappears if the rank improves or the position is no longer an extended winner.",
+    });
+  }
+
+  if (heldPastGrace && ctx.rankPercentile >= 85 && sectorStrong && underbuilt && ctx.recentNegativeNewsCount === 0 && targetUpsidePct >= 7 && ctx.pnlPercent <= 22 && strongConfirmation) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "buy_more_action",
+      severity: "success",
+      action: "buy_more",
+      title: `Buy-more signal: ${ctx.ticker} remains high-conviction`,
+      message: `${ctx.ticker} is top-ranked, supported by sector strength, and is still underbuilt in the portfolio.`,
+      recommendation: "Consider adding gradually. Do not chase with one large order.",
+      evidence: [`Rank percentile: ${ctx.rankPercentile}/100`, `Sector momentum: ${ctx.sectorMomentum}`, `Current allocation: ${ctx.currentAllocationPct.toFixed(1)}%`, `Estimated upside to target zone: ${targetUpsidePct.toFixed(1)}%`, ...positiveEvidence.slice(0, 2)],
+      priority: 20,
+      expiresWhen: "This action disappears if rank, sector strength, allocation gap, upside, or news confirmation no longer supports adding.",
+    });
+  }
+
+  const warningEventCount = eventAlerts.filter((alert) => alert.severity === "warning" || alert.severity === "critical").length;
+
+  if (ctx.daysSinceReview >= 90 || warningEventCount >= 2) {
+    return makeAlert({
+      ticker: ctx.ticker,
+      category: "action",
+      type: "review_action",
+      severity: "info",
+      action: "review",
+      title: `Review required: ${ctx.ticker}`,
+      message: ctx.daysSinceReview >= 90 ? `${ctx.ticker} has not been reviewed for ${ctx.daysSinceReview} days.` : `${ctx.ticker} has multiple active event alerts and needs a manual check.`,
+      recommendation: "Review the stock page, recent news, AI score, rank and portfolio sizing. Then mark it reviewed.",
+      evidence: [`Days since review: ${ctx.daysSinceReview}`, `Active warning events: ${warningEventCount}`],
+      priority: 60,
+      expiresWhen: "This action disappears once the position is reviewed and event pressure reduces.",
+    });
+  }
+
+  return null;
+}
+
+function buildTriggers(ctx: AlertContext): HoldingTrigger[] {
   const triggers: HoldingTrigger[] = [];
-  const now = new Date();
-  const technical = await getTechnicalLevels(p.ticker, p.currentPrice);
 
-  const rankConviction = p.rank && p.totalStocks
-    ? Math.max(0, Math.round(100 - ((p.rank - 1) / p.totalStocks) * 100))
-    : p.scorePercentile;
-  const conviction = rankConviction;
-
-  const isElite = conviction >= 90;
-  const isStrong = conviction >= 75;
-  const isHealthy = conviction >= 55;
-  const isWeak = conviction < 35;
-  const isSmall = p.currentAllocationPct < 5;
-  const isLarge = p.currentAllocationPct > 15;
-  const isRecentlyAdded = p.daysHeld < RECENT_THRESHOLD_DAYS;
-
-  const clampPct = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-  const priceAt = (price: number, pct: number) => price * (1 + pct / 100);
-  const money = (price: number) => `$${price.toFixed(2)}`;
-  const pctDistance = (price: number) => ((p.currentPrice - price) / p.currentPrice) * 100;
-
-  const normalNoisePct = clampPct((technical.atrPct ?? 2.0) * 2.2, 4, 12);
-  const rankBufferPct = isElite ? 2.2 : isStrong ? 1.8 : isHealthy ? 1.3 : 0.9;
-  const maxFallbackStopPct = isElite ? 17 : isStrong ? 14 : isHealthy ? 11 : 7;
-  const minFallbackStopPct = isElite ? 10 : isStrong ? 8 : isHealthy ? 6 : 4.5;
-  const fallbackStopPct = clampPct(normalNoisePct + (isElite ? 4 : isStrong ? 2.5 : isHealthy ? 1 : 0), minFallbackStopPct, maxFallbackStopPct);
-
-  const supportStop = technical.support && technical.support < p.currentPrice
-    ? technical.support * (1 - rankBufferPct / 100)
-    : null;
-  const maStop = technical.ma50 && technical.ma50 < p.currentPrice
-    ? technical.ma50 * (1 - Math.max(1.2, rankBufferPct - 0.5) / 100)
-    : null;
-  const fallbackStop = priceAt(p.currentPrice, -fallbackStopPct);
-
-  const candidateStops = [supportStop, maStop, fallbackStop]
-    .filter((price): price is number => Boolean(price && Number.isFinite(price) && price > 0 && price < p.currentPrice));
-
-  let stopPrice = candidateStops.length ? Math.max(...candidateStops) : fallbackStop;
-  const stopDistance = pctDistance(stopPrice);
-  if (stopDistance < Math.max(3.5, normalNoisePct * 0.75)) stopPrice = fallbackStop;
-
-  const resistanceTarget = technical.resistance && technical.resistance > p.currentPrice
-    ? technical.resistance * 0.995
-    : null;
-  const recentRange = technical.support && technical.resistance
-    ? Math.max(technical.resistance - technical.support, p.currentPrice * 0.08)
-    : p.currentPrice * (isElite ? 0.28 : isStrong ? 0.20 : 0.14);
-  const breakoutTarget = p.currentPrice + recentRange * (isElite ? 1.0 : isStrong ? 0.75 : 0.55);
-  const takeProfitTarget = resistanceTarget && resistanceTarget > p.currentPrice * 1.03 ? resistanceTarget : breakoutTarget;
-  const targetPct = ((takeProfitTarget - p.currentPrice) / p.currentPrice) * 100;
-
-  const structureLabel = technical.source === "technical"
-    ? technical.support
-      ? `below support around ${money(technical.support)}`
-      : technical.ma50
-        ? `below the 50-day area around ${money(technical.ma50)}`
-        : "using volatility fallback because no clean support was found"
-    : "using percentage fallback because chart structure was unavailable";
-
-  if (isWeak || (p.rank && p.totalStocks && p.rank > p.totalStocks * 0.85)) {
-    const weakStop = technical.support && technical.support < p.currentPrice
-      ? Math.max(technical.support * 0.995, priceAt(p.currentPrice, -6))
-      : priceAt(p.currentPrice, -5);
-    const reliefTarget = resistanceTarget && resistanceTarget > p.currentPrice
-      ? resistanceTarget
-      : (p.pnlPercent < 0 ? Math.min(p.entryPrice, priceAt(p.currentPrice, 8)) : priceAt(p.currentPrice, 6));
-
+  if (ctx.technical.stopLoss) {
     triggers.push({
-      type: "exit_all", icon: "exit", tone: "negative", priority: 1,
-      condition: `${p.ticker} is low conviction (rank #${p.rank ?? "—"}, bottom ${Math.max(1, 100 - conviction)}%)`,
-      action: `Rotate out unless the AI rank recovers above the top 50%. For weak stocks, technical targets are exit zones, not reasons to hope.`,
+      type: "stop_loss",
+      icon: "shield",
+      tone: "negative",
+      priority: 1,
+      condition: `If ${ctx.ticker} trades below ${money(ctx.technical.stopLoss)}`,
+      action: ctx.rankPercentile >= 80 ? "Review first because AI conviction is still strong, but do not ignore a clean break." : "Treat this as an invalidation level and consider selling or cutting heavily.",
     });
-    triggers.push({
-      type: "stop_sell", icon: "shield", tone: "negative", priority: 2,
-      condition: `If ${p.ticker} breaks ${money(weakStop)} (${technical.support ? "below support" : "tight risk stop"})`,
-      action: `Sell. Weak AI rank plus a support break is not worth defending.`,
-    });
-    triggers.push({
-      type: "take_profit", icon: "target", tone: "neutral", priority: 3,
-      condition: `If ${p.ticker} rebounds toward ${money(reliefTarget)}`,
-      action: `Use the bounce to exit or cut heavily. This is a relief target near resistance, not a high-conviction upside target.`,
-    });
-    return triggers;
   }
 
-  const stopType = p.pnlPercent >= 20 ? "trailing_stop" : "stop_sell";
-  triggers.push({
-    type: stopType, icon: "shield", tone: "negative", priority: 1,
-    condition: `If ${p.ticker} breaks ${money(stopPrice)} (${structureLabel})`,
-    action: isElite
-      ? `Elite rank gets room, but a support break is meaningful. Hold above structure; reassess hard if it closes below this level.`
-      : isStrong
-        ? `Strong rank justifies patience, but not below support. Cut or trim if this level breaks and rank weakens.`
-        : `Respect the support break. Average-ranked positions should not be protected emotionally.`,
-  });
+  if (ctx.technical.takeProfit) {
+    triggers.push({
+      type: "take_profit",
+      icon: "target",
+      tone: "positive",
+      priority: 2,
+      condition: `If ${ctx.ticker} approaches ${money(ctx.technical.takeProfit)}`,
+      action: ctx.rankPercentile >= 85 ? "Do not fully sell an elite-ranked stock. Consider trimming only if oversized." : "Consider trimming part of the position and reassessing the remaining stake.",
+    });
+  }
+
+  if (ctx.scoreAtEntry) {
+    const scoreFloor = ctx.rankPercentile >= 85 ? Math.round(ctx.scoreAtEntry * 0.78) : ctx.rankPercentile >= 70 ? Math.round(ctx.scoreAtEntry * 0.74) : Math.round(ctx.scoreAtEntry * 0.7);
+    triggers.push({
+      type: "score_floor",
+      icon: "warning",
+      tone: "neutral",
+      priority: 3,
+      condition: `If AI score drops below ${scoreFloor.toLocaleString()}`,
+      action: "Review the thesis. If rank is also weak, reduce or exit.",
+    });
+  }
+
+  const reviewIn = Math.max(0, 90 - ctx.daysSinceReview);
+  const reviewDate = new Date();
+  reviewDate.setDate(reviewDate.getDate() + reviewIn);
 
   triggers.push({
-    type: "take_profit", icon: "target", tone: "positive", priority: 2,
-    condition: `If ${p.ticker} approaches ${money(takeProfitTarget)} (${resistanceTarget ? "prior resistance" : `breakout extension, +${targetPct.toFixed(0)}%`})`,
-    action: isElite
-      ? `Do not fully sell an elite-ranked stock at first resistance. Trim only 10–20% if oversized; otherwise hold core and trail below support.`
-      : isStrong
-        ? `Take partial profit around resistance, usually 20–30%, and keep the rest while rank remains top quartile.`
-        : isLarge
-          ? `Trim 25–40% near resistance. Average conviction plus large size deserves profit protection.`
-          : `Trim 20–33% near resistance and let the rest run only if it breaks out cleanly.`,
+    type: "review",
+    icon: "calendar",
+    tone: "neutral",
+    priority: 4,
+    condition: reviewIn === 0 ? "Review is due now" : `Next review around ${reviewDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+    action: "Check AI rank, score trend, news flow, technical levels and allocation size.",
   });
-
-  if (p.scoreAtEntry) {
-    const thresholdMultiplier = isElite ? 0.78 : isStrong ? 0.75 : 0.70;
-    const threshold = Math.round(p.scoreAtEntry * thresholdMultiplier);
-    triggers.push({
-      type: "score_alert", icon: "warning", tone: "neutral", priority: 3,
-      condition: `If AI score drops below ${threshold.toLocaleString()} (currently ${p.score.toLocaleString()})`,
-      action: isSmall
-        ? `Sell the whole position. A small holding is not worth managing through a broken thesis.`
-        : `Cut 33–50%. Technical levels matter, but AI-score deterioration is the thesis break.`,
-    });
-  }
-
-  if (!isRecentlyAdded) {
-    const reviewIn = Math.max(0, 90 - p.daysSinceReview);
-    const reviewDate = new Date(now);
-    reviewDate.setDate(now.getDate() + reviewIn);
-    triggers.push({
-      type: "review", icon: "calendar", tone: "neutral", priority: 4,
-      condition: reviewIn <= 0 ? "Review overdue" : `Review on ${reviewDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
-      action: reviewIn <= 0 ? "Open stock page now and reassess support, resistance, AI rank, and news." : "Quarterly check: update support/resistance and confirm the AI rank still supports the plan.",
-    });
-  }
 
   return triggers.sort((a, b) => a.priority - b.priority);
 }
 
-function extractTriggerPrice(condition: string) {
-  const match = condition.match(/\$([0-9]+(?:\.[0-9]+)?)/);
-  if (!match) return null;
-  const value = Number(match[1]);
-  return Number.isFinite(value) && value > 0 ? value : null;
+function deriveRecommendation(actionAlerts: HoldingAlert[], ctx: AlertContext): EnrichedHolding["recommendation"] {
+  const primaryAction = actionAlerts[0];
+
+  if (primaryAction?.action === "sell") return ctx.currentAllocationPct < 5 ? "Sell Whole Position" : "Sell Immediately";
+  if (primaryAction?.action === "trim") return "Consider Trimming";
+  if (primaryAction?.action === "buy_more") return "Consider Buying More";
+  if (primaryAction?.action === "review") return "Review Urgently";
+
+  if (ctx.rankPercentile >= 85 && ctx.recentNegativeNewsCount === 0 && (ctx.sectorMomentum === "Strong" || ctx.sectorMomentum === "Booming")) {
+    return "Strong Hold";
+  }
+
+  return "Hold";
 }
 
-function buildTriggerHitAlerts(
-  ticker: string,
-  currentPrice: number,
-  triggers: HoldingTrigger[],
-): HoldingAlert[] {
-  const alerts: HoldingAlert[] = [];
-  const money = (value: number) => `$${value.toFixed(2)}`;
+function buildAISummary(ctx: AlertContext, actionAlerts: HoldingAlert[], eventAlerts: HoldingAlert[]) {
+  const primaryAction = actionAlerts[0];
+  if (primaryAction) return `${primaryAction.title}. ${primaryAction.recommendation}`;
 
-  const stop = triggers.find((trigger) =>
-    trigger.type === "stop_sell" || trigger.type === "trailing_stop",
-  );
-  const stopPrice = stop ? extractTriggerPrice(stop.condition) : null;
+  const warningEvents = eventAlerts.filter((alert) => alert.severity === "warning" || alert.severity === "critical").length;
+  const positiveEvents = eventAlerts.filter((alert) => alert.severity === "success").length;
 
-  if (stop && stopPrice && currentPrice <= stopPrice) {
-    alerts.push({
-      type: "price_stop",
-      severity: "critical",
-      title: `${ticker} has hit its stop-loss / invalidation level`,
-      message: `Current price ${money(currentPrice)} is at or below the plan level of ${money(stopPrice)}.`,
-      recommendation: stop.action,
-    });
+  if (ctx.isRecentlyAdded) {
+    return `${ctx.ticker} was added recently, so StockGPT is applying a grace period. It will only show action alerts if the signal is unusually strong or unusually weak.`;
   }
 
-  const target = triggers.find((trigger) => trigger.type === "take_profit");
-  const targetPrice = target ? extractTriggerPrice(target.condition) : null;
-
-  if (target && targetPrice && currentPrice >= targetPrice) {
-    alerts.push({
-      type: "price_target",
-      severity: "success",
-      title: `${ticker} has reached its take-profit zone`,
-      message: `Current price ${money(currentPrice)} is at or above the plan target of ${money(targetPrice)}.`,
-      recommendation: target.action,
-    });
+  if (warningEvents > 0) {
+    return `${ctx.ticker} has ${warningEvents} event alert${warningEvents === 1 ? "" : "s"}, but no action alert. Something changed, but the evidence is not strong enough to recommend buying, trimming or selling.`;
   }
 
-  return alerts;
-}
-
-// ✦ Much smarter, situation-aware AI summary
-function buildAISummary(p: {
-  recommendation: EnrichedHolding["recommendation"];
-  scorePercentile: number;
-  pnlPercent: number;
-  sectorMomentum: SectorMomentum;
-  alerts: HoldingAlert[];
-  currentAllocationPct: number;
-  ticker: string;
-  daysHeld: number;
-  rank: number | null;
-  totalStocks: number;
-  isRecentlyAdded: boolean;
-  scoreChange: number;
-  scoreAtEntry: number | null;
-}): string {
-  // ── Recently added — special case
-  if (p.isRecentlyAdded) {
-    if (p.recommendation === "Sell Immediately") {
-      return `⚠ Even though you just added ${p.ticker}, the AI signal is in the bottom quartile. This was a poor pick by the metrics — strongly consider selling and replacing with a top-100 ranked stock.`;
-    }
-    if (p.scorePercentile >= 75) {
-      return `Recently added — you bought a top ${100 - p.scorePercentile}% AI-rated stock. Give it 2–4 weeks to develop before judging. Standard alerts are paused until you've held it longer.`;
-    }
-    return `Recently added (${p.daysHeld} ${p.daysHeld === 1 ? "day" : "days"} ago). The AI is giving this position a grace period — only critical signals will fire until you've held it for a week. Let the thesis develop.`;
+  if (positiveEvents > 0 && ctx.rankPercentile >= 75) {
+    return `${ctx.ticker} has positive confirmation and no action is required. Hold while the rank and score remain healthy.`;
   }
 
-  // ── Poor signal — top priority
-  if (p.recommendation === "Sell Immediately") {
-    return `⚠ Sell ${p.ticker}. It's ranked #${p.rank ?? "—"} of ${p.totalStocks} — bottom ${100 - p.scorePercentile}% of stocks. There are hundreds of better-rated stocks to redeploy this cash into. Don't try to make this work.`;
-  }
-
-  // ── Sell whole — small position with warnings
-  if (p.recommendation === "Sell Whole Position") {
-    return `Sell ${p.ticker} entirely. At ${p.currentAllocationPct.toFixed(1)}% of your portfolio, this position is too small to justify managing through warnings. Cleaner to exit and redeploy.`;
-  }
-
-  // ── Critical alerts present
-  if (p.recommendation === "Review Urgently") {
-    const trigger = p.alerts.find((a) => a.severity === "critical");
-    return `⚠ ${trigger?.title ?? `${p.ticker} has critical alerts`}. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Decide now: cut losses or hold with conviction. Don't drift.`;
-  }
-
-  // ── Big winner
-  if (p.pnlPercent >= 50) {
-    return `${p.ticker} is up ${p.pnlPercent.toFixed(0)}% from entry — a strong winner. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Don't take profits early. Use a trailing stop to protect gains; let it run.`;
-  }
-
-  // ── Up nicely
-  if (p.pnlPercent >= 20) {
-    return `${p.ticker} is up ${p.pnlPercent.toFixed(0)}% — solid performance. ${p.currentAllocationPct.toFixed(1)}% of portfolio. ${p.recommendation === "Strong Hold" ? "Top-tier signal continues — hold." : p.recommendation === "Consider Buying More" ? "Add on dips while signal is strong." : "Hold steady."}`;
-  }
-
-  // ── Underwater
-  if (p.pnlPercent <= -10) {
-    if (p.scorePercentile >= 70) {
-      return `${p.ticker} is down ${Math.abs(p.pnlPercent).toFixed(0)}%, but the AI signal remains strong (top ${100 - p.scorePercentile}%). This may be a buy-the-dip opportunity rather than a problem.`;
-    }
-    return `${p.ticker} is down ${Math.abs(p.pnlPercent).toFixed(0)}% from your entry. ${p.currentAllocationPct.toFixed(1)}% of portfolio. ${p.recommendation === "Consider Trimming" ? "AI signal is weakening — consider cutting before losses grow." : "Reassess your thesis. If it still holds, this is a buy zone. If not, get out."}`;
-  }
-
-  // ── Trimming candidate
-  if (p.recommendation === "Consider Trimming") {
-    const warningCount = p.alerts.filter((a) => a.severity === "warning").length;
-    return `${warningCount} yellow flag${warningCount === 1 ? "" : "s"} on ${p.ticker}. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Reduce exposure: sell some now, watch how it develops before deciding on the rest.`;
-  }
-
-  // ── Buy more candidate
-  if (p.recommendation === "Consider Buying More") {
-    return `${p.ticker} is set up well: top ${100 - p.scorePercentile}% AI score, ${p.sectorMomentum.toLowerCase()} sector backdrop. ${p.currentAllocationPct.toFixed(1)}% of portfolio. If you have cash, this is the kind of position you add to on any 5%+ dip.`;
-  }
-
-  // ── Strong hold
-  if (p.recommendation === "Strong Hold") {
-    return `${p.ticker} is performing as the AI expected — top ${100 - p.scorePercentile}% AI score in a ${p.sectorMomentum.toLowerCase()} sector. ${p.currentAllocationPct.toFixed(1)}% of portfolio. Hold patiently; don't take profits early.`;
-  }
-
-  // ── Default hold
-  return `${p.ticker}: rank #${p.rank ?? "—"} (top ${100 - p.scorePercentile}%), sector is ${p.sectorMomentum.toLowerCase()}, ${p.currentAllocationPct.toFixed(1)}% of portfolio. No urgent action — let the thesis play out.`;
+  return `${ctx.ticker} has no active action signal. Current rank percentile is ${ctx.rankPercentile}/100, allocation is ${ctx.currentAllocationPct.toFixed(1)}%, and the position can be left alone for now.`;
 }
 
 export async function enrichHoldings(
@@ -1052,128 +877,171 @@ export async function enrichHoldings(
     added_at: string;
     last_reviewed_at: string;
   }>,
-  riskTolerance: RiskTolerance = null
+  riskTolerance: RiskTolerance = null,
 ): Promise<EnrichedHolding[]> {
   if (holdings.length === 0) return [];
 
   const supabase = await createClient();
-  const tickers = holdings.map((h) => h.ticker);
+  const tickers = holdings.map((holding) => holding.ticker);
 
   const { data: currentData } = await supabase
     .from("stock_rankings")
     .select("ticker, company, sector, rank, score, price")
     .in("ticker", tickers);
 
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentNews } = await supabase
-    .from("news_articles").select("impact, affected_tickers")
-    .gte("published_at", fourteenDaysAgo).limit(200);
+  const fourteenDaysAgo = new Date(Date.now() - NEWS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const { momentum, bullishPct, maxScore, totalStocks } = await getSectorData();
+  const { data: recentNews } = await supabase
+    .from("news_articles")
+    .select("title, impact, affected_tickers, published_at")
+    .gte("published_at", fourteenDaysAgo)
+    .limit(300);
 
   const { data: factorDiagnosticsData } = await supabase
     .from("stock_factor_diagnostics")
-    .select("ticker,previous_score,current_score,smoothed_score,factor_coverage,quality_change,growth_change,value_change,momentum_change,risk_change,income_change,top_negative_factors,top_positive_factors");
+    .select("ticker,updated_at,previous_score,current_score,smoothed_score,factor_coverage,quality_change,growth_change,value_change,momentum_change,risk_change,income_change,top_negative_factors,top_positive_factors,diagnosis");
 
-  const factorDiagnosticsByTicker = new Map(
-    (factorDiagnosticsData ?? []).map((row: any) => [row.ticker as string, row])
-  );
+  const { momentum, bullishPct, maxScore, totalStocks } = await getSectorData();
 
-  const currentMap = new Map((currentData ?? []).map((s) => [s.ticker as string, s]));
+  const currentMap = new Map(((currentData ?? []) as any[]).map((row) => [String(row.ticker), row]));
+  const diagnosticsMap = new Map(((factorDiagnosticsData ?? []) as any[]).map((row) => [String(row.ticker), row]));
 
-  const newsImpactByTicker: Record<string, { positive: number; negative: number }> = {};
-  (recentNews ?? []).forEach((n) => {
-    const tickers = Array.isArray(n.affected_tickers) ? n.affected_tickers : [];
-    const impact = (n.impact ?? "").toLowerCase();
-    tickers.forEach((t: string) => {
-      if (!newsImpactByTicker[t]) newsImpactByTicker[t] = { positive: 0, negative: 0 };
-      if (impact === "positive") newsImpactByTicker[t].positive++;
-      else if (impact === "negative") newsImpactByTicker[t].negative++;
+  const newsByTicker: Record<string, { positive: number; negative: number; latestPositiveHeadline: string | null; latestNegativeHeadline: string | null }> = {};
+
+  ((recentNews ?? []) as any[]).forEach((article) => {
+    const affectedTickers = Array.isArray(article.affected_tickers) ? article.affected_tickers.map((ticker: unknown) => String(ticker)) : [];
+    const impact = String(article.impact ?? "").toLowerCase();
+    const title = typeof article.title === "string" ? article.title : null;
+
+    affectedTickers.forEach((ticker) => {
+      if (!newsByTicker[ticker]) newsByTicker[ticker] = { positive: 0, negative: 0, latestPositiveHeadline: null, latestNegativeHeadline: null };
+      if (impact === "positive") {
+        newsByTicker[ticker].positive += 1;
+        if (!newsByTicker[ticker].latestPositiveHeadline && title) newsByTicker[ticker].latestPositiveHeadline = title;
+      }
+      if (impact === "negative") {
+        newsByTicker[ticker].negative += 1;
+        if (!newsByTicker[ticker].latestNegativeHeadline && title) newsByTicker[ticker].latestNegativeHeadline = title;
+      }
     });
   });
 
-  const now = new Date();
-
-  const totalPortfolioValue = holdings.reduce((sum, h) => {
-    const current = currentMap.get(h.ticker);
-    const price = Number(current?.price) || 0;
-    const shares = Number(h.shares) || 1;
+  const totalPortfolioValue = holdings.reduce((sum, holding) => {
+    const current = currentMap.get(holding.ticker);
+    const price = finiteNumber(current?.price, 0);
+    const shares = finiteNumber(holding.shares, 1);
     return sum + price * shares;
   }, 0);
 
-  return await Promise.all(holdings.map(async (h) => {
-    const current = currentMap.get(h.ticker);
-    const score = Number(current?.score) || 0;
-    const currentPrice = Number(current?.price) || 0;
-    const entryPrice = Number(h.entry_price) || currentPrice;
-    const sector = (current?.sector as string) ?? null;
-    const rank = Number(current?.rank) || null;
-    const shares = Number(h.shares) || 1;
+  const now = new Date();
 
-    const costBasis = entryPrice * shares;
-    const currentValue = currentPrice * shares;
-    const totalPnLDollars = currentValue - costBasis;
-    const currentAllocationPct = totalPortfolioValue > 0
-      ? (currentValue / totalPortfolioValue) * 100 : 0;
+  return await Promise.all(
+    holdings.map(async (holding) => {
+      const current = currentMap.get(holding.ticker);
+      const ticker = holding.ticker;
+      const score = finiteNumber(current?.score, 0);
+      const currentPrice = finiteNumber(current?.price, 0);
+      const entryPrice = finiteNumber(holding.entry_price, currentPrice);
+      const sector = typeof current?.sector === "string" ? current.sector : null;
+      const company = typeof current?.company === "string" ? current.company : null;
+      const rank = nullableNumber(current?.rank);
+      const shares = finiteNumber(holding.shares, 1);
+      const costBasis = entryPrice * shares;
+      const currentValue = currentPrice * shares;
+      const totalPnLDollars = currentValue - costBasis;
+      const currentAllocationPct = totalPortfolioValue > 0 ? (currentValue / totalPortfolioValue) * 100 : 0;
+      const scoreAtEntry = nullableNumber(holding.score_at_entry);
+      const rankAtEntry = nullableNumber(holding.rank_at_entry);
+      const scoreChange = score - (scoreAtEntry ?? score);
+      const rankChange = rank && rankAtEntry ? rankAtEntry - rank : 0;
+      const pnlDollars = currentPrice - entryPrice;
+      const pnlPercent = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+      const daysHeld = daysBetween(now, new Date(holding.added_at));
+      const daysSinceReview = daysBetween(now, new Date(holding.last_reviewed_at));
+      const isRecentlyAdded = daysHeld < RECENT_HOLDING_GRACE_DAYS;
+      const sectorMomentum = sector ? momentum[sector] ?? "Unknown" : "Unknown";
+      const sectorBullishPct = sector ? bullishPct[sector] ?? 0 : 0;
+      const scorePercentile = Math.max(0, Math.min(100, Math.round((score / Math.max(maxScore, 1)) * 100)));
+      const rankPercentile = rank ? Math.max(0, Math.min(100, Math.round((1 - (rank - 1) / Math.max(totalStocks - 1, 1)) * 100))) : scorePercentile || 50;
+      const news = newsByTicker[ticker] ?? { positive: 0, negative: 0, latestPositiveHeadline: null, latestNegativeHeadline: null };
+      const factorDiagnostics = diagnosticsMap.get(ticker) ?? null;
+      const technical = await getTechnicalLevels(ticker, currentPrice);
 
-    const scoreChange = score - (h.score_at_entry ?? score);
-    const rankChange = h.rank_at_entry ? h.rank_at_entry - (rank ?? h.rank_at_entry) : 0;
-    const pnlDollars = currentPrice - entryPrice;
-    const pnlPercent = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
-    const daysSinceReview = daysBetween(now, new Date(h.last_reviewed_at));
-    const daysHeld = daysBetween(now, new Date(h.added_at));
-    const isRecentlyAdded = daysHeld < RECENT_THRESHOLD_DAYS;
+      const ctx: AlertContext = {
+        ticker,
+        company,
+        sector,
+        score,
+        scoreAtEntry,
+        rank,
+        rankAtEntry,
+        currentPrice,
+        entryPrice,
+        pnlPercent,
+        currentAllocationPct,
+        targetAllocationPct: holding.allocation_pct,
+        daysHeld,
+        daysSinceReview,
+        isRecentlyAdded,
+        rankPercentile,
+        scorePercentile,
+        totalStocks,
+        sectorMomentum,
+        sectorBullishPct,
+        recentNegativeNewsCount: news.negative,
+        recentPositiveNewsCount: news.positive,
+        latestNegativeHeadline: news.latestNegativeHeadline,
+        latestPositiveHeadline: news.latestPositiveHeadline,
+        riskTolerance,
+        factorDiagnostics,
+        technical,
+      };
 
-    const news = newsImpactByTicker[h.ticker] ?? { positive: 0, negative: 0 };
-    const sectorMomentumValue = sector ? (momentum[sector] ?? "Unknown") : "Unknown";
-    const sectorBullishPctValue = sector ? (bullishPct[sector] ?? 0) : 0;
-    const scorePercentile = Math.round((score / maxScore) * 100);
-    const rankPercentile = rank ? Math.round((1 - (rank - 1) / Math.max(totalStocks - 1, 1)) * 100) : 50;
+      const eventAlerts = buildEventAlerts(ctx);
+      const actionAlert = buildActionAlert(ctx, eventAlerts);
+      const actionAlerts = actionAlert ? [actionAlert] : [];
+      const alerts = [...actionAlerts, ...eventAlerts].sort((a, b) => a.priority - b.priority);
+      const recommendation = deriveRecommendation(actionAlerts, ctx);
+      const triggers = buildTriggers(ctx);
+      const aiSummary = buildAISummary(ctx, actionAlerts, eventAlerts);
 
-    const alerts = buildAlerts({
-      ticker: h.ticker, scoreChange, pnlPercent, daysSinceReview,
-      scoreAtEntry: h.score_at_entry, score, rank, rankAtEntry: h.rank_at_entry,
-      recentNegativeNewsCount: news.negative, recentPositiveNewsCount: news.positive,
-      sectorMomentum: sectorMomentumValue, sectorBullishPct: sectorBullishPctValue,
-      sector, currentPrice, entryPrice, currentAllocationPct,
-      targetAllocationPct: h.allocation_pct, scorePercentile, rankPercentile,
-      daysHeld, riskTolerance, totalStocks,
-    });
-
-    const recommendation = deriveRecommendation(alerts, currentAllocationPct, scorePercentile, rank, totalStocks);
-
-    const triggers = await buildDynamicTriggers({
-      ticker: h.ticker, currentPrice, entryPrice, pnlPercent,
-      currentAllocationPct, score, scoreAtEntry: h.score_at_entry,
-      sector, sectorMomentum: sectorMomentumValue, daysSinceReview, daysHeld,
-      scorePercentile, rank, totalStocks,
-    });
-
-    alerts.push(...buildTriggerHitAlerts(h.ticker, currentPrice, triggers));
-
-    const aiSummary = buildAISummary({
-      recommendation, scorePercentile, pnlPercent,
-      sectorMomentum: sectorMomentumValue, alerts,
-      currentAllocationPct, ticker: h.ticker,
-      daysHeld, rank, totalStocks, isRecentlyAdded,
-      scoreChange, scoreAtEntry: h.score_at_entry,
-    });
-
-    return {
-      ticker: h.ticker, company: (current?.company as string) ?? null, sector, rank, score, maxScore,
-      currentPrice, entryPrice, shares,
-      costBasis: Math.round(costBasis * 100) / 100,
-      currentValue: Math.round(currentValue * 100) / 100,
-      totalPnLDollars: Math.round(totalPnLDollars * 100) / 100,
-      currentAllocationPct: Math.round(currentAllocationPct * 10) / 10,
-      targetAllocationPct: h.allocation_pct,
-      scoreAtEntry: h.score_at_entry, rankAtEntry: h.rank_at_entry,
-      addedAt: h.added_at, lastReviewedAt: h.last_reviewed_at, daysHeld,
-      pnlDollars: Math.round(pnlDollars * 100) / 100,
-      pnlPercent: Math.round(pnlPercent * 10) / 10,
-      scoreChange, rankChange, daysSinceReview, alerts, recommendation,
-      sectorMomentum: sectorMomentumValue, sectorBullishPct: sectorBullishPctValue,
-      scorePercentile, rankPercentile, triggers, aiSummary, isRecentlyAdded,
-    };
-  }));
+      return {
+        ticker,
+        company,
+        sector,
+        rank,
+        score,
+        maxScore,
+        currentPrice,
+        entryPrice,
+        shares,
+        costBasis: round1(costBasis),
+        currentValue: round1(currentValue),
+        totalPnLDollars: round1(totalPnLDollars),
+        currentAllocationPct: round1(currentAllocationPct),
+        targetAllocationPct: holding.allocation_pct,
+        scoreAtEntry,
+        rankAtEntry,
+        addedAt: holding.added_at,
+        lastReviewedAt: holding.last_reviewed_at,
+        daysHeld,
+        pnlDollars: round1(pnlDollars),
+        pnlPercent: round1(pnlPercent),
+        scoreChange,
+        rankChange,
+        daysSinceReview,
+        alerts,
+        eventAlerts,
+        actionAlerts,
+        recommendation,
+        sectorMomentum,
+        sectorBullishPct,
+        scorePercentile,
+        rankPercentile,
+        triggers,
+        aiSummary,
+        isRecentlyAdded,
+      };
+    }),
+  );
 }
