@@ -24,6 +24,7 @@ type StarterPrompt = {
   label: string;
   prompt: string;
   eyebrow: string;
+  mode: "portfolio" | "rankings" | "learn" | "account";
 };
 
 const starterPrompts: StarterPrompt[] = [
@@ -31,31 +32,55 @@ const starterPrompts: StarterPrompt[] = [
     eyebrow: "Portfolio coach",
     label: "Find my weakest holding",
     prompt: "What is my weakest holding and what should I do about it?",
+    mode: "portfolio",
   },
   {
     eyebrow: "Action plan",
-    label: "Trim, hold, or buy more",
+    label: "Trim, hold, sell, or buy more",
     prompt: "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
+    mode: "portfolio",
   },
   {
     eyebrow: "Risk control",
     label: "Stop-loss and take-profit levels",
     prompt: "What are the key stop-loss and take-profit levels in my portfolio?",
+    mode: "portfolio",
   },
   {
     eyebrow: "Rankings",
     label: "Explain today’s strongest stocks",
     prompt: "Which stocks are ranking strongest right now and why?",
+    mode: "rankings",
+  },
+  {
+    eyebrow: "Rankings",
+    label: "Compare my holdings to the rankings",
+    prompt: "How do my current holdings compare to the top-ranked stocks?",
+    mode: "rankings",
   },
   {
     eyebrow: "Learning",
-    label: "Teach me a trading concept",
+    label: "Risk/reward and sizing",
     prompt: "Explain risk/reward and position sizing like a market coach.",
+    mode: "learn",
+  },
+  {
+    eyebrow: "Learning",
+    label: "Stop-loss theory",
+    prompt: "Explain how stop-losses should be used without getting shaken out too early.",
+    mode: "learn",
   },
   {
     eyebrow: "Account",
-    label: "Membership help",
+    label: "Membership and billing",
     prompt: "How do I manage my StockGPT membership or billing?",
+    mode: "account",
+  },
+  {
+    eyebrow: "Account",
+    label: "Subscription help",
+    prompt: "Who should I contact if I have a StockGPT subscription or payment issue?",
+    mode: "account",
   },
 ];
 
@@ -90,10 +115,7 @@ function renderMessageContent(content: string) {
     if (bulletBuffer.length === 0) return;
 
     blocks.push(
-      <ul
-        key={`bullets-${blocks.length}`}
-        className="mt-2 grid gap-1.5 pl-4"
-      >
+      <ul key={`bullets-${blocks.length}`} className="mt-2 grid gap-1.5 pl-4">
         {bulletBuffer.map((item, index) => (
           <li
             key={`${item}-${index}`}
@@ -163,12 +185,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
 
   return (
-    <div
-      className={[
-        "flex w-full",
-        isUser ? "justify-end" : "justify-start",
-      ].join(" ")}
-    >
+    <div className={["flex w-full", isUser ? "justify-end" : "justify-start"].join(" ")}>
       <div
         className={[
           "max-w-[92%] rounded-[26px] px-4 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[78%]",
@@ -188,9 +205,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        <div className="[&>p:first-child]:mt-0">
-          {renderMessageContent(message.content)}
-        </div>
+        <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
       </div>
     </div>
   );
@@ -294,12 +309,9 @@ function LockedExperience({
             </div>
 
             <p className="mt-5 text-[12px] font-medium leading-6 text-[#fbf4e5]/42">
-              For account-specific billing, refunds, or anything not shown in
-              the app, users are directed to{" "}
-              <span className="font-black text-[#ddb159]">
-                sales@stockgpt.pro
-              </span>
-              .
+              For account-specific billing, refunds, or anything not shown in the app,
+              users are directed to{" "}
+              <span className="font-black text-[#ddb159]">sales@stockgpt.pro</span>.
             </p>
           </aside>
         </div>
@@ -322,25 +334,16 @@ export function AskStockGPTButton({
     },
   ]);
   const [loading, setLoading] = useState(false);
-  const [activeMode, setActiveMode] = useState<
-    "portfolio" | "rankings" | "learn" | "account"
-  >("portfolio");
+  const [activeMode, setActiveMode] = useState<"portfolio" | "rankings" | "learn" | "account">(
+    "portfolio",
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const locked = !canUseAskStockGPT;
 
   const visibleStarters = useMemo(() => {
-    if (activeMode === "portfolio") return starterPrompts.slice(0, 3);
-    if (activeMode === "rankings") {
-      return starterPrompts.filter((prompt) =>
-        ["Rankings", "Action plan"].includes(prompt.eyebrow),
-      );
-    }
-    if (activeMode === "learn") {
-      return starterPrompts.filter((prompt) => prompt.eyebrow === "Learning");
-    }
-    return starterPrompts.filter((prompt) => prompt.eyebrow === "Account");
+    return starterPrompts.filter((prompt) => prompt.mode === activeMode).slice(0, 3);
   }, [activeMode]);
 
   useEffect(() => {
@@ -454,10 +457,7 @@ export function AskStockGPTButton({
       </button>
 
       {open && locked && (
-        <LockedExperience
-          isAuthenticated={isAuthenticated}
-          onClose={handleClose}
-        />
+        <LockedExperience isAuthenticated={isAuthenticated} onClose={handleClose} />
       )}
 
       {open && !locked && (
@@ -472,94 +472,115 @@ export function AskStockGPTButton({
           <div className="relative mx-auto flex h-[calc(100dvh-1rem)] max-w-6xl overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[min(860px,calc(100dvh-2.5rem))] sm:rounded-[36px]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(221,177,89,0.18),transparent_30%),radial-gradient(circle_at_92%_14%,rgba(80,160,108,0.16),transparent_34%),linear-gradient(135deg,#06140d,#0a2015_48%,#06140d)]" />
 
-            <div className="relative grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[320px_minmax(0,1fr)] lg:grid-rows-1">
-              <aside className="hidden border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] p-5 lg:flex lg:flex-col">
-                <div className="flex items-center gap-3">
-                  <PremiumOrb />
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
-                      StockGPT Coach
-                    </p>
-                    <p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">
-                      Portfolio intelligence
-                    </p>
+            <div className="relative grid w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[330px_minmax(0,1fr)] lg:grid-rows-1">
+              <aside className="hidden min-h-0 border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
+                <div className="px-6 pb-5 pt-6">
+                  <div className="flex items-center gap-3">
+                    <PremiumOrb />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+                        StockGPT Coach
+                      </p>
+                      <p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">
+                        Portfolio intelligence
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/60 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                    Mode
-                  </p>
+                <div className="px-6 pb-4">
+                  <div className="rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/60 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+                      Mode
+                    </p>
 
-                  <div className="mt-3 grid gap-2">
-                    {[
-                      ["portfolio", "Portfolio", "Holdings, alerts, P&L"],
-                      ["rankings", "Rankings", "Scores, sectors, leaders"],
-                      ["learn", "Learn", "Trading concepts"],
-                      ["account", "Account", "Membership and billing"],
-                    ].map(([mode, label, description]) => {
-                      const selected = activeMode === mode;
+                    <div className="mt-3 grid gap-2">
+                      {[
+                        ["portfolio", "Portfolio", "Holdings, alerts, P&L"],
+                        ["rankings", "Rankings", "Scores, sectors, leaders"],
+                        ["learn", "Learn", "Trading concepts"],
+                        ["account", "Account", "Membership and billing"],
+                      ].map(([mode, label, description]) => {
+                        const selected = activeMode === mode;
 
-                      return (
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() =>
+                              setActiveMode(
+                                mode as "portfolio" | "rankings" | "learn" | "account",
+                              )
+                            }
+                            className={[
+                              "rounded-2xl border px-3 py-2.5 text-left transition",
+                              selected
+                                ? "border-[#ddb159]/55 bg-[#ddb159]/14"
+                                : "border-[#ddb159]/12 bg-[#fbf4e5]/[0.025] hover:border-[#ddb159]/35 hover:bg-[#ddb159]/8",
+                            ].join(" ")}
+                          >
+                            <p className="text-[13px] font-black leading-tight text-[#fbf4e5]">
+                              {label}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-semibold leading-tight text-[#fbf4e5]/42">
+                              {description}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-h-0 px-6 pb-4">
+                  <div className="flex h-full min-h-[220px] flex-col rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/45 p-4">
+                    <div className="shrink-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
+                        Suggested prompts
+                      </p>
+                      <p className="mt-1 text-[11px] font-semibold leading-5 text-[#fbf4e5]/42">
+                        Tailored to the mode you select.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-hidden">
+                      {visibleStarters.map((starter) => (
                         <button
-                          key={mode}
+                          key={starter.prompt}
                           type="button"
-                          onClick={() =>
-                            setActiveMode(
-                              mode as
-                                | "portfolio"
-                                | "rankings"
-                                | "learn"
-                                | "account",
-                            )
-                          }
-                          className={[
-                            "rounded-2xl border px-3 py-3 text-left transition",
-                            selected
-                              ? "border-[#ddb159]/55 bg-[#ddb159]/14"
-                              : "border-[#ddb159]/12 bg-[#fbf4e5]/[0.025] hover:border-[#ddb159]/35 hover:bg-[#ddb159]/8",
-                          ].join(" ")}
+                          onClick={() => void sendQuestion(starter.prompt)}
+                          className="group rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] px-3 py-3 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
                         >
-                          <p className="text-[13px] font-black text-[#fbf4e5]">
-                            {label}
-                          </p>
-                          <p className="mt-0.5 text-[11px] font-semibold text-[#fbf4e5]/42">
-                            {description}
-                          </p>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
+                                {starter.eyebrow}
+                              </p>
+                              <p className="mt-1 text-[12px] font-bold leading-snug text-[#fbf4e5]/78">
+                                {starter.label}
+                              </p>
+                            </div>
+
+                            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 text-[11px] font-black text-[#ddb159]/60 transition group-hover:border-[#ddb159]/45 group-hover:text-[#ddb159]">
+                              →
+                            </span>
+                          </div>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[26px] border border-[#ddb159]/18 bg-[#06140d]/45 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                    Suggested prompts
+                <div className="border-t border-[#ddb159]/12 px-6 py-4">
+                  <p className="text-[11px] font-medium leading-5 text-[#fbf4e5]/38">
+                    Uses live StockGPT app context where available. For billing,
+                    refunds or unclear account queries, use{" "}
+                    <span className="font-bold text-[#ddb159]/75">
+                      sales@stockgpt.pro
+                    </span>
+                    .
                   </p>
-
-                  <div className="mt-3 grid gap-2">
-                    {visibleStarters.map((starter) => (
-                      <button
-                        key={starter.prompt}
-                        type="button"
-                        onClick={() => void sendQuestion(starter.prompt)}
-                        className="rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] px-3 py-3 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
-                      >
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/75">
-                          {starter.eyebrow}
-                        </p>
-                        <p className="mt-1 text-[12px] font-bold leading-snug text-[#fbf4e5]/76">
-                          {starter.label}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
                 </div>
-
-                <p className="mt-4 text-[11px] font-medium leading-5 text-[#fbf4e5]/38">
-                  Uses live StockGPT app context where available. For billing,
-                  refunds or unclear account queries, use sales@stockgpt.pro.
-                </p>
               </aside>
 
               <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]">
@@ -616,10 +637,7 @@ export function AskStockGPTButton({
                 <main className="min-h-0 overflow-y-auto px-3 py-4 sm:px-5">
                   <div className="mx-auto grid max-w-3xl gap-3">
                     {messages.map((message, index) => (
-                      <MessageBubble
-                        key={`${message.role}-${index}`}
-                        message={message}
-                      />
+                      <MessageBubble key={`${message.role}-${index}`} message={message} />
                     ))}
 
                     {loading && (
