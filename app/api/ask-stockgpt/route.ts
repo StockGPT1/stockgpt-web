@@ -68,29 +68,28 @@ type OpenRouterResponse = {
 
 function cleanQuestion(value: unknown) {
   if (typeof value !== "string") return "";
-  return value.trim().slice(0, 1600);
+  return value.trim().slice(0, 2000);
 }
 
 function cleanHistory(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .filter((m): m is ChatMessage => {
+    .filter((message): message is ChatMessage => {
       return (
-        m &&
-        typeof m === "object" &&
-        (m as ChatMessage).role !== undefined &&
-        ((m as ChatMessage).role === "user" ||
-          (m as ChatMessage).role === "assistant") &&
-        typeof (m as ChatMessage).content === "string"
+        message !== null &&
+        typeof message === "object" &&
+        ((message as ChatMessage).role === "user" ||
+          (message as ChatMessage).role === "assistant") &&
+        typeof (message as ChatMessage).content === "string"
       );
     })
-    .slice(-8)
-    .map((m) => ({
-      role: m.role,
-      content: m.content.trim().slice(0, 1200),
+    .slice(-10)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, 1400),
     }))
-    .filter((m) => m.content.length > 0);
+    .filter((message) => message.content.length > 0);
 }
 
 function safeNumber(value: unknown) {
@@ -123,45 +122,76 @@ function compactNews(rows: NewsRow[]) {
   }));
 }
 
-function compactHolding(h: EnrichedHolding) {
-  const stopTrigger = h.triggers.find((t) => t.type === "stop_loss");
-  const takeProfitTrigger = h.triggers.find((t) => t.type === "take_profit");
-  const reviewTrigger = h.triggers.find((t) => t.type === "review");
+function compactHolding(holding: EnrichedHolding) {
+  const stopTrigger = holding.triggers.find(
+    (trigger) => trigger.type === "stop_loss",
+  );
+  const takeProfitTrigger = holding.triggers.find(
+    (trigger) => trigger.type === "take_profit",
+  );
+  const reviewTrigger = holding.triggers.find(
+    (trigger) => trigger.type === "review",
+  );
 
   return {
-    ticker: h.ticker,
-    company: h.company,
-    sector: h.sector,
-    rank: h.rank,
-    rank_percentile: h.rankPercentile,
-    score: h.score,
-    recommendation: h.recommendation,
-    current_price: h.currentPrice,
-    entry_price: h.entryPrice,
-    shares: h.shares,
-    current_value: h.currentValue,
-    cost_basis: h.costBasis,
-    pnl_percent: h.pnlPercent,
-    pnl_dollars: h.totalPnLDollars,
-    current_allocation_pct: h.currentAllocationPct,
-    target_allocation_pct: h.targetAllocationPct,
-    score_at_entry: h.scoreAtEntry,
-    rank_at_entry: h.rankAtEntry,
-    score_change: h.scoreChange,
-    rank_change: h.rankChange,
-    days_held: h.daysHeld,
-    days_since_review: h.daysSinceReview,
-    added_at: h.addedAt,
-    last_reviewed_at: h.lastReviewedAt,
-    sector_momentum: h.sectorMomentum,
-    sector_bullish_pct: h.sectorBullishPct,
-    ai_summary: h.aiSummary,
-    alerts: h.alerts.map((a) => ({
-      type: a.type,
-      severity: a.severity,
-      title: a.title,
-      message: a.message,
-      recommendation: a.recommendation,
+    ticker: holding.ticker,
+    company: holding.company,
+    sector: holding.sector,
+    rank: holding.rank,
+    rank_percentile: holding.rankPercentile,
+    score: holding.score,
+    score_percentile: holding.scorePercentile,
+    recommendation: holding.recommendation,
+    current_price: holding.currentPrice,
+    entry_price: holding.entryPrice,
+    shares: holding.shares,
+    current_value: holding.currentValue,
+    cost_basis: holding.costBasis,
+    pnl_percent: holding.pnlPercent,
+    pnl_dollars: holding.totalPnLDollars,
+    current_allocation_pct: holding.currentAllocationPct,
+    target_allocation_pct: holding.targetAllocationPct,
+    score_at_entry: holding.scoreAtEntry,
+    rank_at_entry: holding.rankAtEntry,
+    score_change: holding.scoreChange,
+    rank_change: holding.rankChange,
+    days_held: holding.daysHeld,
+    days_since_review: holding.daysSinceReview,
+    added_at: holding.addedAt,
+    last_reviewed_at: holding.lastReviewedAt,
+    sector_momentum: holding.sectorMomentum,
+    sector_bullish_pct: holding.sectorBullishPct,
+    ai_summary: holding.aiSummary,
+    action_alerts: holding.actionAlerts.map((alert) => ({
+      type: alert.type,
+      severity: alert.severity,
+      action: alert.action,
+      title: alert.title,
+      message: alert.message,
+      recommendation: alert.recommendation,
+      evidence: alert.evidence,
+      expires_when: alert.expiresWhen,
+    })),
+    event_alerts: holding.eventAlerts.map((alert) => ({
+      type: alert.type,
+      severity: alert.severity,
+      action: alert.action,
+      title: alert.title,
+      message: alert.message,
+      recommendation: alert.recommendation,
+      evidence: alert.evidence,
+      expires_when: alert.expiresWhen,
+    })),
+    alerts: holding.alerts.map((alert) => ({
+      category: alert.category,
+      type: alert.type,
+      severity: alert.severity,
+      action: alert.action,
+      title: alert.title,
+      message: alert.message,
+      recommendation: alert.recommendation,
+      evidence: alert.evidence,
+      expires_when: alert.expiresWhen,
     })),
     action_plan: {
       stop_or_exit: stopTrigger
@@ -185,40 +215,56 @@ function compactHolding(h: EnrichedHolding) {
             tone: reviewTrigger.tone,
           }
         : null,
-      all_triggers: h.triggers.map((t) => ({
-        type: t.type,
-        condition: t.condition,
-        action: t.action,
-        tone: t.tone,
+      all_triggers: holding.triggers.map((trigger) => ({
+        type: trigger.type,
+        condition: trigger.condition,
+        action: trigger.action,
+        tone: trigger.tone,
       })),
     },
   };
 }
 
 function buildPortfolioSummary(holdings: EnrichedHolding[]) {
-  const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-  const totalCost = holdings.reduce((sum, h) => sum + h.costBasis, 0);
-  const totalPnL = holdings.reduce((sum, h) => sum + h.totalPnLDollars, 0);
+  const totalValue = holdings.reduce(
+    (sum, holding) => sum + holding.currentValue,
+    0,
+  );
+  const totalCost = holdings.reduce(
+    (sum, holding) => sum + holding.costBasis,
+    0,
+  );
+  const totalPnL = holdings.reduce(
+    (sum, holding) => sum + holding.totalPnLDollars,
+    0,
+  );
   const pnlPct = totalCost > 0 ? (totalPnL / totalCost) * 100 : null;
 
-  const criticalAlerts = holdings.flatMap((h) =>
-    h.alerts
-      .filter((a) => a.severity === "critical")
-      .map((a) => ({ ticker: h.ticker, title: a.title })),
+  const actionAlerts = holdings.flatMap((holding) =>
+    holding.actionAlerts.map((alert) => ({
+      ticker: holding.ticker,
+      action: alert.action,
+      severity: alert.severity,
+      title: alert.title,
+      recommendation: alert.recommendation,
+    })),
   );
 
-  const warningAlerts = holdings.flatMap((h) =>
-    h.alerts
-      .filter((a) => a.severity === "warning")
-      .map((a) => ({ ticker: h.ticker, title: a.title })),
+  const eventAlerts = holdings.flatMap((holding) =>
+    holding.eventAlerts.map((alert) => ({
+      ticker: holding.ticker,
+      type: alert.type,
+      severity: alert.severity,
+      title: alert.title,
+    })),
   );
 
   const sectorExposure: Record<string, number> = {};
 
-  holdings.forEach((h) => {
-    const sector = h.sector ?? "Unknown";
+  holdings.forEach((holding) => {
+    const sector = holding.sector ?? "Unknown";
     sectorExposure[sector] =
-      (sectorExposure[sector] ?? 0) + h.currentAllocationPct;
+      (sectorExposure[sector] ?? 0) + holding.currentAllocationPct;
   });
 
   const best = [...holdings]
@@ -230,58 +276,60 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
     .slice(0, 3);
 
   const weakestRanked = [...holdings]
-    .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
-    .reverse()
+    .sort((a, b) => (b.rank ?? 9999) - (a.rank ?? 9999))
     .slice(0, 3);
 
-  const topRanked = [...holdings]
+  const strongestRanked = [...holdings]
     .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
     .slice(0, 3);
 
   const reviewDue = holdings
-    .filter((h) => h.daysSinceReview >= 75)
+    .filter((holding) => holding.daysSinceReview >= 75)
     .sort((a, b) => b.daysSinceReview - a.daysSinceReview)
-    .map((h) => ({
-      ticker: h.ticker,
-      days_since_review: h.daysSinceReview,
+    .map((holding) => ({
+      ticker: holding.ticker,
+      days_since_review: holding.daysSinceReview,
+      recommendation: holding.recommendation,
     }));
 
   return {
-    total_value: totalValue,
-    total_cost_basis: totalCost,
-    total_pnl_dollars: totalPnL,
-    total_pnl_percent: pnlPct,
+    total_value: Number(totalValue.toFixed(2)),
+    total_cost_basis: Number(totalCost.toFixed(2)),
+    total_pnl_dollars: Number(totalPnL.toFixed(2)),
+    total_pnl_percent: pnlPct === null ? null : Number(pnlPct.toFixed(2)),
     holdings_count: holdings.length,
-    critical_alerts: criticalAlerts,
-    warning_alerts: warningAlerts,
+    action_alerts: actionAlerts,
+    event_alerts: eventAlerts,
     sector_exposure_pct: Object.fromEntries(
       Object.entries(sectorExposure)
         .sort((a, b) => b[1] - a[1])
-        .map(([k, v]) => [k, Number(v.toFixed(1))]),
+        .map(([sector, value]) => [sector, Number(value.toFixed(1))]),
     ),
-    best_performers: best.map((h) => ({
-      ticker: h.ticker,
-      pnl_percent: h.pnlPercent,
-      rank: h.rank,
-      recommendation: h.recommendation,
+    best_performers: best.map((holding) => ({
+      ticker: holding.ticker,
+      pnl_percent: holding.pnlPercent,
+      rank: holding.rank,
+      recommendation: holding.recommendation,
     })),
-    worst_performers: worst.map((h) => ({
-      ticker: h.ticker,
-      pnl_percent: h.pnlPercent,
-      rank: h.rank,
-      recommendation: h.recommendation,
+    worst_performers: worst.map((holding) => ({
+      ticker: holding.ticker,
+      pnl_percent: holding.pnlPercent,
+      rank: holding.rank,
+      recommendation: holding.recommendation,
     })),
-    strongest_ranked_holdings: topRanked.map((h) => ({
-      ticker: h.ticker,
-      rank: h.rank,
-      score: h.score,
-      recommendation: h.recommendation,
+    strongest_ranked_holdings: strongestRanked.map((holding) => ({
+      ticker: holding.ticker,
+      rank: holding.rank,
+      score: holding.score,
+      rank_percentile: holding.rankPercentile,
+      recommendation: holding.recommendation,
     })),
-    weakest_ranked_holdings: weakestRanked.map((h) => ({
-      ticker: h.ticker,
-      rank: h.rank,
-      score: h.score,
-      recommendation: h.recommendation,
+    weakest_ranked_holdings: weakestRanked.map((holding) => ({
+      ticker: holding.ticker,
+      rank: holding.rank,
+      score: holding.score,
+      rank_percentile: holding.rankPercentile,
+      recommendation: holding.recommendation,
     })),
     review_due_or_soon: reviewDue,
   };
@@ -289,14 +337,18 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
 
 function extractPossibleTickers(question: string) {
   const words = question.toUpperCase().match(/\b[A-Z]{1,5}\b/g) ?? [];
+
   const ignored = new Set([
     "AI",
+    "API",
+    "APP",
     "THE",
     "AND",
     "FOR",
     "SELL",
     "BUY",
     "HOLD",
+    "TRIM",
     "STOP",
     "LOSS",
     "TAKE",
@@ -305,9 +357,83 @@ function extractPossibleTickers(question: string) {
     "WHEN",
     "WHY",
     "HOW",
+    "CAN",
+    "YOU",
+    "ARE",
+    "DO",
+    "MY",
+    "ME",
+    "IS",
+    "IT",
+    "A",
+    "AN",
+    "OR",
+    "TO",
+    "IN",
+    "OF",
+    "ON",
+    "WITH",
+    "NEWS",
+    "RANK",
+    "SCORE",
+    "PRICE",
+    "P",
+    "L",
   ]);
 
-  return Array.from(new Set(words.filter((w) => !ignored.has(w)))).slice(0, 12);
+  return Array.from(new Set(words.filter((word) => !ignored.has(word)))).slice(
+    0,
+    12,
+  );
+}
+
+function looksLikeMembershipQuestion(question: string) {
+  const q = question.toLowerCase();
+
+  return [
+    "membership",
+    "subscription",
+    "subscribe",
+    "billing",
+    "bill",
+    "payment",
+    "refund",
+    "cancel",
+    "upgrade",
+    "downgrade",
+    "price",
+    "pricing",
+    "plan",
+    "account",
+    "invoice",
+    "stripe",
+  ].some((term) => q.includes(term));
+}
+
+function looksLikeGeneralLearningQuestion(question: string) {
+  const q = question.toLowerCase();
+
+  return [
+    "explain",
+    "teach",
+    "what is",
+    "what are",
+    "how does",
+    "how do",
+    "meaning",
+    "concept",
+    "theory",
+    "risk reward",
+    "position sizing",
+    "stop loss",
+    "take profit",
+    "diversification",
+    "valuation",
+    "momentum",
+    "quality",
+    "growth",
+    "value",
+  ].some((term) => q.includes(term));
 }
 
 export async function POST(req: NextRequest) {
@@ -322,7 +448,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           answer:
-            "Ask StockGPT is available to active subscribers. Please log in and subscribe to use it.",
+            "Ask StockGPT is available to active subscribers. Please log in to use the portfolio coach. For membership or billing help, contact sales@stockgpt.pro.",
         },
         { status: 401 },
       );
@@ -338,7 +464,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           answer:
-            "Ask StockGPT is available to active subscribers only. Upgrade your plan to unlock portfolio intelligence, ranking context, and AI answers.",
+            "Ask StockGPT is available to active subscribers only. Upgrade your plan to unlock portfolio coaching, rankings context, news interpretation and AI answers. For membership or billing help, contact sales@stockgpt.pro.",
         },
         { status: 403 },
       );
@@ -351,7 +477,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           answer:
-            "Ask StockGPT is not connected yet. Add OPENROUTER_API_KEY to your environment variables, then redeploy.",
+            "Ask StockGPT is not connected yet. Add OPENROUTER_API_KEY to your environment variables, then redeploy. For help setting this up, contact sales@stockgpt.pro.",
         },
         { status: 500 },
       );
@@ -363,19 +489,26 @@ export async function POST(req: NextRequest) {
 
     if (!question) {
       return NextResponse.json(
-        { answer: "Ask me a stock, market, or portfolio question first." },
+        {
+          answer:
+            "Ask me a portfolio, ranking, market, trading concept, or membership question first.",
+        },
         { status: 400 },
       );
     }
 
     const possibleTickers = extractPossibleTickers(question);
+    const isMembershipQuestion = looksLikeMembershipQuestion(question);
+    const isLearningQuestion = looksLikeGeneralLearningQuestion(question);
 
-    const [{ data: rankingsData }, { data: newsData }] = await Promise.all([
+    const [{ data: topRankingsData }, { data: newsData }] = await Promise.all([
       supabase
         .from("stock_rankings")
-        .select("rank,previous_rank,ticker,company,sector,score,price,updated_at")
+        .select(
+          "rank,previous_rank,ticker,company,sector,score,price,updated_at",
+        )
         .order("rank", { ascending: true })
-        .limit(100),
+        .limit(120),
 
       supabase
         .from("news_articles")
@@ -383,13 +516,36 @@ export async function POST(req: NextRequest) {
           "title,summary,source,affected_tickers,impact,impact_reason,published_at",
         )
         .order("published_at", { ascending: false })
-        .limit(25),
+        .limit(50),
     ]);
 
-    const rankings = compactRankings((rankingsData ?? []) as RankingRow[]);
+    let mentionedRankingsData: RankingRow[] = [];
+
+    if (possibleTickers.length > 0) {
+      const { data } = await supabase
+        .from("stock_rankings")
+        .select(
+          "rank,previous_rank,ticker,company,sector,score,price,updated_at",
+        )
+        .in("ticker", possibleTickers);
+
+      mentionedRankingsData = (data ?? []) as RankingRow[];
+    }
+
+    const topRankings = compactRankings((topRankingsData ?? []) as RankingRow[]);
+
+    const rankingMap = new Map<string, RankingRow>();
+
+    [...((topRankingsData ?? []) as RankingRow[]), ...mentionedRankingsData]
+      .filter((row) => Boolean(row.ticker))
+      .forEach((row) => {
+        rankingMap.set(row.ticker as string, row);
+      });
+
+    const suppliedRankings = compactRankings([...rankingMap.values()]);
     const news = compactNews((newsData ?? []) as NewsRow[]);
     const latestRankingUpdate =
-      rankings.map((r) => r.updated_at).find(Boolean) ?? null;
+      suppliedRankings.map((row) => row.updated_at).find(Boolean) ?? null;
 
     let portfolio: null | {
       meta: PortfolioRow;
@@ -415,17 +571,19 @@ export async function POST(req: NextRequest) {
         .order("added_at", { ascending: false });
 
       const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
-        .filter((h) => Boolean(h.ticker))
-        .map((h) => ({
-          ticker: h.ticker as string,
-          entry_price: h.entry_price,
-          score_at_entry: h.score_at_entry,
-          rank_at_entry: h.rank_at_entry,
-          shares: h.shares,
-          allocation_pct: h.allocation_pct,
-          added_at: h.added_at ?? new Date().toISOString(),
+        .filter((holding) => Boolean(holding.ticker))
+        .map((holding) => ({
+          ticker: holding.ticker as string,
+          entry_price: holding.entry_price,
+          score_at_entry: holding.score_at_entry,
+          rank_at_entry: holding.rank_at_entry,
+          shares: holding.shares,
+          allocation_pct: holding.allocation_pct,
+          added_at: holding.added_at ?? new Date().toISOString(),
           last_reviewed_at:
-            h.last_reviewed_at ?? h.added_at ?? new Date().toISOString(),
+            holding.last_reviewed_at ??
+            holding.added_at ??
+            new Date().toISOString(),
         }));
 
       const enriched = await enrichHoldings(
@@ -440,32 +598,49 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    const mentionedRankings = rankings.filter(
-      (r) => r.ticker && possibleTickers.includes(r.ticker),
+    const mentionedRankings = suppliedRankings.filter(
+      (ranking) =>
+        ranking.ticker !== null && possibleTickers.includes(ranking.ticker),
     );
 
     const mentionedHoldings =
-      portfolio?.holdings.filter((h) => possibleTickers.includes(h.ticker)) ?? [];
+      portfolio?.holdings.filter((holding) =>
+        possibleTickers.includes(holding.ticker),
+      ) ?? [];
 
-    const relevantNews = news.filter((n) => {
-      const tickers = Array.isArray(n.affected_tickers)
-        ? n.affected_tickers
+    const relevantNews = news.filter((article) => {
+      const tickers = Array.isArray(article.affected_tickers)
+        ? article.affected_tickers
         : [];
+
       return (
         possibleTickers.length === 0 ||
         tickers.some((ticker) => possibleTickers.includes(ticker))
       );
     });
 
+    const membershipContext = {
+      support_email: "sales@stockgpt.pro",
+      subscription_management:
+        "Users should use the StockGPT subscription/account page for self-service plan management when available.",
+      billing_rule:
+        "Do not invent billing, refund, coupon, or plan details. If the exact account answer is not available, direct the user to sales@stockgpt.pro.",
+    };
+
     const context = {
       user_status: "signed_in_subscribed",
-      latest_ranking_update: latestRankingUpdate,
       data_as_of: new Date().toISOString(),
+      latest_ranking_update: latestRankingUpdate,
+      question_intent: {
+        possible_tickers: possibleTickers,
+        membership_question: isMembershipQuestion,
+        learning_question: isLearningQuestion,
+      },
       rankings_context: {
-        total_rankings_supplied: rankings.length,
-        top_rankings: rankings.slice(0, 30),
+        total_rankings_supplied: suppliedRankings.length,
+        top_rankings: topRankings.slice(0, 40),
         mentioned_rankings: mentionedRankings,
-        note: "Top rankings list is limited, but mentioned_rankings and portfolio holdings are prioritised when available.",
+        note: "Top rankings are limited for context. Mentioned tickers are separately supplied when available.",
       },
       portfolio_context: portfolio
         ? {
@@ -479,46 +654,78 @@ export async function POST(req: NextRequest) {
             reason: "No saved portfolio found.",
           },
       news_context: {
-        latest_news: news.slice(0, 15),
-        relevant_news: relevantNews.slice(0, 10),
+        latest_news: news.slice(0, 20),
+        relevant_news: relevantNews.slice(0, 12),
       },
+      membership_context: membershipContext,
       interpretation_rules: {
         rank_percentile:
           "100 means rank #1 / best. 0 means bottom of ranked universe.",
+        score_percentile:
+          "Higher is better. Scores are relative to the supplied StockGPT ranking universe.",
         pnl: "P&L values are based on saved entry price, shares, and current StockGPT price context.",
+        action_alerts:
+          "Action alerts are stronger than event alerts. Event alerts mean something changed. Action alerts mean the system sees enough evidence to buy more, trim, sell, or review.",
         action_plan:
-          "Use each holding's action_plan triggers for stop-loss, take-profit, review dates, and sell/trim guidance.",
+          "Use each holding's action_plan triggers for stop-loss, take-profit, and review timing.",
         missing_data:
-          "If the answer requires data not supplied here, explicitly say what is missing.",
+          "If exact information is missing, state what is missing. Never invent numbers.",
       },
     };
 
     const systemPrompt = `
-You are Ask StockGPT, the built-in portfolio intelligence assistant for StockGPT.
+You are Ask StockGPT, the premium AI coach inside StockGPT.
 
-Your job:
-- Answer questions about the user's portfolio, holdings, rankings, AI scores, alerts, stop-loss/take-profit plans, review dates, sector exposure, P&L, and market/news context.
-- Be specific. Use ticker names, ranks, prices, allocation, P&L, action-plan levels, alert titles, and review timing when supplied.
-- When the user asks "should I sell", "should I trim", "when should I take profit", or "what should I do", give a practical decision framework using the supplied StockGPT action plan: Hold / Trim / Sell / Add / Review, with reasons.
-- Use portfolio context first, then rankings, then news.
-- Explain rank moves in places, not misleading percentages.
-- If a holding has critical alerts, weak rank, oversized allocation, overdue review, or a stop/exit trigger, surface that clearly.
-- If a holding is strong ranked, profitable, and has no critical alerts, avoid telling the user to panic sell.
-- For key dates, use added_at, last_reviewed_at, days_since_review, review triggers, and expected review cadence from the context.
+Identity and tone:
+- You are not a customer support bot. You are a calm, sharp, premium market coach.
+- Sound human, direct, and useful.
+- Start with the answer, then give evidence.
+- Use concise sections and plain English.
+- Be confident when the supplied data supports it. Be honest when it does not.
 
-Strict rules:
-- Use only the supplied app context. Do not invent prices, rankings, scores, dates, support/resistance levels, or news.
-- If exact information is missing, say so and say what the app would need to know.
+What you can answer:
+- Saved portfolio questions.
+- StockGPT rankings, ranks, scores, sectors, and ranking changes.
+- Portfolio alerts, action alerts, event alerts, stop-loss levels, take-profit levels, review dates, exposure, P&L, winners and weak holdings.
+- Recent market/news context supplied by the app.
+- General trading and investing concepts such as risk/reward, stop-losses, take-profit zones, diversification, position sizing, momentum, quality, valuation, drawdowns, and portfolio construction.
+- Membership, subscription, billing, and account-management questions.
+
+Rules for portfolio/ranking/news answers:
+- Use the supplied StockGPT app context first.
+- Do not invent prices, rankings, scores, dates, allocation, support/resistance, news, or account details.
+- If exact data is missing, say what is missing.
 - Do not guarantee returns.
 - Do not claim to be a regulated financial adviser.
-- Do not give vague generic responses when portfolio context is available.
-- Keep the answer concise but decisive: start with the conclusion, then the evidence.
-- Use plain English and short sections.
+- Do not overreact. A sell/buy-more answer should require evidence from the supplied action alerts, rankings, score trend, news, price action, or allocation.
+- Action alerts are more important than event alerts.
+- Event alerts mean "something changed"; action alerts mean "do something or review now".
+- If no action alert exists, do not force a buy/sell recommendation. Explain what to watch.
+
+Rules for general trading theory:
+- You may explain general concepts using established investment logic.
+- Keep it educational, practical, and tied back to how a user could apply it inside StockGPT.
+- Avoid pretending to know current market facts unless they are supplied in context.
+
+Rules for membership/account questions:
+- Give general guidance only.
+- Do not invent pricing, refund eligibility, billing status, coupons, invoices, or plan entitlements unless supplied.
+- For uncertain or account-specific membership questions, direct the user to sales@stockgpt.pro.
+- Mention the subscription/account page when useful.
+
+Answer style:
+- Use short headings.
+- Use bullet points when useful.
+- Avoid long disclaimers.
+- End with the next practical step.
 `.trim();
 
     const messages = [
       { role: "system" as const, content: systemPrompt },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
+      ...history.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
       {
         role: "user" as const,
         content: `
@@ -544,8 +751,8 @@ ${JSON.stringify(context, null, 2)}
         body: JSON.stringify({
           model,
           messages,
-          temperature: 0.15,
-          max_tokens: 1100,
+          temperature: 0.22,
+          max_tokens: 1300,
         }),
       },
     );
@@ -556,11 +763,12 @@ ${JSON.stringify(context, null, 2)}
 
     if (!response.ok) {
       console.error("[ask-stockgpt] OpenRouter error", data);
+
       return NextResponse.json(
         {
           answer:
             data?.error?.message ??
-            "Ask StockGPT could not get an AI response. Check your OpenRouter API key, model name, rate limits, and Vercel environment variables.",
+            "Ask StockGPT could not get an AI response. Check your OpenRouter API key, model name, rate limits and Vercel environment variables. For membership or billing questions, contact sales@stockgpt.pro.",
         },
         { status: 500 },
       );
@@ -572,7 +780,7 @@ ${JSON.stringify(context, null, 2)}
       return NextResponse.json(
         {
           answer:
-            "Ask StockGPT received an empty response. Try asking again with a more specific stock, portfolio, or market question.",
+            "Ask StockGPT received an empty response. Try asking again with a more specific portfolio, ranking, market, trading concept, or membership question.",
         },
         { status: 500 },
       );
@@ -581,10 +789,11 @@ ${JSON.stringify(context, null, 2)}
     return NextResponse.json({ answer });
   } catch (error) {
     console.error("[ask-stockgpt]", error);
+
     return NextResponse.json(
       {
         answer:
-          "Ask StockGPT hit an unexpected server error. Check the Vercel function logs for details.",
+          "Ask StockGPT hit an unexpected server error. Check the Vercel function logs. For membership or billing questions, contact sales@stockgpt.pro.",
       },
       { status: 500 },
     );
