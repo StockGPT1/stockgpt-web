@@ -381,8 +381,8 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
     const recent = closes.slice(-126);
     const { swingLows, swingHighs } = detectSwingLevels(recent);
     const ma50 = average(closes.slice(-50));
-    const last45 = closes.slice(-45);
-    const recentAbsMoves = last45.slice(1).map((price, index) => {
+    const last45: number[] = closes.slice(-45);
+    const recentAbsMoves = last45.slice(1).map((price: number, index: number) => {
       const previous = last45[index];
       return previous > 0 ? Math.abs((price - previous) / previous) : 0;
     });
