@@ -24,8 +24,10 @@ function buildAlertKey(ticker: string, type: string, dateStr: string): string {
   const d = new Date(dateStr);
   const year = d.getFullYear();
   const week = Math.floor(
-    (d.getTime() - new Date(year, 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)
+    (d.getTime() - new Date(year, 0, 1).getTime()) /
+      (7 * 24 * 60 * 60 * 1000),
   );
+
   return `${ticker}:${type}:${year}w${week}`;
 }
 
@@ -55,31 +57,38 @@ function buildTriggeredPriceNotification({
   today: string;
 }): Notification | null {
   const level = extractDollarLevel(trigger.condition);
-  if (!level || !Number.isFinite(currentPrice) || currentPrice <= 0) return null;
+
+  if (!level || !Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return null;
+  }
 
   if (trigger.type === "take_profit" && currentPrice >= level) {
     return {
       key: buildTriggerKey(ticker, "take_profit_hit", level),
       ticker,
       company,
-      type: "price_target",
+      type: "price_event",
       severity: "success",
       title: `${ticker} has hit its take-profit area`,
-      message: `Current price is $${currentPrice.toFixed(2)}, above the take-profit level near $${level.toFixed(2)}.`,
+      message: `Current price is $${currentPrice.toFixed(
+        2,
+      )}, above the take-profit level near $${level.toFixed(2)}.`,
       recommendation: trigger.action,
       createdAt: today,
     };
   }
 
-  if ((trigger.type === "stop_sell" || trigger.type === "trailing_stop") && currentPrice <= level) {
+  if (trigger.type === "stop_loss" && currentPrice <= level) {
     return {
       key: buildTriggerKey(ticker, "stop_loss_hit", level),
       ticker,
       company,
-      type: "price_stop",
+      type: "price_event",
       severity: "critical",
       title: `${ticker} has hit its stop-loss area`,
-      message: `Current price is $${currentPrice.toFixed(2)}, below the risk level near $${level.toFixed(2)}.`,
+      message: `Current price is $${currentPrice.toFixed(
+        2,
+      )}, below the risk level near $${level.toFixed(2)}.`,
       recommendation: trigger.action,
       createdAt: today,
     };
@@ -98,7 +107,11 @@ export async function getUserNotifications({
   unreadCount: number;
 }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return { unread: [], read: [], unreadCount: 0 };
 
   const { data: portfolio } = await supabase
@@ -111,11 +124,14 @@ export async function getUserNotifications({
 
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
-    .select("ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct")
+    .select(
+      "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct",
+    )
     .eq("portfolio_id", portfolio.id);
 
-  if (!holdingsData || holdingsData.length === 0)
+  if (!holdingsData || holdingsData.length === 0) {
     return { unread: [], read: [], unreadCount: 0 };
+  }
 
   const riskTolerance = (portfolio.risk_tolerance as RiskTolerance) ?? null;
 
@@ -130,7 +146,7 @@ export async function getUserNotifications({
       added_at: h.added_at as string,
       last_reviewed_at: h.last_reviewed_at as string,
     })),
-    riskTolerance
+    riskTolerance,
   );
 
   const { data: dismissalsData } = await supabase
@@ -139,19 +155,20 @@ export async function getUserNotifications({
     .eq("user_id", user.id);
 
   const dismissedKeys = new Set(
-    (dismissalsData ?? []).map((d) => d.alert_key as string)
+    (dismissalsData ?? []).map((dismissal) => dismissal.alert_key as string),
   );
 
   const today = new Date().toISOString();
   const allNotifications: Notification[] = [];
 
-  enriched.forEach((h) => {
-    h.alerts.forEach((alert: HoldingAlert) => {
-      const key = buildAlertKey(h.ticker, alert.type, today);
+  enriched.forEach((holding) => {
+    holding.alerts.forEach((alert: HoldingAlert) => {
+      const key = buildAlertKey(holding.ticker, alert.type, today);
+
       allNotifications.push({
         key,
-        ticker: h.ticker,
-        company: h.company,
+        ticker: holding.ticker,
+        company: holding.company,
         type: alert.type,
         severity: alert.severity,
         title: alert.title,
@@ -161,11 +178,11 @@ export async function getUserNotifications({
       });
     });
 
-    h.triggers.forEach((trigger) => {
+    holding.triggers.forEach((trigger) => {
       const notification = buildTriggeredPriceNotification({
-        ticker: h.ticker,
-        company: h.company,
-        currentPrice: h.currentPrice,
+        ticker: holding.ticker,
+        company: holding.company,
+        currentPrice: holding.currentPrice,
         trigger,
         today,
       });
@@ -174,17 +191,29 @@ export async function getUserNotifications({
     });
   });
 
-  const severityOrder: Record<string, number> = {
-    critical: 0, warning: 1, info: 2, success: 3,
+  const severityOrder: Record<AlertSeverity, number> = {
+    critical: 0,
+    warning: 1,
+    info: 2,
+    success: 3,
   };
+
   allNotifications.sort((a, b) => {
-    const s = severityOrder[a.severity] - severityOrder[b.severity];
-    return s !== 0 ? s : a.ticker.localeCompare(b.ticker);
+    const severityDifference = severityOrder[a.severity] - severityOrder[b.severity];
+
+    return severityDifference !== 0
+      ? severityDifference
+      : a.ticker.localeCompare(b.ticker);
   });
 
-  const unread = allNotifications.filter((n) => !dismissedKeys.has(n.key));
+  const unread = allNotifications.filter(
+    (notification) => !dismissedKeys.has(notification.key),
+  );
+
   const read = includeDismissed
-    ? allNotifications.filter((n) => dismissedKeys.has(n.key))
+    ? allNotifications.filter((notification) =>
+        dismissedKeys.has(notification.key),
+      )
     : [];
 
   return { unread, read, unreadCount: unread.length };
