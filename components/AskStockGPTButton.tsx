@@ -29,31 +29,21 @@ type StarterPrompt = {
   mode: Mode;
 };
 
+const welcomeMessage: ChatMessage = {
+  role: "assistant",
+  content:
+    "I’m your StockGPT coach. Ask me about your portfolio, rankings, alerts, market news, stop-losses, take-profit levels, trading concepts, membership questions, or even something slightly messy. I’ll work out what you mean and keep the conversation flowing.",
+};
+
 const modeOptions: Array<{
   mode: Mode;
   label: string;
   description: string;
 }> = [
-  {
-    mode: "portfolio",
-    label: "Portfolio",
-    description: "Holdings, alerts, P&L",
-  },
-  {
-    mode: "rankings",
-    label: "Rankings",
-    description: "Scores, sectors, leaders",
-  },
-  {
-    mode: "learn",
-    label: "Learn",
-    description: "Trading concepts",
-  },
-  {
-    mode: "account",
-    label: "Account",
-    description: "Membership and billing",
-  },
+  { mode: "portfolio", label: "Portfolio", description: "Holdings, alerts, P&L" },
+  { mode: "rankings", label: "Rankings", description: "Scores, sectors, leaders" },
+  { mode: "learn", label: "Learn", description: "Trading concepts" },
+  { mode: "account", label: "Account", description: "Membership and billing" },
 ];
 
 const starterPrompts: StarterPrompt[] = [
@@ -66,8 +56,7 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Action plan",
     label: "Trim, hold, sell, or buy more",
-    prompt:
-      "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
+    prompt: "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
     mode: "portfolio",
   },
   {
@@ -84,7 +73,7 @@ const starterPrompts: StarterPrompt[] = [
   },
   {
     eyebrow: "Rankings",
-    label: "Compare my holdings to the rankings",
+    label: "Compare my holdings to rankings",
     prompt: "How do my current holdings compare to the top-ranked stocks?",
     mode: "rankings",
   },
@@ -97,8 +86,7 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Learning",
     label: "Stop-loss theory",
-    prompt:
-      "Explain how stop-losses should be used without getting shaken out too early.",
+    prompt: "Explain how stop-losses should be used without getting shaken out too early.",
     mode: "learn",
   },
   {
@@ -110,8 +98,7 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Account",
     label: "Subscription help",
-    prompt:
-      "Who should I contact if I have a StockGPT subscription or payment issue?",
+    prompt: "Who should I contact if I have a StockGPT subscription or payment issue?",
     mode: "account",
   },
 ];
@@ -206,9 +193,7 @@ function PremiumOrb() {
   return (
     <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#ddb159]/40 bg-[#092418] shadow-[0_10px_35px_rgba(221,177,89,0.18)]">
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.28),transparent_24%),radial-gradient(circle_at_70%_80%,rgba(221,177,89,0.22),transparent_42%)]" />
-      <span className="relative text-[15px] font-black text-[#ddb159]">
-        S
-      </span>
+      <span className="relative text-[15px] font-black text-[#ddb159]">S</span>
     </span>
   );
 }
@@ -404,14 +389,9 @@ export function AskStockGPTButton({
 }: AskStockGPTButtonProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      content:
-        "I’m your StockGPT coach. Ask me about your portfolio, rankings, alerts, market news, stop-losses, take-profit levels, trading concepts, or membership questions. I’ll start with the practical conclusion, then explain the evidence.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>("portfolio");
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -442,6 +422,54 @@ export function AskStockGPTButton({
   useEffect(() => {
     if (!open || locked) return;
 
+    let cancelled = false;
+
+    async function loadHistory() {
+      setHistoryLoading(true);
+
+      try {
+        const response = await fetch("/api/ask-stockgpt", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const data = (await response.json().catch(() => null)) as {
+          messages?: ChatMessage[];
+        } | null;
+
+        if (cancelled) return;
+
+        const savedMessages = Array.isArray(data?.messages)
+          ? data.messages.filter(
+              (message): message is ChatMessage =>
+                message !== null &&
+                typeof message === "object" &&
+                (message.role === "user" || message.role === "assistant") &&
+                typeof message.content === "string" &&
+                message.content.trim().length > 0,
+            )
+          : [];
+
+        setMessages(savedMessages.length > 0 ? savedMessages : [welcomeMessage]);
+      } catch {
+        if (!cancelled) setMessages([welcomeMessage]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }
+
+    void loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, locked]);
+
+  useEffect(() => {
+    if (!open || locked) return;
+
     const timeout = window.setTimeout(() => {
       textareaRef.current?.focus();
     }, 120);
@@ -452,13 +480,25 @@ export function AskStockGPTButton({
   useEffect(() => {
     if (locked) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, locked]);
+  }, [messages, loading, historyLoading, locked]);
+
+  async function clearHistory() {
+    setMessages([welcomeMessage]);
+
+    try {
+      await fetch("/api/ask-stockgpt", {
+        method: "DELETE",
+      });
+    } catch {
+      // The local chat still clears even if the server request fails.
+    }
+  }
 
   async function sendQuestion(nextQuestion?: string) {
     if (locked) return;
 
     const text = (nextQuestion ?? question).trim();
-    if (!text || loading) return;
+    if (!text || loading || historyLoading) return;
 
     setQuestion("");
     setLoading(true);
@@ -479,7 +519,7 @@ export function AskStockGPTButton({
         },
         body: JSON.stringify({
           question: text,
-          messages: nextMessages.slice(-10),
+          messages: nextMessages.slice(-14),
         }),
       });
 
@@ -629,9 +669,21 @@ export function AskStockGPTButton({
                 </div>
 
                 <div className="shrink-0 border-t border-[#ddb159]/12 px-5 py-3 xl:px-6 xl:py-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]/70">
+                      Chat log
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void clearHistory()}
+                      className="rounded-full border border-[#ddb159]/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70 transition hover:bg-[#ddb159]/10 hover:text-[#ddb159]"
+                    >
+                      Clear
+                    </button>
+                  </div>
                   <p className="text-[10.5px] font-medium leading-5 text-[#fbf4e5]/38">
-                    Uses live StockGPT app context where available. For billing,
-                    refunds or unclear account queries, use{" "}
+                    Last 7 days are saved. For billing, refunds or unclear
+                    account queries, use{" "}
                     <span className="font-bold text-[#ddb159]/75">
                       sales@stockgpt.pro
                     </span>
@@ -697,6 +749,14 @@ export function AskStockGPTButton({
                         </button>
                       );
                     })}
+
+                    <button
+                      type="button"
+                      onClick={() => void clearHistory()}
+                      className="shrink-0 rounded-full border border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] px-3 py-2 text-[11px] font-black text-[#ddb159]/75"
+                    >
+                      Clear log
+                    </button>
                   </div>
 
                   {showMobilePrompts && (
@@ -722,6 +782,14 @@ export function AskStockGPTButton({
 
                 <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
                   <div className="mx-auto grid max-w-3xl gap-3">
+                    {historyLoading && (
+                      <div className="flex justify-center">
+                        <div className="rounded-full border border-[#ddb159]/18 bg-[#fbf4e5]/[0.045] px-4 py-2 text-[11px] font-bold text-[#fbf4e5]/58">
+                          Loading your 7-day chat log…
+                        </div>
+                      </div>
+                    )}
+
                     {messages.map((message, index) => (
                       <MessageBubble
                         key={`${message.role}-${index}`}
@@ -742,7 +810,7 @@ export function AskStockGPTButton({
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-[#07170f]/72">
-                            <span>Reviewing rankings, portfolio and news</span>
+                            <span>Reading the conversation and app context</span>
                             <span className="flex gap-1">
                               <span className="size-1.5 animate-bounce rounded-full bg-[#07170f]/45 [animation-delay:0ms]" />
                               <span className="size-1.5 animate-bounce rounded-full bg-[#07170f]/45 [animation-delay:120ms]" />
@@ -772,14 +840,14 @@ export function AskStockGPTButton({
                           void sendQuestion();
                         }
                       }}
-                      placeholder="Ask about your portfolio, rankings, market news, trading theory, alerts, membership..."
+                      placeholder="Ask naturally. Imperfect grammar is fine..."
                       rows={2}
                       className="max-h-28 min-h-[50px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
                     />
 
                     <div className="flex items-center justify-between gap-2 px-2 pb-1">
                       <p className="hidden text-[10px] font-semibold text-[#fbf4e5]/35 sm:block">
-                        Enter to send · Shift Enter for a new line
+                        Enter to send · Shift Enter for a new line · 7-day log
                       </p>
 
                       <div className="flex flex-1 items-center justify-end gap-2">
@@ -793,7 +861,7 @@ export function AskStockGPTButton({
 
                         <button
                           type="submit"
-                          disabled={!question.trim() || loading}
+                          disabled={!question.trim() || loading || historyLoading}
                           className="inline-flex h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:h-10 sm:px-5 sm:text-[12px]"
                         >
                           {loading ? "Thinking" : "Send"}
