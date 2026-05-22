@@ -124,12 +124,7 @@ function compactNews(rows: NewsRow[]) {
 }
 
 function compactHolding(h: EnrichedHolding) {
-  const stopTrigger = h.triggers.find(
-    (t) =>
-      t.type === "stop_sell" ||
-      t.type === "trailing_stop" ||
-      t.type === "exit_all",
-  );
+  const stopTrigger = h.triggers.find((t) => t.type === "stop_loss");
   const takeProfitTrigger = h.triggers.find((t) => t.type === "take_profit");
   const reviewTrigger = h.triggers.find((t) => t.type === "review");
 
