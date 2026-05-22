@@ -909,11 +909,13 @@ export async function enrichHoldings(
   const newsByTicker: Record<string, { positive: number; negative: number; latestPositiveHeadline: string | null; latestNegativeHeadline: string | null }> = {};
 
   ((recentNews ?? []) as any[]).forEach((article) => {
-    const affectedTickers = Array.isArray(article.affected_tickers) ? article.affected_tickers.map((ticker: unknown) => String(ticker)) : [];
+    const affectedTickers: string[] = Array.isArray(article.affected_tickers)
+      ? article.affected_tickers.map((ticker: unknown) => String(ticker))
+      : [];
     const impact = String(article.impact ?? "").toLowerCase();
     const title = typeof article.title === "string" ? article.title : null;
 
-    affectedTickers.forEach((ticker) => {
+    affectedTickers.forEach((ticker: string) => {
       if (!newsByTicker[ticker]) newsByTicker[ticker] = { positive: 0, negative: 0, latestPositiveHeadline: null, latestNegativeHeadline: null };
       if (impact === "positive") {
         newsByTicker[ticker].positive += 1;
