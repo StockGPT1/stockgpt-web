@@ -38,26 +38,31 @@ const welcomeMessage: ChatMessage = {
 const modeOptions: Array<{
   mode: Mode;
   label: string;
+  shortLabel: string;
   description: string;
 }> = [
   {
     mode: "portfolio",
     label: "Portfolio",
+    shortLabel: "Portfolio",
     description: "Holdings, alerts, P&L",
   },
   {
     mode: "rankings",
     label: "Rankings",
+    shortLabel: "Rank",
     description: "Scores, sectors, leaders",
   },
   {
     mode: "learn",
     label: "Learn",
+    shortLabel: "Learn",
     description: "Trading concepts",
   },
   {
     mode: "account",
     label: "Account",
+    shortLabel: "Account",
     description: "Membership and billing",
   },
 ];
@@ -65,7 +70,7 @@ const modeOptions: Array<{
 const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Portfolio coach",
-    label: "Find my weakest holding",
+    label: "Find weakest holding",
     prompt: "What is my weakest holding and what should I do about it?",
     mode: "portfolio",
   },
@@ -78,19 +83,19 @@ const starterPrompts: StarterPrompt[] = [
   },
   {
     eyebrow: "Risk control",
-    label: "Stop-loss and take-profit levels",
+    label: "Stop-loss and take-profit",
     prompt: "What are the key stop-loss and take-profit levels in my portfolio?",
     mode: "portfolio",
   },
   {
     eyebrow: "Rankings",
-    label: "Explain today’s strongest stocks",
+    label: "Strongest stocks today",
     prompt: "Which stocks are ranking strongest right now and why?",
     mode: "rankings",
   },
   {
     eyebrow: "Rankings",
-    label: "Compare my holdings to rankings",
+    label: "Compare my holdings",
     prompt: "How do my current holdings compare to the top-ranked stocks?",
     mode: "rankings",
   },
@@ -151,11 +156,14 @@ function renderMessageContent(content: string) {
     if (bulletBuffer.length === 0) return;
 
     blocks.push(
-      <ul key={`bullets-${blocks.length}`} className="mt-2 grid gap-1.5 pl-4">
+      <ul
+        key={`bullets-${blocks.length}`}
+        className="mt-2 grid gap-1.5 pl-4"
+      >
         {bulletBuffer.map((item, index) => (
           <li
             key={`${item}-${index}`}
-            className="list-disc text-[13px] leading-relaxed sm:text-[13.5px]"
+            className="list-disc text-[13px] leading-relaxed"
           >
             {renderInlineMarkdown(item)}
           </li>
@@ -185,7 +193,7 @@ function renderMessageContent(content: string) {
       blocks.push(
         <p
           key={`heading-${index}`}
-          className="mt-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[13px]"
+          className="mt-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159]"
         >
           {trimmed.replace(/^###\s+/, "")}
         </p>,
@@ -194,10 +202,7 @@ function renderMessageContent(content: string) {
     }
 
     blocks.push(
-      <p
-        key={`paragraph-${index}`}
-        className="mt-2 text-[13px] leading-relaxed sm:text-[13.5px]"
-      >
+      <p key={`paragraph-${index}`} className="mt-2 text-[13px] leading-relaxed">
         {renderInlineMarkdown(trimmed)}
       </p>,
     );
@@ -241,7 +246,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     >
       <div
         className={[
-          "max-w-[92%] break-words rounded-[22px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:rounded-[24px] sm:px-4 md:max-w-[76%]",
+          "min-w-0 max-w-[88%] overflow-hidden break-words rounded-[22px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] md:max-w-[76%]",
+          "[overflow-wrap:anywhere]",
           isUser
             ? "rounded-br-md bg-[#ddb159] text-[#07170f]"
             : "rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] text-[#07170f]",
@@ -258,7 +264,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        <div className="[&>p:first-child]:mt-0">
+        <div className="min-w-0 [&>p:first-child]:mt-0">
           {renderMessageContent(message.content)}
         </div>
       </div>
@@ -266,23 +272,18 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function PromptCard({
+function DesktopPromptCard({
   starter,
   onClick,
-  compact = false,
 }: {
   starter: StarterPrompt;
   onClick: () => void;
-  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "group w-full rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10",
-        compact ? "px-3 py-2.5" : "px-3.5 py-3.5",
-      ].join(" ")}
+      className="group w-full rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.035] px-3 py-2.5 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10"
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
@@ -318,7 +319,7 @@ function LockedExperience({
         className="absolute inset-0 cursor-default"
       />
 
-      <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:max-w-5xl sm:rounded-[34px] lg:h-[min(820px,calc(100dvh-2.5rem))]">
+      <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:max-w-5xl sm:rounded-[34px] sm:border sm:border-[#ddb159]/25 lg:h-[min(820px,calc(100dvh-2.5rem))]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.18),transparent_32%),radial-gradient(circle_at_90%_10%,rgba(72,140,94,0.18),transparent_35%),linear-gradient(135deg,#06140d,#0b2417_48%,#06140d)]" />
 
         <button
@@ -437,20 +438,23 @@ export function AskStockGPTButton({
     return visibleStarters.slice(0, 2);
   }, [visibleStarters]);
 
-  const showMobilePrompts = messages.length <= 1 && !loading;
+  const showStarterCards = messages.length <= 1 && !loading && !historyLoading;
 
   useEffect(() => {
     if (!open) return;
 
     const originalOverflow = document.body.style.overflow;
     const originalOverscrollBehavior = document.body.style.overscrollBehavior;
+    const originalTouchAction = document.body.style.touchAction;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
 
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.overscrollBehavior = originalOverscrollBehavior;
+      document.body.style.touchAction = originalTouchAction;
     };
   }, [open]);
 
@@ -629,7 +633,7 @@ export function AskStockGPTButton({
             className="absolute inset-0 hidden cursor-default sm:block"
           />
 
-          <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none border-0 border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:w-full sm:rounded-[30px] sm:border xl:h-[min(860px,calc(100dvh-2.5rem))] xl:max-w-6xl xl:rounded-[36px]">
+          <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:w-full sm:rounded-[30px] sm:border sm:border-[#ddb159]/25 xl:h-[min(860px,calc(100dvh-2.5rem))] xl:max-w-6xl xl:rounded-[36px]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(221,177,89,0.18),transparent_30%),radial-gradient(circle_at_92%_14%,rgba(80,160,108,0.16),transparent_34%),linear-gradient(135deg,#06140d,#0a2015_48%,#06140d)]" />
 
             <div className="relative grid h-full min-h-0 w-full min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]">
@@ -692,10 +696,9 @@ export function AskStockGPTButton({
 
                     <div className="mt-3 grid gap-2">
                       {visibleStarters.slice(0, 3).map((starter) => (
-                        <PromptCard
+                        <DesktopPromptCard
                           key={starter.prompt}
                           starter={starter}
-                          compact
                           onClick={() => void sendQuestion(starter.prompt)}
                         />
                       ))}
@@ -729,42 +732,52 @@ export function AskStockGPTButton({
 
               <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden lg:col-start-2">
                 <header className="relative shrink-0 border-b border-[#ddb159]/14 px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    aria-label="Close Ask StockGPT"
-                    className="absolute right-2 top-2 grid size-9 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/75 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:right-3 sm:top-3 sm:size-10"
-                  >
-                    ×
-                  </button>
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <PremiumOrb small />
+                      <div className="min-w-0">
+                        <p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159] lg:hidden">
+                          Ask StockGPT
+                        </p>
+                        <p className="hidden text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159] lg:block">
+                          ✦ Portfolio intelligence
+                        </p>
+                        <h2 className="hidden text-[28px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] lg:mt-1 lg:block xl:text-[30px]">
+                          Ask StockGPT
+                        </h2>
+                        <p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45 lg:hidden">
+                          Portfolio intelligence coach
+                        </p>
+                      </div>
+                    </div>
 
-                  <div className="flex min-w-0 items-center gap-3 pr-11 lg:hidden">
-                    <PremiumOrb small />
-                    <div className="min-w-0">
-                      <p className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                        Ask StockGPT
-                      </p>
-                      <p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">
-                        Portfolio intelligence coach
-                      </p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void clearHistory()}
+                        className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 bg-[#06140d]/65 text-[11px] font-black uppercase text-[#ddb159]/75 transition hover:bg-[#ddb159]/10"
+                        aria-label="Clear Ask StockGPT chat log"
+                      >
+                        Clr
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClose}
+                        aria-label="Close Ask StockGPT"
+                        className="grid size-9 place-items-center rounded-full border border-[#ddb159]/30 bg-[#06140d]/75 text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:size-10"
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
 
-                  <div className="hidden pr-12 lg:block">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
-                      ✦ Portfolio intelligence
-                    </p>
-                    <h2 className="mt-1 text-[28px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[30px]">
-                      Ask StockGPT
-                    </h2>
-                  </div>
-
-                  <p className="mt-2 max-w-full truncate pr-11 text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:mt-3 sm:text-[13px] lg:pr-0">
+                  <p className="mt-2 line-clamp-2 max-w-full text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px]">
                     A premium market coach for your portfolio, rankings, news,
                     alerts, trading concepts and membership questions.
                   </p>
 
-                  <div className="mt-3 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 lg:hidden">
+                  <div className="mt-3 grid grid-cols-4 gap-1.5 lg:hidden">
                     {modeOptions.map((option) => {
                       const selected = activeMode === option.mode;
 
@@ -774,36 +787,30 @@ export function AskStockGPTButton({
                           type="button"
                           onClick={() => setActiveMode(option.mode)}
                           className={[
-                            "shrink-0 rounded-full border px-3 py-2 text-[11px] font-black transition",
+                            "min-w-0 rounded-full border px-1.5 py-2 text-center text-[10px] font-black transition",
                             selected
                               ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]"
                               : "border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/72",
                           ].join(" ")}
                         >
-                          {option.label}
+                          <span className="block truncate">
+                            {option.shortLabel}
+                          </span>
                         </button>
                       );
                     })}
-
-                    <button
-                      type="button"
-                      onClick={() => void clearHistory()}
-                      className="shrink-0 rounded-full border border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] px-3 py-2 text-[11px] font-black text-[#ddb159]/75"
-                    >
-                      Clear
-                    </button>
                   </div>
 
-                  {showMobilePrompts && (
-                    <div className="mt-2 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 lg:hidden">
+                  {showStarterCards && (
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 lg:hidden">
                       {mobileStarters.map((starter) => (
                         <button
                           key={starter.prompt}
                           type="button"
                           onClick={() => void sendQuestion(starter.prompt)}
-                          className="w-[220px] max-w-[70vw] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-3 py-2 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/76"
+                          className="min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-2.5 py-2 text-left text-[10px] font-bold leading-snug text-[#fbf4e5]/76"
                         >
-                          <span className="block truncate text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+                          <span className="block truncate text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70">
                             {starter.eyebrow}
                           </span>
                           <span className="mt-0.5 block truncate">
@@ -834,7 +841,7 @@ export function AskStockGPTButton({
 
                     {loading && (
                       <div className="flex justify-start">
-                        <div className="max-w-[92%] rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:rounded-[24px] sm:px-4 md:max-w-[76%]">
+                        <div className="max-w-[88%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] md:max-w-[76%]">
                           <div className="mb-1.5 flex min-w-0 items-center gap-2">
                             <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
                               S
@@ -862,7 +869,7 @@ export function AskStockGPTButton({
 
                 <form
                   onSubmit={handleSubmit}
-                  className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/92 p-2.5 sm:p-3 lg:p-4"
+                  className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-2.5 sm:p-3 lg:p-4"
                 >
                   <div className="mx-auto max-w-3xl rounded-[22px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)] sm:rounded-[26px]">
                     <textarea
@@ -877,7 +884,7 @@ export function AskStockGPTButton({
                       }}
                       placeholder="Ask naturally. Imperfect grammar is fine..."
                       rows={2}
-                      className="max-h-28 min-h-[48px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
+                      className="max-h-28 min-h-[46px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
                     />
 
                     <div className="flex min-w-0 items-center justify-between gap-2 px-2 pb-1">
