@@ -40,10 +40,26 @@ const modeOptions: Array<{
   label: string;
   description: string;
 }> = [
-  { mode: "portfolio", label: "Portfolio", description: "Holdings, alerts, P&L" },
-  { mode: "rankings", label: "Rankings", description: "Scores, sectors, leaders" },
-  { mode: "learn", label: "Learn", description: "Trading concepts" },
-  { mode: "account", label: "Account", description: "Membership and billing" },
+  {
+    mode: "portfolio",
+    label: "Portfolio",
+    description: "Holdings, alerts, P&L",
+  },
+  {
+    mode: "rankings",
+    label: "Rankings",
+    description: "Scores, sectors, leaders",
+  },
+  {
+    mode: "learn",
+    label: "Learn",
+    description: "Trading concepts",
+  },
+  {
+    mode: "account",
+    label: "Account",
+    description: "Membership and billing",
+  },
 ];
 
 const starterPrompts: StarterPrompt[] = [
@@ -56,7 +72,8 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Action plan",
     label: "Trim, hold, sell, or buy more",
-    prompt: "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
+    prompt:
+      "Which stocks in my portfolio should I trim, hold, sell, or buy more?",
     mode: "portfolio",
   },
   {
@@ -86,7 +103,8 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Learning",
     label: "Stop-loss theory",
-    prompt: "Explain how stop-losses should be used without getting shaken out too early.",
+    prompt:
+      "Explain how stop-losses should be used without getting shaken out too early.",
     mode: "learn",
   },
   {
@@ -98,7 +116,8 @@ const starterPrompts: StarterPrompt[] = [
   {
     eyebrow: "Account",
     label: "Subscription help",
-    prompt: "Who should I contact if I have a StockGPT subscription or payment issue?",
+    prompt:
+      "Who should I contact if I have a StockGPT subscription or payment issue?",
     mode: "account",
   },
 ];
@@ -166,7 +185,7 @@ function renderMessageContent(content: string) {
       blocks.push(
         <p
           key={`heading-${index}`}
-          className="mt-3 text-[13px] font-black uppercase tracking-[0.14em] text-[#ddb159]"
+          className="mt-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[13px]"
         >
           {trimmed.replace(/^###\s+/, "")}
         </p>,
@@ -189,11 +208,23 @@ function renderMessageContent(content: string) {
   return <>{blocks}</>;
 }
 
-function PremiumOrb() {
+function PremiumOrb({ small = false }: { small?: boolean }) {
   return (
-    <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#ddb159]/40 bg-[#092418] shadow-[0_10px_35px_rgba(221,177,89,0.18)]">
+    <span
+      className={[
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#ddb159]/40 bg-[#092418] shadow-[0_10px_35px_rgba(221,177,89,0.18)]",
+        small ? "size-8" : "size-9",
+      ].join(" ")}
+    >
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.28),transparent_24%),radial-gradient(circle_at_70%_80%,rgba(221,177,89,0.22),transparent_42%)]" />
-      <span className="relative text-[15px] font-black text-[#ddb159]">S</span>
+      <span
+        className={[
+          "relative font-black text-[#ddb159]",
+          small ? "text-[13px]" : "text-[15px]",
+        ].join(" ")}
+      >
+        S
+      </span>
     </span>
   );
 }
@@ -210,18 +241,18 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     >
       <div
         className={[
-          "max-w-[94%] break-words rounded-[24px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:px-4 md:max-w-[76%]",
+          "max-w-[92%] break-words rounded-[22px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:rounded-[24px] sm:px-4 md:max-w-[76%]",
           isUser
             ? "rounded-br-md bg-[#ddb159] text-[#07170f]"
             : "rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] text-[#07170f]",
         ].join(" ")}
       >
         {!isUser && (
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="grid size-5 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
+          <div className="mb-1.5 flex min-w-0 items-center gap-2">
+            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
               S
             </span>
-            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">
               StockGPT Coach
             </span>
           </div>
@@ -287,7 +318,7 @@ function LockedExperience({
         className="absolute inset-0 cursor-default"
       />
 
-      <div className="relative mx-auto grid h-[100dvh] w-full overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:max-w-5xl sm:rounded-[34px] lg:h-[min(820px,calc(100dvh-2.5rem))]">
+      <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:max-w-5xl sm:rounded-[34px] lg:h-[min(820px,calc(100dvh-2.5rem))]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.18),transparent_32%),radial-gradient(circle_at_90%_10%,rgba(72,140,94,0.18),transparent_35%),linear-gradient(135deg,#06140d,#0b2417_48%,#06140d)]" />
 
         <button
@@ -299,16 +330,16 @@ function LockedExperience({
           ×
         </button>
 
-        <div className="relative grid min-h-0 w-full lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex min-h-0 flex-col justify-between overflow-y-auto p-5 pt-16 sm:p-8 sm:pt-20 lg:p-10">
+        <div className="relative grid min-h-0 w-full max-w-full lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="flex min-h-0 min-w-0 flex-col justify-between overflow-y-auto p-5 pt-16 sm:p-8 sm:pt-20 lg:p-10">
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <PremiumOrb />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
+                  <p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
                     Premium intelligence
                   </p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">
+                  <p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">
                     Portfolio-aware AI coach
                   </p>
                 </div>
@@ -403,7 +434,7 @@ export function AskStockGPTButton({
   }, [activeMode]);
 
   const mobileStarters = useMemo(() => {
-    return visibleStarters.slice(0, 3);
+    return visibleStarters.slice(0, 2);
   }, [visibleStarters]);
 
   const showMobilePrompts = messages.length <= 1 && !loading;
@@ -412,10 +443,14 @@ export function AskStockGPTButton({
     if (!open) return;
 
     const originalOverflow = document.body.style.overflow;
+    const originalOverscrollBehavior = document.body.style.overscrollBehavior;
+
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
 
     return () => {
       document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscrollBehavior;
     };
   }, [open]);
 
@@ -490,7 +525,7 @@ export function AskStockGPTButton({
         method: "DELETE",
       });
     } catch {
-      // The local chat still clears even if the server request fails.
+      // Keep local clear even if the server request fails.
     }
   }
 
@@ -586,18 +621,18 @@ export function AskStockGPTButton({
       )}
 
       {open && !locked && (
-        <div className="fixed inset-0 z-[90] overflow-hidden bg-black/60 p-0 backdrop-blur-md sm:p-3 xl:p-5">
+        <div className="fixed inset-0 z-[90] h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden bg-black/60 p-0 backdrop-blur-md sm:p-3 xl:p-5">
           <button
             type="button"
             aria-label="Close Ask StockGPT"
             onClick={handleClose}
-            className="absolute inset-0 cursor-default"
+            className="absolute inset-0 hidden cursor-default sm:block"
           />
 
-          <div className="relative mx-auto grid h-[100dvh] w-full overflow-hidden rounded-none border border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:rounded-[30px] xl:h-[min(860px,calc(100dvh-2.5rem))] xl:max-w-6xl xl:rounded-[36px]">
+          <div className="relative mx-auto grid h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden rounded-none border-0 border-[#ddb159]/25 bg-[#06140d] text-[#fbf4e5] shadow-[0_35px_110px_rgba(0,0,0,0.72)] sm:h-[calc(100dvh-1.5rem)] sm:w-full sm:rounded-[30px] sm:border xl:h-[min(860px,calc(100dvh-2.5rem))] xl:max-w-6xl xl:rounded-[36px]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(221,177,89,0.18),transparent_30%),radial-gradient(circle_at_92%_14%,rgba(80,160,108,0.16),transparent_34%),linear-gradient(135deg,#06140d,#0a2015_48%,#06140d)]" />
 
-            <div className="relative grid h-full min-h-0 w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]">
+            <div className="relative grid h-full min-h-0 w-full min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]">
               <aside className="hidden min-h-0 border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto]">
                 <div className="shrink-0 px-5 pb-4 pt-5 xl:px-6 xl:pt-6">
                   <div className="flex items-center gap-3">
@@ -692,7 +727,7 @@ export function AskStockGPTButton({
                 </div>
               </aside>
 
-              <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] lg:col-start-2">
+              <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden lg:col-start-2">
                 <header className="relative shrink-0 border-b border-[#ddb159]/14 px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
                   <button
                     type="button"
@@ -703,10 +738,10 @@ export function AskStockGPTButton({
                     ×
                   </button>
 
-                  <div className="flex items-center gap-3 pr-11 lg:hidden">
-                    <PremiumOrb />
+                  <div className="flex min-w-0 items-center gap-3 pr-11 lg:hidden">
+                    <PremiumOrb small />
                     <div className="min-w-0">
-                      <p className="truncate text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
+                      <p className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
                         Ask StockGPT
                       </p>
                       <p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">
@@ -724,12 +759,12 @@ export function AskStockGPTButton({
                     </h2>
                   </div>
 
-                  <p className="mt-3 max-w-3xl pr-11 text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px] lg:pr-0">
+                  <p className="mt-2 max-w-full truncate pr-11 text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:mt-3 sm:text-[13px] lg:pr-0">
                     A premium market coach for your portfolio, rankings, news,
                     alerts, trading concepts and membership questions.
                   </p>
 
-                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+                  <div className="mt-3 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 lg:hidden">
                     {modeOptions.map((option) => {
                       const selected = activeMode === option.mode;
 
@@ -755,20 +790,20 @@ export function AskStockGPTButton({
                       onClick={() => void clearHistory()}
                       className="shrink-0 rounded-full border border-[#ddb159]/20 bg-[#fbf4e5]/[0.035] px-3 py-2 text-[11px] font-black text-[#ddb159]/75"
                     >
-                      Clear log
+                      Clear
                     </button>
                   </div>
 
                   {showMobilePrompts && (
-                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+                    <div className="mt-2 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 lg:hidden">
                       {mobileStarters.map((starter) => (
                         <button
                           key={starter.prompt}
                           type="button"
                           onClick={() => void sendQuestion(starter.prompt)}
-                          className="max-w-[240px] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-3 py-2 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/76"
+                          className="w-[220px] max-w-[70vw] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-3 py-2 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/76"
                         >
-                          <span className="block text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+                          <span className="block truncate text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
                             {starter.eyebrow}
                           </span>
                           <span className="mt-0.5 block truncate">
@@ -780,7 +815,7 @@ export function AskStockGPTButton({
                   )}
                 </header>
 
-                <main className="min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+                <main className="min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
                   <div className="mx-auto grid max-w-3xl gap-3">
                     {historyLoading && (
                       <div className="flex justify-center">
@@ -799,12 +834,12 @@ export function AskStockGPTButton({
 
                     {loading && (
                       <div className="flex justify-start">
-                        <div className="max-w-[94%] rounded-[24px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:px-4 md:max-w-[76%]">
-                          <div className="mb-1.5 flex items-center gap-2">
-                            <span className="grid size-5 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
+                        <div className="max-w-[92%] rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] sm:rounded-[24px] sm:px-4 md:max-w-[76%]">
+                          <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">
                               S
                             </span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">
+                            <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">
                               Analysing
                             </span>
                           </div>
@@ -842,11 +877,11 @@ export function AskStockGPTButton({
                       }}
                       placeholder="Ask naturally. Imperfect grammar is fine..."
                       rows={2}
-                      className="max-h-28 min-h-[50px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
+                      className="max-h-28 min-h-[48px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
                     />
 
-                    <div className="flex items-center justify-between gap-2 px-2 pb-1">
-                      <p className="hidden text-[10px] font-semibold text-[#fbf4e5]/35 sm:block">
+                    <div className="flex min-w-0 items-center justify-between gap-2 px-2 pb-1">
+                      <p className="hidden truncate text-[10px] font-semibold text-[#fbf4e5]/35 sm:block">
                         Enter to send · Shift Enter for a new line · 7-day log
                       </p>
 
