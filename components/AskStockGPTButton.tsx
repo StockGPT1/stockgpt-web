@@ -156,10 +156,7 @@ function renderMessageContent(content: string) {
     if (bulletBuffer.length === 0) return;
 
     blocks.push(
-      <ul
-        key={`bullets-${blocks.length}`}
-        className="mt-2 grid gap-1.5 pl-4"
-      >
+      <ul key={`bullets-${blocks.length}`} className="mt-2 grid gap-1.5 pl-4">
         {bulletBuffer.map((item, index) => (
           <li
             key={`${item}-${index}`}
@@ -445,16 +442,13 @@ export function AskStockGPTButton({
 
     const originalOverflow = document.body.style.overflow;
     const originalOverscrollBehavior = document.body.style.overscrollBehavior;
-    const originalTouchAction = document.body.style.touchAction;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
-    document.body.style.touchAction = "none";
 
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.overscrollBehavior = originalOverscrollBehavior;
-      document.body.style.touchAction = originalTouchAction;
     };
   }, [open]);
 
@@ -731,7 +725,7 @@ export function AskStockGPTButton({
               </aside>
 
               <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden lg:col-start-2">
-                <header className="relative shrink-0 border-b border-[#ddb159]/14 px-3 py-3 sm:px-4 lg:px-5 lg:py-4">
+                <header className="relative shrink-0 border-b border-[#ddb159]/14 px-4 pb-4 pt-5 sm:px-4 lg:px-5 lg:py-4">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <PremiumOrb small />
@@ -755,10 +749,10 @@ export function AskStockGPTButton({
                       <button
                         type="button"
                         onClick={() => void clearHistory()}
-                        className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 bg-[#06140d]/65 text-[11px] font-black uppercase text-[#ddb159]/75 transition hover:bg-[#ddb159]/10"
+                        className="inline-flex h-9 items-center justify-center rounded-full border border-[#ddb159]/25 bg-[#06140d]/65 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]/80 transition hover:bg-[#ddb159]/10"
                         aria-label="Clear Ask StockGPT chat log"
                       >
-                        Clr
+                        Clear
                       </button>
 
                       <button
@@ -772,12 +766,12 @@ export function AskStockGPTButton({
                     </div>
                   </div>
 
-                  <p className="mt-2 line-clamp-2 max-w-full text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px]">
+                  <p className="mt-3 max-w-full text-[12px] font-medium leading-5 text-[#fbf4e5]/52 sm:text-[13px]">
                     A premium market coach for your portfolio, rankings, news,
                     alerts, trading concepts and membership questions.
                   </p>
 
-                  <div className="mt-3 grid grid-cols-4 gap-1.5 lg:hidden">
+                  <div className="mt-4 grid grid-cols-4 gap-1.5 lg:hidden">
                     {modeOptions.map((option) => {
                       const selected = activeMode === option.mode;
 
@@ -802,18 +796,18 @@ export function AskStockGPTButton({
                   </div>
 
                   {showStarterCards && (
-                    <div className="mt-2 grid grid-cols-2 gap-1.5 lg:hidden">
+                    <div className="mt-3 grid grid-cols-2 gap-2 lg:hidden">
                       {mobileStarters.map((starter) => (
                         <button
                           key={starter.prompt}
                           type="button"
                           onClick={() => void sendQuestion(starter.prompt)}
-                          className="min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] px-2.5 py-2 text-left text-[10px] font-bold leading-snug text-[#fbf4e5]/76"
+                          className="min-h-[66px] min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.04] px-3 py-2.5 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
                         >
-                          <span className="block truncate text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70">
+                          <span className="block truncate text-[8px] font-black uppercase tracking-[0.13em] text-[#ddb159]/72">
                             {starter.eyebrow}
                           </span>
-                          <span className="mt-0.5 block truncate">
+                          <span className="mt-1 block line-clamp-2">
                             {starter.label}
                           </span>
                         </button>
@@ -869,9 +863,9 @@ export function AskStockGPTButton({
 
                 <form
                   onSubmit={handleSubmit}
-                  className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-2.5 sm:p-3 lg:p-4"
+                  className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-3 sm:p-3 lg:p-4"
                 >
-                  <div className="mx-auto max-w-3xl rounded-[22px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)] sm:rounded-[26px]">
+                  <div className="mx-auto max-w-3xl rounded-[24px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)] sm:rounded-[26px]">
                     <textarea
                       ref={textareaRef}
                       value={question}
@@ -884,7 +878,7 @@ export function AskStockGPTButton({
                       }}
                       placeholder="Ask naturally. Imperfect grammar is fine..."
                       rows={2}
-                      className="max-h-28 min-h-[46px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
+                      className="max-h-28 min-h-[54px] w-full resize-none bg-transparent px-3 py-2 text-[13px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34 sm:min-h-[58px] sm:text-[14px]"
                     />
 
                     <div className="flex min-w-0 items-center justify-between gap-2 px-2 pb-1">
@@ -904,7 +898,7 @@ export function AskStockGPTButton({
                         <button
                           type="submit"
                           disabled={!question.trim() || loading || historyLoading}
-                          className="inline-flex h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:h-10 sm:px-5 sm:text-[12px]"
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
                         >
                           {loading ? "Thinking" : "Send"}
                         </button>
