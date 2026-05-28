@@ -44,9 +44,6 @@ async function createCheckoutSession(request: Request) {
     mode: "subscription",
     customer_email: user.email,
     allow_promotion_codes: true,
-    consent_collection: {
-      terms_of_service: "required",
-    },
     line_items: [
       {
         price: priceId,
