@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
@@ -6,6 +7,13 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
+
+export const metadata: Metadata = {
+  title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
+  description:
+    "Explore StockGPT AI rankings for S&P 500 stocks using technical, fundamental and market data.",
+};
+
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
   moveClassName,

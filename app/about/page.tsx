@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+
+
+export const metadata: Metadata = {
+  title: "About StockGPT | AI Stock Ranking Methodology",
+  description:
+    "Learn how StockGPT, LLC ranks stocks using technical, fundamental, risk and market intelligence indicators.",
+};
 
 const indicatorGroups = [
   {

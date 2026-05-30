@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+
+
+export const metadata: Metadata = {
+  title: "Pricing | StockGPT AI Market Research Plans",
+  description:
+    "Choose a StockGPT plan for AI-powered stock rankings, portfolio insights and market research tools.",
+};
 
 type PricingSearchParams = {
   waitlist?: string;

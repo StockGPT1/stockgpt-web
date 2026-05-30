@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
@@ -8,6 +9,13 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
+
+export const metadata: Metadata = {
+  title: "Dashboard | StockGPT Portfolio Intelligence",
+  description:
+    "View your StockGPT dashboard with AI stock rankings, market movers, portfolio alerts and S&P 500 insights.",
+};
+
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
 } from "@/lib/rank-history";

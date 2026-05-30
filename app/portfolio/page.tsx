@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ManualPortfolioEntry } from "@/components/ManualPortfolioEntry";
@@ -5,6 +6,13 @@ import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { SavedPortfolio } from "@/components/SavedPortfolio";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+
+
+export const metadata: Metadata = {
+  title: "Portfolio Tracker | StockGPT AI Alerts",
+  description:
+    "Track your portfolio with StockGPT AI alerts, ranking changes, risk levels and market research insights.",
+};
 
 export default async function PortfolioPage({
   searchParams,

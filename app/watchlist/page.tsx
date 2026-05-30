@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { WatchlistRemoveButton } from "@/components/WatchlistRemoveButton";
 import { createClient } from "@/utils/supabase/server";
 import { calculateTradeLevels, type TradeLevels } from "@/lib/trading-levels";
+
+
+export const metadata: Metadata = {
+  title: "Watchlist | StockGPT Stock Monitoring",
+  description:
+    "Monitor stocks on your StockGPT watchlist with AI rankings, score changes and market intelligence.",
+};
 
 type WatchlistStock = {
   ticker: string;

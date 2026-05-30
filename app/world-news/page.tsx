@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { WorldNewsClient } from "@/components/WorldNewsClient";
 import { createClient } from "@/utils/supabase/server";
 import {
+
+export const metadata: Metadata = {
+  title: "World News | StockGPT Market Intelligence",
+  description:
+    "Follow global market news, sentiment and AI-assisted summaries from StockGPT.",
+};
+
   analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
   type BaseNewsArticle,

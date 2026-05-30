@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { EmailNewsDigestToggle } from "@/components/EmailNewsDigestToggle";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
+
+
+export const metadata: Metadata = {
+  title: "Account Settings | StockGPT",
+  description:
+    "Manage your StockGPT account, subscription and platform settings.",
+};
 
 type Profile = {
   subscription_status: string | null;

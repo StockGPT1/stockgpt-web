@@ -7,7 +7,10 @@ const iconVersion = "30";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
-  title: "StockGPT — AI Stock Rankings & Portfolio Builder",
+  title: {
+    default: "StockGPT — AI Stock Rankings & Portfolio Builder",
+    template: "%s | StockGPT",
+  },
   description:
     "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
   manifest: `/site.webmanifest?v=${iconVersion}`,
