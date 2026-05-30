@@ -19,7 +19,11 @@ export function LegalFooterLinks({
   ] as const;
 
   return (
-    <div className={["flex flex-wrap gap-3 text-sm font-bold", className].join(" ")}>
+    <div className={["flex flex-wrap items-center justify-center gap-3 text-sm font-bold", className].join(" ")}>
+      <span className="font-semibold opacity-70">
+        StockGPT LLC
+      </span>
+
       {links.map(([label, href]) => (
         <Link
           key={href}
