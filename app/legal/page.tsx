@@ -3,9 +3,9 @@ import Link from "next/link";
 import { LegalCandleScrollbar } from "@/components/LegalCandleScrollbar";
 
 export const metadata: Metadata = {
-  title: "Legal | StockGPT",
+  title: "Legal | StockGPT, LLC",
   description:
-    "StockGPT legal terms, subscription agreement, privacy policy, cookie policy, investment disclaimer, and affiliate terms.",
+    "StockGPT, LLC legal terms, subscription agreement, privacy policy, cookie policy, investment disclaimer, and affiliate terms.",
 };
 
 const lastUpdated = "17 May 2026";
@@ -86,7 +86,7 @@ export default function LegalPage() {
             href="/"
             className="text-sm font-black uppercase tracking-[0.18em] text-[#ddb159]"
           >
-            ✦ StockGPT
+            ✦ StockGPT, LLC
           </Link>
 
           <nav className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/58 sm:text-xs">
@@ -116,11 +116,11 @@ export default function LegalPage() {
           </p>
 
           <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-[-0.055em] text-[#faf6f0] sm:text-6xl">
-            StockGPT legal documents.
+            StockGPT, LLC legal documents.
           </h1>
 
           <p className="mt-5 max-w-3xl text-sm font-medium leading-7 text-[#faf6f0]/58">
-            Last updated: {lastUpdated}. These terms are written for StockGPT,
+            Last updated: {lastUpdated}. These terms are written for StockGPT, LLC,
             a subscription-based AI stock research and ranking platform. They
             are not a substitute for review by a qualified solicitor or
             regulatory compliance adviser.
@@ -135,35 +135,40 @@ export default function LegalPage() {
             eyebrow="Agreement 1"
           >
             <p>
-              These Terms of Service govern your access to and use of StockGPT,
+              These Terms of Service govern your access to and use of StockGPT, LLC,
               including the website, dashboard, rankings, portfolio tools, AI
               chatbot, market news, reports, emails, subscriptions and any
-              related services operated under the StockGPT brand.
+              related services operated under the StockGPT, LLC brand.
             </p>
 
             <p>
-              The service is operated by StockGPT, a company
-              based in the United Kingdom.
+              The service is operated by StockGPT, LLC, a Delaware limited
+              liability company. Our mailing address is 2810 N Church St STE
+              88611, Wilmington, DE 19802.
+            </p>
+
+            <p>
+              Mailing address: 2810 N Church St STE 88611, Wilmington, DE 19802.
             </p>
 
             <Subheading>1. Acceptance of these Terms</Subheading>
             <p>
               By creating an account, accessing the website, starting a free or
               paid subscription, using the dashboard, submitting an affiliate
-              application, or otherwise using StockGPT, you agree to these
+              application, or otherwise using StockGPT, LLC, you agree to these
               Terms. If you do not agree, you must not use the service.
             </p>
 
-            <Subheading>2. What StockGPT provides</Subheading>
+            <Subheading>2. What StockGPT, LLC provides</Subheading>
             <p>
-              StockGPT provides AI-assisted market research tools, stock ranking
+              StockGPT, LLC provides AI-assisted market research tools, stock ranking
               outputs, portfolio research features, market-news summaries,
-              educational analytics and model-generated information. StockGPT
+              educational analytics and model-generated information. StockGPT, LLC
               is designed to help users organise and research market information.
             </p>
 
             <p>
-              StockGPT does not provide brokerage services, order execution,
+              StockGPT, LLC does not provide brokerage services, order execution,
               custody, regulated financial advice, tax advice, legal advice or
               personalised investment recommendations. We do not assess whether
               any investment is suitable for your personal circumstances.
@@ -171,8 +176,8 @@ export default function LegalPage() {
 
             <Subheading>3. No investment advice</Subheading>
             <p>
-              All content on StockGPT is provided for informational and
-              educational purposes only. Nothing on StockGPT is financial advice,
+              All content on StockGPT, LLC is provided for informational and
+              educational purposes only. Nothing on StockGPT, LLC is financial advice,
               investment advice, tax advice, legal advice, a personal
               recommendation, or a recommendation to buy, sell, hold, short or
               otherwise trade any security, instrument, asset or investment.
@@ -187,7 +192,7 @@ export default function LegalPage() {
 
             <Subheading>4. Model outputs and AI limitations</Subheading>
             <p>
-              StockGPT uses quantitative models, third-party data, AI systems and
+              StockGPT, LLC uses quantitative models, third-party data, AI systems and
               automated processing to generate rankings, scores, summaries and
               research outputs. These outputs may be incomplete, delayed,
               inaccurate, misinterpreted, affected by data-provider errors, or
@@ -205,8 +210,8 @@ export default function LegalPage() {
             <Subheading>5. Eligibility</Subheading>
             <p>
               You must be at least 18 years old and legally capable of entering
-              into a binding agreement to use StockGPT. You must not use
-              StockGPT where doing so would breach any law, regulation or rule
+              into a binding agreement to use StockGPT, LLC. You must not use
+              StockGPT, LLC where doing so would breach any law, regulation or rule
               applicable to you.
             </p>
 
@@ -221,7 +226,7 @@ export default function LegalPage() {
             <Subheading>7. Acceptable use</Subheading>
             <p>You must not:</p>
             <List>
-              <li>use StockGPT for unlawful, fraudulent or harmful purposes;</li>
+              <li>use StockGPT, LLC for unlawful, fraudulent or harmful purposes;</li>
               <li>
                 copy, scrape, reverse-engineer or reproduce our rankings, models
                 or interface;
@@ -235,16 +240,16 @@ export default function LegalPage() {
               </li>
               <li>use outputs as the sole basis for investment decisions;</li>
               <li>upload malware, spam, malicious scripts or harmful content;</li>
-              <li>misrepresent your affiliation with StockGPT;</li>
+              <li>misrepresent your affiliation with StockGPT, LLC;</li>
               <li>
-                use StockGPT to provide regulated advice unless you are properly
+                use StockGPT, LLC to provide regulated advice unless you are properly
                 authorised to do so.
               </li>
             </List>
 
             <Subheading>8. Intellectual property</Subheading>
             <p>
-              StockGPT, our branding, interface, ranking methodology,
+              StockGPT, LLC, our branding, interface, ranking methodology,
               compilation of data, copy, graphics, software, workflows, product
               structure, model presentation and dashboard design are owned by us
               or licensed to us. You receive a limited, revocable,
@@ -255,7 +260,7 @@ export default function LegalPage() {
 
             <Subheading>9. Third-party data and services</Subheading>
             <p>
-              StockGPT may rely on third-party providers for market data, news,
+              StockGPT, LLC may rely on third-party providers for market data, news,
               authentication, payments, hosting, analytics, AI functionality and
               infrastructure. We are not responsible for third-party outages,
               delays, inaccuracies or changes.
@@ -263,7 +268,7 @@ export default function LegalPage() {
 
             <Subheading>10. OpenAI and AI-provider disclaimer</Subheading>
             <p>
-              StockGPT is independent. StockGPT is not affiliated with, endorsed
+              StockGPT, LLC is independent. StockGPT, LLC is not affiliated with, endorsed
               by, sponsored by, certified by, or officially connected with
               OpenAI, ChatGPT, or any other AI provider unless expressly stated
               in writing. “OpenAI”, “ChatGPT”, “GPT” and related marks are the
@@ -275,7 +280,7 @@ export default function LegalPage() {
             <Subheading>11. Availability and changes</Subheading>
             <p>
               We may update, suspend, withdraw, modify or discontinue any part
-              of StockGPT at any time. We do not guarantee uninterrupted
+              of StockGPT, LLC at any time. We do not guarantee uninterrupted
               availability, live market accuracy, full coverage of every stock,
               or continuous access to any particular feature.
             </p>
@@ -288,7 +293,7 @@ export default function LegalPage() {
 
             <Subheading>13. Disclaimers</Subheading>
             <p>
-              StockGPT is provided on an “as is” and “as available” basis. To
+              StockGPT, LLC is provided on an “as is” and “as available” basis. To
               the maximum extent permitted by law, we disclaim all warranties,
               representations and guarantees, whether express or implied,
               including accuracy, reliability, fitness for purpose, availability
@@ -297,7 +302,7 @@ export default function LegalPage() {
 
             <Subheading>14. Limitation of liability</Subheading>
             <p>
-              To the maximum extent permitted by law, StockGPT will not be
+              To the maximum extent permitted by law, StockGPT, LLC will not be
               liable for investment losses, trading losses, loss of profits, loss
               of opportunity, business interruption, data loss, indirect loss,
               consequential loss, or losses arising from reliance on AI outputs,
@@ -314,7 +319,7 @@ export default function LegalPage() {
             <Subheading>15. Suspension and termination</Subheading>
             <p>
               We may suspend or terminate your access if you breach these Terms,
-              misuse the service, create risk for StockGPT or other users,
+              misuse the service, create risk for StockGPT, LLC or other users,
               attempt to bypass access controls, misuse affiliate links, or use
               the platform in a way that may expose us to regulatory or legal
               risk.
@@ -347,12 +352,12 @@ export default function LegalPage() {
           >
             <p>
               This Subscription Agreement forms part of the Terms of Service and
-              applies when you purchase a paid StockGPT subscription.
+              applies when you purchase a paid StockGPT, LLC subscription.
             </p>
 
             <Subheading>1. Subscription access</Subheading>
             <p>
-              A subscription gives you access to paid StockGPT features during
+              A subscription gives you access to paid StockGPT, LLC features during
               the active subscription period, subject to these Terms, successful
               payment and any technical or legal limitations.
             </p>
@@ -382,7 +387,7 @@ export default function LegalPage() {
 
             <Subheading>5. Refunds</Subheading>
             <p>
-              Because StockGPT provides digital content and online services,
+              Because StockGPT, LLC provides digital content and online services,
               refunds are generally not provided for partial billing periods,
               unused access or changes of mind after access has begun, except
               where required by applicable consumer law or where we choose to
@@ -427,13 +432,13 @@ export default function LegalPage() {
 
           <Section id="privacy" title="Privacy Policy" eyebrow="Agreement 3">
             <p>
-              This Privacy Policy explains how StockGPT collects, uses, stores
+              This Privacy Policy explains how StockGPT, LLC collects, uses, stores
               and shares personal data.
             </p>
 
             <Subheading>1. Controller</Subheading>
             <p>
-              The controller is StockGPT, UK.
+              The controller is StockGPT, LLC, UK.
               Contact: sales@stockgpt.pro.
             </p>
 
@@ -460,14 +465,14 @@ export default function LegalPage() {
               </li>
               <li>
                 AI interaction data, including questions submitted to Ask
-                StockGPT and generated responses.
+                StockGPT, LLC and generated responses.
               </li>
             </List>
 
             <Subheading>3. How we use personal data</Subheading>
             <p>We use personal data to:</p>
             <List>
-              <li>provide, secure and maintain StockGPT;</li>
+              <li>provide, secure and maintain StockGPT, LLC;</li>
               <li>create and manage accounts;</li>
               <li>process subscriptions and payments;</li>
               <li>display portfolio, watchlist and ranking features;</li>
@@ -495,7 +500,7 @@ export default function LegalPage() {
             <Subheading>5. AI and portfolio inputs</Subheading>
             <p>
               If you enter portfolio information, watchlists or questions into
-              StockGPT, we process that data to provide research features and AI
+              StockGPT, LLC, we process that data to provide research features and AI
               responses. Do not upload sensitive personal data, private financial
               documents, account passwords, brokerage login details or
               information about other people.
@@ -552,7 +557,7 @@ export default function LegalPage() {
 
             <Subheading>12. Children</Subheading>
             <p>
-              StockGPT is not intended for children under 18. We do not knowingly
+              StockGPT, LLC is not intended for children under 18. We do not knowingly
               collect data from children.
             </p>
 
@@ -572,7 +577,7 @@ export default function LegalPage() {
 
           <Section id="cookies" title="Cookie Policy" eyebrow="Agreement 4">
             <p>
-              This Cookie Policy explains how StockGPT uses cookies and similar
+              This Cookie Policy explains how StockGPT, LLC uses cookies and similar
               technologies.
             </p>
 
@@ -636,16 +641,16 @@ export default function LegalPage() {
             eyebrow="Agreement 5"
           >
             <p>
-              This disclaimer applies to all StockGPT rankings, scores, AI
+              This disclaimer applies to all StockGPT, LLC rankings, scores, AI
               summaries, chatbot answers, news summaries, portfolio tools,
               watchlists, trade-plan labels, alerts, reports and emails.
             </p>
 
             <Subheading>1. Informational use only</Subheading>
             <p>
-              StockGPT is an AI-powered research and ranking tool. It is not a
+              StockGPT, LLC is an AI-powered research and ranking tool. It is not a
               regulated financial adviser, broker, investment manager or trading
-              platform. Nothing on StockGPT is a personal recommendation or
+              platform. Nothing on StockGPT, LLC is a personal recommendation or
               instruction to buy, sell, hold, short or trade any security.
             </p>
 
@@ -675,7 +680,7 @@ export default function LegalPage() {
             <Subheading>5. Data risk</Subheading>
             <p>
               Market data, prices, fundamentals, news and third-party data may
-              be delayed, incomplete or inaccurate. StockGPT is not responsible
+              be delayed, incomplete or inaccurate. StockGPT, LLC is not responsible
               for decisions made in reliance on such data.
             </p>
 
@@ -694,7 +699,7 @@ export default function LegalPage() {
           >
             <p>
               These Affiliate Program Terms apply to anyone applying for or
-              participating in the StockGPT affiliate program.
+              participating in the StockGPT, LLC affiliate program.
             </p>
 
             <Subheading>1. Approval required</Subheading>
@@ -705,8 +710,8 @@ export default function LegalPage() {
 
             <Subheading>2. Accurate promotion</Subheading>
             <p>
-              Affiliates must present StockGPT accurately as an AI research and
-              ranking tool. Affiliates must not describe StockGPT as guaranteed
+              Affiliates must present StockGPT, LLC accurately as an AI research and
+              ranking tool. Affiliates must not describe StockGPT, LLC as guaranteed
               profit, financial advice, a trading signal group, a broker, a
               regulated adviser, or an FCA-approved investment recommendation
               service.
@@ -731,23 +736,23 @@ export default function LegalPage() {
             <Subheading>5. Content standards</Subheading>
             <p>
               Affiliate content must be professional, lawful, non-deceptive and
-              consistent with StockGPT’s premium positioning. Affiliates must not
+              consistent with StockGPT, LLC’s premium positioning. Affiliates must not
               use spam, fake accounts, fake reviews, bots, misleading scarcity,
               impersonation, unauthorised brand use or aggressive targeting.
             </p>
 
             <Subheading>6. Brand use</Subheading>
             <p>
-              Affiliates may use approved StockGPT brand assets only in
+              Affiliates may use approved StockGPT, LLC brand assets only in
               accordance with our guidelines. Affiliates must not alter logos,
               imply employment, imply regulatory approval, or suggest they speak
-              on behalf of StockGPT unless authorised.
+              on behalf of StockGPT, LLC unless authorised.
             </p>
 
             <Subheading>7. Commission</Subheading>
             <p>
               Commission rates, attribution windows, payment thresholds and
-              payout schedules are set by StockGPT or the affiliate platform we
+              payout schedules are set by StockGPT, LLC or the affiliate platform we
               use. We may change program terms prospectively.
             </p>
 
@@ -780,13 +785,13 @@ export default function LegalPage() {
             eyebrow="Agreement 7"
           >
             <p>
-              StockGPT respects intellectual property rights and expects users,
+              StockGPT, LLC respects intellectual property rights and expects users,
               affiliates and partners to do the same.
             </p>
 
-            <Subheading>1. StockGPT intellectual property</Subheading>
+            <Subheading>1. StockGPT, LLC intellectual property</Subheading>
             <p>
-              The StockGPT name, visual identity, UI, product design, copy,
+              The StockGPT, LLC name, visual identity, UI, product design, copy,
               rankings presentation, methodology, software and related materials
               are owned by us or licensed to us.
             </p>
@@ -795,14 +800,14 @@ export default function LegalPage() {
             <p>
               All third-party company names, logos, tickers, product names,
               services and trademarks belong to their respective owners. Their
-              appearance on StockGPT does not imply endorsement, partnership or
+              appearance on StockGPT, LLC does not imply endorsement, partnership or
               affiliation.
             </p>
 
             <Subheading>3. OpenAI / GPT clarification</Subheading>
             <p>
-              StockGPT is not OpenAI, ChatGPT or an official OpenAI product.
-              StockGPT is not endorsed by, sponsored by, certified by or
+              StockGPT, LLC is not OpenAI, ChatGPT or an official OpenAI product.
+              StockGPT, LLC is not endorsed by, sponsored by, certified by or
               affiliated with OpenAI unless expressly stated in a signed written
               agreement. References to AI, GPT, APIs or model providers are
               descriptive only.
@@ -810,7 +815,7 @@ export default function LegalPage() {
 
             <Subheading>4. Copyright complaints</Subheading>
             <p>
-              If you believe content on StockGPT infringes your rights, contact
+              If you believe content on StockGPT, LLC infringes your rights, contact
               sales@stockgpt.pro with sufficient information to identify the content,
               your ownership or authority, and the action requested.
             </p>
@@ -819,7 +824,7 @@ export default function LegalPage() {
 
         <footer className="mt-10 border-t border-[#ddb159]/14 py-8 text-xs font-medium leading-6 text-[#faf6f0]/38">
           <p>
-            © {new Date().getFullYear()} StockGPT. All rights
+            © {new Date().getFullYear()} StockGPT, LLC. All rights
             reserved.
           </p>
 
