@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+Disallow: /account
+Disallow: /account/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /notifications
+Disallow: /notifications/
+Disallow: /portfolio
+Disallow: /portfolio/
+Disallow: /settings
+Disallow: /settings/
+Disallow: /watchlist
+Disallow: /watchlist/
+
+Sitemap: https://stockgpt.pro/sitemap.xml
