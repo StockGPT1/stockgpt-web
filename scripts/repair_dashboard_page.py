@@ -34,35 +34,5 @@ export const metadata: Metadata = {
 
 s = header + s[end:]
 
-old = '''  const [sp500Data, topGainerMovers, topLoserMovers, snapshotMap, dailyMoveMap] = await Promise.all([
-    getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
-    getTopMovers(topGainerTickerList, 8),
-    getTopMovers(loserTickerList, 8),
-    getRankSnapshotMapAround24hAgo(supabase),
-    getOneDayMoveMap(dashboardTickerList),
-  ]);
-'''
-new = '''  const [sp500Data, topGainerMovers, topLoserMovers, snapshotMap, dailyMoveMap] =
-    hasSubscription
-      ? await Promise.all([
-          getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
-          getTopMovers(topGainerTickerList, 8),
-          getTopMovers(loserTickerList, 8),
-          getRankSnapshotMapAround24hAgo(supabase),
-          getOneDayMoveMap(dashboardTickerList),
-        ])
-      : [
-          {},
-          { gainers: [], losers: [] },
-          { gainers: [], losers: [] },
-          new Map(),
-          new Map(),
-        ];
-'''
-if old in s:
-    s = s.replace(old, new)
-else:
-    print('Market data block not found; header still repaired')
-
 p.write_text(s)
-print('Dashboard repaired')
+print('Dashboard SEO metadata repaired. No dashboard data loading or UI logic was changed.')
