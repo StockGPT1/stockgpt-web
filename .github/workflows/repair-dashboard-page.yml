@@ -1,0 +1,32 @@
+name: Repair Dashboard Page
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/repair_dashboard_page.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Repair dashboard imports and reduce locked-view load
+        run: python scripts/repair_dashboard_page.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/dashboard/page.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Repair dashboard metadata and reduce locked-view load"
+            git push
+          fi
