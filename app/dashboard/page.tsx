@@ -9,16 +9,16 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getSP500Chart, getTopMovers } from "@/lib/yahoo";
 import {
+  getRankMove24h,
+  getRankSnapshotMapAround24hAgo,
+} from "@/lib/rank-history";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
   description:
-    "View your StockGPT dashboard with AI stock rankings, market movers, portfolio alerts and S&P 500 insights.",
+    "Private StockGPT dashboard for AI stock rankings, market movers, portfolio alerts and S&P 500 insights.",
+  robots: { index: false, follow: false },
 };
-
-  getRankMove24h,
-  getRankSnapshotMapAround24hAgo,
-} from "@/lib/rank-history";
 
 type Ranking = {
   id: string | number;
