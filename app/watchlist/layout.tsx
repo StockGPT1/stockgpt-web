@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Log In | StockGPT",
-  description: "Log in securely to your StockGPT account.",
+  title: "Watchlist | StockGPT",
+  description: "Private StockGPT watchlist monitoring page.",
   robots: { index: false, follow: false },
 };
 

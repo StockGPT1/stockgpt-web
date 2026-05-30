@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Reset Password | StockGPT",
-  description:
-    "Request a secure password reset link for your StockGPT account.",
+  description: "Reset your StockGPT password.",
+  robots: { index: false, follow: false },
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

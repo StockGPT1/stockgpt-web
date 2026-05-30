@@ -7,13 +7,21 @@ Disallow: /api/
 Disallow: /auth/
 Disallow: /dashboard
 Disallow: /dashboard/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /update-password
 Disallow: /notifications
 Disallow: /notifications/
 Disallow: /portfolio
 Disallow: /portfolio/
+Disallow: /rankings
+Disallow: /rankings/
 Disallow: /settings
 Disallow: /settings/
 Disallow: /watchlist
 Disallow: /watchlist/
+Disallow: /world-news
+Disallow: /world-news/
 
 Sitemap: https://stockgpt.pro/sitemap.xml
