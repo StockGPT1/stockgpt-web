@@ -1,0 +1,32 @@
+name: Update Legal Entity To LLC
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/update_legal_entity_to_llc.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Update legal entity details
+        run: python scripts/update_legal_entity_to_llc.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/legal/page.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update legal entity to StockGPT LLC"
+            git push
+          fi
