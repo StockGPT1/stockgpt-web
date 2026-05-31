@@ -22,7 +22,7 @@ function moneyNumber(value: unknown, fallback = 0) {
 async function getOrCreatePortfolio(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   let { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id,cash_balance")
+    .select("id,cash_balance,cash_deposited_total")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -35,8 +35,9 @@ async function getOrCreatePortfolio(supabase: Awaited<ReturnType<typeof createCl
         risk_tolerance: "moderate",
         time_horizon: "medium",
         cash_balance: 0,
+        cash_deposited_total: 0,
       })
-      .select("id,cash_balance")
+      .select("id,cash_balance,cash_deposited_total")
       .single();
 
     if (error || !newPortfolio) return null;
@@ -62,9 +63,13 @@ export async function addCash(amount: number): Promise<ActionResult> {
   if (!portfolio) return { success: false, error: "Could not create portfolio" };
 
   const currentCash = moneyNumber(portfolio.cash_balance);
+  const currentDeposited = moneyNumber(portfolio.cash_deposited_total);
   const { error } = await supabase
     .from("user_portfolios")
-    .update({ cash_balance: currentCash + amount })
+    .update({
+      cash_balance: currentCash + amount,
+      cash_deposited_total: currentDeposited + amount,
+    })
     .eq("id", portfolio.id);
 
   if (error) return { success: false, error: error.message };
@@ -95,6 +100,7 @@ export async function savePortfolio(
       time_horizon: portfolio.timeHorizon,
       investment_amount: portfolio.totalInvested,
       cash_balance: 0,
+      cash_deposited_total: portfolio.totalInvested,
     })
     .select("id")
     .single();
@@ -218,6 +224,59 @@ export async function addHolding(
   return { success: true };
 }
 
+export async function addHoldingByAmount(
+  ticker: string,
+  dollarAmount: number,
+  entryPrice?: number,
+): Promise<ActionResult> {
+  const upperTicker = cleanTicker(ticker);
+
+  if (!upperTicker) return { success: false, error: "Missing ticker" };
+  if (!Number.isFinite(dollarAmount) || dollarAmount <= 0) {
+    return { success: false, error: "Enter a positive investment amount" };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const { data: stock } = await supabase
+    .from("stock_rankings")
+    .select("ticker, price")
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  if (!stock) return { success: false, error: "Stock not found in rankings" };
+
+  const finalEntryPrice =
+    entryPrice && Number.isFinite(entryPrice) && entryPrice > 0
+      ? entryPrice
+      : Number(stock.price);
+
+  if (!Number.isFinite(finalEntryPrice) || finalEntryPrice <= 0) {
+    return { success: false, error: "Could not find a valid stock price" };
+  }
+
+  const portfolio = await getOrCreatePortfolio(supabase, user.id);
+  if (!portfolio) return { success: false, error: "Could not create portfolio" };
+
+  const currentCash = moneyNumber(portfolio.cash_balance);
+  if (dollarAmount > currentCash + 0.001) {
+    return {
+      success: false,
+      error: `Not enough available cash. Add $${(dollarAmount - currentCash).toFixed(2)} cash or reduce the amount.`,
+    };
+  }
+
+  const finalShares = Math.round((dollarAmount / finalEntryPrice) * 1000000) / 1000000;
+
+  return addHolding(upperTicker, finalEntryPrice, finalShares);
+}
+
 export async function removeHolding(ticker: string): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -231,7 +290,7 @@ export async function removeHolding(ticker: string): Promise<ActionResult> {
 
   const { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id,cash_balance")
+    .select("id,cash_balance,cash_deposited_total")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -341,7 +400,7 @@ export async function updateShares(
 
   const { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id,cash_balance")
+    .select("id,cash_balance,cash_deposited_total")
     .eq("user_id", user.id)
     .maybeSingle();
 

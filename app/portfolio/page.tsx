@@ -48,7 +48,7 @@ export default async function PortfolioPage({
 
   const { data: savedPortfolio } = await supabase
     .from("user_portfolios")
-    .select("id, name, risk_tolerance, time_horizon, investment_amount, cash_balance")
+    .select("id, name, risk_tolerance, time_horizon, investment_amount, cash_balance, cash_deposited_total")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -148,6 +148,7 @@ export default async function PortfolioPage({
             timeHorizon: savedPortfolio.time_horizon as string | null,
             investmentAmount: savedPortfolio.investment_amount as number | null,
             cashBalance: Number(savedPortfolio.cash_balance ?? 0),
+            cashDepositedTotal: Number(savedPortfolio.cash_deposited_total ?? savedPortfolio.investment_amount ?? 0),
           }}
           replacements={replacements}
         />

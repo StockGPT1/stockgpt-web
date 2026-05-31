@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { StockLogo } from "@/components/StockLogo";
 import {
   addCash,
-  addHolding,
+  addHoldingByAmount,
   deletePortfolio,
   markReviewed,
   removeHolding,
@@ -28,6 +28,7 @@ type Props = {
     timeHorizon: string | null;
     investmentAmount: number | null;
     cashBalance: number;
+    cashDepositedTotal: number;
   };
   replacements?: Record<string, ReplacementRecommendation | null>;
 };
@@ -219,7 +220,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
               <Link href={`/stock/${holding.ticker}`} className="group flex min-w-0 items-center gap-3">
                 <StockLogo ticker={holding.ticker} company={holding.company} size={34} />
                 <div className="min-w-0">
-                  <p className="text-[28px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d]">{holding.ticker}</p>
+                  <p className="text-[24px] font-black sm:text-[28px] tracking-[-0.04em] transition group-hover:text-[#0b2b1d]">{holding.ticker}</p>
                   <p className="truncate text-[13px] font-bold leading-tight text-[#072116]/70">{holding.company ?? holding.ticker}</p>
                 </div>
               </Link>
@@ -275,7 +276,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
         )}
 
         {(holding.actionAlerts.length > 0 || eventWarnings > 0) && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             {holding.actionAlerts.length > 0 && (
               <span className={`rounded-full px-3 py-1 text-[11px] font-black text-white ${criticalActions > 0 ? "bg-red-600" : "bg-amber-500"}`}>
                 {holding.actionAlerts.length} action alert{holding.actionAlerts.length === 1 ? "" : "s"}
@@ -286,7 +287,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 xl:grid-cols-5">
         <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
           <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">Shares</p>
           {editingShares ? (
@@ -344,7 +345,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 px-5 pb-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 px-3 pb-3 sm:grid-cols-3 sm:px-5">
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Cost Basis</p><p className="mt-0.5 text-[14px] font-black tabular-nums">${holding.costBasis.toLocaleString()}</p></div>
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Current Value</p><p className="mt-0.5 text-[14px] font-black tabular-nums">${holding.currentValue.toLocaleString()}</p></div>
         <div className="rounded-lg bg-[#faf6f0] px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">Per-share P&amp;L</p><p className={`mt-0.5 text-[14px] font-black tabular-nums ${isPositive ? "text-emerald-700" : "text-red-700"}`}>{isPositive ? "+" : "−"}${Math.abs(holding.pnlDollars).toFixed(2)}</p></div>
@@ -353,7 +354,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
       {holding.actionAlerts.length > 0 && (
         <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
           <button onClick={() => setShowActions((state) => !state)} className="flex w-full items-center justify-between px-5 py-3 transition hover:bg-[#faf6f0]">
-            <div className="flex items-center gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">✦ Action Alerts ({holding.actionAlerts.length})</p><span className="rounded-full bg-[#072116] px-2 py-0.5 text-[9px] font-black text-[#ddb159]">current only</span></div>
+            <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">✦ Action Alerts ({holding.actionAlerts.length})</p><span className="rounded-full bg-[#072116] px-2 py-0.5 text-[9px] font-black text-[#ddb159]">current only</span></div>
             <span className="text-[10px] font-bold text-[#072116]/55">{showActions ? "Hide ▴" : "Show ▾"}</span>
           </button>
           {showActions && <div className="grid gap-2 px-5 pb-4">{holding.actionAlerts.map((alert) => <AlertCard key={alert.id} alert={alert} />)}</div>}
@@ -363,7 +364,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
       {holding.eventAlerts.length > 0 && (
         <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
           <button onClick={() => setShowEvents((state) => !state)} className="flex w-full items-center justify-between px-5 py-3 transition hover:bg-[#faf6f0]">
-            <div className="flex items-center gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">✦ Event Alerts ({holding.eventAlerts.length})</p>{eventWarnings > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-white">{eventWarnings} warning{eventWarnings === 1 ? "" : "s"}</span>}</div>
+            <div className="flex flex-wrap items-center gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">✦ Event Alerts ({holding.eventAlerts.length})</p>{eventWarnings > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-white">{eventWarnings} warning{eventWarnings === 1 ? "" : "s"}</span>}</div>
             <span className="text-[10px] font-bold text-[#072116]/55">{showEvents ? "Hide ▴" : "Show ▾"}</span>
           </button>
           {showEvents && <div className="grid gap-2 px-5 pb-4">{holding.eventAlerts.map((alert) => <AlertCard key={alert.id} alert={alert} />)}</div>}
@@ -392,7 +393,7 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#072116]/8 bg-white px-5 py-3">
         <p className="text-[10px] font-medium text-[#072116]/55">{holding.daysSinceReview === 0 ? "Reviewed today" : `Last reviewed ${holding.daysSinceReview} days ago`}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={handleReviewed} disabled={isPending} className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-3 py-1.5 text-[11px] font-bold text-[#072116] transition hover:bg-[#ddb159]/20">✓ Mark Reviewed</button>
           <Link href={`/stock/${holding.ticker}`} className="rounded-full px-3 py-1.5 text-[11px] font-bold transition hover:opacity-90" style={{ backgroundColor: "#072116", color: "#ddb159" }}>Full Analysis →</Link>
           <button onClick={handleRemove} disabled={isPending} className="rounded-full border border-red-300 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50" title="Remove from portfolio">✕</button>
@@ -404,35 +405,35 @@ function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replac
 
 function AddStockForm({ cashBalance }: { cashBalance: number }) {
   const [ticker, setTicker] = useState("");
-  const [shares, setShares] = useState("");
+  const [amount, setAmount] = useState("");
   const [entryPrice, setEntryPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit() {
+    const dollarAmount = Number(amount);
     if (!ticker.trim()) { setError("Enter a ticker"); return; }
-    if (!shares || Number(shares) <= 0) { setError("Enter shares, e.g. 10"); return; }
-    const estimatedCost = Number(shares) * Number(entryPrice || 0);
-    if (entryPrice && estimatedCost > cashBalance) {
-      setError(`Not enough available cash. Add $${(estimatedCost - cashBalance).toFixed(2)} cash or reduce the order.`);
+    if (!Number.isFinite(dollarAmount) || dollarAmount <= 0) { setError("Enter how much money to invest"); return; }
+    if (dollarAmount > cashBalance) {
+      setError(`Not enough available cash. Add $${(dollarAmount - cashBalance).toFixed(2)} cash or reduce the amount.`);
       return;
     }
     setError(null);
     startTransition(async () => {
-      const result = await addHolding(ticker.trim().toUpperCase(), entryPrice ? Number(entryPrice) : undefined, Number(shares));
+      const result = await addHoldingByAmount(ticker.trim().toUpperCase(), dollarAmount, entryPrice ? Number(entryPrice) : undefined);
       if (!result.success) setError(result.error ?? "Could not add stock");
-      else { setTicker(""); setShares(""); setEntryPrice(""); }
+      else { setTicker(""); setAmount(""); setEntryPrice(""); }
     });
   }
 
   return (
-    <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+    <div className="rounded-2xl bg-[#faf6f0] p-3.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-4">
       <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Add Your Own Stocks</p>
-      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Available cash: ${cashBalance.toLocaleString()}. Buying a stock uses cash; selling returns value to cash.</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[100px_90px_1fr_auto]">
-        <input type="text" value={ticker} onChange={(event) => setTicker(event.target.value.toUpperCase())} placeholder="AAPL" className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase text-[#072116] outline-none focus:border-[#ddb159]" />
-        <input type="number" step="0.01" value={shares} onChange={(event) => setShares(event.target.value)} placeholder="Shares" className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
-        <input type="number" step="0.01" value={entryPrice} onChange={(event) => setEntryPrice(event.target.value)} placeholder="Entry price optional" className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none focus:border-[#ddb159]" />
+      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Available cash: ${cashBalance.toLocaleString()}. Enter the dollar amount — StockGPT calculates shares automatically.</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[90px_120px_minmax(130px,1fr)_auto]">
+        <input type="text" value={ticker} onChange={(event) => setTicker(event.target.value.toUpperCase())} placeholder="AAPL" className="min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase text-[#072116] outline-none focus:border-[#ddb159]" />
+        <input type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount $" className="min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
+        <input type="number" step="0.01" value={entryPrice} onChange={(event) => setEntryPrice(event.target.value)} placeholder="Entry price optional" className="min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none focus:border-[#ddb159]" />
         <button onClick={handleSubmit} disabled={isPending} className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: "#ddb159", color: "#072116" }}>{isPending ? "Adding…" : "+ Add"}</button>
       </div>
       {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
@@ -464,8 +465,8 @@ function AddCashForm() {
     <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
       <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Add Cash</p>
       <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Deposits increase available cash and portfolio value, but they do not count as profit.</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <input type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="5000" className="min-w-[160px] flex-1 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="5000" className="min-w-0 flex-1 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
         <button onClick={handleSubmit} disabled={isPending} className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: "#ddb159", color: "#072116" }}>{isPending ? "Adding…" : "+ Add Cash"}</button>
       </div>
       {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
@@ -483,11 +484,13 @@ export function SavedPortfolio({ holdings, portfolioMeta, replacements = {} }: P
   }
 
   const cashBalance = Number(portfolioMeta.cashBalance ?? 0);
+  const cashDepositedTotal = Number(portfolioMeta.cashDepositedTotal ?? portfolioMeta.investmentAmount ?? 0);
   const holdingsValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
   const totalValue = holdingsValue + cashBalance;
   const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
-  const totalPnLDollars = totalValue - totalCost;
-  const totalPnLPct = totalCost > 0 ? (totalPnLDollars / totalCost) * 100 : 0;
+  const inceptionBasis = Math.max(cashDepositedTotal, totalCost, 0);
+  const totalPnLDollars = inceptionBasis > 0 ? totalValue - inceptionBasis : 0;
+  const totalPnLPct = inceptionBasis > 0 ? (totalPnLDollars / inceptionBasis) * 100 : 0;
   const actionAlerts = holdings.flatMap((holding) => holding.actionAlerts);
   const eventAlerts = holdings.flatMap((holding) => holding.eventAlerts);
   const criticalActions = actionAlerts.filter((alert) => alert.severity === "critical").length;
@@ -499,19 +502,19 @@ export function SavedPortfolio({ holdings, portfolioMeta, replacements = {} }: P
   const avgScore = holdings.length > 0 ? Math.round(holdings.reduce((sum, holding) => sum + holding.score, 0) / holdings.length) : 0;
 
   return (
-    <div className="grid gap-3">
-      <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-6 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
+    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
+      <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-4 py-4 sm:px-5 sm:py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">✦ {portfolioMeta.name}</p>
-            <h1 className="mt-1 text-[28px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">${totalValue.toLocaleString()} · <span className={totalPnLPct >= 0 ? "text-emerald-400" : "text-red-400"}>{totalPnLPct >= 0 ? "+" : ""}{totalPnLPct.toFixed(1)}%</span></h1>
+            <h1 className="mt-1 text-[24px] font-black sm:text-[28px] leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">${totalValue.toLocaleString()} · <span className={totalPnLPct >= 0 ? "text-emerald-400" : "text-red-400"}>{totalPnLPct >= 0 ? "+" : ""}{totalPnLPct.toFixed(1)}%</span></h1>
             <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/55">
               {holdings.length} {holdings.length === 1 ? "holding" : "holdings"} · Holdings ${holdingsValue.toLocaleString()} · Cash ${cashBalance.toLocaleString()} · P/L {totalPnLDollars >= 0 ? "+" : "−"}${Math.abs(totalPnLDollars).toLocaleString()}
               {(portfolioMeta.riskTolerance || portfolioMeta.timeHorizon) && <span className="capitalize"> · {portfolioMeta.riskTolerance ?? ""}{portfolioMeta.riskTolerance && portfolioMeta.timeHorizon && " · "}{portfolioMeta.timeHorizon === "short" ? "3–5 yrs" : portfolioMeta.timeHorizon === "medium" ? "5–10 yrs" : portfolioMeta.timeHorizon === "long" ? "10+ yrs" : ""}</span>}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/portfolio?builder=1" className="rounded-full border border-[#ddb159]/40 px-4 py-2 text-[12px] font-bold text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10">+ New Portfolio</Link>
             <button onClick={handleDeletePortfolio} disabled={isPending} className="rounded-full border border-red-400/40 px-3 py-2 text-[11px] font-bold text-red-400 transition hover:border-red-400 hover:bg-red-500/10">Delete</button>
           </div>
@@ -536,7 +539,7 @@ export function SavedPortfolio({ holdings, portfolioMeta, replacements = {} }: P
         )}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2"><AddCashForm /><AddStockForm cashBalance={cashBalance} /></div>
+      <div className="grid min-w-0 gap-3 xl:grid-cols-2"><AddCashForm /><AddStockForm cashBalance={cashBalance} /></div>
 
       {holdings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#ddb159]/25 bg-[#061b12]/50 p-8 text-center">
