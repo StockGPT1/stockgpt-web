@@ -48,7 +48,7 @@ export default async function PortfolioPage({
 
   const { data: savedPortfolio } = await supabase
     .from("user_portfolios")
-    .select("id, name, risk_tolerance, time_horizon, investment_amount")
+    .select("id, name, risk_tolerance, time_horizon, investment_amount, cash_balance")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -92,6 +92,51 @@ export default async function PortfolioPage({
     riskTolerance,
   );
 
+  const heldTickers = new Set(enriched.map((holding) => holding.ticker));
+  const needsReplacement = enriched.filter((holding) =>
+    holding.actionAlerts.some((alert) => alert.action === "sell" || alert.action === "trim"),
+  );
+
+  const { data: candidateData } = needsReplacement.length > 0
+    ? await supabase
+        .from("stock_rankings")
+        .select("ticker, company, sector, rank, score, price")
+        .order("rank", { ascending: true })
+        .limit(80)
+    : { data: [] };
+
+  const replacementCandidates = ((candidateData ?? []) as Array<{
+    ticker: string | null;
+    company: string | null;
+    sector: string | null;
+    rank: number | null;
+    score: number | null;
+    price: number | null;
+  }>).filter((candidate) => candidate.ticker && !heldTickers.has(candidate.ticker));
+
+  const replacements = Object.fromEntries(
+    needsReplacement.map((holding) => {
+      const sameSector = replacementCandidates.find((candidate) => candidate.sector && candidate.sector === holding.sector);
+      const candidate = sameSector ?? replacementCandidates[0] ?? null;
+      return [
+        holding.ticker,
+        candidate
+          ? {
+              ticker: candidate.ticker as string,
+              company: candidate.company ?? candidate.ticker ?? "—",
+              sector: candidate.sector ?? "—",
+              rank: Number(candidate.rank) || null,
+              score: Number(candidate.score) || null,
+              price: Number(candidate.price) || null,
+              reason: sameSector
+                ? `${candidate.ticker} is the strongest available ${candidate.sector} replacement not already in your portfolio, ranked #${candidate.rank ?? "—"}. It keeps sector exposure similar while upgrading model conviction.`
+                : `${candidate.ticker} is the strongest available replacement not already in your portfolio, ranked #${candidate.rank ?? "—"}. It improves overall portfolio quality without adding to the weakened position.`,
+            }
+          : null,
+      ];
+    }),
+  );
+
   return (
     <AppShell activePath="/portfolio">
       <main className="h-full min-h-0 overflow-y-auto pr-1">
@@ -102,7 +147,9 @@ export default async function PortfolioPage({
             riskTolerance: savedPortfolio.risk_tolerance as string | null,
             timeHorizon: savedPortfolio.time_horizon as string | null,
             investmentAmount: savedPortfolio.investment_amount as number | null,
+            cashBalance: Number(savedPortfolio.cash_balance ?? 0),
           }}
+          replacements={replacements}
         />
       </main>
     </AppShell>

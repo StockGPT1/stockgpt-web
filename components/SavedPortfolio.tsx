@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { StockLogo } from "@/components/StockLogo";
 import {
+  addCash,
   addHolding,
   deletePortfolio,
   markReviewed,
@@ -26,7 +27,19 @@ type Props = {
     riskTolerance: string | null;
     timeHorizon: string | null;
     investmentAmount: number | null;
+    cashBalance: number;
   };
+  replacements?: Record<string, ReplacementRecommendation | null>;
+};
+
+type ReplacementRecommendation = {
+  ticker: string;
+  company: string;
+  sector: string;
+  rank: number | null;
+  score: number | null;
+  price: number | null;
+  reason: string;
 };
 
 function severityStyle(severity: HoldingAlert["severity"]) {
@@ -148,7 +161,7 @@ function AlertCard({ alert }: { alert: HoldingAlert }) {
   );
 }
 
-function HoldingRow({ holding }: { holding: EnrichedHolding }) {
+function HoldingRow({ holding, replacement }: { holding: EnrichedHolding; replacement?: ReplacementRecommendation | null }) {
   const [isPending, startTransition] = useTransition();
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingShares, setEditingShares] = useState(false);
@@ -163,6 +176,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
   const isPositive = holding.pnlPercent >= 0;
   const criticalActions = holding.actionAlerts.filter((alert) => alert.severity === "critical").length;
   const eventWarnings = holding.eventAlerts.filter((alert) => alert.severity === "warning" || alert.severity === "critical").length;
+  const shouldShowReplacement = replacement && holding.actionAlerts.some((alert) => alert.action === "sell" || alert.action === "trim");
 
   function handleSavePrice() {
     const newPrice = Number(priceInput);
@@ -239,6 +253,26 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ StockGPT view</p>
           <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#072116]">{holding.aiSummary}</p>
         </div>
+
+        {shouldShowReplacement && (
+          <div className="mt-3 rounded-xl border-2 border-[#ddb159]/35 bg-[#fff8e8] p-3">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">Suggested replacement</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <Link href={`/stock/${replacement.ticker}`} className="flex min-w-0 items-center gap-2">
+                <StockLogo ticker={replacement.ticker} company={replacement.company} size={24} />
+                <div className="min-w-0">
+                  <p className="text-[16px] font-black tracking-[-0.03em] text-[#072116]">{replacement.ticker}</p>
+                  <p className="truncate text-[11px] font-bold text-[#072116]/60">{replacement.company}</p>
+                </div>
+              </Link>
+              <div className="flex flex-wrap gap-1">
+                <span className="rounded-full bg-[#072116] px-2 py-1 text-[10px] font-black text-[#ddb159]">Rank #{replacement.rank ?? "—"}</span>
+                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-[#072116]/70">{replacement.sector}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-[12px] font-semibold leading-relaxed text-[#072116]/70">{replacement.reason}</p>
+          </div>
+        )}
 
         {(holding.actionAlerts.length > 0 || eventWarnings > 0) && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -368,7 +402,7 @@ function HoldingRow({ holding }: { holding: EnrichedHolding }) {
   );
 }
 
-function AddStockForm() {
+function AddStockForm({ cashBalance }: { cashBalance: number }) {
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
   const [entryPrice, setEntryPrice] = useState("");
@@ -378,6 +412,11 @@ function AddStockForm() {
   function handleSubmit() {
     if (!ticker.trim()) { setError("Enter a ticker"); return; }
     if (!shares || Number(shares) <= 0) { setError("Enter shares, e.g. 10"); return; }
+    const estimatedCost = Number(shares) * Number(entryPrice || 0);
+    if (entryPrice && estimatedCost > cashBalance) {
+      setError(`Not enough available cash. Add $${(estimatedCost - cashBalance).toFixed(2)} cash or reduce the order.`);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result = await addHolding(ticker.trim().toUpperCase(), entryPrice ? Number(entryPrice) : undefined, Number(shares));
@@ -389,7 +428,7 @@ function AddStockForm() {
   return (
     <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
       <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Add Your Own Stocks</p>
-      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Track stocks you already own. Enter shares and your entry price.</p>
+      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Available cash: ${cashBalance.toLocaleString()}. Buying a stock uses cash; selling returns value to cash.</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-[100px_90px_1fr_auto]">
         <input type="text" value={ticker} onChange={(event) => setTicker(event.target.value.toUpperCase())} placeholder="AAPL" className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase text-[#072116] outline-none focus:border-[#ddb159]" />
         <input type="number" step="0.01" value={shares} onChange={(event) => setShares(event.target.value)} placeholder="Shares" className="rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
@@ -401,7 +440,40 @@ function AddStockForm() {
   );
 }
 
-export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
+function AddCashForm() {
+  const [amount, setAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit() {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a positive cash amount");
+      return;
+    }
+
+    setError(null);
+    startTransition(async () => {
+      const result = await addCash(value);
+      if (!result.success) setError(result.error ?? "Could not add cash");
+      else setAmount("");
+    });
+  }
+
+  return (
+    <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Add Cash</p>
+      <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Deposits increase available cash and portfolio value, but they do not count as profit.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <input type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="5000" className="min-w-[160px] flex-1 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]" />
+        <button onClick={handleSubmit} disabled={isPending} className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: "#ddb159", color: "#072116" }}>{isPending ? "Adding…" : "+ Add Cash"}</button>
+      </div>
+      {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+export function SavedPortfolio({ holdings, portfolioMeta, replacements = {} }: Props) {
   const [isPending, startTransition] = useTransition();
 
   function handleDeletePortfolio() {
@@ -410,7 +482,9 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
     }
   }
 
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+  const cashBalance = Number(portfolioMeta.cashBalance ?? 0);
+  const holdingsValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+  const totalValue = holdingsValue + cashBalance;
   const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
   const totalPnLDollars = totalValue - totalCost;
   const totalPnLPct = totalCost > 0 ? (totalPnLDollars / totalCost) * 100 : 0;
@@ -433,7 +507,7 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">✦ {portfolioMeta.name}</p>
             <h1 className="mt-1 text-[28px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">${totalValue.toLocaleString()} · <span className={totalPnLPct >= 0 ? "text-emerald-400" : "text-red-400"}>{totalPnLPct >= 0 ? "+" : ""}{totalPnLPct.toFixed(1)}%</span></h1>
             <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/55">
-              {holdings.length} {holdings.length === 1 ? "holding" : "holdings"} · Cost basis ${totalCost.toLocaleString()} · {totalPnLDollars >= 0 ? "+" : "−"}${Math.abs(totalPnLDollars).toLocaleString()}
+              {holdings.length} {holdings.length === 1 ? "holding" : "holdings"} · Holdings ${holdingsValue.toLocaleString()} · Cash ${cashBalance.toLocaleString()} · P/L {totalPnLDollars >= 0 ? "+" : "−"}${Math.abs(totalPnLDollars).toLocaleString()}
               {(portfolioMeta.riskTolerance || portfolioMeta.timeHorizon) && <span className="capitalize"> · {portfolioMeta.riskTolerance ?? ""}{portfolioMeta.riskTolerance && portfolioMeta.timeHorizon && " · "}{portfolioMeta.timeHorizon === "short" ? "3–5 yrs" : portfolioMeta.timeHorizon === "medium" ? "5–10 yrs" : portfolioMeta.timeHorizon === "long" ? "10+ yrs" : ""}</span>}
             </p>
           </div>
@@ -447,7 +521,7 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
           <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Holdings</p><p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">{holdings.length}</p></div>
           <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Avg AI Score</p><p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">{avgScore.toLocaleString()}</p></div>
           <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Action Alerts</p><p className={`mt-0.5 text-[18px] font-black ${actionAlerts.length > 0 ? "text-amber-400" : "text-emerald-400"}`}>{actionAlerts.length}</p></div>
-          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Event Warnings</p><p className={`mt-0.5 text-[18px] font-black ${eventWarnings > 0 ? "text-amber-400" : "text-emerald-400"}`}>{eventWarnings}</p></div>
+          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2"><p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">Cash</p><p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">${cashBalance.toLocaleString()}</p></div>
         </div>
 
         {(actionAlerts.length > 0 || eventWarnings > 0) && (
@@ -462,7 +536,7 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
         )}
       </div>
 
-      <AddStockForm />
+      <div className="grid gap-3 lg:grid-cols-2"><AddCashForm /><AddStockForm cashBalance={cashBalance} /></div>
 
       {holdings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#ddb159]/25 bg-[#061b12]/50 p-8 text-center">
@@ -470,7 +544,7 @@ export function SavedPortfolio({ holdings, portfolioMeta }: Props) {
           <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/50">Add stocks above, or generate a new AI portfolio.</p>
         </div>
       ) : (
-        <div className="grid gap-3">{holdings.map((holding) => <HoldingRow key={holding.ticker} holding={holding} />)}</div>
+        <div className="grid gap-3">{holdings.map((holding) => <HoldingRow key={holding.ticker} holding={holding} replacement={replacements[holding.ticker]} />)}</div>
       )}
 
       <p className="px-2 text-[11px] font-medium leading-relaxed text-[#faf6f0]/40">⚠️ StockGPT alerts are generated from current rankings, factor diagnostics, portfolio data, price action and recent news. They are not financial advice.</p>

@@ -14,6 +14,65 @@ function cleanTicker(ticker: string) {
   return ticker.trim().toUpperCase();
 }
 
+function moneyNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+async function getOrCreatePortfolio(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  let { data: portfolio } = await supabase
+    .from("user_portfolios")
+    .select("id,cash_balance")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!portfolio) {
+    const { data: newPortfolio, error } = await supabase
+      .from("user_portfolios")
+      .insert({
+        user_id: userId,
+        name: "My Portfolio",
+        risk_tolerance: "moderate",
+        time_horizon: "medium",
+        cash_balance: 0,
+      })
+      .select("id,cash_balance")
+      .single();
+
+    if (error || !newPortfolio) return null;
+    portfolio = newPortfolio;
+  }
+
+  return portfolio;
+}
+
+export async function addCash(amount: number): Promise<ActionResult> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { success: false, error: "Enter a positive cash amount" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const portfolio = await getOrCreatePortfolio(supabase, user.id);
+  if (!portfolio) return { success: false, error: "Could not create portfolio" };
+
+  const currentCash = moneyNumber(portfolio.cash_balance);
+  const { error } = await supabase
+    .from("user_portfolios")
+    .update({ cash_balance: currentCash + amount })
+    .eq("id", portfolio.id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/portfolio");
+  return { success: true };
+}
+
 export async function savePortfolio(
   portfolio: Portfolio,
 ): Promise<ActionResult<{ portfolioId: string }>> {
@@ -35,6 +94,7 @@ export async function savePortfolio(
       risk_tolerance: portfolio.riskTolerance,
       time_horizon: portfolio.timeHorizon,
       investment_amount: portfolio.totalInvested,
+      cash_balance: 0,
     })
     .select("id")
     .single();
@@ -96,30 +156,8 @@ export async function addHolding(
 
   if (!stock) return { success: false, error: "Stock not found in rankings" };
 
-  let { data: portfolio } = await supabase
-    .from("user_portfolios")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!portfolio) {
-    const { data: newPortfolio, error: pErr } = await supabase
-      .from("user_portfolios")
-      .insert({
-        user_id: user.id,
-        name: "My Portfolio",
-        risk_tolerance: "moderate",
-        time_horizon: "medium",
-      })
-      .select("id")
-      .single();
-
-    if (pErr || !newPortfolio) {
-      return { success: false, error: "Could not create portfolio" };
-    }
-
-    portfolio = newPortfolio;
-  }
+  const portfolio = await getOrCreatePortfolio(supabase, user.id);
+  if (!portfolio) return { success: false, error: "Could not create portfolio" };
 
   const finalEntryPrice =
     entryPrice && Number.isFinite(entryPrice) && entryPrice > 0
@@ -128,6 +166,27 @@ export async function addHolding(
 
   const finalShares =
     shares && Number.isFinite(shares) && shares > 0 ? shares : 1;
+
+  const newPositionCost = finalEntryPrice * finalShares;
+
+  const { data: existingHolding } = await supabase
+    .from("portfolio_holdings")
+    .select("entry_price,shares")
+    .eq("portfolio_id", portfolio.id)
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  const previousPositionCost =
+    moneyNumber(existingHolding?.entry_price) * moneyNumber(existingHolding?.shares);
+  const cashDelta = newPositionCost - previousPositionCost;
+  const currentCash = moneyNumber(portfolio.cash_balance);
+
+  if (cashDelta > currentCash + 0.001) {
+    return {
+      success: false,
+      error: `Not enough available cash. Add $${(cashDelta - currentCash).toFixed(2)} cash or reduce the position size.`,
+    };
+  }
 
   const { error } = await supabase.from("portfolio_holdings").upsert(
     {
@@ -143,6 +202,15 @@ export async function addHolding(
   );
 
   if (error) return { success: false, error: error.message };
+
+  if (Math.abs(cashDelta) > 0.001) {
+    const { error: cashError } = await supabase
+      .from("user_portfolios")
+      .update({ cash_balance: currentCash - cashDelta })
+      .eq("id", portfolio.id);
+
+    if (cashError) return { success: false, error: cashError.message };
+  }
 
   revalidatePath("/portfolio");
   revalidatePath(`/stock/${upperTicker}`);
@@ -163,11 +231,28 @@ export async function removeHolding(ticker: string): Promise<ActionResult> {
 
   const { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id")
+    .select("id,cash_balance")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!portfolio) return { success: false, error: "No portfolio" };
+
+  const { data: holding } = await supabase
+    .from("portfolio_holdings")
+    .select("shares,entry_price")
+    .eq("portfolio_id", portfolio.id)
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  const { data: stock } = await supabase
+    .from("stock_rankings")
+    .select("price")
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  const shares = moneyNumber(holding?.shares);
+  const sellPrice = moneyNumber(stock?.price, moneyNumber(holding?.entry_price));
+  const cashCredit = Math.max(0, shares * sellPrice);
 
   const { error } = await supabase
     .from("portfolio_holdings")
@@ -176,6 +261,15 @@ export async function removeHolding(ticker: string): Promise<ActionResult> {
     .eq("ticker", upperTicker);
 
   if (error) return { success: false, error: error.message };
+
+  if (cashCredit > 0) {
+    const { error: cashError } = await supabase
+      .from("user_portfolios")
+      .update({ cash_balance: moneyNumber(portfolio.cash_balance) + cashCredit })
+      .eq("id", portfolio.id);
+
+    if (cashError) return { success: false, error: cashError.message };
+  }
 
   revalidatePath("/portfolio");
   revalidatePath(`/stock/${upperTicker}`);
@@ -231,6 +325,12 @@ export async function updateShares(
     return { success: false, error: "Invalid share count" };
   }
 
+  const upperTicker = cleanTicker(ticker);
+
+  if (newShares === 0) {
+    return removeHolding(upperTicker);
+  }
+
   const supabase = await createClient();
 
   const {
@@ -239,19 +339,41 @@ export async function updateShares(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const upperTicker = cleanTicker(ticker);
-
-  if (newShares === 0) {
-    return removeHolding(upperTicker);
-  }
-
   const { data: portfolio } = await supabase
     .from("user_portfolios")
-    .select("id")
+    .select("id,cash_balance")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!portfolio) return { success: false, error: "No portfolio" };
+
+  const { data: holding } = await supabase
+    .from("portfolio_holdings")
+    .select("shares,entry_price")
+    .eq("portfolio_id", portfolio.id)
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  if (!holding) return { success: false, error: "Holding not found" };
+
+  const { data: stock } = await supabase
+    .from("stock_rankings")
+    .select("price")
+    .eq("ticker", upperTicker)
+    .maybeSingle();
+
+  const oldShares = moneyNumber(holding.shares);
+  const shareDelta = newShares - oldShares;
+  const tradePrice = moneyNumber(stock?.price, moneyNumber(holding.entry_price));
+  const cashDelta = shareDelta * tradePrice;
+  const currentCash = moneyNumber(portfolio.cash_balance);
+
+  if (cashDelta > currentCash + 0.001) {
+    return {
+      success: false,
+      error: `Not enough available cash. Add $${(cashDelta - currentCash).toFixed(2)} cash or reduce the share count.`,
+    };
+  }
 
   const { error } = await supabase
     .from("portfolio_holdings")
@@ -260,6 +382,15 @@ export async function updateShares(
     .eq("ticker", upperTicker);
 
   if (error) return { success: false, error: error.message };
+
+  if (Math.abs(cashDelta) > 0.001) {
+    const { error: cashError } = await supabase
+      .from("user_portfolios")
+      .update({ cash_balance: currentCash - cashDelta })
+      .eq("id", portfolio.id);
+
+    if (cashError) return { success: false, error: cashError.message };
+  }
 
   revalidatePath("/portfolio");
   revalidatePath(`/stock/${upperTicker}`);
