@@ -7,13 +7,6 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
-
-export const metadata: Metadata = {
-  title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
-  description:
-    "Explore StockGPT AI rankings for S&P 500 stocks using technical, fundamental and market data.",
-};
-
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
   moveClassName,
@@ -37,6 +30,13 @@ type RankingsSearchParams = {
 
 type Profile = {
   subscription_status: string | null;
+};
+
+export const metadata: Metadata = {
+  title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
+  description:
+    "Explore StockGPT AI rankings for S&P 500 stocks using technical, fundamental and market data.",
+  robots: { index: false, follow: false },
 };
 
 const MIN_DISPLAY_SCORE = 100;
@@ -306,10 +306,7 @@ export default async function RankingsPage({
                   Moved down
                 </option>
                 <option className="text-black" value="flat">
-                  No change
-                </option>
-                <option className="text-black" value="none">
-                  No 24h snapshot
+                  Unchanged
                 </option>
               </select>
               <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">
@@ -317,241 +314,115 @@ export default async function RankingsPage({
               </span>
             </label>
 
-            <div className="grid grid-cols-2 gap-2 md:col-span-2 lg:col-span-1 lg:flex">
-              <button
-                type="submit"
-                className="h-12 rounded-2xl bg-[#ddb159] px-5 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(221,177,89,0.30)] hover:brightness-105"
-              >
-                Apply
-              </button>
-
-              <Link
-                href="/rankings"
-                className="grid h-12 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-5 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#ddb159]/10 hover:text-[#ddb159]"
-              >
-                Reset
-              </Link>
-            </div>
+            <button
+              type="submit"
+              className="h-12 rounded-2xl bg-[#ddb159] px-5 text-[12px] font-black text-[#072116] shadow-[0_10px_24px_rgba(221,177,89,0.20)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(221,177,89,0.30)]"
+            >
+              Apply
+            </button>
           </form>
         </section>
 
-        <RankingsLock isLocked={rankingsLocked} className="grid min-w-0 max-w-full gap-2 overflow-hidden lg:hidden">
-          {rankings.length > 0 ? (
-            rankings.map((stock) => {
-              const ticker = stock.ticker ?? "";
-              const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-              const priceText = formatPrice(stock.price);
-
-              return (
-                <Link
-                  key={stock.id}
-                  href={`/stock/${stock.ticker}`}
-                  className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20 transition hover:bg-white"
-                >
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159] min-[380px]:size-9 min-[380px]:text-[12px]">
-                        {stock.rank ?? "—"}
-                      </div>
-
-                      <StockLogo
-                        ticker={stock.ticker}
-                        company={stock.company}
-                        size={26}
-                      />
-
-                      <div className="flex min-h-[36px] min-w-0 flex-col justify-center">
-                        <p className="truncate text-[14px] font-black leading-[1.05] min-[380px]:text-[15px]">
-                          {stock.ticker ?? "—"}
-                        </p>
-                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                          <p className="min-w-0 truncate text-[10px] font-semibold leading-[1.05] text-[#072116]/55 min-[380px]:text-[11px]">
-                            {stock.company ?? "—"}
-                          </p>
-                          <DailyMovePill
-                            changePct={dailyMoveMap.get(ticker)?.changePct}
-                            className="h-5 min-w-[38px] px-1 text-[7.5px] min-[380px]:min-w-[42px] min-[380px]:px-1.5 min-[380px]:text-[8px]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <span
-                      className="shrink-0 rounded-full px-2 py-1 text-[9px] font-black min-[380px]:px-2.5 min-[380px]:text-[10px]"
-                      style={{
-                        backgroundColor: "#ddb159",
-                        color: "#072116",
-                      }}
-                    >
-                      {formatScore(stock.score)}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 min-[430px]:grid-cols-3">
-                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
-                        Move
-                      </p>
-                      <span
-                        title={move.title}
-                        className={[
-                          "mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
-                          moveClassName(move.tone),
-                        ].join(" ")}
-                      >
-                        {move.label}
-                      </span>
-                    </div>
-
-                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
-                        Price
-                      </p>
-                      <p className="mt-1 min-h-[16px] truncate text-[11px] font-black leading-none tabular-nums text-[#072116]">
-                        {priceText}
-                      </p>
-                    </div>
-
-                    <div className="min-w-0 rounded-xl border border-[#072116]/10 px-2 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">
-                        Sector
-                      </p>
-                      <p className="mt-1 min-h-[16px] truncate text-[10px] font-bold leading-none text-[#072116]/60">
-                        {stock.sector ?? "—"}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })
-          ) : (
-            <div className="rounded-2xl bg-[#faf6f0] px-4 py-10 text-center text-[13px] font-bold text-[#072116]/55">
-              No stocks match those filters.
-            </div>
-          )}
-        </RankingsLock>
-
-        <RankingsLock
-          isLocked={rankingsLocked}
-          className="relative hidden min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block"
-        >
-          <div className="h-full">
+        <RankingsLock isLocked={rankingsLocked}>
+          <section className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-[#faf6f0] text-[#072116] shadow-[0_20px_50px_rgba(0,0,0,0.24)] ring-1 ring-white/20">
             <div
-              className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}
+              className={`hidden ${gridCols} items-center gap-3 border-b border-[#072116]/10 bg-[#072116] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/82 lg:grid`}
             >
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Rank
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Move
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Ticker
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Company
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Sector
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                Price
-              </div>
-              <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">
-                AI Score
-              </div>
+              <div>Rank</div>
+              <div>Move</div>
+              <div>1D</div>
+              <div>Company</div>
+              <div>Sector</div>
+              <div className="text-right">Price</div>
+              <div className="text-right">Score</div>
             </div>
 
-            <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
-              {rankings.length > 0 ? (
-                rankings.map((stock) => {
-                  const ticker = stock.ticker ?? "";
-                  const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-
-                  return (
-                    <Link
-                      key={stock.id}
-                      href={`/stock/${stock.ticker}`}
-                      style={{ color: "#072116" }}
-                      className={`grid ${gridCols} items-center border-b border-[#072116]/8 text-[12px] transition hover:bg-[#ddb159]/8`}
-                    >
-                      <div
-                        className="px-4 py-2.5 font-bold"
-                        style={{ color: "rgba(7,33,22,0.7)" }}
-                      >
-                        {stock.rank ?? "—"}
-                      </div>
-
-                      <div className="px-4 py-2.5">
-                        <span
-                          title={move.title}
-                          className={[
-                            "inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums",
-                            moveClassName(move.tone),
-                          ].join(" ")}
-                        >
-                          {move.label}
-                        </span>
-                      </div>
-
-                      <div
-                        className="flex items-center gap-2 px-4 py-2.5 font-black"
-                        style={{ color: "#072116" }}
-                      >
-                        <StockLogo
-                          ticker={stock.ticker}
-                          company={stock.company}
-                          size={22}
-                        />
-                        <span>{stock.ticker ?? "—"}</span>
-                      </div>
-
-                      <div
-                        className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold"
-                        style={{ color: "#072116" }}
-                      >
-                        <span className="min-w-0 truncate">{stock.company ?? "—"}</span>
-                        <DailyMovePill changePct={dailyMoveMap.get(ticker)?.changePct} />
-                      </div>
-
-                      <div className="min-w-0 px-4 py-2.5">
-                        <span
-                          title={stock.sector ?? "—"}
-                          className="inline-flex max-w-full rounded-full border border-[#072116]/10 px-2 py-0.5 text-[10px] font-bold leading-tight"
-                          style={{ color: "rgba(7,33,22,0.6)" }}
-                        >
-                          <span className="min-w-0 truncate">{stock.sector ?? "—"}</span>
-                        </span>
-                      </div>
-
-                      <div
-                        className="px-4 py-2.5 font-semibold tabular-nums"
-                        style={{ color: "#072116" }}
-                      >
-                        {formatPrice(stock.price)}
-                      </div>
-
-                      <div className="px-4 py-2.5">
-                        <span
-                          className="inline-flex min-w-[68px] justify-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
-                          style={{ backgroundColor: "#ddb159", color: "#072116" }}
-                        >
-                          {formatScore(stock.score)}
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })
+            <div className="h-full overflow-y-auto lg:h-[calc(100%-44px)]">
+              {rankings.length === 0 ? (
+                <div className="grid h-full min-h-[240px] place-items-center p-8 text-center">
+                  <div>
+                    <p className="text-[20px] font-black tracking-[-0.04em]">No stocks found</p>
+                    <p className="mt-1 text-[13px] font-semibold text-[#072116]/50">
+                      Try clearing the search or filters.
+                    </p>
+                  </div>
+                </div>
               ) : (
-                <div
-                  className="px-4 py-10 text-center text-[13px] font-bold"
-                  style={{ color: "rgba(7,33,22,0.55)" }}
-                >
-                  No stocks match those filters.
+                <div className="divide-y divide-[#072116]/8">
+                  {rankings.map((stock) => {
+                    const ticker = stock.ticker ?? "";
+                    const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
+                    const dailyMove = dailyMoveMap.get(ticker);
+
+                    return (
+                      <Link
+                        key={stock.id}
+                        href={`/stock/${ticker}`}
+                        className={`group grid min-h-[76px] grid-cols-[46px_minmax(0,1fr)_70px] items-center gap-2 px-3 py-3 transition hover:bg-[#ddb159]/10 sm:grid-cols-[54px_minmax(0,1fr)_82px_78px] lg:${gridCols} lg:min-h-[64px] lg:gap-3 lg:px-4`}
+                      >
+                        <div className="text-[17px] font-black tabular-nums tracking-[-0.04em] text-[#072116] lg:text-[18px]">
+                          #{stock.rank ?? "—"}
+                        </div>
+
+                        <div className="hidden lg:block">
+                          <span
+                            className={[
+                              "inline-flex h-8 min-w-[58px] items-center justify-center rounded-full border px-2 text-[11px] font-black tabular-nums",
+                              moveClassName(move.tone),
+                            ].join(" ")}
+                            title="24-hour rank movement"
+                          >
+                            {move.label}
+                          </span>
+                        </div>
+
+                        <div className="hidden lg:block">
+                          <DailyMovePill changePct={dailyMove} />
+                        </div>
+
+                        <div className="flex min-w-0 items-center gap-3">
+                          <StockLogo ticker={stock.ticker} company={stock.company} size={34} />
+                          <div className="min-w-0">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <p className="truncate text-[16px] font-black leading-tight tracking-[-0.03em] text-[#072116] lg:text-[17px]">
+                                {stock.ticker ?? "—"}
+                              </p>
+                              <span
+                                className={[
+                                  "inline-flex h-5 min-w-[46px] items-center justify-center rounded-full border px-1.5 text-[9px] font-black tabular-nums lg:hidden",
+                                  moveClassName(move.tone),
+                                ].join(" ")}
+                              >
+                                {move.label}
+                              </span>
+                              <DailyMovePill changePct={dailyMove} className="h-5 min-w-[42px] px-1 text-[8px] lg:hidden" />
+                            </div>
+                            <p className="mt-0.5 truncate text-[12px] font-semibold text-[#072116]/55">
+                              {stock.company ?? "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="hidden min-w-0 lg:block">
+                          <span className="block truncate text-[12px] font-bold text-[#072116]/60">
+                            {stock.sector ?? "—"}
+                          </span>
+                        </div>
+
+                        <div className="text-right text-[13px] font-black tabular-nums text-[#072116]">
+                          {formatPrice(stock.price)}
+                        </div>
+
+                        <div className="text-right text-[15px] font-black tabular-nums tracking-[-0.03em] text-[#072116]">
+                          {formatScore(stock.score)}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </RankingsLock>
       </main>
     </AppShell>
