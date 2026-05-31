@@ -352,7 +352,7 @@ export default async function RankingsPage({
                   {rankings.map((stock) => {
                     const ticker = stock.ticker ?? "";
                     const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-                    const dailyMove = dailyMoveMap.get(ticker);
+                    const dailyMove = dailyMoveMap.get(ticker)?.changePct;
 
                     return (
                       <Link
