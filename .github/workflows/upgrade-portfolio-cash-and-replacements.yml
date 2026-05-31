@@ -1,0 +1,32 @@
+name: Upgrade Portfolio Cash And Replacements
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/upgrade_portfolio_cash_and_replacements.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Upgrade portfolio cash and replacements
+        run: python scripts/upgrade_portfolio_cash_and_replacements.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/portfolio/page.tsx components/SavedPortfolio.tsx lib/actions/portfolio-management.ts
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Upgrade portfolio cash and replacement recommendations"
+            git push
+          fi
