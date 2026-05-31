@@ -1,0 +1,32 @@
+name: Upgrade Portfolio Basis Amount Layout
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/upgrade_portfolio_basis_amount_layout.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Upgrade portfolio basis amount layout
+        run: python scripts/upgrade_portfolio_basis_amount_layout.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/portfolio/page.tsx components/SavedPortfolio.tsx lib/actions/portfolio-management.ts
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Upgrade portfolio basis amount and responsive layout"
+            git push
+          fi
