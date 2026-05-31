@@ -1,0 +1,32 @@
+name: Format Portfolio Cash 2dp
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/format_portfolio_cash_2dp.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Format portfolio cash values
+        run: python scripts/format_portfolio_cash_2dp.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add components/SavedPortfolio.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Format portfolio cash values to two decimals"
+            git push
+          fi
