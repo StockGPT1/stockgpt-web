@@ -213,9 +213,6 @@ export default async function RankingsPage({
     return matchesSearch && matchesSector && matchesMove;
   });
 
-  const gridCols =
-    "grid-cols-[58px_76px_108px_minmax(0,1fr)_minmax(170px,220px)_92px_96px]";
-
   return (
     <AppShell activePath="/rankings">
       <main className="flex min-h-full flex-col gap-3 overflow-x-hidden lg:h-full lg:min-h-0 lg:overflow-hidden">
@@ -325,9 +322,7 @@ export default async function RankingsPage({
 
         <RankingsLock isLocked={rankingsLocked}>
           <section className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-[#faf6f0] text-[#072116] shadow-[0_20px_50px_rgba(0,0,0,0.24)] ring-1 ring-white/20">
-            <div
-              className={`hidden ${gridCols} items-center gap-3 border-b border-[#072116]/10 bg-[#072116] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/82 lg:grid`}
-            >
+            <div className="hidden grid-cols-[58px_76px_108px_minmax(0,1fr)_minmax(170px,220px)_92px_96px] items-center gap-3 border-b border-[#072116]/10 bg-[#072116] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/82 lg:grid">
               <div>Rank</div>
               <div>Move</div>
               <div>1D</div>
@@ -358,7 +353,7 @@ export default async function RankingsPage({
                       <Link
                         key={stock.id}
                         href={`/stock/${ticker}`}
-                        className={`group grid min-h-[76px] grid-cols-[46px_minmax(0,1fr)_70px] items-center gap-2 px-3 py-3 transition hover:bg-[#ddb159]/10 sm:grid-cols-[54px_minmax(0,1fr)_82px_78px] lg:${gridCols} lg:min-h-[64px] lg:gap-3 lg:px-4`}
+                        className="group grid min-h-[76px] grid-cols-[46px_minmax(0,1fr)_70px] items-center gap-2 px-3 py-3 transition hover:bg-[#ddb159]/10 sm:grid-cols-[54px_minmax(0,1fr)_82px_78px] lg:min-h-[64px] lg:grid-cols-[58px_76px_108px_minmax(0,1fr)_minmax(170px,220px)_92px_96px] lg:gap-3 lg:px-4"
                       >
                         <div className="text-[17px] font-black tabular-nums tracking-[-0.04em] text-[#072116] lg:text-[18px]">
                           #{stock.rank ?? "—"}
