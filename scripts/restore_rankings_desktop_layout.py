@@ -4,7 +4,8 @@ import subprocess
 GOOD_COMMIT = "2d016fb68293e94d39bf2ec61bb85518c55890b6"
 path = Path("app/rankings/page.tsx")
 
-subprocess.run(["git", "checkout", GOOD_COMMIT, "--", str(path)], check=True)
+subprocess.run(["git", "fetch", "--depth=1", "origin", GOOD_COMMIT], check=True)
+subprocess.run(["git", "checkout", "FETCH_HEAD", "--", str(path)], check=True)
 text = path.read_text()
 
 if 'import type { Metadata } from "next";' not in text:
