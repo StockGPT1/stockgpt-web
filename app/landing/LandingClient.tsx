@@ -8,7 +8,7 @@ import {
   AskStockGPTVisual,
   NewsVisual,
   PortfolioVisual,
-  ProductFlowVisual,
+  ProductDemoVisual,
   RankingVisual,
   ResearchPlanVisual,
   TiltingIphoneDashboard,
@@ -35,6 +35,7 @@ type LandingClientProps = {
 };
 
 const navLinks = [
+  { label: "Demo", target: "demo" },
   { label: "Rankings", target: "rankings" },
   { label: "Research", target: "research" },
   { label: "Portfolio", target: "portfolio" },
@@ -200,11 +201,7 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   );
 }
 
-function TrustStrip({
-  stockCountLabel,
-}: {
-  stockCountLabel: string;
-}) {
+function TrustStrip({ stockCountLabel }: { stockCountLabel: string }) {
   const items = [
     `${stockCountLabel} US stocks scanned`,
     "Research tool, not financial advice",
@@ -213,7 +210,7 @@ function TrustStrip({
   ];
 
   return (
-    <div className="mx-auto mt-7 grid max-w-7xl gap-2 px-4 sm:mt-8 sm:grid-cols-4 sm:px-6 lg:px-8">
+    <div className="mx-auto mt-6 grid max-w-7xl gap-2 px-4 sm:mt-8 sm:grid-cols-4 sm:px-6 lg:px-8">
       {items.map((item) => (
         <div
           key={item}
@@ -254,7 +251,7 @@ function MethodAndTrustSection() {
   const method = [
     {
       title: "Collect",
-      detail: "Market data, rankings inputs and news context are pulled into one workflow.",
+      detail: "Market data, ranking inputs and news context are pulled into one workflow.",
     },
     {
       title: "Score",
@@ -267,7 +264,7 @@ function MethodAndTrustSection() {
   ];
 
   return (
-    <section id="method" className="scroll-mt-32 px-4 pb-12 sm:pb-14 sm:px-6 lg:px-8">
+    <section id="method" className="scroll-mt-32 px-4 pb-12 sm:px-6 sm:pb-14 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[1fr_0.72fr]">
         <div className="rounded-[2rem] border border-[#dfe5dc] bg-white p-6 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-7">
           <SectionLabel>Method</SectionLabel>
@@ -314,7 +311,7 @@ function MethodAndTrustSection() {
                 Support
               </p>
               <p className="mt-1 text-sm font-black text-white">
-                sales@stockgpt.pro
+                support@stockgpt.pro
               </p>
             </div>
 
@@ -468,6 +465,71 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           animation-play-state: paused;
         }
 
+        .sg-demo-panel {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          transform: translateY(10px) scale(0.992);
+          pointer-events: none;
+        }
+
+        .sg-demo-panel-1 {
+          animation: sgDemoPanel1 20s ease-in-out infinite;
+        }
+
+        .sg-demo-panel-2 {
+          animation: sgDemoPanel2 20s ease-in-out infinite;
+        }
+
+        .sg-demo-panel-3 {
+          animation: sgDemoPanel3 20s ease-in-out infinite;
+        }
+
+        .sg-demo-panel-4 {
+          animation: sgDemoPanel4 20s ease-in-out infinite;
+        }
+
+        .sg-demo-cursor {
+          position: absolute;
+          z-index: 20;
+          left: 18%;
+          top: 70%;
+          animation: sgDemoCursor 20s ease-in-out infinite;
+        }
+
+        .sg-demo-click {
+          position: absolute;
+          z-index: 19;
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          border: 2px solid rgba(221, 177, 89, 0.75);
+          background: rgba(221, 177, 89, 0.12);
+          transform: translate(-50%, -50%) scale(0.72);
+          opacity: 0;
+          animation: sgDemoClick 20s ease-in-out infinite;
+        }
+
+        .sg-demo-step {
+          transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease;
+        }
+
+        .sg-demo-step-1 {
+          animation: sgDemoStep1 20s ease-in-out infinite;
+        }
+
+        .sg-demo-step-2 {
+          animation: sgDemoStep2 20s ease-in-out infinite;
+        }
+
+        .sg-demo-step-3 {
+          animation: sgDemoStep3 20s ease-in-out infinite;
+        }
+
+        .sg-demo-step-4 {
+          animation: sgDemoStep4 20s ease-in-out infinite;
+        }
+
         @keyframes sgRankSweep {
           0%, 100% { background: rgba(255,255,255,0); }
           45% { background: rgba(221,177,89,0.06); }
@@ -502,6 +564,79 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           100% { transform: translateX(-50%); }
         }
 
+        @keyframes sgDemoPanel1 {
+          0%, 20% { opacity: 1; transform: translateY(0) scale(1); }
+          24%, 100% { opacity: 0; transform: translateY(10px) scale(0.992); }
+        }
+
+        @keyframes sgDemoPanel2 {
+          0%, 23% { opacity: 0; transform: translateY(10px) scale(0.992); }
+          27%, 45% { opacity: 1; transform: translateY(0) scale(1); }
+          49%, 100% { opacity: 0; transform: translateY(10px) scale(0.992); }
+        }
+
+        @keyframes sgDemoPanel3 {
+          0%, 48% { opacity: 0; transform: translateY(10px) scale(0.992); }
+          52%, 70% { opacity: 1; transform: translateY(0) scale(1); }
+          74%, 100% { opacity: 0; transform: translateY(10px) scale(0.992); }
+        }
+
+        @keyframes sgDemoPanel4 {
+          0%, 73% { opacity: 0; transform: translateY(10px) scale(0.992); }
+          77%, 95% { opacity: 1; transform: translateY(0) scale(1); }
+          99%, 100% { opacity: 0; transform: translateY(10px) scale(0.992); }
+        }
+
+        @keyframes sgDemoCursor {
+          0%, 14% { left: 82%; top: 18%; }
+          25%, 39% { left: 31%; top: 34%; }
+          50%, 64% { left: 76%; top: 18%; }
+          75%, 92% { left: 62%; top: 58%; }
+          100% { left: 82%; top: 18%; }
+        }
+
+        @keyframes sgDemoClick {
+          0%, 9%, 15%, 24%, 34%, 40%, 49%, 59%, 65%, 74%, 84%, 93%, 100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.72);
+          }
+          10%, 35%, 60%, 85% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(0.72);
+          }
+          14%, 39%, 64%, 90% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(1.75);
+          }
+          10%, 14% { left: 82%; top: 18%; }
+          35%, 39% { left: 31%; top: 34%; }
+          60%, 64% { left: 76%; top: 18%; }
+          85%, 90% { left: 62%; top: 58%; }
+        }
+
+        @keyframes sgDemoStep1 {
+          0%, 20% { background: #072116; border-color: #072116; color: #ffffff; }
+          24%, 100% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+        }
+
+        @keyframes sgDemoStep2 {
+          0%, 23% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+          27%, 45% { background: #072116; border-color: #072116; color: #ffffff; }
+          49%, 100% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+        }
+
+        @keyframes sgDemoStep3 {
+          0%, 48% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+          52%, 70% { background: #072116; border-color: #072116; color: #ffffff; }
+          74%, 100% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+        }
+
+        @keyframes sgDemoStep4 {
+          0%, 73% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+          77%, 95% { background: #072116; border-color: #072116; color: #ffffff; }
+          99%, 100% { background: #fbfaf6; border-color: #edf0ea; color: #66746b; }
+        }
+
         @media (hover: none) {
           .sg-phone-scroll {
             animation: sgPhoneMobilePeek 8s ease-in-out infinite;
@@ -527,6 +662,11 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             width: 0;
             height: 0;
           }
+
+          .sg-demo-cursor,
+          .sg-demo-click {
+            display: none;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -540,8 +680,35 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           .sg-chat-b,
           .sg-chat-c,
           .sg-chat-d,
-          .sg-marquee-track {
+          .sg-marquee-track,
+          .sg-demo-panel-1,
+          .sg-demo-panel-2,
+          .sg-demo-panel-3,
+          .sg-demo-panel-4,
+          .sg-demo-cursor,
+          .sg-demo-click,
+          .sg-demo-step-1,
+          .sg-demo-step-2,
+          .sg-demo-step-3,
+          .sg-demo-step-4 {
             animation: none !important;
+          }
+
+          .sg-demo-panel-1 {
+            opacity: 1 !important;
+            transform: none !important;
+          }
+
+          .sg-demo-panel-2,
+          .sg-demo-panel-3,
+          .sg-demo-panel-4 {
+            opacity: 0 !important;
+          }
+
+          .sg-chat-a,
+          .sg-chat-b,
+          .sg-chat-c,
+          .sg-chat-d {
             opacity: 1 !important;
             transform: none !important;
           }
@@ -674,17 +841,17 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
         <TrustStrip stockCountLabel={stockCountLabel} />
 
-        <div className="mt-6 hidden sm:block">
+        <section id="demo" className="scroll-mt-32 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <ProductDemoVisual />
+          </div>
+        </section>
+
+        <div className="hidden sm:block">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <TickerMarquee tickerTape={tickerTape} />
           </div>
         </div>
-
-        <section className="hidden px-4 pt-6 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <ProductFlowVisual />
-          </div>
-        </section>
 
         <div className="sm:hidden">
           <MobileDemoGroup label="Rankings" title="Rank the market first.">
@@ -702,7 +869,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </MobileDemoGroup>
         </div>
 
-        <section id="rankings" className="hidden scroll-mt-32 px-4 pt-14 pb-14 sm:block sm:px-6 lg:px-8">
+        <section id="rankings" className="hidden scroll-mt-32 px-4 py-12 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
               <SectionLabel>Rankings</SectionLabel>
@@ -720,7 +887,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="research" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
+        <section id="research" className="hidden scroll-mt-32 px-4 pb-12 sm:block sm:px-6 sm:pb-14 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="mb-8 max-w-3xl">
               <SectionLabel>Research tools</SectionLabel>
@@ -740,7 +907,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="portfolio" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
+        <section id="portfolio" className="hidden scroll-mt-32 px-4 pb-12 sm:block sm:px-6 sm:pb-14 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="mb-8 max-w-3xl">
               <SectionLabel>Portfolio and news</SectionLabel>
