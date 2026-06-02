@@ -48,15 +48,15 @@ const pricingFeatures = [
 const socialLinks = [
   {
     label: "X",
-    href: "#",
+    href: "https://x.com/stockgptpro",
   },
   {
     label: "TikTok",
-    href: "#",
+    href: "https://www.tiktok.com/@stockgptai?is_from_webapp=1&sender_device=pc",
   },
   {
     label: "Instagram",
-    href: "#",
+    href: "https://www.instagram.com/stockgptpro/",
   },
 ];
 
