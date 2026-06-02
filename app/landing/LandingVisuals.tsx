@@ -459,7 +459,7 @@ export function ResearchPlanVisual() {
 
         <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-500">
-            Invalidation
+            STOP LOSS
           </p>
           <p className="sg-data mt-2 text-3xl font-black text-red-700">
             $664.50
