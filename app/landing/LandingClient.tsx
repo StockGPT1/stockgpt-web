@@ -27,88 +27,59 @@ type LandingClientProps = {
   metrics: LandingMetrics;
 };
 
-const resultStats = [
+const navLinks = [
+  { label: "Preview", href: "#preview" },
+  { label: "Inside", href: "#inside" },
+  { label: "Method", href: "#method" },
+  { label: "Pricing", href: "#pricing" },
+];
+
+const productPreview = [
   {
-    label: "Top-10 return",
-    target: 31.4,
-    prefix: "+",
-    suffix: "%",
-    decimals: 1,
-    detail: "Tracked top-ranked basket return.",
+    title: "Ranked market view",
+    copy: "See which US stocks are ranking highest, how positions are moving and where research may be worth starting.",
   },
   {
-    label: "Downside avoided",
-    target: 18.6,
-    prefix: "+",
-    suffix: "%",
-    decimals: 1,
-    detail: "Risk deterioration scenario.",
+    title: "Individual stock pages",
+    copy: "Review ranking context, market data, relevant news, reasoning and risk notes before going deeper.",
   },
   {
-    label: "Winning periods",
-    target: 83,
-    suffix: "%",
-    decimals: 0,
-    detail: "Top-ranked basket periods.",
+    title: "Portfolio context",
+    copy: "Add holdings manually or import a CSV to understand where your portfolio may be strong, weak or concentrated.",
   },
   {
-    label: "Return capture",
-    target: 4.2,
-    suffix: "x",
-    decimals: 1,
-    detail: "Signal-to-return ratio.",
+    title: "Ask StockGPT",
+    copy: "Ask questions about rankings, market context, stock pages and research concepts in plain English.",
   },
 ];
 
-const features = [
-  {
-    kicker: "Rankings",
-    title: "Start with a ranked market.",
-    copy:
-      "StockGPT scans US stocks and orders them by a structured score, so users are not beginning every research session from a blank watchlist.",
-  },
-  {
-    kicker: "Portfolio",
-    title: "Understand what you already hold.",
-    copy:
-      "Portfolio tools help users compare holdings, identify weaker positions and think more clearly about allocation.",
-  },
-  {
-    kicker: "News",
-    title: "Separate relevant news from noise.",
-    copy:
-      "Market news is connected back to the research workflow, making it easier to see which headlines may matter.",
-  },
-];
-
-const engineSteps = [
+const methodSteps = [
   {
     title: "Collect",
-    copy: "Prices, rankings, fundamentals, sector context and market news are pulled into the research layer.",
-  },
-  {
-    title: "Normalise",
-    copy: "Indicators are standardised so different stocks can be compared more fairly.",
+    copy: "Prices, fundamentals, ranking inputs, sector context and market news are brought into one research layer.",
   },
   {
     title: "Score",
-    copy: "Each stock is assessed across Quality, Growth, Value, Momentum, Risk and Income.",
+    copy: "Stocks are assessed across Quality, Growth, Value, Momentum, Risk and Income.",
   },
   {
-    title: "Risk check",
-    copy: "Fragile, overextended or debt-stressed companies are penalised before the final ranking is shown.",
+    title: "Rank",
+    copy: "The market is ordered into a clearer research list, helping users decide what deserves attention first.",
   },
   {
-    title: "Deliver",
-    copy: "The dashboard presents rankings, summaries, portfolio context and market tools in one workflow.",
+    title: "Review",
+    copy: "Stock pages, news context and portfolio tools help users sense-check the ranking before making decisions.",
   },
 ];
 
-const navLinks = [
-  { label: "Rankings", href: "#rankings-preview" },
-  { label: "Features", href: "#features" },
-  { label: "Affiliate", href: "/affiliate" },
-  { label: "Pricing", href: "#pricing" },
+const pricingFeatures = [
+  "Full ranked stock table",
+  "Daily scores and rank movements",
+  "Individual stock research pages",
+  "World news and stock impact context",
+  "Portfolio Builder and alerts",
+  "Ask StockGPT research assistant",
+  "Live market updates",
 ];
 
 function formatMoney(value: number | null) {
@@ -132,12 +103,12 @@ function toneClass(value: number | null) {
   return "text-[#faf6f0]/45";
 }
 
-function ButtonBase({
-  children,
+function CheckoutButton({
+  children = "Try free today",
   full = false,
   compact = false,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   full?: boolean;
   compact?: boolean;
 }) {
@@ -148,18 +119,21 @@ function ButtonBase({
       className={full ? "w-full" : "w-fit max-sm:w-full"}
     >
       <EndorselyReferralInput />
+
       <button
         type="submit"
         className={[
-          "inline-flex items-center justify-center rounded-full border border-[#e0ba62] bg-[#ddb159] font-bold uppercase tracking-[0.12em] text-[#06180f] shadow-[0_12px_30px_rgba(0,0,0,0.22)] transition-colors duration-200 hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] active:bg-[#c99f49]",
+          "inline-flex items-center justify-center rounded-full border border-[#e3bc63] bg-[#ddb159] font-bold uppercase tracking-[0.12em] text-[#06180f] shadow-[0_14px_36px_rgba(0,0,0,0.22)] transition-colors duration-200 hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] active:bg-[#c99f49]",
           full ? "w-full" : "max-sm:w-full",
-          compact ? "px-4 py-2.5 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
+          compact ? "min-h-10 px-4 py-2 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
         ].join(" ")}
       >
         {children}
       </button>
 
-      {!compact && <LegalConsentLine className="mt-3 max-w-[360px]" />}
+      {!compact && (
+        <LegalConsentLine className="mt-3 max-w-[380px] text-[#faf6f0]/45" />
+      )}
     </form>
   );
 }
@@ -178,7 +152,7 @@ function GhostButton({
       href={href}
       className={[
         "inline-flex items-center justify-center rounded-full border border-[#ddb159]/45 bg-transparent font-bold uppercase tracking-[0.12em] text-[#faf6f0] transition-colors duration-200 hover:border-[#ddb159] hover:bg-[#ddb159]/8 hover:text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] max-sm:w-full",
-        compact ? "px-4 py-2.5 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
+        compact ? "min-h-10 px-4 py-2 text-[11px]" : "min-h-12 px-7 py-3 text-sm",
       ].join(" ")}
     >
       {children}
@@ -188,35 +162,42 @@ function GhostButton({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-4 inline-flex rounded-full border border-[#ddb159]/24 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
+    <p className="mb-4 inline-flex rounded-full border border-[#ddb159]/24 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
       {children}
     </p>
   );
 }
 
-function StatCounter({
-  target,
-  prefix = "",
-  suffix = "",
-  decimals,
+function MetricCard({
+  label,
+  value,
+  sub,
+  tone = "gold",
 }: {
-  target: number;
-  prefix?: string;
-  suffix?: string;
-  decimals: number;
+  label: string;
+  value: string;
+  sub: string;
+  tone?: "gold" | "green" | "plain";
 }) {
   return (
-    <span
-      className="sg-counter sg-data"
-      data-count-to={target}
-      data-prefix={prefix}
-      data-suffix={suffix}
-      data-decimals={decimals}
-    >
-      {prefix}
-      {decimals > 0 ? "0.0" : "0"}
-      {suffix}
-    </span>
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#faf6f0]/45">
+        {label}
+      </p>
+      <p
+        className={[
+          "sg-data mt-2 text-2xl font-bold",
+          tone === "green"
+            ? "text-[#56d98a]"
+            : tone === "plain"
+              ? "text-[#faf6f0]"
+              : "text-[#ddb159]",
+        ].join(" ")}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-xs font-medium leading-5 text-[#faf6f0]/45">{sub}</p>
+    </div>
   );
 }
 
@@ -224,7 +205,7 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   if (tickerTape.length === 0) {
     return (
       <div className="rounded-2xl border border-[#ddb159]/18 bg-[#061b12]/78 px-4 py-3 text-sm font-bold text-[#faf6f0]/55">
-        Live ticker data is loading from the market feed.
+        Live market data is loading.
       </div>
     );
   }
@@ -233,8 +214,8 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#061b12]/78 py-2.5">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#061b12] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#061b12] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#061b12] to-transparent sm:w-16" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#061b12] to-transparent sm:w-16" />
 
       <div className="sg-marquee-track flex w-max items-center gap-2.5">
         {repeated.map((item, index) => (
@@ -261,57 +242,28 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  tone = "gold",
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  tone?: "gold" | "green";
-}) {
-  return (
-    <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/78 p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#faf6f0]/46">
-        {label}
-      </p>
-      <p
-        className={[
-          "sg-data mt-2 text-2xl font-bold",
-          tone === "green" ? "text-[#56d98a]" : "text-[#ddb159]",
-        ].join(" ")}
-      >
-        {value}
-      </p>
-      <p className="mt-1 truncate text-xs font-medium text-[#faf6f0]/45">{sub}</p>
-    </div>
-  );
-}
-
-function LockedRankingPreview({ metrics }: { metrics: LandingMetrics }) {
-  const lockedRows = Array.from({ length: 8 });
+function RankingPreview({ metrics }: { metrics: LandingMetrics }) {
+  const lockedRows = Array.from({ length: 7 });
 
   return (
-    <div
-      id="rankings-preview"
-      className="relative scroll-mt-28 overflow-hidden rounded-[1.35rem] border border-[#ddb159]/22 bg-[#06180f]/90 p-2 shadow-[0_26px_80px_rgba(0,0,0,0.42)] sm:rounded-[2rem] sm:p-3"
+    <section
+      id="preview"
+      className="relative scroll-mt-28 overflow-hidden rounded-[1.35rem] border border-[#ddb159]/22 bg-[#06180f]/92 p-2 shadow-[0_26px_80px_rgba(0,0,0,0.38)] sm:rounded-[2rem] sm:p-3"
     >
-      <div className="relative overflow-hidden rounded-[1.1rem] border border-white/[0.08] bg-[#04180f]/96 sm:rounded-[1.55rem]">
-        <div className="flex flex-col gap-3 border-b border-[#ddb159]/16 p-4 md:flex-row md:items-center md:justify-between">
+      <div className="overflow-hidden rounded-[1.1rem] border border-white/[0.08] bg-[#04180f]/96 sm:rounded-[1.55rem]">
+        <div className="flex flex-col gap-3 border-b border-[#ddb159]/16 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#ddb159]">
-              Rankings preview
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
+              Product preview
             </p>
             <h2 className="sg-heading mt-1 text-2xl font-medium text-[#faf6f0] sm:text-3xl">
-              Live research table
+              Ranked market table
             </h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-[#56d98a]/28 bg-[#56d98a]/8 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#56d98a] sm:text-[11px]">
-              Live feed
+              Member dashboard
             </span>
             <span className="rounded-full border border-[#ddb159]/20 bg-[#ddb159]/8 px-3 py-1.5 text-[10px] font-bold text-[#ddb159] sm:text-[11px]">
               Updated: {metrics.lastUpdatedLabel}
@@ -319,72 +271,83 @@ function LockedRankingPreview({ metrics }: { metrics: LandingMetrics }) {
           </div>
         </div>
 
-        <div className="relative overflow-hidden">
-          <div className="grid grid-cols-[42px_minmax(0,1fr)_90px] border-b border-white/[0.08] px-3 py-3 text-[9px] font-bold uppercase tracking-[0.2em] text-[#faf6f0]/45 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px] md:text-[10px]">
-            <span>#</span>
-            <span>Research target</span>
-            <span className="hidden md:block">Signal</span>
-            <span className="hidden md:block">Market data</span>
-            <span className="text-right md:text-left">Score</span>
-          </div>
+        <div className="grid grid-cols-[42px_minmax(0,1fr)_72px] border-b border-white/[0.08] px-3 py-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[#faf6f0]/45 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px] md:text-[10px]">
+          <span>#</span>
+          <span>Research target</span>
+          <span className="hidden md:block">Context</span>
+          <span className="hidden md:block">Movement</span>
+          <span className="text-right md:text-left">Score</span>
+        </div>
 
-          <div>
-            {lockedRows.map((_, index) => (
-              <div
-                key={`locked-${index}`}
-                className="grid grid-cols-[42px_minmax(0,1fr)_90px] items-center border-b border-white/[0.06] px-3 py-3 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px]"
-              >
-                <span className="sg-data text-sm font-bold text-[#ddb159]">
-                  {String(index + 1).padStart(2, "0")}
+        <div className="relative">
+          {lockedRows.map((_, index) => (
+            <div
+              key={`locked-${index}`}
+              className="grid grid-cols-[42px_minmax(0,1fr)_72px] items-center border-b border-white/[0.06] px-3 py-3 sm:px-4 md:grid-cols-[52px_minmax(140px,1fr)_minmax(150px,1fr)_90px_90px]"
+            >
+              <span className="sg-data text-sm font-bold text-[#ddb159]">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-[#faf6f0]">
+                  Ranked stock hidden
                 </span>
-
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/25 bg-[#ddb159]/10 text-[9px] font-bold text-[#ddb159]">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-[#faf6f0]">
-                      Stock hidden until access
-                    </span>
-                    <span className="block truncate text-[10px] font-medium text-[#faf6f0]/42">
-                      Ticker, score and movement available inside
-                    </span>
-                  </span>
+                <span className="block truncate text-[10px] font-medium text-[#faf6f0]/42">
+                  Ticker, sector and reasoning available inside
                 </span>
+              </span>
 
-                <span className="hidden truncate text-sm font-medium text-[#faf6f0]/45 md:block">
-                  Research signal ready
-                </span>
+              <span className="hidden truncate text-sm font-medium text-[#faf6f0]/45 md:block">
+                Research context included
+              </span>
 
-                <span className="sg-data hidden text-sm font-medium text-[#faf6f0]/42 md:block">
-                  Live
-                </span>
+              <span className="sg-data hidden text-sm font-medium text-[#faf6f0]/42 md:block">
+                Daily
+              </span>
 
-                <span className="sg-data text-right text-sm font-bold text-[#56d98a] md:text-left">
-                  Locked
-                </span>
-              </div>
-            ))}
-          </div>
+              <span className="sg-data text-right text-xs font-bold uppercase tracking-[0.08em] text-[#56d98a] md:text-left">
+                Locked
+              </span>
+            </div>
+          ))}
 
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-[#04180f]/16 via-[#04180f]/72 to-[#04180f]/94 px-4">
-            <div className="pointer-events-auto max-w-[420px] rounded-[1.25rem] border border-[#ddb159]/36 bg-[#04180f]/96 p-5 text-center shadow-[0_22px_70px_rgba(0,0,0,0.42)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#ddb159]">
-                Member access
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-b from-[#04180f]/10 via-[#04180f]/72 to-[#04180f]/96 px-4">
+            <div className="pointer-events-auto w-full max-w-[430px] rounded-[1.25rem] border border-[#ddb159]/34 bg-[#04180f]/96 p-5 text-center shadow-[0_22px_70px_rgba(0,0,0,0.42)]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
+                Free trial access
               </p>
-              <h3 className="sg-heading mt-2 text-3xl font-medium text-[#faf6f0]">
-                See the names behind the ranking.
+              <h3 className="sg-heading mt-2 text-2xl font-medium text-[#faf6f0] sm:text-3xl">
+                See the full ranked list.
               </h3>
-              <p className="mt-3 text-sm leading-6 text-[#faf6f0]/55">
-                StockGPT gives users a ranked starting point for research,
-                with data context available inside the dashboard.
+              <p className="mt-3 text-sm leading-6 text-[#faf6f0]/58">
+                Start with the live table, then open stock pages, news context
+                and portfolio tools inside the dashboard.
               </p>
               <div className="mt-5 flex justify-center">
-                <ButtonBase compact>Start researching</ButtonBase>
+                <CheckoutButton compact>Try free today</CheckoutButton>
               </div>
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function MobileBottomCta() {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#ddb159]/20 bg-[#04180f]/95 px-3 py-3 shadow-[0_-16px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:hidden">
+      <div className="mx-auto flex max-w-md items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold text-[#faf6f0]">
+            Try StockGPT free
+          </p>
+          <p className="truncate text-[11px] font-medium text-[#faf6f0]/45">
+            Then £18.99/month. Cancel anytime.
+          </p>
+        </div>
+        <CheckoutButton compact>Try free</CheckoutButton>
       </div>
     </div>
   );
@@ -398,74 +361,22 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
     const page = pageRef.current;
     if (!page) return;
 
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-
     const handleScroll = () => {
-      setNavScrolled(page.scrollTop > 44);
+      setNavScrolled(page.scrollTop > 32);
     };
 
     page.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
 
-    const animatedCounters = new WeakSet<Element>();
-
-    function animateCounter(element: HTMLElement) {
-      if (animatedCounters.has(element)) return;
-      animatedCounters.add(element);
-
-      const target = Number(element.dataset.countTo ?? "0");
-      const prefix = element.dataset.prefix ?? "";
-      const suffix = element.dataset.suffix ?? "";
-      const decimals = Number(element.dataset.decimals ?? "0");
-
-      if (reduceMotion || !Number.isFinite(target)) {
-        element.textContent = `${prefix}${target.toLocaleString("en-GB", {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}${suffix}`;
-        return;
-      }
-
-      const duration = 1200;
-      let start: number | null = null;
-
-      const tick = (time: number) => {
-        start ??= time;
-        const progress = Math.min((time - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 4);
-        const current = target * eased;
-
-        element.textContent = `${prefix}${current.toLocaleString("en-GB", {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}${suffix}`;
-
-        if (progress < 1) requestAnimationFrame(tick);
-      };
-
-      requestAnimationFrame(tick);
-    }
-
-    const counterObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) animateCounter(entry.target as HTMLElement);
-        });
-      },
-      { root: page, threshold: 0.38 },
-    );
-
-    page.querySelectorAll(".sg-counter").forEach((element) => {
-      counterObserver.observe(element);
-    });
-
     return () => {
       page.removeEventListener("scroll", handleScroll);
-      counterObserver.disconnect();
     };
   }, []);
+
+  const stockCountLabel =
+    metrics.totalStocks > 0
+      ? metrics.totalStocks.toLocaleString("en-GB")
+      : "500+";
 
   return (
     <main
@@ -488,7 +399,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
         .sg-heading {
           font-family: Georgia, "Times New Roman", serif;
-          letter-spacing: -0.025em;
+          letter-spacing: -0.028em;
         }
 
         .sg-data {
@@ -500,6 +411,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         .sg-page-bg {
           background:
             radial-gradient(circle at 18% 0%, rgba(221,177,89,0.10), transparent 28%),
+            radial-gradient(circle at 90% 14%, rgba(86,217,138,0.08), transparent 28%),
             linear-gradient(180deg, #072116 0%, #051b12 48%, #03140c 100%);
         }
 
@@ -518,19 +430,21 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         .sg-panel {
           border: 1px solid rgba(255,255,255,0.08);
           background: rgba(4,24,15,0.72);
-          box-shadow: 0 24px 70px rgba(0,0,0,0.28);
+          box-shadow: 0 24px 70px rgba(0,0,0,0.26);
         }
 
         .sg-card {
           border: 1px solid rgba(255,255,255,0.08);
           background: rgba(255,255,255,0.035);
-          box-shadow: 0 18px 54px rgba(0,0,0,0.2);
+          box-shadow: 0 18px 54px rgba(0,0,0,0.18);
           transition: border-color 180ms ease, background-color 180ms ease;
         }
 
-        .sg-card:hover {
-          border-color: rgba(221,177,89,0.34);
-          background: rgba(221,177,89,0.045);
+        @media (hover: hover) {
+          .sg-card:hover {
+            border-color: rgba(221,177,89,0.32);
+            background: rgba(221,177,89,0.045);
+          }
         }
 
         .sg-marquee-track {
@@ -563,75 +477,55 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         }
       `}</style>
 
-      <div className="sg-page-bg relative min-h-full overflow-hidden">
-        <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,rgba(4,24,15,0.04),rgba(3,20,12,0.3))]" />
-
+      <div className="sg-page-bg relative min-h-full overflow-hidden pb-24 sm:pb-0">
         <nav
           className={[
             "sg-nav fixed left-0 right-0 top-0 z-50 border-b border-[#ddb159]/16 bg-[#04180f]/88",
             navScrolled ? "sg-nav-scrolled" : "",
           ].join(" ")}
         >
-          <div className="relative mx-auto flex h-[68px] max-w-[1540px] items-center justify-between px-4 sm:h-[76px] sm:px-6 lg:px-8">
+          <div className="relative mx-auto flex h-[64px] max-w-[1540px] items-center justify-between px-4 sm:h-[76px] sm:px-6 lg:px-8">
             <Link
               href="/landing"
-              className="flex items-center gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f]"
+              className="relative h-10 w-[132px] shrink-0 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] sm:h-12 sm:w-[170px]"
+              aria-label="StockGPT home"
             >
-              <div className="relative h-11 w-[165px] sm:h-12 sm:w-[190px]">
-                <Image
-                  src="/logo.png"
-                  alt="StockGPT"
-                  fill
-                  priority
-                  className="object-contain object-left"
-                  sizes="190px"
-                />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="StockGPT"
+                fill
+                priority
+                className="object-contain object-left"
+                sizes="(max-width: 640px) 132px, 170px"
+              />
             </Link>
 
-            <div className="hidden rounded-full border border-[#ddb159]/18 bg-[#061b12]/72 p-1 lg:flex">
-              {navLinks.map((item) =>
-                item.href.startsWith("#") ? (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="rounded-full px-5 py-2 text-sm font-bold uppercase tracking-[0.12em] text-[#faf6f0]/72 transition-colors hover:bg-[#ddb159]/8 hover:text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="rounded-full px-5 py-2 text-sm font-bold uppercase tracking-[0.12em] text-[#faf6f0]/72 transition-colors hover:bg-[#ddb159]/8 hover:text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
-                  >
-                    {item.label}
-                  </Link>
-                ),
-              )}
+            <div className="hidden items-center gap-1 lg:flex">
+              {navLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-full px-4 py-2 text-sm font-semibold text-[#faf6f0]/62 transition-colors hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <Link
+                href="/affiliate"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-[#faf6f0]/62 transition-colors hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+              >
+                Affiliate
+              </Link>
             </div>
 
-            <div className="hidden items-center gap-2 sm:flex">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-full border border-[#56d98a]/35 bg-[#56d98a]/[0.06] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#56d98a] transition-colors hover:bg-[#56d98a]/10 focus:outline-none focus:ring-2 focus:ring-[#56d98a] focus:ring-offset-2 focus:ring-offset-[#06180f]"
-              >
-                View dashboard
-              </Link>
-
+            <div className="hidden items-center gap-3 sm:flex">
               <GhostButton href="/login" compact>
                 Log in
               </GhostButton>
+              <CheckoutButton compact>Try free today</CheckoutButton>
             </div>
 
             <div className="flex items-center gap-2 sm:hidden">
-              <Link
-                href="/dashboard"
-                className="rounded-full border border-[#56d98a]/40 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#56d98a] focus:outline-none focus:ring-2 focus:ring-[#56d98a]"
-              >
-                Dashboard
-              </Link>
-
               <Link
                 href="/login"
                 className="rounded-full border border-[#ddb159]/45 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
@@ -642,15 +536,15 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </nav>
 
-        <section className="relative z-10 px-3 pb-3 pt-[calc(0.75rem+68px)] sm:px-4 sm:pb-4 sm:pt-[calc(1rem+76px)] lg:px-5">
+        <section className="relative z-10 px-3 pb-3 pt-[calc(0.75rem+64px)] sm:px-4 sm:pb-4 sm:pt-[calc(1rem+76px)] lg:px-5">
           <div className="mx-auto grid max-w-[1540px] gap-3 xl:grid-cols-[250px_minmax(0,1fr)]">
             <aside className="hidden rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 shadow-[0_18px_56px_rgba(0,0,0,0.24)] xl:block">
               <div className="mb-5 rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/8 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
-                  Live platform
+                  Platform snapshot
                 </p>
                 <p className="sg-data mt-2 text-3xl font-bold text-[#faf6f0]">
-                  {metrics.totalStocks.toLocaleString("en-GB")}
+                  {stockCountLabel}
                 </p>
                 <p className="mt-1 text-xs font-medium text-[#faf6f0]/45">
                   stocks scanned
@@ -658,75 +552,73 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               </div>
 
               <nav className="space-y-2">
-                {[
-                  ["Rankings", "#rankings-preview"],
-                  ["Features", "#features"],
-                  ["Affiliate", "/affiliate"],
-                  ["Pricing", "#pricing"],
-                ].map(([label, href]) =>
-                  href.startsWith("#") ? (
-                    <a
-                      key={href}
-                      href={href}
-                      className="flex h-10 items-center rounded-xl border border-transparent px-3 text-sm font-semibold text-[#faf6f0]/72 transition-colors hover:border-[#ddb159]/28 hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    <Link
-                      key={href}
-                      href={href}
-                      className="flex h-10 items-center rounded-xl border border-transparent px-3 text-sm font-semibold text-[#faf6f0]/72 transition-colors hover:border-[#ddb159]/28 hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
-                    >
-                      {label}
-                    </Link>
-                  ),
-                )}
+                {navLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="flex h-10 items-center rounded-xl border border-transparent px-3 text-sm font-semibold text-[#faf6f0]/72 transition-colors hover:border-[#ddb159]/28 hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                  >
+                    {link.label}
+                  </a>
+                ))}
               </nav>
 
               <div className="mt-5 rounded-2xl border border-white/[0.08] bg-[#04180f]/80 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#faf6f0]/42">
-                  Market read
+                  Current read
                 </p>
                 <p className="mt-2 text-xl font-bold text-[#56d98a]">
                   {metrics.sentiment}
                 </p>
                 <p className="mt-1 text-xs font-medium leading-5 text-[#faf6f0]/45">
-                  StockGPT helps users start from structure, not noise.
+                  A clearer starting point for self-directed stock research.
                 </p>
               </div>
             </aside>
 
             <div className="grid gap-3">
-              <section className="grid gap-3 lg:grid-cols-[minmax(0,0.88fr)_minmax(420px,1.12fr)]">
+              <section className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(390px,1.1fr)]">
                 <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-5 shadow-[0_24px_76px_rgba(0,0,0,0.28)] sm:p-6 lg:p-7">
-                  <div className="inline-flex items-center rounded-full border border-[#ddb159]/28 bg-[#ddb159]/8 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159] sm:text-[11px]">
-                    Market ranking system
+                  <div className="inline-flex items-center rounded-full border border-[#ddb159]/28 bg-[#ddb159]/8 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#ddb159] sm:text-[11px]">
+                    Stock research platform
                   </div>
 
-                  <h1 className="sg-heading relative mt-6 max-w-4xl text-[42px] font-medium leading-[0.98] text-[#faf6f0] sm:text-[60px] lg:text-[68px] 2xl:text-[80px]">
-                    Stop starting from noise. Start with the stocks worth
-                    researching.
+                  <h1 className="sg-heading relative mt-5 max-w-4xl text-[42px] font-medium leading-[0.98] text-[#faf6f0] sm:mt-6 sm:text-[60px] lg:text-[70px] 2xl:text-[82px]">
+                    Start your stock research with structure, not noise.
                   </h1>
 
-                  <p className="relative mt-6 max-w-2xl text-base leading-8 text-[#faf6f0]/62 sm:text-lg">
+                  <p className="relative mt-5 max-w-2xl text-[15px] leading-7 text-[#faf6f0]/64 sm:mt-6 sm:text-lg sm:leading-8">
                     StockGPT scans{" "}
                     <span className="sg-data font-bold text-[#ddb159]">
-                      {metrics.totalStocks.toLocaleString("en-GB")}
+                      {stockCountLabel}
                     </span>{" "}
-                    US stocks and turns the market into a clearer research
-                    workflow: rankings, portfolio context, news and AI research
-                    in one place.
+                    US stocks, ranks opportunities by research priority and gives
+                    investors a clearer workflow for deciding what deserves attention.
                   </p>
 
-                  <div className="relative mt-7 flex flex-col gap-3 sm:flex-row">
-                    <ButtonBase>Start with StockGPT</ButtonBase>
-                    <GhostButton href="/login">Login</GhostButton>
+                  <div className="relative mt-6 rounded-2xl border border-[#56d98a]/18 bg-[#56d98a]/7 p-4">
+                    <p className="text-sm font-bold text-[#faf6f0]">
+                      Try the full product free today.
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#faf6f0]/52">
+                      Explore the ranked table, stock pages, portfolio tools and
+                      market news before your paid subscription begins.
+                    </p>
                   </div>
+
+                  <div className="relative mt-6 flex flex-col gap-3 sm:flex-row">
+                    <CheckoutButton>Try free today</CheckoutButton>
+                    <GhostButton href="/login">Log in</GhostButton>
+                  </div>
+
+                  <p className="mt-4 max-w-lg text-xs leading-6 text-[#faf6f0]/42">
+                    Research tool only. Not financial advice. Subscription continues
+                    at £18.99/month after the trial unless cancelled.
+                  </p>
 
                   <div className="relative mt-6 grid gap-3 sm:grid-cols-3">
                     <MetricCard
-                      label="Research flow"
+                      label="Market view"
                       value="Ranked"
                       sub="clearer starting point"
                     />
@@ -743,53 +635,54 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                         metrics.lastUpdatedLabel
                       }
                       sub="latest model run"
+                      tone="plain"
                     />
                   </div>
                 </div>
 
                 <div className="grid gap-3">
-                  <LockedRankingPreview metrics={metrics} />
+                  <RankingPreview metrics={metrics} />
                   <TickerMarquee tickerTape={tickerTape} />
                 </div>
               </section>
 
               <section className="grid gap-3 md:grid-cols-3">
                 <div className="sg-card rounded-3xl p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
                     The problem
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-medium">
-                    Too much noise.
+                    Too many tickers.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/55">
-                    Investors are surrounded by tickers, headlines and opinions,
+                    Investors are surrounded by headlines, social posts and opinions,
                     but very little structure for deciding where to look first.
                   </p>
                 </div>
 
                 <div className="sg-card rounded-3xl p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
                     The shift
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-medium">
                     Start ranked.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/55">
-                    StockGPT gives research a clearer order of priority, so each
-                    session starts with structure.
+                    StockGPT turns a broad market into a focused research list,
+                    helping users prioritise their attention.
                   </p>
                 </div>
 
                 <div className="sg-card rounded-3xl p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
-                    The workflow
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
+                    The outcome
                   </p>
                   <h2 className="sg-heading mt-2 text-3xl font-medium">
                     Research faster.
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-[#faf6f0]/55">
-                    Rankings, portfolio context, market news and AI research sit
-                    inside one dashboard-style experience.
+                    Rankings, portfolio context, relevant news and AI-assisted
+                    research sit inside one dashboard-style workflow.
                   </p>
                 </div>
               </section>
@@ -797,34 +690,31 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="features" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
+        <section id="inside" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
           <div className="sg-panel mx-auto max-w-[1540px] rounded-3xl p-5 sm:p-8">
             <div className="text-left md:max-w-3xl">
-              <SectionLabel>Core features</SectionLabel>
+              <SectionLabel>Inside StockGPT</SectionLabel>
               <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                A calmer way to understand the market.
+                A real preview of what users get.
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[#faf6f0]/58">
-                StockGPT is built around one simple idea: investors make better
-                decisions when research starts with structure instead of noise.
+                The landing page should show the product without giving away the full
+                ranked table. StockGPT is built to help investors move from market
+                noise to a focused research workflow.
               </p>
             </div>
 
-            <div className="mt-10 grid gap-4 lg:grid-cols-3">
-              {features.map((feature) => (
-                <article
-                  id={feature.kicker.toLowerCase()}
-                  key={feature.title}
-                  className="sg-card scroll-mt-28 rounded-3xl p-7"
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
-                    {feature.kicker}
+            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {productPreview.map((item) => (
+                <article key={item.title} className="sg-card rounded-3xl p-6">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
+                    Product
                   </p>
                   <h3 className="sg-heading mt-4 text-3xl font-medium text-[#faf6f0]">
-                    {feature.title}
+                    {item.title}
                   </h3>
-                  <p className="mt-4 text-base leading-8 text-[#faf6f0]/55">
-                    {feature.copy}
+                  <p className="mt-4 text-sm leading-7 text-[#faf6f0]/55">
+                    {item.copy}
                   </p>
                 </article>
               ))}
@@ -832,142 +722,84 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
+        <section id="method" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
           <div className="sg-panel mx-auto max-w-[1540px] rounded-3xl p-5 sm:p-8">
-            <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
               <div>
-                <SectionLabel>Tracked results</SectionLabel>
-                <h2 className="sg-heading max-w-3xl text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                  Return data, not fake testimonials.
+                <SectionLabel>Methodology snapshot</SectionLabel>
+                <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
+                  Built for research, not blind signals.
                 </h2>
-                <p className="mt-5 max-w-2xl text-sm leading-7 text-[#faf6f0]/55">
-                  These figures are for transparency and are not a guarantee of
-                  future returns.
+                <p className="mt-5 max-w-2xl text-base leading-8 text-[#faf6f0]/55">
+                  StockGPT uses a multi-factor ranking process to create a clearer
+                  starting point. It is designed to support judgement, not replace it.
                 </p>
+
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {["Quality", "Growth", "Value", "Momentum", "Risk", "Income"].map(
+                    (factor) => (
+                      <div
+                        key={factor}
+                        className="rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/7 px-4 py-3 text-sm font-bold text-[#faf6f0]"
+                      >
+                        {factor}
+                      </div>
+                    ),
+                  )}
+                </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {resultStats.map((stat) => (
-                  <div key={stat.label} className="sg-card rounded-2xl p-5">
-                    <p className="min-h-[38px] text-[10px] font-bold uppercase tracking-[0.2em] text-[#faf6f0]/45">
-                      {stat.label}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {methodSteps.map((step, index) => (
+                  <article
+                    key={step.title}
+                    className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5"
+                  >
+                    <div className="sg-data mb-5 flex h-11 w-11 items-center justify-center rounded-full border border-[#ddb159]/36 bg-[#ddb159]/10 text-sm font-bold text-[#ddb159]">
+                      {String(index + 1).padStart(2, "0")}
+                    </div>
+                    <h3 className="sg-heading text-2xl font-medium text-[#faf6f0]">
+                      {step.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
+                      {step.copy}
                     </p>
-                    <p className="mt-4 text-4xl font-bold text-[#ddb159] sm:text-5xl">
-                      <StatCounter
-                        target={stat.target}
-                        prefix={stat.prefix}
-                        suffix={stat.suffix}
-                        decimals={stat.decimals}
-                      />
-                    </p>
-                    <p className="mt-3 text-xs font-medium text-[#faf6f0]/45">
-                      {stat.detail}
-                    </p>
-                  </div>
+                  </article>
                 ))}
               </div>
             </div>
-
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
-              {[
-                [
-                  "Momentum rotation",
-                  "+22.8%",
-                  "Top-ranked basket return",
-                ],
-                [
-                  "Risk reduction",
-                  "-28.0%",
-                  "Drawdown avoided after risk deterioration",
-                ],
-                [
-                  "Portfolio reallocation",
-                  "+14.6%",
-                  "Uplift from replacing weak-ranked holdings",
-                ],
-              ].map(([title, value, detail]) => (
-                <article
-                  key={title}
-                  className="sg-card rounded-2xl border-l-2 border-l-[#ddb159] p-5"
-                >
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#faf6f0]/45">
-                    {title}
-                  </p>
-                  <p className="sg-data mt-4 text-4xl font-bold text-[#56d98a]">
-                    {value}
-                  </p>
-                  <p className="mt-3 text-sm leading-7 text-[#faf6f0]/50">
-                    {detail}
-                  </p>
-                </article>
-              ))}
-            </div>
           </div>
         </section>
 
         <section className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
           <div className="sg-panel mx-auto max-w-[1540px] rounded-3xl p-5 sm:p-8">
-            <div>
-              <SectionLabel>How StockGPT works</SectionLabel>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                How the engine ranks the market.
-              </h2>
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-[#faf6f0]/55">
-                Live market inputs, structured scoring and a clear starting point
-                for further research.
-              </p>
-            </div>
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div>
+                <SectionLabel>Trust first</SectionLabel>
+                <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
+                  Transparent research examples, not fake hype.
+                </h2>
+                <p className="mt-5 max-w-2xl text-base leading-8 text-[#faf6f0]/55">
+                  StockGPT should feel premium because it is clear, useful and
+                  honest. The product gives structure, context and research tools —
+                  not guaranteed outcomes.
+                </p>
+              </div>
 
-            <div className="mt-10 grid gap-4 lg:grid-cols-5">
-              {engineSteps.map((step, index) => (
-                <article
-                  key={step.title}
-                  className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5"
-                >
-                  <div className="sg-data mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#ddb159]/36 bg-[#ddb159]/10 text-base font-bold text-[#ddb159]">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <h3 className="sg-heading text-2xl font-medium text-[#faf6f0]">
-                    {step.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
-                    {step.copy}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="affiliate" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
-          <div className="mx-auto grid max-w-[1540px] gap-6 rounded-3xl border border-[#ddb159]/22 bg-[#061b12]/72 p-6 shadow-[0_24px_76px_rgba(0,0,0,0.28)] sm:p-8 lg:grid-cols-[1fr_0.72fr] lg:items-center">
-            <div>
-              <p className="mb-4 inline-flex rounded-full border border-[#ddb159]/28 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
-                Affiliate program
-              </p>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                Earn with StockGPT.
-              </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-[#faf6f0]/55">
-                Apply to partner with StockGPT and earn commission on approved
-                subscriber referrals. Built for investors, creators and finance
-                communities.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-6">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#ddb159]">
-                Creator partner route
-              </p>
-              <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
-                The dedicated affiliate page collects applications directly.
-              </p>
-              <Link
-                href="/affiliate"
-                className="mt-6 inline-flex w-full justify-center rounded-full border border-[#ddb159]/55 px-6 py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] sm:w-auto"
-              >
-                Become an affiliate
-              </Link>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["No fake testimonials", "Build trust through the product preview and clear methodology."],
+                  ["No blind signals", "Rankings are a research starting point, not instructions to trade."],
+                  ["No overpromising", "Disclaimers and trial access make the offer easier to trust."],
+                ].map(([title, copy]) => (
+                  <article key={title} className="sg-card rounded-2xl p-5">
+                    <p className="text-sm font-bold text-[#ddb159]">{title}</p>
+                    <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
+                      {copy}
+                    </p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -979,52 +811,47 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           <div className="sg-panel mx-auto max-w-[1540px] rounded-3xl p-5 sm:p-8">
             <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
               <div className="text-left">
-                <SectionLabel>Pricing</SectionLabel>
+                <SectionLabel>Free trial</SectionLabel>
                 <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
-                  A clearer research workflow without the market noise.
+                  Try the full research workflow before paying.
                 </h2>
                 <p className="mt-5 max-w-xl text-base leading-8 text-[#faf6f0]/55">
-                  Start with a ranked view of the market, then use portfolio
-                  tools, news context and AI research to decide what deserves
-                  your attention.
+                  Open the ranked table, explore stock pages, add portfolio context
+                  and test the research assistant. Then continue with Core if it
+                  earns a place in your workflow.
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                  <ButtonBase>Start with StockGPT</ButtonBase>
+                  <CheckoutButton>Try free today</CheckoutButton>
                   <GhostButton href="/login">Log in</GhostButton>
                 </div>
               </div>
 
               <div className="sg-card rounded-3xl p-6 text-left sm:p-8">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="w-fit rounded-full border border-[#ddb159]/30 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#ddb159]">
-                    Core plan
+                  <p className="w-fit rounded-full border border-[#ddb159]/30 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
+                    Core access
                   </p>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#faf6f0]/45">
-                    Full access
+                    Free trial available
                   </p>
                 </div>
 
-                <div className="mt-7 flex items-end gap-3">
-                  <p className="sg-data text-5xl font-bold text-[#faf6f0] sm:text-6xl">
-                    £18.99
+                <div className="mt-7">
+                  <p className="text-sm font-semibold text-[#56d98a]">
+                    Try free today
                   </p>
-                  <p className="pb-2 text-base font-semibold text-[#faf6f0]/48">
-                    / month
-                  </p>
+                  <div className="mt-2 flex items-end gap-3">
+                    <p className="sg-data text-5xl font-bold text-[#faf6f0] sm:text-6xl">
+                      £18.99
+                    </p>
+                    <p className="pb-2 text-base font-semibold text-[#faf6f0]/48">
+                      / month after trial
+                    </p>
+                  </div>
                 </div>
 
                 <ul className="mt-7 space-y-3.5 text-base font-semibold text-[#faf6f0]">
-                  {[
-                    `Stock rankings across ${metrics.totalStocks.toLocaleString(
-                      "en-GB",
-                    )} stocks`,
-                    "Daily scores and rank movements",
-                    "World news and stock market impact",
-                    "Portfolio Builder and alerts",
-                    "Ask StockGPT chatbot",
-                    "Research guidance and market context",
-                    "Live market updates",
-                  ].map((item) => (
+                  {pricingFeatures.map((item) => (
                     <li key={item} className="flex items-start gap-3">
                       <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-[#56d98a]/34 bg-[#56d98a]/10 text-[11px] text-[#56d98a]">
                         ✓
@@ -1035,13 +862,18 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 </ul>
 
                 <div className="mt-7">
-                  <ButtonBase full>Continue to access</ButtonBase>
+                  <CheckoutButton full>Try free today</CheckoutButton>
                 </div>
+
+                <p className="mt-4 text-xs leading-6 text-[#faf6f0]/42">
+                  Subscription continues at £18.99/month after the trial unless
+                  cancelled. Informational research only. Not financial advice.
+                </p>
 
                 <form
                   action="/api/premium-waitlist"
                   method="post"
-                  className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"
+                  className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"
                 >
                   <p className="text-sm font-semibold text-[#faf6f0]/52">
                     Executive tier coming soon — join the waitlist.
@@ -1071,6 +903,39 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
+        <section id="affiliate" className="relative z-10 px-3 pb-3 sm:px-4 lg:px-5">
+          <div className="mx-auto grid max-w-[1540px] gap-6 rounded-3xl border border-[#ddb159]/18 bg-[#061b12]/62 p-6 shadow-[0_24px_76px_rgba(0,0,0,0.24)] sm:p-8 lg:grid-cols-[1fr_0.72fr] lg:items-center">
+            <div>
+              <p className="mb-4 inline-flex rounded-full border border-[#ddb159]/24 bg-[#ddb159]/8 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#ddb159]">
+                Affiliate program
+              </p>
+              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#faf6f0] sm:text-6xl">
+                Earn with StockGPT.
+              </h2>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-[#faf6f0]/55">
+                Apply to partner with StockGPT and earn commission on approved
+                subscriber referrals. Built for investors, creators and finance
+                communities.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-6">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#ddb159]">
+                Creator partner route
+              </p>
+              <p className="mt-3 text-sm leading-7 text-[#faf6f0]/52">
+                The dedicated affiliate page collects applications directly.
+              </p>
+              <Link
+                href="/affiliate"
+                className="mt-6 inline-flex w-full justify-center rounded-full border border-[#ddb159]/55 px-6 py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#06180f] sm:w-auto"
+              >
+                Become an affiliate
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <footer className="relative z-10 px-3 pb-5 sm:px-4 lg:px-5">
           <div className="mx-auto grid max-w-[1540px] gap-8 rounded-3xl border border-white/[0.08] bg-[#04180f]/72 p-7 md:grid-cols-[1.15fr_1fr_1fr]">
             <div>
@@ -1084,8 +949,8 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 />
               </div>
               <p className="mt-5 max-w-sm text-sm leading-7 text-[#faf6f0]/50">
-                Stock rankings, portfolio tools and market intelligence for
-                investors who want a clearer research process.
+                Stock rankings, portfolio tools and market intelligence for investors
+                who want a clearer research process.
               </p>
             </div>
 
@@ -1140,17 +1005,19 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
             <div className="border-t border-white/[0.08] pt-5 md:col-span-3">
               <p className="text-[11px] leading-6 text-[#6d8678]">
-                StockGPT is an AI-powered research and ranking tool. All content
-                is for informational and educational purposes only. Nothing on
-                this platform constitutes financial advice, investment advice,
-                or a recommendation to buy or sell any security. Always conduct
-                your own research and consult a qualified financial professional
-                before making investment decisions. Past performance of AI
-                rankings is not indicative of future results.
+                StockGPT is a research and ranking tool. All content is for
+                informational and educational purposes only. Nothing on this platform
+                constitutes financial advice, investment advice, or a recommendation
+                to buy or sell any security. Always conduct your own research and
+                consult a qualified financial professional before making investment
+                decisions. Past performance of rankings or examples is not indicative
+                of future results.
               </p>
             </div>
           </div>
         </footer>
+
+        <MobileBottomCta />
       </div>
     </main>
   );
