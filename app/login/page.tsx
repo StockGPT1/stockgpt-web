@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,22 +13,31 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   async function login() {
+    if (loading) return;
+
     setLoading(true);
     setErrorMessage("");
 
-    const { error } = await createClient().auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    setLoading(false);
+      const data = await res.json().catch(() => null);
 
-    if (error) {
-      setErrorMessage("Incorrect email or password.");
-      return;
+      if (!res.ok) {
+        setErrorMessage(data?.error ?? "Incorrect email or password.");
+        return;
+      }
+
+      window.location.href = data?.redirectTo ?? "/dashboard";
+    } finally {
+      setLoading(false);
     }
-
-    window.location.href = "/dashboard";
   }
 
   return (
@@ -79,6 +87,8 @@ export default function LoginPage() {
               type="email"
               placeholder="you@example.com"
               value={email}
+              maxLength={254}
+              autoComplete="email"
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && login()}
             />
@@ -93,6 +103,7 @@ export default function LoginPage() {
               type="password"
               placeholder="Enter your password"
               value={password}
+              autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && login()}
             />
