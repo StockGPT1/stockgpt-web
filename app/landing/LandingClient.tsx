@@ -107,18 +107,18 @@ function SignupButton({
 }) {
   const variantClasses = {
     gold:
-      "border-[#ddb159] bg-[#ddb159] text-[#061b12] hover:bg-[#e8c36b] focus:ring-[#ddb159] focus:ring-offset-white",
+      "border-[#ddb159] bg-[#ddb159] !text-[#061b12] hover:bg-[#e8c36b] focus:ring-[#ddb159] focus:ring-offset-white",
     green:
-      "border-[#0a2d1d] bg-[#0a2d1d] text-white hover:bg-[#123d2a] focus:ring-[#0a2d1d] focus:ring-offset-white",
+      "border-[#0a2d1d] bg-[#0a2d1d] !text-white hover:bg-[#123d2a] focus:ring-[#0a2d1d] focus:ring-offset-white",
     white:
-      "border-white bg-white text-[#061b12] hover:bg-[#f6f2e8] focus:ring-white focus:ring-offset-[#04180f]",
+      "border-white bg-white !text-[#061b12] hover:bg-[#f6f2e8] focus:ring-white focus:ring-offset-[#04180f]",
   };
 
   return (
     <Link
       href="/signup"
       className={[
-        "inline-flex items-center justify-center rounded-full border font-black uppercase tracking-[0.16em] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
+        "inline-flex items-center justify-center rounded-full border font-black uppercase tracking-[0.16em] no-underline transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
         full ? "w-full" : "w-fit max-sm:w-full",
         compact ? "h-11 px-5 text-[11px]" : "h-14 px-8 text-sm",
         variantClasses[variant],
@@ -140,7 +140,7 @@ function GhostButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-14 items-center justify-center rounded-full border border-[#0a2d1d]/18 bg-white px-8 text-sm font-black uppercase tracking-[0.16em] text-[#0a2d1d] transition-colors hover:border-[#0a2d1d]/35 hover:bg-[#f2f4ef] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2 focus:ring-offset-white max-sm:w-full"
+      className="inline-flex h-14 items-center justify-center rounded-full border border-[#0a2d1d]/18 bg-white px-8 text-sm font-black uppercase tracking-[0.16em] !text-[#0a2d1d] transition-colors hover:border-[#0a2d1d]/35 hover:bg-[#f2f4ef] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2 focus:ring-offset-white max-sm:w-full"
     >
       {children}
     </button>
@@ -204,7 +204,7 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
                 ? "/"
                 : `/stocks/${encodeURIComponent(item.yahooSymbol)}`
             }
-            className="flex items-center gap-2 rounded-full border border-[#edf0ea] bg-[#fbfaf6] px-3 py-2 text-xs font-bold text-[#0a2d1d] transition-colors hover:border-[#ddb159]/45 hover:bg-[#fff8e6] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-white"
+            className="flex items-center gap-2 rounded-full border border-[#edf0ea] bg-[#fbfaf6] px-3 py-2 text-xs font-bold !text-[#0a2d1d] no-underline transition-colors hover:border-[#ddb159]/45 hover:bg-[#fff8e6] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-white"
           >
             <span className="sg-data text-[#0a2d1d]">{item.symbol}</span>
             <span className="sg-data text-[#738076]">{formatMoney(item.price)}</span>
@@ -502,7 +502,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   key={link.target}
                   type="button"
                   onClick={() => scrollToSection(link.target)}
-                  className="rounded-full px-4 py-2 text-sm font-bold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                  className="rounded-full px-4 py-2 text-sm font-bold !text-white/70 transition-colors hover:bg-white/[0.06] hover:!text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
                 >
                   {link.label}
                 </button>
@@ -510,7 +510,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
               <Link
                 href="/affiliate"
-                className="rounded-full px-4 py-2 text-sm font-bold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                className="rounded-full px-4 py-2 text-sm font-bold !text-white/70 no-underline transition-colors hover:bg-white/[0.06] hover:!text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
               >
                 Affiliate
               </Link>
@@ -519,7 +519,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             <div className="hidden items-center gap-3 sm:flex">
               <Link
                 href="/login"
-                className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-full border border-white/18 bg-white px-5 text-[11px] font-black uppercase tracking-[0.16em] text-[#04180f] transition-colors hover:bg-[#f6f2e8] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
+                className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-full border border-white/18 bg-white px-5 text-[11px] font-black uppercase tracking-[0.16em] !text-[#04180f] no-underline transition-colors hover:bg-[#f6f2e8] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
               >
                 Log in
               </Link>
@@ -802,7 +802,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               </p>
               <Link
                 href="/affiliate"
-                className="mt-6 inline-flex w-full justify-center rounded-full border border-[#0a2d1d]/20 bg-[#0a2d1d] px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#0f3a27] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2 focus:ring-offset-white sm:w-auto"
+                className="mt-6 inline-flex w-full justify-center rounded-full border border-[#0a2d1d]/20 bg-[#0a2d1d] px-6 py-3 text-sm font-black uppercase tracking-[0.14em] !text-white no-underline transition-colors hover:bg-[#0f3a27] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2 focus:ring-offset-white sm:w-auto"
               >
                 Become an affiliate
               </Link>
@@ -836,7 +836,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                     target={link.href === "#" ? undefined : "_blank"}
                     rel={link.href === "#" ? undefined : "noreferrer"}
                     aria-label={link.label}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 text-white/70 transition-colors hover:border-[#ddb159]/60 hover:text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 !text-white/70 transition-colors hover:border-[#ddb159]/60 hover:!text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
                   >
                     <SocialIcon label={link.label} />
                   </a>
@@ -849,25 +849,25 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 Platform
               </p>
               <div className="grid grid-cols-2 gap-3 text-sm font-semibold text-white/55">
-                <Link href="/dashboard" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/dashboard" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Dashboard
                 </Link>
-                <Link href="/rankings" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/rankings" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Rankings
                 </Link>
-                <Link href="/portfolio" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/portfolio" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Portfolio
                 </Link>
-                <Link href="/world-news" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/world-news" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   News
                 </Link>
-                <Link href="/pricing" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/pricing" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Pricing
                 </Link>
-                <Link href="/affiliate" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/affiliate" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Affiliate
                 </Link>
-                <Link href="/about" className="transition-colors hover:text-[#ddb159]">
+                <Link href="/about" className="!text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   About
                 </Link>
               </div>
@@ -878,13 +878,13 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 Access
               </p>
               <div className="space-y-3 text-sm font-semibold text-white/55">
-                <Link href="/login" className="block transition-colors hover:text-[#ddb159]">
+                <Link href="/login" className="block !text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Log in
                 </Link>
-                <Link href="/signup" className="block transition-colors hover:text-[#ddb159]">
+                <Link href="/signup" className="block !text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Create account
                 </Link>
-                <Link href="/affiliate" className="block transition-colors hover:text-[#ddb159]">
+                <Link href="/affiliate" className="block !text-white/55 no-underline transition-colors hover:!text-[#ddb159]">
                   Apply as affiliate
                 </Link>
               </div>
