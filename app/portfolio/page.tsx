@@ -4,15 +4,24 @@ import { AppShell } from "@/components/AppShell";
 import { ManualPortfolioEntry } from "@/components/ManualPortfolioEntry";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { SavedPortfolio } from "@/components/SavedPortfolio";
+import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
-
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
   description:
     "Track your portfolio with StockGPT AI alerts, ranking changes, risk levels and market research insights.",
 };
+
+function PortfolioEntryPanel() {
+  return (
+    <div className="grid min-w-0 gap-4">
+      <Trading212CsvImport />
+      <ManualPortfolioEntry isAuthenticated={true} />
+    </div>
+  );
+}
 
 export default async function PortfolioPage({
   searchParams,
@@ -34,11 +43,11 @@ export default async function PortfolioPage({
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto pr-1">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
             <PortfolioBuilder />
 
-            <div className="xl:sticky xl:top-4 xl:self-start">
-              <ManualPortfolioEntry isAuthenticated={true} />
+            <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+              <PortfolioEntryPanel />
             </div>
           </div>
         </main>
@@ -56,11 +65,11 @@ export default async function PortfolioPage({
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto pr-1">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
             <PortfolioBuilder />
 
-            <div className="xl:sticky xl:top-4 xl:self-start">
-              <ManualPortfolioEntry isAuthenticated={true} />
+            <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+              <PortfolioEntryPanel />
             </div>
           </div>
         </main>
@@ -140,18 +149,24 @@ export default async function PortfolioPage({
   return (
     <AppShell activePath="/portfolio">
       <main className="h-full min-h-0 overflow-y-auto pr-1">
-        <SavedPortfolio
-          holdings={enriched}
-          portfolioMeta={{
-            name: savedPortfolio.name as string,
-            riskTolerance: savedPortfolio.risk_tolerance as string | null,
-            timeHorizon: savedPortfolio.time_horizon as string | null,
-            investmentAmount: savedPortfolio.investment_amount as number | null,
-            cashBalance: Number(savedPortfolio.cash_balance ?? 0),
-            cashDepositedTotal: Number(savedPortfolio.cash_deposited_total ?? savedPortfolio.investment_amount ?? 0),
-          }}
-          replacements={replacements}
-        />
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <SavedPortfolio
+            holdings={enriched}
+            portfolioMeta={{
+              name: savedPortfolio.name as string,
+              riskTolerance: savedPortfolio.risk_tolerance as string | null,
+              timeHorizon: savedPortfolio.time_horizon as string | null,
+              investmentAmount: savedPortfolio.investment_amount as number | null,
+              cashBalance: Number(savedPortfolio.cash_balance ?? 0),
+              cashDepositedTotal: Number(savedPortfolio.cash_deposited_total ?? savedPortfolio.investment_amount ?? 0),
+            }}
+            replacements={replacements}
+          />
+
+          <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <PortfolioEntryPanel />
+          </div>
+        </div>
       </main>
     </AppShell>
   );
