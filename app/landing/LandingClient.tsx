@@ -631,21 +631,6 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </MobileDemoGroup>
         </div>
 
-        <section id="preview" className="hidden scroll-mt-32 px-4 py-14 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="mb-8 max-w-3xl">
-              <SectionLabel>Product preview</SectionLabel>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                The product does the selling.
-              </h2>
-              <p className="mt-4 text-base leading-8 text-[#66746b]">
-                See the workflow before creating an account: rankings, AI trade plans,
-                portfolio context, news and Ask StockGPT.
-              </p>
-            </div>
-          </div>
-        </section>
-
         <section id="rankings" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
