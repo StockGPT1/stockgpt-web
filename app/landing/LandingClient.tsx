@@ -631,7 +631,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </MobileDemoGroup>
         </div>
 
-        <section id="rankings" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
+        <section id="rankings" className="hidden scroll-mt-32 px-4 pt-14 pb-14 sm:block sm:px-6 lg:px-8 lg:pt-16">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
               <SectionLabel>Rankings</SectionLabel>
