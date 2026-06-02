@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "StockGPT — Stock Rankings, Portfolio Context & Market Research",
   description:
-    "StockGPT ranks US stocks, adds portfolio context, tracks market news and gives investors a clearer starting point for research.",
+    "Try StockGPT free. Rank US stocks, understand portfolio exposure, track market news and start your research with structure instead of noise.",
 };
 
 function formatUpdatedAt(value: string | null | undefined) {
