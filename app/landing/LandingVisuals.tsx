@@ -122,7 +122,9 @@ function DashboardMiniCard({
       >
         {main}
       </p>
-      <p className="mt-1 truncate text-[9px] font-bold text-[#072116]/42">{sub}</p>
+      <p className="mt-1 truncate text-[9px] font-bold text-[#072116]/42">
+        {sub}
+      </p>
     </div>
   );
 }
@@ -305,30 +307,10 @@ export function TiltingIphoneDashboard({
   metrics: LandingVisualMetrics;
 }) {
   return (
-    <div className="group relative mx-auto flex min-h-[590px] w-full items-center justify-center lg:min-h-[680px]">
-      <div className="absolute h-[430px] w-[430px] rounded-full bg-[#ddb159]/15 blur-3xl" />
+    <div className="group relative mx-auto flex min-h-[560px] w-full items-center justify-center lg:min-h-[650px]">
+      <div className="absolute h-[390px] w-[390px] rounded-full bg-[#ddb159]/12 blur-3xl" />
 
-      <div className="absolute bottom-8 left-6 hidden rounded-3xl bg-white p-4 shadow-[0_24px_70px_rgba(7,27,17,0.12)] lg:block">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6828]">
-          Live model
-        </p>
-        <p className="sg-data mt-1 text-2xl font-black text-[#072116]">
-          {metrics.bullishPct}%
-        </p>
-        <p className="text-xs font-bold text-[#66746b]">{metrics.sentiment}</p>
-      </div>
-
-      <div className="absolute right-0 top-12 hidden rounded-3xl bg-white p-4 shadow-[0_24px_70px_rgba(7,27,17,0.12)] lg:block">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6828]">
-          Updated
-        </p>
-        <p className="sg-data mt-1 text-2xl font-black text-[#072116]">
-          {metrics.lastUpdatedLabel.split(",")[0] ?? metrics.lastUpdatedLabel}
-        </p>
-        <p className="text-xs font-bold text-[#66746b]">latest model run</p>
-      </div>
-
-      <div className="relative rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.32)] transition duration-700 ease-out lg:[transform:perspective(1200px)_rotateY(-18deg)_rotateZ(-6deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
+      <div className="relative rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.28)] transition duration-700 ease-out lg:[transform:perspective(1200px)_rotateY(-16deg)_rotateZ(-5deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
         <div className="absolute left-1/2 top-2 z-20 h-5 w-24 -translate-x-1/2 rounded-full bg-[#020806]" />
         <div className="overflow-hidden rounded-[2.35rem]">
           <RealDashboardScreen metrics={metrics} />
@@ -340,145 +322,194 @@ export function TiltingIphoneDashboard({
 
 export function RankingVisual() {
   return (
-    <div className="relative">
-      <div className="absolute -left-8 top-10 hidden h-52 w-52 rounded-full bg-[#0a2d1d]/8 blur-3xl lg:block" />
-
-      <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
-        <div className="grid gap-5 border-b border-[#edf0ea] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
-              Rankings preview
-            </p>
-            <p className="sg-heading mt-1 text-3xl font-medium text-[#0a2d1d]">
-              Top ranked stocks
-            </p>
-          </div>
-          <div className="rounded-full bg-[#0a2d1d] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
-            Free trial unlock
-          </div>
+    <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
+      <div className="grid gap-5 border-b border-[#edf0ea] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Rankings preview
+          </p>
+          <p className="sg-heading mt-1 text-3xl font-medium text-[#0a2d1d]">
+            Top ranked stocks
+          </p>
         </div>
-
-        <div className="hidden grid-cols-[52px_90px_minmax(0,1fr)_78px_82px] border-b border-[#edf0ea] bg-[#072116] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#faf6f0] sm:grid">
-          <span>#</span>
-          <span>Ticker</span>
-          <span>Company</span>
-          <span>Price</span>
-          <span className="text-right">Score</span>
+        <div className="rounded-full bg-[#0a2d1d] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+          Account unlock
         </div>
-
-        {dashboardRows.slice(0, 5).map((stock, index) => (
-          <div
-            key={stock.ticker}
-            className="sg-rank-row grid grid-cols-[38px_minmax(0,1fr)_72px] items-center border-b border-[#edf0ea] px-4 py-4 sm:grid-cols-[52px_90px_minmax(0,1fr)_78px_82px]"
-            style={{ animationDelay: `${index * 180}ms` }}
-          >
-            <span className="sg-data font-black text-[#b88a32]">{stock.rank}</span>
-            <span className="sg-data hidden font-black text-[#072116] sm:block">
-              {stock.ticker}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black text-[#072116]">
-                {stock.company}
-              </span>
-              <span className="mt-1 flex items-center gap-2 text-xs font-bold text-[#66746b] sm:hidden">
-                <span>{stock.ticker}</span>
-                <span
-                  className={[
-                    "rounded-full border px-2 py-0.5 text-[10px] font-black",
-                    stock.moveUp
-                      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700"
-                      : "border-red-500/25 bg-red-500/10 text-red-700",
-                  ].join(" ")}
-                >
-                  {stock.move}
-                </span>
-              </span>
-            </span>
-            <span className="sg-data hidden text-sm font-bold text-[#072116]/72 sm:block">
-              {stock.price}
-            </span>
-            <span className="flex justify-end">
-              <span className="sg-data inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-1 text-xs font-black text-[#072116]">
-                {stock.score}
-              </span>
-            </span>
-          </div>
-        ))}
       </div>
+
+      <div className="hidden grid-cols-[52px_90px_minmax(0,1fr)_78px_82px] border-b border-[#edf0ea] bg-[#072116] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#faf6f0] sm:grid">
+        <span>#</span>
+        <span>Ticker</span>
+        <span>Company</span>
+        <span>Price</span>
+        <span className="text-right">Score</span>
+      </div>
+
+      {dashboardRows.slice(0, 5).map((stock, index) => (
+        <div
+          key={stock.ticker}
+          className="sg-rank-row grid grid-cols-[38px_minmax(0,1fr)_72px] items-center border-b border-[#edf0ea] px-4 py-4 sm:grid-cols-[52px_90px_minmax(0,1fr)_78px_82px]"
+          style={{ animationDelay: `${index * 180}ms` }}
+        >
+          <span className="sg-data font-black text-[#b88a32]">{stock.rank}</span>
+          <span className="sg-data hidden font-black text-[#072116] sm:block">
+            {stock.ticker}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black text-[#072116]">
+              {stock.company}
+            </span>
+            <span className="mt-1 flex items-center gap-2 text-xs font-bold text-[#66746b] sm:hidden">
+              <span>{stock.ticker}</span>
+              <span
+                className={[
+                  "rounded-full border px-2 py-0.5 text-[10px] font-black",
+                  stock.moveUp
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700"
+                    : "border-red-500/25 bg-red-500/10 text-red-700",
+                ].join(" ")}
+              >
+                {stock.move}
+              </span>
+            </span>
+          </span>
+          <span className="sg-data hidden text-sm font-bold text-[#072116]/72 sm:block">
+            {stock.price}
+          </span>
+          <span className="flex justify-end">
+            <span className="sg-data inline-flex min-w-[58px] justify-center rounded-full bg-[#ddb159] px-2 py-1 text-xs font-black text-[#072116]">
+              {stock.score}
+            </span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-export function StockPageVisual() {
+export function AITradePlanVisual() {
   return (
-    <div className="relative">
-      <div className="absolute -right-8 top-10 hidden h-60 w-60 rounded-full bg-[#ddb159]/14 blur-3xl lg:block" />
+    <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
+      <div className="flex flex-col gap-4 border-b border-[#edf0ea] p-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            AI trade plan
+          </p>
+          <h3 className="sg-heading mt-1 text-3xl font-medium text-[#0a2d1d]">
+            Suggested Levels
+          </h3>
+        </div>
+        <span className="w-fit rounded-full bg-emerald-500/85 px-5 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+          Strong Buy
+        </span>
+      </div>
 
-      <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white p-4 shadow-[0_28px_80px_rgba(7,27,17,0.08)] sm:p-5">
-        <div className="rounded-[1.5rem] bg-[#061b12] p-5 text-white">
-          <div className="flex items-start justify-between gap-4">
+      <div className="grid gap-3 p-5 sm:grid-cols-3">
+        <div className="rounded-2xl border border-[#ddb159]/35 bg-[#fffaf0] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6828]">
+              Entry
+            </p>
+            <span className="rounded-full border border-[#0a2d1d]/12 px-2 py-0.5 text-[9px] font-black uppercase text-[#0a2d1d]/48">
+              Explain
+            </span>
+          </div>
+          <p className="sg-data mt-2 text-3xl font-black text-[#072116]">
+            $1046.84
+          </p>
+          <p className="mt-1 text-xs font-bold text-[#66746b]">Suggested</p>
+        </div>
+
+        <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-500">
+            Stop Loss
+          </p>
+          <p className="sg-data mt-2 text-3xl font-black text-red-700">
+            $664.50
+          </p>
+          <p className="mt-1 text-xs font-bold text-red-500">-36.5%</p>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+            Take Profit
+          </p>
+          <p className="sg-data mt-2 text-3xl font-black text-emerald-800">
+            $2958.53
+          </p>
+          <p className="mt-1 text-xs font-bold text-emerald-700">+182.6%</p>
+        </div>
+      </div>
+
+      <div className="mx-5 rounded-2xl bg-[#072116] px-5 py-4">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
+            Risk / Reward
+          </p>
+          <p className="sg-data text-lg font-black text-[#ddb159]">1 : 5</p>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="rounded-2xl border border-[#dfe5dc] bg-[#fbfaf6] p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#66746b]">
+            AI projected timeline
+          </p>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                Stock page
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#66746b]">
+                Expected return
               </p>
-              <h3 className="sg-heading mt-2 text-3xl font-medium">
-                NVDA research view
-              </h3>
-              <p className="mt-2 max-w-md text-sm leading-6 text-white/55">
-                Ranking context, market data, news impact and risk notes in one place.
+              <p className="sg-data mt-1 text-2xl font-black text-emerald-800">
+                24.7%/yr
               </p>
             </div>
-
-            <div className="rounded-2xl border border-[#65e49c]/24 bg-[#65e49c]/10 px-4 py-3 text-right">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">
-                Score
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#66746b]">
+                Target date
               </p>
-              <p className="sg-data mt-1 text-3xl font-black text-[#65e49c]">
-                9,214
+              <p className="mt-1 text-2xl font-black text-[#072116]">Dec 2028</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#66746b]">
+                Hold period
+              </p>
+              <p className="mt-1 text-2xl font-black text-[#072116]">
+                20–38 months
               </p>
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {[
-              { label: "Momentum", value: "Strong" },
-              { label: "Valuation", value: "Elevated" },
-              { label: "News impact", value: "Relevant" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
-                  {item.label}
-                </p>
-                <p className="mt-2 font-black text-white">{item.value}</p>
-              </div>
-            ))}
-          </div>
+          <p className="mt-5 text-sm leading-7 text-[#4f5f55]">
+            Medium-term plan uses a qualified setup, projected target zone and
+            invalidation level. This is a research framework, not a recommendation.
+          </p>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-              Research summary
-            </p>
-            <p className="mt-2 text-sm leading-7 text-white/62">
-              NVDA ranks highly due to strong momentum, sector leadership and earnings
-              strength. Main risks include valuation sensitivity and crowded sentiment.
-            </p>
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-[#faf6f0] p-4 text-[#072116]">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#072116]/55">
-                Related news
+          <div className="mt-4 grid gap-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <p className="font-black text-emerald-900">
+                If price approaches $2958.53
               </p>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black text-emerald-700">
-                High relevance
-              </span>
+              <p className="mt-1 text-sm leading-6 text-emerald-800">
+                Medium-term take-profit zone. Review valuation, momentum and news
+                context before acting.
+              </p>
             </div>
-            <p className="mt-2 text-sm font-black">
-              Chip demand pushes semiconductor names higher
-            </p>
+            <div className="rounded-2xl border border-red-200 bg-red-50/70 p-4">
+              <p className="font-black text-red-900">If price breaks $664.50</p>
+              <p className="mt-1 text-sm leading-6 text-red-800">
+                Thesis invalidation level. Reassess the setup and risk exposure.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#dfe5dc] bg-white p-4">
+              <p className="font-black text-[#072116]">
+                If AI score drops by 25%
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[#66746b]">
+                Reassess the thesis because model conviction has weakened.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -518,7 +549,7 @@ export function AskStockGPTVisual() {
             <p className="sg-data text-xs text-white/40">09:42</p>
           </div>
           <p className="mt-2 text-sm leading-6 text-white/68">
-            NVDA is ranking higher due to stronger momentum, earnings revision strength
+            NVDA ranks higher due to stronger momentum, earnings revision strength
             and sector leadership. Microsoft remains high quality, but valuation and
             weaker short-term movement are weighing on its score.
           </p>
