@@ -641,3 +641,207 @@ h2 {
     transition-duration: 0.001ms !important;
   }
 }
+/* =========================================================
+   StockGPT App Light Mode
+   ========================================================= */
+
+html.sg-light-mode,
+html.sg-light-mode body {
+  background: #fbfaf6;
+  color: #072116;
+}
+
+html.sg-light-mode .sg-app-shell {
+  background: #fbfaf6 !important;
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-app-header,
+html.sg-light-mode .sg-sidebar,
+html.sg-light-mode .sg-bottom-nav,
+html.sg-light-mode .sg-mobile-search-row {
+  background: #061b12 !important;
+  border-color: rgba(221, 177, 89, 0.24) !important;
+  color: #ffffff !important;
+}
+
+html.sg-light-mode .sg-app-content {
+  background:
+    radial-gradient(circle at 82% 8%, rgba(221, 177, 89, 0.12), transparent 28%),
+    radial-gradient(circle at 12% 18%, rgba(7, 33, 22, 0.06), transparent 28%),
+    linear-gradient(180deg, #fbfaf6 0%, #ffffff 48%, #f7f3ea 100%) !important;
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-page-backdrop {
+  opacity: 0.42;
+}
+
+html.sg-light-mode .sg-app-content h1,
+html.sg-light-mode .sg-app-content h2,
+html.sg-light-mode .sg-app-content h3 {
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-app-content p[class*="text-[#faf6f0]"],
+html.sg-light-mode .sg-app-content span[class*="text-[#faf6f0]"],
+html.sg-light-mode .sg-app-content div[class*="text-[#faf6f0]"] {
+  color: rgba(7, 33, 22, 0.68) !important;
+}
+
+html.sg-light-mode .sg-app-content h1[class*="text-[#faf6f0]"],
+html.sg-light-mode .sg-app-content h2[class*="text-[#faf6f0]"],
+html.sg-light-mode .sg-app-content h3[class*="text-[#faf6f0]"] {
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-app-content section[class*="bg-[#072116]"],
+html.sg-light-mode .sg-app-content section[class*="bg-[#04180f]"],
+html.sg-light-mode .sg-app-content section[class*="bg-[#061b12]"],
+html.sg-light-mode .sg-app-content article[class*="bg-[#072116]"],
+html.sg-light-mode .sg-app-content article[class*="bg-[#04180f]"],
+html.sg-light-mode .sg-app-content article[class*="bg-[#061b12]"],
+html.sg-light-mode .sg-app-content div[class*="bg-[#072116]"][class*="rounded"],
+html.sg-light-mode .sg-app-content div[class*="bg-[#04180f]"][class*="rounded"],
+html.sg-light-mode .sg-app-content div[class*="bg-[#061b12]"][class*="rounded"] {
+  background-color: #ffffff !important;
+  color: #072116 !important;
+  border-color: rgba(7, 33, 22, 0.1) !important;
+}
+
+html.sg-light-mode .sg-app-content div[class*="bg-[#faf6f0]"],
+html.sg-light-mode .sg-app-content section[class*="bg-[#faf6f0]"],
+html.sg-light-mode .sg-app-content article[class*="bg-[#faf6f0]"] {
+  background-color: #ffffff !important;
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-app-content a[class*="bg-[#072116]"],
+html.sg-light-mode .sg-app-content button[class*="bg-[#072116]"],
+html.sg-light-mode .sg-app-content a[style*="#072116"],
+html.sg-light-mode .sg-app-content button[style*="#072116"] {
+  background-color: #072116 !important;
+  color: #ffffff !important;
+}
+
+html.sg-light-mode .sg-app-content a[class*="bg-[#ddb159]"],
+html.sg-light-mode .sg-app-content button[class*="bg-[#ddb159]"],
+html.sg-light-mode .sg-app-content a[style*="#ddb159"],
+html.sg-light-mode .sg-app-content button[style*="#ddb159"] {
+  background-color: #ddb159 !important;
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-side-nav-link[data-active="true"] {
+  background: rgba(221, 177, 89, 0.14) !important;
+  color: #ffffff !important;
+}
+
+html.sg-light-mode .sg-side-nav-link[data-active="false"],
+html.sg-light-mode .sg-mobile-nav-link[data-active="false"] {
+  color: rgba(255, 255, 255, 0.64) !important;
+}
+
+html.sg-light-mode .sg-mobile-nav-link[data-active="true"] {
+  color: #ddb159 !important;
+}
+
+html.sg-light-mode .sg-icon-button {
+  color: #ddb159 !important;
+  border-color: rgba(221, 177, 89, 0.75) !important;
+}
+
+html.sg-light-mode .sg-search-shell {
+  background: #ffffff !important;
+  border-color: rgba(221, 177, 89, 0.42) !important;
+  box-shadow: 0 10px 26px rgba(7, 33, 22, 0.1);
+}
+
+html.sg-light-mode .sg-search-input {
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-search-input::placeholder {
+  color: rgba(7, 33, 22, 0.45) !important;
+}
+
+html.sg-light-mode .sg-search-clear,
+html.sg-light-mode .sg-search-kbd {
+  color: rgba(7, 33, 22, 0.55) !important;
+  border-color: rgba(7, 33, 22, 0.16) !important;
+}
+
+html.sg-light-mode .sg-search-dropdown {
+  background: #ffffff !important;
+  border-color: rgba(221, 177, 89, 0.34) !important;
+  box-shadow: 0 20px 48px rgba(7, 33, 22, 0.16) !important;
+}
+
+html.sg-light-mode .sg-search-row {
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-search-row:hover,
+html.sg-light-mode .sg-search-row.bg-\[\#ddb159\]\/10 {
+  background: rgba(221, 177, 89, 0.12) !important;
+}
+
+html.sg-light-mode .sg-search-row p[class*="text-[#faf6f0]"] {
+  color: #072116 !important;
+}
+
+html.sg-light-mode .sg-search-row p[class*="text-[#faf6f0]/45"] {
+  color: rgba(7, 33, 22, 0.5) !important;
+}
+
+html.sg-light-mode .sg-candle-scrollbar {
+  scrollbar-color: #ddb159 #efe7d5;
+}
+
+html.sg-light-mode .sg-candle-scrollbar::-webkit-scrollbar,
+html.sg-light-mode .sg-candle-scrollbar *::-webkit-scrollbar {
+  background-color: #efe7d5;
+}
+
+html.sg-light-mode .sg-candle-scrollbar::-webkit-scrollbar-track,
+html.sg-light-mode .sg-candle-scrollbar *::-webkit-scrollbar-track {
+  background-color: #efe7d5;
+  border-left-color: rgba(7, 33, 22, 0.08);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(50% - 1px),
+      rgba(221, 177, 89, 0.16) calc(50% - 1px),
+      rgba(221, 177, 89, 0.64) 50%,
+      rgba(221, 177, 89, 0.16) calc(50% + 1px),
+      transparent calc(50% + 1px),
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 39px,
+      rgba(7, 33, 22, 0.06) 39px,
+      rgba(7, 33, 22, 0.06) 40px
+    ),
+    linear-gradient(to bottom, #f7f3ea, #efe7d5) !important;
+}
+
+html.sg-light-mode .sg-candle-scrollbar::-webkit-scrollbar-thumb,
+html.sg-light-mode .sg-candle-scrollbar *::-webkit-scrollbar-thumb {
+  border-color: transparent;
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(50% - 44px),
+      rgba(143, 107, 39, 0.5) calc(50% - 44px),
+      rgba(240, 200, 103, 0.9) calc(50% - 39px),
+      rgba(221, 177, 89, 1) calc(50% - 38px),
+      rgba(221, 177, 89, 1) calc(50% + 38px),
+      rgba(143, 107, 39, 0.5) calc(50% + 44px),
+      transparent calc(50% + 44px),
+      transparent 100%
+    ) !important;
+}
