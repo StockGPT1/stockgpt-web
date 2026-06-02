@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -350,18 +350,22 @@ function MobileBottomCta() {
 }
 
 export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
+  const pageRef = useRef<HTMLElement | null>(null);
   const [navScrolled, setNavScrolled] = useState(false);
 
   useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+
     const handleScroll = () => {
-      setNavScrolled(window.scrollY > 24);
+      setNavScrolled(page.scrollTop > 24);
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    page.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      page.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
@@ -371,7 +375,10 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
       : "500+";
 
   return (
-    <main className="sg-landing min-h-screen overflow-x-hidden bg-[#072116] text-[#faf6f0]">
+    <main
+      ref={pageRef}
+      className="sg-landing sg-candle-scrollbar sg-public-candle-scrollbar h-[100dvh] overflow-y-auto overflow-x-hidden bg-[#072116] text-[#faf6f0]"
+    >
       <style>{`
         .sg-landing {
           --sg-bg: #072116;
@@ -383,6 +390,34 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           --sg-gold-bright: #e8c36b;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           scroll-behavior: smooth;
+          scrollbar-width: thin;
+          scrollbar-color: #ddb159 #03140c;
+          scrollbar-gutter: stable;
+          overscroll-behavior: contain;
+        }
+
+        .sg-landing::-webkit-scrollbar {
+          width: 13px;
+        }
+
+        .sg-landing::-webkit-scrollbar-track {
+          background: linear-gradient(180deg, #03140c 0%, #061b12 50%, #03140c 100%);
+          border-left: 1px solid rgba(221,177,89,0.18);
+        }
+
+        .sg-landing::-webkit-scrollbar-thumb {
+          background:
+            linear-gradient(180deg, #f0cf7a 0%, #ddb159 36%, #a7792f 100%);
+          border: 3px solid #03140c;
+          border-radius: 999px;
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,0.22),
+            0 0 14px rgba(221,177,89,0.26);
+        }
+
+        .sg-landing::-webkit-scrollbar-thumb:hover {
+          background:
+            linear-gradient(180deg, #f5d989 0%, #e8c36b 36%, #b98934 100%);
         }
 
         .sg-heading {
@@ -452,6 +487,15 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           .sg-marquee-track {
             animation-duration: 24s;
           }
+
+          .sg-landing {
+            scrollbar-width: none;
+          }
+
+          .sg-landing::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -465,7 +509,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         }
       `}</style>
 
-      <div className="sg-page-bg relative min-h-screen pb-24 sm:pb-0">
+      <div className="sg-page-bg relative min-h-full pb-24 sm:pb-0">
         <nav
           className={[
             "sg-nav fixed left-0 right-0 top-0 z-50 border-b border-[#ddb159]/16 bg-[#04180f]/88",
@@ -498,6 +542,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   {link.label}
                 </a>
               ))}
+
               <Link
                 href="/affiliate"
                 className="rounded-full px-4 py-2 text-sm font-semibold text-[#faf6f0]/62 transition-colors hover:bg-[#ddb159]/8 hover:text-[#faf6f0] focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
@@ -545,7 +590,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   investors a clearer workflow for deciding what deserves attention.
                 </p>
 
-                <div className="mt-6 rounded-2xl border border-[#56d98a]/18 bg-[#56d98a]/7 p-4">
+                <div className="mt-6 rounded-2xl border border-[#56d98a]/18 bg-[#56d98a]/10 p-4">
                   <p className="text-sm font-bold text-[#faf6f0]">
                     Try the full product free today.
                   </p>
@@ -645,7 +690,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                     (factor) => (
                       <div
                         key={factor}
-                        className="rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/7 px-4 py-3 text-sm font-bold text-[#faf6f0]"
+                        className="rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/10 px-4 py-3 text-sm font-bold text-[#faf6f0]"
                       >
                         {factor}
                       </div>
