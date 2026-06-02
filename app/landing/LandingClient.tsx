@@ -314,7 +314,7 @@ function MethodAndTrustSection() {
                 Support
               </p>
               <p className="mt-1 text-sm font-black text-white">
-                support@stockgpt.pro
+                sales@stockgpt.pro
               </p>
             </div>
 
