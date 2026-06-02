@@ -3,9 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { EmailNewsDigestToggle } from "@/components/EmailNewsDigestToggle";
+import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
-
 
 export const metadata: Metadata = {
   title: "Account Settings | StockGPT",
@@ -184,9 +184,8 @@ export default async function SettingsPage() {
                 Built for finance creators, communities and partners.
               </p>
               <p className="mt-0.5 text-[11px] font-semibold leading-5 text-[#072116]/50">
-                The application page collects your platform, audience and
-                contact details. Approved partners receive their tracking setup
-                separately.
+                The application page collects your platform, audience and contact
+                details. Approved partners receive their tracking setup separately.
               </p>
             </div>
           </section>
@@ -201,6 +200,7 @@ export default async function SettingsPage() {
             </p>
 
             <div className="mt-4 space-y-3">
+              <ThemeModeToggle />
               <EmailNewsDigestToggle initialEnabled={emailDigestEnabled} />
             </div>
           </section>
