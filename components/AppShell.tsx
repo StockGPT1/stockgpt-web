@@ -5,6 +5,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffects";
+import { NavigationWarmup } from "@/components/NavigationWarmup";
 import { getUnreadNotificationCount } from "@/lib/notifications";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
@@ -47,7 +48,7 @@ function PageBackdrop({ activePath }: { activePath: string }) {
                 : "default";
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="sg-page-backdrop pointer-events-none absolute inset-0 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.065),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(250,246,240,0.035),transparent_26%)]" />
 
       {variant === "rankings" && (
@@ -190,10 +191,12 @@ export async function AppShell({
   return (
     <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <PremiumInteractionEffects />
+      <NavigationWarmup />
 
-      <header className="relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
+      <header className="sg-app-header relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
         <Link
           href="/dashboard"
+          prefetch
           className="sg-no-premium absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
         >
           <Image
@@ -207,7 +210,7 @@ export async function AppShell({
         </Link>
 
         <div className="hidden min-w-0 flex-1 md:flex">
-          <SearchBar showRankingData={!!user}/>
+          <SearchBar showRankingData={!!user} />
         </div>
 
         <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
@@ -218,8 +221,9 @@ export async function AppShell({
 
           <Link
             href="/notifications"
+            prefetch
             aria-label="Notifications"
-            className="relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
+            className="sg-icon-button relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -241,8 +245,9 @@ export async function AppShell({
 
           <Link
             href="/settings"
+            prefetch
             aria-label="Account settings"
-            className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
+            className="sg-icon-button grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -259,8 +264,9 @@ export async function AppShell({
 
         <Link
           href="/settings"
+          prefetch
           aria-label="Account settings"
-          className="absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
+          className="sg-icon-button absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
         >
           <svg
             viewBox="0 0 24 24"
@@ -277,9 +283,9 @@ export async function AppShell({
 
       <TickerTape />
 
-      <div className="flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
+      <div className="sg-mobile-search-row flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
         <div className="min-w-0 flex-1">
-          <SearchBar showRankingData={!!user}/>
+          <SearchBar showRankingData={!!user} />
         </div>
 
         <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
@@ -291,7 +297,7 @@ export async function AppShell({
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden h-full w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4 lg:block">
+        <aside className="sg-sidebar hidden h-full w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4 lg:block">
           <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
@@ -301,8 +307,10 @@ export async function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch
+                  data-active={isActive ? "true" : "false"}
                   className={[
-                    "group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
+                    "sg-side-nav-link group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
                     isActive
                       ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0] shadow-[0_0_22px_rgba(221,177,89,0.08)]"
                       : "border-transparent text-[#faf6f0]/78 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 hover:text-[#faf6f0]",
@@ -311,9 +319,7 @@ export async function AppShell({
                   <span
                     className={[
                       "absolute inset-y-2 left-0 w-[2px] rounded-r-full bg-[#ddb159] transition",
-                      isActive
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-70",
+                      isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70",
                     ].join(" ")}
                   />
 
@@ -334,7 +340,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
+        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
@@ -343,7 +349,7 @@ export async function AppShell({
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
+      <nav className="sg-bottom-nav fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
         {mobileBottomNav.map((item) => {
           const isActive = activePath === item.href;
           const isAlerts = item.href === "/notifications";
@@ -352,7 +358,9 @@ export async function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
+              prefetch
+              data-active={isActive ? "true" : "false"}
+              className={`sg-mobile-nav-link relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
                 isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"
               }`}
             >
