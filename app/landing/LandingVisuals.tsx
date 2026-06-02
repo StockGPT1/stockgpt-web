@@ -94,6 +94,65 @@ function stockCountLabel(metrics: LandingVisualMetrics) {
     : "500+";
 }
 
+function MiniLineChart() {
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-2xl bg-[#fbfaf6]">
+      <svg
+        viewBox="0 0 520 150"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="portfolioArea" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#0f9f5d" stopOpacity="0.24" />
+            <stop offset="70%" stopColor="#0f9f5d" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#0f9f5d" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        <path
+          d="M0 122 C34 116 52 118 78 108 C108 96 132 103 158 88 C184 73 208 78 236 64 C262 51 284 61 310 48 C338 34 364 45 392 29 C424 12 454 24 520 8 L520 150 L0 150 Z"
+          fill="url(#portfolioArea)"
+        />
+
+        <path
+          d="M0 122 C34 116 52 118 78 108 C108 96 132 103 158 88 C184 73 208 78 236 64 C262 51 284 61 310 48 C338 34 364 45 392 29 C424 12 454 24 520 8"
+          fill="none"
+          stroke="#0f9f5d"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+
+        <path
+          d="M0 126 H520"
+          stroke="#072116"
+          strokeOpacity="0.08"
+          strokeWidth="1"
+        />
+        <path
+          d="M0 92 H520"
+          stroke="#072116"
+          strokeOpacity="0.06"
+          strokeWidth="1"
+        />
+        <path
+          d="M0 58 H520"
+          stroke="#072116"
+          strokeOpacity="0.06"
+          strokeWidth="1"
+        />
+        <path
+          d="M0 24 H520"
+          stroke="#072116"
+          strokeOpacity="0.05"
+          strokeWidth="1"
+        />
+      </svg>
+    </div>
+  );
+}
+
 function DashboardMiniCard({
   label,
   main,
@@ -597,8 +656,8 @@ export function PortfolioVisual() {
             +£1,205.80 this month
           </p>
 
-          <div className="mt-5 h-24 rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-3">
-            <div className="sg-real-chart h-full rounded-xl" />
+          <div className="mt-5 h-28 rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-3">
+            <MiniLineChart />
           </div>
         </div>
 
