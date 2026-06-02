@@ -3,15 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
-import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import {
+  AITradePlanVisual,
   AskStockGPTVisual,
   NewsVisual,
   PortfolioVisual,
   RankingVisual,
-  StockPageVisual,
   TiltingIphoneDashboard,
 } from "./LandingVisuals";
 
@@ -38,6 +36,7 @@ type LandingClientProps = {
 const navLinks = [
   { label: "Preview", target: "preview" },
   { label: "Rankings", target: "rankings" },
+  { label: "Trade Plan", target: "trade-plan" },
   { label: "Ask", target: "ask" },
   { label: "Portfolio", target: "portfolio" },
   { label: "Pricing", target: "pricing" },
@@ -47,10 +46,10 @@ const pricingFeatures = [
   "Full ranked stock table",
   "Daily scores and rank movements",
   "Individual stock research pages",
+  "AI trade plan previews",
   "World news and stock impact context",
   "Portfolio Builder and alerts",
   "Ask StockGPT research assistant",
-  "Live market updates",
 ];
 
 const socialLinks = [
@@ -95,7 +94,7 @@ function scrollToSection(target: string) {
   element.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function CheckoutButton({
+function SignupButton({
   children = "Try free today",
   full = false,
   compact = false,
@@ -116,29 +115,17 @@ function CheckoutButton({
   };
 
   return (
-    <form
-      action="/api/create-checkout-session"
-      method="post"
-      className={full ? "w-full" : "w-fit max-sm:w-full"}
+    <Link
+      href="/signup"
+      className={[
+        "inline-flex items-center justify-center rounded-full border font-black uppercase tracking-[0.16em] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
+        full ? "w-full" : "w-fit max-sm:w-full",
+        compact ? "h-11 px-5 text-[11px]" : "h-14 px-8 text-sm",
+        variantClasses[variant],
+      ].join(" ")}
     >
-      <EndorselyReferralInput />
-
-      <button
-        type="submit"
-        className={[
-          "inline-flex items-center justify-center rounded-full border font-black uppercase tracking-[0.16em] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
-          full ? "w-full" : "max-sm:w-full",
-          compact ? "h-11 px-5 text-[11px]" : "h-14 px-8 text-sm",
-          variantClasses[variant],
-        ].join(" ")}
-      >
-        {children}
-      </button>
-
-      {!compact && (
-        <LegalConsentLine className="mt-3 max-w-[430px] text-[#66746b]" />
-      )}
-    </form>
+      {children}
+    </Link>
   );
 }
 
@@ -237,15 +224,15 @@ function MobileBottomCta() {
       <div className="mx-auto flex max-w-md items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-black text-[#0a2d1d]">
-            Try StockGPT free
+            Create a free account
           </p>
           <p className="truncate text-[11px] font-medium text-[#66746b]">
-            Then £18.99/month. Cancel anytime.
+            Explore first. Subscribe inside when ready.
           </p>
         </div>
-        <CheckoutButton compact variant="green">
-          Try free
-        </CheckoutButton>
+        <SignupButton compact variant="green">
+          Sign up
+        </SignupButton>
       </div>
     </div>
   );
@@ -315,10 +302,6 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             0 0 14px rgba(221,177,89,0.28);
         }
 
-        .sg-landing::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, #f5d989 0%, #e8c36b 40%, #b98934 100%);
-        }
-
         .sg-heading {
           font-family: Georgia, "Times New Roman", serif;
           letter-spacing: -0.035em;
@@ -332,15 +315,15 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
         .sg-page-soft {
           background:
-            radial-gradient(circle at 88% 14%, rgba(221,177,89,0.13), transparent 26%),
-            radial-gradient(circle at 12% 18%, rgba(7,33,22,0.075), transparent 24%),
+            radial-gradient(circle at 88% 14%, rgba(221,177,89,0.12), transparent 26%),
+            radial-gradient(circle at 12% 18%, rgba(7,33,22,0.07), transparent 24%),
             linear-gradient(180deg, #fbfaf6 0%, #ffffff 46%, #f7f5ef 100%);
         }
 
         .sg-nav {
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
-          transition: box-shadow 220ms ease, border-color 220ms ease, background-color 220ms ease;
+          transition: box-shadow 220ms ease;
         }
 
         .sg-nav-scrolled {
@@ -513,13 +496,13 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               />
             </Link>
 
-            <nav className="hidden items-center gap-1 lg:flex">
+            <nav className="hidden items-center gap-1 xl:flex">
               {navLinks.map((link) => (
                 <button
                   key={link.target}
                   type="button"
                   onClick={() => scrollToSection(link.target)}
-                  className="rounded-full px-4 py-2 text-sm font-bold text-white/66 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                  className="rounded-full px-4 py-2 text-sm font-bold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
                 >
                   {link.label}
                 </button>
@@ -527,7 +510,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
               <Link
                 href="/affiliate"
-                className="rounded-full px-4 py-2 text-sm font-bold text-white/66 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                className="rounded-full px-4 py-2 text-sm font-bold text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
               >
                 Affiliate
               </Link>
@@ -536,19 +519,19 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             <div className="hidden items-center gap-3 sm:flex">
               <Link
                 href="/login"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-white/16 bg-white px-5 text-[11px] font-black uppercase tracking-[0.16em] text-[#04180f] transition-colors hover:bg-[#f6f2e8] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
+                className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-full border border-white/18 bg-white px-5 text-[11px] font-black uppercase tracking-[0.16em] text-[#04180f] transition-colors hover:bg-[#f6f2e8] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
               >
                 Log in
               </Link>
-              <CheckoutButton compact variant="gold">
+              <SignupButton compact variant="gold">
                 Try free today
-              </CheckoutButton>
+              </SignupButton>
             </div>
 
             <div className="sm:hidden">
-              <CheckoutButton compact variant="gold">
-                Try free
-              </CheckoutButton>
+              <SignupButton compact variant="gold">
+                Sign up
+              </SignupButton>
             </div>
           </div>
         </header>
@@ -580,15 +563,15 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 </p>
 
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <CheckoutButton variant="green">Try free today</CheckoutButton>
+                  <SignupButton variant="green">Create free account</SignupButton>
                   <GhostButton onClick={() => scrollToSection("preview")}>
                     View preview
                   </GhostButton>
                 </div>
 
                 <p className="mt-4 max-w-lg text-xs leading-6 text-[#66746b]">
-                  Free trial. Then £18.99/month unless cancelled. Informational
-                  research only. Not financial advice.
+                  Create an account first. Explore the dashboard, then subscribe from
+                  inside when you are ready. Informational research only.
                 </p>
               </div>
 
@@ -636,26 +619,9 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 The product does the selling.
               </h2>
               <p className="mt-4 text-base leading-8 text-[#66746b]">
-                The landing page now shows how StockGPT actually works: dashboard,
-                rankings, stock pages, portfolio context, news and Ask StockGPT.
+                See the workflow before creating an account: rankings, AI trade plans,
+                portfolio context, news and Ask StockGPT.
               </p>
-            </div>
-
-            <div className="grid gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
-              <div>
-                <SectionLabel>Dashboard</SectionLabel>
-                <h3 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-5xl">
-                  A mobile-first view of your research workflow.
-                </h3>
-                <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                  The hero preview mirrors the real mobile dashboard structure:
-                  stats, Top 10 rankings, market overview and movers.
-                </p>
-              </div>
-
-              <div className="flex justify-center">
-                <TiltingIphoneDashboard metrics={metrics} />
-              </div>
             </div>
           </div>
         </section>
@@ -669,7 +635,8 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               </h2>
               <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
                 Start with a ranked research list instead of opening ten tabs and
-                guessing where to begin. The full table unlocks during the free trial.
+                guessing where to begin. Create an account to explore the dashboard;
+                deeper data remains locked until subscription.
               </p>
             </div>
 
@@ -677,19 +644,19 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section className="px-4 pb-14 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <StockPageVisual />
+        <section id="trade-plan" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <AITradePlanVisual />
 
             <div>
-              <SectionLabel>Stock pages</SectionLabel>
+              <SectionLabel>AI trade plan</SectionLabel>
               <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                Go from a ranking to a research view.
+                See the setup, risk and thesis in one view.
               </h2>
               <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                Each stock page gives users context around why a stock is appearing,
-                what has changed, which news may matter and what risks deserve
-                attention.
+                The AI trade plan preview shows suggested levels, risk/reward,
+                projected timeline and scenario rules. It is framed as research, not a
+                command to buy.
               </p>
             </div>
           </div>
@@ -749,93 +716,65 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         </section>
 
         <section id="pricing" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 rounded-[2rem] border border-[#dfe5dc] bg-white p-6 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-            <div>
-              <SectionLabel>Free trial</SectionLabel>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                Try the full research workflow before paying.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                Open the ranked table, explore stock pages, add portfolio context and
-                test Ask StockGPT. Continue with Core if it earns a place in your
-                workflow.
-              </p>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-[#0a2d1d]/10 bg-[#061b12] p-6 text-white shadow-[0_28px_80px_rgba(7,27,17,0.16)] sm:p-8">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="w-fit rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-                  Core access
-                </p>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">
-                  Free trial available
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-8 rounded-[2rem] border border-[#dfe5dc] bg-white p-6 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
+              <div>
+                <SectionLabel>Access</SectionLabel>
+                <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
+                  Create your account. Subscribe only when ready.
+                </h2>
+                <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
+                  Users create an account first and can explore the dashboard. Locked
+                  data and premium research prompts the subscription inside the app,
+                  not before they have seen the product.
                 </p>
               </div>
 
-              <div className="mt-7">
-                <p className="text-sm font-semibold text-[#65e49c]">
-                  Try free today
-                </p>
-                <div className="mt-2 flex items-end gap-3">
-                  <p className="sg-data text-5xl font-black text-white sm:text-6xl">
-                    £18.99
-                  </p>
-                  <p className="pb-2 text-base font-semibold text-white/48">
-                    / month after trial
-                  </p>
-                </div>
-              </div>
-
-              <ul className="mt-7 space-y-3.5 text-base font-semibold text-white">
-                {pricingFeatures.map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-[#65e49c]/34 bg-[#65e49c]/10 text-[11px] text-[#65e49c]">
-                      ✓
+              <div className="rounded-[1.75rem] border border-[#dfe5dc] bg-[#fbfaf6] p-5 sm:p-6">
+                <div className="rounded-[1.4rem] border border-[#ddb159]/22 bg-white p-5 shadow-[0_18px_50px_rgba(7,27,17,0.06)] sm:p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+                        Core access
+                      </p>
+                      <h3 className="sg-heading mt-2 text-4xl font-medium text-[#071b11]">
+                        £18.99
+                      </h3>
+                      <p className="mt-1 text-sm font-bold text-[#66746b]">
+                        per month after account creation
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-full bg-[#e8f7ee] px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                      Free account first
                     </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
 
-              <div className="mt-7">
-                <CheckoutButton full variant="gold">
-                  Try free today
-                </CheckoutButton>
-              </div>
+                  <div className="mt-6 grid gap-3">
+                    {pricingFeatures.map((item) => (
+                      <div key={item} className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-emerald-500/28 bg-emerald-500/10 text-[11px] text-emerald-700">
+                          ✓
+                        </span>
+                        <span className="text-sm font-bold leading-6 text-[#0a2d1d]">
+                          {item}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
 
-              <p className="mt-4 text-xs leading-6 text-white/42">
-                Subscription continues at £18.99/month after the trial unless
-                cancelled. Informational research only. Not financial advice.
-              </p>
+                  <div className="mt-7">
+                    <SignupButton full variant="green">
+                      Create free account
+                    </SignupButton>
+                  </div>
 
-              <form
-                action="/api/premium-waitlist"
-                method="post"
-                className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4"
-              >
-                <p className="text-sm font-semibold text-white/55">
-                  Executive tier coming soon — join the waitlist.
-                </p>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <label className="sr-only" htmlFor="executive-email">
-                    Email address
-                  </label>
-                  <input
-                    id="executive-email"
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="Email address"
-                    className="min-h-11 flex-1 rounded-full border border-white/[0.1] bg-[#03140c] px-4 text-sm font-semibold text-white outline-none transition-colors placeholder:text-white/34 focus:border-[#ddb159]/60 focus:ring-2 focus:ring-[#ddb159]/35"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-full border border-[#ddb159]/45 px-5 py-3 text-sm font-bold text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
-                  >
-                    Join
-                  </button>
+                  <p className="mt-4 text-xs leading-6 text-[#66746b]">
+                    Account creation does not send you to Stripe. Subscription is
+                    prompted inside the app for locked premium data. Informational
+                    research only. Not financial advice.
+                  </p>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         </section>
@@ -942,11 +881,11 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 <Link href="/login" className="block transition-colors hover:text-[#ddb159]">
                   Log in
                 </Link>
+                <Link href="/signup" className="block transition-colors hover:text-[#ddb159]">
+                  Create account
+                </Link>
                 <Link href="/affiliate" className="block transition-colors hover:text-[#ddb159]">
                   Apply as affiliate
-                </Link>
-                <Link href="/pricing" className="block transition-colors hover:text-[#ddb159]">
-                  Subscription
                 </Link>
               </div>
 
