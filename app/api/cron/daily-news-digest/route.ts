@@ -220,7 +220,8 @@ ${JSON.stringify(buildCompactRankingPayload(rankings), null, 2)}
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro",
+        "HTTP-Referer":
+          process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro",
         "X-Title": "StockGPT",
       },
       body: JSON.stringify({
@@ -295,7 +296,11 @@ function buildEmailHtml({
               <tr>
                 <td style="padding:16px 0;border-bottom:1px solid #e6decd;">
                   <p style="margin:0 0 5px;color:#0b2418;font-size:15px;line-height:1.35;font-weight:800;">
-                    ${url ? `<a href="${url}" style="color:#0b2418;text-decoration:none;">${title}</a>` : title}
+                    ${
+                      url
+                        ? `<a href="${url}" style="color:#0b2418;text-decoration:none;">${title}</a>`
+                        : title
+                    }
                   </p>
                   <p style="margin:0;color:#b4913e;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;">
                     ${source} · ${when} · ${impact}
@@ -520,7 +525,6 @@ export async function GET(req: NextRequest) {
   if (!isAuthorizedCron(req)) {
     return unauthorizedCron();
   }
-}
 
   const admin = createAdminClient();
   const todayKey = getTodayKey();
