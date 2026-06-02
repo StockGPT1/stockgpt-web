@@ -282,20 +282,11 @@ function buildDbRow(article: ExternalArticle, stocks: StockLike[]) {
   };
 }
 
-function isAllowedRequest(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-
-  if (!secret) return true;
-
-  const querySecret = request.nextUrl.searchParams.get("secret");
-  const auth = request.headers.get("authorization");
-
-  return querySecret === secret || auth === `Bearer ${secret}`;
-}
+import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export async function GET(request: NextRequest) {
-  if (!isAllowedRequest(request)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isAuthorizedCron(request)) {
+    return unauthorizedCron();
   }
 
   const supabase = getAdminClient();
