@@ -113,34 +113,68 @@ export function Trading212CsvImport({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]",
+        "relative min-w-0 overflow-hidden rounded-3xl border border-[#00a6ff]/20 bg-[#f7fbff] text-[#072116] shadow-[0_10px_28px_rgba(0,0,0,0.16)]",
         compact ? "p-3" : "p-4 sm:p-5",
       ].join(" ")}
     >
-      <div className="pointer-events-none absolute -left-12 -top-12 h-28 w-28 rounded-full bg-[#ddb159]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#00a6ff]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-[#ddb159]/15 blur-3xl" />
 
-      <div className="relative">
-        <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-          ✦ Trading 212 CSV Import
+      <div className="relative min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#00a6ff] text-[13px] font-black tracking-[-0.04em] text-white shadow-[0_8px_20px_rgba(0,166,255,0.28)]">
+              212
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#00a6ff]">
+                Trading 212 import
+              </p>
+              <h3 className="mt-0.5 text-[21px] font-black tracking-[-0.04em] text-[#072116] sm:text-[24px]">
+                Upload your portfolio CSV
+              </h3>
+            </div>
+          </div>
+
+          <span className="rounded-full border border-[#00a6ff]/20 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0078bd]">
+            Fast setup
+          </span>
+        </div>
+
+        <p className="mt-3 text-[12px] font-semibold leading-5 text-[#072116]/60">
+          Import your real Trading 212 holdings and StockGPT will match them to
+          rankings, scores, sector exposure and portfolio alerts.
         </p>
 
-        <h3
-          className={[
-            "mt-1 font-black tracking-[-0.035em]",
-            compact ? "text-[18px]" : "text-[22px]",
-          ].join(" ")}
-        >
-          Import your real portfolio
-        </h3>
+        <div className="mt-4 grid gap-2">
+          {[
+            ["1", "Export", "Trading 212 → Menu → History → Export → CSV."],
+            ["2", "Upload", "Choose the CSV file below."],
+            ["3", "Track", "StockGPT builds your live portfolio view."],
+          ].map(([step, title, text]) => (
+            <div
+              key={step}
+              className="grid grid-cols-[32px_minmax(0,1fr)] gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-2.5"
+            >
+              <div className="flex size-8 items-center justify-center rounded-full bg-[#072116] text-[12px] font-black text-[#ddb159]">
+                {step}
+              </div>
 
-        <p className="mt-1 text-[11px] font-semibold leading-5 text-[#072116]/55">
-          Upload your Trading 212 CSV export. StockGPT will match tickers to
-          the ranking model, calculate allocations and track alerts from your
-          actual holdings.
-        </p>
+              <div className="min-w-0">
+                <p className="text-[12px] font-black text-[#072116]">
+                  {title}
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold leading-4 text-[#072116]/55">
+                  {text}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <div className="mt-3 grid gap-2">
-          <label className="block">
+        <div className="mt-4 grid gap-3">
+          <label className="block min-w-0">
             <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
               CSV file
             </span>
@@ -149,13 +183,15 @@ export function Trading212CsvImport({
               ref={fileInputRef}
               type="file"
               accept=".csv,text/csv"
-              onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
-              className="block w-full cursor-pointer rounded-xl border-2 border-dashed border-[#072116]/15 bg-white px-3 py-3 text-[12px] font-bold text-[#072116] outline-none transition file:mr-3 file:rounded-full file:border-0 file:bg-[#072116] file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.1em] file:text-[#ddb159] hover:border-[#ddb159] focus:border-[#ddb159]"
+              onChange={(event) =>
+                handleFileChange(event.target.files?.[0] ?? null)
+              }
+              className="block w-full min-w-0 cursor-pointer rounded-2xl border-2 border-dashed border-[#00a6ff]/25 bg-white px-3 py-3 text-[12px] font-bold text-[#072116] outline-none transition file:mr-3 file:rounded-full file:border-0 file:bg-[#00a6ff] file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.1em] file:text-white hover:border-[#00a6ff] focus:border-[#00a6ff]"
             />
           </label>
 
           {fileName && (
-            <div className="rounded-xl border border-[#ddb159]/35 bg-[#fff8e8] px-3 py-2">
+            <div className="min-w-0 rounded-2xl border border-[#00a6ff]/20 bg-white px-3 py-2">
               <p className="truncate text-[11px] font-black text-[#072116]">
                 {fileName}
               </p>
@@ -165,16 +201,16 @@ export function Trading212CsvImport({
             </div>
           )}
 
-          <label className="flex items-start gap-2 rounded-xl border border-[#072116]/10 bg-white px-3 py-2">
+          <label className="flex min-w-0 items-start gap-2 rounded-2xl border border-[#072116]/10 bg-white px-3 py-2.5">
             <input
               type="checkbox"
               checked={replaceExisting}
               onChange={(event) => setReplaceExisting(event.target.checked)}
-              className="mt-0.5 size-4 accent-[#ddb159]"
+              className="mt-0.5 size-4 shrink-0 accent-[#00a6ff]"
             />
-            <span className="text-[11px] font-semibold leading-5 text-[#072116]/70">
-              Replace my current portfolio with this CSV. Turn this off if you
-              want to add/update holdings without deleting existing ones.
+            <span className="min-w-0 text-[11px] font-semibold leading-5 text-[#072116]/65">
+              Replace my current portfolio with this CSV. Turn this off to
+              add/update imported holdings without clearing existing ones.
             </span>
           </label>
 
@@ -182,16 +218,16 @@ export function Trading212CsvImport({
             type="button"
             onClick={submitImport}
             disabled={isPending || !csvText.trim()}
-            className="h-11 w-full rounded-xl bg-[#ddb159] px-4 text-[12px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 w-full rounded-2xl bg-[#072116] px-4 text-[12px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "Importing…" : "Import CSV"}
+            {isPending ? "Importing…" : "Import Trading 212 CSV"}
           </button>
         </div>
 
         {message && (
           <div
             className={[
-              "mt-3 rounded-xl border px-3 py-2",
+              "mt-3 rounded-2xl border px-3 py-2",
               isSuccess
                 ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                 : "border-red-300 bg-red-50 text-red-700",
@@ -201,21 +237,21 @@ export function Trading212CsvImport({
 
             {summary && (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                <div className="rounded-xl bg-white/80 px-2 py-1.5">
                   <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/45">
                     Imported
                   </p>
                   <p className="text-[13px] font-black">{summary.imported}</p>
                 </div>
 
-                <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                <div className="rounded-xl bg-white/80 px-2 py-1.5">
                   <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/45">
                     Skipped
                   </p>
                   <p className="text-[13px] font-black">{summary.skipped}</p>
                 </div>
 
-                <div className="rounded-lg bg-white/70 px-2 py-1.5">
+                <div className="rounded-xl bg-white/80 px-2 py-1.5">
                   <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/45">
                     Value
                   </p>
@@ -235,15 +271,11 @@ export function Trading212CsvImport({
           </div>
         )}
 
-        <div className="mt-3 rounded-xl border border-[#072116]/8 bg-white/70 px-3 py-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
-            How to export from Trading 212
-          </p>
-          <p className="mt-1 text-[10px] font-semibold leading-5 text-[#072116]/55">
-            Trading 212 app/web: Menu → History → Export → CSV. Export your
-            Invest or ISA account, then upload the file here.
-          </p>
-        </div>
+        <p className="mt-3 text-[10px] font-semibold leading-5 text-[#072116]/45">
+          CSV files are read in your browser and sent securely to StockGPT only
+          for portfolio import. This does not connect to or control your
+          Trading 212 account.
+        </p>
       </div>
     </div>
   );
