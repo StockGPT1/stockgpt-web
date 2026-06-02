@@ -942,22 +942,26 @@ function AddStockForm({
   }
 
   return (
-    <div className="relative z-20 min-w-0 rounded-2xl bg-[#faf6f0] p-3.5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            ✦ Add holding manually
-          </p>
-          <p className="mt-1 text-[11px] font-semibold leading-5 text-[#072116]/55">
-            Available cash: ${cashBalance.toLocaleString()}. Search a ticker,
-            enter the amount, and StockGPT calculates shares automatically.
-          </p>
-        </div>
+    <div className="relative z-20 min-w-0 max-w-full overflow-visible rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <div className="min-w-0">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+          ✦ Add holding manually
+        </p>
+
+        <p className="mt-1 max-w-[62ch] text-[11px] font-semibold leading-5 text-[#072116]/55">
+          Available cash: ${cashBalance.toLocaleString()}. Search a ticker, enter
+          the amount, and StockGPT calculates shares automatically.
+        </p>
       </div>
 
-      <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(130px,1fr)_120px_minmax(130px,1fr)_auto]">
-        <div className="relative min-w-0">
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.8fr)_minmax(0,0.95fr)_auto]">
+        <div className="relative min-w-0 sm:col-span-2 2xl:col-span-1">
+          <label className="sr-only" htmlFor="manual-holding-ticker">
+            Search ticker
+          </label>
+
           <input
+            id="manual-holding-ticker"
             type="text"
             value={ticker}
             onFocus={() => setShowSuggestions(true)}
@@ -969,11 +973,12 @@ function AddStockForm({
               setShowSuggestions(true);
             }}
             placeholder="Search ticker"
-            className="h-10 w-full min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[14px] font-black uppercase text-[#072116] outline-none focus:border-[#ddb159]"
+            autoComplete="off"
+            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-black uppercase text-[#072116] outline-none transition focus:border-[#ddb159]"
           />
 
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-[44px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#ddb159]/40 bg-white p-1 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+            <div className="absolute left-0 right-0 top-[48px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#ddb159]/40 bg-white p-1 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
               {suggestions.map((stock) => (
                 <button
                   key={stock.ticker}
@@ -997,6 +1002,7 @@ function AddStockForm({
                     <span className="rounded-full bg-[#072116] px-2 py-0.5 text-[9px] font-black text-[#ddb159]">
                       #{stock.rank ?? "—"}
                     </span>
+
                     {stock.sector && (
                       <span className="max-w-[96px] truncate text-[9px] font-bold text-[#072116]/40">
                         {stock.sector}
@@ -1009,35 +1015,56 @@ function AddStockForm({
           )}
         </div>
 
-        <input
-          type="number"
-          step="0.01"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          placeholder="Amount $"
-          className="h-10 min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]"
-        />
+        <div className="min-w-0">
+          <label className="sr-only" htmlFor="manual-holding-amount">
+            Amount
+          </label>
 
-        <input
-          type="number"
-          step="0.01"
-          value={entryPrice}
-          onChange={(event) => setEntryPrice(event.target.value)}
-          placeholder="Entry price optional"
-          className="h-10 min-w-0 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none focus:border-[#ddb159]"
-        />
+          <input
+            id="manual-holding-amount"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="Amount $"
+            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none transition focus:border-[#ddb159]"
+          />
+        </div>
+
+        <div className="min-w-0">
+          <label className="sr-only" htmlFor="manual-holding-entry-price">
+            Entry price
+          </label>
+
+          <input
+            id="manual-holding-entry-price"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            value={entryPrice}
+            onChange={(event) => setEntryPrice(event.target.value)}
+            placeholder="Entry price"
+            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none transition focus:border-[#ddb159]"
+          />
+        </div>
 
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="h-10 rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60"
+          className="h-11 w-full min-w-0 rounded-xl px-4 py-2 text-[13px] font-black text-[#072116] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 2xl:col-span-1 2xl:w-auto 2xl:min-w-[92px]"
           style={{ backgroundColor: "#ddb159", color: "#072116" }}
         >
           {isPending ? "Adding…" : "+ Add"}
         </button>
       </div>
 
-      {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-2 text-[11px] font-semibold leading-5 text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
