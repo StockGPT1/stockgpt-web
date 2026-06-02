@@ -6,9 +6,9 @@ import { LandingClient, type LandingTicker } from "./LandingClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "StockGPT — AI Stock Rankings & Portfolio Intelligence",
+  title: "StockGPT — Stock Rankings, Portfolio Context & Market Research",
   description:
-    "Unlock AI-powered stock rankings, portfolio tools, market news and investment research for investors who want clarity, not noise.",
+    "StockGPT ranks US stocks, adds portfolio context, tracks market news and gives investors a clearer starting point for research.",
 };
 
 function formatUpdatedAt(value: string | null | undefined) {
