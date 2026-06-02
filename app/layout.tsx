@@ -83,14 +83,35 @@ export const viewport: Viewport = {
   themeColor: "#072116",
 };
 
+const themeInitialiser = `
+(function () {
+  try {
+    var mode = localStorage.getItem("stockgpt:theme-mode") || "dark";
+    if (mode === "light") {
+      document.documentElement.classList.add("sg-light-mode");
+      document.documentElement.dataset.sgTheme = "light";
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", "#fbfaf6");
+    } else {
+      document.documentElement.classList.remove("sg-light-mode");
+      document.documentElement.dataset.sgTheme = "dark";
+    }
+  } catch (e) {
+    document.documentElement.dataset.sgTheme = "dark";
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitialiser }} />
+
         <link
           rel="icon"
           type="image/png"
