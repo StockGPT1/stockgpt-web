@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
@@ -17,46 +16,42 @@ export default function SignupPage() {
 
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [message, setMessage] = useState("");
 
   async function signUp() {
-    const cleanFirstName = firstName.trim();
-    const cleanLastName = lastName.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    const fullName = [cleanFirstName, cleanLastName].filter(Boolean).join(" ");
-
-    setErrorMessage("");
-
-    if (!cleanFirstName || !cleanLastName || !cleanEmail || !password) {
-      setErrorMessage("Please complete your first name, last name, email and password.");
-      return;
-    }
+    if (loading) return;
 
     setLoading(true);
+    setMessage("");
 
-    const { error } = await createClient().auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/dashboard",
-        data: {
-          first_name: cleanFirstName,
-          last_name: cleanLastName,
-          full_name: fullName,
-          date_of_birth: dob,
-          phone,
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      },
-    });
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          dob,
+          phone,
+          email,
+          password,
+        }),
+      });
 
-    setLoading(false);
+      const data = await res.json().catch(() => null);
 
-    if (error) {
-      setErrorMessage(error.message);
-      return;
+      if (!res.ok) {
+        setMessage(data?.error ?? "Could not create account. Please check your details.");
+        return;
+      }
+
+      setSent(true);
+      setMessage(data?.message ?? "Check your email to verify your account.");
+    } finally {
+      setLoading(false);
     }
-
-    setSent(true);
   }
 
   return (
@@ -91,14 +86,14 @@ export default function SignupPage() {
           </h1>
 
           <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#faf6f0]/62 sm:text-[13px]">
-            Join StockGPT to access AI rankings, watchlists, portfolio tools and
-            premium market intelligence.
+            StockGPT is available to users aged 18 or over. Your details are
+            validated securely before account creation.
           </p>
         </div>
 
         {sent ? (
           <div className="mt-5 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4 text-center text-[13px] font-bold leading-relaxed text-emerald-100 sm:text-left">
-            Check your email to verify your account.
+            {message || "Check your email to verify your account."}
           </div>
         ) : (
           <div className="mt-4 space-y-2.5 sm:space-y-3">
@@ -111,6 +106,8 @@ export default function SignupPage() {
                   className="h-10 w-full rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:h-11"
                   placeholder="First name"
                   value={firstName}
+                  maxLength={60}
+                  autoComplete="given-name"
                   onChange={(e) => setFirstName(e.target.value)}
                 />
               </label>
@@ -123,6 +120,8 @@ export default function SignupPage() {
                   className="h-10 w-full rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:h-11"
                   placeholder="Last name"
                   value={lastName}
+                  maxLength={60}
+                  autoComplete="family-name"
                   onChange={(e) => setLastName(e.target.value)}
                 />
               </label>
@@ -137,6 +136,7 @@ export default function SignupPage() {
                   className="h-10 w-full rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:h-11"
                   type="date"
                   value={dob}
+                  autoComplete="bday"
                   onChange={(e) => setDob(e.target.value)}
                 />
               </label>
@@ -147,8 +147,10 @@ export default function SignupPage() {
                 </span>
                 <input
                   className="h-10 w-full rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:h-11"
-                  placeholder="Phone number"
+                  placeholder="Optional"
                   value={phone}
+                  maxLength={25}
+                  autoComplete="tel"
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </label>
@@ -163,6 +165,8 @@ export default function SignupPage() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
+                maxLength={254}
+                autoComplete="email"
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && signUp()}
               />
@@ -175,16 +179,18 @@ export default function SignupPage() {
               <input
                 className="h-10 w-full rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:h-11"
                 type="password"
-                placeholder="Create a password"
+                placeholder="Minimum 12 characters"
                 value={password}
+                minLength={12}
+                autoComplete="new-password"
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && signUp()}
               />
             </label>
 
-            {errorMessage && (
+            {message && (
               <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-[12px] font-bold text-red-200 sm:text-[13px]">
-                {errorMessage}
+                {message}
               </div>
             )}
 
