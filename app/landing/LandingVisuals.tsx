@@ -357,6 +357,323 @@ export function TiltingIphoneDashboard({
   );
 }
 
+function DemoBrowserFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-[1.5rem] border border-[#0a2d1d]/12 bg-[#061b12] p-2 shadow-[0_34px_100px_rgba(7,27,17,0.22)]">
+      <div className="flex h-10 items-center gap-2 rounded-t-[1.15rem] border-b border-white/[0.08] bg-[#04180f] px-4">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-300/80" />
+        <span className="h-2.5 w-2.5 rounded-full bg-yellow-300/80" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/80" />
+        <div className="ml-3 flex h-6 flex-1 items-center rounded-full border border-white/[0.08] bg-white/[0.06] px-3 text-[10px] font-black tracking-[0.12em] text-white/46">
+          stockgpt.pro/dashboard
+        </div>
+      </div>
+
+      <div className="relative aspect-[16/10] overflow-hidden rounded-b-[1.15rem] bg-[#fbfaf6]">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DemoRankingsScreen() {
+  return (
+    <div className="h-full bg-[#fbfaf6] p-5 text-[#072116]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Rankings
+          </p>
+          <h3 className="sg-heading mt-2 text-4xl font-medium leading-none">
+            Top ranked stocks
+          </h3>
+        </div>
+        <div className="rounded-full bg-[#072116] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+          Account unlock
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-[#dfe5dc] bg-white">
+        <div className="grid grid-cols-[50px_90px_minmax(0,1fr)_80px_82px] bg-[#072116] px-4 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-white">
+          <span>#</span>
+          <span>Ticker</span>
+          <span>Company</span>
+          <span>Price</span>
+          <span className="text-right">Score</span>
+        </div>
+
+        {dashboardRows.slice(0, 5).map((stock) => (
+          <div
+            key={stock.ticker}
+            className="grid grid-cols-[50px_90px_minmax(0,1fr)_80px_82px] items-center border-b border-[#edf0ea] px-4 py-3 text-sm"
+          >
+            <span className="sg-data font-black text-[#b88a32]">{stock.rank}</span>
+            <span className="sg-data font-black">{stock.ticker}</span>
+            <span className="truncate font-black">{stock.company}</span>
+            <span className="sg-data text-xs font-bold text-[#66746b]">
+              {stock.price}
+            </span>
+            <span className="flex justify-end">
+              <span className="sg-data rounded-full bg-[#ddb159] px-3 py-1 text-xs font-black">
+                {stock.score}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DemoStockScreen() {
+  return (
+    <div className="h-full bg-[#fbfaf6] p-5 text-[#072116]">
+      <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="rounded-2xl bg-[#061b12] p-5 text-white">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
+            Stock page
+          </p>
+          <div className="mt-3 flex items-start justify-between">
+            <div>
+              <h3 className="sg-heading text-5xl font-medium leading-none">NVDA</h3>
+              <p className="mt-2 text-sm font-semibold text-white/50">
+                NVIDIA Corp · Technology
+              </p>
+            </div>
+            <span className="rounded-full bg-[#ddb159] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]">
+              Rank #1
+            </span>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {[
+              ["Price", "$224.38"],
+              ["Score", "9,214"],
+              ["Move", "+2.6%"],
+              ["View", "Locked"],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+              >
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
+                  {label}
+                </p>
+                <p className="sg-data mt-2 text-xl font-black text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#dfe5dc] bg-white p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Research context
+          </p>
+          <h4 className="mt-3 text-2xl font-black">Why it ranks highly</h4>
+          <p className="mt-3 text-sm leading-7 text-[#66746b]">
+            Strong momentum, earnings revision strength and sector leadership are
+            supporting the current ranking. Valuation remains the key risk to review.
+          </p>
+
+          <div className="mt-5 grid gap-3">
+            {["Momentum strong", "Valuation elevated", "News relevance high"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] px-4 py-3 text-sm font-black"
+                >
+                  {item}
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DemoResearchScreen() {
+  return (
+    <div className="h-full bg-[#fbfaf6] p-5 text-[#072116]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Research plan
+          </p>
+          <h3 className="sg-heading mt-2 text-4xl font-medium leading-none">
+            Scenario levels
+          </h3>
+        </div>
+        <span className="rounded-full bg-emerald-500/90 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+          High priority
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-[#ddb159]/30 bg-[#fffaf0] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6828]">
+            Entry zone
+          </p>
+          <p className="sg-data mt-2 text-3xl font-black">$1046.84</p>
+        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-500">
+            Invalidation
+          </p>
+          <p className="sg-data mt-2 text-3xl font-black text-red-700">$664.50</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+            Target zone
+          </p>
+          <p className="sg-data mt-2 text-3xl font-black text-emerald-800">
+            $2958.53
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-[#072116] px-5 py-4">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
+            Risk / reward
+          </p>
+          <p className="sg-data text-xl font-black text-[#ddb159]">1 : 5</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="font-black text-emerald-900">
+            If price approaches target zone
+          </p>
+          <p className="mt-1 text-sm text-emerald-800">
+            Review valuation, momentum and news context.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="font-black text-red-900">If price breaks invalidation</p>
+          <p className="mt-1 text-sm text-red-800">
+            Reassess the thesis and risk exposure.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DemoPortfolioScreen() {
+  return (
+    <div className="h-full bg-[#fbfaf6] p-5 text-[#072116]">
+      <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="rounded-2xl border border-[#dfe5dc] bg-white p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Portfolio
+          </p>
+          <p className="sg-data mt-2 text-4xl font-black">£24,810.42</p>
+          <p className="mt-1 text-sm font-black text-emerald-700">
+            +£1,205.80 this month
+          </p>
+
+          <div className="mt-5 h-32 rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-3">
+            <MiniLineChart />
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {[
+            ["Technology exposure", "High concentration", "46%"],
+            ["Weak-ranked holding", "Review suggested", "1"],
+            ["Trading 212 CSV", "Import ready", "Ready"],
+            ["News context", "3 relevant headlines", "Live"],
+          ].map(([title, detail, value]) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-[#dfe5dc] bg-white p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-black">{title}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#66746b]">
+                    {detail}
+                  </p>
+                </div>
+                <p className="sg-data font-black text-[#b88a32]">{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProductDemoVisual() {
+  const steps = [
+    "Rankings",
+    "Stock page",
+    "Research plan",
+    "Portfolio",
+  ];
+
+  return (
+    <div className="rounded-[2.2rem] border border-[#dfe5dc] bg-white p-4 shadow-[0_28px_90px_rgba(7,27,17,0.08)] sm:p-6">
+      <div className="mb-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
+            Product loop
+          </p>
+          <h3 className="sg-heading mt-2 text-4xl font-medium leading-[1.02] text-[#071b11] sm:text-5xl">
+            Watch the workflow in 20 seconds.
+          </h3>
+        </div>
+        <p className="max-w-sm text-sm leading-6 text-[#66746b]">
+          A silent product-style loop: ranking, stock page, research plan and portfolio.
+        </p>
+      </div>
+
+      <DemoBrowserFrame>
+        <div className="sg-demo-panel sg-demo-panel-1">
+          <DemoRankingsScreen />
+        </div>
+        <div className="sg-demo-panel sg-demo-panel-2">
+          <DemoStockScreen />
+        </div>
+        <div className="sg-demo-panel sg-demo-panel-3">
+          <DemoResearchScreen />
+        </div>
+        <div className="sg-demo-panel sg-demo-panel-4">
+          <DemoPortfolioScreen />
+        </div>
+
+        <div className="sg-demo-cursor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-7 w-7 drop-shadow-[0_6px_10px_rgba(0,0,0,0.18)]">
+            <path
+              d="M4 3.5 18.6 12 12.7 13.4 15.7 20.1 12.9 21.3 9.8 14.5 5.6 19.1 4 3.5Z"
+              fill="#061b12"
+              stroke="#ffffff"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <div className="sg-demo-click" aria-hidden="true" />
+      </DemoBrowserFrame>
+
+      <div className="mt-4 grid grid-cols-4 gap-2">
+        {steps.map((step, index) => (
+          <div
+            key={step}
+            className={`sg-demo-step sg-demo-step-${index + 1} rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] px-2 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-[#66746b]`}
+          >
+            {step}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function RankingVisual() {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
@@ -459,7 +776,7 @@ export function ResearchPlanVisual() {
 
         <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-500">
-            STOP LOSS
+            Invalidation
           </p>
           <p className="sg-data mt-2 text-3xl font-black text-red-700">
             $664.50
@@ -717,52 +1034,6 @@ export function NewsVisual() {
               </span>
             </div>
           </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function ProductFlowVisual() {
-  const steps = [
-    {
-      title: "Rankings",
-      detail: "Start with the market list.",
-    },
-    {
-      title: "Stock page",
-      detail: "Open the research view.",
-    },
-    {
-      title: "Research plan",
-      detail: "Check levels and risks.",
-    },
-    {
-      title: "Ask StockGPT",
-      detail: "Question the thesis.",
-    },
-    {
-      title: "Portfolio",
-      detail: "Review exposure.",
-    },
-  ];
-
-  return (
-    <div className="rounded-[2rem] border border-[#dfe5dc] bg-white p-4 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-5">
-      <div className="grid gap-3 sm:grid-cols-5">
-        {steps.map((step, index) => (
-          <div
-            key={step.title}
-            className="rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-4"
-          >
-            <p className="sg-data text-xs font-black text-[#ddb159]">
-              {String(index + 1).padStart(2, "0")}
-            </p>
-            <p className="mt-2 text-sm font-black text-[#072116]">
-              {step.title}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[#66746b]">{step.detail}</p>
-          </div>
         ))}
       </div>
     </div>
