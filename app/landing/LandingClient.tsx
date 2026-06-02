@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import {
-  AITradePlanVisual,
   AskStockGPTVisual,
   NewsVisual,
   PortfolioVisual,
+  ProductFlowVisual,
   RankingVisual,
+  ResearchPlanVisual,
   TiltingIphoneDashboard,
 } from "./LandingVisuals";
 
@@ -34,11 +35,10 @@ type LandingClientProps = {
 };
 
 const navLinks = [
-  { label: "Preview", target: "preview" },
   { label: "Rankings", target: "rankings" },
-  { label: "Trade Plan", target: "trade-plan" },
-  { label: "Ask", target: "ask" },
+  { label: "Research", target: "research" },
   { label: "Portfolio", target: "portfolio" },
+  { label: "Method", target: "method" },
   { label: "Pricing", target: "pricing" },
 ];
 
@@ -46,7 +46,7 @@ const pricingFeatures = [
   "Full ranked stock table",
   "Daily scores and rank movements",
   "Individual stock research pages",
-  "AI trade plan previews",
+  "Research plan previews",
   "World news and stock impact context",
   "Portfolio Builder and alerts",
   "Ask StockGPT research assistant",
@@ -95,7 +95,7 @@ function scrollToSection(target: string) {
 }
 
 function SignupButton({
-  children = "Try free today",
+  children = "Create account",
   full = false,
   compact = false,
   variant = "gold",
@@ -126,24 +126,6 @@ function SignupButton({
     >
       {children}
     </Link>
-  );
-}
-
-function GhostButton({
-  children,
-  onClick,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-14 items-center justify-center rounded-full border border-[#0a2d1d]/18 bg-white px-8 text-sm font-black uppercase tracking-[0.16em] !text-[#0a2d1d] transition-colors hover:border-[#0a2d1d]/35 hover:bg-[#f2f4ef] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2 focus:ring-offset-white max-sm:w-full"
-    >
-      {children}
-    </button>
   );
 }
 
@@ -218,6 +200,32 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   );
 }
 
+function TrustStrip({
+  stockCountLabel,
+}: {
+  stockCountLabel: string;
+}) {
+  const items = [
+    `${stockCountLabel} US stocks scanned`,
+    "Research tool, not financial advice",
+    "Account first, subscribe inside",
+    "Cancel anytime",
+  ];
+
+  return (
+    <div className="mx-auto mt-7 grid max-w-7xl gap-2 px-4 sm:mt-8 sm:grid-cols-4 sm:px-6 lg:px-8">
+      {items.map((item) => (
+        <div
+          key={item}
+          className="rounded-2xl border border-[#dfe5dc] bg-white/86 px-4 py-3 text-center text-[12px] font-black uppercase tracking-[0.08em] text-[#0a2d1d] shadow-[0_10px_30px_rgba(7,27,17,0.045)]"
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MobileDemoGroup({
   label,
   title,
@@ -237,6 +245,89 @@ function MobileDemoGroup({
           {title}
         </h2>
         <div className="grid gap-5">{children}</div>
+      </div>
+    </section>
+  );
+}
+
+function MethodAndTrustSection() {
+  const method = [
+    {
+      title: "Collect",
+      detail: "Market data, rankings inputs and news context are pulled into one workflow.",
+    },
+    {
+      title: "Score",
+      detail: "Stocks are scored across quality, growth, value, momentum, risk and income.",
+    },
+    {
+      title: "Research",
+      detail: "The output is a starting point for research, not a buy or sell instruction.",
+    },
+  ];
+
+  return (
+    <section id="method" className="scroll-mt-32 px-4 pb-12 sm:pb-14 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[1fr_0.72fr]">
+        <div className="rounded-[2rem] border border-[#dfe5dc] bg-white p-6 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-7">
+          <SectionLabel>Method</SectionLabel>
+          <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-5xl">
+            A ranking system for structured research.
+          </h2>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {method.map((item, index) => (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-4"
+              >
+                <p className="sg-data text-xs font-black text-[#ddb159]">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <p className="mt-2 text-base font-black text-[#072116]">
+                  {item.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[#66746b]">
+                  {item.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-[#dfe5dc] bg-[#061b12] p-6 text-white shadow-[0_24px_70px_rgba(7,27,17,0.10)] sm:p-7">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
+            Built responsibly
+          </p>
+          <h3 className="sg-heading mt-3 text-4xl font-medium leading-[1.05]">
+            A UK-built research platform.
+          </h3>
+          <p className="mt-4 text-sm leading-7 text-white/62">
+            StockGPT is built for individual investors who want a cleaner way to
+            research US stocks. It is informational software, not an adviser or
+            signal service.
+          </p>
+
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                Support
+              </p>
+              <p className="mt-1 text-sm font-black text-white">
+                support@stockgpt.pro
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                Risk standard
+              </p>
+              <p className="mt-1 text-sm font-black text-white">
+                Research only. No financial advice.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -528,7 +619,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 Log in
               </Link>
               <SignupButton compact variant="gold">
-                Try free today
+                Create account
               </SignupButton>
             </div>
 
@@ -568,9 +659,6 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
                 <div className="mt-7 hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start">
                   <SignupButton variant="green">Create free account</SignupButton>
-                  <GhostButton onClick={() => scrollToSection("preview")}>
-                    View preview
-                  </GhostButton>
                 </div>
 
                 <p className="mt-4 hidden max-w-lg text-xs leading-6 text-[#66746b] sm:block">
@@ -581,37 +669,20 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
               <TiltingIphoneDashboard metrics={metrics} />
             </div>
+          </div>
+        </section>
 
-            <div className="mt-6 hidden sm:mt-9 sm:block">
-              <TickerMarquee tickerTape={tickerTape} />
-            </div>
+        <TrustStrip stockCountLabel={stockCountLabel} />
 
-            <div className="mt-5 hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { value: `${stockCountLabel}`, label: "US stocks scanned" },
-                { value: "Daily", label: "ranking updates" },
-                {
-                  value: "6 factors",
-                  label: "quality, growth, value, momentum, risk, income",
-                },
-                {
-                  value: "One workflow",
-                  label: "rankings, news, portfolio and research",
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-3xl border border-[#dfe5dc] bg-white p-5 shadow-[0_14px_40px_rgba(7,27,17,0.05)]"
-                >
-                  <p className="sg-data text-3xl font-black text-[#0a2d1d]">
-                    {item.value}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[#66746b]">
-                    {item.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+        <div className="mt-6 hidden sm:block">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <TickerMarquee tickerTape={tickerTape} />
+          </div>
+        </div>
+
+        <section className="hidden px-4 pt-6 sm:block sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <ProductFlowVisual />
           </div>
         </section>
 
@@ -620,8 +691,8 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             <RankingVisual />
           </MobileDemoGroup>
 
-          <MobileDemoGroup label="Research tools" title="Trade plan and Ask StockGPT.">
-            <AITradePlanVisual />
+          <MobileDemoGroup label="Research tools" title="Plan, question, then decide.">
+            <ResearchPlanVisual />
             <AskStockGPTVisual />
           </MobileDemoGroup>
 
@@ -631,7 +702,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </MobileDemoGroup>
         </div>
 
-        <section id="rankings" className="hidden scroll-mt-32 px-4 pt-14 pb-14 sm:block sm:px-6 lg:px-8 lg:pt-16">
+        <section id="rankings" className="hidden scroll-mt-32 px-4 pt-14 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
               <SectionLabel>Rankings</SectionLabel>
@@ -649,76 +720,47 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="trade-plan" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <AITradePlanVisual />
-
-            <div>
-              <SectionLabel>AI trade plan</SectionLabel>
+        <section id="research" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 max-w-3xl">
+              <SectionLabel>Research tools</SectionLabel>
               <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                See the setup, risk and thesis in one view.
+                Scenario planning and plain-English context.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                The AI trade plan preview shows suggested levels, risk/reward,
-                projected timeline and scenario rules. It is framed as research, not a
-                command to buy.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="ask" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
-            <div>
-              <SectionLabel>Ask StockGPT</SectionLabel>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                Ask questions like you would to an analyst.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                The messages loop one by one, like a live product demo. It shows
-                StockGPT being useful while staying clear that it is not financial
-                advice.
+              <p className="mt-5 max-w-2xl text-base leading-8 text-[#66746b]">
+                Use the research plan to understand levels and risks, then use Ask
+                StockGPT to question the thesis before making your own decision.
               </p>
             </div>
 
-            <AskStockGPTVisual />
+            <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-start">
+              <ResearchPlanVisual />
+              <AskStockGPTVisual />
+            </div>
           </div>
         </section>
 
         <section id="portfolio" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <PortfolioVisual />
-
-            <div>
-              <SectionLabel>Portfolio</SectionLabel>
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 max-w-3xl">
+              <SectionLabel>Portfolio and news</SectionLabel>
               <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                See how your holdings fit the wider market.
+                Connect holdings to market context.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                Add holdings manually or import a CSV to compare your portfolio
-                against StockGPT’s ranking model, sector exposure and weaker-ranked
-                holdings.
+              <p className="mt-5 max-w-2xl text-base leading-8 text-[#66746b]">
+                Add holdings, review exposure, import CSVs and connect market news
+                back to relevant stocks and sectors.
               </p>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-[0.98fr_1.02fr] lg:items-start">
+              <PortfolioVisual />
+              <NewsVisual />
             </div>
           </div>
         </section>
 
-        <section className="hidden px-4 pb-14 sm:block sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
-            <div>
-              <SectionLabel>Market news</SectionLabel>
-              <h2 className="sg-heading text-4xl font-medium leading-[1.05] text-[#071b11] sm:text-6xl">
-                Turn headlines into ticker-level context.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                StockGPT connects relevant headlines back to stocks, sectors and
-                portfolio exposure so users can see what may actually matter.
-              </p>
-            </div>
-
-            <NewsVisual />
-          </div>
-        </section>
+        <MethodAndTrustSection />
 
         <section id="pricing" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
@@ -729,9 +771,8 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   Create your account. Subscribe only when ready.
                 </h2>
                 <p className="mt-5 max-w-xl text-base leading-8 text-[#66746b]">
-                  Users create an account first and can explore the dashboard. Locked
-                  data and premium research prompts the subscription inside the app,
-                  not before they have seen the product.
+                  Create an account first and explore the dashboard. Locked data and
+                  premium research prompts the subscription inside the app.
                 </p>
               </div>
 
