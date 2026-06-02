@@ -124,30 +124,10 @@ function MiniLineChart() {
           strokeLinecap="round"
         />
 
-        <path
-          d="M0 126 H520"
-          stroke="#072116"
-          strokeOpacity="0.08"
-          strokeWidth="1"
-        />
-        <path
-          d="M0 92 H520"
-          stroke="#072116"
-          strokeOpacity="0.06"
-          strokeWidth="1"
-        />
-        <path
-          d="M0 58 H520"
-          stroke="#072116"
-          strokeOpacity="0.06"
-          strokeWidth="1"
-        />
-        <path
-          d="M0 24 H520"
-          stroke="#072116"
-          strokeOpacity="0.05"
-          strokeWidth="1"
-        />
+        <path d="M0 126 H520" stroke="#072116" strokeOpacity="0.08" strokeWidth="1" />
+        <path d="M0 92 H520" stroke="#072116" strokeOpacity="0.06" strokeWidth="1" />
+        <path d="M0 58 H520" stroke="#072116" strokeOpacity="0.06" strokeWidth="1" />
+        <path d="M0 24 H520" stroke="#072116" strokeOpacity="0.05" strokeWidth="1" />
       </svg>
     </div>
   );
@@ -181,9 +161,7 @@ function DashboardMiniCard({
       >
         {main}
       </p>
-      <p className="mt-1 truncate text-[9px] font-bold text-[#072116]/42">
-        {sub}
-      </p>
+      <p className="mt-1 truncate text-[9px] font-bold text-[#072116]/42">{sub}</p>
     </div>
   );
 }
@@ -214,12 +192,12 @@ function RealDashboardScreen({ metrics }: { metrics: LandingVisualMetrics }) {
               Welcome back.
             </h2>
             <p className="mt-2 text-xs leading-5 text-[#faf6f0]/52">
-              Your market overview, rankings and research tools in one place.
+              Your rankings, market overview and research tools in one place.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <DashboardMiniCard label="Top Ranked" main="Locked" sub="trial unlock" />
+            <DashboardMiniCard label="Top Ranked" main="Locked" sub="account unlock" />
             <DashboardMiniCard
               label="Bullish %"
               main={`${metrics.bullishPct}%`}
@@ -243,7 +221,7 @@ function RealDashboardScreen({ metrics }: { metrics: LandingVisualMetrics }) {
             <div className="flex h-[62px] items-start justify-between border-b border-[#072116]/10 px-4 py-3">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#072116]/55">
-                  AI Rankings
+                  Rankings
                 </p>
                 <h3 className="mt-1 text-[17px] font-black leading-none tracking-[-0.04em]">
                   Top 10 Ranked Stocks
@@ -366,10 +344,10 @@ export function TiltingIphoneDashboard({
   metrics: LandingVisualMetrics;
 }) {
   return (
-    <div className="group relative mx-auto flex min-h-[560px] w-full items-center justify-center lg:min-h-[650px]">
-      <div className="absolute h-[390px] w-[390px] rounded-full bg-[#ddb159]/12 blur-3xl" />
+    <div className="group relative mx-auto flex min-h-[520px] w-full items-center justify-center sm:min-h-[560px] lg:min-h-[650px]">
+      <div className="absolute h-[330px] w-[330px] rounded-full bg-[#ddb159]/12 blur-3xl sm:h-[390px] sm:w-[390px]" />
 
-      <div className="relative rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.28)] transition duration-700 ease-out lg:[transform:perspective(1200px)_rotateY(-16deg)_rotateZ(-5deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
+      <div className="relative scale-[0.86] rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.28)] transition duration-700 ease-out sm:scale-100 lg:[transform:perspective(1200px)_rotateY(-16deg)_rotateZ(-5deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
         <div className="absolute left-1/2 top-2 z-20 h-5 w-24 -translate-x-1/2 rounded-full bg-[#020806]" />
         <div className="overflow-hidden rounded-[2.35rem]">
           <RealDashboardScreen metrics={metrics} />
@@ -446,20 +424,20 @@ export function RankingVisual() {
   );
 }
 
-export function AITradePlanVisual() {
+export function ResearchPlanVisual() {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
       <div className="flex flex-col gap-4 border-b border-[#edf0ea] p-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
-            AI trade plan
+            Research plan
           </p>
           <h3 className="sg-heading mt-1 text-3xl font-medium text-[#0a2d1d]">
-            Suggested Levels
+            Scenario levels
           </h3>
         </div>
         <span className="w-fit rounded-full bg-emerald-500/85 px-5 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
-          Strong Buy
+          High research priority
         </span>
       </div>
 
@@ -467,7 +445,7 @@ export function AITradePlanVisual() {
         <div className="rounded-2xl border border-[#ddb159]/35 bg-[#fffaf0] p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6828]">
-              Entry
+              Entry zone
             </p>
             <span className="rounded-full border border-[#0a2d1d]/12 px-2 py-0.5 text-[9px] font-black uppercase text-[#0a2d1d]/48">
               Explain
@@ -476,12 +454,12 @@ export function AITradePlanVisual() {
           <p className="sg-data mt-2 text-3xl font-black text-[#072116]">
             $1046.84
           </p>
-          <p className="mt-1 text-xs font-bold text-[#66746b]">Suggested</p>
+          <p className="mt-1 text-xs font-bold text-[#66746b]">Research level</p>
         </div>
 
         <div className="rounded-2xl border border-red-200 bg-red-50/60 p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-500">
-            Stop Loss
+            Invalidation
           </p>
           <p className="sg-data mt-2 text-3xl font-black text-red-700">
             $664.50
@@ -491,7 +469,7 @@ export function AITradePlanVisual() {
 
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
-            Take Profit
+            Target zone
           </p>
           <p className="sg-data mt-2 text-3xl font-black text-emerald-800">
             $2958.53
@@ -503,7 +481,7 @@ export function AITradePlanVisual() {
       <div className="mx-5 rounded-2xl bg-[#072116] px-5 py-4">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-            Risk / Reward
+            Risk / reward
           </p>
           <p className="sg-data text-lg font-black text-[#ddb159]">1 : 5</p>
         </div>
@@ -512,7 +490,7 @@ export function AITradePlanVisual() {
       <div className="p-5">
         <div className="rounded-2xl border border-[#dfe5dc] bg-[#fbfaf6] p-5">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#66746b]">
-            AI projected timeline
+            Projected timeline
           </p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -541,8 +519,8 @@ export function AITradePlanVisual() {
           </div>
 
           <p className="mt-5 text-sm leading-7 text-[#4f5f55]">
-            Medium-term plan uses a qualified setup, projected target zone and
-            invalidation level. This is a research framework, not a recommendation.
+            Medium-term research framework using a projected target zone,
+            invalidation level and model conviction. Not a recommendation.
           </p>
 
           <div className="mt-4 grid gap-3">
@@ -551,22 +529,21 @@ export function AITradePlanVisual() {
                 If price approaches $2958.53
               </p>
               <p className="mt-1 text-sm leading-6 text-emerald-800">
-                Medium-term take-profit zone. Review valuation, momentum and news
-                context before acting.
+                Review valuation, momentum and news context around the target zone.
               </p>
             </div>
             <div className="rounded-2xl border border-red-200 bg-red-50/70 p-4">
               <p className="font-black text-red-900">If price breaks $664.50</p>
               <p className="mt-1 text-sm leading-6 text-red-800">
-                Thesis invalidation level. Reassess the setup and risk exposure.
+                Reassess the thesis and risk exposure around the invalidation level.
               </p>
             </div>
             <div className="rounded-2xl border border-[#dfe5dc] bg-white p-4">
               <p className="font-black text-[#072116]">
-                If AI score drops by 25%
+                If ranking score weakens
               </p>
               <p className="mt-1 text-sm leading-6 text-[#66746b]">
-                Reassess the thesis because model conviction has weakened.
+                Recheck the research view because model conviction has changed.
               </p>
             </div>
           </div>
@@ -740,6 +717,52 @@ export function NewsVisual() {
               </span>
             </div>
           </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ProductFlowVisual() {
+  const steps = [
+    {
+      title: "Rankings",
+      detail: "Start with the market list.",
+    },
+    {
+      title: "Stock page",
+      detail: "Open the research view.",
+    },
+    {
+      title: "Research plan",
+      detail: "Check levels and risks.",
+    },
+    {
+      title: "Ask StockGPT",
+      detail: "Question the thesis.",
+    },
+    {
+      title: "Portfolio",
+      detail: "Review exposure.",
+    },
+  ];
+
+  return (
+    <div className="rounded-[2rem] border border-[#dfe5dc] bg-white p-4 shadow-[0_24px_70px_rgba(7,27,17,0.06)] sm:p-5">
+      <div className="grid gap-3 sm:grid-cols-5">
+        {steps.map((step, index) => (
+          <div
+            key={step.title}
+            className="rounded-2xl border border-[#edf0ea] bg-[#fbfaf6] p-4"
+          >
+            <p className="sg-data text-xs font-black text-[#ddb159]">
+              {String(index + 1).padStart(2, "0")}
+            </p>
+            <p className="mt-2 text-sm font-black text-[#072116]">
+              {step.title}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#66746b]">{step.detail}</p>
+          </div>
         ))}
       </div>
     </div>
