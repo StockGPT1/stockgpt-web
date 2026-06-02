@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StockLogo } from "@/components/StockLogo";
 
-type SearchResult = {
+type StockSearchResult = {
   ticker: string;
   company: string;
   sector?: string;
@@ -12,14 +12,109 @@ type SearchResult = {
   score?: number;
 };
 
+type FeatureSearchResult = {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  keywords: string[];
+  icon: string;
+};
+
+type SearchItem =
+  | { type: "stock"; item: StockSearchResult }
+  | { type: "feature"; item: FeatureSearchResult };
+
 type SearchBarProps = {
   showRankingData?: boolean;
 };
 
 const RECENT_KEY = "stockgpt:recent-searches";
+const SEARCH_CACHE_KEY = "stockgpt:search-cache";
 const MAX_RECENT = 5;
+const MAX_CACHE_ITEMS = 50;
 
-function cleanResultForAccess(item: SearchResult, showRankingData: boolean) {
+const FEATURE_RESULTS: FeatureSearchResult[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "Market overview, top ranked stocks, movers and alerts.",
+    href: "/dashboard",
+    icon: "▦",
+    keywords: ["dashboard", "home", "overview", "market", "summary"],
+  },
+  {
+    id: "rankings",
+    label: "Rankings",
+    description: "Full ranked stock table and model scores.",
+    href: "/rankings",
+    icon: "♛",
+    keywords: ["rankings", "ranking", "stocks", "table", "score", "scores"],
+  },
+  {
+    id: "portfolio",
+    label: "Portfolio",
+    description: "Build, import and review your holdings.",
+    href: "/portfolio",
+    icon: "✦",
+    keywords: ["portfolio", "holdings", "positions", "import", "csv", "trading 212"],
+  },
+  {
+    id: "watchlist",
+    label: "Watchlist",
+    description: "Track stocks you want to monitor.",
+    href: "/watchlist",
+    icon: "☆",
+    keywords: ["watchlist", "watch", "saved", "track", "tracking"],
+  },
+  {
+    id: "ask",
+    label: "Ask StockGPT",
+    description: "Open the research assistant for stock and market questions.",
+    href: "/ask",
+    icon: "◌",
+    keywords: ["ask", "chat", "assistant", "stockgpt", "research assistant"],
+  },
+  {
+    id: "alerts",
+    label: "Alerts",
+    description: "View portfolio, ranking and market alerts.",
+    href: "/notifications",
+    icon: "◐",
+    keywords: ["alerts", "notifications", "notification", "changes"],
+  },
+  {
+    id: "world-news",
+    label: "World News",
+    description: "Market news connected to stocks, sectors and events.",
+    href: "/world-news",
+    icon: "◈",
+    keywords: ["news", "world news", "headlines", "market news", "events"],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    description: "Account, theme, digest and security preferences.",
+    href: "/settings",
+    icon: "⚙",
+    keywords: ["settings", "account", "theme", "light mode", "dark mode", "preferences"],
+  },
+  {
+    id: "subscription",
+    label: "Subscription",
+    description: "Billing, plan and Core access details.",
+    href: "/subscription",
+    icon: "£",
+    keywords: ["subscription", "billing", "plan", "core", "payment", "stripe"],
+  },
+];
+
+const memorySearchCache = new Map<string, StockSearchResult[]>();
+
+function cleanResultForAccess(
+  item: StockSearchResult,
+  showRankingData: boolean,
+): StockSearchResult {
   if (showRankingData) return item;
 
   return {
@@ -29,11 +124,66 @@ function cleanResultForAccess(item: SearchResult, showRankingData: boolean) {
   };
 }
 
+function normalise(value: string) {
+  return value.toLowerCase().trim();
+}
+
+function getSearchCacheKey(query: string, showRankingData: boolean) {
+  return `${showRankingData ? "auth" : "public"}:${normalise(query)}`;
+}
+
+function readSessionSearchCache(key: string) {
+  try {
+    const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Record<string, StockSearchResult[]>;
+    return parsed[key] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionSearchCache(key: string, value: StockSearchResult[]) {
+  try {
+    const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, StockSearchResult[]>) : {};
+
+    parsed[key] = value;
+
+    const entries = Object.entries(parsed).slice(-MAX_CACHE_ITEMS);
+    sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {}
+}
+
+function getFeatureMatches(query: string) {
+  const q = normalise(query);
+
+  if (!q) {
+    return FEATURE_RESULTS.filter((item) =>
+      ["dashboard", "rankings", "portfolio", "world-news", "settings"].includes(item.id),
+    );
+  }
+
+  return FEATURE_RESULTS.filter((feature) => {
+    const haystack = [
+      feature.label,
+      feature.description,
+      feature.href,
+      ...feature.keywords,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(q);
+  }).slice(0, 6);
+}
+
 export function SearchBar({ showRankingData = false }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [recents, setRecents] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<StockSearchResult[]>([]);
+  const [recents, setRecents] = useState<StockSearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [loading, setLoading] = useState(false);
@@ -45,7 +195,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
       const raw = localStorage.getItem(RECENT_KEY);
 
       if (raw) {
-        const parsed = JSON.parse(raw) as SearchResult[];
+        const parsed = JSON.parse(raw) as StockSearchResult[];
         setRecents(
           parsed.map((item) => cleanResultForAccess(item, showRankingData)),
         );
@@ -77,42 +227,82 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
   }, []);
 
   useEffect(() => {
-    if (!query.trim()) {
+    const trimmed = query.trim();
+
+    if (!trimmed) {
       setResults([]);
       setLoading(false);
+      setActive(-1);
+      return;
+    }
+
+    const cacheKey = getSearchCacheKey(trimmed, showRankingData);
+    const memoryHit = memorySearchCache.get(cacheKey);
+    const sessionHit = readSessionSearchCache(cacheKey);
+
+    if (memoryHit) {
+      setResults(memoryHit);
+      setLoading(false);
+      setActive(-1);
+      return;
+    }
+
+    if (sessionHit) {
+      memorySearchCache.set(cacheKey, sessionHit);
+      setResults(sessionHit);
+      setLoading(false);
+      setActive(-1);
       return;
     }
 
     setLoading(true);
 
+    const controller = new AbortController();
+
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/search?q=${encodeURIComponent(query.trim())}`,
-          { cache: "no-store" },
+        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal,
+        });
+
+        const data: StockSearchResult[] = await res.json();
+
+        const cleaned = data.map((item) =>
+          cleanResultForAccess(item, showRankingData),
         );
 
-        const data: SearchResult[] = await res.json();
+        memorySearchCache.set(cacheKey, cleaned);
+        writeSessionSearchCache(cacheKey, cleaned);
 
-        setResults(
-          data.map((item) => cleanResultForAccess(item, showRankingData)),
-        );
-
+        setResults(cleaned);
         setActive(-1);
       } catch {
-        setResults([]);
+        if (!controller.signal.aborted) setResults([]);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }, 150);
+    }, 120);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
   }, [query, showRankingData]);
 
-  const list = query.trim() ? results : recents;
-  const showDropdown = open && (list.length > 0 || loading || query.trim());
+  const trimmedQuery = query.trim();
+  const stockList = trimmedQuery ? results : recents;
+  const featureList = useMemo(() => getFeatureMatches(query), [query]);
 
-  function persistRecent(item: SearchResult) {
+  const activeItems: SearchItem[] = [
+    ...stockList.map((item): SearchItem => ({ type: "stock", item })),
+    ...featureList.map((item): SearchItem => ({ type: "feature", item })),
+  ];
+
+  const showDropdown =
+    open &&
+    (stockList.length > 0 || featureList.length > 0 || loading || Boolean(trimmedQuery));
+
+  function persistRecent(item: StockSearchResult) {
     const cleanedItem = cleanResultForAccess(item, showRankingData);
 
     const next = [
@@ -127,11 +317,26 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     } catch {}
   }
 
-  function navigate(item: SearchResult) {
+  function navigateToStock(item: StockSearchResult) {
     persistRecent(item);
     setOpen(false);
     setQuery("");
     router.push(`/stock/${item.ticker}`);
+  }
+
+  function navigateToFeature(item: FeatureSearchResult) {
+    setOpen(false);
+    setQuery("");
+    router.push(item.href);
+  }
+
+  function navigateItem(item: SearchItem) {
+    if (item.type === "stock") {
+      navigateToStock(item.item);
+      return;
+    }
+
+    navigateToFeature(item.item);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -139,19 +344,23 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, list.length - 1));
+      setActive((a) => Math.min(a + 1, activeItems.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
 
-      if (active >= 0 && list[active]) {
-        navigate(list[active]);
-      } else if (query.trim()) {
-        navigate({
-          ticker: query.trim().toUpperCase(),
-          company: query.trim().toUpperCase(),
+      if (active >= 0 && activeItems[active]) {
+        navigateItem(activeItems[active]);
+      } else if (stockList[0]) {
+        navigateToStock(stockList[0]);
+      } else if (featureList[0]) {
+        navigateToFeature(featureList[0]);
+      } else if (trimmedQuery) {
+        navigateToStock({
+          ticker: trimmedQuery.toUpperCase(),
+          company: trimmedQuery.toUpperCase(),
         });
       }
     } else if (e.key === "Escape") {
@@ -160,9 +369,11 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     }
   }
 
+  let runningIndex = -1;
+
   return (
-    <div ref={wrapRef} className="relative mx-auto w-full max-w-[520px]">
-      <div className="flex h-10 items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5">
+    <div ref={wrapRef} className="sg-search-root relative mx-auto w-full max-w-[560px]">
+      <div className="sg-search-shell flex h-10 items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5">
         <input
           ref={inputRef}
           value={query}
@@ -173,19 +384,21 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           type="text"
-          placeholder="Search stocks..."
-          className="h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
+          placeholder="Search stocks or features..."
+          className="sg-search-input h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
         />
 
         {query ? (
           <button
             type="button"
+            aria-label="Clear search"
             onClick={() => {
               setQuery("");
               setResults([]);
+              setActive(-1);
               inputRef.current?.focus();
             }}
-            className="ml-2 grid size-6 place-items-center rounded-full text-[#faf6f0]/40 transition hover:text-[#faf6f0]/70"
+            className="sg-search-clear ml-2 grid size-6 place-items-center rounded-full text-[#faf6f0]/40 transition hover:text-[#faf6f0]/70"
           >
             <svg
               viewBox="0 0 24 24"
@@ -198,7 +411,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             </svg>
           </button>
         ) : (
-          <kbd className="ml-2 hidden rounded border border-[#ddb159]/30 px-1.5 py-0.5 text-[10px] text-[#faf6f0]/40 sm:inline-block">
+          <kbd className="sg-search-kbd ml-2 hidden rounded border border-[#ddb159]/30 px-1.5 py-0.5 text-[10px] text-[#faf6f0]/40 sm:inline-block">
             /
           </kbd>
         )}
@@ -218,68 +431,120 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
       </div>
 
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-[#ddb159]/25 bg-[#04180f] shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
-          {!query.trim() && recents.length > 0 && (
+        <div className="sg-search-dropdown absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-[#ddb159]/25 bg-[#04180f] shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
+          {!trimmedQuery && stockList.length > 0 && (
             <div className="px-4 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-              Recent
+              Recent tickers
             </div>
           )}
 
-          {loading && query.trim() && (
-            <div className="px-4 py-4 text-xs font-semibold text-[#faf6f0]/50">
-              Searching…
+          {trimmedQuery && (
+            <div className="px-4 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+              Stocks
             </div>
           )}
 
-          {!loading && list.length === 0 && query.trim() && (
-            <div className="px-4 py-4 text-xs font-semibold text-[#faf6f0]/50">
-              No matches found. Press Enter to look up &quot;
-              {query.trim().toUpperCase()}&quot;.
+          {loading && trimmedQuery && (
+            <div className="space-y-2 px-4 py-3">
+              <div className="h-9 animate-pulse rounded-xl bg-[#faf6f0]/8" />
+              <div className="h-9 animate-pulse rounded-xl bg-[#faf6f0]/8" />
             </div>
           )}
 
-          {list.map((item, i) => (
-            <button
-              key={item.ticker}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => navigate(item)}
-              className={[
-                "flex w-full items-center gap-3 px-4 py-2.5 text-left transition",
-                i === active ? "bg-[#ddb159]/10" : "",
-              ].join(" ")}
-            >
-              <span className="flex h-8 w-16 shrink-0 items-center gap-2 rounded-lg bg-[#072116] px-2">
-                <StockLogo ticker={item.ticker} company={item.company} size={20} />
-                <span className="text-xs font-black text-[#ddb159]">
-                  {item.ticker}
+          {!loading && stockList.length === 0 && trimmedQuery && (
+            <div className="px-4 py-3 text-xs font-semibold text-[#faf6f0]/50">
+              No ticker matches for &quot;{trimmedQuery}&quot;.
+            </div>
+          )}
+
+          {!loading &&
+            stockList.map((item) => {
+              runningIndex += 1;
+              const index = runningIndex;
+
+              return (
+                <button
+                  key={`stock-${item.ticker}`}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => navigateToStock(item)}
+                  className={[
+                    "sg-search-row flex w-full items-center gap-3 px-4 py-2.5 text-left transition",
+                    index === active ? "bg-[#ddb159]/10" : "",
+                  ].join(" ")}
+                >
+                  <span className="flex h-8 w-16 shrink-0 items-center gap-2 rounded-lg bg-[#072116] px-2">
+                    <StockLogo ticker={item.ticker} company={item.company} size={20} />
+                    <span className="text-xs font-black text-[#ddb159]">
+                      {item.ticker}
+                    </span>
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-[#faf6f0]">
+                      {item.company}
+                    </p>
+
+                    {item.sector && (
+                      <p className="truncate text-[10px] font-semibold text-[#faf6f0]/45">
+                        {item.sector}
+                      </p>
+                    )}
+                  </div>
+
+                  {showRankingData && item.score != null && (
+                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
+                      {Number(item.score).toLocaleString()}
+                    </span>
+                  )}
+
+                  {showRankingData && item.rank != null && (
+                    <span className="shrink-0 text-[10px] font-bold text-[#faf6f0]/35">
+                      #{item.rank}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+          {featureList.length > 0 && (
+            <div className="border-t border-[#ddb159]/15 px-4 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+              Features
+            </div>
+          )}
+
+          {featureList.map((item) => {
+            runningIndex += 1;
+            const index = runningIndex;
+
+            return (
+              <button
+                key={`feature-${item.id}`}
+                onMouseEnter={() => setActive(index)}
+                onClick={() => navigateToFeature(item)}
+                className={[
+                  "sg-search-row flex w-full items-center gap-3 px-4 py-2.5 text-left transition",
+                  index === active ? "bg-[#ddb159]/10" : "",
+                ].join(" ")}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[#ddb159]/25 bg-[#072116] text-base text-[#ddb159]">
+                  {item.icon}
                 </span>
-              </span>
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-[#faf6f0]">
-                  {item.company}
-                </p>
-
-                {item.sector && (
-                  <p className="truncate text-[10px] font-semibold text-[#faf6f0]/45">
-                    {item.sector}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-[#faf6f0]">
+                    {item.label}
                   </p>
-                )}
-              </div>
+                  <p className="truncate text-[10px] font-semibold text-[#faf6f0]/45">
+                    {item.description}
+                  </p>
+                </div>
 
-              {showRankingData && item.score != null && (
-                <span className="shrink-0 rounded-full bg-[#ddb159] px-2 py-0.5 text-[10px] font-black text-[#072116]">
-                  {Number(item.score).toLocaleString()}
+                <span className="shrink-0 text-[11px] font-black text-[#ddb159]">
+                  →
                 </span>
-              )}
-
-              {showRankingData && item.rank != null && (
-                <span className="shrink-0 text-[10px] font-bold text-[#faf6f0]/35">
-                  #{item.rank}
-                </span>
-              )}
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
