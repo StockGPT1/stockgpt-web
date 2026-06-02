@@ -12,7 +12,26 @@ const SEARCH_HEADERS = {
   "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
 };
 
-const FEATURE_RESULTS = [
+type FeatureResult = {
+  type: "feature";
+  title: string;
+  description: string;
+  href: string;
+};
+
+type PublicTickerResult = {
+  type: "ticker";
+  ticker: string | null;
+  company: string | null;
+  sector: string | null;
+};
+
+type SubscriberTickerResult = PublicTickerResult & {
+  rank: number | null;
+  score: number | string | null;
+};
+
+const FEATURE_RESULTS: FeatureResult[] = [
   {
     type: "feature",
     title: "Dashboard",
@@ -76,6 +95,21 @@ function matchingFeatures(q: string) {
   }).slice(0, 6);
 }
 
+function isActiveSubscription(status: string | null | undefined) {
+  const activeStatuses = new Set([
+    "basic",
+    "core",
+    "premium",
+    "executive",
+    "max",
+    "alpha",
+    "trialing",
+    "active",
+  ]);
+
+  return activeStatuses.has(String(status ?? "").toLowerCase());
+}
+
 export async function GET(req: NextRequest) {
   const limit = await checkRateLimit({
     action: "api_search",
@@ -91,13 +125,12 @@ export async function GET(req: NextRequest) {
   const q = cleanSearchQuery(req.nextUrl.searchParams.get("q") ?? "");
   if (!q) return json([]);
 
+  const features = matchingFeatures(q);
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const features = matchingFeatures(q);
 
   if (!user) {
     const admin = createAdminClient();
@@ -114,15 +147,14 @@ export async function GET(req: NextRequest) {
       return json(features);
     }
 
-    return json([
-      ...features,
-      ...(data ?? []).map((r) => ({
-        type: "ticker",
-        ticker: r.ticker,
-        company: r.company,
-        sector: r.sector,
-      })),
-    ]);
+    const tickers: PublicTickerResult[] = (data ?? []).map((row) => ({
+      type: "ticker",
+      ticker: row.ticker,
+      company: row.company,
+      sector: row.sector,
+    }));
+
+    return json([...features, ...tickers]);
   }
 
   const { data: profile } = await supabase
@@ -131,28 +163,40 @@ export async function GET(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const activeStatuses = new Set([
-    "basic",
-    "core",
-    "premium",
-    "executive",
-    "max",
-    "alpha",
-    "trialing",
-    "active",
-  ]);
+  const hasAccess = isActiveSubscription(profile?.subscription_status);
 
-  const hasAccess = activeStatuses.has(
-    String(profile?.subscription_status ?? "").toLowerCase(),
-  );
+  if (hasAccess) {
+    const { data, error } = await supabase
+      .from("stock_rankings")
+      .select("ticker, company, sector, rank, score")
+      .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
+      .order("rank", { ascending: true, nullsFirst: false })
+      .limit(8);
 
-  const client = hasAccess ? supabase : createAdminClient();
+    if (error) {
+      console.error("[/api/search]", error);
+      return json(features);
+    }
 
-  const { data, error } = await client
+    const tickers: SubscriberTickerResult[] = (data ?? []).map((row) => ({
+      type: "ticker",
+      ticker: row.ticker,
+      company: row.company,
+      sector: row.sector,
+      rank: row.rank,
+      score: row.score,
+    }));
+
+    return json([...features, ...tickers]);
+  }
+
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
     .from("stock_rankings")
-    .select(hasAccess ? "ticker, company, sector, rank, score" : "ticker, company, sector")
+    .select("ticker, company, sector")
     .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
-    .order(hasAccess ? "rank" : "ticker", { ascending: true, nullsFirst: false })
+    .order("ticker", { ascending: true, nullsFirst: false })
     .limit(8);
 
   if (error) {
@@ -160,15 +204,12 @@ export async function GET(req: NextRequest) {
     return json(features);
   }
 
-  return json([
-    ...features,
-    ...(data ?? []).map((r) => ({
-      type: "ticker",
-      ticker: r.ticker,
-      company: r.company,
-      sector: r.sector,
-      rank: hasAccess ? r.rank : undefined,
-      score: hasAccess ? r.score : undefined,
-    })),
-  ]);
+  const tickers: PublicTickerResult[] = (data ?? []).map((row) => ({
+    type: "ticker",
+    ticker: row.ticker,
+    company: row.company,
+    sector: row.sector,
+  }));
+
+  return json([...features, ...tickers]);
 }
