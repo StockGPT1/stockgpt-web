@@ -3,7 +3,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { EmailNewsDigestToggle } from "@/components/EmailNewsDigestToggle";
-import { ThemeModeToggle } from "@/components/ThemeModeToggle";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
 
@@ -196,11 +195,10 @@ export default async function SettingsPage() {
             </h2>
 
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">
-              Customise your experience
+              Customise your account preferences.
             </p>
 
-            <div className="mt-4 space-y-3">
-              <ThemeModeToggle />
+            <div className="mt-4">
               <EmailNewsDigestToggle initialEnabled={emailDigestEnabled} />
             </div>
           </section>
