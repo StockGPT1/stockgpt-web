@@ -4,6 +4,20 @@ import { createClient } from "@/utils/supabase/server";
 
 const LEGAL_VERSION = "2026-05-17";
 
+function getTrialPeriodDays() {
+  const rawValue = process.env.STRIPE_CORE_TRIAL_DAYS;
+
+  if (!rawValue) return undefined;
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error("STRIPE_CORE_TRIAL_DAYS must be a positive whole number");
+  }
+
+  return value;
+}
+
 async function createCheckoutSession(request: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
 
@@ -19,6 +33,7 @@ async function createCheckoutSession(request: Request) {
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
+  const trialPeriodDays = getTrialPeriodDays();
 
   const stripe = new Stripe(key);
   const supabase = await createClient();
@@ -40,6 +55,17 @@ async function createCheckoutSession(request: Request) {
     endorselyReferral = String(formData.get("endorsely_referral") ?? "");
   }
 
+  const legalMetadata = {
+    user_id: user.id,
+    plan: "core",
+    endorsely_referral: endorselyReferral,
+    legal_version: LEGAL_VERSION,
+    terms_url: `${siteUrl}/legal#terms`,
+    subscription_terms_url: `${siteUrl}/legal#subscription`,
+    privacy_url: `${siteUrl}/legal#privacy`,
+    disclaimer_url: `${siteUrl}/legal#disclaimer`,
+  };
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: user.email,
@@ -50,27 +76,10 @@ async function createCheckoutSession(request: Request) {
         quantity: 1,
       },
     ],
-    metadata: {
-      user_id: user.id,
-      plan: "core",
-      endorsely_referral: endorselyReferral,
-      legal_version: LEGAL_VERSION,
-      terms_url: `${siteUrl}/legal#terms`,
-      subscription_terms_url: `${siteUrl}/legal#subscription`,
-      privacy_url: `${siteUrl}/legal#privacy`,
-      disclaimer_url: `${siteUrl}/legal#disclaimer`,
-    },
+    metadata: legalMetadata,
     subscription_data: {
-      metadata: {
-        user_id: user.id,
-        plan: "core",
-        endorsely_referral: endorselyReferral,
-        legal_version: LEGAL_VERSION,
-        terms_url: `${siteUrl}/legal#terms`,
-        subscription_terms_url: `${siteUrl}/legal#subscription`,
-        privacy_url: `${siteUrl}/legal#privacy`,
-        disclaimer_url: `${siteUrl}/legal#disclaimer`,
-      },
+      ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
+      metadata: legalMetadata,
     },
     success_url: `${siteUrl}/account?success=true`,
     cancel_url: `${siteUrl}/pricing`,
