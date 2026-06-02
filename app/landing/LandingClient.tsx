@@ -218,23 +218,27 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   );
 }
 
-function MobileBottomCta() {
+function MobileDemoGroup({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#dfe5dc] bg-white/95 px-3 py-3 shadow-[0_-16px_40px_rgba(7,27,17,0.12)] backdrop-blur-xl sm:hidden">
-      <div className="mx-auto flex max-w-md items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-black text-[#0a2d1d]">
-            Create a free account
-          </p>
-          <p className="truncate text-[11px] font-medium text-[#66746b]">
-            Explore first. Subscribe inside when ready.
-          </p>
-        </div>
-        <SignupButton compact variant="green">
-          Sign up
-        </SignupButton>
+    <section className="px-4 py-6 sm:hidden">
+      <div className="mx-auto max-w-md">
+        <p className="mb-3 inline-flex rounded-full border border-[#ddb159]/26 bg-[#fff8e6] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6828]">
+          {label}
+        </p>
+        <h2 className="sg-heading mb-5 text-[34px] font-medium leading-[1.02] text-[#071b11]">
+          {title}
+        </h2>
+        <div className="grid gap-5">{children}</div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -453,7 +457,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
         }
       `}</style>
 
-      <div className="sg-page-soft min-h-full pb-24 sm:pb-0">
+      <div className="sg-page-soft min-h-full">
         <header
           className={[
             "sg-nav fixed left-0 right-0 top-0 z-50 border-b border-[#ddb159]/18 bg-[#04180f]/96 text-white",
@@ -562,14 +566,14 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   to tickers and gives your portfolio a clearer research workflow.
                 </p>
 
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="mt-7 hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start">
                   <SignupButton variant="green">Create free account</SignupButton>
                   <GhostButton onClick={() => scrollToSection("preview")}>
                     View preview
                   </GhostButton>
                 </div>
 
-                <p className="mt-4 max-w-lg text-xs leading-6 text-[#66746b]">
+                <p className="mt-4 hidden max-w-lg text-xs leading-6 text-[#66746b] sm:block">
                   Create an account first. Explore the dashboard, then subscribe from
                   inside when you are ready. Informational research only.
                 </p>
@@ -578,11 +582,11 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               <TiltingIphoneDashboard metrics={metrics} />
             </div>
 
-            <div className="mt-6 sm:mt-9">
+            <div className="mt-6 hidden sm:mt-9 sm:block">
               <TickerMarquee tickerTape={tickerTape} />
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-5 hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { value: `${stockCountLabel}`, label: "US stocks scanned" },
                 { value: "Daily", label: "ranking updates" },
@@ -611,7 +615,23 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="preview" className="scroll-mt-32 px-4 py-14 sm:px-6 lg:px-8">
+        <div className="sm:hidden">
+          <MobileDemoGroup label="Rankings" title="Rank the market first.">
+            <RankingVisual />
+          </MobileDemoGroup>
+
+          <MobileDemoGroup label="Research tools" title="Trade plan and Ask StockGPT.">
+            <AITradePlanVisual />
+            <AskStockGPTVisual />
+          </MobileDemoGroup>
+
+          <MobileDemoGroup label="Portfolio and news" title="Connect holdings to market context.">
+            <PortfolioVisual />
+            <NewsVisual />
+          </MobileDemoGroup>
+        </div>
+
+        <section id="preview" className="hidden scroll-mt-32 px-4 py-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="mb-8 max-w-3xl">
               <SectionLabel>Product preview</SectionLabel>
@@ -626,7 +646,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="rankings" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
+        <section id="rankings" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
               <SectionLabel>Rankings</SectionLabel>
@@ -644,7 +664,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="trade-plan" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
+        <section id="trade-plan" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <AITradePlanVisual />
 
@@ -662,7 +682,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="ask" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
+        <section id="ask" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div>
               <SectionLabel>Ask StockGPT</SectionLabel>
@@ -680,7 +700,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section id="portfolio" className="scroll-mt-32 px-4 pb-14 sm:px-6 lg:px-8">
+        <section id="portfolio" className="hidden scroll-mt-32 px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <PortfolioVisual />
 
@@ -698,7 +718,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <section className="px-4 pb-14 sm:px-6 lg:px-8">
+        <section className="hidden px-4 pb-14 sm:block sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
             <div>
               <SectionLabel>Market news</SectionLabel>
@@ -907,8 +927,6 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             </div>
           </div>
         </footer>
-
-        <MobileBottomCta />
       </div>
     </main>
   );
