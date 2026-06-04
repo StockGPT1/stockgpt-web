@@ -66,6 +66,11 @@ export async function POST(req: NextRequest) {
         full_name: validated.data.fullName,
         date_of_birth: validated.data.dob,
         phone: validated.data.phone,
+        marketing_consent: validated.data.marketingConsent,
+        email_consent: validated.data.emailConsent,
+        terms_accepted: validated.data.termsAccepted,
+        newsletter_digest_consent: validated.data.newsletterDigestConsent,
+        consent_captured_at: validated.data.consentCapturedAt,
       },
     },
   });
@@ -90,7 +95,13 @@ export async function POST(req: NextRequest) {
   await auditSecurityEvent({
     req,
     eventType: "signup_requested",
-    metadata: { email_hash: emailKey },
+    metadata: {
+      email_hash: emailKey,
+      marketing_consent: validated.data.marketingConsent,
+      email_consent: validated.data.emailConsent,
+      terms_accepted: validated.data.termsAccepted,
+      newsletter_digest_consent: validated.data.newsletterDigestConsent,
+    },
   });
 
   return NextResponse.json({
