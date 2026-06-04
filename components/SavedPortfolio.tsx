@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
 import { StockLogo } from "@/components/StockLogo";
 import {
   addCash,
-  addHoldingByAmount,
+  buyHoldingWithCash,
   deletePortfolio,
+  logExistingHolding,
   markReviewed,
   removeHolding,
-  updateEntryPrice,
-  updateShares,
+  renamePortfolio,
+  trimHolding,
+  updateHoldingDetails,
 } from "@/lib/actions/portfolio-management";
 import type {
-  AlertCategory,
   EnrichedHolding,
   HoldingAlert,
   HoldingTrigger,
@@ -26,20 +28,28 @@ type StockOption = {
   company: string | null;
   sector: string | null;
   rank: number | null;
+  price: number | null;
 };
 
-type Props = {
-  holdings: EnrichedHolding[];
-  stockOptions?: StockOption[];
-  portfolioMeta: {
-    name: string;
-    riskTolerance: string | null;
-    timeHorizon: string | null;
-    investmentAmount: number | null;
-    cashBalance: number;
-    cashDepositedTotal: number;
-  };
-  replacements?: Record<string, ReplacementRecommendation | null>;
+type PortfolioOption = {
+  id: string;
+  name: string;
+  currency?: string | null;
+  createdAt?: string | null;
+};
+
+type PortfolioTransaction = {
+  id: string;
+  portfolioId: string;
+  ticker: string | null;
+  type: string;
+  shares: number | null;
+  price: number | null;
+  amount: number | null;
+  realisedPnl: number | null;
+  currency: string | null;
+  notes: string | null;
+  createdAt: string;
 };
 
 type ReplacementRecommendation = {
@@ -52,162 +62,251 @@ type ReplacementRecommendation = {
   reason: string;
 };
 
-function severityStyle(severity: HoldingAlert["severity"]) {
-  if (severity === "critical") {
+type ExtendedHolding = EnrichedHolding & {
+  purchaseDate?: string | null;
+  source?: string | null;
+  notes?: string | null;
+};
+
+type Props = {
+  portfolioId: string;
+  portfolios: PortfolioOption[];
+  holdings: ExtendedHolding[];
+  stockOptions?: StockOption[];
+  transactions?: PortfolioTransaction[];
+  portfolioMeta: {
+    id: string;
+    name: string;
+    riskTolerance: string | null;
+    timeHorizon: string | null;
+    investmentAmount: number | null;
+    cashBalance: number;
+    cashDepositedTotal: number;
+    currency?: string | null;
+  };
+  replacements?: Record<string, ReplacementRecommendation | null>;
+  compactImportWidget?: ReactNode;
+};
+
+type HoldingFilter =
+  | "all"
+  | "action"
+  | "winners"
+  | "losers"
+  | "recent"
+  | "oversized";
+
+type HoldingSort =
+  | "urgent"
+  | "value"
+  | "worst"
+  | "best"
+  | "rank"
+  | "ticker";
+
+function money(value: number, currency = "USD") {
+  const safe = Number.isFinite(value) ? value : 0;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: safe >= 1000 ? 0 : 2,
+  }).format(safe);
+}
+
+function number(value: number, digits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: digits,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
+function pct(value: number, digits = 1) {
+  const safe = Number.isFinite(value) ? value : 0;
+  return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function dateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString().slice(0, 10);
+}
+
+function horizonLabel(value: string | null) {
+  if (value === "short") return "3–5 yrs";
+  if (value === "medium") return "5–10 yrs";
+  if (value === "long") return "10+ yrs";
+  return "—";
+}
+
+function transactionLabel(type: string) {
+  switch (type) {
+    case "deposit":
+      return "Cash deposit";
+    case "withdrawal":
+      return "Cash withdrawal";
+    case "buy":
+      return "Bought";
+    case "sell":
+      return "Sold";
+    case "import":
+      return "Trading 212 import";
+    case "log_existing":
+      return "Logged existing holding";
+    case "adjustment":
+      return "Holding adjusted";
+    case "cash_adjustment":
+      return "Cash adjusted";
+    default:
+      return type.replace(/_/g, " ");
+  }
+}
+
+function severityWeight(alert: HoldingAlert) {
+  if (alert.severity === "critical") return 4;
+  if (alert.severity === "warning") return 3;
+  if (alert.severity === "info") return 2;
+  return 1;
+}
+
+function holdingUrgencyScore(holding: ExtendedHolding) {
+  const alertScore = holding.alerts.reduce(
+    (sum, alert) => sum + severityWeight(alert) * Math.max(alert.priority, 1),
+    0,
+  );
+
+  const actionBoost = holding.actionAlerts.length * 20;
+  const reviewBoost = holding.daysSinceReview > 30 ? 8 : 0;
+
+  return alertScore + actionBoost + reviewBoost;
+}
+
+function isOversized(holding: ExtendedHolding) {
+  if (!holding.targetAllocationPct) return false;
+  return holding.currentAllocationPct - holding.targetAllocationPct > 3;
+}
+
+function recommendationStyle(recommendation: EnrichedHolding["recommendation"]) {
+  if (recommendation === "Sell Immediately") {
+    return "bg-red-600 text-white";
+  }
+
+  if (recommendation === "Sell Whole Position") {
+    return "bg-red-600 text-white";
+  }
+
+  if (recommendation === "Review Urgently") {
+    return "bg-red-500 text-white";
+  }
+
+  if (recommendation === "Consider Trimming") {
+    return "bg-amber-500 text-white";
+  }
+
+  if (recommendation === "Consider Buying More") {
+    return "bg-emerald-500 text-white";
+  }
+
+  if (recommendation === "Strong Hold") {
+    return "bg-emerald-200 text-[#072116]";
+  }
+
+  return "bg-[#072116] text-[#ddb159]";
+}
+
+function alertStyle(alert: HoldingAlert) {
+  if (alert.severity === "critical") {
     return {
+      wrap: "border-red-300 bg-red-50",
       badge: "bg-red-600 text-white",
-      border: "border-red-300",
-      bg: "bg-red-50",
       text: "text-red-900",
       label: "Critical",
     };
   }
 
-  if (severity === "warning") {
+  if (alert.severity === "warning") {
     return {
+      wrap: "border-amber-300 bg-amber-50",
       badge: "bg-amber-500 text-white",
-      border: "border-amber-300",
-      bg: "bg-amber-50",
       text: "text-amber-900",
       label: "Warning",
     };
   }
 
-  if (severity === "success") {
+  if (alert.severity === "success") {
     return {
+      wrap: "border-emerald-300 bg-emerald-50",
       badge: "bg-emerald-500 text-white",
-      border: "border-emerald-300",
-      bg: "bg-emerald-50",
       text: "text-emerald-900",
       label: "Positive",
     };
   }
 
   return {
+    wrap: "border-blue-300 bg-blue-50",
     badge: "bg-blue-500 text-white",
-    border: "border-blue-300",
-    bg: "bg-blue-50",
     text: "text-blue-900",
     label: "Info",
   };
 }
 
-function categoryLabel(category: AlertCategory) {
-  return category === "action" ? "Action Alert" : "Event Alert";
-}
-
-function recommendationStyle(recommendation: EnrichedHolding["recommendation"]) {
-  if (recommendation === "Sell Immediately") {
-    return { bg: "#dc2626", text: "#ffffff", glow: "bg-red-600/20" };
-  }
-  if (recommendation === "Sell Whole Position") {
-    return { bg: "#dc2626", text: "#ffffff", glow: "bg-red-600/15" };
-  }
-  if (recommendation === "Review Urgently") {
-    return { bg: "#ef4444", text: "#ffffff", glow: "bg-red-500/15" };
-  }
-  if (recommendation === "Consider Trimming") {
-    return { bg: "#f59e0b", text: "#ffffff", glow: "bg-amber-500/15" };
-  }
-  if (recommendation === "Consider Buying More") {
-    return { bg: "#10b981", text: "#ffffff", glow: "bg-emerald-500/15" };
-  }
-  if (recommendation === "Strong Hold") {
-    return { bg: "#34d399", text: "#072116", glow: "bg-emerald-400/15" };
-  }
-  return { bg: "#072116", text: "#ddb159", glow: "bg-[#072116]/15" };
-}
-
 function sectorMomentumStyle(momentum: SectorMomentum) {
   if (momentum === "Booming") {
-    return {
-      bg: "bg-emerald-100",
-      text: "text-emerald-800",
-      border: "border-emerald-300",
-      icon: "🚀",
-      label: "Sector Booming",
-    };
+    return "border-emerald-300 bg-emerald-100 text-emerald-800";
   }
+
   if (momentum === "Strong") {
-    return {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-      icon: "↗",
-      label: "Sector Strong",
-    };
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
+
   if (momentum === "Mixed") {
-    return {
-      bg: "bg-blue-50",
-      text: "text-blue-700",
-      border: "border-blue-200",
-      icon: "→",
-      label: "Sector Mixed",
-    };
+    return "border-blue-200 bg-blue-50 text-blue-700";
   }
+
   if (momentum === "Weak") {
-    return {
-      bg: "bg-amber-50",
-      text: "text-amber-700",
-      border: "border-amber-200",
-      icon: "↘",
-      label: "Sector Weak",
-    };
+    return "border-amber-200 bg-amber-50 text-amber-700";
   }
+
   if (momentum === "Struggling") {
-    return {
-      bg: "bg-red-50",
-      text: "text-red-700",
-      border: "border-red-200",
-      icon: "⚠",
-      label: "Sector Struggling",
-    };
+    return "border-red-200 bg-red-50 text-red-700";
   }
-  return {
-    bg: "bg-slate-50",
-    text: "text-slate-600",
-    border: "border-slate-200",
-    icon: "?",
-    label: "Unknown",
-  };
+
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function triggerToneStyle(tone: HoldingTrigger["tone"]) {
   if (tone === "positive") {
-    return {
-      bg: "bg-emerald-50",
-      border: "border-emerald-200",
-      icon: "text-emerald-700",
-      text: "text-emerald-900",
-    };
+    return "border-emerald-200 bg-emerald-50 text-emerald-900";
   }
+
   if (tone === "negative") {
-    return {
-      bg: "bg-red-50",
-      border: "border-red-200",
-      icon: "text-red-700",
-      text: "text-red-900",
-    };
+    return "border-red-200 bg-red-50 text-red-900";
   }
-  return {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    icon: "text-blue-700",
-    text: "text-blue-900",
-  };
+
+  return "border-blue-200 bg-blue-50 text-blue-900";
 }
 
 function TriggerIcon({ icon }: { icon: HoldingTrigger["icon"] }) {
   if (icon === "shield") {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className="size-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4Z" />
       </svg>
     );
@@ -215,13 +314,7 @@ function TriggerIcon({ icon }: { icon: HoldingTrigger["icon"] }) {
 
   if (icon === "target") {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className="size-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="9" />
         <circle cx="12" cy="12" r="5" />
         <circle cx="12" cy="12" r="1" fill="currentColor" />
@@ -231,13 +324,7 @@ function TriggerIcon({ icon }: { icon: HoldingTrigger["icon"] }) {
 
   if (icon === "warning") {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className="size-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 3 2 20h20L12 3Z" />
         <path d="M12 10v5M12 18v.5" />
       </svg>
@@ -245,32 +332,60 @@ function TriggerIcon({ icon }: { icon: HoldingTrigger["icon"] }) {
   }
 
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
     </svg>
   );
 }
 
-function AlertCard({ alert }: { alert: HoldingAlert }) {
-  const style = severityStyle(alert.severity);
+function AlertCard({
+  alert,
+  portfolioId,
+  holding,
+  cashBalance,
+}: {
+  alert: HoldingAlert;
+  portfolioId: string;
+  holding: ExtendedHolding;
+  cashBalance: number;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const style = alertStyle(alert);
+
+  function runTrim() {
+    startTransition(async () => {
+      await trimHolding({
+        portfolioId,
+        ticker: holding.ticker,
+        percentage: 25,
+      });
+      router.refresh();
+    });
+  }
+
+  function runBuyMore(amount: number) {
+    startTransition(async () => {
+      await buyHoldingWithCash({
+        portfolioId,
+        ticker: holding.ticker,
+        dollarAmount: amount,
+        entryPrice: holding.currentPrice,
+        notes: `Added from ${alert.title}`,
+      });
+      router.refresh();
+    });
+  }
 
   return (
-    <div className={`rounded-xl border-2 ${style.border} ${style.bg} p-3`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${style.badge}`}
-        >
+    <div className={`min-w-0 rounded-2xl border ${style.wrap} p-3`}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${style.badge}`}>
           {style.label}
         </span>
-        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#072116]/65">
-          {categoryLabel(alert.category)}
+        <span className="rounded-full bg-white/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#072116]/65">
+          {alert.category === "action" ? "Action" : "Event"}
         </span>
       </div>
 
@@ -282,16 +397,13 @@ function AlertCard({ alert }: { alert: HoldingAlert }) {
       </p>
 
       {alert.evidence.length > 0 && (
-        <div className="mt-2 rounded-lg bg-white/70 p-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
+        <div className="mt-2 rounded-xl bg-white/75 p-2">
+          <p className="text-[9px] font-black uppercase tracking-wider text-[#072116]/45">
             Evidence
           </p>
           <ul className="mt-1 grid gap-1">
             {alert.evidence.slice(0, 5).map((item) => (
-              <li
-                key={item}
-                className="text-[11px] font-semibold leading-snug text-[#072116]/70"
-              >
+              <li key={item} className="text-[11px] font-semibold leading-snug text-[#072116]/70">
                 • {item}
               </li>
             ))}
@@ -299,13 +411,50 @@ function AlertCard({ alert }: { alert: HoldingAlert }) {
         </div>
       )}
 
-      <div className="mt-2 rounded-lg bg-white p-2">
-        <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
-          What to do
+      <div className="mt-2 rounded-xl bg-white p-2">
+        <p className="text-[9px] font-black uppercase tracking-wider text-[#072116]/45">
+          StockGPT action
         </p>
         <p className="mt-0.5 text-[12px] font-bold leading-relaxed text-[#072116]">
           {alert.recommendation}
         </p>
+
+        {alert.category === "action" && (
+          <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+            {(alert.action === "trim" || alert.action === "sell") && (
+              <button
+                type="button"
+                onClick={runTrim}
+                disabled={isPending}
+                className="rounded-full bg-amber-500 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-white transition hover:brightness-105 disabled:opacity-60"
+              >
+                Trim 25%
+              </button>
+            )}
+
+            {alert.action === "buy_more" && cashBalance > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => runBuyMore(Math.min(500, cashBalance))}
+                  disabled={isPending}
+                  className="rounded-full bg-emerald-500 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-white transition hover:brightness-105 disabled:opacity-60"
+                >
+                  Add {money(Math.min(500, cashBalance))}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => runBuyMore(cashBalance)}
+                  disabled={isPending}
+                  className="rounded-full border border-emerald-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
+                >
+                  Use cash
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <p className="mt-2 text-[10px] font-semibold leading-relaxed text-[#072116]/45">
@@ -315,1016 +464,1577 @@ function AlertCard({ alert }: { alert: HoldingAlert }) {
   );
 }
 
+function AddCashWidget({
+  portfolioId,
+  currency,
+}: {
+  portfolioId: string;
+  currency: string;
+}) {
+  const router = useRouter();
+  const [amount, setAmount] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function submit() {
+    const value = Number(amount);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      setMessage("Enter a valid cash amount.");
+      return;
+    }
+
+    setMessage(null);
+
+    startTransition(async () => {
+      const result = await addCash({
+        portfolioId,
+        amount: value,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not add cash.");
+        return;
+      }
+
+      setAmount("");
+      setMessage("Cash added.");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-col rounded-2xl border border-[#ddb159]/22 bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+          Add cash
+        </p>
+        <h3 className="mt-1 text-[20px] font-black tracking-[-0.04em]">
+          Deposit funds
+        </h3>
+        <p className="mt-1.5 text-[11px] font-semibold leading-5 text-[#072116]/55">
+          Deposits increase available cash and portfolio value, but do not count
+          as profit.
+        </p>
+      </div>
+
+      <div className="mt-4 grid min-w-0 gap-2">
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+            Amount
+          </span>
+          <input
+            type="number"
+            min={0}
+            step={10}
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder={currency === "USD" ? "1000" : "1000"}
+            className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isPending}
+          className="h-11 rounded-2xl bg-[#072116] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:brightness-110 disabled:opacity-60"
+        >
+          {isPending ? "Adding…" : "+ Add cash"}
+        </button>
+
+        {message && (
+          <p className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold leading-5 text-[#072116]/65">
+            {message}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ManualHoldingWidget({
+  portfolioId,
+  stockOptions,
+  cashBalance,
+  currency,
+}: {
+  portfolioId: string;
+  stockOptions: StockOption[];
+  cashBalance: number;
+  currency: string;
+}) {
+  const router = useRouter();
+  const [mode, setMode] = useState<"existing" | "cash">("existing");
+  const [query, setQuery] = useState("");
+  const [shares, setShares] = useState("");
+  const [amount, setAmount] = useState("");
+  const [entryPrice, setEntryPrice] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [priceEdited, setPriceEdited] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const cleanTicker = query.trim().toUpperCase();
+
+  const exactMatch = useMemo(
+    () => stockOptions.find((stock) => stock.ticker.toUpperCase() === cleanTicker),
+    [cleanTicker, stockOptions],
+  );
+
+  const suggestions = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return stockOptions.slice(0, 8);
+
+    return stockOptions
+      .filter((stock) => {
+        const ticker = stock.ticker.toLowerCase();
+        const company = stock.company?.toLowerCase() ?? "";
+        return ticker.includes(term) || company.includes(term);
+      })
+      .slice(0, 8);
+  }, [query, stockOptions]);
+
+  function selectStock(stock: StockOption) {
+    setQuery(stock.ticker);
+    setMessage(null);
+    setPriceEdited(false);
+
+    if (stock.price && Number.isFinite(stock.price)) {
+      setEntryPrice(String(stock.price));
+    }
+  }
+
+  function handleTickerChange(value: string) {
+    const upper = value.toUpperCase();
+    setQuery(upper);
+    setMessage(null);
+
+    const match = stockOptions.find(
+      (stock) => stock.ticker.toUpperCase() === upper.trim(),
+    );
+
+    if (match?.price && !priceEdited) {
+      setEntryPrice(String(match.price));
+    }
+  }
+
+  function handlePriceChange(value: string) {
+    setPriceEdited(true);
+    setEntryPrice(value);
+  }
+
+  function submit() {
+    const ticker = cleanTicker;
+    const price = Number(entryPrice);
+    const shareCount = Number(shares);
+    const dollarAmount = Number(amount);
+
+    if (!ticker) {
+      setMessage("Choose a ticker first.");
+      return;
+    }
+
+    if (!exactMatch) {
+      setMessage("Choose a ticker from the StockGPT rankings list.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setMessage("Enter a valid average entry price.");
+      return;
+    }
+
+    if (mode === "existing") {
+      if (!Number.isFinite(shareCount) || shareCount <= 0) {
+        setMessage("Enter the number of shares you own.");
+        return;
+      }
+
+      setMessage(null);
+
+      startTransition(async () => {
+        const result = await logExistingHolding({
+          portfolioId,
+          ticker,
+          shares: shareCount,
+          entryPrice: price,
+          purchaseDate: purchaseDate || null,
+          notes: notes.trim() || null,
+        });
+
+        if (!result.success) {
+          setMessage(result.error ?? "Could not log this holding.");
+          return;
+        }
+
+        setShares("");
+        setAmount("");
+        setNotes("");
+        setMessage(`${ticker} logged successfully.`);
+        router.refresh();
+      });
+
+      return;
+    }
+
+    if (!Number.isFinite(dollarAmount) || dollarAmount <= 0) {
+      setMessage("Enter an amount to invest.");
+      return;
+    }
+
+    if (dollarAmount > cashBalance + 0.001) {
+      setMessage(
+        `Not enough cash. You need ${money(dollarAmount - cashBalance, currency)} more.`,
+      );
+      return;
+    }
+
+    setMessage(null);
+
+    startTransition(async () => {
+      const result = await buyHoldingWithCash({
+        portfolioId,
+        ticker,
+        dollarAmount,
+        entryPrice: price,
+        purchaseDate: purchaseDate || null,
+        notes: notes.trim() || null,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not buy this holding.");
+        return;
+      }
+
+      setAmount("");
+      setShares("");
+      setNotes("");
+      setMessage(`${ticker} added using portfolio cash.`);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-col rounded-2xl border border-[#ddb159]/22 bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+          Add holding manually
+        </p>
+        <h3 className="mt-1 text-[20px] font-black tracking-[-0.04em]">
+          Add a stock
+        </h3>
+        <p className="mt-1.5 text-[11px] font-semibold leading-5 text-[#072116]/55">
+          Ticker selection auto-fills the latest StockGPT price. You can edit it
+          to match your real average entry.
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setMode("existing")}
+          className={[
+            "rounded-2xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition",
+            mode === "existing"
+              ? "border-[#ddb159] bg-[#ddb159] text-[#072116]"
+              : "border-[#072116]/10 bg-white text-[#072116]/55 hover:border-[#ddb159]/50",
+          ].join(" ")}
+        >
+          Log existing
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMode("cash")}
+          className={[
+            "rounded-2xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition",
+            mode === "cash"
+              ? "border-[#ddb159] bg-[#ddb159] text-[#072116]"
+              : "border-[#072116]/10 bg-white text-[#072116]/55 hover:border-[#ddb159]/50",
+          ].join(" ")}
+        >
+          Buy with cash
+        </button>
+      </div>
+
+      <div className="mt-3 grid min-w-0 gap-2">
+        <label className="relative block min-w-0">
+          <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+            Ticker
+          </span>
+          <input
+            value={query}
+            onChange={(event) => handleTickerChange(event.target.value)}
+            placeholder="AAPL"
+            className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black uppercase outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+          />
+
+          {query.trim() && suggestions.length > 0 && !exactMatch && (
+            <div className="absolute left-0 right-0 top-[68px] z-20 max-h-64 overflow-y-auto rounded-2xl border border-[#ddb159]/30 bg-white p-1 shadow-[0_16px_34px_rgba(0,0,0,0.22)]">
+              {suggestions.map((stock) => (
+                <button
+                  key={stock.ticker}
+                  type="button"
+                  onClick={() => selectStock(stock)}
+                  className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[#ddb159]/10"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[12px] font-black text-[#072116]">
+                      {stock.ticker}
+                      {stock.company ? (
+                        <span className="font-semibold text-[#072116]/45">
+                          {" "}
+                          · {stock.company}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="block truncate text-[10px] font-semibold text-[#072116]/45">
+                      {stock.sector ?? "—"} · rank #{stock.rank ?? "—"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[11px] font-black text-[#072116]/70">
+                    {stock.price ? money(stock.price, currency) : "—"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </label>
+
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+          {mode === "existing" ? (
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+                Shares owned
+              </span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={shares}
+                onChange={(event) => setShares(event.target.value)}
+                placeholder="10"
+                className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+              />
+            </label>
+          ) : (
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+                Amount to invest
+              </span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="500"
+                className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+              />
+            </label>
+          )}
+
+          <label className="block min-w-0">
+            <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+              Avg entry price
+            </span>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={entryPrice}
+              onChange={(event) => handlePriceChange(event.target.value)}
+              placeholder={exactMatch?.price ? String(exactMatch.price) : "Auto-fills"}
+              className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+            />
+          </label>
+        </div>
+
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+            Purchase date optional
+          </span>
+          <input
+            type="date"
+            value={purchaseDate}
+            onChange={(event) => setPurchaseDate(event.target.value)}
+            className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[13px] font-bold outline-none transition focus:border-[#ddb159]"
+          />
+        </label>
+
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[8px] font-black uppercase tracking-[0.12em] text-[#072116]/42">
+            Notes optional
+          </span>
+          <input
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="ISA holding, long-term, etc."
+            className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[12px] font-semibold outline-none transition placeholder:text-[#072116]/25 focus:border-[#ddb159]"
+          />
+        </label>
+
+        {mode === "cash" && (
+          <p className="rounded-2xl border border-[#072116]/8 bg-white px-3 py-2 text-[11px] font-semibold leading-5 text-[#072116]/60">
+            Available cash:{" "}
+            <span className="font-black text-[#072116]">
+              {money(cashBalance, currency)}
+            </span>
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isPending}
+          className="h-11 rounded-2xl bg-[#072116] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:brightness-110 disabled:opacity-60"
+        >
+          {isPending
+            ? "Adding…"
+            : mode === "existing"
+              ? "+ Log holding"
+              : "+ Buy with cash"}
+        </button>
+
+        {message && (
+          <p className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold leading-5 text-[#072116]/65">
+            {message}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PortfolioControls({
+  portfolioId,
+  portfolioName,
+  portfolios,
+}: {
+  portfolioId: string;
+  portfolioName: string;
+  portfolios: PortfolioOption[];
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(portfolioName);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isRenaming, startRenaming] = useTransition();
+  const [isDeleting, startDeleting] = useTransition();
+
+  function saveName() {
+    const cleanName = name.trim();
+
+    if (!cleanName) {
+      setMessage("Portfolio name cannot be empty.");
+      return;
+    }
+
+    startRenaming(async () => {
+      const result = await renamePortfolio({
+        portfolioId,
+        name: cleanName,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not rename portfolio.");
+        return;
+      }
+
+      setMessage("Portfolio renamed.");
+      router.refresh();
+    });
+  }
+
+  function runDelete() {
+    const confirmed = window.confirm(
+      `Delete "${portfolioName}"? This removes this portfolio and its holdings only. Other portfolios will not be touched.`,
+    );
+
+    if (!confirmed) return;
+
+    startDeleting(async () => {
+      const result = await deletePortfolio({
+        portfolioId,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not delete portfolio.");
+        return;
+      }
+
+      router.push("/portfolio");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="min-w-0 rounded-3xl border border-[#ddb159]/20 bg-[#061b12]/72 p-4 shadow-[0_14px_36px_rgba(0,0,0,0.22)] backdrop-blur">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+            Active portfolio
+          </span>
+          <input
+            value={name}
+            maxLength={80}
+            onChange={(event) => setName(event.target.value)}
+            className="h-11 w-full min-w-0 rounded-2xl border border-[#ddb159]/20 bg-[#04180f]/80 px-4 text-[15px] font-black text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/25 focus:border-[#ddb159]"
+          />
+        </label>
+
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button
+            type="button"
+            onClick={saveName}
+            disabled={isRenaming || name.trim() === portfolioName.trim()}
+            className="h-11 rounded-2xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105 disabled:opacity-50"
+          >
+            {isRenaming ? "Saving…" : "Rename"}
+          </button>
+
+          <Link
+            href="/portfolio?builder=1"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#ddb159]/32 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10"
+          >
+            + New
+          </Link>
+
+          <button
+            type="button"
+            onClick={runDelete}
+            disabled={isDeleting}
+            className="col-span-2 h-11 rounded-2xl border border-red-400/40 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-200 transition hover:bg-red-500/10 disabled:opacity-50 sm:col-span-1"
+          >
+            {isDeleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+
+      {portfolios.length > 1 && (
+        <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+          {portfolios.map((portfolio) => {
+            const active = portfolio.id === portfolioId;
+
+            return (
+              <Link
+                key={portfolio.id}
+                href={`/portfolio?portfolio=${portfolio.id}`}
+                className={[
+                  "max-w-full rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] transition",
+                  active
+                    ? "border-[#ddb159] bg-[#ddb159] text-[#072116]"
+                    : "border-[#ddb159]/22 text-[#faf6f0]/58 hover:border-[#ddb159]/60 hover:text-[#ddb159]",
+                ].join(" ")}
+              >
+                <span className="block max-w-[180px] truncate">
+                  {portfolio.name}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {message && (
+        <p className="mt-3 rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/80 px-3 py-2 text-[11px] font-bold leading-5 text-[#faf6f0]/64">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({
+  portfolioMeta,
+  holdings,
+  transactions,
+}: {
+  portfolioMeta: Props["portfolioMeta"];
+  holdings: ExtendedHolding[];
+  transactions: PortfolioTransaction[];
+}) {
+  const currency = portfolioMeta.currency ?? "USD";
+  const cashBalance = portfolioMeta.cashBalance;
+  const holdingsValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+  const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
+  const totalValue = holdingsValue + cashBalance;
+  const unrealisedPnl = holdings.reduce(
+    (sum, holding) => sum + holding.totalPnLDollars,
+    0,
+  );
+  const realisedPnl = transactions.reduce(
+    (sum, transaction) => sum + Number(transaction.realisedPnl ?? 0),
+    0,
+  );
+  const totalPnl = unrealisedPnl + realisedPnl;
+  const basis = Math.max(portfolioMeta.cashDepositedTotal, totalCost, 1);
+  const totalPnlPct = (totalPnl / basis) * 100;
+
+  const avgScore =
+    holdings.length > 0
+      ? Math.round(
+          holdings.reduce((sum, holding) => sum + holding.score, 0) /
+            holdings.length,
+        )
+      : 0;
+
+  const actionAlerts = holdings.reduce(
+    (sum, holding) => sum + holding.actionAlerts.length,
+    0,
+  );
+  const eventWarnings = holdings.reduce(
+    (sum, holding) =>
+      sum +
+      holding.eventAlerts.filter(
+        (alert) => alert.severity === "critical" || alert.severity === "warning",
+      ).length,
+    0,
+  );
+  const oversized = holdings.filter(isOversized).length;
+  const cashDrag = totalValue > 0 ? (cashBalance / totalValue) * 100 : 0;
+
+  const healthScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        76 +
+          (avgScore > 0 ? Math.min(avgScore / 40, 12) : 0) -
+          actionAlerts * 8 -
+          eventWarnings * 3 -
+          oversized * 5 -
+          (cashDrag > 25 ? 5 : 0),
+      ),
+    ),
+  );
+
+  const healthLabel =
+    healthScore >= 85
+      ? "Strong"
+      : healthScore >= 70
+        ? "Healthy"
+        : healthScore >= 55
+          ? "Needs review"
+          : "High risk";
+
+  const isPositive = totalPnl >= 0;
+
+  return (
+    <div className="relative min-w-0 overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] p-4 text-[#faf6f0] shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:p-5">
+      <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+
+      <div className="relative min-w-0">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              Portfolio value
+            </p>
+            <h1 className="mt-1 text-[34px] font-black leading-none tracking-[-0.06em] sm:text-[44px]">
+              {money(totalValue, currency)}
+            </h1>
+            <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+              <span
+                className={[
+                  "rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em]",
+                  isPositive
+                    ? "bg-emerald-400/16 text-emerald-300"
+                    : "bg-red-400/16 text-red-200",
+                ].join(" ")}
+              >
+                {money(totalPnl, currency)} · {pct(totalPnlPct)}
+              </span>
+              <span className="rounded-full bg-[#ddb159]/12 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+                Health: {healthLabel} {healthScore}/100
+              </span>
+            </div>
+          </div>
+
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:w-[420px]">
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Holdings
+              </p>
+              <p className="mt-1 text-[19px] font-black">{holdings.length}</p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                {money(holdingsValue, currency)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Cash
+              </p>
+              <p className="mt-1 text-[19px] font-black">
+                {money(cashBalance, currency)}
+              </p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                {cashDrag.toFixed(1)}% cash
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Avg score
+              </p>
+              <p className="mt-1 text-[19px] font-black">{avgScore || "—"}</p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                model quality
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Action alerts
+              </p>
+              <p className="mt-1 text-[19px] font-black">{actionAlerts}</p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                direct actions
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Realised
+              </p>
+              <p
+                className={[
+                  "mt-1 text-[19px] font-black",
+                  realisedPnl >= 0 ? "text-emerald-300" : "text-red-200",
+                ].join(" ")}
+              >
+                {money(realisedPnl, currency)}
+              </p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                closed trades
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+                Unrealised
+              </p>
+              <p
+                className={[
+                  "mt-1 text-[19px] font-black",
+                  unrealisedPnl >= 0 ? "text-emerald-300" : "text-red-200",
+                ].join(" ")}
+              >
+                {money(unrealisedPnl, currency)}
+              </p>
+              <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                open holdings
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl border border-[#ddb159]/12 bg-[#04180f]/45 p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+              Risk
+            </p>
+            <p className="mt-1 capitalize text-[13px] font-black">
+              {portfolioMeta.riskTolerance ?? "Manual"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#ddb159]/12 bg-[#04180f]/45 p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+              Horizon
+            </p>
+            <p className="mt-1 text-[13px] font-black">
+              {horizonLabel(portfolioMeta.timeHorizon)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#ddb159]/12 bg-[#04180f]/45 p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#ddb159]/70">
+              Deposited basis
+            </p>
+            <p className="mt-1 text-[13px] font-black">
+              {money(portfolioMeta.cashDepositedTotal, currency)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditHoldingModal({
+  portfolioId,
+  holding,
+  currency,
+  onClose,
+}: {
+  portfolioId: string;
+  holding: ExtendedHolding;
+  currency: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [shares, setShares] = useState(String(holding.shares));
+  const [entryPrice, setEntryPrice] = useState(String(holding.entryPrice));
+  const [purchaseDate, setPurchaseDate] = useState(dateInputValue(holding.purchaseDate));
+  const [notes, setNotes] = useState(holding.notes ?? "");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function save() {
+    const shareCount = Number(shares);
+    const price = Number(entryPrice);
+
+    if (!Number.isFinite(shareCount) || shareCount < 0) {
+      setMessage("Enter a valid share amount.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setMessage("Enter a valid entry price.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await updateHoldingDetails({
+        portfolioId,
+        ticker: holding.ticker,
+        shares: shareCount,
+        entryPrice: price,
+        purchaseDate: purchaseDate || null,
+        notes: notes.trim() || null,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not update holding.");
+        return;
+      }
+
+      router.refresh();
+      onClose();
+    });
+  }
+
+  function sellRemove() {
+    const confirmed = window.confirm(
+      `Sell/remove ${holding.ticker}? This will remove it from this portfolio and credit cash using the current price.`,
+    );
+
+    if (!confirmed) return;
+
+    startTransition(async () => {
+      const result = await removeHolding({
+        portfolioId,
+        ticker: holding.ticker,
+        creditCash: true,
+      });
+
+      if (!result.success) {
+        setMessage(result.error ?? "Could not remove holding.");
+        return;
+      }
+
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-x-hidden bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-6">
+      <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-[#ddb159]/24 bg-[#faf6f0] text-[#072116] shadow-[0_24px_80px_rgba(0,0,0,0.42)]">
+        <div className="flex min-w-0 items-start justify-between gap-4 border-b border-[#072116]/8 p-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+              Edit holding
+            </p>
+            <h3 className="mt-1 text-[24px] font-black tracking-[-0.04em]">
+              {holding.ticker}
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#072116]/12 text-[18px] font-black text-[#072116]/50 transition hover:bg-white"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="max-h-[78vh] overflow-y-auto p-4">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
+                Shares
+              </span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={shares}
+                onChange={(event) => setShares(event.target.value)}
+                className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none focus:border-[#ddb159]"
+              />
+            </label>
+
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
+                Average entry
+              </span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={entryPrice}
+                onChange={(event) => setEntryPrice(event.target.value)}
+                className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-black outline-none focus:border-[#ddb159]"
+              />
+            </label>
+
+            <label className="block min-w-0 sm:col-span-2">
+              <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
+                Purchase date
+              </span>
+              <input
+                type="date"
+                value={purchaseDate}
+                onChange={(event) => setPurchaseDate(event.target.value)}
+                className="h-11 w-full min-w-0 rounded-2xl border border-[#072116]/10 bg-white px-3 text-[14px] font-bold outline-none focus:border-[#ddb159]"
+              />
+            </label>
+
+            <label className="block min-w-0 sm:col-span-2">
+              <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
+                Notes
+              </span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                className="w-full min-w-0 resize-none rounded-2xl border border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold outline-none focus:border-[#ddb159]"
+              />
+            </label>
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-[#072116]/8 bg-white p-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">
+              Current value
+            </p>
+            <p className="mt-1 text-[18px] font-black">
+              {money(holding.currentValue, currency)}
+            </p>
+            <p className="text-[11px] font-semibold text-[#072116]/50">
+              {number(holding.shares, 4)} shares at {money(holding.currentPrice, currency)}
+            </p>
+          </div>
+
+          {message && (
+            <p className="mt-3 rounded-2xl border border-red-300 bg-red-50 px-3 py-2 text-[12px] font-bold text-red-700">
+              {message}
+            </p>
+          )}
+
+          <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <button
+              type="button"
+              onClick={save}
+              disabled={isPending}
+              className="h-11 rounded-2xl bg-[#072116] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:brightness-110 disabled:opacity-60"
+            >
+              {isPending ? "Saving…" : "Save changes"}
+            </button>
+
+            <button
+              type="button"
+              onClick={sellRemove}
+              disabled={isPending}
+              className="h-11 rounded-2xl border border-red-300 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+            >
+              Sell/remove
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-11 rounded-2xl border border-[#072116]/12 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]/58 transition hover:bg-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HoldingRow({
+  portfolioId,
   holding,
   replacement,
+  cashBalance,
+  currency,
 }: {
-  holding: EnrichedHolding;
+  portfolioId: string;
+  holding: ExtendedHolding;
   replacement?: ReplacementRecommendation | null;
+  cashBalance: number;
+  currency: string;
 }) {
+  const router = useRouter();
+  const [expanded, setExpanded] = useState(holding.actionAlerts.length > 0);
+  const [editOpen, setEditOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [editingShares, setEditingShares] = useState(false);
-  const [priceInput, setPriceInput] = useState(holding.entryPrice.toString());
-  const [sharesInput, setSharesInput] = useState(holding.shares.toString());
-  const [showEvents, setShowEvents] = useState(false);
-  const [showActions, setShowActions] = useState(holding.actionAlerts.length > 0);
-  const [showLevels, setShowLevels] = useState(false);
 
-  const recStyle = recommendationStyle(holding.recommendation);
-  const sectorStyle = sectorMomentumStyle(holding.sectorMomentum);
-  const isPositive = holding.pnlPercent >= 0;
-  const criticalActions = holding.actionAlerts.filter(
-    (alert) => alert.severity === "critical",
-  ).length;
-  const eventWarnings = holding.eventAlerts.filter(
-    (alert) => alert.severity === "warning" || alert.severity === "critical",
-  ).length;
-  const shouldShowReplacement =
+  const recClass = recommendationStyle(holding.recommendation);
+  const sectorClass = sectorMomentumStyle(holding.sectorMomentum);
+  const isPositive = holding.totalPnLDollars >= 0;
+  const drift =
+    holding.targetAllocationPct == null
+      ? null
+      : holding.currentAllocationPct - holding.targetAllocationPct;
+  const needsReplacement =
     replacement &&
     holding.actionAlerts.some(
       (alert) => alert.action === "sell" || alert.action === "trim",
     );
 
-  function handleSavePrice() {
-    const newPrice = Number(priceInput);
-    if (Number.isFinite(newPrice) && newPrice > 0) {
-      startTransition(() => {
-        updateEntryPrice(holding.ticker, newPrice);
+  function review() {
+    startTransition(async () => {
+      await markReviewed({
+        portfolioId,
+        ticker: holding.ticker,
       });
-      setEditingPrice(false);
-    }
-  }
-
-  function handleSaveShares() {
-    const newShares = Number(sharesInput);
-    if (Number.isFinite(newShares) && newShares >= 0) {
-      startTransition(() => {
-        updateShares(holding.ticker, newShares);
-      });
-      setEditingShares(false);
-    }
-  }
-
-  function handleRemove() {
-    if (confirm(`Remove ${holding.ticker} from your portfolio?`)) {
-      startTransition(() => {
-        removeHolding(holding.ticker);
-      });
-    }
-  }
-
-  function handleReviewed() {
-    startTransition(() => {
-      markReviewed(holding.ticker);
+      router.refresh();
     });
   }
 
-  const targetAlloc = holding.targetAllocationPct;
-  const allocDrift = targetAlloc !== null ? holding.currentAllocationPct - targetAlloc : 0;
-  const driftSignificant = Math.abs(allocDrift) > 3;
+  function quickTrim() {
+    startTransition(async () => {
+      await trimHolding({
+        portfolioId,
+        ticker: holding.ticker,
+        percentage: 25,
+      });
+      router.refresh();
+    });
+  }
 
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-2xl bg-white text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.08)]">
-      <div
-        className={`pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full blur-3xl ${recStyle.glow}`}
-      />
+    <article className="min-w-0 overflow-hidden rounded-3xl border border-[#072116]/10 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.14)]">
+      <div className="grid min-w-0 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start gap-3">
+            <StockLogo ticker={holding.ticker} size={46} />
 
-      <div className="relative border-b border-[#072116]/8 p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href={`/stock/${holding.ticker}`}
-                className="group flex min-w-0 items-center gap-3"
-              >
-                <StockLogo ticker={holding.ticker} company={holding.company} size={34} />
-                <div className="min-w-0">
-                  <p className="text-[24px] font-black tracking-[-0.04em] transition group-hover:text-[#0b2b1d] sm:text-[28px]">
-                    {holding.ticker}
-                  </p>
-                  <p className="truncate text-[13px] font-bold leading-tight text-[#072116]/70">
-                    {holding.company ?? holding.ticker}
-                  </p>
-                </div>
-              </Link>
-
-              <span
-                className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider"
-                style={{ backgroundColor: recStyle.bg, color: recStyle.text }}
-              >
-                {holding.recommendation}
-              </span>
-
-              {holding.isRecentlyAdded && (
-                <span className="rounded-full border-2 border-[#ddb159] bg-[#fdf8ed] px-2 py-0.5 text-[10px] font-bold text-[#072116]">
-                  ✦ Recently Added ·{" "}
-                  {holding.daysHeld === 0 ? "today" : `${holding.daysHeld}d ago`}
-                </span>
-              )}
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-2 py-0.5 text-[10px] font-black text-[#072116]">
-                {holding.currentAllocationPct.toFixed(1)}% of portfolio
-              </span>
-              {targetAlloc !== null && driftSignificant && (
-                <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                    allocDrift > 0
-                      ? "border-amber-300 bg-amber-50 text-amber-700"
-                      : "border-blue-300 bg-blue-50 text-blue-700"
-                  }`}
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Link
+                  href={`/stock/${holding.ticker}`}
+                  className="min-w-0 truncate text-[21px] font-black tracking-[-0.05em] transition hover:text-[#0b2b1d]"
                 >
-                  {allocDrift > 0 ? "↑" : "↓"} target {targetAlloc.toFixed(1)}%
-                </span>
-              )}
-              <span className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold text-[#072116]/65">
-                #{holding.rank ?? "—"} of 500
-              </span>
-              <span className="rounded-full border border-[#072116]/12 bg-[#faf6f0] px-2 py-0.5 text-[10px] font-bold text-[#072116]/65">
-                Rank percentile {holding.rankPercentile}/100
-              </span>
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${sectorStyle.bg} ${sectorStyle.text} ${sectorStyle.border}`}
-              >
-                {sectorStyle.icon} {sectorStyle.label} ({holding.sectorBullishPct}% bullish)
-              </span>
-            </div>
-          </div>
-        </div>
+                  {holding.ticker}
+                </Link>
 
-        <div className="mt-4 rounded-xl border border-[#ddb159]/40 bg-gradient-to-br from-[#fdf8ed] to-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            ✦ StockGPT view
-          </p>
-          <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#072116]">
-            {holding.aiSummary}
-          </p>
-        </div>
+                <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${recClass}`}>
+                  {holding.recommendation}
+                </span>
 
-        {shouldShowReplacement && (
-          <div className="mt-3 rounded-xl border-2 border-[#ddb159]/35 bg-[#fff8e8] p-3">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">
-              Suggested replacement
-            </p>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <Link
-                href={`/stock/${replacement.ticker}`}
-                className="flex min-w-0 items-center gap-2"
-              >
-                <StockLogo
-                  ticker={replacement.ticker}
-                  company={replacement.company}
-                  size={24}
-                />
-                <div className="min-w-0">
-                  <p className="text-[16px] font-black tracking-[-0.03em] text-[#072116]">
-                    {replacement.ticker}
-                  </p>
-                  <p className="truncate text-[11px] font-bold text-[#072116]/60">
-                    {replacement.company}
-                  </p>
-                </div>
-              </Link>
-              <div className="flex flex-wrap gap-1">
-                <span className="rounded-full bg-[#072116] px-2 py-1 text-[10px] font-black text-[#ddb159]">
-                  Rank #{replacement.rank ?? "—"}
+                {holding.isRecentlyAdded && (
+                  <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-blue-700">
+                    Recently added
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-0.5 truncate text-[12px] font-bold text-[#072116]/55">
+                {holding.company ?? "—"}
+              </p>
+
+              <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+                <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${sectorClass}`}>
+                  {holding.sectorMomentum} sector
                 </span>
-                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-[#072116]/70">
-                  {replacement.sector}
+
+                <span className="rounded-full border border-[#072116]/10 bg-white px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#072116]/60">
+                  Rank #{holding.rank ?? "—"}
                 </span>
+
+                <span className="rounded-full border border-[#072116]/10 bg-white px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#072116]/60">
+                  Score {number(holding.score, 0)}
+                </span>
+
+                {drift != null && Math.abs(drift) > 3 && (
+                  <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">
+                    {drift > 0 ? "Oversized" : "Underweight"} {pct(drift)}
+                  </span>
+                )}
               </div>
             </div>
-            <p className="mt-2 text-[12px] font-semibold leading-relaxed text-[#072116]/70">
-              {replacement.reason}
+          </div>
+
+          <p className="mt-3 text-[12px] font-semibold leading-5 text-[#072116]/68">
+            {holding.aiSummary}
+          </p>
+
+          {needsReplacement && replacement && (
+            <div className="mt-3 min-w-0 rounded-2xl border border-[#ddb159]/30 bg-[#ddb159]/10 p-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+                Suggested replacement
+              </p>
+              <div className="mt-1 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Link
+                    href={`/stock/${replacement.ticker}`}
+                    className="text-[15px] font-black tracking-[-0.02em] text-[#072116] hover:underline"
+                  >
+                    {replacement.ticker} · {replacement.company}
+                  </Link>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-[#072116]/60">
+                    {replacement.reason}
+                  </p>
+                </div>
+
+                <Link
+                  href={`/stock/${replacement.ticker}`}
+                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#072116] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+                >
+                  View
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-1">
+          <div className="rounded-2xl border border-[#072116]/8 bg-white p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/40">
+              Current value
+            </p>
+            <p className="mt-1 text-[19px] font-black">
+              {money(holding.currentValue, currency)}
+            </p>
+            <p className="text-[10px] font-semibold text-[#072116]/45">
+              {number(holding.shares, 4)} shares
             </p>
           </div>
-        )}
 
-        {(holding.actionAlerts.length > 0 || eventWarnings > 0) && (
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            {holding.actionAlerts.length > 0 && (
-              <span
-                className={`rounded-full px-3 py-1 text-[11px] font-black text-white ${
-                  criticalActions > 0 ? "bg-red-600" : "bg-amber-500"
-                }`}
-              >
-                {holding.actionAlerts.length} action alert
-                {holding.actionAlerts.length === 1 ? "" : "s"}
-              </span>
-            )}
-            {eventWarnings > 0 && (
-              <span className="rounded-full bg-amber-500 px-3 py-1 text-[11px] font-black text-white">
-                {eventWarnings} event warning{eventWarnings === 1 ? "" : "s"}
-              </span>
-            )}
+          <div className="rounded-2xl border border-[#072116]/8 bg-white p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/40">
+              Unrealised P&L
+            </p>
+            <p className={`mt-1 text-[19px] font-black ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
+              {money(holding.totalPnLDollars, currency)}
+            </p>
+            <p className={`text-[10px] font-black ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
+              {pct(holding.pnlPercent)}
+            </p>
           </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 xl:grid-cols-5">
-        <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">
-            Shares
-          </p>
-          {editingShares ? (
-            <div className="mt-1 flex items-center gap-1">
-              <input
-                type="number"
-                value={sharesInput}
-                onChange={(event) => setSharesInput(event.target.value)}
-                step="0.01"
-                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black text-[#072116] outline-none"
-                autoFocus
-              />
-              <button
-                onClick={handleSaveShares}
-                disabled={isPending}
-                className="rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-bold text-white"
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => {
-                  setEditingShares(false);
-                  setSharesInput(holding.shares.toString());
-                }}
-                className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#072116]"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingShares(true)}
-              className="mt-0.5 flex items-baseline gap-1 text-left"
-            >
-              <p className="text-[20px] font-black tracking-[-0.02em]">
-                {holding.shares}
-              </p>
-              <span className="text-[9px] font-bold text-[#072116]/40 underline">
-                edit
-              </span>
-            </button>
-          )}
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-            Update if you buy/sell
-          </p>
-        </div>
+          <div className="rounded-2xl border border-[#072116]/8 bg-white p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/40">
+              Avg cost / price
+            </p>
+            <p className="mt-1 text-[13px] font-black">
+              {money(holding.entryPrice, currency)}
+            </p>
+            <p className="text-[10px] font-semibold text-[#072116]/45">
+              Now {money(holding.currentPrice, currency)}
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">
-            Entry Price
-          </p>
-          {editingPrice ? (
-            <div className="mt-1 flex items-center gap-1">
-              <span className="text-[14px] font-black">$</span>
-              <input
-                type="number"
-                value={priceInput}
-                onChange={(event) => setPriceInput(event.target.value)}
-                step="0.01"
-                className="w-20 rounded border border-[#ddb159] bg-white px-1 py-0.5 text-[14px] font-black text-[#072116] outline-none"
-                autoFocus
-              />
-              <button
-                onClick={handleSavePrice}
-                disabled={isPending}
-                className="rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-bold text-white"
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => {
-                  setEditingPrice(false);
-                  setPriceInput(holding.entryPrice.toString());
-                }}
-                className="rounded bg-[#072116]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#072116]"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingPrice(true)}
-              className="mt-0.5 flex items-baseline gap-1 text-left"
-            >
-              <p className="text-[20px] font-black tracking-[-0.02em]">
-                ${holding.entryPrice.toFixed(2)}
-              </p>
-              <span className="text-[9px] font-bold text-[#072116]/40 underline">
-                edit
-              </span>
-            </button>
-          )}
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-            Avg cost basis
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">
-            Current Price
-          </p>
-          <p className="mt-0.5 text-[20px] font-black tracking-[-0.02em]">
-            ${holding.currentPrice.toFixed(2)}
-          </p>
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-            Market price
-          </p>
-        </div>
-
-        <div
-          className={`rounded-xl border p-3 ${
-            isPositive ? "border-emerald-300 bg-emerald-50" : "border-red-300 bg-red-50"
-          }`}
-        >
-          <p
-            className={`text-[9px] font-extrabold uppercase tracking-wider ${
-              isPositive ? "text-emerald-800" : "text-red-800"
-            }`}
-          >
-            Total P&amp;L
-          </p>
-          <p
-            className={`mt-0.5 text-[20px] font-black tabular-nums tracking-[-0.02em] ${
-              isPositive ? "text-emerald-700" : "text-red-700"
-            }`}
-          >
-            {isPositive ? "+" : ""}
-            {holding.pnlPercent.toFixed(1)}%
-          </p>
-          <p
-            className={`mt-1 text-[10px] font-bold ${
-              isPositive ? "text-emerald-700" : "text-red-700"
-            }`}
-          >
-            {isPositive ? "+" : "−"}${Math.abs(holding.totalPnLDollars).toLocaleString()} total
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-[#072116]/10 bg-[#faf6f0] p-3">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/55">
-            AI Score
-          </p>
-          <p className="mt-0.5 text-[20px] font-black tabular-nums tracking-[-0.02em]">
-            {holding.score.toLocaleString()}
-            {holding.scoreChange !== 0 && (
-              <span
-                className={`ml-1 text-[11px] ${
-                  holding.scoreChange > 0 ? "text-emerald-600" : "text-red-600"
-                }`}
-              >
-                {holding.scoreChange > 0 ? "↑" : "↓"}
-                {Math.abs(holding.scoreChange).toLocaleString()}
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-            Score percentile {holding.scorePercentile}/100
-          </p>
+          <div className="rounded-2xl border border-[#072116]/8 bg-white p-3">
+            <p className="text-[8px] font-black uppercase tracking-wider text-[#072116]/40">
+              Allocation
+            </p>
+            <p className="mt-1 text-[13px] font-black">
+              {holding.currentAllocationPct.toFixed(1)}%
+            </p>
+            <p className="text-[10px] font-semibold text-[#072116]/45">
+              Target {holding.targetAllocationPct?.toFixed(1) ?? "—"}%
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 px-3 pb-3 sm:grid-cols-3 sm:px-5">
-        <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
-            Cost Basis
-          </p>
-          <p className="mt-0.5 text-[14px] font-black tabular-nums">
-            ${holding.costBasis.toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
-            Current Value
-          </p>
-          <p className="mt-0.5 text-[14px] font-black tabular-nums">
-            ${holding.currentValue.toLocaleString()}
-          </p>
-        </div>
-        <div className="rounded-lg bg-[#faf6f0] px-3 py-2">
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
-            Per-share P&amp;L
-          </p>
-          <p
-            className={`mt-0.5 text-[14px] font-black tabular-nums ${
-              isPositive ? "text-emerald-700" : "text-red-700"
-            }`}
-          >
-            {isPositive ? "+" : "−"}${Math.abs(holding.pnlDollars).toFixed(2)}
-          </p>
-        </div>
-      </div>
-
-      {holding.actionAlerts.length > 0 && (
-        <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
+      <div className="grid min-w-0 gap-2 border-t border-[#072116]/8 bg-white/60 p-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap gap-2">
           <button
-            onClick={() => setShowActions((state) => !state)}
-            className="flex w-full items-center justify-between gap-3 px-5 py-3 transition hover:bg-[#faf6f0]"
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="rounded-full border border-[#072116]/10 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#072116]/60 transition hover:border-[#ddb159]"
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">
-                ✦ Action Alerts ({holding.actionAlerts.length})
-              </p>
-              <span className="rounded-full bg-[#072116] px-2 py-0.5 text-[9px] font-black text-[#ddb159]">
-                current only
-              </span>
-            </div>
-            <span className="shrink-0 text-[10px] font-bold text-[#072116]/55">
-              {showActions ? "Hide ▴" : "Show ▾"}
-            </span>
+            {expanded ? "Hide detail" : "View detail"}
           </button>
-          {showActions && (
-            <div className="grid gap-2 px-5 pb-4">
+
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="rounded-full border border-[#072116]/10 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#072116]/60 transition hover:border-[#ddb159]"
+          >
+            Edit holding
+          </button>
+
+          {(holding.recommendation === "Consider Trimming" ||
+            holding.recommendation === "Sell Immediately" ||
+            holding.recommendation === "Sell Whole Position") && (
+            <button
+              type="button"
+              onClick={quickTrim}
+              disabled={isPending}
+              className="rounded-full bg-amber-500 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-white transition hover:brightness-105 disabled:opacity-60"
+            >
+              Trim 25%
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={review}
+            disabled={isPending}
+            className="rounded-full bg-[#072116] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:brightness-110 disabled:opacity-60"
+          >
+            Mark reviewed
+          </button>
+        </div>
+
+        <p className="text-[10px] font-semibold text-[#072116]/45">
+          Bought {formatDate(holding.purchaseDate ?? holding.addedAt)} · reviewed{" "}
+          {formatDate(holding.lastReviewedAt)}
+        </p>
+      </div>
+
+      {expanded && (
+        <div className="grid min-w-0 gap-3 border-t border-[#072116]/8 bg-[#faf6f0] p-3">
+          {holding.actionAlerts.length > 0 && (
+            <div className="grid min-w-0 gap-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+                Action alerts
+              </p>
               {holding.actionAlerts.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
+                <AlertCard
+                  key={alert.id}
+                  alert={alert}
+                  portfolioId={portfolioId}
+                  holding={holding}
+                  cashBalance={cashBalance}
+                />
               ))}
             </div>
           )}
+
+          {holding.eventAlerts.length > 0 && (
+            <div className="grid min-w-0 gap-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+                Event alerts
+              </p>
+              {holding.eventAlerts.map((alert) => (
+                <AlertCard
+                  key={alert.id}
+                  alert={alert}
+                  portfolioId={portfolioId}
+                  holding={holding}
+                  cashBalance={cashBalance}
+                />
+              ))}
+            </div>
+          )}
+
+          {holding.triggers.length > 0 && (
+            <div className="grid min-w-0 gap-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+                Decision levels
+              </p>
+              <div className="grid min-w-0 gap-2 md:grid-cols-2">
+                {holding.triggers.map((trigger) => (
+                  <div
+                    key={`${holding.ticker}-${trigger.type}`}
+                    className={`min-w-0 rounded-2xl border p-3 ${triggerToneStyle(trigger.tone)}`}
+                  >
+                    <div className="flex min-w-0 items-start gap-2">
+                      <div className="shrink-0">
+                        <TriggerIcon icon={trigger.icon} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-black">
+                          {trigger.condition}
+                        </p>
+                        <p className="mt-1 text-[11px] font-semibold leading-5 opacity-75">
+                          {trigger.action}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {holding.actionAlerts.length === 0 &&
+            holding.eventAlerts.length === 0 &&
+            holding.triggers.length === 0 && (
+              <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-800">
+                No active alerts for this holding.
+              </p>
+            )}
         </div>
       )}
 
-      {holding.eventAlerts.length > 0 && (
-        <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
-          <button
-            onClick={() => setShowEvents((state) => !state)}
-            className="flex w-full items-center justify-between gap-3 px-5 py-3 transition hover:bg-[#faf6f0]"
+      {editOpen && (
+        <EditHoldingModal
+          portfolioId={portfolioId}
+          holding={holding}
+          currency={currency}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+    </article>
+  );
+}
+
+function TransactionHistory({
+  transactions,
+  currency,
+}: {
+  transactions: PortfolioTransaction[];
+  currency: string;
+}) {
+  if (transactions.length === 0) {
+    return (
+      <div className="min-w-0 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+          Recent activity
+        </p>
+        <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/50">
+          No transaction history yet. Cash deposits, imports, buys, sells and
+          manual logs will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+            Recent activity
+          </p>
+          <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">
+            Deposits, buys, sells, imports and manual logs.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid min-w-0 gap-2">
+        {transactions.slice(0, 10).map((transaction) => (
+          <div
+            key={transaction.id}
+            className="grid min-w-0 gap-2 rounded-2xl border border-[#ddb159]/10 bg-[#04180f]/72 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">
-                ✦ Event Alerts ({holding.eventAlerts.length})
+            <div className="min-w-0">
+              <p className="truncate text-[12px] font-black text-[#faf6f0]">
+                {transactionLabel(transaction.type)}
+                {transaction.ticker ? ` · ${transaction.ticker}` : ""}
               </p>
-              {eventWarnings > 0 && (
-                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-white">
-                  {eventWarnings} warning{eventWarnings === 1 ? "" : "s"}
+              <p className="mt-0.5 truncate text-[10px] font-semibold text-[#faf6f0]/42">
+                {formatDate(transaction.createdAt)}
+                {transaction.notes ? ` · ${transaction.notes}` : ""}
+              </p>
+            </div>
+
+            <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
+              {transaction.shares != null && (
+                <span className="rounded-full bg-white/8 px-2 py-1 text-[10px] font-bold text-[#faf6f0]/60">
+                  {number(transaction.shares, 4)} shares
+                </span>
+              )}
+
+              {transaction.amount != null && (
+                <span className="rounded-full bg-[#ddb159]/12 px-2 py-1 text-[10px] font-black text-[#ddb159]">
+                  {money(transaction.amount, transaction.currency ?? currency)}
+                </span>
+              )}
+
+              {transaction.realisedPnl != null && transaction.realisedPnl !== 0 && (
+                <span
+                  className={[
+                    "rounded-full px-2 py-1 text-[10px] font-black",
+                    transaction.realisedPnl >= 0
+                      ? "bg-emerald-400/12 text-emerald-300"
+                      : "bg-red-400/12 text-red-200",
+                  ].join(" ")}
+                >
+                  Realised {money(transaction.realisedPnl, transaction.currency ?? currency)}
                 </span>
               )}
             </div>
-            <span className="shrink-0 text-[10px] font-bold text-[#072116]/55">
-              {showEvents ? "Hide ▴" : "Show ▾"}
-            </span>
-          </button>
-          {showEvents && (
-            <div className="grid gap-2 px-5 pb-4">
-              {holding.eventAlerts.map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="border-t border-[#072116]/8 bg-[#faf6f0]/50">
-        <button
-          onClick={() => setShowLevels((state) => !state)}
-          className="flex w-full items-center justify-between gap-3 px-5 py-3 transition hover:bg-[#faf6f0]"
-        >
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#072116]">
-            ✦ Decision Levels ({holding.triggers.length})
-          </p>
-          <span className="shrink-0 text-[10px] font-bold text-[#072116]/55">
-            {showLevels ? "Hide ▴" : "Show ▾"}
-          </span>
-        </button>
-        {showLevels && (
-          <div className="grid gap-2 px-5 pb-4">
-            {holding.triggers.map((trigger) => {
-              const style = triggerToneStyle(trigger.tone);
-              return (
-                <div
-                  key={`${trigger.type}-${trigger.condition}`}
-                  className={`flex items-start gap-3 rounded-xl border-2 ${style.border} ${style.bg} p-3`}
-                >
-                  <div className={`shrink-0 ${style.icon}`}>
-                    <TriggerIcon icon={trigger.icon} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-[13px] font-black tracking-[-0.01em] ${style.text}`}>
-                      {trigger.condition}
-                    </p>
-                    <p className="mt-1 text-[12px] font-medium leading-relaxed text-[#072116]/70">
-                      → {trigger.action}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
           </div>
-        )}
+        ))}
       </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#072116]/8 bg-white px-5 py-3">
-        <p className="text-[10px] font-medium text-[#072116]/55">
-          {holding.daysSinceReview === 0
-            ? "Reviewed today"
-            : `Last reviewed ${holding.daysSinceReview} days ago`}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleReviewed}
-            disabled={isPending}
-            className="rounded-full border border-[#ddb159] bg-[#faf6f0] px-3 py-1.5 text-[11px] font-bold text-[#072116] transition hover:bg-[#ddb159]/20"
-          >
-            ✓ Mark Reviewed
-          </button>
-          <Link
-            href={`/stock/${holding.ticker}`}
-            className="rounded-full px-3 py-1.5 text-[11px] font-bold transition hover:opacity-90"
-            style={{ backgroundColor: "#072116", color: "#ddb159" }}
-          >
-            Full Analysis →
-          </Link>
-          <button
-            onClick={handleRemove}
-            disabled={isPending}
-            className="rounded-full border border-red-300 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50"
-            title="Remove from portfolio"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddStockForm({
-  cashBalance,
-  stockOptions,
-}: {
-  cashBalance: number;
-  stockOptions: StockOption[];
-}) {
-  const router = useRouter();
-  const [ticker, setTicker] = useState("");
-  const [amount, setAmount] = useState("");
-  const [entryPrice, setEntryPrice] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  const suggestions = useMemo(() => {
-    const query = ticker.trim().toUpperCase();
-
-    if (!query) return stockOptions.slice(0, 8);
-
-    return stockOptions
-      .filter((stock) => {
-        const company = stock.company?.toUpperCase() ?? "";
-        return stock.ticker.toUpperCase().includes(query) || company.includes(query);
-      })
-      .slice(0, 8);
-  }, [stockOptions, ticker]);
-
-  function chooseTicker(stock: StockOption) {
-    setTicker(stock.ticker.toUpperCase());
-    setShowSuggestions(false);
-    setError(null);
-  }
-
-  function handleSubmit() {
-    const cleanTicker = ticker.trim().toUpperCase();
-    const dollarAmount = Number(amount);
-    const selectedStock = stockOptions.find((stock) => stock.ticker === cleanTicker);
-
-    if (!cleanTicker) {
-      setError("Enter a ticker");
-      return;
-    }
-
-    if (!selectedStock) {
-      setError("Choose a ticker from the StockGPT rankings list.");
-      setShowSuggestions(true);
-      return;
-    }
-
-    if (!Number.isFinite(dollarAmount) || dollarAmount <= 0) {
-      setError("Enter how much money to invest");
-      return;
-    }
-
-    if (dollarAmount > cashBalance) {
-      setError(
-        `Not enough available cash. Add $${(dollarAmount - cashBalance).toFixed(
-          2,
-        )} cash or reduce the amount.`,
-      );
-      return;
-    }
-
-    if (entryPrice && (!Number.isFinite(Number(entryPrice)) || Number(entryPrice) <= 0)) {
-      setError("Entry price must be a positive number.");
-      return;
-    }
-
-    setError(null);
-
-    startTransition(async () => {
-      const result = await addHoldingByAmount(
-        cleanTicker,
-        dollarAmount,
-        entryPrice ? Number(entryPrice) : undefined,
-      );
-
-      if (!result.success) {
-        setError(result.error ?? "Could not add holding");
-        return;
-      }
-
-      setTicker("");
-      setAmount("");
-      setEntryPrice("");
-      setShowSuggestions(false);
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="relative z-20 min-w-0 max-w-full overflow-visible rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-      <div className="min-w-0">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-          ✦ Add holding manually
-        </p>
-
-        <p className="mt-1 max-w-[62ch] text-[11px] font-semibold leading-5 text-[#072116]/55">
-          Available cash: ${cashBalance.toLocaleString()}. Search a ticker, enter
-          the amount, and StockGPT calculates shares automatically.
-        </p>
-      </div>
-
-      <div className="mt-4 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.8fr)_minmax(0,0.95fr)_auto]">
-        <div className="relative min-w-0 sm:col-span-2 2xl:col-span-1">
-          <label className="sr-only" htmlFor="manual-holding-ticker">
-            Search ticker
-          </label>
-
-          <input
-            id="manual-holding-ticker"
-            type="text"
-            value={ticker}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => {
-              window.setTimeout(() => setShowSuggestions(false), 120);
-            }}
-            onChange={(event) => {
-              setTicker(event.target.value.toUpperCase());
-              setShowSuggestions(true);
-            }}
-            placeholder="Search ticker"
-            autoComplete="off"
-            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-black uppercase text-[#072116] outline-none transition focus:border-[#ddb159]"
-          />
-
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-[48px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#ddb159]/40 bg-white p-1 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-              {suggestions.map((stock) => (
-                <button
-                  key={stock.ticker}
-                  type="button"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    chooseTicker(stock);
-                  }}
-                  className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[#faf6f0]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-black text-[#072116]">
-                      {stock.ticker}
-                    </p>
-                    <p className="truncate text-[10px] font-semibold text-[#072116]/55">
-                      {stock.company ?? "Unknown company"}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="rounded-full bg-[#072116] px-2 py-0.5 text-[9px] font-black text-[#ddb159]">
-                      #{stock.rank ?? "—"}
-                    </span>
-
-                    {stock.sector && (
-                      <span className="max-w-[96px] truncate text-[9px] font-bold text-[#072116]/40">
-                        {stock.sector}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <label className="sr-only" htmlFor="manual-holding-amount">
-            Amount
-          </label>
-
-          <input
-            id="manual-holding-amount"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="Amount $"
-            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none transition focus:border-[#ddb159]"
-          />
-        </div>
-
-        <div className="min-w-0">
-          <label className="sr-only" htmlFor="manual-holding-entry-price">
-            Entry price
-          </label>
-
-          <input
-            id="manual-holding-entry-price"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            value={entryPrice}
-            onChange={(event) => setEntryPrice(event.target.value)}
-            placeholder="Entry price"
-            className="h-11 w-full min-w-0 rounded-xl border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-semibold text-[#072116] outline-none transition focus:border-[#ddb159]"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isPending}
-          className="h-11 w-full min-w-0 rounded-xl px-4 py-2 text-[13px] font-black text-[#072116] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 2xl:col-span-1 2xl:w-auto 2xl:min-w-[92px]"
-          style={{ backgroundColor: "#ddb159", color: "#072116" }}
-        >
-          {isPending ? "Adding…" : "+ Add"}
-        </button>
-      </div>
-
-      {error && (
-        <p className="mt-2 text-[11px] font-semibold leading-5 text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function AddCashForm() {
-  const router = useRouter();
-  const [amount, setAmount] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function handleSubmit() {
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
-      setError("Enter a positive cash amount");
-      return;
-    }
-
-    setError(null);
-    startTransition(async () => {
-      const result = await addCash(value);
-      if (!result.success) {
-        setError(result.error ?? "Could not add cash");
-        return;
-      }
-
-      setAmount("");
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="min-w-0 rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-        ✦ Add Cash
-      </p>
-      <p className="mt-1 text-[11px] font-semibold leading-5 text-[#072116]/55">
-        Deposits increase available cash and portfolio value, but they do not
-        count as profit.
-      </p>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input
-          type="number"
-          step="0.01"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          placeholder="5000"
-          className="min-w-0 flex-1 rounded-lg border-2 border-[#072116]/10 bg-white px-3 py-2 text-[13px] font-bold text-[#072116] outline-none focus:border-[#ddb159]"
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={isPending}
-          className="rounded-lg px-4 py-2 text-[13px] font-black transition hover:opacity-90 disabled:opacity-60"
-          style={{ backgroundColor: "#ddb159", color: "#072116" }}
-        >
-          {isPending ? "Adding…" : "+ Add Cash"}
-        </button>
-      </div>
-      {error && <p className="mt-2 text-[11px] font-semibold text-red-600">{error}</p>}
     </div>
   );
 }
 
 export function SavedPortfolio({
+  portfolioId,
+  portfolios,
   holdings,
   stockOptions = [],
+  transactions = [],
   portfolioMeta,
   replacements = {},
+  compactImportWidget,
 }: Props) {
-  const [isPending, startTransition] = useTransition();
+  const [filter, setFilter] = useState<HoldingFilter>("all");
+  const [sort, setSort] = useState<HoldingSort>("urgent");
 
-  function handleDeletePortfolio() {
-    if (confirm("Delete your entire portfolio? This cannot be undone.")) {
-      startTransition(() => {
-        deletePortfolio();
-      });
+  const currency = portfolioMeta.currency ?? "USD";
+  const cashBalance = portfolioMeta.cashBalance;
+
+  const filteredHoldings = useMemo(() => {
+    let next = [...holdings];
+
+    if (filter === "action") {
+      next = next.filter((holding) => holding.actionAlerts.length > 0);
     }
-  }
 
-  const cashBalance = Number(portfolioMeta.cashBalance ?? 0);
-  const cashDepositedTotal = Number(
-    portfolioMeta.cashDepositedTotal ?? portfolioMeta.investmentAmount ?? 0,
-  );
-  const holdingsValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-  const totalValue = holdingsValue + cashBalance;
-  const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
-  const inceptionBasis = Math.max(cashDepositedTotal, totalCost, 0);
-  const totalPnLDollars = inceptionBasis > 0 ? totalValue - inceptionBasis : 0;
-  const totalPnLPct = inceptionBasis > 0 ? (totalPnLDollars / inceptionBasis) * 100 : 0;
-  const actionAlerts = holdings.flatMap((holding) => holding.actionAlerts);
-  const eventAlerts = holdings.flatMap((holding) => holding.eventAlerts);
-  const criticalActions = actionAlerts.filter((alert) => alert.severity === "critical").length;
-  const warningActions = actionAlerts.filter((alert) => alert.severity === "warning").length;
-  const buyMoreActions = actionAlerts.filter((alert) => alert.action === "buy_more").length;
-  const sellActions = actionAlerts.filter((alert) => alert.action === "sell").length;
-  const trimActions = actionAlerts.filter((alert) => alert.action === "trim").length;
-  const eventWarnings = eventAlerts.filter(
-    (alert) => alert.severity === "warning" || alert.severity === "critical",
-  ).length;
-  const avgScore =
-    holdings.length > 0
-      ? Math.round(holdings.reduce((sum, holding) => sum + holding.score, 0) / holdings.length)
-      : 0;
+    if (filter === "winners") {
+      next = next.filter((holding) => holding.totalPnLDollars > 0);
+    }
+
+    if (filter === "losers") {
+      next = next.filter((holding) => holding.totalPnLDollars < 0);
+    }
+
+    if (filter === "recent") {
+      next = next.filter((holding) => holding.isRecentlyAdded);
+    }
+
+    if (filter === "oversized") {
+      next = next.filter(isOversized);
+    }
+
+    next.sort((a, b) => {
+      if (sort === "urgent") return holdingUrgencyScore(b) - holdingUrgencyScore(a);
+      if (sort === "value") return b.currentValue - a.currentValue;
+      if (sort === "worst") return a.pnlPercent - b.pnlPercent;
+      if (sort === "best") return b.pnlPercent - a.pnlPercent;
+      if (sort === "rank") return (a.rank ?? 9999) - (b.rank ?? 9999);
+      return a.ticker.localeCompare(b.ticker);
+    });
+
+    return next;
+  }, [filter, holdings, sort]);
 
   return (
-    <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
-      <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-4 py-4 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-5 sm:py-5">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-              ✦ {portfolioMeta.name}
-            </p>
-            <h1 className="mt-1 text-[24px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[28px]">
-              ${totalValue.toLocaleString()} ·{" "}
-              <span className={totalPnLPct >= 0 ? "text-emerald-400" : "text-red-400"}>
-                {totalPnLPct >= 0 ? "+" : ""}
-                {totalPnLPct.toFixed(1)}%
-              </span>
-            </h1>
-            <p className="mt-1 text-[12px] font-medium leading-5 text-[#faf6f0]/55">
-              {holdings.length} {holdings.length === 1 ? "holding" : "holdings"} · Holdings $
-              {holdingsValue.toLocaleString()} · Cash ${cashBalance.toLocaleString()} · P/L{" "}
-              {totalPnLDollars >= 0 ? "+" : "−"}${Math.abs(totalPnLDollars).toLocaleString()}
-              {(portfolioMeta.riskTolerance || portfolioMeta.timeHorizon) && (
-                <span className="capitalize">
-                  {" "}
-                  · {portfolioMeta.riskTolerance ?? ""}
-                  {portfolioMeta.riskTolerance && portfolioMeta.timeHorizon && " · "}
-                  {portfolioMeta.timeHorizon === "short"
-                    ? "3–5 yrs"
-                    : portfolioMeta.timeHorizon === "medium"
-                      ? "5–10 yrs"
-                      : portfolioMeta.timeHorizon === "long"
-                        ? "10+ yrs"
-                        : ""}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/portfolio?builder=1"
-              className="rounded-full border border-[#ddb159]/40 px-4 py-2 text-[12px] font-bold text-[#ddb159] transition hover:border-[#ddb159] hover:bg-[#ddb159]/10"
-            >
-              + New Portfolio
-            </Link>
-            <button
-              onClick={handleDeletePortfolio}
-              disabled={isPending}
-              className="rounded-full border border-red-400/40 px-3 py-2 text-[11px] font-bold text-red-400 transition hover:border-red-400 hover:bg-red-500/10"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+      <PortfolioControls
+        portfolioId={portfolioId}
+        portfolioName={portfolioMeta.name}
+        portfolios={portfolios}
+      />
 
-        <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
-              Holdings
-            </p>
-            <p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">
-              {holdings.length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
-              Avg AI Score
-            </p>
-            <p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">
-              {avgScore.toLocaleString()}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
-              Action Alerts
-            </p>
-            <p
-              className={`mt-0.5 text-[18px] font-black ${
-                actionAlerts.length > 0 ? "text-amber-400" : "text-emerald-400"
-              }`}
-            >
-              {actionAlerts.length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#ddb159]/15 bg-[#072116]/60 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#ddb159]/80">
-              Cash
-            </p>
-            <p className="mt-0.5 text-[18px] font-black text-[#faf6f0]">
-              ${cashBalance.toLocaleString()}
-            </p>
-          </div>
-        </div>
+      <SummaryCard
+        portfolioMeta={portfolioMeta}
+        holdings={holdings}
+        transactions={transactions}
+      />
 
-        {(actionAlerts.length > 0 || eventWarnings > 0) && (
-          <div className="relative mt-3 flex flex-wrap gap-2">
-            {criticalActions > 0 && (
-              <span className="rounded-full bg-red-600 px-3 py-1 text-[11px] font-black text-white">
-                ⚠ {criticalActions} critical action
-              </span>
-            )}
-            {warningActions > 0 && (
-              <span className="rounded-full bg-amber-500 px-3 py-1 text-[11px] font-black text-white">
-                {warningActions} trim/review action
-              </span>
-            )}
-            {sellActions > 0 && (
-              <span className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-black text-white">
-                {sellActions} sell
-              </span>
-            )}
-            {trimActions > 0 && (
-              <span className="rounded-full bg-amber-500 px-3 py-1 text-[11px] font-black text-white">
-                {trimActions} trim
-              </span>
-            )}
-            {buyMoreActions > 0 && (
-              <span className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-black text-white">
-                {buyMoreActions} buy more
-              </span>
-            )}
-            {eventWarnings > 0 && (
-              <span className="rounded-full bg-[#faf6f0] px-3 py-1 text-[11px] font-black text-[#072116]">
-                {eventWarnings} event warning{eventWarnings === 1 ? "" : "s"}
-              </span>
-            )}
-          </div>
-        )}
+      <div className="grid min-w-0 max-w-full gap-3 xl:grid-cols-3">
+        <AddCashWidget portfolioId={portfolioId} currency={currency} />
+
+        <ManualHoldingWidget
+          portfolioId={portfolioId}
+          stockOptions={stockOptions}
+          cashBalance={cashBalance}
+          currency={currency}
+        />
+
+        <div className="min-w-0">{compactImportWidget}</div>
       </div>
 
-      <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-        <AddCashForm />
-        <AddStockForm cashBalance={cashBalance} stockOptions={stockOptions} />
+      <div className="min-w-0 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-3 text-[#faf6f0]">
+        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+              Holdings
+            </p>
+            <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">
+              Filter by action needed, winners, losers, recent additions or
+              oversized positions.
+            </p>
+          </div>
+
+          <div className="grid min-w-0 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <select
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as HoldingFilter)}
+              className="h-10 min-w-0 rounded-2xl border border-[#ddb159]/20 bg-[#04180f] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] outline-none focus:border-[#ddb159]"
+            >
+              <option value="all">All holdings</option>
+              <option value="action">Action needed</option>
+              <option value="winners">Winners</option>
+              <option value="losers">Losers</option>
+              <option value="recent">Recently added</option>
+              <option value="oversized">Oversized</option>
+            </select>
+
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as HoldingSort)}
+              className="h-10 min-w-0 rounded-2xl border border-[#ddb159]/20 bg-[#04180f] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] outline-none focus:border-[#ddb159]"
+            >
+              <option value="urgent">Most urgent</option>
+              <option value="value">Highest value</option>
+              <option value="worst">Worst P&L</option>
+              <option value="best">Best P&L</option>
+              <option value="rank">Best rank</option>
+              <option value="ticker">Ticker A-Z</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {holdings.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#ddb159]/25 bg-[#061b12]/50 p-8 text-center">
-          <p className="text-[14px] font-bold text-[#faf6f0]">No holdings yet</p>
-          <p className="mt-1 text-[12px] font-medium text-[#faf6f0]/50">
-            Add stocks above, import from Trading 212, or generate a new AI
-            portfolio.
+        <div className="min-w-0 rounded-3xl border border-dashed border-[#ddb159]/24 bg-[#061b12]/72 p-6 text-center text-[#faf6f0]">
+          <p className="text-[24px] font-black tracking-[-0.05em]">
+            No holdings yet.
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/52">
+            Add cash, log an existing holding, import from Trading 212, or build
+            a new AI portfolio.
+          </p>
+        </div>
+      ) : filteredHoldings.length === 0 ? (
+        <div className="min-w-0 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-5 text-[#faf6f0]">
+          <p className="text-[16px] font-black">No holdings match this filter.</p>
+          <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">
+            Try changing the filter or sort option.
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {holdings.map((holding) => (
+        <div className="grid min-w-0 gap-3">
+          {filteredHoldings.map((holding) => (
             <HoldingRow
               key={holding.ticker}
+              portfolioId={portfolioId}
               holding={holding}
               replacement={replacements[holding.ticker]}
+              cashBalance={cashBalance}
+              currency={currency}
             />
           ))}
         </div>
       )}
 
-      <p className="px-2 text-[11px] font-medium leading-relaxed text-[#faf6f0]/40">
-        ⚠️ StockGPT alerts are generated from current rankings, factor
-        diagnostics, portfolio data, price action and recent news. They are not
-        financial advice.
+      <TransactionHistory transactions={transactions} currency={currency} />
+
+      <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">
+        ⚠️ StockGPT portfolio alerts are generated from rankings, factor
+        diagnostics, portfolio data, price action and recent news. They are
+        research tools, not financial advice.
       </p>
     </div>
   );
