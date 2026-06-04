@@ -76,6 +76,11 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
   phone: string;
   email: string;
   password: string;
+  marketingConsent: boolean;
+  emailConsent: boolean;
+  termsAccepted: boolean;
+  newsletterDigestConsent: boolean;
+  consentCapturedAt: string;
 }> {
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
 
@@ -85,6 +90,11 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
   const phone = cleanString(record.phone, 25);
   const email = cleanEmail(record.email);
   const password = typeof record.password === "string" ? record.password : "";
+
+  const marketingConsent = record.marketingConsent === true;
+  const emailConsent = record.emailConsent === true;
+  const termsAccepted = record.termsAccepted === true;
+  const newsletterDigestConsent = record.newsletterDigestConsent === true;
 
   if (!firstName || !lastName || !dob || !email || !password) {
     return {
@@ -136,6 +146,20 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
     };
   }
 
+  if (!emailConsent) {
+    return {
+      ok: false,
+      message: "Please confirm email consent so we can send account and security emails.",
+    };
+  }
+
+  if (!termsAccepted) {
+    return {
+      ok: false,
+      message: "Please accept the terms and conditions to create an account.",
+    };
+  }
+
   return {
     ok: true,
     data: {
@@ -146,6 +170,11 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
       phone,
       email,
       password,
+      marketingConsent,
+      emailConsent,
+      termsAccepted,
+      newsletterDigestConsent,
+      consentCapturedAt: new Date().toISOString(),
     },
   };
 }
