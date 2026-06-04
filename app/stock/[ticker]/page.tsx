@@ -28,10 +28,27 @@ type Stock = {
   price: number | string | null;
 };
 
+type PortfolioOption = {
+  id: string;
+  name: string;
+  cashBalance: number;
+  currency: string;
+};
+
 function formatDaysAtTop(days: number | null) {
   if (days == null) return "Tracking";
   if (days <= 0) return "0";
   return days.toLocaleString();
+}
+
+function safeNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function cleanPortfolioName(name: string | null | undefined, index: number) {
+  const cleaned = String(name ?? "").trim();
+  return cleaned || `Portfolio ${index + 1}`;
 }
 
 function LockIcon({ className = "size-3" }: { className?: string }) {
@@ -533,6 +550,32 @@ export default async function StockDetailPage({
   const isAuthenticated = !!user;
   const canSeeRankAndScore = isAuthenticated;
 
+  let portfolioOptions: PortfolioOption[] = [];
+  let defaultPortfolioId: string | null = null;
+
+  if (user) {
+    const { data: portfoliosData } = await (supabase as any)
+      .from("user_portfolios")
+      .select("id,name,cash_balance,currency,created_at")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: true });
+
+    portfolioOptions = ((portfoliosData ?? []) as Array<{
+      id: string;
+      name: string | null;
+      cash_balance: number | null;
+      currency: string | null;
+    }>).map((portfolio, index) => ({
+      id: portfolio.id,
+      name: cleanPortfolioName(portfolio.name, index),
+      cashBalance: safeNumber(portfolio.cash_balance, 0),
+      currency: portfolio.currency ?? "USD",
+    }));
+
+    defaultPortfolioId = portfolioOptions[0]?.id ?? null;
+  }
+
   const [
     tradeLevels,
     watchlistEntry,
@@ -703,6 +746,8 @@ export default async function StockDetailPage({
                   ticker={ticker}
                   price={livePrice}
                   isAuthenticated={isAuthenticated}
+                  portfolios={portfolioOptions}
+                  defaultPortfolioId={defaultPortfolioId}
                 />
               </div>
             </div>

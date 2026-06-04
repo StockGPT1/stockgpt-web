@@ -48,9 +48,14 @@ type PortfolioRow = {
   risk_tolerance: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
+  cash_balance: number | null;
+  cash_deposited_total: number | null;
+  currency: string | null;
+  created_at: string | null;
 };
 
 type PortfolioHoldingRow = {
+  portfolio_id: string;
   ticker: string | null;
   entry_price: number | null;
   score_at_entry: number | null;
@@ -59,6 +64,23 @@ type PortfolioHoldingRow = {
   last_reviewed_at: string | null;
   shares: number | null;
   allocation_pct: number | null;
+  purchase_date: string | null;
+  source: string | null;
+  notes: string | null;
+};
+
+type PortfolioTransactionRow = {
+  id: string;
+  portfolio_id: string;
+  ticker: string | null;
+  type: string | null;
+  shares: number | null;
+  price: number | null;
+  amount: number | null;
+  realised_pnl: number | null;
+  currency: string | null;
+  notes: string | null;
+  created_at: string | null;
 };
 
 type OpenRouterResponse = {
@@ -76,7 +98,9 @@ const CHAT_LOG_DAYS = 7;
 const MAX_STORED_MESSAGES = 80;
 
 function sevenDaysAgoIso() {
-  return new Date(Date.now() - CHAT_LOG_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return new Date(
+    Date.now() - CHAT_LOG_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
 }
 
 function cleanQuestion(value: unknown) {
@@ -108,6 +132,16 @@ function cleanHistory(value: unknown): ChatMessage[] {
 function safeNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function finiteNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function cleanPortfolioName(name: string | null | undefined, index: number) {
+  const cleaned = String(name ?? "").trim();
+  return cleaned || `Portfolio ${index + 1}`;
 }
 
 async function requireSubscribedUser(
@@ -243,6 +277,21 @@ function compactNews(rows: NewsRow[]) {
   }));
 }
 
+function compactTransaction(row: PortfolioTransactionRow) {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    type: row.type,
+    shares: safeNumber(row.shares),
+    price: safeNumber(row.price),
+    amount: safeNumber(row.amount),
+    realised_pnl: safeNumber(row.realised_pnl),
+    currency: row.currency ?? "USD",
+    notes: row.notes,
+    created_at: row.created_at,
+  };
+}
+
 function compactHolding(holding: EnrichedHolding) {
   const stopTrigger = holding.triggers.find(
     (trigger) => trigger.type === "stop_loss",
@@ -280,6 +329,9 @@ function compactHolding(holding: EnrichedHolding) {
     days_since_review: holding.daysSinceReview,
     added_at: holding.addedAt,
     last_reviewed_at: holding.lastReviewedAt,
+    purchase_date: holding.purchaseDate,
+    source: holding.source,
+    notes: holding.notes,
     sector_momentum: holding.sectorMomentum,
     sector_bullish_pct: holding.sectorBullishPct,
     ai_summary: holding.aiSummary,
@@ -346,8 +398,16 @@ function compactHolding(holding: EnrichedHolding) {
   };
 }
 
-function buildPortfolioSummary(holdings: EnrichedHolding[]) {
-  const totalValue = holdings.reduce(
+function buildPortfolioSummary({
+  holdings,
+  portfolio,
+  transactions,
+}: {
+  holdings: EnrichedHolding[];
+  portfolio: PortfolioRow;
+  transactions: PortfolioTransactionRow[];
+}) {
+  const holdingsValue = holdings.reduce(
     (sum, holding) => sum + holding.currentValue,
     0,
   );
@@ -355,11 +415,24 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
     (sum, holding) => sum + holding.costBasis,
     0,
   );
-  const totalPnL = holdings.reduce(
+  const unrealisedPnL = holdings.reduce(
     (sum, holding) => sum + holding.totalPnLDollars,
     0,
   );
-  const pnlPct = totalCost > 0 ? (totalPnL / totalCost) * 100 : null;
+  const realisedPnL = transactions.reduce(
+    (sum, transaction) => sum + finiteNumber(transaction.realised_pnl, 0),
+    0,
+  );
+
+  const cashBalance = finiteNumber(portfolio.cash_balance, 0);
+  const totalValue = holdingsValue + cashBalance;
+  const totalPnL = unrealisedPnL + realisedPnL;
+  const cashDepositedTotal = finiteNumber(
+    portfolio.cash_deposited_total,
+    finiteNumber(portfolio.investment_amount, totalCost + cashBalance),
+  );
+  const pnlPct =
+    cashDepositedTotal > 0 ? (totalPnL / cashDepositedTotal) * 100 : null;
 
   const actionAlerts = holdings.flatMap((holding) =>
     holding.actionAlerts.map((alert) => ({
@@ -413,12 +486,27 @@ function buildPortfolioSummary(holdings: EnrichedHolding[]) {
       recommendation: holding.recommendation,
     }));
 
+  const avgScore =
+    holdings.length > 0
+      ? holdings.reduce((sum, holding) => sum + holding.score, 0) /
+        holdings.length
+      : null;
+
+  const cashPct = totalValue > 0 ? (cashBalance / totalValue) * 100 : null;
+
   return {
     total_value: Number(totalValue.toFixed(2)),
+    holdings_value: Number(holdingsValue.toFixed(2)),
+    cash_balance: Number(cashBalance.toFixed(2)),
+    cash_percent: cashPct === null ? null : Number(cashPct.toFixed(2)),
     total_cost_basis: Number(totalCost.toFixed(2)),
+    cash_deposited_total: Number(cashDepositedTotal.toFixed(2)),
+    unrealised_pnl_dollars: Number(unrealisedPnL.toFixed(2)),
+    realised_pnl_dollars: Number(realisedPnL.toFixed(2)),
     total_pnl_dollars: Number(totalPnL.toFixed(2)),
     total_pnl_percent: pnlPct === null ? null : Number(pnlPct.toFixed(2)),
     holdings_count: holdings.length,
+    average_score: avgScore === null ? null : Number(avgScore.toFixed(0)),
     action_alerts: actionAlerts,
     event_alerts: eventAlerts,
     sector_exposure_pct: Object.fromEntries(
@@ -560,6 +648,48 @@ function looksLikeGeneralLearningQuestion(question: string) {
   ].some((term) => q.includes(term));
 }
 
+function compactPortfolioMeta(portfolio: PortfolioRow, index: number) {
+  return {
+    id: portfolio.id,
+    name: cleanPortfolioName(portfolio.name, index),
+    risk_tolerance: portfolio.risk_tolerance,
+    time_horizon: portfolio.time_horizon,
+    investment_amount: safeNumber(portfolio.investment_amount),
+    cash_balance: safeNumber(portfolio.cash_balance),
+    cash_deposited_total: safeNumber(portfolio.cash_deposited_total),
+    currency: portfolio.currency ?? "USD",
+    created_at: portfolio.created_at,
+  };
+}
+
+async function safelyReadTransactions(
+  supabase: ServerSupabaseClient,
+  portfolioIds: string[],
+): Promise<PortfolioTransactionRow[]> {
+  if (portfolioIds.length === 0) return [];
+
+  try {
+    const { data, error } = await (supabase as any)
+      .from("portfolio_transactions")
+      .select(
+        "id,portfolio_id,ticker,type,shares,price,amount,realised_pnl,currency,notes,created_at",
+      )
+      .in("portfolio_id", portfolioIds)
+      .order("created_at", { ascending: false })
+      .limit(120);
+
+    if (error) {
+      console.warn("[ask-stockgpt] Could not read transactions", error);
+      return [];
+    }
+
+    return (data ?? []) as PortfolioTransactionRow[];
+  } catch (error) {
+    console.warn("[ask-stockgpt] Transactions unavailable", error);
+    return [];
+  }
+}
+
 async function buildAppContext(
   supabase: ServerSupabaseClient,
   userId: string,
@@ -578,7 +708,9 @@ async function buildAppContext(
 
     supabase
       .from("news_articles")
-      .select("title,summary,source,affected_tickers,impact,impact_reason,published_at")
+      .select(
+        "title,summary,source,affected_tickers,impact,impact_reason,published_at",
+      )
       .order("published_at", { ascending: false })
       .limit(50),
   ]);
@@ -600,7 +732,7 @@ async function buildAppContext(
   [...((topRankingsData ?? []) as RankingRow[]), ...mentionedRankingsData]
     .filter((row) => Boolean(row.ticker))
     .forEach((row) => {
-      rankingMap.set(row.ticker as string, row);
+      rankingMap.set(String(row.ticker), row);
     });
 
   const suppliedRankings = compactRankings([...rankingMap.values()]);
@@ -608,66 +740,116 @@ async function buildAppContext(
   const latestRankingUpdate =
     suppliedRankings.map((row) => row.updated_at).find(Boolean) ?? null;
 
-  let portfolio: null | {
-    meta: PortfolioRow;
-    summary: ReturnType<typeof buildPortfolioSummary>;
-    holdings: ReturnType<typeof compactHolding>[];
-  } = null;
-
-  const { data: savedPortfolio } = await supabase
+  const { data: portfoliosData } = await (supabase as any)
     .from("user_portfolios")
-    .select("id,name,risk_tolerance,time_horizon,investment_amount")
+    .select(
+      "id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
+    )
     .eq("user_id", userId)
-    .maybeSingle();
+    .is("archived_at", null)
+    .order("created_at", { ascending: true });
 
-  if (savedPortfolio) {
-    const portfolioRow = savedPortfolio as PortfolioRow;
+  const portfolios = ((portfoliosData ?? []) as PortfolioRow[]).map(
+    (portfolio) => ({
+      ...portfolio,
+      currency: portfolio.currency ?? "USD",
+      cash_balance: finiteNumber(portfolio.cash_balance, 0),
+      cash_deposited_total: finiteNumber(
+        portfolio.cash_deposited_total,
+        finiteNumber(portfolio.investment_amount, 0),
+      ),
+      investment_amount: finiteNumber(portfolio.investment_amount, 0),
+    }),
+  );
 
-    const { data: holdingsData } = await supabase
-      .from("portfolio_holdings")
-      .select(
-        "ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct",
-      )
-      .eq("portfolio_id", portfolioRow.id)
-      .order("added_at", { ascending: false });
+  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
-    const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
-      .filter((holding) => Boolean(holding.ticker))
-      .map((holding) => ({
-        ticker: holding.ticker as string,
-        entry_price: holding.entry_price,
-        score_at_entry: holding.score_at_entry,
-        rank_at_entry: holding.rank_at_entry,
-        shares: holding.shares,
-        allocation_pct: holding.allocation_pct,
-        added_at: holding.added_at ?? new Date().toISOString(),
-        last_reviewed_at:
-          holding.last_reviewed_at ??
-          holding.added_at ??
-          new Date().toISOString(),
-      }));
+  const [{ data: holdingsData }, transactions] = await Promise.all([
+    portfolioIds.length > 0
+      ? (supabase as any)
+          .from("portfolio_holdings")
+          .select(
+            "portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes",
+          )
+          .in("portfolio_id", portfolioIds)
+          .order("added_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
 
-    const enriched = await enrichHoldings(
-      rawHoldings,
-      (portfolioRow.risk_tolerance as RiskTolerance) ?? null,
-    );
+    safelyReadTransactions(supabase, portfolioIds),
+  ]);
 
-    portfolio = {
-      meta: portfolioRow,
-      summary: buildPortfolioSummary(enriched),
-      holdings: enriched.map(compactHolding),
-    };
-  }
+  const allRawHoldings = (holdingsData ?? []) as PortfolioHoldingRow[];
+
+  const portfolioContexts = await Promise.all(
+    portfolios.map(async (portfolio, index) => {
+      const portfolioName = cleanPortfolioName(portfolio.name, index);
+      const rawHoldings = allRawHoldings
+        .filter(
+          (holding) => holding.portfolio_id === portfolio.id && holding.ticker,
+        )
+        .map((holding) => ({
+          ticker: String(holding.ticker).toUpperCase(),
+          entry_price: holding.entry_price,
+          score_at_entry: holding.score_at_entry,
+          rank_at_entry: holding.rank_at_entry,
+          shares: holding.shares,
+          allocation_pct: holding.allocation_pct,
+          added_at: holding.added_at ?? new Date().toISOString(),
+          last_reviewed_at:
+            holding.last_reviewed_at ??
+            holding.added_at ??
+            new Date().toISOString(),
+          purchase_date: holding.purchase_date ?? null,
+          source: holding.source ?? null,
+          notes: holding.notes ?? null,
+        }));
+
+      const portfolioTransactions = transactions.filter(
+        (transaction) => transaction.portfolio_id === portfolio.id,
+      );
+
+      const enriched = await enrichHoldings(
+        rawHoldings,
+        (portfolio.risk_tolerance as RiskTolerance) ?? null,
+      );
+
+      const compactHoldings = enriched.map(compactHolding);
+      const mentionedHoldings = compactHoldings.filter((holding) =>
+        possibleTickers.includes(holding.ticker),
+      );
+
+      return {
+        meta: compactPortfolioMeta(portfolio, index),
+        summary: buildPortfolioSummary({
+          holdings: enriched,
+          portfolio,
+          transactions: portfolioTransactions,
+        }),
+        mentioned_holdings: mentionedHoldings,
+        holdings: compactHoldings,
+        recent_transactions: portfolioTransactions
+          .slice(0, 12)
+          .map(compactTransaction),
+      };
+    }),
+  );
+
+  const allCompactHoldings = portfolioContexts.flatMap((portfolio) =>
+    portfolio.holdings.map((holding) => ({
+      ...holding,
+      portfolio_id: portfolio.meta.id,
+      portfolio_name: portfolio.meta.name,
+    })),
+  );
+
+  const mentionedHoldings = allCompactHoldings.filter((holding) =>
+    possibleTickers.includes(holding.ticker),
+  );
 
   const mentionedRankings = suppliedRankings.filter(
     (ranking) =>
       ranking.ticker !== null && possibleTickers.includes(ranking.ticker),
   );
-
-  const mentionedHoldings =
-    portfolio?.holdings.filter((holding) =>
-      possibleTickers.includes(holding.ticker),
-    ) ?? [];
 
   const relevantNews = news.filter((article) => {
     const tickers = Array.isArray(article.affected_tickers)
@@ -680,6 +862,11 @@ async function buildAppContext(
     );
   });
 
+  const questionLower = question.toLowerCase();
+  const nameMatchedPortfolios = portfolioContexts.filter((portfolio) =>
+    questionLower.includes(String(portfolio.meta.name).toLowerCase()),
+  );
+
   return {
     user_status: "signed_in_subscribed",
     data_as_of: new Date().toISOString(),
@@ -688,6 +875,9 @@ async function buildAppContext(
       possible_tickers: possibleTickers,
       membership_question: isMembershipQuestion,
       learning_question: isLearningQuestion,
+      mentioned_portfolio_names: nameMatchedPortfolios.map(
+        (portfolio) => portfolio.meta.name,
+      ),
     },
     rankings_context: {
       total_rankings_supplied: suppliedRankings.length,
@@ -695,17 +885,20 @@ async function buildAppContext(
       mentioned_rankings: mentionedRankings,
       note: "Top rankings are limited for context. Mentioned tickers are separately supplied when available.",
     },
-    portfolio_context: portfolio
-      ? {
-          meta: portfolio.meta,
-          summary: portfolio.summary,
-          mentioned_holdings: mentionedHoldings,
-          holdings: portfolio.holdings,
-        }
-      : {
-          available: false,
-          reason: "No saved portfolio found.",
-        },
+    portfolio_context:
+      portfolioContexts.length > 0
+        ? {
+            available: true,
+            portfolios_count: portfolioContexts.length,
+            portfolios: portfolioContexts,
+            mentioned_holdings: mentionedHoldings,
+            name_matched_portfolios: nameMatchedPortfolios,
+            note: "The user may have multiple portfolios. Always specify which portfolio you are referring to if the answer depends on portfolio data.",
+          }
+        : {
+            available: false,
+            reason: "No saved portfolio found.",
+          },
     news_context: {
       latest_news: news.slice(0, 20),
       relevant_news: relevantNews.slice(0, 12),
@@ -722,11 +915,17 @@ async function buildAppContext(
         "100 means rank #1 / best. 0 means bottom of ranked universe.",
       score_percentile:
         "Higher is better. Scores are relative to the supplied StockGPT ranking universe.",
-      pnl: "P&L values are based on saved entry price, shares, and current StockGPT price context.",
+      pnl: "P&L values are based on saved entry price, shares, current StockGPT price context and recorded realised P&L where available.",
+      cash:
+        "Cash is part of total portfolio value. Deposits increase available cash and deposited basis, not profit.",
+      realised_vs_unrealised:
+        "Unrealised P&L comes from open holdings. Realised P&L comes from recorded sell transactions.",
       action_alerts:
         "Action alerts are stronger than event alerts. Event alerts mean something changed. Action alerts mean the system sees enough evidence to buy more, trim, sell, or review.",
       action_plan:
         "Use each holding's action_plan triggers for stop-loss, take-profit, and review timing.",
+      multiple_portfolios:
+        "If multiple portfolios exist, compare them only when useful and do not merge them unless the user asks for an overall view.",
       missing_data:
         "If exact information is missing, state what is missing. Never invent numbers.",
     },
@@ -737,38 +936,51 @@ const systemPrompt = `
 You are Ask StockGPT, the premium AI coach inside StockGPT.
 
 Core identity:
-- You are a calm, sharp, human-sounding market coach.
-- You are not a basic support bot.
-- You can handle imperfect grammar, vague prompts, short messages, follow-ups, and casual conversation.
-- If the user says something like "hi", "what do you mean", "explain more", "what about that", or asks a follow-up, infer the likely context from the conversation history.
-- Keep the conversation flowing naturally.
+- You help users understand StockGPT rankings, portfolio alerts, market news and investing concepts.
+- You can answer natural, imperfectly written questions.
+- You can handle follow-ups and continue the thread from recent chat history.
+- You are not a regulated financial adviser.
+- You give research-based decision support, not guaranteed instructions.
 
-What you can discuss:
-- Saved portfolio questions.
-- StockGPT rankings, scores, sectors, alerts, stop-losses, take-profit levels, review dates, exposure and P&L.
-- Recent news supplied by the app.
-- General investing/trading concepts.
-- General non-stock conversation, as long as it is safe and reasonable.
-- Membership, subscription, billing and account-management questions.
+Portfolio rules:
+- Users can have multiple portfolios.
+- If the user has multiple portfolios, clearly say which portfolio you are analysing.
+- Do not silently merge portfolios unless the user asks for an overall view.
+- If a ticker appears in multiple portfolios, compare the position across portfolios.
+- Use portfolio-specific cash, holdings, P&L, alerts and transaction history where supplied.
+- Cash is part of portfolio value but deposits are not profit.
+- Realised P&L comes from recorded sell transactions.
+- Unrealised P&L comes from open holdings.
+- If a portfolio has no holdings, say so directly.
 
-Accuracy rules:
-- For portfolio, ranking, price, news, alert, billing or account-specific details, use only the supplied app context.
-- Do not invent prices, scores, ranks, allocations, dates, news, subscriptions, invoices, refunds or account status.
-- If exact app data is missing, say what is missing.
-- For general concepts, you may explain using normal financial education.
-- For current market facts not supplied in context, say you do not have that data in the app context.
+StockGPT data rules:
+- Use the supplied app context first.
+- Do not invent ranks, prices, scores, holdings, cash balances, subscription details or news.
+- If a value is missing, say what is missing.
+- Rank #1 is best.
+- Higher score and higher percentile are better.
+- Action alerts are stronger than event alerts.
+- Event alerts mean something changed.
+- Action alerts mean the system sees enough evidence to buy more, trim, sell or review.
+- If there is no action alert, do not force a buy/sell answer.
+- When useful, distinguish between "hold", "review", "trim", "sell" and "buy more".
+
+Safety and financial guidance:
 - Do not guarantee returns.
+- Do not claim certainty.
+- Do not tell the user that they will definitely make money.
 - Do not claim to be a regulated financial adviser.
+- Avoid blanket instructions like "you should buy this now" unless phrased as research-based and conditional.
 
 Coaching rules:
 - Start with the practical answer.
 - Then give the evidence or reasoning.
-- If there is no action alert, do not force a buy/sell answer.
-- Action alerts are stronger than event alerts.
-- Event alerts mean something changed.
-- Action alerts mean the system sees enough evidence to buy more, trim, sell or review.
+- Use short headings when helpful.
+- Use bullets for decisions.
+- Be direct and helpful.
 - If the user is learning a concept, explain it simply first, then give an example.
 - If the user asks a follow-up about the same concept, continue from the prior explanation rather than restarting.
+- If the user asks what to do with a holding, use action alerts, rank, score, P&L, allocation and news together.
 
 Membership rules:
 - Give general guidance only.
@@ -778,10 +990,8 @@ Membership rules:
 
 Style:
 - Sound premium but natural.
-- Use short headings when helpful.
-- Use bullets for decisions.
-- Avoid long disclaimers.
 - Be concise, but not robotic.
+- Avoid long disclaimers.
 `.trim();
 
 export async function GET() {
@@ -863,14 +1073,17 @@ export async function POST(req: NextRequest) {
 
     const storedHistory = await readRecentChatMessages(supabase, access.userId);
 
-    const fallbackHistory = cleanHistory(body?.messages).filter((message, index, arr) => {
-      const isLast = index === arr.length - 1;
-      return !(
-        isLast &&
-        message.role === "user" &&
-        message.content.trim().toLowerCase() === question.trim().toLowerCase()
-      );
-    });
+    const fallbackHistory = cleanHistory(body?.messages).filter(
+      (message, index, arr) => {
+        const isLast = index === arr.length - 1;
+
+        return !(
+          isLast &&
+          message.role === "user" &&
+          message.content.trim().toLowerCase() === question.trim().toLowerCase()
+        );
+      },
+    );
 
     const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
 
