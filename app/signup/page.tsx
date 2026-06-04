@@ -32,6 +32,7 @@ function ConsentCheckbox({
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5 h-4 w-4 shrink-0 accent-[#ddb159]"
       />
+
       <span className="text-[11px] font-semibold leading-relaxed text-[#faf6f0]/70 sm:text-[12px]">
         {children}
       </span>
@@ -97,7 +98,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="relative flex min-h-dvh w-full items-start justify-center overflow-x-hidden overflow-y-auto bg-[#0F2A1F] px-4 py-5 text-[#faf6f0] sm:h-dvh sm:items-center sm:overflow-hidden sm:px-6 sm:py-4">
+    <main className="relative flex h-[100svh] w-full items-start justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#0F2A1F] px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] text-[#faf6f0] [-webkit-overflow-scrolling:touch] sm:h-dvh sm:items-center sm:overflow-hidden sm:px-6 sm:py-4">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(221,177,89,0.16),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_50%_95%,rgba(221,177,89,0.10),transparent_32%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.045)_0_1px,transparent_1px_42px)] opacity-30" />
