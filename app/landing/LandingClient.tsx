@@ -619,9 +619,12 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
             </div>
 
             <div className="sm:hidden">
-              <SignupButton compact variant="gold">
-                Sign up
-              </SignupButton>
+              <Link
+                href="/login"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-[#ddb159] bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.16em] !text-[#061b12] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
+              >
+                Log in
+              </Link>
             </div>
           </div>
         </header>
