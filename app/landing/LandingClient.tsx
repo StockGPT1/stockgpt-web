@@ -160,6 +160,26 @@ function SocialIcon({ label }: { label: string }) {
   );
 }
 
+function StartupBaseBadge() {
+  return (
+    <a
+      href="https://startupbase.io/products/stockgpt?utm_source=startupbase&utm_medium=badge&utm_campaign=launch-badge-neutral"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="View StockGPT on StartupBase"
+      className="inline-flex w-fit max-w-full items-center justify-center rounded-2xl border border-white/12 bg-white/[0.04] px-3 py-2 transition-colors hover:border-[#ddb159]/45 hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="https://statics.startupbase.io/site/badges/launched-on-sb-neutral.svg"
+        alt="Launched on StartupBase"
+        height={55}
+        className="h-[44px] w-auto max-w-full sm:h-[55px]"
+      />
+    </a>
+  );
+}
+
 function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   if (tickerTape.length === 0) {
     return (
@@ -929,6 +949,13 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
               <div className="mt-5">
                 <LegalFooterLinks className="text-white/50" />
+              </div>
+
+              <div className="mt-6">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/32">
+                  Launch badge
+                </p>
+                <StartupBaseBadge />
               </div>
             </div>
 
