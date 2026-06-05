@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
 import {
   importTrading212Csv,
   previewTrading212Csv,
@@ -59,9 +59,11 @@ function ResultStat({
 function ImportPanel({
   portfolioId,
   onComplete,
+  onRequestClose,
 }: {
   portfolioId?: string | null;
   onComplete?: () => void;
+  onRequestClose?: () => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -171,7 +173,11 @@ function ImportPanel({
         imported > 0
           ? `Preview ready: ${imported} supported holding${
               imported === 1 ? "" : "s"
-            } found.${skipped > 0 ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.` : ""}`
+            } found.${
+              skipped > 0
+                ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.`
+                : ""
+            }`
           : "No supported S&P 500 holdings were found in this CSV.",
       );
     });
@@ -229,7 +235,11 @@ function ImportPanel({
 
       setMessage(
         imported > 0
-          ? `Imported ${imported} holding${imported === 1 ? "" : "s"} into this portfolio.${skipped > 0 ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.` : ""}`
+          ? `Imported ${imported} holding${imported === 1 ? "" : "s"} into this portfolio.${
+              skipped > 0
+                ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.`
+                : ""
+            }`
           : "No supported holdings were imported from this CSV.",
       );
 
@@ -251,7 +261,7 @@ function ImportPanel({
       <div className="pointer-events-none absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-[#ddb159]/15 blur-3xl" />
 
       <div className="relative min-w-0 p-4 sm:p-5">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#00a6ff] text-[13px] font-black tracking-[-0.04em] text-white shadow-[0_8px_20px_rgba(0,166,255,0.28)]">
               212
@@ -261,15 +271,28 @@ function ImportPanel({
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#00a6ff]">
                 Trading 212 import
               </p>
-              <h3 className="mt-0.5 text-[23px] font-black tracking-[-0.04em] text-[#072116]">
+              <h3 className="mt-0.5 text-[21px] font-black tracking-[-0.04em] text-[#072116] sm:text-[23px]">
                 Upload your portfolio CSV
               </h3>
             </div>
           </div>
 
-          <span className="rounded-full border border-[#00a6ff]/20 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0078bd]">
-            Preview first
-          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden rounded-full border border-[#00a6ff]/20 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0078bd] sm:inline-flex">
+              Preview first
+            </span>
+
+            {onRequestClose && (
+              <button
+                type="button"
+                onClick={onRequestClose}
+                aria-label="Close Trading 212 import"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#072116]/12 bg-white text-[20px] font-black leading-none text-[#072116]/60 shadow-[0_8px_18px_rgba(0,0,0,0.12)] transition hover:border-[#00a6ff]/40 hover:text-[#072116]"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
 
         <p className="mt-3 text-[12px] font-semibold leading-5 text-[#072116]/60">
@@ -409,7 +432,15 @@ function ImportPanel({
               <ResultStat label="Value" value={money(preview.totalValue)} />
             </div>
 
-            {replaceExisting && (
+            {preview.replaceWarning && (
+              <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2">
+                <p className="text-[11px] font-bold leading-5 text-amber-800">
+                  {preview.replaceWarning}
+                </p>
+              </div>
+            )}
+
+            {replaceExisting && !preview.replaceWarning && (
               <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2">
                 <p className="text-[11px] font-bold leading-5 text-amber-800">
                   Replace mode is on. This will clear the holdings inside this
@@ -476,6 +507,65 @@ function ImportPanel({
   );
 }
 
+function ImportModal({
+  open,
+  portfolioId,
+  onClose,
+}: {
+  open: boolean;
+  portfolioId?: string | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] overflow-hidden">
+      <button
+        type="button"
+        aria-label="Close Trading 212 import overlay"
+        onClick={onClose}
+        className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-[14px]"
+      />
+
+      <div className="relative flex h-[100svh] w-full items-end justify-center overflow-y-auto overflow-x-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(6rem+env(safe-area-inset-top))] sm:items-center sm:px-5 sm:pb-6 sm:pt-[calc(8.25rem+env(safe-area-inset-top))] lg:pt-[calc(8.75rem+env(safe-area-inset-top))]">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Trading 212 CSV import"
+          onClick={(event) => event.stopPropagation()}
+          className="relative w-full max-w-2xl"
+        >
+          <div className="max-h-[calc(100svh-7.25rem)] overflow-y-auto rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100svh-10rem)] lg:max-h-[calc(100svh-10.5rem)]">
+            <ImportPanel
+              portfolioId={portfolioId}
+              onRequestClose={onClose}
+              onComplete={onClose}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Trading212CsvImport({
   portfolioId,
   compact = false,
@@ -501,26 +591,11 @@ export function Trading212CsvImport({
           </p>
         )}
 
-        {open && (
-          <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-x-hidden bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-6">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-              <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-[#061b12] text-[20px] font-black text-[#ddb159] shadow-lg transition hover:bg-[#0d3420]"
-                >
-                  ×
-                </button>
-              </div>
-
-              <ImportPanel
-                portfolioId={portfolioId}
-                onComplete={() => setOpen(false)}
-              />
-            </div>
-          </div>
-        )}
+        <ImportModal
+          open={open}
+          portfolioId={portfolioId}
+          onClose={() => setOpen(false)}
+        />
       </>
     );
   }
@@ -537,26 +612,11 @@ export function Trading212CsvImport({
           Import Trading 212 CSV
         </button>
 
-        {open && (
-          <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-x-hidden bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-6">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-              <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-[#061b12] text-[20px] font-black text-[#ddb159] shadow-lg transition hover:bg-[#0d3420]"
-                >
-                  ×
-                </button>
-              </div>
-
-              <ImportPanel
-                portfolioId={portfolioId}
-                onComplete={() => setOpen(false)}
-              />
-            </div>
-          </div>
-        )}
+        <ImportModal
+          open={open}
+          portfolioId={portfolioId}
+          onClose={() => setOpen(false)}
+        />
       </div>
     );
   }
