@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
-import { SavedPortfolio } from "@/components/SavedPortfolio";
+import { PortfolioCommandCentre } from "@/components/PortfolioCommandCentre";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
@@ -11,7 +10,7 @@ import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
   description:
-    "Track multiple portfolios with StockGPT AI alerts, ranking changes, risk levels, cash, transactions and market research insights.",
+    "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
 type SearchParams = {
@@ -67,16 +66,6 @@ type TransactionRow = {
   created_at: string;
 };
 
-type ReplacementRecommendation = {
-  ticker: string;
-  company: string;
-  sector: string;
-  rank: number | null;
-  score: number | null;
-  price: number | null;
-  reason: string;
-};
-
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -85,87 +74,6 @@ function toNumber(value: unknown, fallback = 0) {
 function cleanPortfolioName(name: string | null | undefined, index: number) {
   const cleaned = String(name ?? "").trim();
   return cleaned || `Portfolio ${index + 1}`;
-}
-
-function PortfolioSelector({
-  portfolios,
-  activePortfolioId,
-}: {
-  portfolios: Array<{
-    id: string;
-    name: string;
-    valueLabel: string;
-    holdingsLabel: string;
-  }>;
-  activePortfolioId: string | null;
-}) {
-  if (portfolios.length === 0) return null;
-
-  return (
-    <div className="min-w-0 rounded-3xl border border-[#ddb159]/22 bg-[#061b12]/72 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.22)] backdrop-blur sm:p-4">
-      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] sm:text-[10px]">
-            Portfolio selector
-          </p>
-          <h2 className="mt-1 text-[22px] font-black leading-none tracking-[-0.04em] text-[#faf6f0] sm:text-[26px]">
-            Choose which portfolio to view.
-          </h2>
-          <p className="mt-1.5 text-[12px] font-semibold leading-5 text-[#faf6f0]/52">
-            Existing portfolios are preserved. New AI portfolios are added
-            separately rather than replacing your current one.
-          </p>
-        </div>
-
-        <Link
-          href="/portfolio?builder=1"
-          className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105 sm:px-5"
-        >
-          + Build new AI portfolio
-        </Link>
-      </div>
-
-      <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {portfolios.map((portfolio) => {
-          const active = portfolio.id === activePortfolioId;
-
-          return (
-            <Link
-              key={portfolio.id}
-              href={`/portfolio?portfolio=${portfolio.id}`}
-              className={[
-                "min-w-0 rounded-2xl border px-3 py-3 transition",
-                active
-                  ? "border-[#ddb159] bg-[#ddb159]/12 shadow-[0_0_0_1px_rgba(221,177,89,0.18)]"
-                  : "border-[#ddb159]/14 bg-[#04180f]/70 hover:border-[#ddb159]/42 hover:bg-[#ddb159]/8",
-              ].join(" ")}
-            >
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-black tracking-[-0.02em] text-[#faf6f0]">
-                    {portfolio.name}
-                  </p>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#faf6f0]/42">
-                    {portfolio.holdingsLabel}
-                  </p>
-                </div>
-
-                {active && (
-                  <span className="shrink-0 rounded-full bg-[#ddb159] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#072116]">
-                    Active
-                  </span>
-                )}
-              </div>
-
-              <p className="mt-3 text-[20px] font-black tabular-nums tracking-[-0.04em] text-[#ddb159]">
-                {portfolio.valueLabel}
-              </p>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 function CompactImportLauncher({
@@ -188,8 +96,7 @@ function CompactImportLauncher({
             Import CSV
           </h3>
           <p className="mt-2 text-[11px] font-semibold leading-5 text-[#072116]/58">
-            Upload a CSV, preview matches, then append or replace this
-            portfolio.
+            Upload a CSV, preview matches, then append or replace this portfolio.
           </p>
         </div>
       </div>
@@ -337,91 +244,11 @@ export default async function PortfolioPage({
   const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
 
-  const heldTickers = new Set(enriched.map((holding) => holding.ticker));
-  const needsReplacement = enriched.filter((holding) =>
-    holding.actionAlerts.some(
-      (alert) => alert.action === "sell" || alert.action === "trim",
-    ),
-  );
-
-  const { data: candidateData } =
-    needsReplacement.length > 0
-      ? await supabase
-          .from("stock_rankings")
-          .select("ticker, company, sector, rank, score, price")
-          .order("rank", { ascending: true })
-          .limit(80)
-      : { data: [] };
-
-  const replacementCandidates = (
-    (candidateData ?? []) as Array<{
-      ticker: string | null;
-      company: string | null;
-      sector: string | null;
-      rank: number | null;
-      score: number | null;
-      price: number | null;
-    }>
-  ).filter((candidate) => candidate.ticker && !heldTickers.has(candidate.ticker));
-
-  const replacements: Record<string, ReplacementRecommendation | null> = Object.fromEntries(
-    needsReplacement.map((holding) => {
-      const sameSector = replacementCandidates.find(
-        (candidate) => candidate.sector && candidate.sector === holding.sector,
-      );
-      const candidate = sameSector ?? replacementCandidates[0] ?? null;
-
-      return [
-        holding.ticker,
-        candidate
-          ? {
-              ticker: candidate.ticker as string,
-              company: candidate.company ?? candidate.ticker ?? "—",
-              sector: candidate.sector ?? "—",
-              rank: Number(candidate.rank) || null,
-              score: Number(candidate.score) || null,
-              price: Number(candidate.price) || null,
-              reason: sameSector
-                ? `${candidate.ticker} is the strongest available ${candidate.sector} replacement not already in this portfolio, ranked #${candidate.rank ?? "—"}. It keeps sector exposure similar while upgrading model conviction.`
-                : `${candidate.ticker} is the strongest available replacement not already in this portfolio, ranked #${candidate.rank ?? "—"}. It improves overall portfolio quality without adding to the weakened position.`,
-            }
-          : null,
-      ];
-    }),
-  );
-
-  const holdingsValue = enriched.reduce(
-    (sum, holding) => sum + Number(holding.currentValue ?? 0),
-    0,
-  );
-
-  const selectorPortfolios = portfolios.map((portfolio, index) => {
-    const isActive = portfolio.id === selectedPortfolioId;
-    const value = isActive
-      ? holdingsValue + toNumber(portfolio.cash_balance, 0)
-      : toNumber(portfolio.cash_balance, 0) +
-        toNumber(portfolio.investment_amount, 0);
-
-    return {
-      id: portfolio.id,
-      name: cleanPortfolioName(portfolio.name, index),
-      valueLabel: `$${Math.round(value).toLocaleString()}`,
-      holdingsLabel: isActive
-        ? `${enriched.length} ${enriched.length === 1 ? "holding" : "holdings"}`
-        : "Open portfolio",
-    };
-  });
-
   return (
     <AppShell activePath="/portfolio">
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
         <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-          <PortfolioSelector
-            portfolios={selectorPortfolios}
-            activePortfolioId={selectedPortfolioId}
-          />
-
-          <SavedPortfolio
+          <PortfolioCommandCentre
             portfolioId={selectedPortfolioId}
             portfolios={portfolios.map((portfolio, index) => ({
               id: portfolio.id,
@@ -459,7 +286,6 @@ export default async function PortfolioPage({
               ),
               currency: activePortfolio.currency ?? "USD",
             }}
-            replacements={replacements}
             compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
           />
         </div>
