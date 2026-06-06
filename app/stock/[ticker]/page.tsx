@@ -11,8 +11,9 @@ import { StockChart } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import { calculateTradeLevels } from "@/lib/trading-levels";
 import { createClient } from "@/utils/supabase/server";
-import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
+import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import { getDaysAtTop } from "@/lib/rank-history";
+import { getStyleTags } from "@/lib/research-explainability";
 import {
   selectRelevantNewsForStock,
   type BaseNewsArticle,
@@ -42,6 +43,18 @@ type Peer = {
   rank: number;
   score: number;
   price: number;
+};
+
+const STYLE_EXPLANATIONS: Record<string, string> = {
+  "High conviction": "The AI score and rank are both strong. In simple terms, the model has more evidence than usual that this stock deserves attention.",
+  "Quality signal": "The stock has a positive overall model score. It is not a guaranteed buy, but it clears enough checks to be worth researching.",
+  "Positive momentum": "The price is moving up today. That can confirm interest from the market, but it can also mean you should avoid chasing too late.",
+  "Pullback watch": "The stock has dropped noticeably today. That could create a better entry, or it could be a warning sign if bad news caused it.",
+  "Growth potential": "This stock sits in a sector where investors often pay for future growth. It may move more strongly when expectations change.",
+  "Lower volatility watch": "This usually points to a more defensive sector. It may be less explosive, but can sometimes be steadier than high-growth names.",
+  "Income watch": "This sector often contains dividend-paying companies. Still check the actual dividend yield and payout safety before treating it as income.",
+  "Value/reversion watch": "The model score is good while the daily price move is not stretched. That can suggest a more balanced research setup.",
+  "Research watchlist": "There is no clear style edge from the visible data. Treat it as something to investigate, not something to act on immediately.",
 };
 
 function safeNumber(value: unknown, fallback = 0) {
@@ -80,7 +93,7 @@ function SubscriberLockNotice() {
       <div className="relative flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Subscriber research layer</p>
-          <p className="mt-1 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/54">Rank, score and generated trade-plan outputs are hidden until access is unlocked.</p>
+          <p className="mt-1 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/54">Rank, score, style tags and generated trade-plan outputs are hidden until access is unlocked.</p>
         </div>
         <Link href="/login" className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105">Log in to unlock →</Link>
       </div>
@@ -96,6 +109,31 @@ function QuickActions({ ticker, sector, isAuthenticated }: { ticker: string; sec
       </div>
       <Link href={`/compare?a=${encodeURIComponent(ticker)}`} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10">Compare stock</Link>
       <Link href={sector ? `/rankings?sector=${encodeURIComponent(sector)}` : "/rankings"} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10">View peers</Link>
+    </section>
+  );
+}
+
+function StyleResearchCard({ tags, unlocked }: { tags: string[]; unlocked: boolean }) {
+  const visibleTags = tags.length > 0 ? tags : ["Research watchlist"];
+
+  return (
+    <section className="max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Stock style</p>
+          <h2 className="text-[20px] font-black tracking-[-0.03em]">What type of setup is this?</h2>
+        </div>
+        <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#072116]/52">These labels explain the stock's current character in plain English. They are research shortcuts, not buy or sell instructions.</p>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {visibleTags.map((tag) => (
+          <div key={tag} className="rounded-2xl border border-[#072116]/9 bg-white px-3 py-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#8a641a]"><LockedValue unlocked={unlocked} placeholder="High conviction">{tag}</LockedValue></p>
+            <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/62">{unlocked ? STYLE_EXPLANATIONS[tag] ?? STYLE_EXPLANATIONS["Research watchlist"] : "Unlock the research layer to see which style label applies to this stock and why it matters."}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -157,15 +195,18 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     defaultPortfolioId = portfolioOptions[0]?.id ?? null;
   }
 
-  const [tradeLevels, watchlistEntry, sectorPeers, daysAtTop, relatedNewsResponse] = await Promise.all([
+  const [tradeLevels, watchlistEntry, sectorPeers, daysAtTop, relatedNewsResponse, dailyMoveMap] = await Promise.all([
     calculateTradeLevels({ ticker, price: livePrice, score: canSeeRankAndScore ? Number(stock.score) || 0 : 0, rank: canSeeRankAndScore ? Number(stock.rank) || null : null, sector: stock.sector ?? null }),
     isAuthenticated && stock.ticker ? supabase.from("user_watchlist").select("id").eq("user_id", user!.id).eq("ticker", stock.ticker).maybeSingle().then((r) => r.data) : Promise.resolve(null),
     stock.sector ? supabase.from("stock_rankings").select("ticker, company, rank, score, price").eq("sector", stock.sector).neq("ticker", ticker).order("rank", { ascending: true }).limit(5) : Promise.resolve({ data: [] }),
     canSeeRankAndScore ? getDaysAtTop(supabase, ticker, stock.rank) : Promise.resolve(null),
     supabase.from("news_articles").select("id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at").order("published_at", { ascending: false }).limit(180),
+    getOneDayMoveMap([ticker]),
   ]);
 
   const peers = (sectorPeers?.data ?? []) as Peer[];
+  const dailyMove = dailyMoveMap.get(ticker)?.changePct ?? null;
+  const styleTags = getStyleTags(stock, dailyMove);
   const relevantNews = selectRelevantNewsForStock((relatedNewsResponse.data ?? []) as BaseNewsArticle[], { ticker: stock.ticker, company: stock.company, sector: stock.sector, rank: stock.rank, score: stock.score, price: livePrice } satisfies StockLike, 8).filter((article) => article.affectedStocks.some((insight) => insight.ticker.toUpperCase() === ticker && insight.impactRating >= 5));
 
   return (
@@ -185,6 +226,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice />}
           <QuickActions ticker={ticker} sector={stock.sector} isAuthenticated={isAuthenticated} />
+          <StyleResearchCard tags={styleTags} unlocked={canSeeRankAndScore} />
           <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">✦ Price Chart</p><div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart ticker={ticker} data={chartData} initialRange="1Y" height={320} /></div></section>
           <div className="min-w-0 max-w-full overflow-hidden"><StockRelatedNews ticker={ticker} articles={relevantNews} /></div>
           <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]"><div className="min-w-0 max-w-full overflow-hidden">{canSeeRankAndScore ? (tradeLevels && <TradeSetupCard levels={tradeLevels} />) : <LockedTradePlanCard ticker={ticker} />}</div><PeersCard peers={peers} sector={stock.sector} unlocked={canSeeRankAndScore} /></div>
