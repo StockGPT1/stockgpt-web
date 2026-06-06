@@ -15,12 +15,10 @@ import {
   buildRankExplanation,
   getFactorExplanations,
   getModelConfidence,
-  getStyleTags,
   lightConfidenceClassName,
   matchesConfidenceFilter,
   matchesPriceMoveFilter,
   matchesScoreFilter,
-  matchesStyleFilter,
 } from "@/lib/research-explainability";
 
 export const metadata: Metadata = {
@@ -46,7 +44,6 @@ type RankingsSearchParams = {
   move?: string;
   score?: string;
   priceMove?: string;
-  style?: string;
   confidence?: string;
 };
 
@@ -79,10 +76,8 @@ function formatScore(value: Ranking["score"]) {
 
 async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
   if (hasValidPrice(stock.price) || !stock.ticker) return stock;
-
   const chartData = await getStockChart(stock.ticker, ["1D", "5D", "1M", "6M", "1Y"]);
   const livePrice = getLatestPriceFromChart(chartData);
-
   if (!livePrice || !Number.isFinite(livePrice) || livePrice <= 0) return stock;
   return { ...stock, price: livePrice };
 }
@@ -172,7 +167,7 @@ function ScoreMethodCard() {
         How the AI score works
       </summary>
       <p className="mt-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#faf6f0]/58">
-        StockGPT ranks the S&P 500 by combining business quality, growth, valuation discipline, trend, risk and income context into one comparable score. The score is a research signal, not a buy instruction.
+        StockGPT ranks the S&amp;P 500 by combining business quality, growth, valuation discipline, trend, risk and income context into one comparable score. The score is a research signal, not a buy instruction.
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {factors.map(([title, detail]) => (
@@ -221,26 +216,6 @@ function WhyRankDetails({
   );
 }
 
-function StyleTags({ tags, light = false }: { tags: string[]; light?: boolean }) {
-  return (
-    <div className="flex min-w-0 flex-wrap gap-1.5">
-      {tags.slice(0, 3).map((tag) => (
-        <span
-          key={tag}
-          className={[
-            "rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.08em]",
-            light
-              ? "border-[#072116]/8 bg-[#072116]/5 text-[#072116]/55"
-              : "border-[#ddb159]/18 bg-[#ddb159]/10 text-[#ddb159]",
-          ].join(" ")}
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function HiddenFilterValue({ name, value }: { name: string; value: string }) {
   return value && value !== "all" ? <input type="hidden" name={name} value={value} /> : null;
 }
@@ -256,14 +231,12 @@ export default async function RankingsPage({
   const moveFilter = params.move ?? "all";
   const scoreFilter = params.score ?? "all";
   const priceMoveFilter = params.priceMove ?? "all";
-  const styleFilter = params.style ?? "all";
   const confidenceFilter = params.confidence ?? "all";
   const advancedFiltersActive =
     sectorFilter !== "all" ||
     moveFilter !== "all" ||
     scoreFilter !== "all" ||
     priceMoveFilter !== "all" ||
-    styleFilter !== "all" ||
     confidenceFilter !== "all";
 
   const supabase = await createClient();
@@ -320,12 +293,11 @@ export default async function RankingsPage({
       matchesMove &&
       matchesScoreFilter(stock, scoreFilter) &&
       matchesPriceMoveFilter(dailyMove, priceMoveFilter) &&
-      matchesStyleFilter(stock, dailyMove, styleFilter) &&
       matchesConfidenceFilter(stock, confidenceFilter)
     );
   });
 
-  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_150px_86px_92px]";
+  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px]";
 
   return (
     <AppShell activePath="/rankings">
@@ -340,11 +312,9 @@ export default async function RankingsPage({
                 <span className="size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
                 AI Ranking Engine
               </div>
-
               <h1 className="text-[28px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[34px]">
                 Stock Rankings
               </h1>
-
               <p className="mt-2 max-w-[680px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[13px]">
                 {hasSubscription
                   ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Search first, then open advanced filters only when needed.`
@@ -366,7 +336,6 @@ export default async function RankingsPage({
                 <HiddenFilterValue name="move" value={moveFilter} />
                 <HiddenFilterValue name="score" value={scoreFilter} />
                 <HiddenFilterValue name="priceMove" value={priceMoveFilter} />
-                <HiddenFilterValue name="style" value={styleFilter} />
                 <HiddenFilterValue name="confidence" value={confidenceFilter} />
               </>
             )}
@@ -390,13 +359,11 @@ export default async function RankingsPage({
               <summary className="cursor-pointer list-none rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
                 Advanced filters {advancedFiltersActive ? "active" : "optional"} ▾
               </summary>
-
-              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                 <FilterSelect label="Sector" name="sector" value={sectorFilter} options={[{ value: "all", label: "All sectors" }, ...sectors.map((sector) => ({ value: sector, label: sector }))]} />
                 <FilterSelect label="Rank move" name="move" value={moveFilter} options={[{ value: "all", label: "All ranks" }, { value: "up", label: "Moved up" }, { value: "down", label: "Moved down" }, { value: "flat", label: "Flat" }, { value: "none", label: "No history" }]} />
                 <FilterSelect label="Score" name="score" value={scoreFilter} options={[{ value: "all", label: "All scores" }, { value: "elite", label: "Elite" }, { value: "strong", label: "Strong" }, { value: "positive", label: "Positive" }, { value: "mixed", label: "Mixed" }, { value: "weak", label: "Weak" }]} />
                 <FilterSelect label="Price move" name="priceMove" value={priceMoveFilter} options={[{ value: "all", label: "All prices" }, { value: "up", label: "Up today" }, { value: "down", label: "Down today" }, { value: "big-up", label: "+2%+" }, { value: "big-down", label: "−2%+" }, { value: "flat", label: "Flat" }]} />
-                <FilterSelect label="Style" name="style" value={styleFilter} options={[{ value: "all", label: "All styles" }, { value: "low-risk", label: "Low risk" }, { value: "growth", label: "Growth" }, { value: "value", label: "Value" }, { value: "income", label: "Income" }, { value: "momentum", label: "Momentum" }, { value: "pullback", label: "Pullback" }]} />
                 <FilterSelect label="Confidence" name="confidence" value={confidenceFilter} options={[{ value: "all", label: "All confidence" }, { value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }]} />
               </div>
             </details>
@@ -412,7 +379,6 @@ export default async function RankingsPage({
               const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
               const dailyMove = dailyMoveMap.get(ticker)?.changePct;
               const confidence = getModelConfidence(stock);
-              const tags = getStyleTags(stock, dailyMove);
 
               return (
                 <div key={stock.id} className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20">
@@ -434,7 +400,6 @@ export default async function RankingsPage({
                     <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
                     <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Confidence</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                   </div>
-                  <div className="mt-3"><StyleTags tags={tags} light /></div>
                   <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} light />
                 </div>
               );
@@ -447,7 +412,7 @@ export default async function RankingsPage({
         <RankingsLock isLocked={rankingsLocked} className="relative hidden min-w-0 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
           <div className="min-w-0">
             <div className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}>
-              {['Rank','Move','Ticker','Company','Confidence','Style','Price','AI Score'].map((header) => (
+              {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score"].map((header) => (
                 <div key={header} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">{header}</div>
               ))}
             </div>
@@ -459,7 +424,6 @@ export default async function RankingsPage({
                   const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
                   const dailyMove = dailyMoveMap.get(ticker)?.changePct;
                   const confidence = getModelConfidence(stock);
-                  const tags = getStyleTags(stock, dailyMove);
 
                   return (
                     <div key={stock.id} className="border-b border-[#072116]/8">
@@ -469,7 +433,6 @@ export default async function RankingsPage({
                         <Link href={`/stock/${stock.ticker}`} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
                         <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
-                        <div className="px-4 py-2.5"><StyleTags tags={tags} light /></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
                       </div>
