@@ -6,6 +6,10 @@
       "schedule": "55 7 * * *"
     },
     {
+      "path": "/api/cron/check-data-freshness",
+      "schedule": "0 8,20 * * *"
+    },
+    {
       "path": "/api/cron/daily-news-digest",
       "schedule": "0 8 * * 1"
     },
