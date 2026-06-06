@@ -32,8 +32,20 @@ async function createCheckoutSession(request: Request) {
     throw new Error("Missing STRIPE_CORE_PRICE_ID or STRIPE_BASIC_PRICE_ID");
   }
 
+  const formData = await request.formData();
+  const legalAcknowledgement = String(
+    formData.get("legal_acknowledgement") ?? "",
+  );
+
+  if (legalAcknowledgement !== "accepted") {
+    return NextResponse.redirect(new URL("/checkout/confirm?legal=missing", request.url), {
+      status: 303,
+    });
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
   const trialPeriodDays = getTrialPeriodDays();
+  const endorselyReferral = String(formData.get("endorsely_referral") ?? "");
 
   const stripe = new Stripe(key);
   const supabase = await createClient();
@@ -48,18 +60,13 @@ async function createCheckoutSession(request: Request) {
     });
   }
 
-  let endorselyReferral = "";
-
-  if (request.method === "POST") {
-    const formData = await request.formData();
-    endorselyReferral = String(formData.get("endorsely_referral") ?? "");
-  }
-
   const legalMetadata = {
     user_id: user.id,
     plan: "core",
     endorsely_referral: endorselyReferral,
     legal_version: LEGAL_VERSION,
+    legal_acknowledgement: "research_software",
+    legal_acknowledged_at: new Date().toISOString(),
     terms_url: `${siteUrl}/legal#terms`,
     subscription_terms_url: `${siteUrl}/legal#subscription`,
     privacy_url: `${siteUrl}/legal#privacy`,
@@ -91,9 +98,5 @@ async function createCheckoutSession(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return createCheckoutSession(request);
-}
-
-export async function GET(request: Request) {
   return createCheckoutSession(request);
 }
