@@ -13,7 +13,6 @@ import {
 } from "@/lib/rank-history";
 import {
   buildRankExplanation,
-  confidenceClassName,
   getFactorExplanations,
   getModelConfidence,
   getStyleTags,
@@ -137,8 +136,8 @@ function FilterSelect({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <label className="relative flex h-12 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
-      <span className="pointer-events-none absolute left-4 top-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+    <label className="relative flex h-11 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
+      <span className="pointer-events-none absolute left-4 top-1 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
         {label}
       </span>
       <select
@@ -168,8 +167,8 @@ function ScoreMethodCard() {
   ];
 
   return (
-    <details className="relative overflow-hidden rounded-[24px] border border-[#ddb159]/18 bg-[#04180f]/70 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-      <summary className="cursor-pointer list-none text-[11px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+    <details className="relative overflow-hidden rounded-[22px] border border-[#ddb159]/18 bg-[#04180f]/70 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+      <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
         How the AI score works
       </summary>
       <p className="mt-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#faf6f0]/58">
@@ -242,6 +241,10 @@ function StyleTags({ tags, light = false }: { tags: string[]; light?: boolean })
   );
 }
 
+function HiddenFilterValue({ name, value }: { name: string; value: string }) {
+  return value && value !== "all" ? <input type="hidden" name={name} value={value} /> : null;
+}
+
 export default async function RankingsPage({
   searchParams,
 }: {
@@ -255,6 +258,13 @@ export default async function RankingsPage({
   const priceMoveFilter = params.priceMove ?? "all";
   const styleFilter = params.style ?? "all";
   const confidenceFilter = params.confidence ?? "all";
+  const advancedFiltersActive =
+    sectorFilter !== "all" ||
+    moveFilter !== "all" ||
+    scoreFilter !== "all" ||
+    priceMoveFilter !== "all" ||
+    styleFilter !== "all" ||
+    confidenceFilter !== "all";
 
   const supabase = await createClient();
   const {
@@ -319,25 +329,25 @@ export default async function RankingsPage({
 
   return (
     <AppShell activePath="/rankings">
-      <main className="flex min-h-full flex-col gap-3 overflow-x-hidden lg:h-full lg:min-h-0 lg:overflow-hidden">
-        <section className="relative shrink-0 overflow-hidden rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.075),rgba(250,246,240,0.025)_46%,rgba(221,177,89,0.07))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.20)] backdrop-blur-xl sm:p-5">
+      <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
+        <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
           <div className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#ddb159]/12 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 bottom-0 size-44 rounded-full bg-emerald-400/10 blur-3xl" />
 
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <span className="size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
                 AI Ranking Engine
               </div>
 
-              <h1 className="text-[30px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[38px]">
+              <h1 className="text-[28px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[34px]">
                 Stock Rankings
               </h1>
 
-              <p className="mt-2 max-w-[680px] text-[13px] font-medium leading-relaxed text-[#faf6f0]/58">
+              <p className="mt-2 max-w-[680px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[13px]">
                 {hasSubscription
-                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Use filters to narrow by confidence, score quality, price move, sector and strategy style.`
+                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Search first, then open advanced filters only when needed.`
                   : "Rankings are locked. Subscribe to Core to unlock the full AI ranking table, score context and why-this-rank explanations."}
               </p>
             </div>
@@ -349,23 +359,47 @@ export default async function RankingsPage({
             )}
           </div>
 
-          <form className="relative mt-4 grid grid-cols-1 gap-2 rounded-[22px] border border-[#ddb159]/16 bg-[#02150d]/62 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl md:grid-cols-2 xl:grid-cols-[minmax(250px,1fr)_170px_150px_150px_150px_150px_150px_auto]">
-            <label className="group flex h-12 min-w-0 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)] md:col-span-2 xl:col-span-1">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[13px] text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">⌕</span>
-              <input name="q" defaultValue={params.q ?? ""} placeholder="Search ticker or company" className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/34" />
-            </label>
+          <form className="relative mt-3 rounded-[20px] border border-[#ddb159]/16 bg-[#02150d]/62 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_26px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+            {!advancedFiltersActive && (
+              <>
+                <HiddenFilterValue name="sector" value={sectorFilter} />
+                <HiddenFilterValue name="move" value={moveFilter} />
+                <HiddenFilterValue name="score" value={scoreFilter} />
+                <HiddenFilterValue name="priceMove" value={priceMoveFilter} />
+                <HiddenFilterValue name="style" value={styleFilter} />
+                <HiddenFilterValue name="confidence" value={confidenceFilter} />
+              </>
+            )}
 
-            <FilterSelect label="Sector" name="sector" value={sectorFilter} options={[{ value: "all", label: "All sectors" }, ...sectors.map((sector) => ({ value: sector, label: sector }))]} />
-            <FilterSelect label="Rank move" name="move" value={moveFilter} options={[{ value: "all", label: "All ranks" }, { value: "up", label: "Moved up" }, { value: "down", label: "Moved down" }, { value: "flat", label: "Flat" }, { value: "none", label: "No history" }]} />
-            <FilterSelect label="Score" name="score" value={scoreFilter} options={[{ value: "all", label: "All scores" }, { value: "elite", label: "Elite" }, { value: "strong", label: "Strong" }, { value: "positive", label: "Positive" }, { value: "mixed", label: "Mixed" }, { value: "weak", label: "Weak" }]} />
-            <FilterSelect label="Price move" name="priceMove" value={priceMoveFilter} options={[{ value: "all", label: "All prices" }, { value: "up", label: "Up today" }, { value: "down", label: "Down today" }, { value: "big-up", label: "+2%+" }, { value: "big-down", label: "−2%+" }, { value: "flat", label: "Flat" }]} />
-            <FilterSelect label="Style" name="style" value={styleFilter} options={[{ value: "all", label: "All styles" }, { value: "low-risk", label: "Low risk" }, { value: "growth", label: "Growth" }, { value: "value", label: "Value" }, { value: "income", label: "Income" }, { value: "momentum", label: "Momentum" }, { value: "pullback", label: "Pullback" }]} />
-            <FilterSelect label="Confidence" name="confidence" value={confidenceFilter} options={[{ value: "all", label: "All confidence" }, { value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }]} />
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(260px,1fr)_auto_auto]">
+              <label className="group flex h-11 min-w-0 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[13px] text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">⌕</span>
+                <input name="q" defaultValue={params.q ?? ""} placeholder="Search ticker or company" className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/34" />
+              </label>
 
-            <div className="grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-1 xl:flex">
-              <button type="submit" className="h-12 rounded-2xl bg-[#ddb159] px-5 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:brightness-105">Apply</button>
-              <Link href="/rankings" className="grid h-12 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-5 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#ddb159]/10 hover:text-[#ddb159]">Reset</Link>
+              <button type="submit" className="h-11 rounded-2xl bg-[#ddb159] px-6 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:brightness-105">
+                Apply
+              </button>
+
+              <Link href="/rankings" className="grid h-11 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-6 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#ddb159]/10 hover:text-[#ddb159]">
+                Reset
+              </Link>
             </div>
+
+            <details open={advancedFiltersActive} className="mt-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.025] p-2">
+              <summary className="cursor-pointer list-none rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                Advanced filters {advancedFiltersActive ? "active" : "optional"} ▾
+              </summary>
+
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                <FilterSelect label="Sector" name="sector" value={sectorFilter} options={[{ value: "all", label: "All sectors" }, ...sectors.map((sector) => ({ value: sector, label: sector }))]} />
+                <FilterSelect label="Rank move" name="move" value={moveFilter} options={[{ value: "all", label: "All ranks" }, { value: "up", label: "Moved up" }, { value: "down", label: "Moved down" }, { value: "flat", label: "Flat" }, { value: "none", label: "No history" }]} />
+                <FilterSelect label="Score" name="score" value={scoreFilter} options={[{ value: "all", label: "All scores" }, { value: "elite", label: "Elite" }, { value: "strong", label: "Strong" }, { value: "positive", label: "Positive" }, { value: "mixed", label: "Mixed" }, { value: "weak", label: "Weak" }]} />
+                <FilterSelect label="Price move" name="priceMove" value={priceMoveFilter} options={[{ value: "all", label: "All prices" }, { value: "up", label: "Up today" }, { value: "down", label: "Down today" }, { value: "big-up", label: "+2%+" }, { value: "big-down", label: "−2%+" }, { value: "flat", label: "Flat" }]} />
+                <FilterSelect label="Style" name="style" value={styleFilter} options={[{ value: "all", label: "All styles" }, { value: "low-risk", label: "Low risk" }, { value: "growth", label: "Growth" }, { value: "value", label: "Value" }, { value: "income", label: "Income" }, { value: "momentum", label: "Momentum" }, { value: "pullback", label: "Pullback" }]} />
+                <FilterSelect label="Confidence" name="confidence" value={confidenceFilter} options={[{ value: "all", label: "All confidence" }, { value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }]} />
+              </div>
+            </details>
           </form>
         </section>
 
@@ -410,15 +444,15 @@ export default async function RankingsPage({
           )}
         </RankingsLock>
 
-        <RankingsLock isLocked={rankingsLocked} className="relative hidden min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
-          <div className="h-full">
+        <RankingsLock isLocked={rankingsLocked} className="relative hidden min-w-0 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
+          <div className="min-w-0">
             <div className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}>
               {['Rank','Move','Ticker','Company','Confidence','Style','Price','AI Score'].map((header) => (
                 <div key={header} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">{header}</div>
               ))}
             </div>
 
-            <div className="overflow-y-auto" style={{ height: "calc(100% - 38px)" }}>
+            <div>
               {rankings.length > 0 ? (
                 rankings.map((stock) => {
                   const ticker = stock.ticker ?? "";
