@@ -1,8 +1,5 @@
 import Link from "next/link";
-import { DataFreshnessBar } from "@/components/DataFreshnessBar";
-import { getDataFreshness, type DataFreshnessSummary } from "@/lib/data-freshness";
 import { getTickerTape } from "@/lib/yahoo";
-import { createAdminClient } from "@/utils/supabase/admin";
 
 function formatPrice(value: number) {
   if (!Number.isFinite(value)) return "—";
@@ -40,15 +37,6 @@ function isStockTicker(yahooSymbol: string) {
   return !yahooSymbol.startsWith("^");
 }
 
-async function loadDataFreshness(): Promise<DataFreshnessSummary | null> {
-  try {
-    return await getDataFreshness(createAdminClient());
-  } catch (error) {
-    console.warn("[ticker-tape] data freshness unavailable", error);
-    return null;
-  }
-}
-
 function TickerInner({
   symbol,
   price,
@@ -81,78 +69,71 @@ function TickerInner({
 }
 
 export async function TickerTape() {
-  const [tickerItems, freshness] = await Promise.all([
-    getTickerTape([
-      "^GSPC",
-      "^IXIC",
-      "^DJI",
-      "^VIX",
-      "AAPL",
-      "MSFT",
-      "NVDA",
-      "AMZN",
-      "GOOGL",
-      "META",
-    ]),
-    loadDataFreshness(),
+  const tickerItems = await getTickerTape([
+    "^GSPC",
+    "^IXIC",
+    "^DJI",
+    "^VIX",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "GOOGL",
+    "META",
   ]);
 
   if (tickerItems.length === 0) {
-    return <DataFreshnessBar freshness={freshness} />;
+    return null;
   }
 
   const repeated = [...tickerItems, ...tickerItems, ...tickerItems];
 
   return (
-    <>
-      <div className="relative z-30 h-[24px] shrink-0 overflow-hidden border-b border-[#ddb159]/14 bg-[#03140d] shadow-[0_5px_14px_rgba(0,0,0,0.2)]">
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-[#03140d] to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-[#03140d] to-transparent" />
+    <div className="relative z-30 h-[24px] shrink-0 overflow-hidden border-b border-[#ddb159]/14 bg-[#03140d] shadow-[0_5px_14px_rgba(0,0,0,0.2)]">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-[#03140d] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-[#03140d] to-transparent" />
 
-        <div className="stock-ticker-track flex h-full min-w-max items-center whitespace-nowrap">
-          {repeated.map((item, index) => {
-            const title = `${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
-              item.changePct,
-            )})`;
+      <div className="stock-ticker-track flex h-full min-w-max items-center whitespace-nowrap">
+        {repeated.map((item, index) => {
+          const title = `${item.symbol}: ${formatPrice(item.price)} (${formatChangePct(
+            item.changePct,
+          )})`;
 
-            const className =
-              "flex h-full items-center gap-2 border-r border-[#ddb159]/12 px-4 transition hover:bg-[#ddb159]/10";
+          const className =
+            "flex h-full items-center gap-2 border-r border-[#ddb159]/12 px-4 transition hover:bg-[#ddb159]/10";
 
-            if (isStockTicker(item.yahooSymbol)) {
-              return (
-                <Link
-                  key={`${item.yahooSymbol}-${index}`}
-                  href={`/stock/${encodeURIComponent(item.yahooSymbol)}`}
-                  className={className}
-                  title={`${title} — open ${item.yahooSymbol}`}
-                >
-                  <TickerInner
-                    symbol={item.symbol}
-                    price={item.price}
-                    changePct={item.changePct}
-                  />
-                </Link>
-              );
-            }
-
+          if (isStockTicker(item.yahooSymbol)) {
             return (
-              <div
+              <Link
                 key={`${item.yahooSymbol}-${index}`}
+                href={`/stock/${encodeURIComponent(item.yahooSymbol)}`}
                 className={className}
-                title={title}
+                title={`${title} — open ${item.yahooSymbol}`}
               >
                 <TickerInner
                   symbol={item.symbol}
                   price={item.price}
                   changePct={item.changePct}
                 />
-              </div>
+              </Link>
             );
-          })}
-        </div>
-      </div>
+          }
 
-      <DataFreshnessBar freshness={freshness} />
-    </>
+          return (
+            <div
+              key={`${item.yahooSymbol}-${index}`}
+              className={className}
+              title={title}
+            >
+              <TickerInner
+                symbol={item.symbol}
+                price={item.price}
+                changePct={item.changePct}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

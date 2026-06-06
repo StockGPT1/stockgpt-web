@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/check-data-freshness",
-      "schedule": "0 8,20 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/daily-news-digest",
