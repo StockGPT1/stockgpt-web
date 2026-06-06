@@ -56,7 +56,14 @@ export function StockGPTSelect({
   }, []);
 
   return (
-    <div ref={wrapRef} className={`relative min-w-0 ${className}`}>
+    <div
+      ref={wrapRef}
+      className={[
+        "relative min-w-0",
+        open ? "z-[120]" : "z-20",
+        className,
+      ].join(" ")}
+    >
       <button
         type="button"
         aria-label={ariaLabel}
@@ -68,12 +75,12 @@ export function StockGPTSelect({
           buttonClassName,
         ].join(" ")}
       >
-        <span className="min-w-0">
-          <span className="block truncate text-[12px] font-black uppercase tracking-[0.16em] text-[#faf6f0]">
+        <span className="min-w-0 flex-1 overflow-hidden">
+          <span className="block truncate text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] sm:text-[12px]">
             {selected?.label ?? "Select"}
           </span>
           {selected?.description ? (
-            <span className="mt-0.5 block truncate text-[9px] font-bold uppercase tracking-[0.08em] text-[#ddb159]/64">
+            <span className="mt-0.5 block truncate text-[8.5px] font-bold uppercase tracking-[0.06em] text-[#ddb159]/72 sm:text-[9px]">
               {selected.description}
             </span>
           ) : null}
@@ -86,7 +93,7 @@ export function StockGPTSelect({
           ].join(" ")}
           aria-hidden="true"
         >
-         ⌄
+          ⌄
         </span>
       </button>
 
@@ -94,7 +101,7 @@ export function StockGPTSelect({
         <div
           role="listbox"
           className={[
-            "absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-2xl border border-[#ddb159]/32 bg-[#04180f] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.36)] ring-1 ring-black/15",
+            "absolute left-0 right-0 top-[calc(100%+8px)] z-[130] max-h-72 min-w-full overflow-y-auto rounded-2xl border border-[#ddb159]/32 bg-[#04180f] p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.48)] ring-1 ring-black/15",
             menuClassName,
           ].join(" ")}
         >
@@ -118,13 +125,13 @@ export function StockGPTSelect({
                     : "text-[#faf6f0] hover:bg-[#ddb159]/10 hover:text-[#ddb159]",
                 ].join(" ")}
               >
-                <span className="truncate text-[12px] font-black uppercase tracking-[0.12em]">
+                <span className="truncate text-[11px] font-black uppercase tracking-[0.08em] sm:text-[12px]">
                   {option.label}
                 </span>
                 {option.description ? (
                   <span
                     className={[
-                      "truncate text-[9px] font-bold uppercase tracking-[0.08em]",
+                      "truncate text-[8.5px] font-bold uppercase tracking-[0.06em] sm:text-[9px]",
                       active ? "text-[#072116]/58" : "text-[#faf6f0]/42",
                     ].join(" ")}
                   >
