@@ -66,6 +66,11 @@ body > * {
     min-width: 0;
   }
 
+  .sg-app-content .overflow-x-auto {
+    overflow-x: hidden !important;
+    flex-wrap: wrap;
+  }
+
   .sg-app-content .sg-mobile-force-wrap,
   .sg-app-content .sg-mobile-force-wrap * {
     white-space: normal !important;
