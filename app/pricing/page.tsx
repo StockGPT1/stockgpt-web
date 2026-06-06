@@ -4,7 +4,6 @@ import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
-
 export const metadata: Metadata = {
   title: "Pricing | StockGPT AI Market Research Plans",
   description:
@@ -13,6 +12,7 @@ export const metadata: Metadata = {
 
 type PricingSearchParams = {
   waitlist?: string;
+  feature?: string;
 };
 
 function CheckIcon() {
@@ -47,10 +47,10 @@ function LockIcon() {
 const coreFeatures = [
   "Full S&P 500 stock rankings",
   "AI scores updated every market open",
+  "Portfolio tools, watchlist and alerts",
   "World news with sentiment analysis",
-  "Personal watchlist",
   "Stock detail pages with sector peers",
-  "Email weekly market briefings",
+  "Ask StockGPT research assistant",
 ];
 
 const premiumFeatures = [
@@ -58,10 +58,25 @@ const premiumFeatures = [
   "Real-time score updates",
   "Historical AI score charts",
   "Advanced screening filters",
-  "Portfolio tracking & analytics",
+  "Deeper portfolio analytics",
   "API access",
   "Priority support",
 ];
+
+function UpgradeNotice({ feature }: { feature?: string }) {
+  if (!feature) return null;
+
+  const label = feature
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  return (
+    <p className="mx-auto mt-3 max-w-xl rounded-2xl border border-[#ddb159]/28 bg-[#ddb159]/10 px-4 py-3 text-[12px] font-bold leading-5 text-[#f4d27a] lg:mt-2">
+      Unlock {label} with StockGPT Core. Review the plan below, then confirm
+      before Stripe checkout.
+    </p>
+  );
+}
 
 export default async function PricingPage({
   searchParams,
@@ -107,8 +122,10 @@ export default async function PricingPage({
             </h1>
 
             <p className="mx-auto mt-3 max-w-2xl text-[14px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[16px] lg:mt-2 lg:text-[14px]">
-              Access the full ranking engine, insights, and market intelligence.
+              Access the full ranking engine, portfolio tools, insights, and market intelligence.
             </p>
+
+            <UpgradeNotice feature={params.feature} />
 
             {waitlistStatus === "joined" && (
               <p className="mx-auto mt-3 max-w-md rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-[12px] font-bold text-emerald-200 lg:mt-2 lg:py-1.5">
@@ -149,7 +166,7 @@ export default async function PricingPage({
                 </div>
 
                 <p className="mt-2 text-[12px] font-medium text-[#faf6f0]/58 sm:text-[13px] lg:mt-1 lg:text-[12px]">
-                  Full access to the core platform
+                  Full access to the current Core platform
                 </p>
 
                 <div className="mt-5 space-y-2.5 lg:mt-4 lg:space-y-1.5 xl:space-y-2">
@@ -163,11 +180,7 @@ export default async function PricingPage({
                   ))}
                 </div>
 
-                <form
-                  action="/api/create-checkout-session"
-                  method="post"
-                  className="mt-auto pt-5 lg:pt-3 xl:pt-4"
-                >
+                <form action="/checkout/confirm" method="get" className="mt-auto pt-5 lg:pt-3 xl:pt-4">
                   <EndorselyReferralInput />
                   <div className="mb-2 hidden h-9 lg:block xl:h-10" />
 
@@ -175,7 +188,7 @@ export default async function PricingPage({
                     type="submit"
                     className="flex h-11 w-full items-center justify-center rounded-full border-2 border-[#ddb159] bg-[#ddb159] text-[13px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.2)] transition hover:bg-[#c9a04f] sm:h-12 sm:text-[14px] lg:h-10 lg:text-[13px] xl:h-11"
                   >
-                    Start Core subscription
+                    Review Core subscription
                   </button>
 
                   <LegalConsentLine className="mt-3" />
@@ -219,11 +232,7 @@ export default async function PricingPage({
                   ))}
                 </div>
 
-                <form
-                  action="/api/premium-waitlist"
-                  method="post"
-                  className="mt-auto pt-5 lg:pt-3 xl:pt-4"
-                >
+                <form action="/api/premium-waitlist" method="post" className="mt-auto pt-5 lg:pt-3 xl:pt-4">
                   <input
                     name="email"
                     type="email"
