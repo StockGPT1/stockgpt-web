@@ -29,7 +29,7 @@ body > * {
   .sg-app-content {
     padding-left: 10px !important;
     padding-right: 10px !important;
-    padding-bottom: calc(122px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(144px + env(safe-area-inset-bottom)) !important;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
@@ -44,7 +44,8 @@ body > * {
 
   .sg-app-content h1.truncate,
   .sg-app-content h2.truncate,
-  .sg-app-content h3.truncate {
+  .sg-app-content h3.truncate,
+  .sg-app-content p.truncate {
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
@@ -55,6 +56,14 @@ body > * {
     -webkit-line-clamp: unset !important;
     -webkit-box-orient: initial !important;
     overflow: visible !important;
+  }
+
+  .sg-app-content .grid {
+    min-width: 0;
+  }
+
+  .sg-app-content [class*="grid-cols-"] > * {
+    min-width: 0;
   }
 
   .sg-app-content .sg-mobile-force-wrap,
