@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 
 const categories = [
   ["wrong_data", "Wrong data"],
@@ -17,7 +17,7 @@ export function SupportFeedbackForm() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
-  async function submitFeedback(event: React.FormEvent<HTMLFormElement>) {
+  async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = message.trim();
 
