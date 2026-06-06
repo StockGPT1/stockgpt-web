@@ -25,11 +25,42 @@ body > * {
   max-width: 100%;
 }
 
+/*
+  App modals should sit inside the usable app viewport, not underneath
+  the fixed header, ticker tape, mobile search row or mobile bottom nav.
+  This catches the existing full-screen overlay pattern used across the app.
+*/
+.sg-app-shell .fixed.inset-0 {
+  top: 104px !important;
+  bottom: 12px !important;
+  align-items: center;
+  overflow-y: auto;
+  padding: 14px !important;
+}
+
+.sg-app-shell .fixed.inset-0 > * {
+  max-height: calc(100dvh - 132px) !important;
+}
+
 @media (max-width: 767px) {
   .sg-app-content {
     padding-left: 10px !important;
     padding-right: 10px !important;
     padding-bottom: calc(144px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .sg-app-shell .fixed.inset-0 {
+    top: 158px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    padding: 10px !important;
+  }
+
+  .sg-app-shell .fixed.inset-0 > * {
+    width: min(100%, 720px) !important;
+    max-height: calc(100dvh - 248px - env(safe-area-inset-bottom)) !important;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
