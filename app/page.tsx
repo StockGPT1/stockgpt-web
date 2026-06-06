@@ -16,10 +16,8 @@ function formatUpdatedAt(value: string | null | undefined) {
 
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "short",
+    day: "numeric",
+    month: "long",
   }).format(new Date(value));
 }
 
