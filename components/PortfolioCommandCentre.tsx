@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
+import { StockGPTSelect } from "@/components/StockGPTSelect";
 import { StockLogo } from "@/components/StockLogo";
 import {
   addCash,
@@ -205,6 +206,7 @@ function buildSummary({
   );
 
   return {
+    holdingsCount: holdings.length,
     holdingsValue,
     totalValue,
     unrealisedPnl,
@@ -292,6 +294,11 @@ function PortfolioTopBar({
   portfolios: PortfolioOption[];
 }) {
   const router = useRouter();
+  const portfolioOptions = portfolios.map((portfolio) => ({
+    value: portfolio.id,
+    label: portfolio.name,
+    description: portfolio.currency ?? "USD",
+  }));
 
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-3xl border border-[#ddb159]/18 bg-[#061b12]/72 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
@@ -306,22 +313,18 @@ function PortfolioTopBar({
 
       <div className="grid min-w-0 gap-2 sm:flex sm:items-center sm:justify-end">
         {portfolios.length > 1 && (
-          <select
+          <StockGPTSelect
             value={portfolioId}
-            onChange={(event) => router.push(`/portfolio?portfolio=${event.target.value}`)}
-            className="h-10 min-w-0 rounded-full border border-[#ddb159]/28 bg-[#04180f] px-4 text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] outline-none focus:border-[#ddb159] sm:w-[230px]"
-          >
-            {portfolios.map((portfolio) => (
-              <option key={portfolio.id} value={portfolio.id}>
-                {portfolio.name}
-              </option>
-            ))}
-          </select>
+            options={portfolioOptions}
+            onChange={(nextPortfolioId) => router.push(`/portfolio?portfolio=${nextPortfolioId}`)}
+            ariaLabel="Choose portfolio"
+            className="sm:w-[300px]"
+          />
         )}
 
         <Link
           href="/portfolio?builder=1"
-          className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105"
+          className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105"
         >
           + New AI portfolio
         </Link>
@@ -379,8 +382,8 @@ function HeroSummary({
             Quick read
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <StatCard label="Holdings" value={String(summary.holdingsValue > 0 ? summary.sectorCount : 0)} sub="sectors" />
-            <StatCard label="Cash" value={money(summary.cashDrag, "USD").replace("$", "")} sub="% drag" />
+            <StatCard label="Holdings" value={String(summary.holdingsCount)} sub={`${summary.sectorCount} sectors`} />
+            <StatCard label="Cash" value={`${summary.cashDrag.toFixed(1)}%`} sub="drag" />
             <StatCard label="Alerts" value={String(summary.actionAlerts)} sub="actions" tone={summary.actionAlerts > 0 ? "negative" : "positive"} />
             <StatCard label="Oversized" value={String(summary.oversizedCount)} sub="positions" tone={summary.oversizedCount > 0 ? "negative" : "positive"} />
           </div>
@@ -697,14 +700,14 @@ function HoldingRow({ holding, currency }: { holding: ExtendedHolding; currency:
         <StockLogo ticker={holding.ticker} size={40} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="text-[19px] font-black leading-none tracking-[-0.04em]">
+            <span className="shrink-0 text-[22px] font-black leading-none tracking-[-0.045em] text-[#072116]">
               {holding.ticker}
-            </p>
+            </span>
             <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${recClass}`}>
               {holding.recommendation}
             </span>
           </div>
-          <p className="mt-1 truncate text-[12px] font-bold text-[#072116]/55">
+          <p className="mt-2 truncate text-[13px] font-black text-[#072116]/68">
             {holding.company ?? "—"}
           </p>
           <p className="mt-2 line-clamp-2 text-[11px] font-semibold leading-5 text-[#072116]/62">
@@ -828,6 +831,23 @@ export function PortfolioCommandCentre({
     cashDepositedTotal: portfolioMeta.cashDepositedTotal,
   });
 
+  const filterOptions = [
+    { value: "all", label: "All holdings" },
+    { value: "action", label: "Action needed" },
+    { value: "winners", label: "Winners" },
+    { value: "losers", label: "Losers" },
+    { value: "oversized", label: "Oversized" },
+  ];
+
+  const sortOptions = [
+    { value: "urgent", label: "Most urgent" },
+    { value: "value", label: "Highest value" },
+    { value: "worst", label: "Worst P/L" },
+    { value: "best", label: "Best P/L" },
+    { value: "rank", label: "Best rank" },
+    { value: "ticker", label: "Ticker A-Z" },
+  ];
+
   const filteredHoldings = useMemo(() => {
     let next = [...holdings];
     if (filter === "action") next = next.filter((holding) => holding.actionAlerts.length > 0);
@@ -869,21 +889,22 @@ export function PortfolioCommandCentre({
               </p>
             </div>
             <div className="grid gap-2 sm:flex sm:justify-end">
-              <select value={filter} onChange={(event) => setFilter(event.target.value as HoldingFilter)} className="h-10 rounded-2xl border border-[#ddb159]/20 bg-[#04180f] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] outline-none">
-                <option value="all">All holdings</option>
-                <option value="action">Action needed</option>
-                <option value="winners">Winners</option>
-                <option value="losers">Losers</option>
-                <option value="oversized">Oversized</option>
-              </select>
-              <select value={sort} onChange={(event) => setSort(event.target.value as HoldingSort)} className="h-10 rounded-2xl border border-[#ddb159]/20 bg-[#04180f] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#faf6f0] outline-none">
-                <option value="urgent">Most urgent</option>
-                <option value="value">Highest value</option>
-                <option value="worst">Worst P/L</option>
-                <option value="best">Best P/L</option>
-                <option value="rank">Best rank</option>
-                <option value="ticker">Ticker A-Z</option>
-              </select>
+              <StockGPTSelect
+                value={filter}
+                options={filterOptions}
+                onChange={(value) => setFilter(value as HoldingFilter)}
+                ariaLabel="Filter holdings"
+                className="sm:w-[190px]"
+                buttonClassName="h-10 rounded-2xl"
+              />
+              <StockGPTSelect
+                value={sort}
+                options={sortOptions}
+                onChange={(value) => setSort(value as HoldingSort)}
+                ariaLabel="Sort holdings"
+                className="sm:w-[190px]"
+                buttonClassName="h-10 rounded-2xl"
+              />
             </div>
           </div>
 
