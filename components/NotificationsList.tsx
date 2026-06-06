@@ -69,12 +69,10 @@ function NotificationCard({
     <div
       className={`relative overflow-hidden rounded-2xl border-2 bg-[#faf6f0] shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition ${style.cardBorder} ${isRead ? "opacity-65" : ""}`}
     >
-      {/* Left accent bar */}
       <div className={`absolute inset-y-0 left-0 w-1 ${style.cardAccent}`} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 p-4 pl-5">
         <div className="min-w-0">
-          {/* Top row: severity pill + ticker + company */}
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${style.pillBg} ${style.pillText}`}
@@ -94,17 +92,14 @@ function NotificationCard({
             )}
           </div>
 
-          {/* Title */}
           <h3 className="mt-1.5 text-[14px] font-black tracking-[-0.02em] text-[#072116]">
             {notification.title}
           </h3>
 
-          {/* Message */}
           <p className="mt-1 text-[12px] font-medium text-[#072116]/65">
             {notification.message}
           </p>
 
-          {/* Recommendation */}
           <div className="mt-2 rounded-lg border border-[#072116]/10 bg-white/70 px-3 py-2">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/45">
               ✦ AI Recommendation
@@ -115,7 +110,6 @@ function NotificationCard({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex shrink-0 flex-col items-end justify-between gap-2">
           {!isRead ? (
             <button
@@ -164,7 +158,6 @@ export function NotificationsList({
     });
   }
 
-  // Group unread by severity for the count chips
   const critical = unread.filter((n) => n.severity === "critical");
   const warnings = unread.filter((n) => n.severity === "warning");
   const success = unread.filter((n) => n.severity === "success");
@@ -172,7 +165,6 @@ export function NotificationsList({
 
   return (
     <div className="grid gap-3">
-      {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] px-6 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
 
@@ -204,7 +196,6 @@ export function NotificationsList({
           )}
         </div>
 
-        {/* Severity chips */}
         {unread.length > 0 && (
           <div className="relative mt-4 flex flex-wrap gap-2">
             {critical.length > 0 && (
@@ -231,7 +222,11 @@ export function NotificationsList({
         )}
       </div>
 
-      {/* Unread list */}
+      <div className="rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/60 px-4 py-3 text-[11px] font-medium leading-5 text-[#faf6f0]/45">
+        Alerts are research prompts generated from StockGPT data. Use them as a
+        review starting point, not as instructions.
+      </div>
+
       {unread.length > 0 ? (
         <div className="grid gap-2.5">
           {unread.map((n) => (
@@ -262,7 +257,6 @@ export function NotificationsList({
         </div>
       )}
 
-      {/* Dismissed toggle */}
       {read.length > 0 && (
         <>
           <button
@@ -275,11 +269,7 @@ export function NotificationsList({
           {showRead && (
             <div className="grid gap-2.5">
               {read.map((n) => (
-                <NotificationCard
-                  key={n.key}
-                  notification={n}
-                  isRead={true}
-                />
+                <NotificationCard key={n.key} notification={n} isRead={true} />
               ))}
             </div>
           )}
