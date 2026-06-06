@@ -41,7 +41,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-y-auto bg-[#0F2A1F] px-4 py-4 text-[#faf6f0] sm:px-6 sm:py-6 lg:overflow-hidden">
+    <main className="relative flex min-h-dvh items-start justify-center overflow-x-hidden overflow-y-auto bg-[#0F2A1F] px-4 py-4 text-[#faf6f0] sm:px-6 sm:py-6">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(221,177,89,0.16),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_50%_95%,rgba(221,177,89,0.10),transparent_32%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.045)_0_1px,transparent_1px_42px)] opacity-30" />
@@ -49,7 +49,7 @@ export default function LoginPage() {
         <div className="absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ddb159]/5" />
       </div>
 
-      <section className="relative my-auto w-full max-w-[430px] rounded-[2rem] border border-[#ddb159]/28 bg-[#082519]/82 p-5 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6 lg:max-h-[calc(100dvh-2rem)]">
+      <section className="relative my-auto w-full max-w-[430px] rounded-[2rem] border border-[#ddb159]/28 bg-[#082519]/82 p-5 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#ddb159]/70 to-transparent" />
 
         <div className="relative mx-auto mb-4 h-10 w-40 sm:mx-0 sm:h-11 sm:w-44">
@@ -72,8 +72,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#faf6f0]/62 sm:text-[13px]">
-            Log in to access your rankings, portfolio tools, watchlist and
-            premium StockGPT insights.
+            Log in to access your rankings, portfolio tools, watchlist and premium StockGPT insights.
           </p>
         </div>
 
@@ -135,8 +134,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-5 rounded-2xl border border-[#ddb159]/14 bg-[#04180f]/45 p-3 text-center text-[10px] font-semibold leading-relaxed text-[#faf6f0]/45 sm:text-[11px]">
-          Exclusive access to AI-ranked S&amp;P 500 intelligence, portfolio
-          construction and market insights.
+          Exclusive access to AI-ranked S&amp;P 500 intelligence, portfolio construction and market insights.
         </div>
       </section>
     </main>
