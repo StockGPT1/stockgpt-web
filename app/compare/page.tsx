@@ -5,19 +5,8 @@ import { createClient } from "@/utils/supabase/server";
 import { getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import { calculateTradeLevels } from "@/lib/trading-levels";
 
-type SearchParams = {
-  a?: string;
-  b?: string;
-};
-
-type Stock = {
-  ticker: string | null;
-  company: string | null;
-  sector: string | null;
-  rank: number | null;
-  score: number | string | null;
-  price: number | string | null;
-};
+type SearchParams = { a?: string; b?: string };
+type Stock = { ticker: string | null; company: string | null; sector: string | null; rank: number | null; score: number | string | null; price: number | string | null };
 
 function cleanTicker(value?: string) {
   return String(value ?? "").trim().toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
@@ -47,45 +36,19 @@ function betterClass(left: number | null, right: number | null, side: "left" | "
 
 async function loadStock(ticker: string) {
   if (!ticker) return null;
-
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("stock_rankings")
-    .select("ticker,company,sector,rank,score,price")
-    .eq("ticker", ticker)
-    .maybeSingle();
-
+  const { data } = await supabase.from("stock_rankings").select("ticker,company,sector,rank,score,price").eq("ticker", ticker).maybeSingle();
   if (!data) return null;
 
   const stock = data as Stock;
   const chart = await getStockChart(ticker, ["1D", "6M", "1Y"]);
   const livePrice = getLatestPriceFromChart(chart) ?? (Number(stock.price) || 0);
-  const trade = await calculateTradeLevels({
-    ticker,
-    price: livePrice,
-    score: Number(stock.score) || 0,
-    rank: Number(stock.rank) || null,
-    sector: stock.sector ?? null,
-  });
-
+  const trade = await calculateTradeLevels({ ticker, price: livePrice, score: Number(stock.score) || 0, rank: Number(stock.rank) || null, sector: stock.sector ?? null });
+  if (!trade) return null;
   return { ...stock, livePrice, trade };
 }
 
-function MetricRow({
-  label,
-  left,
-  right,
-  leftScore,
-  rightScore,
-  higher = true,
-}: {
-  label: string;
-  left: string;
-  right: string;
-  leftScore?: number | null;
-  rightScore?: number | null;
-  higher?: boolean;
-}) {
+function MetricRow({ label, left, right, leftScore, rightScore, higher = true }: { label: string; left: string; right: string; leftScore?: number | null; rightScore?: number | null; higher?: boolean }) {
   return (
     <div className="grid gap-2 border-t border-[#072116]/8 py-2.5 first:border-t-0 sm:grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/45">{label}</div>
@@ -126,16 +89,14 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">StockGPT comparison</p>
           <h1 className="mt-1 text-[32px] font-black leading-none tracking-[-0.055em] text-[#faf6f0]">Compare two stocks</h1>
           <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Compare ranking metrics, AI trade-plan levels and expected return side by side.</p>
-
           <form className="mt-4 grid gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#02150d]/62 p-2 sm:grid-cols-[1fr_1fr_auto]">
             <input name="a" defaultValue={leftTicker} placeholder="First ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
             <input name="b" defaultValue={rightTicker} placeholder="Second ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
             <button className="h-11 rounded-2xl bg-[#ddb159] px-6 text-[12px] font-black uppercase tracking-[0.1em] text-[#072116]">Compare</button>
           </form>
         </section>
-
         {!left || !right ? (
-          <div className="mt-3 rounded-2xl bg-[#faf6f0] p-6 text-[13px] font-bold text-[#072116]/65">One of those tickers could not be found in the StockGPT ranking universe.</div>
+          <div className="mt-3 rounded-2xl bg-[#faf6f0] p-6 text-[13px] font-bold text-[#072116]/65">One of those tickers could not be found or does not currently have enough data for a generated trade plan.</div>
         ) : (
           <section className="mt-3 grid gap-3">
             <div className="grid gap-3 lg:grid-cols-2"><StockHeader stock={left} /><StockHeader stock={right} /></div>
