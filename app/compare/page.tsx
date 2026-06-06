@@ -7,6 +7,7 @@ import { calculateTradeLevels } from "@/lib/trading-levels";
 
 type SearchParams = { a?: string; b?: string };
 type Stock = { ticker: string | null; company: string | null; sector: string | null; rank: number | null; score: number | string | null; price: number | string | null };
+type TickerOption = { ticker: string | null; company: string | null };
 
 function cleanTicker(value?: string) {
   return String(value ?? "").trim().toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
@@ -80,6 +81,15 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   const params = searchParams ? await searchParams : {};
   const leftTicker = cleanTicker(params.a) || "AAPL";
   const rightTicker = cleanTicker(params.b) || "MSFT";
+
+  const supabase = await createClient();
+  const { data: tickerOptionsData } = await supabase
+    .from("stock_rankings")
+    .select("ticker,company")
+    .order("ticker", { ascending: true })
+    .limit(600);
+
+  const tickerOptions = ((tickerOptionsData ?? []) as TickerOption[]).filter((option) => option.ticker);
   const [left, right] = await Promise.all([loadStock(leftTicker), loadStock(rightTicker)]);
 
   return (
@@ -88,10 +98,15 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
         <section className="rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.025),rgba(221,177,89,0.06))] p-4 shadow-[0_16px_38px_rgba(0,0,0,0.2)]">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">StockGPT comparison</p>
           <h1 className="mt-1 text-[32px] font-black leading-none tracking-[-0.055em] text-[#faf6f0]">Compare two stocks</h1>
-          <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Compare ranking metrics, AI trade-plan levels and expected return side by side.</p>
+          <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Start typing a ticker or company name, then compare ranking metrics, AI trade-plan levels and expected return side by side.</p>
           <form className="mt-4 grid gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#02150d]/62 p-2 sm:grid-cols-[1fr_1fr_auto]">
-            <input name="a" defaultValue={leftTicker} placeholder="First ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
-            <input name="b" defaultValue={rightTicker} placeholder="Second ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
+            <input list="compare-stock-options" name="a" defaultValue={leftTicker} placeholder="First ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
+            <input list="compare-stock-options" name="b" defaultValue={rightTicker} placeholder="Second ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
+            <datalist id="compare-stock-options">
+              {tickerOptions.map((option) => (
+                <option key={option.ticker!} value={option.ticker!} label={option.company ?? option.ticker!} />
+              ))}
+            </datalist>
             <button className="h-11 rounded-2xl bg-[#ddb159] px-6 text-[12px] font-black uppercase tracking-[0.1em] text-[#072116]">Compare</button>
           </form>
         </section>
