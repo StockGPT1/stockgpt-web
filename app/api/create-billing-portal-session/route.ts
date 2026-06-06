@@ -6,15 +6,15 @@ type Profile = {
   stripe_customer_id: string | null;
 };
 
-type BillingErrorCode =
-  | "stripe_not_configured"
-  | "stripe_customer_mismatch"
-  | "portal_not_configured"
-  | "portal_failed";
-
-function redirectWithError(request: Request, code: BillingErrorCode) {
+function redirectToSubscriptionError(request: Request, message: string) {
   const url = new URL("/subscription", request.url);
-  url.searchParams.set("billing_error", code);
+  url.searchParams.set("billing_error", message);
+  return NextResponse.redirect(url, { status: 303 });
+}
+
+function redirectToPricing(request: Request) {
+  const url = new URL("/pricing", request.url);
+  url.searchParams.set("feature", "billing");
   return NextResponse.redirect(url, { status: 303 });
 }
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
 
   if (!stripeKey) {
-    return redirectWithError(request, "stripe_not_configured");
+    return redirectToSubscriptionError(request, "Stripe is not configured yet.");
   }
 
   const stripe = new Stripe(stripeKey);
@@ -48,9 +48,7 @@ export async function POST(request: Request) {
   const customerId = typedProfile?.stripe_customer_id;
 
   if (!customerId) {
-    return NextResponse.redirect(new URL("/pricing", request.url), {
-      status: 303,
-    });
+    return redirectToPricing(request);
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
@@ -70,14 +68,18 @@ export async function POST(request: Request) {
     const stripeError = error as { message?: string; code?: string; type?: string };
     const message = stripeError.message?.toLowerCase() ?? "";
 
-    if (message.includes("no such customer") || message.includes("customer")) {
-      return redirectWithError(request, "stripe_customer_mismatch");
+    if (
+      message.includes("no such customer") ||
+      message.includes("customer") ||
+      message.includes("configuration") ||
+      message.includes("portal")
+    ) {
+      return redirectToPricing(request);
     }
 
-    if (message.includes("configuration") || message.includes("portal")) {
-      return redirectWithError(request, "portal_not_configured");
-    }
-
-    return redirectWithError(request, "portal_failed");
+    return redirectToSubscriptionError(
+      request,
+      "Stripe could not open the billing portal. Please try again or contact support.",
+    );
   }
 }
