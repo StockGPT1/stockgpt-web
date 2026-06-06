@@ -71,10 +71,38 @@ body > * {
 }
 
 @media (max-width: 767px) {
+  html,
+  body {
+    height: 100%;
+    min-height: 100%;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main,
+  [class*="overflow-y-auto"],
+  [class*="overflow-y-scroll"] {
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
   .sg-app-content {
+    overflow-y: auto !important;
     padding-left: 10px !important;
     padding-right: 10px !important;
     padding-bottom: calc(144px + env(safe-area-inset-bottom)) !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .sg-app-content > .relative.z-10,
+  .sg-app-content main {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-y: visible !important;
   }
 
   .sg-app-shell .fixed.inset-0 {
