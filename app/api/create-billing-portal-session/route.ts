@@ -6,9 +6,15 @@ type Profile = {
   stripe_customer_id: string | null;
 };
 
-function redirectWithError(request: Request, message: string) {
+type BillingErrorCode =
+  | "stripe_not_configured"
+  | "stripe_customer_mismatch"
+  | "portal_not_configured"
+  | "portal_failed";
+
+function redirectWithError(request: Request, code: BillingErrorCode) {
   const url = new URL("/subscription", request.url);
-  url.searchParams.set("billing_error", message);
+  url.searchParams.set("billing_error", code);
   return NextResponse.redirect(url, { status: 303 });
 }
 
@@ -16,7 +22,7 @@ export async function POST(request: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
 
   if (!stripeKey) {
-    return redirectWithError(request, "Stripe is not configured yet.");
+    return redirectWithError(request, "stripe_not_configured");
   }
 
   const stripe = new Stripe(stripeKey);
@@ -65,22 +71,13 @@ export async function POST(request: Request) {
     const message = stripeError.message?.toLowerCase() ?? "";
 
     if (message.includes("no such customer") || message.includes("customer")) {
-      return redirectWithError(
-        request,
-        "Your subscription is linked to the previous Stripe account. Please choose a plan again or contact support so we can relink your billing profile.",
-      );
+      return redirectWithError(request, "stripe_customer_mismatch");
     }
 
     if (message.includes("configuration") || message.includes("portal")) {
-      return redirectWithError(
-        request,
-        "Stripe Customer Portal is not configured in the new Stripe account yet.",
-      );
+      return redirectWithError(request, "portal_not_configured");
     }
 
-    return redirectWithError(
-      request,
-      "Stripe could not open the billing portal. Please try again or contact support.",
-    );
+    return redirectWithError(request, "portal_failed");
   }
 }
