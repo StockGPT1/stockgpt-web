@@ -56,7 +56,7 @@ export default async function CheckoutConfirmPage({
   } = await supabase.auth.getUser();
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#072116] px-4 py-5 text-[#faf6f0] sm:px-6 sm:py-8">
+    <main className="relative min-h-dvh overflow-x-hidden overflow-y-auto bg-[#072116] px-4 py-5 text-[#faf6f0] sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_8%,rgba(221,177,89,0.16),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.10),transparent_28%),linear-gradient(135deg,#04180f,#072116_52%,#04180f)]" />
         <div className="absolute right-[-180px] top-10 h-[420px] w-[420px] rounded-full border border-[#ddb159]/10" />
@@ -72,14 +72,14 @@ export default async function CheckoutConfirmPage({
           </Link>
         </header>
 
-        <section className="grid flex-1 items-center gap-5 py-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-7 lg:py-10">
+        <section className="grid flex-1 items-start gap-5 py-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-7 lg:py-8">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/28 bg-[#ddb159]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
               <span className="size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
               Secure Stripe checkout
             </div>
 
-            <h1 className="mt-5 max-w-2xl text-[38px] font-black leading-[0.94] tracking-[-0.06em] sm:text-[54px] lg:text-[64px]">
+            <h1 className="mt-5 max-w-2xl text-[38px] font-black leading-[0.94] tracking-[-0.06em] sm:text-[54px] lg:text-[58px]">
               Review Core before continuing.
             </h1>
 
@@ -97,7 +97,7 @@ export default async function CheckoutConfirmPage({
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[32px] border border-[#ddb159]/45 bg-[#0b2b1d]/78 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:p-6">
+          <div className="relative overflow-hidden rounded-[32px] border border-[#ddb159]/45 bg-[#0b2b1d]/78 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:p-6 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto">
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#ddb159]/14 blur-3xl" />
             <div className="relative">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
