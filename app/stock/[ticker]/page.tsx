@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { AddToPortfolioButton } from "@/components/AddToPortfolioButton";
 import { AppShell } from "@/components/AppShell";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
@@ -68,7 +69,7 @@ function formatDays(days: number | null) {
   return days.toLocaleString();
 }
 
-function LockedValue({ children, placeholder, unlocked }: { children: React.ReactNode; placeholder: string; unlocked: boolean }) {
+function LockedValue({ children, placeholder, unlocked }: { children: ReactNode; placeholder: string; unlocked: boolean }) {
   if (unlocked) return <>{children}</>;
   return <span className="select-none blur-[5px]">{placeholder}</span>;
 }
