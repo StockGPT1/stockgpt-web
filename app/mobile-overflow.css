@@ -1,0 +1,76 @@
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body > * {
+  max-width: 100vw;
+}
+
+.sg-app-shell,
+.sg-app-content {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.sg-app-content {
+  overscroll-behavior-x: none;
+}
+
+.sg-app-content img,
+.sg-app-content svg,
+.sg-app-content video,
+.sg-app-content canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .sg-app-content {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-bottom: calc(122px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
+    min-width: 0;
+  }
+
+  .sg-app-content :where(h1, h2, h3, p, a, button, label, input, textarea) {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .sg-app-content h1.truncate,
+  .sg-app-content h2.truncate,
+  .sg-app-content h3.truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .sg-app-content .line-clamp-2 {
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    -webkit-box-orient: initial !important;
+    overflow: visible !important;
+  }
+
+  .sg-app-content .sg-mobile-force-wrap,
+  .sg-app-content .sg-mobile-force-wrap * {
+    white-space: normal !important;
+    overflow-wrap: break-word;
+  }
+
+  .sg-candle-scrollbar {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+
+  .sg-candle-scrollbar::-webkit-scrollbar,
+  .sg-candle-scrollbar *::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
