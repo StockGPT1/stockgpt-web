@@ -45,7 +45,7 @@ function betterClass(left: number | null, right: number | null, side: "left" | "
   return winner === side ? "ring-1 ring-[#ddb159]/45 bg-[#ddb159]/10" : "";
 }
 
-async function loadStock(ticker: string): Promise<(Stock & { livePrice: number; trade: Awaited<ReturnType<typeof calculateTradeLevels>> }) | null> {
+async function loadStock(ticker: string) {
   if (!ticker) return null;
 
   const supabase = await createClient();
@@ -59,7 +59,7 @@ async function loadStock(ticker: string): Promise<(Stock & { livePrice: number; 
 
   const stock = data as Stock;
   const chart = await getStockChart(ticker, ["1D", "6M", "1Y"]);
-  const livePrice = getLatestPriceFromChart(chart) ?? Number(stock.price) || 0;
+  const livePrice = getLatestPriceFromChart(chart) ?? (Number(stock.price) || 0);
   const trade = await calculateTradeLevels({
     ticker,
     price: livePrice,
@@ -87,7 +87,7 @@ function MetricRow({
   higher?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)] gap-2 border-t border-[#072116]/8 py-2.5 first:border-t-0">
+    <div className="grid gap-2 border-t border-[#072116]/8 py-2.5 first:border-t-0 sm:grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/45">{label}</div>
       <div className={["min-w-0 rounded-xl px-2 py-1.5 text-[12px] font-black text-[#072116]", betterClass(leftScore ?? null, rightScore ?? null, "left", higher)].join(" ")}>{left}</div>
       <div className={["min-w-0 rounded-xl px-2 py-1.5 text-[12px] font-black text-[#072116]", betterClass(leftScore ?? null, rightScore ?? null, "right", higher)].join(" ")}>{right}</div>
