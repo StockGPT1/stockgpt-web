@@ -34,10 +34,10 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
 
   return (
     <>
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:min-h-0">
-        <div className="flex items-start justify-between gap-3">
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:h-full lg:min-h-0">
+        <div className="flex shrink-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55">
+            <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55">
               ✦ What changed today?
             </p>
             <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
@@ -54,31 +54,41 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           </button>
         </div>
 
-        <div className="mt-2 grid gap-2">
-          {previewItems.map((item) => (
+        <div className="mt-2 grid gap-2 lg:min-h-0 lg:flex-1 lg:grid-rows-3">
+          {previewItems.length > 0 ? (
+            previewItems.map((item) => (
+              <button
+                key={item.ticker}
+                type="button"
+                onClick={() => setOpen(true)}
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 lg:h-full lg:min-h-0"
+              >
+                <div className="min-w-0 overflow-hidden">
+                  <p className="truncate text-[12px] font-black">
+                    {item.ticker} · {item.company}
+                  </p>
+                  <p className="mt-0.5 truncate text-[9px] font-bold text-[#072116]/42">
+                    {item.sector}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full border px-2 py-1 text-[10px] font-black tabular-nums ${moveToneClass(
+                    item.dailyMoveTone,
+                  )}`}
+                >
+                  {item.dailyMoveLabel}
+                </span>
+              </button>
+            ))
+          ) : (
             <button
-              key={item.ticker}
               type="button"
               onClick={() => setOpen(true)}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8"
+              className="rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-3 text-left text-[11px] font-bold text-[#072116]/45 lg:row-span-3"
             >
-              <div className="min-w-0">
-                <p className="truncate text-[12px] font-black">
-                  {item.ticker} · {item.company}
-                </p>
-                <p className="mt-0.5 truncate text-[9px] font-bold text-[#072116]/42">
-                  {item.sector}
-                </p>
-              </div>
-              <span
-                className={`rounded-full border px-2 py-1 text-[10px] font-black tabular-nums ${moveToneClass(
-                  item.dailyMoveTone,
-                )}`}
-              >
-                {item.dailyMoveLabel}
-              </span>
+              No daily changes available yet.
             </button>
-          ))}
+          )}
         </div>
       </section>
 
@@ -110,46 +120,52 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
 
             <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
               <div className="grid gap-2">
-                {items.map((item) => (
-                  <Link
-                    key={item.ticker}
-                    href={`/stock/${item.ticker}`}
-                    onClick={() => setOpen(false)}
-                    className="grid gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-3 transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <p className="text-[15px] font-black tracking-[-0.02em]">
-                          {item.ticker}
-                        </p>
-                        <p className="min-w-0 truncate text-[13px] font-bold text-[#072116]/72">
-                          {item.company}
+                {items.length > 0 ? (
+                  items.map((item) => (
+                    <Link
+                      key={item.ticker}
+                      href={`/stock/${item.ticker}`}
+                      onClick={() => setOpen(false)}
+                      className="grid gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-3 transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <p className="text-[15px] font-black tracking-[-0.02em]">
+                            {item.ticker}
+                          </p>
+                          <p className="min-w-0 truncate text-[13px] font-bold text-[#072116]/72">
+                            {item.company}
+                          </p>
+                        </div>
+                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#072116]/42">
+                          {item.sector} · Price {item.price} · Score {item.score}
                         </p>
                       </div>
-                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#072116]/42">
-                        {item.sector} · Price {item.price} · Score {item.score}
-                      </p>
-                    </div>
 
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                      <span
-                        className={`rounded-full border px-3 py-1.5 text-[11px] font-black tabular-nums ${moveToneClass(
-                          item.dailyMoveTone,
-                        )}`}
-                      >
-                        1D {item.dailyMoveLabel}
-                      </span>
-                      <span
-                        title={item.rankTitle}
-                        className={`rounded-full border px-3 py-1.5 text-[11px] font-black ${rankToneClass(
-                          item.rankTone,
-                        )}`}
-                      >
-                        Rank {item.rankLabel}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <span
+                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black tabular-nums ${moveToneClass(
+                            item.dailyMoveTone,
+                          )}`}
+                        >
+                          1D {item.dailyMoveLabel}
+                        </span>
+                        <span
+                          title={item.rankTitle}
+                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black ${rankToneClass(
+                            item.rankTone,
+                          )}`}
+                        >
+                          Rank {item.rankLabel}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-[#072116]/8 bg-white px-4 py-6 text-center text-[12px] font-bold text-[#072116]/50">
+                    No daily movement data is available yet.
+                  </div>
+                )}
               </div>
             </div>
           </div>
