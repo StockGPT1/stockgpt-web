@@ -142,6 +142,19 @@ function recommendationClass(recommendation: EnrichedHolding["recommendation"]) 
   return "bg-[#072116] text-[#ddb159]";
 }
 
+function recommendedTrimPercent(holding: ExtendedHolding) {
+  if (holding.recommendation.includes("Sell") || holding.recommendation.includes("Urgently")) return 100;
+
+  if (holding.targetAllocationPct && holding.currentAllocationPct > holding.targetAllocationPct + 1) {
+    const trimToTarget = ((holding.currentAllocationPct - holding.targetAllocationPct) / holding.currentAllocationPct) * 100;
+    return Math.round(Math.min(60, Math.max(5, trimToTarget)));
+  }
+
+  if (holding.recommendation.includes("Trim")) return 20;
+  if (holding.actionAlerts.length > 0) return 15;
+  return 10;
+}
+
 function SectionButton({ section, active, setSection, label }: { section: Section; active: Section; setSection: (section: Section) => void; label: string }) {
   return (
     <button
@@ -290,29 +303,110 @@ function AddHoldingPanel({ portfolioId, stockOptions }: { portfolioId: string; s
   );
 }
 
-function HoldingActions({ portfolioId, holding }: { portfolioId: string; holding: ExtendedHolding }) {
+function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose }: { portfolioId: string; holding: ExtendedHolding; recommendedPercent: number; onClose: () => void }) {
   const router = useRouter();
+  const [customPercent, setCustomPercent] = useState(String(Math.min(50, recommendedPercent)));
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  function run(action: "trim25" | "trim50" | "sell" | "remove") {
-    const labels = { trim25: "trim 25%", trim50: "trim 50%", sell: "sell this holding and credit cash", remove: "remove this holding without crediting cash" };
-    if (!window.confirm(`Are you sure you want to ${labels[action]} for ${holding.ticker}?`)) return;
+
+  function runTrim(rawPercent: number) {
+    const percent = Math.round(Number(rawPercent) * 10) / 10;
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+      setMessage("Enter a trim percentage between 1 and 100.");
+      return;
+    }
     startTransition(async () => {
-      const result = action === "remove"
-        ? await removeHolding({ portfolioId, ticker: holding.ticker, creditCash: false })
-        : await trimHolding({ portfolioId, ticker: holding.ticker, percentage: action === "trim25" ? 25 : action === "trim50" ? 50 : 100 });
+      const result = await trimHolding({ portfolioId, ticker: holding.ticker, percentage: percent });
       if (!result.success) { setMessage(result.error ?? "Could not update holding."); return; }
-      setMessage(action === "remove" ? "Holding removed." : "Holding updated.");
+      setMessage(`${holding.ticker} trimmed by ${percent}%.`);
       router.refresh();
+      window.setTimeout(onClose, 650);
     });
   }
+
+  function runRemove(creditCash: boolean) {
+    const label = creditCash ? "sell this entire position and credit cash" : "remove this holding without adding cash";
+    if (!window.confirm(`Are you sure you want to ${label} for ${holding.ticker}?`)) return;
+    startTransition(async () => {
+      const result = creditCash
+        ? await trimHolding({ portfolioId, ticker: holding.ticker, percentage: 100 })
+        : await removeHolding({ portfolioId, ticker: holding.ticker, creditCash: false });
+      if (!result.success) { setMessage(result.error ?? "Could not update holding."); return; }
+      setMessage(creditCash ? `${holding.ticker} sold.` : `${holding.ticker} removed.`);
+      router.refresh();
+      window.setTimeout(onClose, 650);
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <button type="button" aria-label="Close manage holding" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <div className="relative w-full max-w-xl overflow-hidden rounded-[30px] border border-[#ddb159]/28 bg-[#faf6f0] text-[#072116] shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[#072116]/10 p-4 sm:p-5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a641a]">Manage holding</p>
+            <div className="mt-2 flex min-w-0 items-center gap-3">
+              <StockLogo ticker={holding.ticker} size={38} />
+              <div className="min-w-0">
+                <h3 className="truncate text-[28px] font-black leading-none tracking-[-0.05em]">{holding.ticker}</h3>
+                <p className="mt-1 truncate text-[12px] font-bold text-[#072116]/52">{holding.company ?? "Holding"}</p>
+              </div>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full border border-[#072116]/12 text-xl text-[#072116]/55 transition hover:bg-[#072116]/5">×</button>
+        </div>
+
+        <div className="grid gap-3 p-4 sm:p-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <MiniMetric label="Value" value={money(holding.currentValue)} sub={`${number(holding.shares, 4)} sh`} />
+            <MiniMetric label="Allocation" value={`${holding.currentAllocationPct.toFixed(1)}%`} sub={`target ${holding.targetAllocationPct?.toFixed(1) ?? "—"}%`} />
+            <MiniMetric label="P/L" value={money(holding.totalPnLDollars)} sub={pct(holding.pnlPercent)} tone={holding.totalPnLDollars >= 0 ? "positive" : "negative"} />
+            <MiniMetric label="Score" value={number(holding.score, 0)} sub={`rank #${holding.rank ?? "—"}`} tone="gold" />
+          </div>
+
+          <div className="rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8a641a]">Recommended action</p>
+            <p className="mt-1 text-[13px] font-semibold leading-5 text-[#072116]/65">
+              StockGPT suggests reviewing a <span className="font-black text-[#072116]">{recommendedPercent}%</span> trim as a starting point. This is based on allocation versus target, alerts and the current recommendation — adjust it manually below.
+            </p>
+            <button type="button" disabled={isPending} onClick={() => runTrim(recommendedPercent)} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-[#072116] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] disabled:opacity-50">
+              Apply recommended {recommendedPercent}%
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-[#072116]/10 bg-white p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/42">Custom trim</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="min-w-0">
+                <span className="sr-only">Trim percentage</span>
+                <input type="number" min={1} max={100} step={0.5} value={customPercent} onChange={(event) => setCustomPercent(event.target.value)} className="h-11 w-full rounded-2xl border border-[#072116]/10 px-3 text-[14px] font-black outline-none focus:border-[#ddb159]" />
+              </label>
+              <button type="button" disabled={isPending} onClick={() => runTrim(Number(customPercent))} className="h-11 rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] disabled:opacity-50">Trim %</button>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-2xl border border-red-500/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-700 disabled:opacity-50">Sell all + credit cash</button>
+            <button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-2xl border border-[#072116]/15 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]/55 disabled:opacity-50">Remove only</button>
+          </div>
+
+          {message && <p className="rounded-2xl bg-[#072116]/6 px-3 py-2 text-[11px] font-bold text-[#072116]/62">{message}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HoldingActions({ portfolioId, holding }: { portfolioId: string; holding: ExtendedHolding }) {
+  const [open, setOpen] = useState(false);
+  const recommendedPercent = recommendedTrimPercent(holding);
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <button type="button" disabled={isPending} onClick={() => run("trim25")} className="rounded-full border border-amber-400/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-amber-700 disabled:opacity-50">Trim 25%</button>
-      <button type="button" disabled={isPending} onClick={() => run("trim50")} className="rounded-full border border-amber-400/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-amber-700 disabled:opacity-50">Trim 50%</button>
-      <button type="button" disabled={isPending} onClick={() => run("sell")} className="rounded-full border border-red-500/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-red-700 disabled:opacity-50">Sell all</button>
-      <button type="button" disabled={isPending} onClick={() => run("remove")} className="rounded-full border border-[#072116]/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/55 disabled:opacity-50">Remove only</button>
-      {message && <span className="text-[10px] font-bold text-[#072116]/55">{message}</span>}
+      <button type="button" onClick={() => setOpen(true)} className="rounded-full border border-[#072116]/12 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/62 transition hover:border-[#ddb159]/45 hover:text-[#8a641a]">
+        Manage holding
+      </button>
+      <span className="text-[10px] font-bold text-[#072116]/38">Suggested trim: {recommendedPercent}%</span>
+      {open && <ManageHoldingModal portfolioId={portfolioId} holding={holding} recommendedPercent={recommendedPercent} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -383,7 +477,7 @@ export function PortfolioCommandCentre({ portfolioId, portfolios, holdings, stoc
       <PortfolioTopBar portfolioId={portfolioId} portfolios={portfolios} />
       <HeroSummary portfolioName={portfolioMeta.name} currency={currency} summary={summary} />
       <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><SectionButton section="holdings" active={section} setSection={setSection} label="Holdings" /><SectionButton section="add" active={section} setSection={setSection} label="Add / Import" /><SectionButton section="activity" active={section} setSection={setSection} label="Activity" /><SectionButton section="manage" active={section} setSection={setSection} label="Manage" /></div>
-      {section === "holdings" && <section className="grid gap-3"><div className="grid gap-3 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-3 text-[#faf6f0] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Holdings</p><p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">Review, trim, sell or remove holdings without leaving the portfolio page.</p></div><div className="grid gap-2 sm:flex sm:justify-end"><StockGPTSelect value={filter} options={filterOptions} onChange={(value) => setFilter(value as HoldingFilter)} ariaLabel="Filter holdings" className="sm:w-[190px]" buttonClassName="h-10 rounded-2xl" /><StockGPTSelect value={sort} options={sortOptions} onChange={(value) => setSort(value as HoldingSort)} ariaLabel="Sort holdings" className="sm:w-[190px]" buttonClassName="h-10 rounded-2xl" /></div></div>{holdings.length === 0 ? <div className="rounded-3xl border border-dashed border-[#ddb159]/24 bg-[#061b12]/72 p-6 text-center text-[#faf6f0]"><p className="text-[24px] font-black tracking-[-0.05em]">No holdings yet.</p><p className="mx-auto mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/52">Use Add / Import to add cash, log holdings or import from Trading 212.</p></div> : filteredHoldings.length === 0 ? <div className="rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-5 text-[#faf6f0]"><p className="text-[16px] font-black">No holdings match this filter.</p><p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">Try changing the filter or sort option.</p></div> : <div className="grid gap-2.5">{filteredHoldings.map((holding) => <HoldingRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} />)}</div>}</section>}
+      {section === "holdings" && <section className="grid gap-3"><div className="grid gap-3 rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-3 text-[#faf6f0] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Holdings</p><p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">Review holdings first. Position changes are inside Manage holding to prevent accidental taps.</p></div><div className="grid gap-2 sm:flex sm:justify-end"><StockGPTSelect value={filter} options={filterOptions} onChange={(value) => setFilter(value as HoldingFilter)} ariaLabel="Filter holdings" className="sm:w-[190px]" buttonClassName="h-10 rounded-2xl" /><StockGPTSelect value={sort} options={sortOptions} onChange={(value) => setSort(value as HoldingSort)} ariaLabel="Sort holdings" className="sm:w-[190px]" buttonClassName="h-10 rounded-2xl" /></div></div>{holdings.length === 0 ? <div className="rounded-3xl border border-dashed border-[#ddb159]/24 bg-[#061b12]/72 p-6 text-center text-[#faf6f0]"><p className="text-[24px] font-black tracking-[-0.05em]">No holdings yet.</p><p className="mx-auto mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/52">Use Add / Import to add cash, log holdings or import from Trading 212.</p></div> : filteredHoldings.length === 0 ? <div className="rounded-3xl border border-[#ddb159]/16 bg-[#061b12]/72 p-5 text-[#faf6f0]"><p className="text-[16px] font-black">No holdings match this filter.</p><p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">Try changing the filter or sort option.</p></div> : <div className="grid gap-2.5">{filteredHoldings.map((holding) => <HoldingRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} />)}</div>}</section>}
       {section === "add" && <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]"><AddCashPanel portfolioId={portfolioId} currency={currency} /><AddHoldingPanel portfolioId={portfolioId} stockOptions={stockOptions} /><div className="min-w-0">{compactImportWidget}</div></section>}
       {section === "activity" && <ActivityPanel transactions={transactions} currency={currency} />}
       {section === "manage" && <ManagePanel portfolioId={portfolioId} portfolioName={portfolioMeta.name} />}
