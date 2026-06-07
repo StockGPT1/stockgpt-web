@@ -98,7 +98,7 @@ source = source.replace(
       <button type="button" onClick={() => setOpen(true)} className="rounded-full border border-[#072116]/12 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/62 transition hover:border-[#ddb159]/45 hover:text-[#8a641a]">
         Manage holding
       </button>
-      <span className={`text-[10px] font-bold ${labelClass}`}>{trimRecommendation.label}</span>
+      <span className={\`text-[10px] font-bold \${labelClass}\`}>{trimRecommendation.label}</span>
       {open && <ManageHoldingModal portfolioId={portfolioId} holding={holding} trimRecommendation={trimRecommendation} onClose={() => setOpen(false)} />}
     </div>
   );
