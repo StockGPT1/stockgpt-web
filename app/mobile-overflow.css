@@ -26,9 +26,9 @@ body > * {
 }
 
 /*
-  Desktop pages like Rankings, Portfolio and News can be taller than one viewport.
-  The AppShell uses a fixed viewport frame, so the content pane itself must remain
-  scrollable even when individual pages avoid body scrolling.
+  Desktop pages can be taller than one viewport, especially on Mac/laptop
+  screens with shorter available height. Keep the content pane scrollable so
+  dashboard widgets never overlap, clip, or squeeze into each other.
 */
 @media (min-width: 1024px) {
   .sg-app-content {
@@ -40,23 +40,55 @@ body > * {
     height: auto !important;
     min-height: 100% !important;
   }
+}
 
-  /* Dashboard is designed as a one-screen command centre on desktop. */
-  .sg-app-content:has(> .relative.z-10 > main.lg\:h-full) {
-    overflow-y: hidden !important;
-    padding-bottom: 12px !important;
-  }
+/* Large portfolio holding cards should stay still. Keep hover feedback only on small controls. */
+.sg-app-content div:has(> div > a[href^="/stock/"]) {
+  transition: none !important;
+  transform: none !important;
+}
 
-  .sg-app-content:has(> .relative.z-10 > main.lg\:h-full) > .relative.z-10 {
-    height: 100% !important;
-    min-height: 0 !important;
-  }
+.sg-app-content div:has(> div > a[href^="/stock/"]):hover {
+  transform: none !important;
+  background: #faf6f0 !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+}
+
+/* Direct fallback for holding cards that still carry Tailwind hover classes. */
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:bg-white"],
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:border"] {
+  transition: none !important;
+  transform: none !important;
+}
+
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:bg-white"]:hover,
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:border"]:hover {
+  background: #faf6f0 !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+  transform: none !important;
+}
+
+/* Make the inline portfolio row action feel secondary, not destructive. */
+.sg-app-content a[href^="/stock/"] + div > button:first-child {
+  padding: 4px 9px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  color: rgba(7, 33, 22, 0.46) !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.sg-app-content a[href^="/stock/"] + div > button:first-child:hover {
+  color: #8a641a !important;
+  border-color: rgba(221, 177, 89, 0.34) !important;
+  background: rgba(221, 177, 89, 0.08) !important;
 }
 
 /*
   App modals should sit inside the usable app viewport, not underneath
   the fixed header, ticker tape, mobile search row or mobile bottom nav.
-  This catches the existing full-screen overlay pattern used across the app.
 */
 .sg-app-shell .fixed.inset-0 {
   top: 104px !important;
@@ -68,6 +100,22 @@ body > * {
 
 .sg-app-shell .fixed.inset-0 > * {
   max-height: calc(100dvh - 132px) !important;
+}
+
+/* Higher-priority inner modals, such as Manage holding, need their own scroll container. */
+.sg-app-shell .fixed.inset-0.z-\[120\] {
+  top: 104px !important;
+  bottom: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow-y: auto !important;
+  padding: 14px !important;
+}
+
+.sg-app-shell .fixed.inset-0.z-\[120\] > div {
+  width: min(100%, 760px) !important;
+  max-height: calc(100dvh - 140px) !important;
+  overflow-y: auto !important;
 }
 
 @media (max-width: 767px) {
@@ -105,6 +153,11 @@ body > * {
     overflow-y: visible !important;
   }
 
+  .sg-app-content a[href^="/stock/"] + div > button:first-child {
+    padding: 4px 8px !important;
+    font-size: 8.5px !important;
+  }
+
   .sg-app-shell .fixed.inset-0 {
     top: 158px !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
@@ -117,6 +170,22 @@ body > * {
   .sg-app-shell .fixed.inset-0 > * {
     width: min(100%, 720px) !important;
     max-height: calc(100dvh - 248px - env(safe-area-inset-bottom)) !important;
+  }
+
+  .sg-app-shell .fixed.inset-0.z-\[120\] {
+    top: 158px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    padding: 10px !important;
+  }
+
+  .sg-app-shell .fixed.inset-0.z-\[120\] > div {
+    width: min(100%, 720px) !important;
+    max-height: calc(100dvh - 248px - env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    border-radius: 24px !important;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {

@@ -76,7 +76,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
   }, [name]);
 
   if (!state) {
-    return <div className="min-h-[150px] rounded-3xl bg-[#082519]" />;
+    return <div className="min-h-[112px] rounded-3xl bg-[#082519] md:min-h-[124px] xl:min-h-[138px]" />;
   }
 
   const dotColor =
@@ -87,13 +87,13 @@ export function WelcomeBanner({ name }: { name?: string }) {
         : "bg-[#faf6f0]/40";
 
   return (
-    <div className="relative min-h-[150px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-5 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(221,177,89,0.22),transparent_34%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.1] [background-image:linear-gradient(#fff1_1px,transparent_1px),linear-gradient(90deg,#fff1_1px,transparent_1px)] [background-size:32px_32px]" />
+    <div className="relative min-h-[112px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-4 py-3 shadow-[0_14px_38px_rgba(0,0,0,0.22)] md:min-h-[124px] md:px-5 md:py-4 xl:min-h-[138px]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_84%_18%,rgba(221,177,89,0.2),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(#fff1_1px,transparent_1px),linear-gradient(90deg,#fff1_1px,transparent_1px)] [background-size:32px_32px]" />
 
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[54%] opacity-75 sm:block"
+        className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-[48%] opacity-70 sm:block"
         viewBox="0 0 500 200"
         fill="none"
       >
@@ -110,7 +110,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
         />
         <defs>
           <linearGradient id="welcomeChartFill" x1="250" y1="40" x2="250" y2="200" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#ddb159" stopOpacity="0.24" />
+            <stop stopColor="#ddb159" stopOpacity="0.22" />
             <stop offset="1" stopColor="#ddb159" stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -118,7 +118,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
 
       <div className="relative z-10 max-w-[620px]">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-luxury text-[13px] font-semibold leading-tight tracking-[0.01em] text-[#ddb159]">
+          <p className="font-luxury text-[12px] font-semibold leading-tight tracking-[0.01em] text-[#ddb159] md:text-[13px]">
             {state.greeting}
           </p>
 
@@ -133,11 +133,11 @@ export function WelcomeBanner({ name }: { name?: string }) {
           </span>
         </div>
 
-        <h1 className="mt-2 text-[30px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] sm:text-[34px]">
+        <h1 className="mt-2 text-[24px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] sm:text-[28px] xl:text-[32px]">
           {state.tagline}
         </h1>
 
-        <p className="mt-1.5 max-w-[540px] text-xs font-medium leading-snug text-[#faf6f0]/60">
+        <p className="mt-1 max-w-[540px] text-[11px] font-medium leading-snug text-[#faf6f0]/60 sm:text-xs">
           {state.subline}
         </p>
       </div>
