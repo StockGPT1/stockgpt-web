@@ -42,6 +42,24 @@ body > * {
   }
 }
 
+/* Make the inline portfolio row action feel secondary, not destructive. */
+.sg-app-content a[href^="/stock/"] + div > button:first-child {
+  padding: 4px 9px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  color: rgba(7, 33, 22, 0.46) !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.sg-app-content a[href^="/stock/"] + div > button:first-child:hover {
+  color: #8a641a !important;
+  border-color: rgba(221, 177, 89, 0.34) !important;
+  background: rgba(221, 177, 89, 0.08) !important;
+}
+
 /*
   App modals should sit inside the usable app viewport, not underneath
   the fixed header, ticker tape, mobile search row or mobile bottom nav.
@@ -58,11 +76,32 @@ body > * {
   max-height: calc(100dvh - 132px) !important;
 }
 
+/* Higher-priority inner modals, such as Manage holding, need their own scroll container. */
+.sg-app-shell .fixed.inset-0.z-\[120\] {
+  top: 104px !important;
+  bottom: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow-y: auto !important;
+  padding: 14px !important;
+}
+
+.sg-app-shell .fixed.inset-0.z-\[120\] > div {
+  width: min(100%, 760px) !important;
+  max-height: calc(100dvh - 140px) !important;
+  overflow-y: auto !important;
+}
+
 @media (max-width: 767px) {
   .sg-app-content {
     padding-left: 10px !important;
     padding-right: 10px !important;
     padding-bottom: calc(144px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .sg-app-content a[href^="/stock/"] + div > button:first-child {
+    padding: 4px 8px !important;
+    font-size: 8.5px !important;
   }
 
   .sg-app-shell .fixed.inset-0 {
@@ -77,6 +116,22 @@ body > * {
   .sg-app-shell .fixed.inset-0 > * {
     width: min(100%, 720px) !important;
     max-height: calc(100dvh - 248px - env(safe-area-inset-bottom)) !important;
+  }
+
+  .sg-app-shell .fixed.inset-0.z-\[120\] {
+    top: 158px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    padding: 10px !important;
+  }
+
+  .sg-app-shell .fixed.inset-0.z-\[120\] > div {
+    width: min(100%, 720px) !important;
+    max-height: calc(100dvh - 248px - env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    border-radius: 24px !important;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
