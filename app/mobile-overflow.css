@@ -26,9 +26,9 @@ body > * {
 }
 
 /*
-  Desktop pages like Rankings, Portfolio and News can be taller than one viewport.
-  The AppShell uses a fixed viewport frame, so the content pane itself must remain
-  scrollable even when individual pages avoid body scrolling.
+  Desktop pages can be taller than one viewport, especially on Mac/laptop
+  screens with shorter available height. Keep the content pane scrollable so
+  dashboard widgets never overlap, clip, or squeeze into each other.
 */
 @media (min-width: 1024px) {
   .sg-app-content {
@@ -40,23 +40,11 @@ body > * {
     height: auto !important;
     min-height: 100% !important;
   }
-
-  /* Dashboard is designed as a one-screen command centre on desktop. */
-  .sg-app-content:has(> .relative.z-10 > main.lg\:h-full) {
-    overflow-y: hidden !important;
-    padding-bottom: 12px !important;
-  }
-
-  .sg-app-content:has(> .relative.z-10 > main.lg\:h-full) > .relative.z-10 {
-    height: 100% !important;
-    min-height: 0 !important;
-  }
 }
 
 /*
   App modals should sit inside the usable app viewport, not underneath
   the fixed header, ticker tape, mobile search row or mobile bottom nav.
-  This catches the existing full-screen overlay pattern used across the app.
 */
 .sg-app-shell .fixed.inset-0 {
   top: 104px !important;
