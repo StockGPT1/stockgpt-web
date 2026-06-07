@@ -42,6 +42,18 @@ body > * {
   }
 }
 
+/* Large portfolio holding cards should stay still. Keep hover feedback only on small controls. */
+.sg-app-content div:has(> div > a[href^="/stock/"]) {
+  transition: none !important;
+  transform: none !important;
+}
+
+.sg-app-content div:has(> div > a[href^="/stock/"]):hover {
+  transform: none !important;
+  background: #faf6f0 !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+}
+
 /* Make the inline portfolio row action feel secondary, not destructive. */
 .sg-app-content a[href^="/stock/"] + div > button:first-child {
   padding: 4px 9px !important;
