@@ -54,6 +54,20 @@ body > * {
   border-color: rgba(7, 33, 22, 0.08) !important;
 }
 
+/* Direct fallback for holding cards that still carry Tailwind hover classes. */
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:bg-white"],
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:border"] {
+  transition: none !important;
+  transform: none !important;
+}
+
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:bg-white"]:hover,
+.sg-app-content [class*="bg-[#faf6f0]"][class*="hover:border"]:hover {
+  background: #faf6f0 !important;
+  border-color: rgba(7, 33, 22, 0.08) !important;
+  transform: none !important;
+}
+
 /* Make the inline portfolio row action feel secondary, not destructive. */
 .sg-app-content a[href^="/stock/"] + div > button:first-child {
   padding: 4px 9px !important;
