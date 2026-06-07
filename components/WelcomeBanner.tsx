@@ -76,7 +76,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
   }, [name]);
 
   if (!state) {
-    return <div className="min-h-[112px] rounded-3xl bg-[#082519] md:min-h-[124px] xl:min-h-[138px]" />;
+    return <div className="min-h-[112px] rounded-3xl bg-[#082519] md:min-h-[124px] lg:h-full lg:min-h-0 xl:min-h-0" />;
   }
 
   const dotColor =
@@ -87,7 +87,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
         : "bg-[#faf6f0]/40";
 
   return (
-    <div className="relative min-h-[112px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-4 py-3 shadow-[0_14px_38px_rgba(0,0,0,0.22)] md:min-h-[124px] md:px-5 md:py-4 xl:min-h-[138px]">
+    <div className="relative min-h-[112px] overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#082519_40%,#123b25)] px-4 py-3 shadow-[0_14px_38px_rgba(0,0,0,0.22)] md:min-h-[124px] md:px-5 md:py-4 lg:h-full lg:min-h-0 xl:min-h-0">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_84%_18%,rgba(221,177,89,0.2),transparent_34%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(#fff1_1px,transparent_1px),linear-gradient(90deg,#fff1_1px,transparent_1px)] [background-size:32px_32px]" />
 
@@ -116,7 +116,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
         </defs>
       </svg>
 
-      <div className="relative z-10 max-w-[620px]">
+      <div className="relative z-10 flex h-full max-w-[620px] flex-col justify-center">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-luxury text-[12px] font-semibold leading-tight tracking-[0.01em] text-[#ddb159] md:text-[13px]">
             {state.greeting}
@@ -133,7 +133,7 @@ export function WelcomeBanner({ name }: { name?: string }) {
           </span>
         </div>
 
-        <h1 className="mt-2 text-[24px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] sm:text-[28px] xl:text-[32px]">
+        <h1 className="mt-2 text-[24px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] sm:text-[28px] lg:text-[clamp(24px,2.3vw,34px)]">
           {state.tagline}
         </h1>
 
