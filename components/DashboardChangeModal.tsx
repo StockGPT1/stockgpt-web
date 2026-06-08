@@ -28,31 +28,25 @@ function rankToneClass(tone: DailyChangeItem["rankTone"]) {
   return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
 }
 
-function PreviewChangeRow({
-  item,
-  onOpen,
-}: {
-  item: DailyChangeItem;
-  onOpen: () => void;
-}) {
+function PreviewChangeRow({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="grid min-h-[48px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 lg:h-full lg:min-h-0"
+      className="grid min-h-[50px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-[#072116]/8 bg-white/74 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:min-h-[52px] sm:px-4 lg:h-full lg:min-h-0 lg:rounded-xl lg:px-3 lg:py-0 xl:px-4"
     >
       <div className="min-w-0 overflow-hidden">
-        <p className="flex min-w-0 items-baseline gap-1 text-[12px] font-black leading-tight">
-          <span className="shrink-0">{item.ticker} ·</span>
+        <p className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-1.5 text-[12px] font-black leading-tight sm:text-[13px] lg:text-[clamp(11px,0.88vw,13px)]">
+          <span className="shrink-0 whitespace-nowrap">{item.ticker} ·</span>
           <span className="min-w-0 truncate">{item.company}</span>
         </p>
-        <p className="mt-0.5 truncate text-[9px] font-bold leading-tight text-[#072116]/42">
+        <p className="mt-1 truncate text-[9px] font-bold leading-none text-[#072116]/38 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
           {item.sector}
         </p>
       </div>
 
       <span
-        className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black tabular-nums ${moveToneClass(
+        className={`inline-flex h-8 min-w-[60px] shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums sm:min-w-[66px] sm:text-[11px] lg:h-7 lg:min-w-[58px] lg:text-[clamp(9px,0.72vw,10px)] xl:min-w-[64px] ${moveToneClass(
           item.dailyMoveTone,
         )}`}
       >
@@ -69,13 +63,13 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
 
   return (
     <>
-      <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:h-full lg:min-h-0">
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55">
+      <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
+        <div className="flex min-w-0 shrink-0 items-start justify-between gap-3 pb-3 lg:pb-[clamp(8px,1dvh,12px)]">
+          <div className="min-w-0 pt-0.5">
+            <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-[#072116]/55 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
               ✦ What changed today?
             </p>
-            <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
+            <h2 className="mt-2 truncate text-[19px] font-black leading-none tracking-[-0.04em] sm:text-[22px] lg:text-[clamp(18px,1.65vw,22px)]">
               Daily brief
             </h2>
           </div>
@@ -83,13 +77,13 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="shrink-0 rounded-full bg-[#ddb159] px-3 py-1.5 text-[10px] font-black text-[#072116] transition hover:brightness-105"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:h-11 sm:px-5 sm:text-[12px] lg:h-[clamp(34px,4.7dvh,42px)] lg:px-[clamp(14px,1.7vw,22px)] lg:text-[clamp(10px,0.82vw,12px)]"
           >
             View all →
           </button>
         </div>
 
-        <div className="mt-2 grid gap-2 lg:hidden">
+        <div className="grid min-h-0 gap-2.5 overflow-hidden lg:hidden">
           {mobilePreviewItems.length > 0 ? (
             mobilePreviewItems.map((item) => (
               <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
@@ -105,7 +99,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           )}
         </div>
 
-        <div className="mt-2 hidden min-h-0 flex-1 gap-2 lg:grid lg:grid-rows-2">
+        <div className="hidden min-h-0 flex-1 gap-2.5 overflow-hidden lg:grid lg:grid-rows-2 xl:gap-3">
           {desktopPreviewItems.length > 0 ? (
             desktopPreviewItems.map((item) => (
               <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
