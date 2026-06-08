@@ -12,7 +12,7 @@ function replaceBetween(source, start, end, replacement, label) {
   if (startIndex === -1) return source;
   const endIndex = source.indexOf(end, startIndex);
   if (endIndex === -1) return source;
-  return source.slice(0, startIndex) + replacement + source.slice(endIndex);
+  return source.slice(0, startIndex) + replacement + source.slice(endIndex + end.length);
 }
 
 function patchPortfolioCommandCentre() {
