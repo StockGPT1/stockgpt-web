@@ -193,13 +193,26 @@ function dailyMoveTone(value: number | null | undefined): DailyChangeItem["daily
   return "neutral";
 }
 
+function fallbackPortfolioChart(totalValue: number): Partial<Record<TimeRange, ChartPoint[]>> {
+  if (!Number.isFinite(totalValue) || totalValue <= 0) return {};
+  const now = Date.now();
+  return {
+    "1D": [
+      { date: new Date(now - 60 * 60 * 1000).toISOString(), close: Math.round(totalValue * 100) / 100 },
+      { date: new Date(now).toISOString(), close: Math.round(totalValue * 100) / 100 },
+    ],
+  };
+}
+
 async function buildPortfolioValueChart(
   holdings: EnrichedHolding[],
   cashBalance: number,
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  const currentTotalValue =
+    cashBalance + holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
   const chartableHoldings = holdings.filter((holding) => holding.shares > 0).slice(0, 30);
 
-  if (chartableHoldings.length === 0) return {};
+  if (chartableHoldings.length === 0) return fallbackPortfolioChart(currentTotalValue);
 
   const fetched = await Promise.all(
     chartableHoldings.map(async (holding) => {
@@ -220,7 +233,7 @@ async function buildPortfolioValueChart(
     .reduce((sum, holding) => sum + holding.currentValue, 0);
   const staticValue = cashBalance + staticHoldingValue + unchartedValue;
 
-  if (usable.length === 0) return {};
+  if (usable.length === 0) return fallbackPortfolioChart(currentTotalValue);
 
   const pointCount = Math.min(90, ...usable.map((item) => item.points.length));
   const points: ChartPoint[] = [];
@@ -240,7 +253,7 @@ async function buildPortfolioValueChart(
     });
   }
 
-  return { "1D": points };
+  return points.length > 1 ? { "1D": points } : fallbackPortfolioChart(currentTotalValue);
 }
 
 export default async function Home() {
@@ -464,7 +477,7 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(126px,16dvh,154px)_clamp(206px,27dvh,252px)_minmax(270px,1fr)] lg:overflow-hidden">
+          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(188px,23dvh,220px)_clamp(206px,27dvh,252px)_minmax(300px,1fr)] lg:overflow-hidden">
             <PortfolioDashboardWidget summary={portfolioSummary} chartData={portfolioValueChart} />
             <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
             <DashboardChangeModal items={whatChangedToday} />
@@ -706,10 +719,10 @@ function PortfolioDashboardWidget({
   return (
     <Link
       href="/portfolio"
-      className="relative grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/55 lg:h-full lg:min-h-0"
+      className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/55 lg:h-full lg:min-h-0"
     >
       <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-[#ddb159]/18 blur-3xl" />
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-[#ddb159]">
             ✦ Portfolio
@@ -723,30 +736,32 @@ function PortfolioDashboardWidget({
         </span>
       </div>
 
-      <div className="relative mt-2 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[22px] font-black leading-none tracking-[-0.06em] xl:text-[25px]">
-            {money(summary.totalValue, summary.currency)}
-          </p>
-          <p
-            className={[
-              "mt-1 truncate text-[11px] font-black tabular-nums",
-              isPositive ? "text-emerald-300" : "text-red-200",
-            ].join(" ")}
-          >
-            {money(summary.totalPnl, summary.currency)} · {pct(summary.totalPnlPct)}
-          </p>
+      <div className="relative mt-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(118px,1.05fr)] items-stretch gap-3">
+        <div className="flex min-w-0 flex-col justify-between py-1">
+          <div>
+            <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
+              {money(summary.totalValue, summary.currency)}
+            </p>
+            <p
+              className={[
+                "mt-1 truncate text-[12px] font-black tabular-nums",
+                isPositive ? "text-emerald-300" : "text-red-200",
+              ].join(" ")}
+            >
+              {money(summary.totalPnl, summary.currency)} · {pct(summary.totalPnlPct)}
+            </p>
+          </div>
+          <span className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
+            {summary.label}
+          </span>
         </div>
-        <span className="shrink-0 text-right text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
-          {summary.label}
-        </span>
+
+        <div className="min-h-[74px] overflow-hidden rounded-xl border border-[#ddb159]/12 bg-[#04180f]/40">
+          <StockChart ticker="Portfolio" data={chartData} initialRange="1D" height={74} compact />
+        </div>
       </div>
 
-      <div className="relative mt-2 min-h-0 overflow-hidden rounded-xl border border-[#ddb159]/12 bg-[#04180f]/40">
-        <StockChart ticker="Portfolio" data={chartData} initialRange="1D" height={58} compact />
-      </div>
-
-      <div className="relative mt-2 flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45">
+      <div className="relative mt-2 flex shrink-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45">
         <span className="truncate">
           {summary.holdingsCount} holdings · {summary.actionAlerts} actions
         </span>
