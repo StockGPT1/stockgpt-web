@@ -31,8 +31,8 @@ function moveToneClass(tone: DailyChangeItem["dailyMoveTone"]) {
 }
 
 function moveBadgeClass(tone: DailyChangeItem["dailyMoveTone"]) {
-  if (tone === "positive") return "border-emerald-500/22 bg-emerald-500/10 text-emerald-700";
-  if (tone === "negative") return "border-red-500/22 bg-red-500/10 text-red-700";
+  if (tone === "positive") return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
+  if (tone === "negative") return "border-red-500/25 bg-red-500/10 text-red-700";
   return "border-[#072116]/10 bg-[#072116]/5 text-[#072116]/55";
 }
 
@@ -66,22 +66,22 @@ function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => 
     <button
       type="button"
       onClick={onOpen}
-      className="group flex min-w-0 flex-col items-center text-center outline-none"
+      className="group flex min-w-0 flex-col items-center justify-start text-center outline-none"
       title={`${item.ticker} ${item.dailyMoveLabel}`}
     >
-      <div className="grid size-[clamp(44px,5.5vw,58px)] place-items-center rounded-full bg-white shadow-[0_8px_18px_rgba(7,33,22,0.10)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
-        <StockLogo ticker={item.ticker} company={item.company} size={36} />
+      <div className="grid size-[clamp(34px,4.2vw,44px)] place-items-center rounded-full bg-white shadow-[0_6px_14px_rgba(7,33,22,0.12)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
+        <StockLogo ticker={item.ticker} company={item.company} size={30} />
       </div>
-      <p className="mt-1.5 max-w-full truncate text-[clamp(11px,1.15vw,13px)] font-black leading-none tracking-[-0.03em] text-[#072116]">
+      <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#072116]">
         {item.ticker}
       </p>
       <p
-        className={`mt-1 flex items-center justify-center gap-1 text-[clamp(10px,1vw,12px)] font-black leading-none tabular-nums ${moveToneClass(
+        className={`mt-1 flex max-w-full items-center justify-center gap-1 truncate text-[clamp(9px,0.86vw,11px)] font-black leading-none tabular-nums ${moveToneClass(
           item.dailyMoveTone,
         )}`}
       >
-        <span className="text-[9px]">{directionIcon(item.dailyMoveTone)}</span>
-        {item.dailyMoveLabel}
+        <span className="text-[8px]">{directionIcon(item.dailyMoveTone)}</span>
+        <span className="truncate">{item.dailyMoveLabel}</span>
       </p>
     </button>
   );
@@ -110,18 +110,15 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
   const [mode, setMode] = useState<MoverMode>("gainers");
 
   const movers = useMemo(() => sortMovers(items, mode), [items, mode]);
-  const previewItems = movers.slice(0, 8);
+  const previewItems = movers.slice(0, 4);
   const listItems = movers.length > 0 ? movers : items;
 
   return (
     <>
-      <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
+      <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(11px,1vw,15px)]">
         <div className="flex min-w-0 shrink-0 items-start justify-between gap-3">
           <button type="button" onClick={() => setOpen(true)} className="min-w-0 text-left">
-            <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-[#072116]/55 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
-              ✦ What changed today?
-            </p>
-            <h2 className="mt-2 flex items-center gap-1.5 truncate text-[19px] font-black leading-none tracking-[-0.04em] sm:text-[22px] lg:text-[clamp(18px,1.65vw,22px)]">
+            <h2 className="flex items-center gap-1.5 truncate text-[22px] font-black leading-none tracking-[-0.05em] sm:text-[26px] lg:text-[clamp(20px,1.9vw,28px)]">
               Today&apos;s top movers <span className="text-[#072116]/55">›</span>
             </h2>
           </button>
@@ -129,9 +126,9 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:h-11 sm:px-5 sm:text-[12px] lg:hidden"
+            className="hidden shrink-0 pt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#9e8745] sm:block"
           >
-            View all →
+            1D · S&P 500
           </button>
         </div>
 
@@ -142,7 +139,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               type="button"
               onClick={() => setMode(tab)}
               className={[
-                "h-9 rounded-full text-[12px] font-black capitalize transition sm:text-[13px] lg:h-[clamp(30px,4dvh,38px)] lg:text-[clamp(10px,0.95vw,13px)]",
+                "h-[clamp(34px,4.4dvh,42px)] rounded-full text-[13px] font-black capitalize transition sm:text-[14px] lg:text-[clamp(12px,1vw,14px)]",
                 mode === tab
                   ? "bg-white text-[#072116] shadow-[0_6px_16px_rgba(7,33,22,0.12)]"
                   : "text-[#072116]/52 hover:text-[#072116]",
@@ -153,7 +150,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           ))}
         </div>
 
-        <div className="mt-4 grid min-h-0 grid-cols-4 gap-x-3 gap-y-3 overflow-hidden lg:gap-y-[clamp(8px,1.2dvh,12px)]">
+        <div className="mt-3 grid min-h-0 grid-cols-4 place-items-start gap-x-3 overflow-hidden pb-1 pt-1">
           {previewItems.length > 0 ? (
             previewItems.map((item) => (
               <MoverLogoTile key={`${mode}-${item.ticker}`} item={item} onOpen={() => setOpen(true)} />
@@ -167,13 +164,6 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               No {mode === "gainers" ? "positive" : "negative"} daily movers available yet.
             </button>
           )}
-        </div>
-
-        <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/38">
-          <span className="truncate">1D · Top ranked universe</span>
-          <button type="button" onClick={() => setOpen(true)} className="hidden text-[#ddb159] lg:inline">
-            View all →
-          </button>
         </div>
       </section>
 
