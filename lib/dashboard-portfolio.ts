@@ -81,7 +81,10 @@ type PortfolioEvent = {
   ticker?: string;
   cashDelta?: number;
   shareDelta?: number;
+  costDelta?: number;
+  realisedPnlDelta?: number;
   setShares?: number;
+  setCostBasis?: number;
 };
 
 export type DashboardMainPortfolioResult = {
@@ -146,61 +149,33 @@ function chooseHistoryRange(createdAtMs: number): TimeRange {
   return "MAX";
 }
 
-function performanceBasis(summary: PortfolioHealthSummary) {
-  const basis = summary.totalValue - summary.totalPnl;
-  return Number.isFinite(basis) && basis > 0 ? basis : Math.max(summary.totalValue, 1);
+function displayedPerformanceBasis(summary: PortfolioHealthSummary) {
+  if (Math.abs(summary.totalPnlPct) > EPSILON) {
+    const basisFromDisplayedPct = summary.totalPnl / (summary.totalPnlPct / 100);
+    if (Number.isFinite(basisFromDisplayedPct) && basisFromDisplayedPct > 0) {
+      return basisFromDisplayedPct;
+    }
+  }
+
+  const valueLessPnl = summary.totalValue - summary.totalPnl;
+  if (Number.isFinite(valueLessPnl) && valueLessPnl > 0) return valueLessPnl;
+
+  return Math.max(summary.totalValue, 1);
 }
 
 function fallbackPortfolioChart(
   summary: PortfolioHealthSummary,
   createdAtMs: number,
 ): Partial<Record<TimeRange, ChartPoint[]>> {
-  if (!Number.isFinite(summary.totalValue) || summary.totalValue <= 0) return {};
+  const basis = displayedPerformanceBasis(summary);
   const now = Date.now();
-  const basis = performanceBasis(summary);
 
   return {
     MAX: [
       { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
-      { date: new Date(now).toISOString(), close: roundMoney(summary.totalValue) },
+      { date: new Date(now).toISOString(), close: roundMoney(basis + summary.totalPnl) },
     ],
   };
-}
-
-function normaliseToPerformanceCurve(
-  rawPoints: ChartPoint[],
-  summary: PortfolioHealthSummary,
-): ChartPoint[] {
-  if (rawPoints.length < 2) return rawPoints;
-
-  const basis = performanceBasis(summary);
-  const finalValue = roundMoney(summary.totalValue);
-  const pnlMove = finalValue - basis;
-  const firstRaw = rawPoints[0].close;
-  const lastRaw = rawPoints[rawPoints.length - 1].close;
-  const rawRange = lastRaw - firstRaw;
-
-  const points = rawPoints.map((point, index) => {
-    const timeProgress = rawPoints.length > 1 ? index / (rawPoints.length - 1) : 1;
-    const rawProgress =
-      Math.abs(rawRange) > EPSILON ? (point.close - firstRaw) / rawRange : timeProgress;
-    const safeProgress = Number.isFinite(rawProgress)
-      ? Math.max(-0.2, Math.min(1.2, rawProgress))
-      : timeProgress;
-
-    return {
-      date: point.date,
-      close: Math.max(0, roundMoney(basis + safeProgress * pnlMove)),
-    };
-  });
-
-  points[0] = { ...points[0], close: roundMoney(basis) };
-  points[points.length - 1] = {
-    ...points[points.length - 1],
-    close: finalValue,
-  };
-
-  return points;
 }
 
 function transactionEvent(transaction: TransactionRow): PortfolioEvent | null {
@@ -219,41 +194,80 @@ function transactionEvent(transaction: TransactionRow): PortfolioEvent | null {
   if (!ticker) return null;
 
   if (type === "buy") {
-    return { dateMs, ticker, shareDelta: impliedShares, cashDelta: -amount };
+    return {
+      dateMs,
+      ticker,
+      shareDelta: impliedShares,
+      cashDelta: -amount,
+      costDelta: amount,
+    };
   }
 
   if (type === "sell") {
-    return { dateMs, ticker, shareDelta: -impliedShares, cashDelta: amount };
+    const realisedPnl = toNumber(transaction.realised_pnl, 0);
+    const soldCostBasis = Math.max(0, amount - realisedPnl);
+
+    return {
+      dateMs,
+      ticker,
+      shareDelta: -impliedShares,
+      cashDelta: amount,
+      costDelta: -soldCostBasis,
+      realisedPnlDelta: realisedPnl,
+    };
   }
 
   if (type === "log_existing") {
-    return { dateMs, ticker, shareDelta: impliedShares };
+    return {
+      dateMs,
+      ticker,
+      shareDelta: impliedShares,
+      costDelta: amount > 0 ? amount : impliedShares * price,
+    };
   }
 
   if (type === "adjustment") {
-    if (shares > 0) return { dateMs, ticker, setShares: shares };
+    if (shares > 0) {
+      return {
+        dateMs,
+        ticker,
+        setShares: shares,
+        setCostBasis: shares * price,
+      };
+    }
     return null;
   }
 
   return null;
 }
 
-function replayFinalShares(events: PortfolioEvent[]) {
+function replayFinalExposure(events: PortfolioEvent[]) {
   const shares = new Map<string, number>();
+  const costBasis = new Map<string, number>();
 
   events
     .filter((event) => event.ticker)
     .sort((a, b) => a.dateMs - b.dateMs)
     .forEach((event) => {
       const ticker = event.ticker!;
+
       if (event.setShares != null) {
         shares.set(ticker, Math.max(0, event.setShares));
-        return;
+      } else {
+        shares.set(ticker, Math.max(0, (shares.get(ticker) ?? 0) + toNumber(event.shareDelta, 0)));
       }
-      shares.set(ticker, Math.max(0, (shares.get(ticker) ?? 0) + toNumber(event.shareDelta, 0)));
+
+      if (event.setCostBasis != null) {
+        costBasis.set(ticker, Math.max(0, event.setCostBasis));
+      } else {
+        costBasis.set(
+          ticker,
+          Math.max(0, (costBasis.get(ticker) ?? 0) + toNumber(event.costDelta, 0)),
+        );
+      }
     });
 
-  return shares;
+  return { shares, costBasis };
 }
 
 function replayFinalCash(events: PortfolioEvent[]) {
@@ -287,7 +301,7 @@ function getPriceAtOrBefore(
   return candidate;
 }
 
-async function buildPortfolioValueHistoryChart({
+async function buildPortfolioPerformanceChart({
   portfolio,
   enriched,
   transactions,
@@ -296,25 +310,30 @@ async function buildPortfolioValueHistoryChart({
   const createdAtMs = safeDateMs(portfolio.created_at, Date.now());
   const nowMs = Date.now();
   const currentCash = toNumber(portfolio.cash_balance, 0);
+  const displayBasis = displayedPerformanceBasis(summary);
 
   const holdingMap = new Map(enriched.map((holding) => [holding.ticker, holding]));
   const events: PortfolioEvent[] = transactions
     .map(transactionEvent)
     .filter((event): event is PortfolioEvent => event !== null);
 
-  const finalSharesFromTransactions = replayFinalShares(events);
+  const finalExposure = replayFinalExposure(events);
 
   enriched.forEach((holding) => {
     const currentShares = toNumber(holding.shares, 0);
-    const replayedShares = finalSharesFromTransactions.get(holding.ticker) ?? 0;
+    const currentCostBasis = toNumber(holding.costBasis, currentShares * holding.entryPrice);
+    const replayedShares = finalExposure.shares.get(holding.ticker) ?? 0;
+    const replayedCostBasis = finalExposure.costBasis.get(holding.ticker) ?? 0;
     const missingShares = roundShares(currentShares - replayedShares);
+    const missingCostBasis = roundMoney(currentCostBasis - replayedCostBasis);
 
-    if (Math.abs(missingShares) <= EPSILON) return;
+    if (Math.abs(missingShares) <= EPSILON && Math.abs(missingCostBasis) <= 0.009) return;
 
     events.push({
       dateMs: safeDateMs(holding.purchaseDate ?? holding.addedAt, createdAtMs),
       ticker: holding.ticker,
       shareDelta: missingShares,
+      costDelta: missingCostBasis,
     });
   });
 
@@ -365,13 +384,16 @@ async function buildPortfolioValueHistoryChart({
 
   const sortedEvents = [...events].sort((a, b) => a.dateMs - b.dateMs);
   const shares = new Map<string, number>();
+  const costBasis = new Map<string, number>();
   let cash = 0;
+  let realisedPnl = 0;
   let eventIndex = 0;
 
-  const rawPoints: ChartPoint[] = sortedDates.map((dateMs) => {
+  const points: ChartPoint[] = sortedDates.map((dateMs) => {
     while (eventIndex < sortedEvents.length && sortedEvents[eventIndex].dateMs <= dateMs) {
       const event = sortedEvents[eventIndex];
       cash += toNumber(event.cashDelta, 0);
+      realisedPnl += toNumber(event.realisedPnlDelta, 0);
 
       if (event.ticker) {
         if (event.setShares != null) {
@@ -382,29 +404,46 @@ async function buildPortfolioValueHistoryChart({
             Math.max(0, (shares.get(event.ticker) ?? 0) + toNumber(event.shareDelta, 0)),
           );
         }
+
+        if (event.setCostBasis != null) {
+          costBasis.set(event.ticker, Math.max(0, event.setCostBasis));
+        } else {
+          costBasis.set(
+            event.ticker,
+            Math.max(0, (costBasis.get(event.ticker) ?? 0) + toNumber(event.costDelta, 0)),
+          );
+        }
       }
 
       eventIndex += 1;
     }
 
-    let close = cash;
+    let unrealisedPnl = 0;
 
     shares.forEach((shareCount, ticker) => {
       if (shareCount <= EPSILON) return;
       const fallbackPrice = getFallbackPrice(holdingMap.get(ticker));
       const price = getPriceAtOrBefore(priceMap.get(ticker) ?? [], dateMs, fallbackPrice);
-      close += shareCount * price;
+      const marketValue = shareCount * price;
+      const activeCostBasis = costBasis.get(ticker) ?? 0;
+      unrealisedPnl += marketValue - activeCostBasis;
     });
 
     return {
       date: new Date(dateMs).toISOString(),
-      close: Math.max(0, roundMoney(close)),
+      close: Math.max(0, roundMoney(displayBasis + realisedPnl + unrealisedPnl)),
     };
   });
 
-  if (rawPoints.length < 2) return fallbackPortfolioChart(summary, createdAtMs);
+  if (points.length < 2) return fallbackPortfolioChart(summary, createdAtMs);
 
-  return { MAX: normaliseToPerformanceCurve(rawPoints, summary) };
+  points[0] = { ...points[0], close: roundMoney(displayBasis) };
+  points[points.length - 1] = {
+    ...points[points.length - 1],
+    close: Math.max(0, roundMoney(displayBasis + summary.totalPnl)),
+  };
+
+  return { MAX: points };
 }
 
 export async function getDashboardMainPortfolio(
@@ -502,7 +541,7 @@ export async function getDashboardMainPortfolio(
 
   if (!mainPortfolio) return { summary: null, chartData: {}, tickers: [] };
 
-  const chartData = await buildPortfolioValueHistoryChart(mainPortfolio);
+  const chartData = await buildPortfolioPerformanceChart(mainPortfolio);
 
   return {
     summary: mainPortfolio.summary,
