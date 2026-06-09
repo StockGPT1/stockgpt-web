@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/apply-portfolio-dashboard-patches.mjs && next dev",
-    "build": "node scripts/apply-portfolio-dashboard-patches.mjs && next build",
+    "dev": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && next dev",
+    "build": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
