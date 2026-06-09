@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 import "./mobile-overflow.css";
+import "./visual-cleanup.css";
 
 const iconVersion = "30";
 

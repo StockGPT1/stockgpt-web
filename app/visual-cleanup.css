@@ -1,0 +1,46 @@
+/*
+  StockGPT app visual cleanup.
+  Keep useful hover colour changes, but remove the heavy/cheap-feeling shadows,
+  glow trails and lifted-card effects from the authenticated app UI.
+*/
+
+.sg-app-shell,
+.sg-app-shell * {
+  text-shadow: none !important;
+}
+
+.sg-app-shell [class*="shadow-"],
+.sg-app-shell [class*="hover:shadow"],
+.sg-app-shell [class*="drop-shadow"] {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.sg-app-shell .sg-premium-hover::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.sg-app-shell .sg-side-nav-link:hover,
+.sg-app-shell .sg-icon-button:hover,
+.sg-app-shell .sg-mobile-nav-link:hover,
+.sg-app-shell .sg-no-premium:hover {
+  transform: none !important;
+}
+
+.sg-app-shell .sg-side-nav-link[data-active="true"],
+.sg-app-shell .sg-side-nav-link:hover,
+.sg-app-shell .sg-icon-button:hover,
+.sg-app-shell .sg-mobile-nav-link:hover {
+  box-shadow: none !important;
+}
+
+.sg-app-shell .sg-page-backdrop {
+  display: none !important;
+}
+
+.sg-app-shell a,
+.sg-app-shell button {
+  -webkit-tap-highlight-color: transparent;
+}
