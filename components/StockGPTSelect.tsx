@@ -53,6 +53,11 @@ export function StockGPTSelect({
     [options, value],
   );
 
+  const forceDarkText =
+    buttonClassName.includes("bg-[#faf6f0]") ||
+    buttonClassName.includes("bg-white") ||
+    buttonClassName.includes("!text-[#072116]");
+
   const updatePosition = useCallback(() => {
     const button = buttonRef.current;
     if (!button) return;
@@ -189,11 +194,21 @@ export function StockGPTSelect({
         ].join(" ")}
       >
         <span className="min-w-0 flex-1 overflow-hidden">
-          <span className="block whitespace-normal break-words text-[11px] font-black uppercase leading-snug tracking-[0.06em] text-current sm:text-[12px]">
+          <span
+            className={[
+              "block whitespace-normal break-words text-[11px] font-black uppercase leading-snug tracking-[0.06em] sm:text-[12px]",
+              forceDarkText ? "!text-[#072116]" : "text-current",
+            ].join(" ")}
+          >
             {selected?.label ?? "Select"}
           </span>
           {selected?.description ? (
-            <span className="mt-0.5 block whitespace-normal break-words text-[8.5px] font-bold uppercase leading-snug tracking-[0.05em] text-current opacity-60 sm:text-[9px]">
+            <span
+              className={[
+                "mt-0.5 block whitespace-normal break-words text-[8.5px] font-bold uppercase leading-snug tracking-[0.05em] opacity-60 sm:text-[9px]",
+                forceDarkText ? "!text-[#072116]" : "text-current",
+              ].join(" ")}
+            >
               {selected.description}
             </span>
           ) : null}
