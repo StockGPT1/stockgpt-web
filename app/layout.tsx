@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
+import "./dashboard-right-rail.css";
 
 const iconVersion = "30";
 
