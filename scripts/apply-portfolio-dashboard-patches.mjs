@@ -143,10 +143,95 @@ function patchPortfolioAlerts() {
 function patchDashboard() {
   const file = "app/dashboard/page.tsx";
   let source = fs.readFileSync(file, "utf8");
+
+  source = replaceOnce(source, 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,7dvh,62px)_minmax(0,1fr)]', 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(76px,8.8dvh,86px)_minmax(0,1fr)]', "stat row height");
+  source = replaceOnce(source, 'className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4"', 'className="grid grid-cols-2 gap-2.5 lg:min-h-0 lg:grid-cols-4 lg:gap-3"', "stat grid spacing");
+
+  const oldStatCalls = [
+    '              <StatBlock',
+    '                icon="♛"',
+    '                label="Top Ranked"',
+    '                main={rankingsLocked ? "Locked" : topRanked?.ticker ?? "—"}',
+    '                sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}',
+    '              />',
+    '              <StatBlock icon="↗︎" label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />',
+    '              <StatBlock',
+    '                icon="▦"',
+    '                label="Total"',
+    '                main={(totalCount ?? rankings.length).toLocaleString()}',
+    '                sub="stocks ranked"',
+    '              />',
+    '              <StatBlock',
+    '                icon="◷"',
+    '                label="Updated"',
+    '                main={formatUpdatedTime(topRanked?.updated_at)}',
+    '                sub="latest model run"',
+    '              />',
+  ].join("\n");
+  const newStatCalls = [
+    '              <StatBlock',
+    '                icon="♛"',
+    '                label="Top Ranked"',
+    '                main={rankingsLocked ? "Locked" : topRanked?.ticker ?? "—"}',
+    '                sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}',
+    '              />',
+    '              <StatBlock',
+    '                icon="▦"',
+    '                label="Stocks Ranked"',
+    '                main={(totalCount ?? rankings.length).toLocaleString()}',
+    '                sub="S&P universe"',
+    '              />',
+    '              <StatBlock icon="↗︎" label="Market Bias" main={`${bullishPct}%`} sub={sentiment} />',
+    '              <StatBlock',
+    '                icon="◷"',
+    '                label="Last Updated"',
+    '                main={formatUpdatedTime(topRanked?.updated_at)}',
+    '                sub="Model run"',
+    '              />',
+  ].join("\n");
+  source = replaceOnce(source, oldStatCalls, newStatCalls, "stat card order and labels");
+
+  const newStatBlock = [
+    'function StatBlock({',
+    '  icon,',
+    '  label,',
+    '  main,',
+    '  sub,',
+    '}: {',
+    '  icon: string;',
+    '  label: string;',
+    '  main: string;',
+    '  sub: string;',
+    '}) {',
+    '  return (',
+    '    <div className="grid h-full min-h-[76px] min-w-0 grid-cols-[38px_minmax(0,1fr)] items-center gap-3 overflow-hidden rounded-2xl border border-[#072116]/10 bg-[#faf6f0] px-3 py-3 text-[#072116] ring-1 ring-white/25 sm:grid-cols-[40px_minmax(0,1fr)] sm:px-4 lg:min-h-0 lg:grid-cols-[36px_minmax(0,1fr)] lg:gap-2.5 lg:px-3 xl:grid-cols-[40px_minmax(0,1fr)] xl:gap-3 xl:px-4">',
+    '      <div className="flex size-[38px] shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black leading-none text-[#ddb159] sm:size-10 sm:text-[16px] lg:size-9 lg:text-[14px] xl:size-10 xl:text-[16px] [font-variant-emoji:text]">',
+    '        {icon}',
+    '      </div>',
+    '      <div className="grid min-w-0 content-center gap-1 overflow-hidden">',
+    '        <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.13em] text-[#072116]/50 sm:text-[10px] lg:text-[clamp(8px,0.62vw,10px)]">',
+    '          {label}',
+    '        </p>',
+    '        <p className="truncate text-[20px] font-black leading-none tracking-[-0.035em] text-[#072116] sm:text-[22px] lg:text-[clamp(17px,1.25vw,22px)]">',
+    '          {main}',
+    '        </p>',
+    '        <p className="truncate text-[10.5px] font-semibold leading-none text-[#072116]/46 sm:text-[11px] lg:text-[clamp(9px,0.72vw,11px)]">',
+    '          {sub}',
+    '        </p>',
+    '      </div>',
+    '    </div>',
+    '  );',
+    '}',
+    '',
+    'function PortfolioDashboardWidget',
+  ].join("\n");
+  source = replaceBetween(source, "function StatBlock({", "\n\nfunction PortfolioDashboardWidget", newStatBlock, "stat block component");
+
   source = replaceOnce(source, '                  dailyMove={dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? undefined}\n', "", "mobile daily move prop");
   source = replaceOnce(source, '                      <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} />\n', "", "desktop daily move pill");
   source = replaceOnce(source, 'function RankingMobileRow({ stock, dailyMove }: { stock: Ranking; dailyMove?: number }) {', 'function RankingMobileRow({ stock }: { stock: Ranking }) {', "mobile row props");
   source = source.replace(/\n            <DailyMovePill\n              changePct=\{dailyMove\}\n              className="h-4 min-w-\[38px\] px-1 text-\[7\.5px\]"\n            \/>/, "");
+
   fs.writeFileSync(file, source);
 }
 
