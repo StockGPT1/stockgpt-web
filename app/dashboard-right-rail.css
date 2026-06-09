@@ -1,5 +1,5 @@
 /* Dashboard right rail preview polish
-   Keeps the Portfolio tile value block above a dominant chart area. */
+   Keeps the Portfolio tile value block above a dominant, contribution-adjusted chart area. */
 
 @media (min-width: 1024px) {
   main aside {
