@@ -9,6 +9,26 @@ function replaceAll(search, replacement) {
 }
 
 replaceAll(
+  'import type { ReactNode } from "react";',
+  'import type { ReactNode } from "react";\nimport type { EnrichedNewsArticle } from "@/lib/news-intelligence";',
+);
+
+replaceAll(
+  'type ExtendedHolding = EnrichedHolding & {',
+  'type PortfolioNewsArticle = EnrichedNewsArticle;\n\ntype ExtendedHolding = EnrichedHolding & {',
+);
+
+replaceAll(
+  '  transactions?: PortfolioTransaction[];\n  chartData?: Partial<Record<TimeRange, ChartPoint[]>>;',
+  '  transactions?: PortfolioTransaction[];\n  newsArticles?: PortfolioNewsArticle[];\n  chartData?: Partial<Record<TimeRange, ChartPoint[]>>;',
+);
+
+replaceAll(
+  'type Section = "overview" | "holdings" | "add" | "activity" | "manage";',
+  'type Section = "overview" | "holdings" | "add" | "news" | "activity" | "manage";',
+);
+
+replaceAll(
   'const widthPct = maxAllocation > 0 ? Math.max(4, Math.min(100, (holding.currentAllocationPct / maxAllocation) * 100)) : 0;',
   'const widthPct = Math.max(0, Math.min(100, holding.currentAllocationPct));',
 );
@@ -165,6 +185,119 @@ replaceAll(
 replaceAll(
   '<MiniMetric label="Cash" value={`${summary.cashDrag.toFixed(1)}%`} sub="drag" />',
   '<MiniMetric label="Cash" value={money(portfolioMeta.cashBalance, currency)} sub={`${summary.cashDrag.toFixed(1)}% drag`} />',
+);
+
+const newsPanel = `
+function newsToneClass(direction: string) {
+  if (direction === "Positive") return "border-emerald-400/25 bg-emerald-400/10 text-emerald-300";
+  if (direction === "Negative") return "border-red-400/25 bg-red-400/10 text-red-300";
+  return "border-[#faf6f0]/12 bg-[#faf6f0]/8 text-[#faf6f0]/58";
+}
+
+function NewsPanel({ articles, holdings }: { articles: PortfolioNewsArticle[]; holdings: ExtendedHolding[] }) {
+  const portfolioTickers = new Set(holdings.map((holding) => holding.ticker));
+
+  if (articles.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-[#ddb159]/24 bg-[#061b12]/72 p-6 text-center text-[#faf6f0]">
+        <p className="text-[24px] font-black tracking-[-0.05em]">No portfolio news yet.</p>
+        <p className="mx-auto mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/52">
+          Relevant market and company news will appear here when it matches your current holdings.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <section className="grid gap-3">
+      <div className="rounded-2xl border border-white/8 bg-white/[0.045] p-3 text-[#faf6f0]">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">News feed</p>
+        <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/45">
+          Latest articles connected to stocks currently held in this portfolio.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        {articles.map((article) => {
+          const matchedStocks = article.affectedStocks.filter((stock) => portfolioTickers.has(stock.ticker));
+          const primaryStock = matchedStocks[0] ?? article.affectedStocks[0];
+          const href = article.url ?? "/world-news";
+          const external = Boolean(article.url);
+
+          return (
+            <a
+              key={article.id}
+              href={href}
+              target={external ? "_blank" : undefined}
+              rel={external ? "noreferrer" : undefined}
+              className="group grid gap-3 overflow-hidden rounded-[22px] border border-[#ddb159]/14 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.10)] transition hover:border-[#ddb159]/45 hover:bg-white sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center sm:p-4"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#072116]/7 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[#072116]/52">
+                    {article.source ?? "Market news"}
+                  </span>
+                  <span className="text-[10px] font-bold text-[#072116]/42">{formatDate(article.published_at)}</span>
+                </div>
+                <h3 className="mt-2 line-clamp-2 text-[17px] font-black leading-tight tracking-[-0.035em] text-[#072116] sm:text-[19px]">
+                  {article.title ?? "Untitled article"}
+                </h3>
+                <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#072116]/58">
+                  {article.summary ?? article.impact_reason ?? "No summary available yet."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {matchedStocks.slice(0, 5).map((stock) => (
+                    <span key={`${article.id}-${stock.ticker}`} className="rounded-full border border-[#ddb159]/28 bg-[#ddb159]/12 px-2.5 py-1 text-[10px] font-black text-[#8a641a]">
+                      {stock.ticker}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:justify-items-end sm:text-right">
+                {primaryStock && (
+                  <span className={[
+                    "inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em]",
+                    newsToneClass(primaryStock.impactDirection),
+                  ].join(" ")}>{primaryStock.impactDirection}</span>
+                )}
+                {primaryStock && (
+                  <p className="text-[11px] font-bold leading-5 text-[#072116]/54">
+                    Most relevant: <span className="font-black text-[#072116]">{primaryStock.ticker}</span>
+                  </p>
+                )}
+                <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a641a]">
+                  Open article →
+                </span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+`;
+
+if (!source.includes("function NewsPanel")) {
+  source = source.replace("function ActivityPanel", `${newsPanel}\nfunction ActivityPanel`);
+}
+
+replaceAll(
+  '  transactions = [],\n  chartData = {},',
+  '  transactions = [],\n  newsArticles = [],\n  chartData = {},',
+);
+replaceAll(
+  '        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />\n        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />',
+  '        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />\n        <SectionButton section="news" active={section} setSection={setSection} label="News" />\n        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />',
+);
+replaceAll(
+  '      {section === "add" && (\n        <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]">',
+  '      {section === "add" && (\n        <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]">',
+);
+replaceAll(
+  '      {section === "activity" && <ActivityPanel transactions={transactions} currency={currency} />}',
+  '      {section === "news" && <NewsPanel articles={newsArticles} holdings={holdings} />}\n      {section === "activity" && <ActivityPanel transactions={transactions} currency={currency} />}',
 );
 
 fs.writeFileSync(file, source);
