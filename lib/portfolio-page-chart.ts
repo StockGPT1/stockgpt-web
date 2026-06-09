@@ -40,6 +40,12 @@ type PortfolioEvent = {
   setCostBasis?: number;
 };
 
+type TickerChartResult = {
+  ticker: string;
+  points: ChartPoint[];
+  intradayPoints: ChartPoint[];
+};
+
 const EPSILON = 0.000001;
 
 function toNumber(value: unknown, fallback = 0) {
@@ -203,6 +209,62 @@ function getPriceAtOrBefore(points: ChartPoint[], dateMs: number, fallbackPrice:
   return candidate;
 }
 
+function buildIntradayPortfolioChart({
+  chartResults,
+  enriched,
+  currentCash,
+  summary,
+}: {
+  chartResults: TickerChartResult[];
+  enriched: EnrichedHolding[];
+  currentCash: number;
+  summary: PortfolioHealthSummary;
+}) {
+  const holdingMap = new Map(enriched.map((holding) => [holding.ticker, holding]));
+  const intradayMap = new Map(chartResults.map((item) => [item.ticker, item.intradayPoints]));
+  const dateSet = new Set<number>();
+
+  chartResults.forEach(({ intradayPoints }) => {
+    intradayPoints.forEach((point) => {
+      const ms = safeDateMs(point.date, 0);
+      if (ms > 0) dateSet.add(ms);
+    });
+  });
+
+  const sortedDates = Array.from(dateSet).sort((a, b) => a - b);
+  if (sortedDates.length < 2) return [];
+
+  const rawPoints = sortedDates
+    .map((dateMs) => {
+      let value = currentCash;
+
+      enriched.forEach((holding) => {
+        const shares = toNumber(holding.shares, 0);
+        if (shares <= EPSILON) return;
+
+        const fallbackPrice = getFallbackPrice(holdingMap.get(holding.ticker));
+        const price = getPriceAtOrBefore(intradayMap.get(holding.ticker) ?? [], dateMs, fallbackPrice);
+        value += shares * price;
+      });
+
+      return {
+        date: new Date(dateMs).toISOString(),
+        close: roundMoney(value),
+      };
+    })
+    .filter((point) => Number.isFinite(point.close) && point.close > 0);
+
+  if (rawPoints.length < 2) return [];
+
+  const lastRaw = rawPoints[rawPoints.length - 1]?.close ?? summary.totalValue;
+  const displayOffset = Number.isFinite(lastRaw) ? summary.totalValue - lastRaw : 0;
+
+  return rawPoints.map((point) => ({
+    ...point,
+    close: Math.max(0, roundMoney(point.close + displayOffset)),
+  }));
+}
+
 export async function buildPortfolioPageChart({
   portfolio,
   enriched,
@@ -257,12 +319,23 @@ export async function buildPortfolioPageChart({
   if (tickers.length === 0) return fallbackPortfolioChart(summary, createdAtMs);
 
   const range = chooseHistoryRange(createdAtMs);
-  const chartResults = await Promise.all(
+  const chartResults: TickerChartResult[] = await Promise.all(
     tickers.map(async (ticker) => {
-      const chart = await getStockChart(ticker, [range]);
-      return { ticker, points: chart[range] ?? [] };
+      const chart = await getStockChart(ticker, ["1D", range]);
+      return {
+        ticker,
+        points: chart[range] ?? [],
+        intradayPoints: chart["1D"] ?? [],
+      };
     }),
   );
+
+  const intradayPoints = buildIntradayPortfolioChart({
+    chartResults,
+    enriched,
+    currentCash,
+    summary,
+  });
 
   const priceMap = new Map(chartResults.map((item) => [item.ticker, item.points]));
   const dateSet = new Set<number>([createdAtMs, nowMs]);
@@ -279,7 +352,12 @@ export async function buildPortfolioPageChart({
   });
 
   const sortedDates = Array.from(dateSet).sort((a, b) => a - b);
-  if (sortedDates.length < 2) return fallbackPortfolioChart(summary, createdAtMs);
+  if (sortedDates.length < 2) {
+    return {
+      ...fallbackPortfolioChart(summary, createdAtMs),
+      ...(intradayPoints.length >= 2 ? { "1D": intradayPoints } : {}),
+    };
+  }
 
   const sortedEvents = [...events].sort((a, b) => a.dateMs - b.dateMs);
   const shares = new Map<string, number>();
@@ -336,5 +414,8 @@ export async function buildPortfolioPageChart({
     close: Math.max(0, roundMoney(displayBasis + summary.totalPnl)),
   };
 
-  return { MAX: points };
+  return {
+    MAX: points,
+    ...(intradayPoints.length >= 2 ? { "1D": intradayPoints } : {}),
+  };
 }
