@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && node scripts/polish-portfolio-page-preview.mjs && node scripts/mobile-portfolio-polish.mjs && node scripts/mobile-portfolio-final-fit.mjs && node scripts/mobile-portfolio-ux-last-pass.mjs && next dev",
-    "build": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && node scripts/polish-portfolio-page-preview.mjs && node scripts/mobile-portfolio-polish.mjs && node scripts/mobile-portfolio-final-fit.mjs && node scripts/mobile-portfolio-ux-last-pass.mjs && next build",
+    "dev": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && node scripts/polish-portfolio-page-preview.mjs && node scripts/mobile-portfolio-polish.mjs && node scripts/mobile-portfolio-final-fit.mjs && node scripts/mobile-portfolio-ux-last-pass.mjs && node scripts/mobile-portfolio-overflow-lock.mjs && next dev",
+    "build": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && node scripts/polish-portfolio-page-preview.mjs && node scripts/mobile-portfolio-polish.mjs && node scripts/mobile-portfolio-final-fit.mjs && node scripts/mobile-portfolio-ux-last-pass.mjs && node scripts/mobile-portfolio-overflow-lock.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
