@@ -4,11 +4,11 @@ import { AppShell } from "@/components/AppShell";
 import { DashboardChangeModal } from "@/components/DashboardChangeModal";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
-import { StockChart } from "@/components/StockChart";
+import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { getOneDayMoveMap, getSP500Chart } from "@/lib/yahoo";
+import { getLatestPriceFromChart, getOneDayMoveMap, getSP500Chart, getStockChart } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -18,7 +18,11 @@ import {
   buildPortfolioHealthSummary,
   type PortfolioHealthSummary,
 } from "@/lib/portfolio-health";
-import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import {
+  enrichHoldings,
+  type EnrichedHolding,
+  type RiskTolerance,
+} from "@/lib/portfolio-alerts";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -189,6 +193,56 @@ function dailyMoveTone(value: number | null | undefined): DailyChangeItem["daily
   return "neutral";
 }
 
+async function buildPortfolioValueChart(
+  holdings: EnrichedHolding[],
+  cashBalance: number,
+): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  const chartableHoldings = holdings.filter((holding) => holding.shares > 0).slice(0, 30);
+
+  if (chartableHoldings.length === 0) return {};
+
+  const fetched = await Promise.all(
+    chartableHoldings.map(async (holding) => {
+      const chart = await getStockChart(holding.ticker, ["1D"]);
+      return {
+        holding,
+        points: chart["1D"] ?? [],
+      };
+    }),
+  );
+
+  const usable = fetched.filter((item) => item.points.length > 1);
+  const staticHoldingValue = fetched
+    .filter((item) => item.points.length <= 1)
+    .reduce((sum, item) => sum + item.holding.currentValue, 0);
+  const unchartedValue = holdings
+    .slice(30)
+    .reduce((sum, holding) => sum + holding.currentValue, 0);
+  const staticValue = cashBalance + staticHoldingValue + unchartedValue;
+
+  if (usable.length === 0) return {};
+
+  const pointCount = Math.min(90, ...usable.map((item) => item.points.length));
+  const points: ChartPoint[] = [];
+
+  for (let i = 0; i < pointCount; i += 1) {
+    let close = staticValue;
+    const anchorPoint = usable[0].points[usable[0].points.length - pointCount + i];
+
+    usable.forEach((item) => {
+      const point = item.points[item.points.length - pointCount + i];
+      close += toNumber(point?.close, item.holding.currentPrice) * item.holding.shares;
+    });
+
+    points.push({
+      date: anchorPoint.date,
+      close: Math.round(close * 100) / 100,
+    });
+  }
+
+  return { "1D": points };
+}
+
 export default async function Home() {
   const supabase = await createClient();
   const {
@@ -209,24 +263,37 @@ export default async function Home() {
   }
 
   const rankingsLocked = !hasSubscription;
-  const [{ data: rankingsData }, { count: totalCount }, { count: bullishCount }] =
-    await Promise.all([
-      supabase
-        .from("stock_rankings")
-        .select("id,rank,ticker,company,sector,score,price,updated_at")
-        .order("rank", { ascending: true })
-        .limit(10),
-      supabase.from("stock_rankings").select("*", { count: "exact", head: true }),
-      supabase
-        .from("stock_rankings")
-        .select("*", { count: "exact", head: true })
-        .gte("score", 7000),
-    ]);
+  const [
+    { data: rankingsData },
+    { data: moverUniverseData },
+    { count: totalCount },
+    { count: bullishCount },
+  ] = await Promise.all([
+    supabase
+      .from("stock_rankings")
+      .select("id,rank,ticker,company,sector,score,price,updated_at")
+      .order("rank", { ascending: true })
+      .limit(10),
+    supabase
+      .from("stock_rankings")
+      .select("id,rank,ticker,company,sector,score,price,updated_at")
+      .order("rank", { ascending: true })
+      .limit(500),
+    supabase.from("stock_rankings").select("*", { count: "exact", head: true }),
+    supabase
+      .from("stock_rankings")
+      .select("*", { count: "exact", head: true })
+      .gte("score", 7000),
+  ]);
 
   const rankings = (rankingsData ?? []) as Ranking[];
+  const moverUniverse = ((moverUniverseData ?? rankingsData ?? []) as Ranking[]).filter(
+    (stock) => stock.ticker,
+  );
   const topRanked = rankings[0];
   let activePortfolio: PortfolioRow | null = null;
   let portfolioSummary: PortfolioHealthSummary | null = null;
+  let portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> = {};
   let portfolioTickers: string[] = [];
 
   if (user) {
@@ -279,32 +346,38 @@ export default async function Home() {
         }));
 
       portfolioTickers = rawHoldings.map((holding) => holding.ticker).filter(Boolean);
+      const cashBalance = toNumber(activePortfolio.cash_balance, 0);
       const enriched = await enrichHoldings(
         rawHoldings,
         (activePortfolio.risk_tolerance as RiskTolerance) ?? null,
       );
 
-      portfolioSummary = buildPortfolioHealthSummary({
-        id: activePortfolio.id,
-        name: cleanPortfolioName(activePortfolio.name),
-        currency: activePortfolio.currency ?? "USD",
-        riskTolerance: activePortfolio.risk_tolerance,
-        holdings: enriched,
-        transactions: ((transactionData ?? []) as TransactionRow[]).map((row) => ({
-          realisedPnl: row.realised_pnl,
-        })),
-        cashBalance: toNumber(activePortfolio.cash_balance, 0),
-        cashDepositedTotal: toNumber(
-          activePortfolio.cash_deposited_total,
-          toNumber(activePortfolio.investment_amount, 0),
+      [portfolioSummary, portfolioValueChart] = await Promise.all([
+        Promise.resolve(
+          buildPortfolioHealthSummary({
+            id: activePortfolio.id,
+            name: cleanPortfolioName(activePortfolio.name),
+            currency: activePortfolio.currency ?? "USD",
+            riskTolerance: activePortfolio.risk_tolerance,
+            holdings: enriched,
+            transactions: ((transactionData ?? []) as TransactionRow[]).map((row) => ({
+              realisedPnl: row.realised_pnl,
+            })),
+            cashBalance,
+            cashDepositedTotal: toNumber(
+              activePortfolio.cash_deposited_total,
+              toNumber(activePortfolio.investment_amount, 0),
+            ),
+          }),
         ),
-      });
+        buildPortfolioValueChart(enriched, cashBalance),
+      ]);
     }
   }
 
   const dashboardTickerList = Array.from(
     new Set([
-      ...rankings.map((r) => r.ticker).filter((t): t is string => !!t),
+      ...moverUniverse.map((r) => r.ticker).filter((t): t is string => !!t),
       ...portfolioTickers,
     ]),
   );
@@ -329,7 +402,7 @@ export default async function Home() {
           : "Weak market";
   const sp500DailyChangePct = getChartChangePct(sp500Data, "1D");
 
-  const whatChangedToday: DailyChangeItem[] = rankings.slice(0, 8).map((stock) => {
+  const whatChangedToday: DailyChangeItem[] = moverUniverse.map((stock) => {
     const ticker = stock.ticker ?? "";
     const rankMove = getRankMove24h(stock.rank, snapshotMap.get(ticker));
     const dailyMove = dailyMoveMap.get(ticker)?.changePct;
@@ -391,10 +464,10 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(154px,21dvh,190px)_clamp(152px,23dvh,205px)_minmax(0,1fr)] lg:overflow-hidden">
+          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(126px,16dvh,154px)_clamp(206px,27dvh,252px)_minmax(270px,1fr)] lg:overflow-hidden">
+            <PortfolioDashboardWidget summary={portfolioSummary} chartData={portfolioValueChart} />
             <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
             <DashboardChangeModal items={whatChangedToday} />
-            <PortfolioDashboardWidget summary={portfolioSummary} />
           </aside>
         </div>
       </main>
@@ -594,148 +667,127 @@ function StatBlock({
   );
 }
 
-function PortfolioDashboardWidget({ summary }: { summary: PortfolioHealthSummary | null }) {
+function PortfolioDashboardWidget({
+  summary,
+  chartData,
+}: {
+  summary: PortfolioHealthSummary | null;
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+}) {
   if (!summary) {
     return (
-      <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_60%,#061b12)] p-4 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:h-full lg:min-h-0">
+      <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_60%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:h-full lg:min-h-0">
         <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-[#ddb159]/20 blur-3xl" />
-        <p className="relative text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-          ✦ Portfolio command centre
-        </p>
-        <h2 className="relative mt-2 text-[22px] font-black leading-none tracking-[-0.05em]">
-          Build your first portfolio.
-        </h2>
-        <p className="relative mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/62">
-          Add holdings or import Trading 212 CSVs so StockGPT can monitor exposure, risk and daily changes.
-        </p>
-        <div className="relative mt-3 hidden min-h-0 flex-1 rounded-xl border border-[#ddb159]/14 bg-[#04180f]/38 p-3 lg:block">
-          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70">
-            What you unlock
-          </p>
-          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#faf6f0]/56">
-            Portfolio value, weighted AI score, action alerts and exposure checks in one dashboard tile.
-          </p>
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              ✦ Portfolio
+            </p>
+            <h2 className="mt-1 truncate text-[19px] font-black leading-none tracking-[-0.05em]">
+              Build your first portfolio
+            </h2>
+          </div>
+          <Link
+            href="/portfolio?builder=1"
+            className="shrink-0 rounded-full bg-[#ddb159] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#072116] transition hover:brightness-105"
+          >
+            Start →
+          </Link>
         </div>
-        <Link
-          href="/portfolio?builder=1"
-          className="relative mt-3 inline-flex w-fit rounded-full bg-[#ddb159] px-4 py-2 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105"
-        >
-          Start portfolio →
-        </Link>
+        <p className="relative mt-2 line-clamp-2 text-[11px] font-semibold leading-4 text-[#faf6f0]/58">
+          Add holdings or import Trading 212 CSVs so StockGPT can monitor value, risk and alerts.
+        </p>
       </div>
     );
   }
 
   const isPositive = summary.totalPnl >= 0;
-  const actionText =
-    summary.actionAlerts > 0
-      ? `${summary.actionAlerts} active ${summary.actionAlerts === 1 ? "action" : "actions"}`
-      : "No urgent actions";
 
   return (
     <Link
       href="/portfolio"
-      className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/55 lg:h-full lg:min-h-0 xl:p-4"
+      className="relative grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/55 lg:h-full lg:min-h-0"
     >
       <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-[#ddb159]/18 blur-3xl" />
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-            ✦ Portfolio health
+          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-[#ddb159]">
+            ✦ Portfolio
           </p>
-          <h2 className="mt-1 truncate text-[19px] font-black leading-none tracking-[-0.05em] xl:text-[20px]">
+          <h2 className="mt-1 truncate text-[16px] font-black leading-none tracking-[-0.05em] xl:text-[18px]">
             {summary.name}
           </h2>
         </div>
-        <span className="shrink-0 rounded-full bg-[#ddb159] px-3 py-1 text-[11px] font-black text-[#072116]">
-          {summary.score}/100
+        <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
+          Health {summary.score}/100
         </span>
       </div>
 
-      <div className="relative mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+      <div className="relative mt-2 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[24px] font-black leading-none tracking-[-0.06em] xl:text-[28px]">
+          <p className="truncate text-[22px] font-black leading-none tracking-[-0.06em] xl:text-[25px]">
             {money(summary.totalValue, summary.currency)}
           </p>
           <p
             className={[
-              "mt-1 truncate text-[12px] font-black tabular-nums",
+              "mt-1 truncate text-[11px] font-black tabular-nums",
               isPositive ? "text-emerald-300" : "text-red-200",
             ].join(" ")}
           >
             {money(summary.totalPnl, summary.currency)} · {pct(summary.totalPnlPct)}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/42">
-            Status
-          </p>
-          <p className="max-w-[90px] truncate text-[13px] font-black text-[#ddb159]">
-            {summary.label}
-          </p>
-        </div>
+        <span className="shrink-0 text-right text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
+          {summary.label}
+        </span>
       </div>
 
-      <p className="relative mt-2 line-clamp-2 text-[10.5px] font-semibold leading-4 text-[#faf6f0]/46 lg:line-clamp-3">
-        {summary.explanation}
-      </p>
-
-      <div className="relative mt-2 grid grid-cols-3 gap-2">
-        <MiniDashboardMetric label="Holdings" value={String(summary.holdingsCount)} />
-        <MiniDashboardMetric label="Actions" value={String(summary.actionAlerts)} />
-        <MiniDashboardMetric
-          label="W score"
-          value={summary.weightedAvgScore ? String(summary.weightedAvgScore) : "—"}
-        />
+      <div className="relative mt-2 min-h-0 overflow-hidden rounded-xl border border-[#ddb159]/12 bg-[#04180f]/40">
+        <StockChart ticker="Portfolio" data={chartData} initialRange="1D" height={58} compact />
       </div>
 
-      <div className="relative mt-2 hidden min-h-0 flex-1 rounded-xl border border-[#ddb159]/14 bg-[#04180f]/40 p-3 lg:block">
-        <p className="truncate text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70">
-          Dashboard focus
-        </p>
-        <p className="mt-1 line-clamp-3 text-[10.5px] font-semibold leading-4 text-[#faf6f0]/52">
-          {summary.actionAlerts > 0
-            ? "Review the flagged positions first, then check whether your strongest AI-ranked holdings still match your risk profile."
-            : "Portfolio looks stable on the current model run. Keep monitoring rank movement and daily price changes before making new adjustments."}
-        </p>
-      </div>
-
-      <div className="relative mt-2 hidden items-center justify-between gap-2 border-t border-[#ddb159]/12 pt-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45 lg:flex">
-        <span className="truncate">{actionText}</span>
+      <div className="relative mt-2 flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45">
+        <span className="truncate">
+          {summary.holdingsCount} holdings · {summary.actionAlerts} actions
+        </span>
         <span className="shrink-0 text-[#ddb159]">Open →</span>
       </div>
     </Link>
   );
 }
 
-function MiniDashboardMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-[#ddb159]/14 bg-[#04180f]/58 px-2 py-2">
-      <p className="truncate text-[8px] font-black uppercase tracking-[0.1em] text-[#ddb159]/70">
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-[14px] font-black text-[#faf6f0]">{value}</p>
-    </div>
-  );
+function formatIndexValue(value: number | null) {
+  if (!Number.isFinite(value)) return "—";
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function MarketOverviewCard({
   sp500Data,
   changePct,
 }: {
-  sp500Data: Partial<Record<string, Array<{ close: number }>>>;
+  sp500Data: Partial<Record<TimeRange, ChartPoint[]>>;
   changePct: number | null;
 }) {
+  const latestPrice = getLatestPriceFromChart(sp500Data);
+
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur lg:h-full lg:min-h-0">
+    <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur lg:h-full lg:min-h-0">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
             ✦ Market Overview
           </p>
-          <h3 className="mt-0.5 truncate text-[15px] font-black tracking-[-0.02em] text-[#faf6f0]">
-            S&amp;P 500
-          </h3>
+          <div className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1">
+            <h3 className="truncate text-[22px] font-black leading-none tracking-[-0.05em]">
+              S&amp;P 500
+            </h3>
+            <span className="text-[13px] font-black tabular-nums text-[#faf6f0]/72">
+              {formatIndexValue(latestPrice)}
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <p className="rounded-full border border-[#ddb159]/20 bg-[#072116]/50 px-2 py-1 text-[9px] font-black text-[#ddb159]">
@@ -756,11 +808,11 @@ function MarketOverviewCard({
         </div>
       </div>
 
-      <div className="mt-2 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">
+      <div className="mt-3 min-h-0 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">
         <StockChart ticker="S&P 500" data={sp500Data} initialRange="1D" height={150} compact />
       </div>
-      <div className="mt-2 hidden min-h-0 overflow-hidden rounded-xl bg-[#072116]/35 lg:block">
-        <StockChart ticker="S&P 500" data={sp500Data} initialRange="1D" height={86} compact />
+      <div className="mt-3 hidden min-h-0 overflow-hidden rounded-xl bg-[#072116]/35 lg:block">
+        <StockChart ticker="S&P 500" data={sp500Data} initialRange="1D" height={118} compact />
       </div>
     </div>
   );
