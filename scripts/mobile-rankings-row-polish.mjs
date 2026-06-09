@@ -52,7 +52,7 @@ function MobileRankingRow({
   return (
     <details className="group w-full max-w-full overflow-hidden rounded-[18px] border border-[#072116]/8 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.10)]">
       <summary className="grid h-[74px] w-full cursor-pointer list-none grid-cols-[minmax(112px,1fr)_58px_50px_54px_34px] items-center gap-1 px-2 py-2 [&::-webkit-details-marker]:hidden">
-        <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-1.5">
+        <Link href={"/stock/" + stock.ticker} className="flex min-w-0 items-center gap-1.5">
           <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#072116] text-[9px] font-black text-[#ddb159]">
             {stock.rank ?? "—"}
           </div>
