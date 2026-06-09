@@ -24,6 +24,26 @@ function parseMoveValue(label: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function sortMovers(items: DailyChangeItem[], mode: MoverMode) {
+  return [...items]
+    .sort((a, b) => {
+      const aValue = parseMoveValue(a.dailyMoveLabel);
+      const bValue = parseMoveValue(b.dailyMoveLabel);
+      return mode === "gainers" ? bValue - aValue : aValue - bValue;
+    })
+    .filter((item) =>
+      mode === "gainers"
+        ? parseMoveValue(item.dailyMoveLabel) >= 0
+        : parseMoveValue(item.dailyMoveLabel) < 0,
+    );
+}
+
+function directionIcon(tone: DailyChangeItem["dailyMoveTone"]) {
+  if (tone === "negative") return "▼";
+  if (tone === "positive") return "▲";
+  return "•";
+}
+
 function moveToneClass(tone: DailyChangeItem["dailyMoveTone"]) {
   if (tone === "positive") return "text-emerald-600";
   if (tone === "negative") return "text-red-500";
@@ -42,25 +62,6 @@ function rankToneClass(tone: DailyChangeItem["rankTone"]) {
   return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
 }
 
-function directionIcon(tone: DailyChangeItem["dailyMoveTone"]) {
-  if (tone === "negative") return "▼";
-  if (tone === "positive") return "▲";
-  return "•";
-}
-
-function sortMovers(items: DailyChangeItem[], mode: MoverMode) {
-  const sorted = [...items].sort((a, b) => {
-    const aValue = parseMoveValue(a.dailyMoveLabel);
-    const bValue = parseMoveValue(b.dailyMoveLabel);
-    return mode === "gainers" ? bValue - aValue : aValue - bValue;
-  });
-
-  return sorted.filter((item) => {
-    if (mode === "gainers") return parseMoveValue(item.dailyMoveLabel) >= 0;
-    return parseMoveValue(item.dailyMoveLabel) < 0;
-  });
-}
-
 function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
   return (
     <button
@@ -69,8 +70,8 @@ function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => 
       className="group flex min-w-0 flex-col items-center justify-start text-center outline-none"
       title={`${item.ticker} ${item.dailyMoveLabel}`}
     >
-      <div className="grid size-[clamp(34px,4.2vw,44px)] place-items-center rounded-full bg-white shadow-[0_6px_14px_rgba(7,33,22,0.12)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
-        <StockLogo ticker={item.ticker} company={item.company} size={30} />
+      <div className="grid size-[clamp(36px,4.5vw,46px)] place-items-center rounded-full bg-white shadow-[0_6px_14px_rgba(7,33,22,0.12)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
+        <StockLogo ticker={item.ticker} company={item.company} size={32} />
       </div>
       <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#072116]">
         {item.ticker}
@@ -98,7 +99,6 @@ function FilterPill({ label, active = false }: { label: string; active?: boolean
           ? "bg-[#ddb159] text-[#072116] shadow-[0_8px_18px_rgba(221,177,89,0.22)]"
           : "cursor-not-allowed border border-[#072116]/8 bg-[#072116]/5 text-[#072116]/32",
       ].join(" ")}
-      title={active ? label : `${label} preview filter coming soon`}
     >
       {label}
     </button>
@@ -110,27 +110,20 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
   const [mode, setMode] = useState<MoverMode>("gainers");
 
   const movers = useMemo(() => sortMovers(items, mode), [items, mode]);
-  const previewItems = movers.slice(0, 4);
+  const previewItems = movers.slice(0, 8);
   const listItems = movers.length > 0 ? movers : items;
 
   return (
     <>
       <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(11px,1vw,15px)]">
-        <div className="flex min-w-0 shrink-0 items-start justify-between gap-3">
-          <button type="button" onClick={() => setOpen(true)} className="min-w-0 text-left">
-            <h2 className="flex items-center gap-1.5 truncate text-[22px] font-black leading-none tracking-[-0.05em] sm:text-[26px] lg:text-[clamp(20px,1.9vw,28px)]">
-              Today&apos;s top movers <span className="text-[#072116]/55">›</span>
-            </h2>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="hidden shrink-0 pt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#9e8745] sm:block"
-          >
-            1D · S&P 500
-          </button>
-        </div>
+        <button type="button" onClick={() => setOpen(true)} className="min-w-0 shrink-0 text-left">
+          <h2 className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[22px] font-black leading-none tracking-[-0.05em] sm:text-[26px] lg:text-[clamp(20px,1.72vw,26px)]">
+            Today&apos;s top movers <span className="text-[#072116]/55">›</span>
+          </h2>
+          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#9e8745]">
+            1D · S&amp;P 500
+          </p>
+        </button>
 
         <div className="mt-3 grid grid-cols-2 rounded-full bg-[#072116]/8 p-1">
           {(["gainers", "losers"] as const).map((tab) => (
@@ -150,7 +143,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           ))}
         </div>
 
-        <div className="mt-3 grid min-h-0 grid-cols-4 place-items-start gap-x-3 overflow-hidden pb-1 pt-1">
+        <div className="mt-3 grid min-h-0 grid-cols-4 content-start gap-x-3 gap-y-3 overflow-hidden pb-1 pt-1">
           {previewItems.length > 0 ? (
             previewItems.map((item) => (
               <MoverLogoTile key={`${mode}-${item.ticker}`} item={item} onOpen={() => setOpen(true)} />
@@ -179,7 +172,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
                   Top Movers
                 </h3>
                 <p className="mt-3 max-w-2xl text-[13px] font-semibold leading-5 text-[#f8f4e8]/58 sm:text-[14px]">
-                  Best and worst performing stocks from the selected period, with StockGPT rank and score context. Past performance is not a reliable indicator of future returns.
+                  Best and worst performing stocks from the selected period, with StockGPT rank and score context.
                 </p>
               </div>
 
