@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { StockLogo } from "@/components/StockLogo";
 
 type DailyChangeItem = {
   ticker: string;
@@ -16,185 +17,136 @@ type DailyChangeItem = {
   dailyMoveTone: "positive" | "negative" | "neutral";
 };
 
-function moveToneClass(tone: DailyChangeItem["dailyMoveTone"]) {
-  if (tone === "positive") return "text-emerald-700 bg-emerald-500/10 border-emerald-500/20";
-  if (tone === "negative") return "text-red-700 bg-red-500/10 border-red-500/20";
-  return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
+type Side = "gainers" | "losers";
+
+function parseMove(value: string) {
+  const parsed = Number(value.replace("%", "").replace("+", "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function rankToneClass(tone: DailyChangeItem["rankTone"]) {
-  if (tone === "up") return "text-emerald-700 bg-emerald-500/10 border-emerald-500/20";
-  if (tone === "down") return "text-red-700 bg-red-500/10 border-red-500/20";
-  return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
+function moveTextClass(tone: DailyChangeItem["dailyMoveTone"]) {
+  if (tone === "positive") return "text-emerald-600";
+  if (tone === "negative") return "text-red-500";
+  return "text-[#072116]/45";
 }
 
-function PreviewChangeRow({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
+function moveTriangle(tone: DailyChangeItem["dailyMoveTone"]) {
+  if (tone === "positive") return "▲";
+  if (tone === "negative") return "▼";
+  return "•";
+}
+
+function tabClass(active: boolean) {
+  return [
+    "h-9 flex-1 rounded-full text-[12px] font-black transition sm:h-10 sm:text-[13px] lg:h-[clamp(30px,4dvh,38px)] lg:text-[clamp(10px,0.82vw,13px)]",
+    active
+      ? "bg-[#faf6f0]/78 text-[#072116]"
+      : "text-[#faf6f0]/58 hover:bg-[#faf6f0]/8 hover:text-[#faf6f0]",
+  ].join(" ");
+}
+
+function MoverTile({ item }: { item: DailyChangeItem }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="grid min-h-[50px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-[#072116]/8 bg-white/74 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:min-h-[52px] sm:px-4 lg:h-full lg:min-h-0 lg:rounded-xl lg:px-3 lg:py-0 xl:px-4"
+    <Link
+      href={`/stock/${item.ticker}`}
+      className="group grid min-w-0 justify-items-center gap-1 rounded-2xl p-1.5 text-center transition hover:bg-[#faf6f0]/7"
+      title={`${item.company} · ${item.dailyMoveLabel} · ${item.sector}`}
     >
-      <div className="min-w-0 overflow-hidden">
-        <p className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-1.5 text-[12px] font-black leading-tight sm:text-[13px] lg:text-[clamp(11px,0.88vw,13px)]">
-          <span className="shrink-0 whitespace-nowrap">{item.ticker} ·</span>
-          <span className="min-w-0 truncate">{item.company}</span>
-        </p>
-        <p className="mt-1 truncate text-[9px] font-bold leading-none text-[#072116]/38 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
-          {item.sector}
-        </p>
+      <div className="grid size-[46px] place-items-center rounded-full bg-[#faf6f0] ring-1 ring-white/10 transition group-hover:scale-[1.03] sm:size-[54px] lg:size-[clamp(38px,5.6dvh,52px)]">
+        <StockLogo ticker={item.ticker} company={item.company} size={34} />
       </div>
 
-      <span
-        className={`inline-flex h-8 min-w-[60px] shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums sm:min-w-[66px] sm:text-[11px] lg:h-7 lg:min-w-[58px] lg:text-[clamp(9px,0.72vw,10px)] xl:min-w-[64px] ${moveToneClass(
-          item.dailyMoveTone,
-        )}`}
-      >
-        {item.dailyMoveLabel}
-      </span>
-    </button>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-black leading-none tracking-[-0.02em] text-[#faf6f0] sm:text-[13px] lg:text-[clamp(10px,0.9vw,13px)]">
+          {item.ticker}
+        </p>
+        <p
+          className={`mt-1 truncate text-[11px] font-black leading-none tabular-nums sm:text-[12px] lg:text-[clamp(9px,0.82vw,12px)] ${moveTextClass(
+            item.dailyMoveTone,
+          )}`}
+        >
+          <span className="mr-1 text-[9px]">{moveTriangle(item.dailyMoveTone)}</span>
+          {item.dailyMoveLabel}
+        </p>
+      </div>
+    </Link>
   );
 }
 
 export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
-  const [open, setOpen] = useState(false);
-  const mobilePreviewItems = items.slice(0, 3);
-  const desktopPreviewItems = items.slice(0, 2);
+  const [side, setSide] = useState<Side>("gainers");
+
+  const { gainers, losers } = useMemo(() => {
+    const usable = items.filter((item) => item.dailyMoveLabel !== "—");
+    return {
+      gainers: usable
+        .filter((item) => parseMove(item.dailyMoveLabel) >= 0)
+        .sort((a, b) => parseMove(b.dailyMoveLabel) - parseMove(a.dailyMoveLabel))
+        .slice(0, 8),
+      losers: usable
+        .filter((item) => parseMove(item.dailyMoveLabel) < 0)
+        .sort((a, b) => parseMove(a.dailyMoveLabel) - parseMove(b.dailyMoveLabel))
+        .slice(0, 8),
+    };
+  }, [items]);
+
+  const activeItems = side === "gainers" ? gainers : losers;
+  const emptyCopy =
+    side === "gainers"
+      ? "No positive 1D movers available yet."
+      : "No negative 1D movers available yet.";
 
   return (
-    <>
-      <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
-        <div className="flex min-w-0 shrink-0 items-start justify-between gap-3 pb-3 lg:pb-[clamp(8px,1dvh,12px)]">
-          <div className="min-w-0 pt-0.5">
-            <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-[#072116]/55 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
-              ✦ What changed today?
-            </p>
-            <h2 className="mt-2 truncate text-[19px] font-black leading-none tracking-[-0.04em] sm:text-[22px] lg:text-[clamp(18px,1.65vw,22px)]">
-              Daily brief
-            </h2>
-          </div>
+    <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#151c1d] p-3 text-[#faf6f0] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <Link
+          href="/top-movers"
+          className="group min-w-0 truncate text-[18px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]/78 transition hover:text-[#ddb159] sm:text-[22px] lg:text-[clamp(18px,1.55vw,22px)]"
+        >
+          Today&apos;s top movers
+          <span className="ml-2 inline-block text-[#faf6f0]/55 transition group-hover:translate-x-0.5 group-hover:text-[#ddb159]">
+            ›
+          </span>
+        </Link>
 
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:h-11 sm:px-5 sm:text-[12px] lg:h-[clamp(34px,4.7dvh,42px)] lg:px-[clamp(14px,1.7vw,22px)] lg:text-[clamp(10px,0.82vw,12px)]"
+        <p className="hidden shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70 sm:block lg:text-[clamp(8px,0.62vw,9px)]">
+          1D · S&amp;P 500
+        </p>
+      </div>
+
+      <div className="mt-3 flex rounded-full bg-[#faf6f0]/9 p-1 ring-1 ring-white/5">
+        <button
+          type="button"
+          onClick={() => setSide("gainers")}
+          className={tabClass(side === "gainers")}
+        >
+          Top gainers
+        </button>
+        <button
+          type="button"
+          onClick={() => setSide("losers")}
+          className={tabClass(side === "losers")}
+        >
+          Top losers
+        </button>
+      </div>
+
+      <div className="mt-3 min-h-0 overflow-hidden">
+        {activeItems.length > 0 ? (
+          <div className="grid h-full min-h-0 grid-cols-4 content-between gap-x-2 gap-y-3">
+            {activeItems.map((item) => (
+              <MoverTile key={`${side}-${item.ticker}`} item={item} />
+            ))}
+          </div>
+        ) : (
+          <Link
+            href="/top-movers"
+            className="grid h-full min-h-[86px] place-items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/5 px-4 text-center text-[12px] font-bold text-[#faf6f0]/45 transition hover:border-[#ddb159]/35 hover:bg-[#ddb159]/8"
           >
-            View all →
-          </button>
-        </div>
-
-        <div className="grid min-h-0 gap-2.5 overflow-hidden lg:hidden">
-          {mobilePreviewItems.length > 0 ? (
-            mobilePreviewItems.map((item) => (
-              <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
-            ))
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-3 text-left text-[11px] font-bold text-[#072116]/45"
-            >
-              No daily changes available yet.
-            </button>
-          )}
-        </div>
-
-        <div className="hidden min-h-0 flex-1 gap-2.5 overflow-hidden lg:grid lg:grid-rows-2 xl:gap-3">
-          {desktopPreviewItems.length > 0 ? (
-            desktopPreviewItems.map((item) => (
-              <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
-            ))
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="row-span-2 rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-3 text-left text-[11px] font-bold text-[#072116]/45"
-            >
-              No daily changes available yet.
-            </button>
-          )}
-        </div>
-      </section>
-
-      {open && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020806]/78 px-3 py-4 backdrop-blur-sm">
-          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_28px_90px_rgba(0,0,0,0.46)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#072116]/10 px-4 py-4 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                  Daily market movement
-                </p>
-                <h3 className="mt-1 text-[26px] font-black leading-none tracking-[-0.05em] sm:text-[34px]">
-                  What changed today?
-                </h3>
-                <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/58">
-                  A fuller view of rank movement, daily price movement and score context from the top-ranked universe.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="grid size-10 shrink-0 place-items-center rounded-full border border-[#072116]/10 bg-white text-[18px] font-black text-[#072116] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
-                aria-label="Close daily changes"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
-              <div className="grid gap-2">
-                {items.length > 0 ? (
-                  items.map((item) => (
-                    <Link
-                      key={item.ticker}
-                      href={`/stock/${item.ticker}`}
-                      onClick={() => setOpen(false)}
-                      className="grid gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-3 transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <p className="text-[15px] font-black tracking-[-0.02em]">
-                            {item.ticker}
-                          </p>
-                          <p className="min-w-0 truncate text-[13px] font-bold text-[#072116]/72">
-                            {item.company}
-                          </p>
-                        </div>
-                        <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.08em] text-[#072116]/42">
-                          {item.sector} · Price {item.price} · Score {item.score}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <span
-                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black tabular-nums ${moveToneClass(
-                            item.dailyMoveTone,
-                          )}`}
-                        >
-                          1D {item.dailyMoveLabel}
-                        </span>
-                        <span
-                          title={item.rankTitle}
-                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black ${rankToneClass(
-                            item.rankTone,
-                          )}`}
-                        >
-                          Rank {item.rankLabel}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-[#072116]/8 bg-white px-4 py-6 text-center text-[12px] font-bold text-[#072116]/50">
-                    No daily movement data is available yet.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+            {emptyCopy}
+          </Link>
+        )}
+      </div>
+    </section>
   );
 }
