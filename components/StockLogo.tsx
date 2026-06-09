@@ -29,6 +29,12 @@ function initialsFrom(ticker?: string | null, company?: string | null) {
     .join("");
 }
 
+function fallbackTextSize(size: number) {
+  if (size >= 42) return 10;
+  if (size >= 30) return 8.5;
+  return 7;
+}
+
 export function StockLogo({
   ticker,
   company,
@@ -43,10 +49,10 @@ export function StockLogo({
     return (
       <span
         className={[
-          "inline-flex shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[9px] font-black text-[#ddb159]",
+          "inline-flex shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
           className,
         ].join(" ")}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, fontSize: fallbackTextSize(size) }}
         aria-hidden="true"
       >
         {fallback}
@@ -57,18 +63,24 @@ export function StockLogo({
   return (
     <span
       className={[
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#072116]/10 bg-white",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#072116]/12 bg-[#f7f2e8] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.72)]",
         className,
       ].join(" ")}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
+      <span
+        className="absolute inset-0 grid place-items-center rounded-full bg-[#072116] font-black text-[#ddb159]"
+        style={{ fontSize: fallbackTextSize(size) }}
+      >
+        {fallback}
+      </span>
       <Image
         src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
         alt=""
         width={size}
         height={size}
-        className="h-full w-full object-contain p-[2px]"
+        className="relative z-10 h-full w-full object-contain bg-[#f7f2e8] p-[3px] drop-shadow-[0_1px_1px_rgba(7,33,22,0.38)]"
         onError={() => setFailed(true)}
         unoptimized
       />
