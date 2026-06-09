@@ -8,21 +8,14 @@ import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockC
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { getLatestPriceFromChart, getOneDayMoveMap, getSP500Chart, getStockChart } from "@/lib/yahoo";
+import { getLatestPriceFromChart, getOneDayMoveMap, getSP500Chart } from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
   moveClassName,
 } from "@/lib/rank-history";
-import {
-  buildPortfolioHealthSummary,
-  type PortfolioHealthSummary,
-} from "@/lib/portfolio-health";
-import {
-  enrichHoldings,
-  type EnrichedHolding,
-  type RiskTolerance,
-} from "@/lib/portfolio-alerts";
+import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
+import { getDashboardMainPortfolio } from "@/lib/dashboard-portfolio";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -42,36 +35,6 @@ type Ranking = {
   updated_at: string | null;
 };
 
-type PortfolioRow = {
-  id: string;
-  name: string | null;
-  risk_tolerance: string | null;
-  time_horizon: string | null;
-  investment_amount: number | null;
-  cash_balance: number | null;
-  cash_deposited_total?: number | null;
-  currency: string | null;
-  created_at: string | null;
-};
-
-type HoldingRow = {
-  ticker: string | null;
-  entry_price: number | null;
-  score_at_entry: number | null;
-  rank_at_entry: number | null;
-  added_at: string | null;
-  last_reviewed_at: string | null;
-  shares: number | null;
-  allocation_pct: number | null;
-  purchase_date?: string | null;
-  source?: string | null;
-  notes?: string | null;
-};
-
-type TransactionRow = {
-  realised_pnl: number | null;
-};
-
 type DailyChangeItem = {
   ticker: string;
   company: string;
@@ -84,11 +47,6 @@ type DailyChangeItem = {
   dailyMoveLabel: string;
   dailyMoveTone: "positive" | "negative" | "neutral";
 };
-
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
 
 function formatPrice(value: Ranking["price"] | number | null | undefined) {
   const n = Number(value);
@@ -120,10 +78,6 @@ function formatUpdatedTime(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function cleanPortfolioName(name: string | null | undefined) {
-  return String(name ?? "").trim() || "Main Portfolio";
 }
 
 function getChartChangePct(
@@ -193,69 +147,6 @@ function dailyMoveTone(value: number | null | undefined): DailyChangeItem["daily
   return "neutral";
 }
 
-function fallbackPortfolioChart(totalValue: number): Partial<Record<TimeRange, ChartPoint[]>> {
-  if (!Number.isFinite(totalValue) || totalValue <= 0) return {};
-  const now = Date.now();
-  return {
-    "1D": [
-      { date: new Date(now - 60 * 60 * 1000).toISOString(), close: Math.round(totalValue * 100) / 100 },
-      { date: new Date(now).toISOString(), close: Math.round(totalValue * 100) / 100 },
-    ],
-  };
-}
-
-async function buildPortfolioValueChart(
-  holdings: EnrichedHolding[],
-  cashBalance: number,
-): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
-  const currentTotalValue =
-    cashBalance + holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-  const chartableHoldings = holdings.filter((holding) => holding.shares > 0).slice(0, 30);
-
-  if (chartableHoldings.length === 0) return fallbackPortfolioChart(currentTotalValue);
-
-  const fetched = await Promise.all(
-    chartableHoldings.map(async (holding) => {
-      const chart = await getStockChart(holding.ticker, ["1D"]);
-      return {
-        holding,
-        points: chart["1D"] ?? [],
-      };
-    }),
-  );
-
-  const usable = fetched.filter((item) => item.points.length > 1);
-  const staticHoldingValue = fetched
-    .filter((item) => item.points.length <= 1)
-    .reduce((sum, item) => sum + item.holding.currentValue, 0);
-  const unchartedValue = holdings
-    .slice(30)
-    .reduce((sum, holding) => sum + holding.currentValue, 0);
-  const staticValue = cashBalance + staticHoldingValue + unchartedValue;
-
-  if (usable.length === 0) return fallbackPortfolioChart(currentTotalValue);
-
-  const pointCount = Math.min(90, ...usable.map((item) => item.points.length));
-  const points: ChartPoint[] = [];
-
-  for (let i = 0; i < pointCount; i += 1) {
-    let close = staticValue;
-    const anchorPoint = usable[0].points[usable[0].points.length - pointCount + i];
-
-    usable.forEach((item) => {
-      const point = item.points[item.points.length - pointCount + i];
-      close += toNumber(point?.close, item.holding.currentPrice) * item.holding.shares;
-    });
-
-    points.push({
-      date: anchorPoint.date,
-      close: Math.round(close * 100) / 100,
-    });
-  }
-
-  return points.length > 1 ? { "1D": points } : fallbackPortfolioChart(currentTotalValue);
-}
-
 export default async function Home() {
   const supabase = await createClient();
   const {
@@ -304,88 +195,15 @@ export default async function Home() {
     (stock) => stock.ticker,
   );
   const topRanked = rankings[0];
-  let activePortfolio: PortfolioRow | null = null;
   let portfolioSummary: PortfolioHealthSummary | null = null;
   let portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> = {};
   let portfolioTickers: string[] = [];
 
   if (user) {
-    const { data: portfolioData } = await supabase
-      .from("user_portfolios")
-      .select(
-        "id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
-      )
-      .eq("user_id", user.id)
-      .is("archived_at", null)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    activePortfolio = (portfolioData ?? null) as PortfolioRow | null;
-
-    if (activePortfolio) {
-      const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
-        supabase
-          .from("portfolio_holdings")
-          .select(
-            "ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
-          )
-          .eq("portfolio_id", activePortfolio.id)
-          .order("added_at", { ascending: false })
-          .limit(40),
-        supabase
-          .from("portfolio_transactions")
-          .select("realised_pnl")
-          .eq("portfolio_id", activePortfolio.id)
-          .order("created_at", { ascending: false })
-          .limit(40),
-      ]);
-
-      const rawHoldings = ((holdingsData ?? []) as HoldingRow[])
-        .filter((holding) => holding.ticker)
-        .map((holding) => ({
-          ticker: String(holding.ticker).toUpperCase(),
-          entry_price: holding.entry_price,
-          score_at_entry: holding.score_at_entry,
-          rank_at_entry: holding.rank_at_entry,
-          shares: holding.shares,
-          allocation_pct: holding.allocation_pct,
-          added_at: holding.added_at ?? new Date().toISOString(),
-          last_reviewed_at:
-            holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
-          purchase_date: holding.purchase_date ?? null,
-          source: holding.source ?? "manual",
-          notes: holding.notes ?? null,
-        }));
-
-      portfolioTickers = rawHoldings.map((holding) => holding.ticker).filter(Boolean);
-      const cashBalance = toNumber(activePortfolio.cash_balance, 0);
-      const enriched = await enrichHoldings(
-        rawHoldings,
-        (activePortfolio.risk_tolerance as RiskTolerance) ?? null,
-      );
-
-      [portfolioSummary, portfolioValueChart] = await Promise.all([
-        Promise.resolve(
-          buildPortfolioHealthSummary({
-            id: activePortfolio.id,
-            name: cleanPortfolioName(activePortfolio.name),
-            currency: activePortfolio.currency ?? "USD",
-            riskTolerance: activePortfolio.risk_tolerance,
-            holdings: enriched,
-            transactions: ((transactionData ?? []) as TransactionRow[]).map((row) => ({
-              realisedPnl: row.realised_pnl,
-            })),
-            cashBalance,
-            cashDepositedTotal: toNumber(
-              activePortfolio.cash_deposited_total,
-              toNumber(activePortfolio.investment_amount, 0),
-            ),
-          }),
-        ),
-        buildPortfolioValueChart(enriched, cashBalance),
-      ]);
-    }
+    const dashboardPortfolio = await getDashboardMainPortfolio(supabase, user.id);
+    portfolioSummary = dashboardPortfolio.summary;
+    portfolioValueChart = dashboardPortfolio.chartData;
+    portfolioTickers = dashboardPortfolio.tickers;
   }
 
   const dashboardTickerList = Array.from(
@@ -757,13 +575,13 @@ function PortfolioDashboardWidget({
         </div>
 
         <div className="min-h-[74px] overflow-hidden rounded-xl border border-[#ddb159]/12 bg-[#04180f]/40">
-          <StockChart ticker="Portfolio" data={chartData} initialRange="1D" height={74} compact />
+          <StockChart ticker="Portfolio" data={chartData} initialRange="MAX" height={74} compact />
         </div>
       </div>
 
       <div className="relative mt-2 flex shrink-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45">
         <span className="truncate">
-          {summary.holdingsCount} holdings · {summary.actionAlerts} actions
+          Since created · {summary.holdingsCount} holdings
         </span>
         <span className="shrink-0 text-[#ddb159]">Open →</span>
       </div>
