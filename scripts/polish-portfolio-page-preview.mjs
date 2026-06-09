@@ -247,7 +247,7 @@ function NewsPanel({ articles, holdings }: { articles: PortfolioNewsArticle[]; h
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {matchedStocks.slice(0, 5).map((stock) => (
-                    <span key={`${article.id}-${stock.ticker}`} className="rounded-full border border-[#ddb159]/28 bg-[#ddb159]/12 px-2.5 py-1 text-[10px] font-black text-[#8a641a]">
+                    <span key={article.id + "-" + stock.ticker} className="rounded-full border border-[#ddb159]/28 bg-[#ddb159]/12 px-2.5 py-1 text-[10px] font-black text-[#8a641a]">
                       {stock.ticker}
                     </span>
                   ))}
@@ -290,10 +290,6 @@ replaceAll(
 replaceAll(
   '        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />\n        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />',
   '        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />\n        <SectionButton section="news" active={section} setSection={setSection} label="News" />\n        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />',
-);
-replaceAll(
-  '      {section === "add" && (\n        <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]">',
-  '      {section === "add" && (\n        <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]">',
 );
 replaceAll(
   '      {section === "activity" && <ActivityPanel transactions={transactions} currency={currency} />}',
