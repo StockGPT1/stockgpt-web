@@ -144,8 +144,8 @@ function patchDashboard() {
   const file = "app/dashboard/page.tsx";
   let source = fs.readFileSync(file, "utf8");
 
-  source = replaceOnce(source, 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,7dvh,62px)_minmax(0,1fr)]', 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(76px,8.8dvh,86px)_minmax(0,1fr)]', "stat row height");
-  source = replaceOnce(source, 'className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4"', 'className="grid grid-cols-2 gap-2.5 lg:min-h-0 lg:grid-cols-4 lg:gap-3"', "stat grid spacing");
+  source = replaceOnce(source, 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,7dvh,62px)_minmax(0,1fr)]', 'lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,6.6dvh,64px)_minmax(0,1fr)]', "stat row height");
+  source = replaceOnce(source, 'className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4"', 'className="grid min-h-[112px] grid-cols-2 gap-[1px] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#072116]/10 text-[#072116] ring-1 ring-white/15 sm:min-h-[118px] lg:min-h-0 lg:grid-cols-4"', "stat strip wrapper");
 
   const oldStatCalls = [
     '              <StatBlock',
@@ -177,23 +177,23 @@ function patchDashboard() {
     '              />',
     '              <StatBlock',
     '                icon="▦"',
-    '                label="Stocks Ranked"',
+    '                label="Stocks"',
     '                main={(totalCount ?? rankings.length).toLocaleString()}',
     '                sub="S&P universe"',
     '              />',
-    '              <StatBlock icon="↗︎" label="Market Bias" main={`${bullishPct}%`} sub={sentiment} />',
+    '              <StatBlock icon="↗︎" label="Market Bias" main={`${bullishPct}%`} sub={sentiment.replace(" market", "")} />',
     '              <StatBlock',
     '                icon="◷"',
-    '                label="Last Updated"',
+    '                label="Updated"',
     '                main={formatUpdatedTime(topRanked?.updated_at)}',
     '                sub="Model run"',
     '              />',
   ].join("\n");
-  source = replaceOnce(source, oldStatCalls, newStatCalls, "stat card order and labels");
+  source = replaceOnce(source, oldStatCalls, newStatCalls, "stat strip order and labels");
 
   const newStatBlock = [
     'function StatBlock({',
-    '  icon,',
+    '  icon: _icon,',
     '  label,',
     '  main,',
     '  sub,',
@@ -204,18 +204,15 @@ function patchDashboard() {
     '  sub: string;',
     '}) {',
     '  return (',
-    '    <div className="grid h-full min-h-[76px] min-w-0 grid-cols-[38px_minmax(0,1fr)] items-center gap-3 overflow-hidden rounded-2xl border border-[#072116]/10 bg-[#faf6f0] px-3 py-3 text-[#072116] ring-1 ring-white/25 sm:grid-cols-[40px_minmax(0,1fr)] sm:px-4 lg:min-h-0 lg:grid-cols-[36px_minmax(0,1fr)] lg:gap-2.5 lg:px-3 xl:grid-cols-[40px_minmax(0,1fr)] xl:gap-3 xl:px-4">',
-    '      <div className="flex size-[38px] shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black leading-none text-[#ddb159] sm:size-10 sm:text-[16px] lg:size-9 lg:text-[14px] xl:size-10 xl:text-[16px] [font-variant-emoji:text]">',
-    '        {icon}',
-    '      </div>',
-    '      <div className="grid min-w-0 content-center gap-1 overflow-hidden">',
-    '        <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.13em] text-[#072116]/50 sm:text-[10px] lg:text-[clamp(8px,0.62vw,10px)]">',
+    '    <div className="grid h-full min-h-[56px] min-w-0 content-center overflow-hidden bg-[#faf6f0] px-4 py-2.5 lg:min-h-0 lg:px-[clamp(12px,1vw,16px)] lg:py-2">',
+    '      <div className="grid min-w-0 gap-1 overflow-hidden">',
+    '        <p className="truncate text-[8.5px] font-black uppercase leading-none tracking-[0.1em] text-[#072116]/48 sm:text-[9px] lg:text-[clamp(7.5px,0.58vw,9px)]">',
     '          {label}',
     '        </p>',
-    '        <p className="truncate text-[20px] font-black leading-none tracking-[-0.035em] text-[#072116] sm:text-[22px] lg:text-[clamp(17px,1.25vw,22px)]">',
+    '        <p className="truncate text-[19px] font-black leading-none tracking-[-0.04em] text-[#072116] sm:text-[20px] lg:text-[clamp(16px,1.08vw,20px)]">',
     '          {main}',
     '        </p>',
-    '        <p className="truncate text-[10.5px] font-semibold leading-none text-[#072116]/46 sm:text-[11px] lg:text-[clamp(9px,0.72vw,11px)]">',
+    '        <p className="truncate text-[10px] font-semibold leading-none text-[#072116]/48 sm:text-[10.5px] lg:text-[clamp(8.5px,0.65vw,10.5px)]">',
     '          {sub}',
     '        </p>',
     '      </div>',
@@ -225,7 +222,7 @@ function patchDashboard() {
     '',
     'function PortfolioDashboardWidget',
   ].join("\n");
-  source = replaceBetween(source, "function StatBlock({", "\n\nfunction PortfolioDashboardWidget", newStatBlock, "stat block component");
+  source = replaceBetween(source, "function StatBlock({", "\n\nfunction PortfolioDashboardWidget", newStatBlock, "compact stat strip component");
 
   source = replaceOnce(source, '                  dailyMove={dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? undefined}\n', "", "mobile daily move prop");
   source = replaceOnce(source, '                      <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} />\n', "", "desktop daily move pill");
