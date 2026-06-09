@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
-import { PortfolioCommandCentre } from "@/components/PortfolioCommandCentre";
+import { PortfolioCommandCentreRevolut } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
+import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -220,8 +222,8 @@ export default async function PortfolioPage({
         "id, portfolio_id, ticker, type, shares, price, amount, realised_pnl, currency, notes, created_at",
       )
       .eq("portfolio_id", selectedPortfolioId)
-      .order("created_at", { ascending: false })
-      .limit(40),
+      .order("created_at", { ascending: true })
+      .limit(1000),
   ]);
 
   const rawHoldings = ((holdingsData ?? []) as HoldingRow[])
@@ -243,12 +245,37 @@ export default async function PortfolioPage({
 
   const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
+  const transactions = (transactionData ?? []) as TransactionRow[];
+  const currency = activePortfolio.currency ?? "USD";
+  const summary = buildPortfolioHealthSummary({
+    id: selectedPortfolioId,
+    name: activePortfolio.name as string,
+    currency,
+    riskTolerance: activePortfolio.risk_tolerance,
+    holdings: enriched,
+    transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+    cashBalance: toNumber(activePortfolio.cash_balance, 0),
+    cashDepositedTotal: toNumber(
+      activePortfolio.cash_deposited_total,
+      toNumber(activePortfolio.investment_amount, 0),
+    ),
+  });
+  const chartData = await buildPortfolioPageChart({
+    portfolio: activePortfolio,
+    enriched,
+    transactions,
+    summary,
+  });
+
+  const displayTransactions = [...transactions]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 40);
 
   return (
     <AppShell activePath="/portfolio">
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
-        <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-          <PortfolioCommandCentre
+        <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
+          <PortfolioCommandCentreRevolut
             portfolioId={selectedPortfolioId}
             portfolios={portfolios.map((portfolio, index) => ({
               id: portfolio.id,
@@ -258,21 +285,20 @@ export default async function PortfolioPage({
             }))}
             holdings={enriched}
             stockOptions={stockOptions}
-            transactions={((transactionData ?? []) as TransactionRow[]).map(
-              (transaction) => ({
-                id: transaction.id,
-                portfolioId: transaction.portfolio_id,
-                ticker: transaction.ticker,
-                type: transaction.type,
-                shares: transaction.shares,
-                price: transaction.price,
-                amount: transaction.amount,
-                realisedPnl: transaction.realised_pnl,
-                currency: transaction.currency ?? "USD",
-                notes: transaction.notes,
-                createdAt: transaction.created_at,
-              }),
-            )}
+            transactions={displayTransactions.map((transaction) => ({
+              id: transaction.id,
+              portfolioId: transaction.portfolio_id,
+              ticker: transaction.ticker,
+              type: transaction.type,
+              shares: transaction.shares,
+              price: transaction.price,
+              amount: transaction.amount,
+              realisedPnl: transaction.realised_pnl,
+              currency: transaction.currency ?? "USD",
+              notes: transaction.notes,
+              createdAt: transaction.created_at,
+            }))}
+            chartData={chartData}
             portfolioMeta={{
               id: selectedPortfolioId,
               name: activePortfolio.name as string,
@@ -284,7 +310,8 @@ export default async function PortfolioPage({
                 activePortfolio.cash_deposited_total,
                 toNumber(activePortfolio.investment_amount, 0),
               ),
-              currency: activePortfolio.currency ?? "USD",
+              currency,
+              createdAt: activePortfolio.created_at ?? null,
             }}
             compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
           />
