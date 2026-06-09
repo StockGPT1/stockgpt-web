@@ -247,6 +247,10 @@ export default async function PortfolioPage({
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
   const transactions = (transactionData ?? []) as TransactionRow[];
   const currency = activePortfolio.currency ?? "USD";
+  const cashDepositedTotal = toNumber(
+    activePortfolio.cash_deposited_total,
+    toNumber(activePortfolio.investment_amount, 0),
+  );
   const summary = buildPortfolioHealthSummary({
     id: selectedPortfolioId,
     name: activePortfolio.name as string,
@@ -255,13 +259,20 @@ export default async function PortfolioPage({
     holdings: enriched,
     transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
     cashBalance: toNumber(activePortfolio.cash_balance, 0),
-    cashDepositedTotal: toNumber(
-      activePortfolio.cash_deposited_total,
-      toNumber(activePortfolio.investment_amount, 0),
-    ),
+    cashDepositedTotal,
   });
   const chartData = await buildPortfolioPageChart({
-    portfolio: activePortfolio,
+    portfolio: {
+      id: activePortfolio.id,
+      name: activePortfolio.name,
+      risk_tolerance: activePortfolio.risk_tolerance,
+      time_horizon: activePortfolio.time_horizon,
+      investment_amount: toNumber(activePortfolio.investment_amount, 0),
+      cash_balance: toNumber(activePortfolio.cash_balance, 0),
+      cash_deposited_total: cashDepositedTotal,
+      currency,
+      created_at: activePortfolio.created_at ?? null,
+    },
     enriched,
     transactions,
     summary,
@@ -306,10 +317,7 @@ export default async function PortfolioPage({
               timeHorizon: activePortfolio.time_horizon as string | null,
               investmentAmount: toNumber(activePortfolio.investment_amount, 0),
               cashBalance: toNumber(activePortfolio.cash_balance, 0),
-              cashDepositedTotal: toNumber(
-                activePortfolio.cash_deposited_total,
-                toNumber(activePortfolio.investment_amount, 0),
-              ),
+              cashDepositedTotal,
               currency,
               createdAt: activePortfolio.created_at ?? null,
             }}
