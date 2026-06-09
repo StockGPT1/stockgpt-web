@@ -184,16 +184,16 @@ export function StockGPTSelect({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={[
-          "group flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-full border border-[#ddb159]/35 bg-[#04180f] px-4 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition hover:border-[#ddb159]/65 focus:border-[#ddb159] focus:ring-2 focus:ring-[#ddb159]/18",
+          "group flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-full border border-[#ddb159]/35 bg-[#04180f] px-4 py-2 text-left text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition hover:border-[#ddb159]/65 focus:border-[#ddb159] focus:ring-2 focus:ring-[#ddb159]/18",
           buttonClassName,
         ].join(" ")}
       >
         <span className="min-w-0 flex-1 overflow-hidden">
-          <span className="block whitespace-normal break-words text-[11px] font-black uppercase leading-snug tracking-[0.06em] text-[#faf6f0] sm:text-[12px]">
+          <span className="block whitespace-normal break-words text-[11px] font-black uppercase leading-snug tracking-[0.06em] text-current sm:text-[12px]">
             {selected?.label ?? "Select"}
           </span>
           {selected?.description ? (
-            <span className="mt-0.5 block whitespace-normal break-words text-[8.5px] font-bold uppercase leading-snug tracking-[0.05em] text-[#ddb159]/72 sm:text-[9px]">
+            <span className="mt-0.5 block whitespace-normal break-words text-[8.5px] font-bold uppercase leading-snug tracking-[0.05em] text-current opacity-60 sm:text-[9px]">
               {selected.description}
             </span>
           ) : null}
