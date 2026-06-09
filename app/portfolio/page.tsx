@@ -8,6 +8,11 @@ import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
+import {
+  enrichArticleWithStockInsights,
+  type BaseNewsArticle,
+  type StockLike,
+} from "@/lib/news-intelligence";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -78,6 +83,31 @@ function cleanPortfolioName(name: string | null | undefined, index: number) {
   return cleaned || `Portfolio ${index + 1}`;
 }
 
+function parseAffectedTickers(value: BaseNewsArticle["affected_tickers"]) {
+  if (Array.isArray(value)) {
+    return value.map((ticker) => String(ticker).trim().toUpperCase()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed.map((ticker) => String(ticker).trim().toUpperCase()).filter(Boolean);
+    }
+  } catch {
+    // Fallback to comma/space parsing below.
+  }
+
+  return trimmed
+    .split(/[\s,;|]+/)
+    .map((ticker) => ticker.trim().toUpperCase())
+    .filter(Boolean);
+}
+
 function CompactImportLauncher({
   portfolioId,
 }: {
@@ -129,7 +159,7 @@ export default async function PortfolioPage({
   const [{ data: stockOptionsData }, { data: portfoliosData }] = await Promise.all([
     supabase
       .from("stock_rankings")
-      .select("ticker, company, sector, rank, price")
+      .select("ticker, company, sector, rank, score, price")
       .order("rank", { ascending: true })
       .limit(500),
 
@@ -142,6 +172,17 @@ export default async function PortfolioPage({
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
   ]);
+
+  const stockUniverse: StockLike[] = (stockOptionsData ?? [])
+    .filter((stock) => stock.ticker)
+    .map((stock) => ({
+      ticker: String(stock.ticker).toUpperCase(),
+      company: stock.company ? String(stock.company) : null,
+      sector: stock.sector ? String(stock.sector) : null,
+      rank: stock.rank == null ? null : Number(stock.rank),
+      score: stock.score ?? null,
+      price: stock.price ?? null,
+    }));
 
   const stockOptions: StockOption[] = (stockOptionsData ?? [])
     .filter((stock) => stock.ticker)
@@ -207,7 +248,7 @@ export default async function PortfolioPage({
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
 
-  const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
+  const [{ data: holdingsData }, { data: transactionData }, { data: newsData }] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
@@ -224,6 +265,14 @@ export default async function PortfolioPage({
       .eq("portfolio_id", selectedPortfolioId)
       .order("created_at", { ascending: true })
       .limit(1000),
+
+    supabase
+      .from("news_articles")
+      .select(
+        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
+      )
+      .order("published_at", { ascending: false })
+      .limit(180),
   ]);
 
   const rawHoldings = ((holdingsData ?? []) as HoldingRow[])
@@ -242,6 +291,25 @@ export default async function PortfolioPage({
       source: holding.source ?? "manual",
       notes: holding.notes ?? null,
     }));
+
+  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
+  const portfolioNews = ((newsData ?? []) as BaseNewsArticle[])
+    .map((article) => ({
+      raw: article,
+      enriched: enrichArticleWithStockInsights(article, stockUniverse, 10),
+    }))
+    .filter(({ raw, enriched }) => {
+      const directTickers = parseAffectedTickers(raw.affected_tickers);
+      if (directTickers.some((ticker) => portfolioTickerSet.has(ticker))) return true;
+      return enriched.affectedStocks.some((stock) => portfolioTickerSet.has(stock.ticker));
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.enriched.published_at ?? 0).getTime() -
+        new Date(a.enriched.published_at ?? 0).getTime(),
+    )
+    .slice(0, 30)
+    .map(({ enriched }) => enriched);
 
   const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
@@ -309,6 +377,7 @@ export default async function PortfolioPage({
               notes: transaction.notes,
               createdAt: transaction.created_at,
             }))}
+            newsArticles={portfolioNews}
             chartData={chartData}
             portfolioMeta={{
               id: selectedPortfolioId,
