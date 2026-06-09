@@ -46,7 +46,7 @@ function formatShortCompany(value: string | null | undefined) {
     .replace(/\bCo\.?\b/gi, "")
     .replace(/\bTechnology\b/gi, "Tech.")
     .replace(/\s+/g, " ")
-    .replace(/[,.\s]+$/g, "")
+    .replace(/[,\.\s]+$/g, "")
     .trim();
 
   return clean || "—";
@@ -66,13 +66,13 @@ replaceOnce(
   `className="grid min-h-[96px] grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#072116]/5 text-[#072116] ring-1 ring-white/10 sm:min-h-[102px] lg:min-h-0 lg:grid-cols-4"`,
 );
 
-replaceOnce(`label="Top Ranked"`, `label="Top Pick"`);
+replaceOnce(`label="Top Ranked"`, `label="Top Ranked"`);
 replaceOnce(
   `sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}`,
   `sub={rankingsLocked ? "Subscribe to unlock" : formatShortCompany(topRanked?.company)}`,
 );
-replaceOnce(`label="Stocks"`, `label="Universe"`);
-replaceOnce(`sub="S&P universe"`, `sub="S&P 500"`);
+replaceOnce(`label="Stocks"`, `label="Stocks Scored"`);
+replaceOnce(`sub="S&P universe"`, `sub="S&P 500 checked"`);
 replaceOnce(`label="Market Bias"`, `label="Bullish"`);
 replaceOnce(`main={formatUpdatedTime(topRanked?.updated_at)}`, `main={formatUpdatedTime(topRanked?.updated_at).replace(/^0/, "")}`);
 
