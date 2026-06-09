@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { StockLogo } from "@/components/StockLogo";
 
 type DailyChangeItem = {
   ticker: string;
@@ -16,10 +17,23 @@ type DailyChangeItem = {
   dailyMoveTone: "positive" | "negative" | "neutral";
 };
 
+type MoverMode = "gainers" | "losers";
+
+function parseMoveValue(label: string) {
+  const value = Number(String(label).replace("%", ""));
+  return Number.isFinite(value) ? value : 0;
+}
+
 function moveToneClass(tone: DailyChangeItem["dailyMoveTone"]) {
-  if (tone === "positive") return "text-emerald-700 bg-emerald-500/10 border-emerald-500/20";
-  if (tone === "negative") return "text-red-700 bg-red-500/10 border-red-500/20";
-  return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
+  if (tone === "positive") return "text-emerald-600";
+  if (tone === "negative") return "text-red-500";
+  return "text-[#072116]/45";
+}
+
+function moveBadgeClass(tone: DailyChangeItem["dailyMoveTone"]) {
+  if (tone === "positive") return "border-emerald-500/22 bg-emerald-500/10 text-emerald-700";
+  if (tone === "negative") return "border-red-500/22 bg-red-500/10 text-red-700";
+  return "border-[#072116]/10 bg-[#072116]/5 text-[#072116]/55";
 }
 
 function rankToneClass(tone: DailyChangeItem["rankTone"]) {
@@ -28,165 +42,245 @@ function rankToneClass(tone: DailyChangeItem["rankTone"]) {
   return "text-[#072116]/55 bg-[#072116]/5 border-[#072116]/10";
 }
 
-function PreviewChangeRow({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
+function directionIcon(tone: DailyChangeItem["dailyMoveTone"]) {
+  if (tone === "negative") return "▼";
+  if (tone === "positive") return "▲";
+  return "•";
+}
+
+function sortMovers(items: DailyChangeItem[], mode: MoverMode) {
+  const sorted = [...items].sort((a, b) => {
+    const aValue = parseMoveValue(a.dailyMoveLabel);
+    const bValue = parseMoveValue(b.dailyMoveLabel);
+    return mode === "gainers" ? bValue - aValue : aValue - bValue;
+  });
+
+  return sorted.filter((item) => {
+    if (mode === "gainers") return parseMoveValue(item.dailyMoveLabel) >= 0;
+    return parseMoveValue(item.dailyMoveLabel) < 0;
+  });
+}
+
+function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="grid min-h-[50px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-[#072116]/8 bg-white/74 px-3 py-2 text-left transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:min-h-[52px] sm:px-4 lg:h-full lg:min-h-0 lg:rounded-xl lg:px-3 lg:py-0 xl:px-4"
+      className="group flex min-w-0 flex-col items-center text-center outline-none"
+      title={`${item.ticker} ${item.dailyMoveLabel}`}
     >
-      <div className="min-w-0 overflow-hidden">
-        <p className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-1.5 text-[12px] font-black leading-tight sm:text-[13px] lg:text-[clamp(11px,0.88vw,13px)]">
-          <span className="shrink-0 whitespace-nowrap">{item.ticker} ·</span>
-          <span className="min-w-0 truncate">{item.company}</span>
-        </p>
-        <p className="mt-1 truncate text-[9px] font-bold leading-none text-[#072116]/38 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
-          {item.sector}
-        </p>
+      <div className="grid size-[clamp(44px,5.5vw,58px)] place-items-center rounded-full bg-white shadow-[0_8px_18px_rgba(7,33,22,0.10)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
+        <StockLogo ticker={item.ticker} company={item.company} size={36} />
       </div>
-
-      <span
-        className={`inline-flex h-8 min-w-[60px] shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums sm:min-w-[66px] sm:text-[11px] lg:h-7 lg:min-w-[58px] lg:text-[clamp(9px,0.72vw,10px)] xl:min-w-[64px] ${moveToneClass(
+      <p className="mt-1.5 max-w-full truncate text-[clamp(11px,1.15vw,13px)] font-black leading-none tracking-[-0.03em] text-[#072116]">
+        {item.ticker}
+      </p>
+      <p
+        className={`mt-1 flex items-center justify-center gap-1 text-[clamp(10px,1vw,12px)] font-black leading-none tabular-nums ${moveToneClass(
           item.dailyMoveTone,
         )}`}
       >
+        <span className="text-[9px]">{directionIcon(item.dailyMoveTone)}</span>
         {item.dailyMoveLabel}
-      </span>
+      </p>
+    </button>
+  );
+}
+
+function FilterPill({ label, active = false }: { label: string; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={!active}
+      className={[
+        "inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[12px] font-black transition",
+        active
+          ? "bg-[#ddb159] text-[#072116] shadow-[0_8px_18px_rgba(221,177,89,0.22)]"
+          : "cursor-not-allowed border border-[#072116]/8 bg-[#072116]/5 text-[#072116]/32",
+      ].join(" ")}
+      title={active ? label : `${label} preview filter coming soon`}
+    >
+      {label}
     </button>
   );
 }
 
 export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
   const [open, setOpen] = useState(false);
-  const mobilePreviewItems = items.slice(0, 3);
-  const desktopPreviewItems = items.slice(0, 2);
+  const [mode, setMode] = useState<MoverMode>("gainers");
+
+  const movers = useMemo(() => sortMovers(items, mode), [items, mode]);
+  const previewItems = movers.slice(0, 8);
+  const listItems = movers.length > 0 ? movers : items;
 
   return (
     <>
-      <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
-        <div className="flex min-w-0 shrink-0 items-start justify-between gap-3 pb-3 lg:pb-[clamp(8px,1dvh,12px)]">
-          <div className="min-w-0 pt-0.5">
+      <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(12px,1.1vw,16px)]">
+        <div className="flex min-w-0 shrink-0 items-start justify-between gap-3">
+          <button type="button" onClick={() => setOpen(true)} className="min-w-0 text-left">
             <p className="truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-[#072116]/55 sm:text-[10px] lg:text-[clamp(8px,0.7vw,10px)]">
               ✦ What changed today?
             </p>
-            <h2 className="mt-2 truncate text-[19px] font-black leading-none tracking-[-0.04em] sm:text-[22px] lg:text-[clamp(18px,1.65vw,22px)]">
-              Daily brief
+            <h2 className="mt-2 flex items-center gap-1.5 truncate text-[19px] font-black leading-none tracking-[-0.04em] sm:text-[22px] lg:text-[clamp(18px,1.65vw,22px)]">
+              Today&apos;s top movers <span className="text-[#072116]/55">›</span>
             </h2>
-          </div>
+          </button>
 
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:h-11 sm:px-5 sm:text-[12px] lg:h-[clamp(34px,4.7dvh,42px)] lg:px-[clamp(14px,1.7vw,22px)] lg:text-[clamp(10px,0.82vw,12px)]"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:h-11 sm:px-5 sm:text-[12px] lg:hidden"
           >
             View all →
           </button>
         </div>
 
-        <div className="grid min-h-0 gap-2.5 overflow-hidden lg:hidden">
-          {mobilePreviewItems.length > 0 ? (
-            mobilePreviewItems.map((item) => (
-              <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
+        <div className="mt-3 grid grid-cols-2 rounded-full bg-[#072116]/8 p-1">
+          {(["gainers", "losers"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setMode(tab)}
+              className={[
+                "h-9 rounded-full text-[12px] font-black capitalize transition sm:text-[13px] lg:h-[clamp(30px,4dvh,38px)] lg:text-[clamp(10px,0.95vw,13px)]",
+                mode === tab
+                  ? "bg-white text-[#072116] shadow-[0_6px_16px_rgba(7,33,22,0.12)]"
+                  : "text-[#072116]/52 hover:text-[#072116]",
+              ].join(" ")}
+            >
+              Top {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid min-h-0 grid-cols-4 gap-x-3 gap-y-3 overflow-hidden lg:gap-y-[clamp(8px,1.2dvh,12px)]">
+          {previewItems.length > 0 ? (
+            previewItems.map((item) => (
+              <MoverLogoTile key={`${mode}-${item.ticker}`} item={item} onOpen={() => setOpen(true)} />
             ))
           ) : (
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-3 text-left text-[11px] font-bold text-[#072116]/45"
+              className="col-span-4 rounded-2xl border border-[#072116]/8 bg-white/72 px-3 py-4 text-left text-[11px] font-bold text-[#072116]/45"
             >
-              No daily changes available yet.
+              No {mode === "gainers" ? "positive" : "negative"} daily movers available yet.
             </button>
           )}
         </div>
 
-        <div className="hidden min-h-0 flex-1 gap-2.5 overflow-hidden lg:grid lg:grid-rows-2 xl:gap-3">
-          {desktopPreviewItems.length > 0 ? (
-            desktopPreviewItems.map((item) => (
-              <PreviewChangeRow key={item.ticker} item={item} onOpen={() => setOpen(true)} />
-            ))
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="row-span-2 rounded-xl border border-[#072116]/8 bg-white/72 px-3 py-3 text-left text-[11px] font-bold text-[#072116]/45"
-            >
-              No daily changes available yet.
-            </button>
-          )}
+        <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/38">
+          <span className="truncate">1D · Top ranked universe</span>
+          <button type="button" onClick={() => setOpen(true)} className="hidden text-[#ddb159] lg:inline">
+            View all →
+          </button>
         </div>
       </section>
 
       {open && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020806]/78 px-3 py-4 backdrop-blur-sm">
-          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_28px_90px_rgba(0,0,0,0.46)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#072116]/10 px-4 py-4 sm:px-5">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#020806]/82 px-3 py-4 backdrop-blur-sm">
+          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-[#ddb159]/28 bg-[#050706] text-[#f8f4e8] shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                   Daily market movement
                 </p>
-                <h3 className="mt-1 text-[26px] font-black leading-none tracking-[-0.05em] sm:text-[34px]">
-                  What changed today?
+                <h3 className="mt-2 text-[34px] font-black leading-none tracking-[-0.06em] sm:text-[44px]">
+                  Top Movers
                 </h3>
-                <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/58">
-                  A fuller view of rank movement, daily price movement and score context from the top-ranked universe.
+                <p className="mt-3 max-w-2xl text-[13px] font-semibold leading-5 text-[#f8f4e8]/58 sm:text-[14px]">
+                  Best and worst performing stocks from the selected period, with StockGPT rank and score context. Past performance is not a reliable indicator of future returns.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="grid size-10 shrink-0 place-items-center rounded-full border border-[#072116]/10 bg-white text-[18px] font-black text-[#072116] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
-                aria-label="Close daily changes"
+                className="grid size-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-[22px] font-black text-white transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
+                aria-label="Close top movers"
               >
                 ×
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
-              <div className="grid gap-2">
-                {items.length > 0 ? (
-                  items.map((item) => (
+            <div className="flex shrink-0 flex-wrap gap-2 px-5 pb-4 sm:px-6">
+              <FilterPill label="All" active />
+              <FilterPill label="1 day" active />
+              <FilterPill label="1 week" />
+              <FilterPill label="1 month" />
+              <FilterPill label="AI rank movers" />
+            </div>
+
+            <div className="flex shrink-0 px-5 pb-4 sm:px-6">
+              <div className="grid w-full grid-cols-2 rounded-full bg-white/8 p-1">
+                {(["gainers", "losers"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setMode(tab)}
+                    className={[
+                      "h-11 rounded-full text-[14px] font-black capitalize transition",
+                      mode === tab
+                        ? "bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        : "text-white/50 hover:text-white",
+                    ].join(" ")}
+                  >
+                    Top {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6 sm:pb-6">
+              <div className="overflow-hidden rounded-[24px] bg-white/[0.055] ring-1 ring-white/8">
+                {listItems.length > 0 ? (
+                  listItems.map((item) => (
                     <Link
-                      key={item.ticker}
+                      key={`${mode}-list-${item.ticker}`}
                       href={`/stock/${item.ticker}`}
                       onClick={() => setOpen(false)}
-                      className="grid gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-3 transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4"
+                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-white/8 px-4 py-4 transition last:border-b-0 hover:bg-[#ddb159]/8 sm:px-5"
                     >
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <p className="text-[15px] font-black tracking-[-0.02em]">
-                            {item.ticker}
-                          </p>
-                          <p className="min-w-0 truncate text-[13px] font-bold text-[#072116]/72">
-                            {item.company}
-                          </p>
-                        </div>
-                        <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.08em] text-[#072116]/42">
-                          {item.sector} · Price {item.price} · Score {item.score}
-                        </p>
+                      <div className="grid size-12 place-items-center rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,0.22)] sm:size-14">
+                        <StockLogo ticker={item.ticker} company={item.company} size={38} />
                       </div>
 
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <span
-                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black tabular-nums ${moveToneClass(
+                      <div className="min-w-0">
+                        <p className="truncate text-[17px] font-black leading-tight tracking-[-0.03em] sm:text-[20px]">
+                          {item.company}
+                        </p>
+                        <p className="mt-1 truncate text-[13px] font-bold text-white/48 sm:text-[14px]">
+                          {item.ticker} · {item.sector}
+                        </p>
+                        <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+                          <span
+                            title={item.rankTitle}
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(
+                              item.rankTone,
+                            )}`}
+                          >
+                            Rank {item.rankLabel}
+                          </span>
+                          <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">
+                            Score {item.score}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className="text-[20px] font-black tabular-nums sm:text-[22px]">{item.price}</p>
+                        <p
+                          className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-black tabular-nums sm:text-[15px] ${moveBadgeClass(
                             item.dailyMoveTone,
                           )}`}
                         >
-                          1D {item.dailyMoveLabel}
-                        </span>
-                        <span
-                          title={item.rankTitle}
-                          className={`rounded-full border px-3 py-1.5 text-[11px] font-black ${rankToneClass(
-                            item.rankTone,
-                          )}`}
-                        >
-                          Rank {item.rankLabel}
-                        </span>
+                          {directionIcon(item.dailyMoveTone)} {item.dailyMoveLabel}
+                        </p>
                       </div>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-[#072116]/8 bg-white px-4 py-6 text-center text-[12px] font-bold text-[#072116]/50">
+                  <div className="px-4 py-8 text-center text-[13px] font-bold text-white/46">
                     No daily movement data is available yet.
                   </div>
                 )}
