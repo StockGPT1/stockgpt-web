@@ -14,6 +14,11 @@ replaceAll(
 );
 
 replaceAll(
+  'const widthPct = Math.max(4, Math.min(100, holding.currentAllocationPct));',
+  'const widthPct = Math.max(0, Math.min(100, holding.currentAllocationPct));',
+);
+
+replaceAll(
   '"h-10 shrink-0 rounded-full px-4 text-[11px] font-black transition",',
   '"h-9 shrink-0 rounded-full px-3.5 text-[10.5px] font-black transition",',
 );
@@ -74,11 +79,7 @@ replaceAll(
 );
 
 replaceAll('height={260}', 'height={190}');
-
-replaceAll(
-  'className="relative grid grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:text-left"',
-  'className="relative grid grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:text-left"',
-);
+replaceAll('height={220}', 'height={190}');
 
 replaceAll('className="px-4 py-3"', 'className="px-4 py-2"');
 replaceAll('className="mt-1 text-[18px] font-black"', 'className="mt-0.5 text-[15px] font-black"');
@@ -89,19 +90,55 @@ replaceAll(
   'className="group relative overflow-hidden rounded-[22px] border border-[#072116]/8 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.10)] transition hover:border-[#ddb159]/45 hover:bg-white"',
 );
 
-const columnTemplate = 'sm:grid-cols-[minmax(280px,1fr)_120px_130px_90px_105px_112px]';
+const columnTemplate = 'sm:grid-cols-[minmax(330px,1fr)_130px_130px_82px_102px_128px]';
+const oldColumnTemplates = [
+  'sm:grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]',
+  'sm:grid-cols-[minmax(280px,1fr)_120px_130px_90px_105px_112px]',
+  'sm:grid-cols-[minmax(330px,1.35fr)_140px_140px_90px_110px_130px]',
+];
+oldColumnTemplates.forEach((template) => replaceAll(template, columnTemplate));
+
 replaceAll(
-  'className="relative grid gap-3 px-3 py-3 sm:grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px] sm:items-center sm:px-4"',
+  `className="relative grid gap-3 px-3 py-3 ${columnTemplate} sm:items-center sm:px-4"`,
   `className="relative grid gap-3 px-3 py-2.5 ${columnTemplate} sm:items-center sm:px-4"`,
 );
+
 replaceAll(
-  'className="hidden grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38 sm:grid"',
+  `className="relative grid gap-3 px-3 py-2.5 ${columnTemplate} sm:items-center sm:px-4"`,
+  `className="relative grid gap-3 px-3 py-2.5 ${columnTemplate} sm:items-center sm:px-4"`,
+);
+
+replaceAll(
+  `className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38 sm:grid"`,
   `className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/44 sm:grid"`,
 );
 
 replaceAll(
-  'className="absolute inset-y-0 left-0 bg-[#ddb159]/10 transition group-hover:bg-[#ddb159]/16"',
-  'className="absolute inset-y-0 left-0 bg-[#ddb159]/10 transition group-hover:bg-[#ddb159]/16"',
+  `<div className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/44 sm:grid">
+            <span>Asset</span><span className="text-right">Value</span><span className="text-right">Net P/L</span><span className="text-right">%</span><span className="text-right">AI</span><span className="text-right">Action</span>
+          </div>`,
+  `<div className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/44 sm:grid">
+            <span className="pl-[56px]">Asset</span>
+            <span className="justify-self-end text-right">Value</span>
+            <span className="justify-self-end text-right">Net P/L</span>
+            <span className="justify-self-end text-right">%</span>
+            <span className="justify-self-end text-right">AI</span>
+            <span className="justify-self-center text-center">Action</span>
+          </div>`,
+);
+
+replaceAll(
+  `<div className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38 sm:grid">
+            <span>Asset</span><span className="text-right">Value</span><span className="text-right">Net P/L</span><span className="text-right">%</span><span className="text-right">AI</span><span className="text-right">Action</span>
+          </div>`,
+  `<div className="hidden ${columnTemplate} px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/44 sm:grid">
+            <span className="pl-[56px]">Asset</span>
+            <span className="justify-self-end text-right">Value</span>
+            <span className="justify-self-end text-right">Net P/L</span>
+            <span className="justify-self-end text-right">%</span>
+            <span className="justify-self-end text-right">AI</span>
+            <span className="justify-self-center text-center">Action</span>
+          </div>`,
 );
 
 replaceAll(
@@ -111,6 +148,11 @@ replaceAll(
 
 replaceAll(
   'className="sm:w-[190px]" buttonClassName="h-10 rounded-full bg-[#faf6f0] text-[#072116]"',
+  'className="sm:w-[190px]" buttonClassName="h-10 rounded-full bg-[#faf6f0] text-[#072116]"',
+);
+
+replaceAll(
+  'className="sm:w-[190px]" buttonClassName="h-10 rounded-full bg-[#faf6f0] !text-[#072116]"',
   'className="sm:w-[190px]" buttonClassName="h-10 rounded-full bg-[#faf6f0] text-[#072116]"',
 );
 
