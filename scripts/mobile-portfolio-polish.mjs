@@ -138,6 +138,48 @@ function MobileSectionNav({ active, setSection }: { active: Section; setSection:
 
   source = replaceAll(
     source,
+    'className="flex min-w-0 flex-col gap-2 rounded-2xl border border-white/8 bg-black/18 p-2 backdrop-blur sm:flex-row sm:items-center sm:justify-between"',
+    'className="flex min-w-0 justify-end gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-center sm:justify-between sm:rounded-2xl sm:border sm:border-white/8 sm:bg-black/18 sm:p-2 sm:backdrop-blur"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="flex min-w-0 flex-col gap-2 rounded-2xl border border-white/8 bg-black/18 p-2.5 backdrop-blur sm:flex-row sm:items-center sm:justify-between"',
+    'className="flex min-w-0 justify-end gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-center sm:justify-between sm:rounded-2xl sm:border sm:border-white/8 sm:bg-black/18 sm:p-2.5 sm:backdrop-blur"',
+  );
+
+  source = replaceAll(
+    source,
+    '<div className="min-w-0 px-1">\n        <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio</p>\n        <p className="mt-0.5 truncate text-[13px] font-black text-[#faf6f0]">{active?.name ?? "Portfolio"}</p>\n      </div>',
+    '<div className="hidden min-w-0 px-1 sm:block">\n        <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio</p>\n        <p className="mt-0.5 truncate text-[13px] font-black text-[#faf6f0]">{active?.name ?? "Portfolio"}</p>\n      </div>',
+  );
+
+  source = replaceAll(
+    source,
+    '<div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">',
+    '<div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:justify-end">\n        {portfolios.length <= 1 && (\n          <button type="button" className="max-w-[172px] truncate rounded-full border border-[#ddb159]/20 bg-[#061b12]/82 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159] sm:hidden">\n            {active?.name ?? "Portfolio"}\n          </button>\n        )}',
+  );
+
+  source = replaceAll(
+    source,
+    'className="min-w-[220px] sm:w-[310px]"\n            buttonClassName="h-10 rounded-full bg-[#faf6f0] text-[#072116]"',
+    'className="w-[172px] sm:w-[310px]"\n            buttonClassName="h-8 rounded-full bg-[#faf6f0] text-[#072116] sm:h-10"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="inline-flex h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[10.5px] font-black text-[#072116] transition hover:brightness-105"',
+    'className="hidden h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[10.5px] font-black text-[#072116] transition hover:brightness-105 sm:inline-flex"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105"',
+    'className="hidden h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105 sm:inline-flex"',
+  );
+
+  source = replaceAll(
+    source,
     'className="flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"',
     'className="hidden min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex"',
   );
@@ -150,25 +192,73 @@ function MobileSectionNav({ active, setSection }: { active: Section; setSection:
 
   source = replaceAll(
     source,
-    'className="relative overflow-hidden rounded-[24px] border border-[#ddb159]/18 bg-[#050706] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[28px]"',
+    'const isPositive = summary.totalPnl >= 0;',
+    'const isPositive = summary.totalPnl >= 0;\n  const validRangeLabel = RANGE_LABELS.find(({ range: itemRange }) => itemRange === validRange)?.label ?? validRange;',
+  );
+
+  source = replaceAll(
+    source,
     'className="relative -mx-3 w-[calc(100%+1.5rem)] overflow-visible rounded-none border-0 bg-transparent text-[#faf6f0] shadow-none sm:mx-0 sm:w-auto sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-[#ddb159]/18 sm:bg-[#050706] sm:shadow-[0_18px_48px_rgba(0,0,0,0.30)]"',
+    'className="relative -mx-3 w-[calc(100%+1.5rem)] overflow-hidden rounded-none border-0 bg-[radial-gradient(circle_at_50%_30%,rgba(16,185,129,0.16),rgba(5,28,18,0.42)_44%,rgba(2,16,11,0.02)_78%)] text-[#faf6f0] shadow-none sm:mx-0 sm:w-auto sm:rounded-[28px] sm:border sm:border-[#ddb159]/18 sm:bg-[#050706] sm:shadow-[0_18px_48px_rgba(0,0,0,0.30)]"',
   );
 
   source = replaceAll(
     source,
-    'className="relative overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[#050706] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[32px]"',
     'className="relative -mx-3 w-[calc(100%+1.5rem)] overflow-visible rounded-none border-0 bg-transparent text-[#faf6f0] shadow-none sm:mx-0 sm:w-auto sm:overflow-hidden sm:rounded-[32px] sm:border sm:border-[#ddb159]/18 sm:bg-[#050706] sm:shadow-[0_18px_48px_rgba(0,0,0,0.30)]"',
+    'className="relative -mx-3 w-[calc(100%+1.5rem)] overflow-hidden rounded-none border-0 bg-[radial-gradient(circle_at_50%_30%,rgba(16,185,129,0.16),rgba(5,28,18,0.42)_44%,rgba(2,16,11,0.02)_78%)] text-[#faf6f0] shadow-none sm:mx-0 sm:w-auto sm:rounded-[32px] sm:border sm:border-[#ddb159]/18 sm:bg-[#050706] sm:shadow-[0_18px_48px_rgba(0,0,0,0.30)]"',
   );
 
   source = replaceAll(
     source,
-    'className="relative px-4 pb-1 pt-4 text-center sm:px-5 sm:pt-4 lg:text-left"',
+    'className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[repeating-linear-gradient(135deg,rgba(221,177,89,0.14)_0px,rgba(221,177,89,0.14)_2px,transparent_2px,transparent_9px)] opacity-50"',
+    'className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 bg-[repeating-linear-gradient(135deg,rgba(221,177,89,0.14)_0px,rgba(221,177,89,0.14)_2px,transparent_2px,transparent_9px)] opacity-50 sm:block"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="relative px-4 pb-1 pt-3 text-center sm:px-5 sm:pt-4 lg:text-left"',
     'className="relative px-4 pb-1 pt-3 text-center sm:px-5 sm:pt-4 lg:text-left"',
   );
 
   source = replaceAll(
     source,
+    '<div className="relative px-4 pb-1 pt-3 text-center sm:px-5 sm:pt-4 lg:text-left">\n        <div className="flex items-start justify-between gap-3">',
+    '<div className="relative px-4 pb-1 pt-3 text-center sm:px-5 sm:pt-4 lg:text-left">\n        <div className="mb-2 flex items-center justify-between px-1 sm:hidden">\n          <label className="relative inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.07] px-3 text-[12px] font-black text-[#faf6f0]/82 backdrop-blur">\n            <select\n              aria-label="Chart timeframe"\n              value={validRange}\n              onChange={(event) => setRange(event.target.value as TimeRange)}\n              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"\n            >\n              {availableRanges.map(({ range: itemRange, label }) => (\n                <option key={itemRange} value={itemRange}>\n                  {label}\n                </option>\n              ))}\n            </select>\n            <span>{validRangeLabel}</span>\n            <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">\n              <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />\n            </svg>\n          </label>\n          <span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#072116]">\n            Health {summary.score}/100\n          </span>\n        </div>\n        <div className="flex items-start justify-between gap-3">',
+  );
+
+  source = replaceAll(
+    source,
+    'className="flex shrink-0 flex-col items-end gap-1"',
+    'className="hidden shrink-0 flex-col items-end gap-1 sm:flex"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="flex shrink-0 flex-col items-end gap-2"',
+    'className="hidden shrink-0 flex-col items-end gap-2 sm:flex"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.07] p-1"',
+    'className="hidden shrink-0 items-center gap-1 rounded-full bg-white/[0.07] p-1 sm:flex"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="relative -mx-1 sm:mx-0"',
+    'className="relative -mx-4 sm:mx-0"',
+  );
+
+  source = replaceAll(
+    source,
     'className="relative grid grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:text-left"',
+    'className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left"',
+  );
+
+  source = replaceAll(
+    source,
+    'className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left"',
     'className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left"',
   );
 
