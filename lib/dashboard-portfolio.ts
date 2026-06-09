@@ -146,15 +146,61 @@ function chooseHistoryRange(createdAtMs: number): TimeRange {
   return "MAX";
 }
 
-function fallbackPortfolioChart(totalValue: number, createdAtMs: number): Partial<Record<TimeRange, ChartPoint[]>> {
-  if (!Number.isFinite(totalValue) || totalValue <= 0) return {};
+function performanceBasis(summary: PortfolioHealthSummary) {
+  const basis = summary.totalValue - summary.totalPnl;
+  return Number.isFinite(basis) && basis > 0 ? basis : Math.max(summary.totalValue, 1);
+}
+
+function fallbackPortfolioChart(
+  summary: PortfolioHealthSummary,
+  createdAtMs: number,
+): Partial<Record<TimeRange, ChartPoint[]>> {
+  if (!Number.isFinite(summary.totalValue) || summary.totalValue <= 0) return {};
   const now = Date.now();
+  const basis = performanceBasis(summary);
+
   return {
     MAX: [
-      { date: new Date(createdAtMs).toISOString(), close: roundMoney(totalValue) },
-      { date: new Date(now).toISOString(), close: roundMoney(totalValue) },
+      { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
+      { date: new Date(now).toISOString(), close: roundMoney(summary.totalValue) },
     ],
   };
+}
+
+function normaliseToPerformanceCurve(
+  rawPoints: ChartPoint[],
+  summary: PortfolioHealthSummary,
+): ChartPoint[] {
+  if (rawPoints.length < 2) return rawPoints;
+
+  const basis = performanceBasis(summary);
+  const finalValue = roundMoney(summary.totalValue);
+  const pnlMove = finalValue - basis;
+  const firstRaw = rawPoints[0].close;
+  const lastRaw = rawPoints[rawPoints.length - 1].close;
+  const rawRange = lastRaw - firstRaw;
+
+  const points = rawPoints.map((point, index) => {
+    const timeProgress = rawPoints.length > 1 ? index / (rawPoints.length - 1) : 1;
+    const rawProgress =
+      Math.abs(rawRange) > EPSILON ? (point.close - firstRaw) / rawRange : timeProgress;
+    const safeProgress = Number.isFinite(rawProgress)
+      ? Math.max(-0.2, Math.min(1.2, rawProgress))
+      : timeProgress;
+
+    return {
+      date: point.date,
+      close: Math.max(0, roundMoney(basis + safeProgress * pnlMove)),
+    };
+  });
+
+  points[0] = { ...points[0], close: roundMoney(basis) };
+  points[points.length - 1] = {
+    ...points[points.length - 1],
+    close: finalValue,
+  };
+
+  return points;
 }
 
 function transactionEvent(transaction: TransactionRow): PortfolioEvent | null {
@@ -250,7 +296,6 @@ async function buildPortfolioValueHistoryChart({
   const createdAtMs = safeDateMs(portfolio.created_at, Date.now());
   const nowMs = Date.now();
   const currentCash = toNumber(portfolio.cash_balance, 0);
-  const currentTotalValue = summary.totalValue;
 
   const holdingMap = new Map(enriched.map((holding) => [holding.ticker, holding]));
   const events: PortfolioEvent[] = transactions
@@ -288,7 +333,7 @@ async function buildPortfolioValueHistoryChart({
   ).slice(0, 50);
 
   if (tickers.length === 0) {
-    return fallbackPortfolioChart(currentTotalValue, createdAtMs);
+    return fallbackPortfolioChart(summary, createdAtMs);
   }
 
   const range = chooseHistoryRange(createdAtMs);
@@ -316,14 +361,14 @@ async function buildPortfolioValueHistoryChart({
   });
 
   const sortedDates = Array.from(dateSet).sort((a, b) => a - b);
-  if (sortedDates.length < 2) return fallbackPortfolioChart(currentTotalValue, createdAtMs);
+  if (sortedDates.length < 2) return fallbackPortfolioChart(summary, createdAtMs);
 
   const sortedEvents = [...events].sort((a, b) => a.dateMs - b.dateMs);
   const shares = new Map<string, number>();
   let cash = 0;
   let eventIndex = 0;
 
-  const points: ChartPoint[] = sortedDates.map((dateMs) => {
+  const rawPoints: ChartPoint[] = sortedDates.map((dateMs) => {
     while (eventIndex < sortedEvents.length && sortedEvents[eventIndex].dateMs <= dateMs) {
       const event = sortedEvents[eventIndex];
       cash += toNumber(event.cashDelta, 0);
@@ -357,10 +402,9 @@ async function buildPortfolioValueHistoryChart({
     };
   });
 
-  const last = points[points.length - 1];
-  if (last) last.close = roundMoney(currentTotalValue);
+  if (rawPoints.length < 2) return fallbackPortfolioChart(summary, createdAtMs);
 
-  return points.length > 1 ? { MAX: points } : fallbackPortfolioChart(currentTotalValue, createdAtMs);
+  return { MAX: normaliseToPerformanceCurve(rawPoints, summary) };
 }
 
 export async function getDashboardMainPortfolio(
