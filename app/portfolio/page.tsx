@@ -352,8 +352,8 @@ export default async function PortfolioPage({
 
   return (
     <AppShell activePath="/portfolio">
-      <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
-        <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
+      <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
+        <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
           <PortfolioCommandCentreRevolut
             portfolioId={selectedPortfolioId}
             portfolios={portfolios.map((portfolio, index) => ({
