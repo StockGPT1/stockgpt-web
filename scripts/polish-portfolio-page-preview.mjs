@@ -104,4 +104,151 @@ replaceAll(
   'className="flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"',
 );
 
+replaceAll(
+  `  chartData,
+  createdAt,
+}: {
+  portfolioName: string;
+  currency: string;
+  summary: ReturnType<typeof buildPortfolioHealthSummary>;
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  createdAt?: string | null;
+}) {`,
+  `  chartData,
+  createdAt,
+  cashBalance,
+}: {
+  portfolioName: string;
+  currency: string;
+  summary: ReturnType<typeof buildPortfolioHealthSummary>;
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  createdAt?: string | null;
+  cashBalance: number;
+}) {`,
+);
+
+replaceAll(
+  `<p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p>
+          <p className="mt-0.5 text-[15px] font-black">{summary.cashDrag.toFixed(1)}%</p>`,
+  `<p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p>
+          <p className="mt-0.5 text-[15px] font-black">{money(cashBalance, currency)}</p>
+          <p className="mt-0.5 text-[9px] font-bold text-[#faf6f0]/42">{summary.cashDrag.toFixed(1)}% drag</p>`,
+);
+replaceAll(
+  `<p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p>
+          <p className="mt-1 text-[18px] font-black">{summary.cashDrag.toFixed(1)}%</p>`,
+  `<p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p>
+          <p className="mt-0.5 text-[15px] font-black">{money(cashBalance, currency)}</p>
+          <p className="mt-0.5 text-[9px] font-bold text-[#faf6f0]/42">{summary.cashDrag.toFixed(1)}% drag</p>`,
+);
+
+replaceAll(
+  `      <PortfolioChartHero
+        portfolioName={portfolioMeta.name}
+        currency={currency}
+        summary={summary}
+        chartData={chartData}
+        createdAt={portfolioMeta.createdAt}
+      />`,
+  `      {section === "overview" && (
+        <PortfolioChartHero
+          portfolioName={portfolioMeta.name}
+          currency={currency}
+          summary={summary}
+          chartData={chartData}
+          createdAt={portfolioMeta.createdAt}
+          cashBalance={portfolioMeta.cashBalance}
+        />
+      )}`,
+);
+
+replaceAll(
+  '<MiniMetric label="Cash" value={`${summary.cashDrag.toFixed(1)}%`} sub="drag" />',
+  '<MiniMetric label="Cash" value={money(portfolioMeta.cashBalance, currency)} sub={`${summary.cashDrag.toFixed(1)}% drag`} />',
+);
+
 fs.writeFileSync(file, source);
+
+const moversFile = "components/DashboardChangeModal.tsx";
+let moversSource = fs.readFileSync(moversFile, "utf8");
+
+function replaceMovers(search, replacement) {
+  if (!moversSource.includes(search)) return;
+  moversSource = moversSource.split(search).join(replacement);
+}
+
+replaceMovers(
+  '  dailyMoveTone: "positive" | "negative" | "neutral";\n};',
+  '  dailyMoveTone: "positive" | "negative" | "neutral";\n  moverBucket?: "gainers" | "losers";\n};',
+);
+
+replaceMovers(
+  `    .filter((item) =>
+      mode === "gainers"
+        ? parseMoveValue(item.dailyMoveLabel) >= 0
+        : parseMoveValue(item.dailyMoveLabel) < 0,
+    );`,
+  `    .filter((item) => {
+      if (item.moverBucket && item.moverBucket !== mode) return false;
+      const moveValue = parseMoveValue(item.dailyMoveLabel);
+      return mode === "gainers" ? moveValue >= 0 : moveValue < 0;
+    });`,
+);
+
+fs.writeFileSync(moversFile, moversSource);
+
+const dashboardFile = "app/dashboard/page.tsx";
+let dashboardSource = fs.readFileSync(dashboardFile, "utf8");
+
+function replaceDashboard(search, replacement) {
+  if (!dashboardSource.includes(search)) return;
+  dashboardSource = dashboardSource.split(search).join(replacement);
+}
+
+replaceDashboard(
+  '  dailyMoveTone: "positive" | "negative" | "neutral";\n};',
+  '  dailyMoveTone: "positive" | "negative" | "neutral";\n  moverBucket?: "gainers" | "losers";\n};',
+);
+
+dashboardSource = dashboardSource.replace(
+  /  const whatChangedToday: DailyChangeItem\[\] = moverUniverse\.map\(\(stock\) => \{[\s\S]*?\n  \}\);\n\n  const dashboardRankingsGrid =/,
+  `  const buildDailyChangeItem = (
+    stock: Ranking,
+    moverBucket: DailyChangeItem["moverBucket"],
+  ): DailyChangeItem => {
+    const ticker = stock.ticker ?? "";
+    const rankMove = getRankMove24h(stock.rank, snapshotMap.get(ticker));
+    const dailyMove = dailyMoveMap.get(ticker)?.changePct;
+
+    return {
+      ticker: ticker || "—",
+      company: stock.company ?? "—",
+      sector: stock.sector ?? "—",
+      price: formatPrice(stock.price),
+      score: formatScore(stock.score),
+      rankLabel: rankMove.label,
+      rankTone: rankMove.tone,
+      rankTitle: rankMove.title,
+      dailyMoveLabel: Number.isFinite(dailyMove)
+        ? \`${'${Number(dailyMove) >= 0 ? "+" : ""}${Number(dailyMove).toFixed(1)}%'}\`
+        : "—",
+      dailyMoveTone: dailyMoveTone(dailyMove),
+      moverBucket,
+    };
+  };
+
+  const rankedMovers = moverUniverse
+    .filter((stock) => Number.isFinite(Number(stock.rank)))
+    .sort((a, b) => Number(a.rank ?? 9999) - Number(b.rank ?? 9999));
+
+  const whatChangedToday: DailyChangeItem[] = [
+    ...rankedMovers
+      .filter((stock) => Number(stock.rank) <= 20)
+      .map((stock) => buildDailyChangeItem(stock, "gainers")),
+    ...rankedMovers.slice(-50).map((stock) => buildDailyChangeItem(stock, "losers")),
+  ];
+
+  const dashboardRankingsGrid =`,
+);
+
+fs.writeFileSync(dashboardFile, dashboardSource);
