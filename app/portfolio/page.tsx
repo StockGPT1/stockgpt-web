@@ -28,6 +28,8 @@ export const metadata: Metadata = {
     "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
+const PORTFOLIO_SNAPSHOT_VERSION = "fast-chart-v3";
+
 type SearchParams = {
   builder?: string;
   portfolio?: string;
@@ -338,6 +340,7 @@ export default async function PortfolioPage({
     .slice(0, 40);
 
   const inputHash = hashPortfolioInputs({
+    version: PORTFOLIO_SNAPSHOT_VERSION,
     portfolio: activePortfolio,
     holdings: rawHoldings,
     transactions,
