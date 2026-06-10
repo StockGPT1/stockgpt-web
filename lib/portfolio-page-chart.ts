@@ -54,6 +54,26 @@ function displayedPerformanceBasis(summary: PortfolioHealthSummary) {
   return Math.max(summary.totalValue, 1);
 }
 
+function visibleFlatPoints(endValue: number, now: number): ChartPoint[] {
+  const safeEnd = Math.max(0, roundMoney(endValue));
+  const wiggle = Math.max(0.01, safeEnd * 0.00025);
+
+  return [
+    {
+      date: new Date(now - 86_400_000).toISOString(),
+      close: roundMoney(Math.max(0, safeEnd - wiggle)),
+    },
+    {
+      date: new Date(now - 43_200_000).toISOString(),
+      close: safeEnd,
+    },
+    {
+      date: new Date(now).toISOString(),
+      close: safeEnd,
+    },
+  ];
+}
+
 function fallbackPortfolioChart(
   summary: PortfolioHealthSummary,
   createdAtMs: number,
@@ -61,16 +81,14 @@ function fallbackPortfolioChart(
   const basis = displayedPerformanceBasis(summary);
   const now = Date.now();
   const endValue = Math.max(0, roundMoney(basis + summary.totalPnl));
+  const startValue = Math.max(0, roundMoney(basis));
 
   const maxPoints = [
-    { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
+    { date: new Date(createdAtMs).toISOString(), close: startValue },
     { date: new Date(now).toISOString(), close: endValue },
   ];
 
-  const intradayPoints = [
-    { date: new Date(now - 86_400_000).toISOString(), close: endValue },
-    { date: new Date(now).toISOString(), close: endValue },
-  ];
+  const intradayPoints = visibleFlatPoints(endValue, now);
 
   return {
     MAX: maxPoints,
