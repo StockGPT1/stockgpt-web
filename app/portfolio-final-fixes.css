@@ -1,3 +1,7 @@
+.sg-app-content > .relative.z-10 {
+  z-index: 60 !important;
+}
+
 .z-\[120\].fixed.inset-0,
 .z-\[220\].fixed.inset-0 {
   z-index: 9999 !important;
