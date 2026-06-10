@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { saveUnreadNotificationSummary } from "@/lib/notification-summary";
 import {
   enrichHoldings,
   type AlertSeverity,
@@ -226,6 +227,7 @@ export async function getUserNotifications({
   const portfolios = (portfoliosData ?? []) as PortfolioRow[];
 
   if (portfolios.length === 0) {
+    await saveUnreadNotificationSummary(user.id, 0);
     return { unread: [], read: [], unreadCount: 0 };
   }
 
@@ -241,6 +243,7 @@ export async function getUserNotifications({
   const holdings = (holdingsData ?? []) as HoldingRow[];
 
   if (holdings.length === 0) {
+    await saveUnreadNotificationSummary(user.id, 0);
     return { unread: [], read: [], unreadCount: 0 };
   }
 
@@ -354,6 +357,8 @@ export async function getUserNotifications({
   const read = includeDismissed
     ? allNotifications.filter((notification) => isDismissed(notification))
     : [];
+
+  await saveUnreadNotificationSummary(user.id, unread.length);
 
   return {
     unread: unread.map(stripInternal),
