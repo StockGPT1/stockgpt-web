@@ -30,11 +30,6 @@ type TransactionLike = {
 
 const EPSILON = 0.000001;
 
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -65,17 +60,16 @@ function fallbackPortfolioChart(
 ): Partial<Record<TimeRange, ChartPoint[]>> {
   const basis = displayedPerformanceBasis(summary);
   const now = Date.now();
-  const endValue = roundMoney(basis + summary.totalPnl);
+  const endValue = Math.max(0, roundMoney(basis + summary.totalPnl));
 
   const maxPoints = [
     { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
-    { date: new Date(now).toISOString(), close: Math.max(0, endValue) },
+    { date: new Date(now).toISOString(), close: endValue },
   ];
 
-  const intradayStart = roundMoney(Math.max(0, endValue - summary.dayChange));
   const intradayPoints = [
-    { date: new Date(now - 86_400_000).toISOString(), close: intradayStart },
-    { date: new Date(now).toISOString(), close: Math.max(0, endValue) },
+    { date: new Date(now - 86_400_000).toISOString(), close: endValue },
+    { date: new Date(now).toISOString(), close: endValue },
   ];
 
   return {
