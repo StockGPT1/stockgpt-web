@@ -25,6 +25,31 @@ const redirects: Record<string, string> = {
   "/cdn-cgi/l/email-protection": "/legal",
 };
 
+const sessionRoutePrefixes = [
+  "/ask-stockgpt",
+  "/dashboard",
+  "/notifications",
+  "/portfolio",
+  "/pricing",
+  "/rankings",
+  "/settings",
+  "/stock",
+  "/watchlist",
+  "/world-news",
+];
+
+const exactSessionRoutes = new Set([
+  "/auth/callback",
+  "/update-password",
+]);
+
+function needsSessionRefresh(pathname: string) {
+  if (exactSessionRoutes.has(pathname)) return true;
+  return sessionRoutePrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -42,6 +67,10 @@ export async function middleware(request: NextRequest) {
     url.pathname = path;
     url.hash = hash ? `#${hash}` : "";
     return NextResponse.redirect(url, pathname === "/account" || pathname === "/profile" ? 302 : 301);
+  }
+
+  if (!needsSessionRefresh(pathname)) {
+    return NextResponse.next();
   }
 
   return await updateSession(request);
