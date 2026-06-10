@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
 
@@ -9,6 +10,7 @@ const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
 const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 12);
 const LIVE_MOVE_BATCH_SIZE = Number(process.env.LIVE_MOVE_BATCH_SIZE ?? 8);
+const DB_CHART_CACHE_TTL_MS = Number(process.env.DB_CHART_CACHE_TTL_MS ?? 15 * 60 * 1000);
 
 const TICKER_TAPE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMORY_CACHE_TTL_MS = CACHE_REVALIDATE_SECONDS * 1000;
@@ -61,6 +63,13 @@ type MarketSnapshotRow = {
   updated_at: string | null;
 };
 
+type ChartCacheRow = {
+  ticker: string | null;
+  range: string | null;
+  points: unknown;
+  fetched_at: string | null;
+};
+
 function cacheKey(ticker: string, range: TimeRange) {
   return `${ticker.toUpperCase()}::${range}`;
 }
@@ -79,6 +88,27 @@ function finiteNumberOrNull(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+function coerceChartPoints(value: unknown): ChartPoint[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((point) => {
+      if (!point || typeof point !== "object") return null;
+      const raw = point as { date?: unknown; close?: unknown };
+      const date = typeof raw.date === "string" ? raw.date : null;
+      const close = finitePositiveNumber(raw.close);
+      if (!date || close === null) return null;
+      return { date, close };
+    })
+    .filter((point): point is ChartPoint => point !== null);
+}
+
+function isFreshTimestamp(value: string | null, ttlMs: number) {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && Date.now() - time < ttlMs;
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -91,6 +121,75 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: 
     ]);
   } finally {
     if (timeout) clearTimeout(timeout);
+  }
+}
+
+function getAdminWriteClient() {
+  try {
+    return createAdminClient();
+  } catch (err) {
+    console.warn("Admin Supabase client unavailable for cache write", err);
+    return null;
+  }
+}
+
+async function getCachedChartRows(
+  ticker: string,
+  ranges: TimeRange[],
+): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  if (ranges.length === 0) return {};
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("stock_chart_cache")
+      .select("ticker,range,points,fetched_at")
+      .eq("ticker", ticker)
+      .in("range", ranges);
+
+    if (error) return {};
+
+    const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
+
+    ((data ?? []) as ChartCacheRow[]).forEach((row) => {
+      const range = row.range as TimeRange | null;
+      if (!range || !ranges.includes(range)) return;
+      if (!isFreshTimestamp(row.fetched_at, DB_CHART_CACHE_TTL_MS)) return;
+
+      const points = coerceChartPoints(row.points);
+      if (points.length === 0) return;
+      result[range] = points;
+    });
+
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+async function upsertChartCache(
+  ticker: string,
+  entries: Array<{ range: TimeRange; points: ChartPoint[] }>,
+) {
+  const validEntries = entries.filter((entry) => entry.points.length > 0);
+  if (validEntries.length === 0) return;
+
+  try {
+    const supabase = getAdminWriteClient();
+    if (!supabase) return;
+
+    await supabase.from("stock_chart_cache").upsert(
+      validEntries.map((entry) => ({
+        ticker,
+        range: entry.range,
+        points: entry.points,
+        fetched_at: new Date().toISOString(),
+        source: "yahoo",
+      })),
+      { onConflict: "ticker,range" },
+    );
+  } catch (err) {
+    console.warn("Could not persist chart cache", err);
   }
 }
 
@@ -173,7 +272,7 @@ export async function getStockChart(
   const now = Date.now();
   const normalizedTicker = normalizeTicker(ticker);
 
-  const rangesToFetch: TimeRange[] = [];
+  let rangesToFetch: TimeRange[] = [];
 
   for (const range of ranges) {
     const key = cacheKey(normalizedTicker, range);
@@ -187,6 +286,17 @@ export async function getStockChart(
   }
 
   if (rangesToFetch.length > 0) {
+    const dbCached = await getCachedChartRows(normalizedTicker, rangesToFetch);
+    rangesToFetch = rangesToFetch.filter((range) => {
+      const points = dbCached[range];
+      if (!points || points.length === 0) return true;
+      result[range] = points;
+      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
+      return false;
+    });
+  }
+
+  if (rangesToFetch.length > 0) {
     const fetched = await Promise.all(
       rangesToFetch.map(async (range) => {
         const points = await fetchYahooRange(normalizedTicker, range);
@@ -194,12 +304,17 @@ export async function getStockChart(
       }),
     );
 
+    const cacheWrites: Array<{ range: TimeRange; points: ChartPoint[] }> = [];
+
     for (const { range, points } of fetched) {
       if (points.length > 0) {
         result[range] = points;
         cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
+        cacheWrites.push({ range, points });
       }
     }
+
+    void upsertChartCache(normalizedTicker, cacheWrites);
   }
 
   return result;
@@ -291,7 +406,9 @@ async function upsertMarketSnapshots(movers: Mover[]) {
   if (movers.length === 0) return;
 
   try {
-    const supabase = await createClient();
+    const supabase = getAdminWriteClient();
+    if (!supabase) return;
+
     await supabase.from("market_snapshots").upsert(
       movers.map((mover) => ({
         ticker: mover.ticker,
