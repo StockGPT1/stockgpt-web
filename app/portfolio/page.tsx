@@ -13,6 +13,14 @@ import {
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
+import {
+  getCachedPortfolioNews,
+  getCachedPortfolioStockUniverse,
+  getPortfolioPageSnapshot,
+  hashPortfolioInputs,
+  savePortfolioPageSnapshot,
+  startPortfolioTimer,
+} from "@/lib/portfolio-speed-cache";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -108,6 +116,34 @@ function parseAffectedTickers(value: BaseNewsArticle["affected_tickers"]) {
     .filter(Boolean);
 }
 
+function buildPortfolioNews({
+  newsData,
+  stockUniverse,
+  portfolioTickerSet,
+}: {
+  newsData: BaseNewsArticle[];
+  stockUniverse: StockLike[];
+  portfolioTickerSet: Set<string>;
+}) {
+  return newsData
+    .map((article) => ({
+      raw: article,
+      enriched: enrichArticleWithStockInsights(article, stockUniverse, 10),
+    }))
+    .filter(({ raw, enriched }) => {
+      const directTickers = parseAffectedTickers(raw.affected_tickers);
+      if (directTickers.some((ticker) => portfolioTickerSet.has(ticker))) return true;
+      return enriched.affectedStocks.some((stock) => portfolioTickerSet.has(stock.ticker));
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.enriched.published_at ?? 0).getTime() -
+        new Date(a.enriched.published_at ?? 0).getTime(),
+    )
+    .slice(0, 30)
+    .map(({ enriched }) => enriched);
+}
+
 function CompactImportLauncher({
   portfolioId,
 }: {
@@ -145,6 +181,7 @@ export default async function PortfolioPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const timer = startPortfolioTimer("portfolio-page");
   const params = await searchParams;
   const supabase = await createClient();
 
@@ -152,17 +189,14 @@ export default async function PortfolioPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  timer.mark("auth");
+
   if (!user) redirect("/login");
 
   const showBuilder = params.builder === "1";
 
-  const [{ data: stockOptionsData }, { data: portfoliosData }] = await Promise.all([
-    supabase
-      .from("stock_rankings")
-      .select("ticker, company, sector, rank, score, price")
-      .order("rank", { ascending: true })
-      .limit(500),
-
+  const [stockOptionsData, { data: portfoliosData }] = await Promise.all([
+    getCachedPortfolioStockUniverse(),
     supabase
       .from("user_portfolios")
       .select(
@@ -173,9 +207,11 @@ export default async function PortfolioPage({
       .order("created_at", { ascending: true }),
   ]);
 
+  timer.mark("base-data");
+
   const stockUniverse: StockLike[] = (stockOptionsData ?? [])
-    .filter((stock) => stock.ticker)
-    .map((stock) => ({
+    .filter((stock: any) => stock.ticker)
+    .map((stock: any) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -185,8 +221,8 @@ export default async function PortfolioPage({
     }));
 
   const stockOptions: StockOption[] = (stockOptionsData ?? [])
-    .filter((stock) => stock.ticker)
-    .map((stock) => ({
+    .filter((stock: any) => stock.ticker)
+    .map((stock: any) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -212,6 +248,7 @@ export default async function PortfolioPage({
   );
 
   if (showBuilder) {
+    timer.end({ mode: "builder" });
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
@@ -234,6 +271,7 @@ export default async function PortfolioPage({
       : portfolios[0]?.id ?? null;
 
   if (!selectedPortfolioId) {
+    timer.end({ mode: "empty" });
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
@@ -248,7 +286,7 @@ export default async function PortfolioPage({
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
 
-  const [{ data: holdingsData }, { data: transactionData }, { data: newsData }] = await Promise.all([
+  const [{ data: holdingsData }, { data: transactionData }, newsData] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
@@ -266,14 +304,10 @@ export default async function PortfolioPage({
       .order("created_at", { ascending: true })
       .limit(1000),
 
-    supabase
-      .from("news_articles")
-      .select(
-        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
-      )
-      .order("published_at", { ascending: false })
-      .limit(180),
+    getCachedPortfolioNews(),
   ]);
+
+  timer.mark("portfolio-rows");
 
   const rawHoldings = ((holdingsData ?? []) as HoldingRow[])
     .filter((holding) => holding.ticker)
@@ -292,33 +326,110 @@ export default async function PortfolioPage({
       notes: holding.notes ?? null,
     }));
 
-  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
-  const portfolioNews = ((newsData ?? []) as BaseNewsArticle[])
-    .map((article) => ({
-      raw: article,
-      enriched: enrichArticleWithStockInsights(article, stockUniverse, 10),
-    }))
-    .filter(({ raw, enriched }) => {
-      const directTickers = parseAffectedTickers(raw.affected_tickers);
-      if (directTickers.some((ticker) => portfolioTickerSet.has(ticker))) return true;
-      return enriched.affectedStocks.some((stock) => portfolioTickerSet.has(stock.ticker));
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.enriched.published_at ?? 0).getTime() -
-        new Date(a.enriched.published_at ?? 0).getTime(),
-    )
-    .slice(0, 30)
-    .map(({ enriched }) => enriched);
-
-  const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
-  const enriched = await enrichHoldings(rawHoldings, riskTolerance);
   const transactions = (transactionData ?? []) as TransactionRow[];
   const currency = activePortfolio.currency ?? "USD";
   const cashDepositedTotal = toNumber(
     activePortfolio.cash_deposited_total,
     toNumber(activePortfolio.investment_amount, 0),
   );
+
+  const displayTransactions = [...transactions]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 40);
+
+  const inputHash = hashPortfolioInputs({
+    portfolio: activePortfolio,
+    holdings: rawHoldings,
+    transactions,
+    stocks: (stockOptionsData ?? []).map((stock: any) => ({
+      ticker: stock.ticker,
+      rank: stock.rank,
+      score: stock.score,
+      price: stock.price,
+    })),
+    news: ((newsData ?? []) as BaseNewsArticle[]).map((article) => ({
+      id: article.id,
+      impact: article.impact,
+      affected_tickers: article.affected_tickers,
+      published_at: article.published_at,
+    })),
+  });
+
+  const cachedSnapshot = await getPortfolioPageSnapshot({
+    portfolioId: selectedPortfolioId,
+    ownerId: user.id,
+    inputHash,
+  });
+
+  const cachedEnriched = cachedSnapshot?.enriched as any[] | undefined;
+  const cachedSummary = cachedSnapshot?.summary as any | undefined;
+  const cachedChartData = cachedSnapshot?.chartData as any | undefined;
+  const cachedPortfolioNews = cachedSnapshot?.portfolioNews as any[] | undefined;
+
+  if (cachedEnriched && cachedSummary && cachedChartData && cachedPortfolioNews) {
+    timer.end({ mode: "snapshot-hit", holdings: rawHoldings.length });
+    return (
+      <AppShell activePath="/portfolio">
+        <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
+          <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
+            <PortfolioCommandCentreRevolut
+              portfolioId={selectedPortfolioId}
+              portfolios={portfolios.map((portfolio, index) => ({
+                id: portfolio.id,
+                name: cleanPortfolioName(portfolio.name, index),
+                currency: portfolio.currency ?? "USD",
+                createdAt: portfolio.created_at ?? null,
+              }))}
+              holdings={cachedEnriched as any}
+              stockOptions={stockOptions}
+              transactions={displayTransactions.map((transaction) => ({
+                id: transaction.id,
+                portfolioId: transaction.portfolio_id,
+                ticker: transaction.ticker,
+                type: transaction.type,
+                shares: transaction.shares,
+                price: transaction.price,
+                amount: transaction.amount,
+                realisedPnl: transaction.realised_pnl,
+                currency: transaction.currency ?? "USD",
+                notes: transaction.notes,
+                createdAt: transaction.created_at,
+              }))}
+              newsArticles={cachedPortfolioNews as any}
+              chartData={cachedChartData as any}
+              portfolioMeta={{
+                id: selectedPortfolioId,
+                name: activePortfolio.name as string,
+                riskTolerance: activePortfolio.risk_tolerance as string | null,
+                timeHorizon: activePortfolio.time_horizon as string | null,
+                investmentAmount: toNumber(activePortfolio.investment_amount, 0),
+                cashBalance: toNumber(activePortfolio.cash_balance, 0),
+                cashDepositedTotal,
+                currency,
+                createdAt: activePortfolio.created_at ?? null,
+              }}
+              compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
+            />
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
+  const portfolioNews = buildPortfolioNews({
+    newsData: (newsData ?? []) as BaseNewsArticle[],
+    stockUniverse,
+    portfolioTickerSet,
+  });
+
+  timer.mark("news-filter");
+
+  const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
+  const enriched = await enrichHoldings(rawHoldings, riskTolerance);
+
+  timer.mark("enrich-holdings");
+
   const summary = buildPortfolioHealthSummary({
     id: selectedPortfolioId,
     name: activePortfolio.name as string,
@@ -346,9 +457,21 @@ export default async function PortfolioPage({
     summary,
   });
 
-  const displayTransactions = [...transactions]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 40);
+  timer.mark("portfolio-chart");
+
+  await savePortfolioPageSnapshot({
+    portfolioId: selectedPortfolioId,
+    ownerId: user.id,
+    inputHash,
+    snapshot: {
+      enriched,
+      summary,
+      chartData,
+      portfolioNews,
+    },
+  });
+
+  timer.end({ mode: "snapshot-write", holdings: rawHoldings.length });
 
   return (
     <AppShell activePath="/portfolio">
