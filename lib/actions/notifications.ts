@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { clearUnreadNotificationSummary } from "@/lib/notification-summary";
 import { createClient } from "@/utils/supabase/server";
 
 export async function dismissNotification(
@@ -23,6 +24,7 @@ export async function dismissNotification(
 
   if (error) return { success: false, error: error.message };
 
+  await clearUnreadNotificationSummary(user.id);
   revalidatePath("/notifications");
   revalidatePath("/", "layout"); // refresh sidebar badge
   return { success: true };
@@ -50,6 +52,7 @@ export async function dismissAllNotifications(
 
   if (error) return { success: false, error: error.message };
 
+  await clearUnreadNotificationSummary(user.id);
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
   return { success: true };
@@ -72,6 +75,7 @@ export async function restoreNotification(
 
   if (error) return { success: false, error: error.message };
 
+  await clearUnreadNotificationSummary(user.id);
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
   return { success: true };
