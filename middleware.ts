@@ -50,6 +50,15 @@ function needsSessionRefresh(pathname: string) {
   );
 }
 
+function isRouterPrefetch(request: NextRequest) {
+  const purpose = request.headers.get("purpose") ?? request.headers.get("sec-purpose") ?? "";
+  return (
+    request.headers.get("next-router-prefetch") === "1" ||
+    purpose.toLowerCase().includes("prefetch") ||
+    request.nextUrl.searchParams.has("_rsc")
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -58,6 +67,16 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/stock/${ticker}`;
     return NextResponse.redirect(url, 301);
+  }
+
+  if (pathname.startsWith("/stock/") && isRouterPrefetch(request)) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "X-StockGPT-Prefetch": "blocked",
+      },
+    });
   }
 
   const destination = redirects[pathname];
