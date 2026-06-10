@@ -102,12 +102,14 @@ function normaliseTransactionType(type: string | null | undefined) {
 function buildLotsFromLedger({
   transactions,
   holdings,
+  currentCashBalance,
 }: {
   transactions: TransactionRow[];
   holdings: HoldingRow[];
+  currentCashBalance: number;
 }) {
   const lots: Lot[] = [];
-  const cashEvents: CashEvent[] = [];
+  let cashEvents: CashEvent[] = [];
   const holdingLedgerTransactions = transactions.filter((transaction) => {
     const type = normaliseTransactionType(transaction.type);
     return type === "buy" || type === "sell" || type === "log_existing" || type === "import_holding";
@@ -153,16 +155,26 @@ function buildLotsFromLedger({
     }
   });
 
-  // Legacy/manual portfolios may only have current holdings and a deposit/import row.
-  // Use current holdings as lots only when no per-holding buy/log/sell ledger exists.
+  // Legacy/imported portfolios often have one import/deposit row plus current holdings,
+  // but no buy rows. In that case, the import amount represents funding for the holdings,
+  // not extra cash. Use holdings + actual current cash balance only to avoid double counting.
   if (holdingLedgerTransactions.length === 0) {
+    cashEvents = [];
+    let firstHoldingMs: number | null = null;
+
     holdings.forEach((row) => {
       const ticker = String(row.ticker ?? "").toUpperCase();
       const shares = toNumber(row.shares, 0);
       const entryPrice = toNumber(row.entry_price, 0);
+      const startMs = holdingStartMs(row);
       if (!ticker || shares <= 0 || entryPrice <= 0) return;
-      lots.push({ ticker, shares, entryPrice, startMs: holdingStartMs(row) });
+      lots.push({ ticker, shares, entryPrice, startMs });
+      firstHoldingMs = firstHoldingMs == null ? startMs : Math.min(firstHoldingMs, startMs);
     });
+
+    if (currentCashBalance > 0 && firstHoldingMs != null) {
+      cashEvents.push({ ms: firstHoldingMs, amount: currentCashBalance });
+    }
   }
 
   return {
@@ -325,6 +337,7 @@ export async function GET(req: NextRequest) {
   const { lots, cashEvents } = buildLotsFromLedger({
     transactions: (transactionRows ?? []) as TransactionRow[],
     holdings: (holdingRows ?? []) as HoldingRow[],
+    currentCashBalance: toNumber(portfolioRow.cash_balance, 0),
   });
 
   if (lots.length === 0 && cashEvents.length === 0) return NextResponse.json({ chartData: {} });
