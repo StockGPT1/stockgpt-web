@@ -22,6 +22,16 @@ type HoldingRow = {
   added_at?: string | null;
 };
 
+type TransactionRow = {
+  ticker: string | null;
+  type: string | null;
+  shares: number | null;
+  price: number | null;
+  amount: number | null;
+  realised_pnl: number | null;
+  created_at: string | null;
+};
+
 type PortfolioRow = {
   id: string;
   user_id: string;
@@ -31,11 +41,16 @@ type PortfolioRow = {
   created_at?: string | null;
 };
 
-type Holding = {
+type Lot = {
   ticker: string;
   shares: number;
   entryPrice: number;
   startMs: number;
+};
+
+type CashEvent = {
+  ms: number;
+  amount: number;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -80,17 +95,133 @@ function samplePoints(points: ChartPoint[]) {
   return sampled;
 }
 
-function buildRangeValueSeries({
+function normaliseTransactionType(type: string | null | undefined) {
+  return String(type ?? "").trim().toLowerCase();
+}
+
+function buildLotsFromLedger({
+  transactions,
   holdings,
+}: {
+  transactions: TransactionRow[];
+  holdings: HoldingRow[];
+}) {
+  const lots: Lot[] = [];
+  const cashEvents: CashEvent[] = [];
+  const holdingLedgerTransactions = transactions.filter((transaction) => {
+    const type = normaliseTransactionType(transaction.type);
+    return type === "buy" || type === "sell" || type === "log_existing" || type === "import_holding";
+  });
+
+  const sortedTransactions = [...transactions].sort(
+    (a, b) => (safeDateMs(a.created_at) ?? 0) - (safeDateMs(b.created_at) ?? 0),
+  );
+
+  sortedTransactions.forEach((transaction) => {
+    const type = normaliseTransactionType(transaction.type);
+    const ms = safeDateMs(transaction.created_at) ?? Date.now();
+    const amount = toNumber(transaction.amount, 0);
+    const ticker = String(transaction.ticker ?? "").toUpperCase();
+    const shares = toNumber(transaction.shares, 0);
+    const price = toNumber(transaction.price, 0);
+
+    if (type === "deposit" || type === "import" || type === "cash_adjustment") {
+      if (amount > 0) cashEvents.push({ ms, amount });
+      return;
+    }
+
+    if (type === "withdrawal") {
+      if (amount > 0) cashEvents.push({ ms, amount: -amount });
+      return;
+    }
+
+    if ((type === "buy" || type === "log_existing" || type === "import_holding") && ticker && shares > 0 && price > 0) {
+      lots.push({ ticker, shares, entryPrice: price, startMs: ms });
+      cashEvents.push({ ms, amount: -(amount || shares * price) });
+      return;
+    }
+
+    if (type === "sell" && ticker && shares > 0) {
+      let remaining = shares;
+      for (const lot of lots) {
+        if (lot.ticker !== ticker || remaining <= 0) continue;
+        const sold = Math.min(lot.shares, remaining);
+        lot.shares -= sold;
+        remaining -= sold;
+      }
+      cashEvents.push({ ms, amount: amount || shares * price });
+    }
+  });
+
+  // Legacy/manual portfolios may only have current holdings and a deposit/import row.
+  // Use current holdings as lots only when no per-holding buy/log/sell ledger exists.
+  if (holdingLedgerTransactions.length === 0) {
+    holdings.forEach((row) => {
+      const ticker = String(row.ticker ?? "").toUpperCase();
+      const shares = toNumber(row.shares, 0);
+      const entryPrice = toNumber(row.entry_price, 0);
+      if (!ticker || shares <= 0 || entryPrice <= 0) return;
+      lots.push({ ticker, shares, entryPrice, startMs: holdingStartMs(row) });
+    });
+  }
+
+  return {
+    lots: lots.filter((lot) => lot.shares > 0),
+    cashEvents,
+  };
+}
+
+function cashAtTime(cashEvents: CashEvent[], ms: number) {
+  return cashEvents.reduce((sum, event) => (event.ms <= ms ? sum + event.amount : sum), 0);
+}
+
+function priceAtTime({
+  ticker,
+  targetMs,
+  entryPrice,
+  startMs,
   charts,
-  cash,
+  range,
+  currentPrices,
+}: {
+  ticker: string;
+  targetMs: number;
+  entryPrice: number;
+  startMs: number;
+  charts: Map<string, ChartPoint[]>;
+  range: TimeRange;
+  currentPrices: Map<string, number>;
+}) {
+  if (targetMs <= startMs) return entryPrice;
+
+  const rawPoints = charts.get(`${ticker}:${range}`) ?? charts.get(`${ticker}:MAX`) ?? [];
+  let price = entryPrice;
+
+  for (const point of rawPoints) {
+    const pointMs = normalisePointDate(point);
+    if (!Number.isFinite(pointMs) || pointMs < startMs) continue;
+    if (pointMs > targetMs) break;
+    price = point.close;
+  }
+
+  if (targetMs >= Date.now() - 60_000) {
+    return currentPrices.get(ticker) || price;
+  }
+
+  return price;
+}
+
+function buildRangeValueSeries({
+  lots,
+  cashEvents,
+  charts,
   range,
   portfolioStartMs,
   currentPrices,
 }: {
-  holdings: Holding[];
+  lots: Lot[];
+  cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
-  cash: number;
   range: TimeRange;
   portfolioStartMs: number;
   currentPrices: Map<string, number>;
@@ -101,47 +232,45 @@ function buildRangeValueSeries({
     : portfolioStartMs;
 
   const times = new Set<number>([rangeStartMs, now]);
-  const seriesByTicker = new Map<string, Array<{ ms: number; price: number }>>();
 
-  holdings.forEach((holding) => {
-    const startMs = Math.max(rangeStartMs, holding.startMs);
-    const rawPoints = charts.get(`${holding.ticker}:${range}`) ?? charts.get(`${holding.ticker}:MAX`) ?? [];
-    const points = rawPoints
-      .map((point) => ({ ms: normalisePointDate(point), price: point.close }))
-      .filter((point) => Number.isFinite(point.ms) && point.ms >= startMs)
-      .sort((a, b) => a.ms - b.ms);
-
-    const currentPrice = currentPrices.get(holding.ticker) ?? points.at(-1)?.price ?? holding.entryPrice;
-    const fullSeries = [
-      { ms: startMs, price: holding.entryPrice },
-      ...points,
-      { ms: now, price: currentPrice },
-    ]
-      .filter((point, index, all) => index === 0 || point.ms !== all[index - 1].ms)
-      .sort((a, b) => a.ms - b.ms);
-
-    fullSeries.forEach((point) => times.add(point.ms));
-    seriesByTicker.set(holding.ticker, fullSeries);
+  lots.forEach((lot) => {
+    if (lot.startMs >= rangeStartMs && lot.startMs <= now) times.add(lot.startMs);
+    const rawPoints = charts.get(`${lot.ticker}:${range}`) ?? charts.get(`${lot.ticker}:MAX`) ?? [];
+    rawPoints.forEach((point) => {
+      const ms = normalisePointDate(point);
+      if (Number.isFinite(ms) && ms >= Math.max(rangeStartMs, lot.startMs) && ms <= now) times.add(ms);
+    });
   });
 
-  const sortedTimes = Array.from(times).sort((a, b) => a - b);
-  const points = sortedTimes.map((ms) => {
-    const holdingsValue = holdings.reduce((sum, holding) => {
-      if (ms < holding.startMs) return sum;
-      const series = seriesByTicker.get(holding.ticker) ?? [];
-      let price = holding.entryPrice;
-      for (const point of series) {
-        if (point.ms > ms) break;
-        price = point.price;
-      }
-      return sum + price * holding.shares;
-    }, 0);
-
-    return {
-      date: new Date(ms).toISOString(),
-      close: roundMoney(cash + holdingsValue),
-    };
+  cashEvents.forEach((event) => {
+    if (event.ms >= rangeStartMs && event.ms <= now) times.add(event.ms);
   });
+
+  const points = Array.from(times)
+    .sort((a, b) => a - b)
+    .map((ms) => {
+      const holdingsValue = lots.reduce((sum, lot) => {
+        if (ms < lot.startMs) return sum;
+        return (
+          sum +
+          lot.shares *
+            priceAtTime({
+              ticker: lot.ticker,
+              targetMs: ms,
+              entryPrice: lot.entryPrice,
+              startMs: lot.startMs,
+              charts,
+              range,
+              currentPrices,
+            })
+        );
+      }, 0);
+
+      return {
+        date: new Date(ms).toISOString(),
+        close: roundMoney(cashAtTime(cashEvents, ms) + holdingsValue),
+      };
+    });
 
   const deduped = points.filter(
     (point, index, all) => index === 0 || point.date !== all[index - 1].date,
@@ -173,32 +302,44 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
   }
 
-  const { data: holdingRows, error: holdingsError } = await supabase
-    .from("portfolio_holdings")
-    .select("ticker,shares,entry_price,purchase_date,added_at")
-    .eq("portfolio_id", portfolioId)
-    .not("ticker", "is", null);
+  const [{ data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] =
+    await Promise.all([
+      supabase
+        .from("portfolio_holdings")
+        .select("ticker,shares,entry_price,purchase_date,added_at")
+        .eq("portfolio_id", portfolioId)
+        .not("ticker", "is", null),
+      supabase
+        .from("portfolio_transactions")
+        .select("ticker,type,shares,price,amount,realised_pnl,created_at")
+        .eq("portfolio_id", portfolioId)
+        .order("created_at", { ascending: true })
+        .limit(2000),
+    ]);
 
-  if (holdingsError) return NextResponse.json({ error: "Could not load holdings" }, { status: 500 });
+  if (holdingsError || transactionError) {
+    return NextResponse.json({ error: "Could not load portfolio history" }, { status: 500 });
+  }
 
   const portfolioRow = portfolio as PortfolioRow;
-  const holdings = ((holdingRows ?? []) as HoldingRow[])
-    .map((row) => ({
-      ticker: String(row.ticker ?? "").toUpperCase(),
-      shares: toNumber(row.shares, 0),
-      entryPrice: toNumber(row.entry_price, 0),
-      startMs: holdingStartMs(row),
-    }))
-    .filter((row) => row.ticker && row.shares > 0 && row.entryPrice > 0);
+  const { lots, cashEvents } = buildLotsFromLedger({
+    transactions: (transactionRows ?? []) as TransactionRow[],
+    holdings: (holdingRows ?? []) as HoldingRow[],
+  });
 
-  if (holdings.length === 0) return NextResponse.json({ chartData: {} });
+  if (lots.length === 0 && cashEvents.length === 0) return NextResponse.json({ chartData: {} });
 
-  const portfolioCreatedMs = safeDateMs(portfolioRow.created_at) ?? Math.min(...holdings.map((holding) => holding.startMs));
-  const portfolioStartMs = Math.min(portfolioCreatedMs, ...holdings.map((holding) => holding.startMs));
+  const portfolioCreatedMs = safeDateMs(portfolioRow.created_at) ?? Date.now();
+  const firstLotMs = lots.length > 0 ? Math.min(...lots.map((lot) => lot.startMs)) : portfolioCreatedMs;
+  const firstCashMs = cashEvents.length > 0 ? Math.min(...cashEvents.map((event) => event.ms)) : portfolioCreatedMs;
+  const portfolioStartMs = Math.max(portfolioCreatedMs, Math.min(firstLotMs, firstCashMs));
+  const tickers = Array.from(new Set(lots.map((lot) => lot.ticker)));
 
   const [{ data: currentRows }, ...chartResults] = await Promise.all([
-    supabase.from("stock_rankings").select("ticker,price").in("ticker", holdings.map((holding) => holding.ticker)),
-    ...holdings.map((holding) => getStockChart(holding.ticker, RANGES)),
+    tickers.length > 0
+      ? supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+      : Promise.resolve({ data: [] }),
+    ...tickers.map((ticker) => getStockChart(ticker, RANGES)),
   ]);
 
   const currentPrices = new Map(
@@ -209,20 +350,19 @@ export async function GET(req: NextRequest) {
   );
 
   const charts = new Map<string, ChartPoint[]>();
-  holdings.forEach((holding, index) => {
+  tickers.forEach((ticker, index) => {
     const chart = chartResults[index] as Partial<Record<TimeRange, ChartPoint[]>>;
     RANGES.forEach((range) => {
       const points = chart[range] ?? [];
-      if (points.length > 1) charts.set(`${holding.ticker}:${range}`, points);
+      if (points.length > 1) charts.set(`${ticker}:${range}`, points);
     });
   });
 
-  const cash = toNumber(portfolioRow.cash_balance, 0);
   const chartData = RANGES.reduce<Partial<Record<TimeRange, ChartPoint[]>>>((acc, range) => {
     const points = buildRangeValueSeries({
-      holdings,
+      lots,
+      cashEvents,
       charts,
-      cash,
       range,
       portfolioStartMs,
       currentPrices,
