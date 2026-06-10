@@ -1,11 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { refreshMarketSnapshots } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
+function isAuthorized(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return true;
+  return (req.headers.get("authorization") ?? "") === `Bearer ${cronSecret}`;
+}
+
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = await createClient();
   const limit = Number(process.env.PRIORITY_MARKET_SNAPSHOT_LIMIT ?? 180);
   const { data, error } = await supabase
