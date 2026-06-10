@@ -9,9 +9,9 @@ function SkeletonBar({ className = "" }: { className?: string }) {
   );
 }
 
-function SkeletonCard({ children }: { children?: React.ReactNode }) {
+function SkeletonCard({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return (
-    <div className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.035] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.16)]">
+    <div className={["min-h-0 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.035] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.16)]", className].join(" ")}>
       {children ?? (
         <div className="space-y-3">
           <SkeletonBar className="h-3 w-24" />
@@ -26,7 +26,7 @@ function SkeletonCard({ children }: { children?: React.ReactNode }) {
 
 export default function Loading() {
   return (
-    <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
+    <main aria-busy="true" className="flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
       <header className="flex h-[64px] shrink-0 items-center gap-4 border-b border-[#ddb159]/18 bg-[#04180f] px-4 sm:px-5">
         <SkeletonBar className="h-9 w-36 bg-[#ddb159]/18" />
         <div className="hidden flex-1 justify-center md:flex">
@@ -52,47 +52,47 @@ export default function Loading() {
           </div>
         </aside>
 
-        <section className="min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3">
-          <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="grid min-h-0 gap-3 lg:grid-rows-[150px_68px_minmax(0,1fr)]">
+        <section className="min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] lg:pb-3">
+          <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,440px)]">
+            <div className="grid min-h-0 gap-3 lg:grid-rows-[minmax(118px,0.72fr)_minmax(56px,0.34fr)_minmax(0,3fr)]">
               <SkeletonCard />
 
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <div className="grid min-h-[112px] grid-cols-2 gap-[1px] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#072116]/10 ring-1 ring-white/15 sm:min-h-[118px] lg:min-h-0 lg:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <SkeletonCard key={index}>
-                    <SkeletonBar className="h-3 w-20" />
-                    <SkeletonBar className="mt-3 h-6 w-16 bg-[#ddb159]/16" />
-                    <SkeletonBar className="mt-2 h-3 w-24" />
+                  <SkeletonCard key={index} className="rounded-none border-0 bg-[#faf6f0] shadow-none">
+                    <SkeletonBar className="h-3 w-20 bg-[#072116]/12" />
+                    <SkeletonBar className="mt-3 h-6 w-16 bg-[#ddb159]/20" />
+                    <SkeletonBar className="mt-2 h-3 w-24 bg-[#072116]/10" />
                   </SkeletonCard>
                 ))}
               </div>
 
-              <SkeletonCard>
+              <SkeletonCard className="overflow-hidden bg-[#faf6f0] text-[#072116] lg:h-full">
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <div>
-                    <SkeletonBar className="h-3 w-28" />
-                    <SkeletonBar className="mt-3 h-7 w-56" />
+                  <div className="min-w-0 flex-1">
+                    <SkeletonBar className="h-3 w-28 bg-[#072116]/12" />
+                    <SkeletonBar className="mt-3 h-7 w-56 max-w-full bg-[#072116]/12" />
                   </div>
-                  <SkeletonBar className="h-9 w-24 bg-[#ddb159]/16" />
+                  <SkeletonBar className="h-9 w-24 bg-[#ddb159]/22" />
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid h-[calc(100%-64px)] min-h-0 gap-2 overflow-hidden">
                   {Array.from({ length: 10 }).map((_, index) => (
                     <div
                       key={index}
-                      className="grid grid-cols-[40px_90px_minmax(0,1fr)_80px] gap-3 rounded-xl bg-[#faf6f0]/[0.045] p-3"
+                      className="grid min-h-0 grid-cols-[40px_90px_minmax(0,1fr)_80px] items-center gap-3 rounded-xl bg-[#072116]/[0.045] p-3"
                     >
-                      <SkeletonBar className="h-4 w-6" />
-                      <SkeletonBar className="h-4 w-14" />
-                      <SkeletonBar className="h-4 w-full" />
-                      <SkeletonBar className="h-4 w-14 bg-[#ddb159]/16" />
+                      <SkeletonBar className="h-4 w-6 bg-[#072116]/10" />
+                      <SkeletonBar className="h-4 w-14 bg-[#072116]/10" />
+                      <SkeletonBar className="h-4 w-full bg-[#072116]/10" />
+                      <SkeletonBar className="h-4 w-14 bg-[#ddb159]/22" />
                     </div>
                   ))}
                 </div>
               </SkeletonCard>
             </div>
 
-            <aside className="hidden min-h-0 gap-3 lg:grid lg:grid-rows-[156px_minmax(0,1fr)_88px]">
+            <aside className="hidden min-h-0 gap-3 lg:grid lg:grid-rows-[minmax(188px,0.9fr)_minmax(206px,1.05fr)_minmax(300px,1.45fr)]">
               <SkeletonCard />
               <SkeletonCard />
               <SkeletonCard />

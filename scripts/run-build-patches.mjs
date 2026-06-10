@@ -1,0 +1,11 @@
+await import("./apply-portfolio-dashboard-patches.mjs");
+await import("./finalise-dashboard-kpi-strip.mjs");
+await import("./polish-portfolio-page-preview.mjs");
+await import("./mobile-portfolio-polish.mjs");
+await import("./mobile-portfolio-final-fit.mjs");
+await import("./mobile-portfolio-ux-last-pass.mjs");
+await import("./mobile-portfolio-overflow-lock.mjs");
+await import("./mobile-rankings-row-polish.mjs");
+await import("./global-ui-fixes.mjs");
+await import("./portfolio-decision-pass.mjs");
+await import("./final-modal-chart-accuracy-pass.mjs");

@@ -1,0 +1,28 @@
+.sg-app-content > .relative.z-10 {
+  z-index: 60 !important;
+}
+
+.z-\[120\].fixed.inset-0,
+.z-\[220\].fixed.inset-0 {
+  z-index: 9999 !important;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(212, 175, 55, 0.08), transparent 34%),
+    radial-gradient(circle at 18% 58%, rgba(16, 185, 129, 0.10), transparent 42%),
+    linear-gradient(180deg, #072116 0%, #04180f 100%) !important;
+  backdrop-filter: none !important;
+}
+
+.relative.overflow-hidden.rounded-xl.bg-\[\#072116\]\/40,
+.relative.overflow-hidden.rounded-none.bg-transparent.sm\:rounded-xl.sm\:bg-\[\#072116\]\/40 {
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+@media (min-width: 640px) {
+  .sm\:bg-\[\#050706\] {
+    background:
+      radial-gradient(circle at 50% 18%, rgba(212, 175, 55, 0.09), transparent 34%),
+      radial-gradient(circle at 24% 58%, rgba(16, 185, 129, 0.12), transparent 44%),
+      linear-gradient(180deg, #050706 0%, #061b12 100%) !important;
+  }
+}

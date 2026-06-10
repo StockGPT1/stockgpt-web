@@ -17,26 +17,7 @@ function replaceBetween(start, end, replacement) {
   source = source.slice(0, startIndex) + replacement + source.slice(endIndex + end.length);
 }
 
-if (!source.includes("function formatShortCompany")) {
-  replaceOnce(
-    `function formatUpdatedTime(value?: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function cleanPortfolioName`,
-    `function formatUpdatedTime(value?: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatShortCompany(value: string | null | undefined) {
+const formatShortCompanyFunction = `function formatShortCompany(value: string | null | undefined) {
   const clean = String(value ?? "")
     .replace(/\(Class [A-Z]\)/gi, "")
     .replace(/\bIncorporated\b/gi, "")
@@ -50,9 +31,12 @@ function formatShortCompany(value: string | null | undefined) {
     .trim();
 
   return clean || "—";
-}
+}`;
 
-function cleanPortfolioName`,
+if (!source.includes("function formatShortCompany")) {
+  replaceOnce(
+    `function getChartChangePct(`,
+    `${formatShortCompanyFunction}\n\nfunction getChartChangePct(`,
   );
 }
 

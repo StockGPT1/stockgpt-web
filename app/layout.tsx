@@ -4,6 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
+import "./dashboard-right-rail.css";
+import "./portfolio-final-fixes.css";
 
 const iconVersion = "30";
 
@@ -81,59 +83,30 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: "cover",
   themeColor: "#072116",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          rel="icon"
-          type="image/png"
-          href={`/og-image.png?v=${iconVersion}`}
-        />
-
-        <link
-          rel="shortcut icon"
-          type="image/png"
-          href={`/og-image.png?v=${iconVersion}`}
-        />
-
-        <link rel="icon" href={`/favicon.ico?v=${iconVersion}`} sizes="any" />
-
-        <link
-          rel="apple-touch-icon"
-          href={`/apple-touch-icon.png?v=${iconVersion}`}
-          sizes="180x180"
-        />
-
-        <link
-          rel="apple-touch-icon-precomposed"
-          href={`/apple-touch-icon-precomposed.png?v=${iconVersion}`}
-          sizes="180x180"
-        />
-
-        <meta name="apple-mobile-web-app-title" content="StockGPT" />
-        <meta name="application-name" content="StockGPT" />
-        <meta name="theme-color" content="#072116" />
-      </head>
-
-      <body className="antialiased">
+      <body>
         {children}
-
         <Analytics />
-
-        <Script
-          src="https://asset.endorsely.com/endorsely.js"
-          data-endorsely="a00749c7-8bdd-47f8-a6de-1f57fb7702f5"
-          strategy="afterInteractive"
-        />
+        <Script id="stockgpt-structured-data" type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "StockGPT",
+            applicationCategory: "FinanceApplication",
+            operatingSystem: "Web",
+            offers: {
+              "@type": "Offer",
+              price: "18.99",
+              priceCurrency: "GBP",
+            },
+          })}
+        </Script>
       </body>
     </html>
   );
