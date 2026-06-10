@@ -1,6 +1,14 @@
+import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
+
+const YAHOO_FETCH_TIMEOUT_MS = 2_500;
+const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
+const CACHE_REVALIDATE_SECONDS = 5 * 60;
+
+const TICKER_TAPE_CACHE_TTL_MS = 5 * 60 * 1000;
+const MEMORY_CACHE_TTL_MS = CACHE_REVALIDATE_SECONDS * 1000;
 
 type RangeConfig = { range: string; interval: string };
 
@@ -39,24 +47,45 @@ type YahooChartResponse = {
 
 type CacheEntry = { data: ChartPoint[]; fetchedAt: number };
 const cache: Map<string, CacheEntry> = new Map();
-const CACHE_TTL_MS = 10 * 60 * 1000;
 
 type TickerTapeCacheEntry = { data: TickerTapeItem[]; fetchedAt: number };
 const tickerTapeCache: Map<string, TickerTapeCacheEntry> = new Map();
-const TICKER_TAPE_CACHE_TTL_MS = 60 * 1000;
 
 function cacheKey(ticker: string, range: TimeRange) {
   return `${ticker.toUpperCase()}::${range}`;
 }
 
-async function fetchYahooRange(
+function normalizeTicker(ticker: string) {
+  return ticker.trim().toUpperCase();
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeout = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function fetchYahooRangeUncached(
   ticker: string,
   range: TimeRange,
 ): Promise<ChartPoint[]> {
   const cfg = RANGE_CONFIG[range];
+  const normalizedTicker = normalizeTicker(ticker);
   const url = `${YAHOO_BASE}${encodeURIComponent(
-    ticker,
+    normalizedTicker,
   )}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), YAHOO_FETCH_TIMEOUT_MS);
 
   try {
     const res = await fetch(url, {
@@ -64,11 +93,12 @@ async function fetchYahooRange(
         "User-Agent": "Mozilla/5.0 (compatible; StockGPT/1.0)",
         Accept: "application/json",
       },
-      next: { revalidate: 600 },
+      next: { revalidate: CACHE_REVALIDATE_SECONDS },
+      signal: controller.signal,
     });
 
     if (!res.ok) {
-      console.warn(`Yahoo returned ${res.status} for ${ticker} ${range}`);
+      console.warn(`Yahoo returned ${res.status} for ${normalizedTicker} ${range}`);
       return [];
     }
 
@@ -101,10 +131,19 @@ async function fetchYahooRange(
 
     return points;
   } catch (err) {
-    console.error(`Yahoo fetch failed for ${ticker} ${range}:`, err);
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    if (!isAbort) console.error(`Yahoo fetch failed for ${normalizedTicker} ${range}:`, err);
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
+
+const fetchYahooRange = unstable_cache(
+  fetchYahooRangeUncached,
+  ["stockgpt-yahoo-chart-v2"],
+  { revalidate: CACHE_REVALIDATE_SECONDS },
+);
 
 export async function getStockChart(
   ticker: string,
@@ -112,14 +151,15 @@ export async function getStockChart(
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
   const now = Date.now();
+  const normalizedTicker = normalizeTicker(ticker);
 
   const rangesToFetch: TimeRange[] = [];
 
   for (const range of ranges) {
-    const key = cacheKey(ticker, range);
+    const key = cacheKey(normalizedTicker, range);
     const cached = cache.get(key);
 
-    if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    if (cached && now - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
       result[range] = cached.data;
     } else {
       rangesToFetch.push(range);
@@ -129,7 +169,7 @@ export async function getStockChart(
   if (rangesToFetch.length > 0) {
     const fetched = await Promise.all(
       rangesToFetch.map(async (range) => {
-        const points = await fetchYahooRange(ticker, range);
+        const points = await fetchYahooRange(normalizedTicker, range);
         return { range, points };
       }),
     );
@@ -137,7 +177,7 @@ export async function getStockChart(
     for (const { range, points } of fetched) {
       if (points.length > 0) {
         result[range] = points;
-        cache.set(cacheKey(ticker, range), { data: points, fetchedAt: now });
+        cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
       }
     }
   }
@@ -193,7 +233,7 @@ async function runInBatches<T, R>(
 
 function cleanTickerUniverse(tickers: string[], max = 500) {
   return Array.from(
-    new Set(tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean)),
+    new Set(tickers.map((ticker) => normalizeTicker(ticker)).filter(Boolean)),
   ).slice(0, max);
 }
 
@@ -218,10 +258,26 @@ async function getOneDayMover(ticker: string): Promise<Mover | null> {
   return { ticker, currentPrice: last, changePct };
 }
 
+async function getOneDayMovers(tickers: string[]): Promise<Mover[]> {
+  if (tickers.length === 0) return [];
+
+  const results = await runInBatches(tickers, 35, getOneDayMover);
+  return results.filter((r): r is Mover => r !== null);
+}
+
+const getCachedOneDayMovers = unstable_cache(
+  getOneDayMovers,
+  ["stockgpt-one-day-movers-v2"],
+  { revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
 export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
   const tickersToCheck = cleanTickerUniverse(tickers, 500);
-  const results = await runInBatches(tickersToCheck, 35, getOneDayMover);
-  const valid = results.filter((r): r is Mover => r !== null);
+  const valid = await withTimeout(
+    getCachedOneDayMovers(tickersToCheck),
+    ONE_DAY_MOVE_TIMEOUT_MS,
+    [],
+  );
 
   return new Map(valid.map((mover) => [mover.ticker, mover]));
 }
@@ -300,9 +356,7 @@ export async function getTickerTape(
     "META",
   ],
 ): Promise<TickerTapeItem[]> {
-  const cleanedSymbols = symbols
-    .map((symbol) => symbol.trim().toUpperCase())
-    .filter(Boolean);
+  const cleanedSymbols = symbols.map(normalizeTicker).filter(Boolean);
 
   if (cleanedSymbols.length === 0) return [];
 
