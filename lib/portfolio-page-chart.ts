@@ -79,15 +79,15 @@ function chooseHistoryRange(createdAtMs: number): TimeRange {
 }
 
 function displayedPerformanceBasis(summary: PortfolioHealthSummary) {
+  const valueLessPnl = summary.totalValue - summary.totalPnl;
+  if (Number.isFinite(valueLessPnl) && valueLessPnl > 0) return valueLessPnl;
+
   if (Math.abs(summary.totalPnlPct) > EPSILON) {
     const basisFromDisplayedPct = summary.totalPnl / (summary.totalPnlPct / 100);
     if (Number.isFinite(basisFromDisplayedPct) && basisFromDisplayedPct > 0) {
       return basisFromDisplayedPct;
     }
   }
-
-  const valueLessPnl = summary.totalValue - summary.totalPnl;
-  if (Number.isFinite(valueLessPnl) && valueLessPnl > 0) return valueLessPnl;
 
   return Math.max(summary.totalValue, 1);
 }
@@ -98,13 +98,12 @@ function fallbackPortfolioChart(
 ): Partial<Record<TimeRange, ChartPoint[]>> {
   const basis = displayedPerformanceBasis(summary);
   const now = Date.now();
+  const points = [
+    { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
+    { date: new Date(now).toISOString(), close: roundMoney(basis + summary.totalPnl) },
+  ];
 
-  return {
-    MAX: [
-      { date: new Date(createdAtMs).toISOString(), close: roundMoney(basis) },
-      { date: new Date(now).toISOString(), close: roundMoney(basis + summary.totalPnl) },
-    ],
-  };
+  return { MAX: points, "1D": points };
 }
 
 function transactionEvent(transaction: TransactionLike): PortfolioEvent | null {
@@ -122,35 +121,19 @@ function transactionEvent(transaction: TransactionLike): PortfolioEvent | null {
 
   if (!ticker) return null;
 
-  if (type === "buy") {
-    return { dateMs, ticker, shareDelta: impliedShares, cashDelta: -amount, costDelta: amount };
-  }
+  if (type === "buy") return { dateMs, ticker, shareDelta: impliedShares, cashDelta: -amount, costDelta: amount };
 
   if (type === "sell") {
     const realisedPnl = toNumber(transaction.realised_pnl, 0);
     const soldCostBasis = Math.max(0, amount - realisedPnl);
-    return {
-      dateMs,
-      ticker,
-      shareDelta: -impliedShares,
-      cashDelta: amount,
-      costDelta: -soldCostBasis,
-      realisedPnlDelta: realisedPnl,
-    };
+    return { dateMs, ticker, shareDelta: -impliedShares, cashDelta: amount, costDelta: -soldCostBasis, realisedPnlDelta: realisedPnl };
   }
 
   if (type === "log_existing") {
-    return {
-      dateMs,
-      ticker,
-      shareDelta: impliedShares,
-      costDelta: amount > 0 ? amount : impliedShares * price,
-    };
+    return { dateMs, ticker, shareDelta: impliedShares, costDelta: amount > 0 ? amount : impliedShares * price };
   }
 
-  if (type === "adjustment" && shares > 0) {
-    return { dateMs, ticker, setShares: shares, setCostBasis: shares * price };
-  }
+  if (type === "adjustment" && shares > 0) return { dateMs, ticker, setShares: shares, setCostBasis: shares * price };
 
   return null;
 }
@@ -164,21 +147,11 @@ function replayFinalExposure(events: PortfolioEvent[]) {
     .sort((a, b) => a.dateMs - b.dateMs)
     .forEach((event) => {
       const ticker = event.ticker!;
+      if (event.setShares != null) shares.set(ticker, Math.max(0, event.setShares));
+      else shares.set(ticker, Math.max(0, (shares.get(ticker) ?? 0) + toNumber(event.shareDelta, 0)));
 
-      if (event.setShares != null) {
-        shares.set(ticker, Math.max(0, event.setShares));
-      } else {
-        shares.set(ticker, Math.max(0, (shares.get(ticker) ?? 0) + toNumber(event.shareDelta, 0)));
-      }
-
-      if (event.setCostBasis != null) {
-        costBasis.set(ticker, Math.max(0, event.setCostBasis));
-      } else {
-        costBasis.set(
-          ticker,
-          Math.max(0, (costBasis.get(ticker) ?? 0) + toNumber(event.costDelta, 0)),
-        );
-      }
+      if (event.setCostBasis != null) costBasis.set(ticker, Math.max(0, event.setCostBasis));
+      else costBasis.set(ticker, Math.max(0, (costBasis.get(ticker) ?? 0) + toNumber(event.costDelta, 0)));
     });
 
   return { shares, costBasis };
@@ -197,7 +170,6 @@ function getFallbackPrice(holding: EnrichedHolding | undefined) {
 
 function getPriceAtOrBefore(points: ChartPoint[], dateMs: number, fallbackPrice: number) {
   if (points.length === 0) return fallbackPrice;
-
   let candidate = fallbackPrice;
 
   for (const point of points) {
@@ -209,60 +181,60 @@ function getPriceAtOrBefore(points: ChartPoint[], dateMs: number, fallbackPrice:
   return candidate;
 }
 
-function buildIntradayPortfolioChart({
-  chartResults,
-  enriched,
-  currentCash,
+function buildContributionAdjustedPoints({
+  dates,
+  events,
+  priceMap,
+  holdingMap,
+  displayBasis,
   summary,
 }: {
-  chartResults: TickerChartResult[];
-  enriched: EnrichedHolding[];
-  currentCash: number;
+  dates: number[];
+  events: PortfolioEvent[];
+  priceMap: Map<string, ChartPoint[]>;
+  holdingMap: Map<string, EnrichedHolding>;
+  displayBasis: number;
   summary: PortfolioHealthSummary;
 }) {
-  const holdingMap = new Map(enriched.map((holding) => [holding.ticker, holding]));
-  const intradayMap = new Map(chartResults.map((item) => [item.ticker, item.intradayPoints]));
-  const dateSet = new Set<number>();
-
-  chartResults.forEach(({ intradayPoints }) => {
-    intradayPoints.forEach((point) => {
-      const ms = safeDateMs(point.date, 0);
-      if (ms > 0) dateSet.add(ms);
-    });
-  });
-
-  const sortedDates = Array.from(dateSet).sort((a, b) => a - b);
+  const sortedDates = Array.from(new Set(dates)).sort((a, b) => a - b);
   if (sortedDates.length < 2) return [];
 
-  const rawPoints = sortedDates
-    .map((dateMs) => {
-      let value = currentCash;
+  const sortedEvents = [...events].sort((a, b) => a.dateMs - b.dateMs);
+  const shares = new Map<string, number>();
+  const costBasis = new Map<string, number>();
+  let realisedPnl = 0;
+  let eventIndex = 0;
 
-      enriched.forEach((holding) => {
-        const shares = toNumber(holding.shares, 0);
-        if (shares <= EPSILON) return;
+  const points = sortedDates.map((dateMs) => {
+    while (eventIndex < sortedEvents.length && sortedEvents[eventIndex].dateMs <= dateMs) {
+      const event = sortedEvents[eventIndex];
+      realisedPnl += toNumber(event.realisedPnlDelta, 0);
 
-        const fallbackPrice = getFallbackPrice(holdingMap.get(holding.ticker));
-        const price = getPriceAtOrBefore(intradayMap.get(holding.ticker) ?? [], dateMs, fallbackPrice);
-        value += shares * price;
-      });
+      if (event.ticker) {
+        if (event.setShares != null) shares.set(event.ticker, Math.max(0, event.setShares));
+        else shares.set(event.ticker, Math.max(0, (shares.get(event.ticker) ?? 0) + toNumber(event.shareDelta, 0)));
 
-      return {
-        date: new Date(dateMs).toISOString(),
-        close: roundMoney(value),
-      };
-    })
-    .filter((point) => Number.isFinite(point.close) && point.close > 0);
+        if (event.setCostBasis != null) costBasis.set(event.ticker, Math.max(0, event.setCostBasis));
+        else costBasis.set(event.ticker, Math.max(0, (costBasis.get(event.ticker) ?? 0) + toNumber(event.costDelta, 0)));
+      }
 
-  if (rawPoints.length < 2) return [];
+      eventIndex += 1;
+    }
 
-  const lastRaw = rawPoints[rawPoints.length - 1]?.close ?? summary.totalValue;
-  const displayOffset = Number.isFinite(lastRaw) ? summary.totalValue - lastRaw : 0;
+    let unrealisedPnl = 0;
+    shares.forEach((shareCount, ticker) => {
+      if (shareCount <= EPSILON) return;
+      const fallbackPrice = getFallbackPrice(holdingMap.get(ticker));
+      const price = getPriceAtOrBefore(priceMap.get(ticker) ?? [], dateMs, fallbackPrice);
+      unrealisedPnl += shareCount * price - (costBasis.get(ticker) ?? 0);
+    });
 
-  return rawPoints.map((point) => ({
-    ...point,
-    close: Math.max(0, roundMoney(point.close + displayOffset)),
-  }));
+    return { date: new Date(dateMs).toISOString(), close: Math.max(0, roundMoney(displayBasis + realisedPnl + unrealisedPnl)) };
+  });
+
+  points[0] = { ...points[0], close: roundMoney(displayBasis) };
+  points[points.length - 1] = { ...points[points.length - 1], close: Math.max(0, roundMoney(displayBasis + summary.totalPnl)) };
+  return points;
 }
 
 export async function buildPortfolioPageChart({
@@ -281,12 +253,9 @@ export async function buildPortfolioPageChart({
   const currentCash = toNumber(portfolio.cash_balance, 0);
   const displayBasis = displayedPerformanceBasis(summary);
   const holdingMap = new Map(enriched.map((holding) => [holding.ticker, holding]));
-  const events: PortfolioEvent[] = transactions
-    .map(transactionEvent)
-    .filter((event): event is PortfolioEvent => event !== null);
+  const events: PortfolioEvent[] = transactions.map(transactionEvent).filter((event): event is PortfolioEvent => event !== null);
 
   const finalExposure = replayFinalExposure(events);
-
   enriched.forEach((holding) => {
     const currentShares = toNumber(holding.shares, 0);
     const currentCostBasis = toNumber(holding.costBasis, currentShares * holding.entryPrice);
@@ -294,7 +263,6 @@ export async function buildPortfolioPageChart({
     const replayedCostBasis = finalExposure.costBasis.get(holding.ticker) ?? 0;
     const missingShares = roundShares(currentShares - replayedShares);
     const missingCostBasis = roundMoney(currentCostBasis - replayedCostBasis);
-
     if (Math.abs(missingShares) <= EPSILON && Math.abs(missingCostBasis) <= 0.009) return;
 
     events.push({
@@ -305,117 +273,66 @@ export async function buildPortfolioPageChart({
     });
   });
 
-  const finalCashFromTransactions = replayFinalCash(events);
-  const cashAdjustment = roundMoney(currentCash - finalCashFromTransactions);
+  const cashAdjustment = roundMoney(currentCash - replayFinalCash(events));
   if (Math.abs(cashAdjustment) > 0.009) events.push({ dateMs: createdAtMs, cashDelta: cashAdjustment });
 
-  const tickers = Array.from(
-    new Set([
-      ...enriched.map((holding) => holding.ticker),
-      ...transactions.map((transaction) => cleanTicker(transaction.ticker)).filter(Boolean),
-    ]),
-  ).slice(0, 50);
-
+  const tickers = Array.from(new Set([...enriched.map((holding) => holding.ticker), ...transactions.map((transaction) => cleanTicker(transaction.ticker)).filter(Boolean)])).slice(0, 50);
   if (tickers.length === 0) return fallbackPortfolioChart(summary, createdAtMs);
 
   const range = chooseHistoryRange(createdAtMs);
   const chartResults: TickerChartResult[] = await Promise.all(
     tickers.map(async (ticker) => {
       const chart = await getStockChart(ticker, ["1D", range]);
-      return {
-        ticker,
-        points: chart[range] ?? [],
-        intradayPoints: chart["1D"] ?? [],
-      };
+      return { ticker, points: chart[range] ?? [], intradayPoints: chart["1D"] ?? [] };
     }),
   );
 
-  const intradayPoints = buildIntradayPortfolioChart({
-    chartResults,
-    enriched,
-    currentCash,
-    summary,
-  });
+  const historyPriceMap = new Map(chartResults.map((item) => [item.ticker, item.points]));
+  const intradayPriceMap = new Map(chartResults.map((item) => [item.ticker, item.intradayPoints]));
 
-  const priceMap = new Map(chartResults.map((item) => [item.ticker, item.points]));
-  const dateSet = new Set<number>([createdAtMs, nowMs]);
-
+  const historyDates = new Set<number>([createdAtMs, nowMs]);
   events.forEach((event) => {
-    if (event.dateMs >= createdAtMs && event.dateMs <= nowMs) dateSet.add(event.dateMs);
+    if (event.dateMs >= createdAtMs && event.dateMs <= nowMs) historyDates.add(event.dateMs);
   });
-
   chartResults.forEach(({ points }) => {
     points.forEach((point) => {
       const ms = safeDateMs(point.date, 0);
-      if (ms >= createdAtMs && ms <= nowMs) dateSet.add(ms);
+      if (ms >= createdAtMs && ms <= nowMs) historyDates.add(ms);
     });
   });
 
-  const sortedDates = Array.from(dateSet).sort((a, b) => a - b);
-  if (sortedDates.length < 2) {
-    return {
-      ...fallbackPortfolioChart(summary, createdAtMs),
-      ...(intradayPoints.length >= 2 ? { "1D": intradayPoints } : {}),
-    };
-  }
-
-  const sortedEvents = [...events].sort((a, b) => a.dateMs - b.dateMs);
-  const shares = new Map<string, number>();
-  const costBasis = new Map<string, number>();
-  let realisedPnl = 0;
-  let eventIndex = 0;
-
-  const points: ChartPoint[] = sortedDates.map((dateMs) => {
-    while (eventIndex < sortedEvents.length && sortedEvents[eventIndex].dateMs <= dateMs) {
-      const event = sortedEvents[eventIndex];
-      realisedPnl += toNumber(event.realisedPnlDelta, 0);
-
-      if (event.ticker) {
-        if (event.setShares != null) {
-          shares.set(event.ticker, Math.max(0, event.setShares));
-        } else {
-          shares.set(
-            event.ticker,
-            Math.max(0, (shares.get(event.ticker) ?? 0) + toNumber(event.shareDelta, 0)),
-          );
-        }
-
-        if (event.setCostBasis != null) {
-          costBasis.set(event.ticker, Math.max(0, event.setCostBasis));
-        } else {
-          costBasis.set(
-            event.ticker,
-            Math.max(0, (costBasis.get(event.ticker) ?? 0) + toNumber(event.costDelta, 0)),
-          );
-        }
-      }
-
-      eventIndex += 1;
-    }
-
-    let unrealisedPnl = 0;
-
-    shares.forEach((shareCount, ticker) => {
-      if (shareCount <= EPSILON) return;
-      const fallbackPrice = getFallbackPrice(holdingMap.get(ticker));
-      const price = getPriceAtOrBefore(priceMap.get(ticker) ?? [], dateMs, fallbackPrice);
-      unrealisedPnl += shareCount * price - (costBasis.get(ticker) ?? 0);
-    });
-
-    return {
-      date: new Date(dateMs).toISOString(),
-      close: Math.max(0, roundMoney(displayBasis + realisedPnl + unrealisedPnl)),
-    };
+  const maxPoints = buildContributionAdjustedPoints({
+    dates: Array.from(historyDates),
+    events,
+    priceMap: historyPriceMap,
+    holdingMap,
+    displayBasis,
+    summary,
   });
 
-  points[0] = { ...points[0], close: roundMoney(displayBasis) };
-  points[points.length - 1] = {
-    ...points[points.length - 1],
-    close: Math.max(0, roundMoney(displayBasis + summary.totalPnl)),
-  };
+  const intradayDates = new Set<number>([createdAtMs, nowMs]);
+  events.forEach((event) => {
+    if (event.dateMs >= createdAtMs && event.dateMs <= nowMs) intradayDates.add(event.dateMs);
+  });
+  chartResults.forEach(({ intradayPoints }) => {
+    intradayPoints.forEach((point) => {
+      const ms = safeDateMs(point.date, 0);
+      if (ms >= createdAtMs && ms <= nowMs) intradayDates.add(ms);
+    });
+  });
 
+  const intradayPoints = buildContributionAdjustedPoints({
+    dates: Array.from(intradayDates),
+    events,
+    priceMap: intradayPriceMap,
+    holdingMap,
+    displayBasis,
+    summary,
+  });
+
+  const fallback = fallbackPortfolioChart(summary, createdAtMs);
   return {
-    MAX: points,
-    ...(intradayPoints.length >= 2 ? { "1D": intradayPoints } : {}),
+    MAX: maxPoints.length >= 2 ? maxPoints : fallback.MAX,
+    "1D": intradayPoints.length >= 2 ? intradayPoints : fallback["1D"],
   };
 }
