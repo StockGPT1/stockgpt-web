@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/apply-portfolio-dashboard-patches.mjs && node scripts/finalise-dashboard-kpi-strip.mjs && node scripts/polish-portfolio-page-preview.mjs && node scripts/mobile-portfolio-polish.mjs && node scripts/mobile-portfolio-final-fit.mjs && node scripts/mobile-portfolio-ux-last-pass.mjs && node scripts/mobile-portfolio-overflow-lock.mjs && node scripts/mobile-rankings-row-polish.mjs && node scripts/global-ui-fixes.mjs && node scripts/portfolio-decision-pass.mjs && node scripts/final-modal-chart-accuracy-pass.mjs && next build",
   "crons": [
     {
       "path": "/api/cron/capture-rank-snapshot",
