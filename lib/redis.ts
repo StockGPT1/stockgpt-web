@@ -24,13 +24,13 @@ type RedisHealthCheck = {
   error: string | null;
 };
 
-const REDIS_COMMAND_TIMEOUT_MS = Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 1_000);
-const REDIS_DISABLED_COOLDOWN_MS = Number(process.env.REDIS_DISABLED_COOLDOWN_MS ?? 2 * 60 * 1000);
+const REDIS_COMMAND_TIMEOUT_MS = Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 3_000);
+const REDIS_DISABLED_COOLDOWN_MS = Number(process.env.REDIS_DISABLED_COOLDOWN_MS ?? 60 * 1000);
 
 let endpoint: string | null | undefined;
 let token: string | null | undefined;
 let disabledUntil = 0;
-let hasLoggedFailure = false;
+let lastWarningAt = 0;
 let hasLoggedCommandError = false;
 
 function getEndpoint() {
@@ -68,29 +68,32 @@ function isRedisTemporarilyDisabled() {
 
 function safeDetail(detail: unknown) {
   if (detail == null) return "";
-  if (typeof detail === "string") return detail.slice(0, 220);
-  if (detail instanceof Error) return `${detail.name}: ${detail.message}`.slice(0, 220);
+  if (typeof detail === "string") return detail.slice(0, 160);
+  if (detail instanceof Error) return `${detail.name}: ${detail.message}`.slice(0, 160);
 
   try {
-    return JSON.stringify(detail).slice(0, 220);
+    return JSON.stringify(detail).slice(0, 160);
   } catch {
-    return String(detail).slice(0, 220);
+    return String(detail).slice(0, 160);
   }
 }
 
-function disableRedis(reason: string, detail?: unknown) {
-  disabledUntil = Date.now() + REDIS_DISABLED_COOLDOWN_MS;
+function warnRedis(reason: string, detail?: unknown) {
+  const now = Date.now();
+  if (now - lastWarningAt < 60_000) return;
+  lastWarningAt = now;
+  console.warn(`REDIS_CACHE_MISS reason=${reason}${detail ? ` detail=${safeDetail(detail)}` : ""}`);
+}
 
-  if (!hasLoggedFailure) {
-    hasLoggedFailure = true;
-    console.warn(`Redis disabled temporarily: ${reason}${detail ? ` | ${safeDetail(detail)}` : ""}`);
-  }
+function cooldownRedis(reason: string, detail?: unknown) {
+  disabledUntil = Date.now() + REDIS_DISABLED_COOLDOWN_MS;
+  warnRedis(reason, detail);
 }
 
 function logCommandError(detail?: unknown) {
   if (!hasLoggedCommandError) {
     hasLoggedCommandError = true;
-    console.warn(`Redis command returned error: ${safeDetail(detail)}`);
+    warnRedis("command_error", detail);
   }
 }
 
@@ -128,11 +131,18 @@ async function redisPipelineInternal<T = unknown>(commands: RedisCommand[], opti
     });
 
     if (!response.ok) {
-      disableRedis("bad_response", {
+      const detail = {
         status: response.status,
         statusText: response.statusText,
         host: getEndpointHost(),
-      });
+      };
+
+      if (response.status === 401 || response.status === 403 || response.status === 404 || response.status === 429) {
+        cooldownRedis("bad_response", detail);
+      } else {
+        warnRedis("bad_response", detail);
+      }
+
       return commands.map(() => null);
     }
 
@@ -147,7 +157,8 @@ async function redisPipelineInternal<T = unknown>(commands: RedisCommand[], opti
       return (item.result ?? null) as T | null;
     });
   } catch (error) {
-    disableRedis(isAbortError(error) ? "timeout" : "unavailable", error);
+    // Important: transient Upstash/network timeouts should be cache misses, not a global Redis shutdown.
+    warnRedis(isAbortError(error) ? "timeout" : "unavailable", error);
     return commands.map(() => null);
   } finally {
     clearTimeout(timeout);
