@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import { getJsonCache, getJsonCacheMany, setJsonCache } from "@/lib/redis-cache";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 
@@ -11,6 +12,15 @@ const CACHE_REVALIDATE_SECONDS = 5 * 60;
 const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 12);
 const LIVE_MOVE_BATCH_SIZE = Number(process.env.LIVE_MOVE_BATCH_SIZE ?? 8);
 const DB_CHART_CACHE_TTL_MS = Number(process.env.DB_CHART_CACHE_TTL_MS ?? 15 * 60 * 1000);
+const REDIS_CHART_CACHE_TTL_SECONDS = Number(
+  process.env.REDIS_CHART_CACHE_TTL_SECONDS ?? 15 * 60,
+);
+const REDIS_MARKET_SNAPSHOT_TTL_SECONDS = Number(
+  process.env.REDIS_MARKET_SNAPSHOT_TTL_SECONDS ?? 5 * 60,
+);
+const REDIS_TICKER_TAPE_TTL_SECONDS = Number(
+  process.env.REDIS_TICKER_TAPE_TTL_SECONDS ?? 5 * 60,
+);
 
 const TICKER_TAPE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMORY_CACHE_TTL_MS = CACHE_REVALIDATE_SECONDS * 1000;
@@ -74,6 +84,18 @@ function cacheKey(ticker: string, range: TimeRange) {
   return `${ticker.toUpperCase()}::${range}`;
 }
 
+function chartRedisKey(ticker: string, range: TimeRange) {
+  return `chart:${ticker.toUpperCase()}:${range}`;
+}
+
+function marketSnapshotRedisKey(ticker: string) {
+  return `market:snapshot:${ticker.toUpperCase()}`;
+}
+
+function tickerTapeRedisKey(symbols: string[]) {
+  return `ticker-tape:${symbols.join("|")}`;
+}
+
 function normalizeTicker(ticker: string) {
   return ticker.trim().toUpperCase();
 }
@@ -101,6 +123,17 @@ function coerceChartPoints(value: unknown): ChartPoint[] {
       return { date, close };
     })
     .filter((point): point is ChartPoint => point !== null);
+}
+
+function coerceMover(value: unknown): Mover | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as { ticker?: unknown; currentPrice?: unknown; changePct?: unknown };
+  const ticker = typeof raw.ticker === "string" ? normalizeTicker(raw.ticker) : "";
+  const currentPrice = finitePositiveNumber(raw.currentPrice);
+  const changePct = finiteNumberOrNull(raw.changePct);
+
+  if (!ticker || currentPrice === null || changePct === null) return null;
+  return { ticker, currentPrice, changePct };
 }
 
 function isFreshTimestamp(value: string | null, ttlMs: number) {
@@ -133,6 +166,42 @@ function getAdminWriteClient() {
   }
 }
 
+async function getCachedChartRowsFromRedis(
+  ticker: string,
+  ranges: TimeRange[],
+): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  if (ranges.length === 0) return {};
+
+  const keys = ranges.map((range) => chartRedisKey(ticker, range));
+  const cached = await getJsonCacheMany<ChartPoint[]>(keys);
+  const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
+
+  ranges.forEach((range) => {
+    const points = coerceChartPoints(cached.get(chartRedisKey(ticker, range)));
+    if (points.length > 0) result[range] = points;
+  });
+
+  return result;
+}
+
+async function setChartRowsInRedis(
+  ticker: string,
+  entries: Array<{ range: TimeRange; points: ChartPoint[] }>,
+) {
+  const validEntries = entries.filter((entry) => entry.points.length > 0);
+  if (validEntries.length === 0) return;
+
+  await Promise.all(
+    validEntries.map((entry) =>
+      setJsonCache(
+        chartRedisKey(ticker, entry.range),
+        entry.points,
+        REDIS_CHART_CACHE_TTL_SECONDS,
+      ),
+    ),
+  );
+}
+
 async function getCachedChartRows(
   ticker: string,
   ranges: TimeRange[],
@@ -150,6 +219,7 @@ async function getCachedChartRows(
     if (error) return {};
 
     const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
+    const redisWrites: Array<{ range: TimeRange; points: ChartPoint[] }> = [];
 
     ((data ?? []) as ChartCacheRow[]).forEach((row) => {
       const range = row.range as TimeRange | null;
@@ -159,8 +229,10 @@ async function getCachedChartRows(
       const points = coerceChartPoints(row.points);
       if (points.length === 0) return;
       result[range] = points;
+      redisWrites.push({ range, points });
     });
 
+    void setChartRowsInRedis(ticker, redisWrites);
     return result;
   } catch {
     return {};
@@ -173,6 +245,8 @@ async function upsertChartCache(
 ) {
   const validEntries = entries.filter((entry) => entry.points.length > 0);
   if (validEntries.length === 0) return;
+
+  void setChartRowsInRedis(ticker, validEntries);
 
   try {
     const supabase = getAdminWriteClient();
@@ -286,6 +360,17 @@ export async function getStockChart(
   }
 
   if (rangesToFetch.length > 0) {
+    const redisCached = await getCachedChartRowsFromRedis(normalizedTicker, rangesToFetch);
+    rangesToFetch = rangesToFetch.filter((range) => {
+      const points = redisCached[range];
+      if (!points || points.length === 0) return true;
+      result[range] = points;
+      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
+      return false;
+    });
+  }
+
+  if (rangesToFetch.length > 0) {
     const dbCached = await getCachedChartRows(normalizedTicker, rangesToFetch);
     rangesToFetch = rangesToFetch.filter((range) => {
       const points = dbCached[range];
@@ -375,35 +460,67 @@ function cleanTickerUniverse(tickers: string[], max = 500) {
 async function getCachedOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
   if (tickers.length === 0) return new Map();
 
+  const result = new Map<string, Mover>();
+  const redisKeys = tickers.map(marketSnapshotRedisKey);
+  const redisCached = await getJsonCacheMany<Mover>(redisKeys);
+
+  tickers.forEach((ticker) => {
+    const mover = coerceMover(redisCached.get(marketSnapshotRedisKey(ticker)));
+    if (mover) result.set(ticker, mover);
+  });
+
+  const dbTickers = tickers.filter((ticker) => !result.has(ticker));
+  if (dbTickers.length === 0) return result;
+
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("market_snapshots")
       .select("ticker,current_price,change_pct_1d,updated_at")
-      .in("ticker", tickers);
+      .in("ticker", dbTickers);
 
-    if (error) return new Map();
+    if (error) return result;
 
     const rows = (data ?? []) as MarketSnapshotRow[];
-    const valid = rows
-      .map((row) => {
-        const ticker = row.ticker ? normalizeTicker(row.ticker) : "";
-        const currentPrice = finitePositiveNumber(row.current_price);
-        const changePct = finiteNumberOrNull(row.change_pct_1d);
+    const redisWrites: Mover[] = [];
 
-        if (!ticker || currentPrice === null || changePct === null) return null;
-        return [ticker, { ticker, currentPrice, changePct }] as const;
-      })
-      .filter((row): row is readonly [string, Mover] => row !== null);
+    rows.forEach((row) => {
+      const ticker = row.ticker ? normalizeTicker(row.ticker) : "";
+      const currentPrice = finitePositiveNumber(row.current_price);
+      const changePct = finiteNumberOrNull(row.change_pct_1d);
 
-    return new Map(valid);
+      if (!ticker || currentPrice === null || changePct === null) return;
+      const mover = { ticker, currentPrice, changePct };
+      result.set(ticker, mover);
+      redisWrites.push(mover);
+    });
+
+    void setMarketSnapshotsInRedis(redisWrites);
+    return result;
   } catch {
-    return new Map();
+    return result;
   }
+}
+
+async function setMarketSnapshotsInRedis(movers: Mover[]) {
+  const valid = movers.filter((mover) => coerceMover(mover));
+  if (valid.length === 0) return;
+
+  await Promise.all(
+    valid.map((mover) =>
+      setJsonCache(
+        marketSnapshotRedisKey(mover.ticker),
+        mover,
+        REDIS_MARKET_SNAPSHOT_TTL_SECONDS,
+      ),
+    ),
+  );
 }
 
 async function upsertMarketSnapshots(movers: Mover[]) {
   if (movers.length === 0) return;
+
+  void setMarketSnapshotsInRedis(movers);
 
   try {
     const supabase = getAdminWriteClient();
@@ -596,11 +713,19 @@ export async function getTickerTape(
     return cached.data;
   }
 
+  const redisKey = tickerTapeRedisKey(cleanedSymbols);
+  const redisCached = await getJsonCache<TickerTapeItem[]>(redisKey);
+  if (redisCached?.length) {
+    tickerTapeCache.set(cacheKey, { data: redisCached, fetchedAt: now });
+    return redisCached;
+  }
+
   const cachedMoveMap = await getCachedOneDayMoveMap(cleanedSymbols);
 
   if (cachedMoveMap.size === cleanedSymbols.length) {
     const items = cleanedSymbols.map((symbol) => tickerTapeItemFromMover(symbol, cachedMoveMap.get(symbol)!));
     tickerTapeCache.set(cacheKey, { data: items, fetchedAt: now });
+    void setJsonCache(redisKey, items, REDIS_TICKER_TAPE_TTL_SECONDS);
     return items;
   }
 
@@ -649,6 +774,7 @@ export async function getTickerTape(
     data: valid,
     fetchedAt: now,
   });
+  void setJsonCache(redisKey, valid, REDIS_TICKER_TAPE_TTL_SECONDS);
 
   void upsertMarketSnapshots(
     valid.map((item) => ({
