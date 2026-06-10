@@ -1,11 +1,14 @@
 import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import { createClient } from "@/utils/supabase/server";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
 
 const YAHOO_FETCH_TIMEOUT_MS = 2_500;
 const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
+const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 12);
+const LIVE_MOVE_BATCH_SIZE = Number(process.env.LIVE_MOVE_BATCH_SIZE ?? 8);
 
 const TICKER_TAPE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMORY_CACHE_TTL_MS = CACHE_REVALIDATE_SECONDS * 1000;
@@ -51,12 +54,29 @@ const cache: Map<string, CacheEntry> = new Map();
 type TickerTapeCacheEntry = { data: TickerTapeItem[]; fetchedAt: number };
 const tickerTapeCache: Map<string, TickerTapeCacheEntry> = new Map();
 
+type MarketSnapshotRow = {
+  ticker: string | null;
+  current_price: number | string | null;
+  change_pct_1d: number | string | null;
+  updated_at: string | null;
+};
+
 function cacheKey(ticker: string, range: TimeRange) {
   return `${ticker.toUpperCase()}::${range}`;
 }
 
 function normalizeTicker(ticker: string) {
   return ticker.trim().toUpperCase();
+}
+
+function finitePositiveNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function finiteNumberOrNull(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -141,7 +161,7 @@ async function fetchYahooRangeUncached(
 
 const fetchYahooRange = unstable_cache(
   fetchYahooRangeUncached,
-  ["stockgpt-yahoo-chart-v2"],
+  ["stockgpt-yahoo-chart-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
@@ -237,6 +257,56 @@ function cleanTickerUniverse(tickers: string[], max = 500) {
   ).slice(0, max);
 }
 
+async function getCachedOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
+  if (tickers.length === 0) return new Map();
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("market_snapshots")
+      .select("ticker,current_price,change_pct_1d,updated_at")
+      .in("ticker", tickers);
+
+    if (error) return new Map();
+
+    const rows = (data ?? []) as MarketSnapshotRow[];
+    const valid = rows
+      .map((row) => {
+        const ticker = row.ticker ? normalizeTicker(row.ticker) : "";
+        const currentPrice = finitePositiveNumber(row.current_price);
+        const changePct = finiteNumberOrNull(row.change_pct_1d);
+
+        if (!ticker || currentPrice === null || changePct === null) return null;
+        return [ticker, { ticker, currentPrice, changePct }] as const;
+      })
+      .filter((row): row is readonly [string, Mover] => row !== null);
+
+    return new Map(valid);
+  } catch {
+    return new Map();
+  }
+}
+
+async function upsertMarketSnapshots(movers: Mover[]) {
+  if (movers.length === 0) return;
+
+  try {
+    const supabase = await createClient();
+    await supabase.from("market_snapshots").upsert(
+      movers.map((mover) => ({
+        ticker: mover.ticker,
+        current_price: mover.currentPrice,
+        change_pct_1d: mover.changePct,
+        updated_at: new Date().toISOString(),
+        source: "yahoo",
+      })),
+      { onConflict: "ticker" },
+    );
+  } catch (err) {
+    console.warn("Could not persist market snapshots", err);
+  }
+}
+
 async function getOneDayMover(ticker: string): Promise<Mover | null> {
   const data = await getStockChart(ticker, ["1D", "5D"]);
   const points = (data["1D"] && data["1D"]!.length >= 2)
@@ -267,19 +337,47 @@ async function getOneDayMovers(tickers: string[]): Promise<Mover[]> {
 
 const getCachedOneDayMovers = unstable_cache(
   getOneDayMovers,
-  ["stockgpt-one-day-movers-v2"],
+  ["stockgpt-one-day-movers-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS },
 );
 
 export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
   const tickersToCheck = cleanTickerUniverse(tickers, 500);
-  const valid = await withTimeout(
-    getCachedOneDayMovers(tickersToCheck),
+  if (tickersToCheck.length === 0) return new Map();
+
+  const cached = await getCachedOneDayMoveMap(tickersToCheck);
+  const missingTickers = tickersToCheck
+    .filter((ticker) => !cached.has(ticker))
+    .slice(0, Math.max(0, LIVE_MOVE_FALLBACK_LIMIT));
+
+  if (missingTickers.length === 0) return cached;
+
+  const fresh = await withTimeout(
+    getCachedOneDayMovers(missingTickers),
     ONE_DAY_MOVE_TIMEOUT_MS,
     [],
   );
 
-  return new Map(valid.map((mover) => [mover.ticker, mover]));
+  fresh.forEach((mover) => cached.set(mover.ticker, mover));
+  void upsertMarketSnapshots(fresh);
+
+  return cached;
+}
+
+export async function refreshMarketSnapshots(
+  tickers: string[],
+  options: { batchSize?: number; maxTickers?: number } = {},
+): Promise<{ attempted: number; updated: number }> {
+  const tickersToRefresh = cleanTickerUniverse(tickers, options.maxTickers ?? 520);
+  if (tickersToRefresh.length === 0) return { attempted: 0, updated: 0 };
+
+  const batchSize = Math.max(1, options.batchSize ?? LIVE_MOVE_BATCH_SIZE);
+  const results = await runInBatches(tickersToRefresh, batchSize, getOneDayMover);
+  const movers = results.filter((result): result is Mover => result !== null);
+
+  await upsertMarketSnapshots(movers);
+
+  return { attempted: tickersToRefresh.length, updated: movers.length };
 }
 
 export async function getTopMovers(
@@ -342,6 +440,19 @@ function getFirstValidClose(points: ChartPoint[]) {
   return null;
 }
 
+function tickerTapeItemFromMover(symbol: string, mover: Mover): TickerTapeItem {
+  const previous = mover.currentPrice / (1 + mover.changePct / 100);
+  const change = Number.isFinite(previous) && previous > 0 ? mover.currentPrice - previous : 0;
+
+  return {
+    symbol: displaySymbol(symbol),
+    yahooSymbol: symbol,
+    price: Math.round(mover.currentPrice * 100) / 100,
+    change: Math.round(change * 100) / 100,
+    changePct: Math.round(mover.changePct * 100) / 100,
+  };
+}
+
 export async function getTickerTape(
   symbols: string[] = [
     "^GSPC",
@@ -368,8 +479,19 @@ export async function getTickerTape(
     return cached.data;
   }
 
+  const cachedMoveMap = await getCachedOneDayMoveMap(cleanedSymbols);
+
+  if (cachedMoveMap.size === cleanedSymbols.length) {
+    const items = cleanedSymbols.map((symbol) => tickerTapeItemFromMover(symbol, cachedMoveMap.get(symbol)!));
+    tickerTapeCache.set(cacheKey, { data: items, fetchedAt: now });
+    return items;
+  }
+
   const results = await Promise.all(
     cleanedSymbols.map(async (symbol) => {
+      const cachedMover = cachedMoveMap.get(symbol);
+      if (cachedMover) return tickerTapeItemFromMover(symbol, cachedMover);
+
       const data = await getStockChart(symbol, ["1D", "5D"]);
       const oneDayPoints = data["1D"] ?? [];
       const fiveDayPoints = data["5D"] ?? [];
@@ -410,6 +532,14 @@ export async function getTickerTape(
     data: valid,
     fetchedAt: now,
   });
+
+  void upsertMarketSnapshots(
+    valid.map((item) => ({
+      ticker: item.yahooSymbol,
+      currentPrice: item.price,
+      changePct: item.changePct,
+    })),
+  );
 
   return valid;
 }
