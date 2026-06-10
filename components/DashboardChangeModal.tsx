@@ -67,10 +67,10 @@ function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => 
     <button
       type="button"
       onClick={onOpen}
-      className="group flex min-w-0 flex-col items-center justify-start text-center outline-none"
+      className="group flex min-h-0 min-w-0 flex-col items-center justify-center text-center outline-none"
       title={`${item.ticker} ${item.dailyMoveLabel}`}
     >
-      <div className="grid size-[clamp(36px,4.5vw,46px)] place-items-center rounded-full bg-white shadow-[0_6px_14px_rgba(7,33,22,0.12)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
+      <div className="grid size-[clamp(36px,4.5vw,52px)] place-items-center rounded-full bg-white shadow-[0_6px_14px_rgba(7,33,22,0.12)] ring-1 ring-[#072116]/8 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
         <StockLogo ticker={item.ticker} company={item.company} size={32} />
       </div>
       <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#072116]">
@@ -143,7 +143,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           ))}
         </div>
 
-        <div className="mt-3 grid min-h-0 grid-cols-4 content-start gap-x-3 gap-y-3 overflow-hidden pb-1 pt-1">
+        <div className="mt-3 grid min-h-0 grid-cols-4 auto-rows-fr content-stretch gap-x-3 gap-y-3 overflow-hidden pb-1 pt-1">
           {previewItems.length > 0 ? (
             previewItems.map((item) => (
               <MoverLogoTile key={`${mode}-${item.ticker}`} item={item} onOpen={() => setOpen(true)} />
@@ -152,7 +152,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="col-span-4 rounded-2xl border border-[#072116]/8 bg-white/72 px-3 py-4 text-left text-[11px] font-bold text-[#072116]/45"
+              className="col-span-4 h-full rounded-2xl border border-[#072116]/8 bg-white/72 px-3 py-4 text-left text-[11px] font-bold text-[#072116]/45"
             >
               No {mode === "gainers" ? "positive" : "negative"} daily movers available yet.
             </button>
@@ -263,9 +263,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
                     </Link>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-[13px] font-bold text-white/46">
-                    No daily movement data is available yet.
-                  </div>
+                  <div className="p-6 text-center text-white/50">No mover data available yet.</div>
                 )}
               </div>
             </div>
