@@ -16,22 +16,38 @@ type Props = {
   height?: number;
   compact?: boolean;
   color?: string;
+  currency?: string;
+  preciseValues?: boolean;
+  showHoverChange?: boolean;
 };
 
 const RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
 
-function formatPrice(n: number) {
-  if (Math.abs(n) >= 1000) {
-    return `$${n.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })}`;
-  }
+function formatMoney(value: number, currency = "USD", precise = false) {
+  const safe = Number.isFinite(value) ? value : 0;
+  const showCents = precise || Math.abs(safe) < 1000;
 
-  return `$${n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: showCents ? 2 : 0,
+    maximumFractionDigits: showCents ? 2 : 0,
+  }).format(safe);
+}
+
+function formatSignedMoney(value: number, currency = "USD", precise = false) {
+  const safe = Number.isFinite(value) ? value : 0;
+  return `${safe >= 0 ? "+" : ""}${formatMoney(safe, currency, precise)}`;
+}
+
+function formatPercent(value: number, digits = 2) {
+  const safe = Number.isFinite(value) ? value : 0;
+  return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
+}
+
+function changePercent(change: number, base: number) {
+  if (!Number.isFinite(change) || !Number.isFinite(base) || base === 0) return 0;
+  return (change / base) * 100;
 }
 
 function formatDate(iso: string, range: TimeRange) {
@@ -74,6 +90,9 @@ export function StockChart({
   height = 280,
   compact = false,
   color,
+  currency = "USD",
+  preciseValues = false,
+  showHoverChange = false,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -234,12 +253,14 @@ export function StockChart({
     const first = points[0].close;
     const last = points[points.length - 1].close;
     const change = last - first;
-    const changePct = (change / first) * 100;
+    const changePct = changePercent(change, first);
 
     return { first, last, change, changePct };
   }, [points]);
 
   const hoverPoint = hoverIdx != null ? points[hoverIdx] : null;
+  const hoverChange = hoverPoint && summary ? hoverPoint.close - summary.first : 0;
+  const hoverChangePct = summary ? changePercent(hoverChange, summary.first) : 0;
 
   const yScale = (price: number) =>
     minPrice === maxPrice
@@ -252,6 +273,9 @@ export function StockChart({
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
+  const tooltipLeft = Math.max(8, Math.min(92, (xPos / svgWidth) * 100));
+  const tooltipTop = Math.max(22, Math.min(height - 38, yPos));
+  const tooltipTransform = xPos > svgWidth * 0.62 ? "translate(-100%, -50%)" : "translate(10px, -50%)";
 
   if (points.length < 2) {
     return (
@@ -276,7 +300,7 @@ export function StockChart({
             </p>
 
             <p className="mt-0.5 text-[24px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
-              {formatPrice(hoverPoint ? hoverPoint.close : summary.last)}
+              {formatMoney(hoverPoint ? hoverPoint.close : summary.last, currency, preciseValues)}
             </p>
 
             {hoverPoint ? (
@@ -289,10 +313,7 @@ export function StockChart({
                   summary.change >= 0 ? "text-emerald-400" : "text-red-400"
                 }`}
               >
-                {summary.change >= 0 ? "+" : ""}
-                {formatPrice(summary.change)} (
-                {summary.changePct >= 0 ? "+" : ""}
-                {summary.changePct.toFixed(2)}%)
+                {formatSignedMoney(summary.change, currency, preciseValues)} ({formatPercent(summary.changePct)})
               </p>
             )}
           </div>
@@ -336,7 +357,7 @@ export function StockChart({
                     fillOpacity="0.4"
                     fontWeight="600"
                   >
-                    {formatPrice(price)}
+                    {formatMoney(price, currency, preciseValues)}
                   </text>
                 </g>
               );
@@ -407,11 +428,14 @@ export function StockChart({
         {hoverPoint && (
           <div
             className={[
-              "pointer-events-none absolute rounded-lg border border-[#ddb159]/30 bg-[#072116]/95 backdrop-blur",
-              compact
-                ? "right-2 top-2 px-2.5 py-1.5"
-                : "right-3 top-3 px-3 py-2",
+              "pointer-events-none absolute z-10 rounded-lg border border-[#ddb159]/30 bg-[#072116]/95 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur",
+              compact ? "px-2.5 py-1.5" : "px-3 py-2",
             ].join(" ")}
+            style={{
+              left: `${tooltipLeft}%`,
+              top: `${tooltipTop}px`,
+              transform: tooltipTransform,
+            }}
           >
             <p
               className={[
@@ -424,12 +448,23 @@ export function StockChart({
 
             <p
               className={[
-                "font-black tabular-nums text-[#faf6f0]",
+                "whitespace-nowrap font-black tabular-nums text-[#faf6f0]",
                 compact ? "mt-0.5 text-[12px]" : "mt-0.5 text-[14px]",
               ].join(" ")}
             >
-              {formatPrice(hoverPoint.close)}
+              {formatMoney(hoverPoint.close, currency, preciseValues)}
             </p>
+
+            {showHoverChange && summary && (
+              <p
+                className={[
+                  "mt-0.5 whitespace-nowrap text-[10px] font-bold tabular-nums",
+                  hoverChange >= 0 ? "text-emerald-300" : "text-red-200",
+                ].join(" ")}
+              >
+                {formatSignedMoney(hoverChange, currency, preciseValues)} · {formatPercent(hoverChangePct)}
+              </p>
+            )}
           </div>
         )}
       </div>
