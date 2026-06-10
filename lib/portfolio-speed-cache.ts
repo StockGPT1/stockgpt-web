@@ -1,9 +1,17 @@
 import { unstable_cache } from "next/cache";
 import { createHash } from "node:crypto";
+import { getJsonCache, rememberJson, setJsonCache } from "@/lib/redis-cache";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const PORTFOLIO_SNAPSHOT_TTL_MS = Number(
   process.env.PORTFOLIO_SNAPSHOT_TTL_MS ?? 2 * 60 * 1000,
+);
+const PORTFOLIO_SNAPSHOT_TTL_SECONDS = Math.max(
+  30,
+  Math.round(PORTFOLIO_SNAPSHOT_TTL_MS / 1000),
+);
+const PORTFOLIO_SHARED_CACHE_TTL_SECONDS = Number(
+  process.env.PORTFOLIO_SHARED_CACHE_TTL_SECONDS ?? 5 * 60,
 );
 
 export type PortfolioSnapshotPayload = {
@@ -38,6 +46,18 @@ function isFresh(updatedAt: string | null, ttlMs: number) {
   return Number.isFinite(time) && Date.now() - time < ttlMs;
 }
 
+function portfolioSnapshotKey({
+  ownerId,
+  portfolioId,
+  inputHash,
+}: {
+  ownerId: string;
+  portfolioId: string;
+  inputHash: string;
+}) {
+  return `portfolio:snapshot:${ownerId}:${portfolioId}:${inputHash}`;
+}
+
 export function hashPortfolioInputs(input: unknown) {
   return createHash("sha256").update(stableJson(input)).digest("hex");
 }
@@ -51,6 +71,10 @@ export async function getPortfolioPageSnapshot({
   ownerId: string;
   inputHash: string;
 }): Promise<PortfolioSnapshotPayload | null> {
+  const redisKey = portfolioSnapshotKey({ ownerId, portfolioId, inputHash });
+  const redisSnapshot = await getJsonCache<PortfolioSnapshotPayload>(redisKey);
+  if (redisSnapshot) return redisSnapshot;
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -66,6 +90,7 @@ export async function getPortfolioPageSnapshot({
     if (row.input_hash !== inputHash) return null;
     if (!isFresh(row.updated_at, PORTFOLIO_SNAPSHOT_TTL_MS)) return null;
 
+    await setJsonCache(redisKey, row.snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
     return row.snapshot;
   } catch (err) {
     console.warn("Portfolio snapshot read failed", err);
@@ -84,6 +109,9 @@ export async function savePortfolioPageSnapshot({
   inputHash: string;
   snapshot: PortfolioSnapshotPayload;
 }) {
+  const redisKey = portfolioSnapshotKey({ ownerId, portfolioId, inputHash });
+  await setJsonCache(redisKey, snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
+
   try {
     const supabase = createAdminClient();
     await supabase.from("portfolio_page_snapshots").upsert(
@@ -101,7 +129,7 @@ export async function savePortfolioPageSnapshot({
   }
 }
 
-export const getCachedPortfolioStockUniverse = unstable_cache(
+const getPortfolioStockUniverseFromSupabase = unstable_cache(
   async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -113,11 +141,19 @@ export const getCachedPortfolioStockUniverse = unstable_cache(
     if (error) throw error;
     return data ?? [];
   },
-  ["portfolio-stock-universe-v1"],
+  ["portfolio-stock-universe-v2"],
   { revalidate: 5 * 60 },
 );
 
-export const getCachedPortfolioNews = unstable_cache(
+export async function getCachedPortfolioStockUniverse() {
+  return rememberJson({
+    key: "portfolio:stock-universe:v2",
+    ttlSeconds: PORTFOLIO_SHARED_CACHE_TTL_SECONDS,
+    getFresh: getPortfolioStockUniverseFromSupabase,
+  });
+}
+
+const getPortfolioNewsFromSupabase = unstable_cache(
   async () => {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -129,9 +165,17 @@ export const getCachedPortfolioNews = unstable_cache(
     if (error) throw error;
     return data ?? [];
   },
-  ["portfolio-news-v1"],
+  ["portfolio-news-v2"],
   { revalidate: 5 * 60 },
 );
+
+export async function getCachedPortfolioNews() {
+  return rememberJson({
+    key: "portfolio:news:v2",
+    ttlSeconds: PORTFOLIO_SHARED_CACHE_TTL_SECONDS,
+    getFresh: getPortfolioNewsFromSupabase,
+  });
+}
 
 export function startPortfolioTimer(label: string) {
   const startedAt = performance.now();
