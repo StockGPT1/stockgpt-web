@@ -24,12 +24,8 @@ type RedisHealthCheck = {
   error: string | null;
 };
 
-const REDIS_COMMAND_TIMEOUT_MS = Number(
-  process.env.REDIS_COMMAND_TIMEOUT_MS ?? 1_000,
-);
-const REDIS_DISABLED_COOLDOWN_MS = Number(
-  process.env.REDIS_DISABLED_COOLDOWN_MS ?? 2 * 60 * 1000,
-);
+const REDIS_COMMAND_TIMEOUT_MS = Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 1_000);
+const REDIS_DISABLED_COOLDOWN_MS = Number(process.env.REDIS_DISABLED_COOLDOWN_MS ?? 2 * 60 * 1000);
 
 let endpoint: string | null | undefined;
 let token: string | null | undefined;
@@ -106,20 +102,13 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
 
-async function redisPipelineInternal<T = unknown>(
-  commands: RedisCommand[],
-  options: RedisPipelineOptions = {},
-): Promise<Array<T | null>> {
+async function redisPipelineInternal<T = unknown>(commands: RedisCommand[], options: RedisPipelineOptions = {}): Promise<Array<T | null>> {
   if (commands.length === 0) return [];
 
   const redisEndpoint = getEndpoint();
   const redisToken = getToken();
 
-  if (
-    !redisEndpoint ||
-    !redisToken ||
-    (!options.ignoreCooldown && isRedisTemporarilyDisabled())
-  ) {
+  if (!redisEndpoint || !redisToken || (!options.ignoreCooldown && isRedisTemporarilyDisabled())) {
     return commands.map(() => null);
   }
 
@@ -152,9 +141,7 @@ async function redisPipelineInternal<T = unknown>(
     return commands.map((_, index) => {
       const item = json[index];
       if (!item || item.error) {
-        if (item?.error && options.logCommandErrors !== false) {
-          logCommandError(item.error);
-        }
+        if (item?.error && options.logCommandErrors !== false) logCommandError(item.error);
         return null;
       }
       return (item.result ?? null) as T | null;
@@ -167,15 +154,11 @@ async function redisPipelineInternal<T = unknown>(
   }
 }
 
-export async function redisPipeline<T = unknown>(
-  commands: RedisCommand[],
-): Promise<Array<T | null>> {
+export async function redisPipeline<T = unknown>(commands: RedisCommand[]): Promise<Array<T | null>> {
   return redisPipelineInternal<T>(commands);
 }
 
-export async function redisCommand<T = unknown>(
-  command: RedisCommand,
-): Promise<T | null> {
+export async function redisCommand<T = unknown>(command: RedisCommand): Promise<T | null> {
   const [result] = await redisPipeline<T>([command]);
   return result ?? null;
 }
@@ -212,7 +195,7 @@ export async function checkRedisHealth(): Promise<RedisHealthCheck> {
       { ignoreCooldown: true, logCommandErrors: false },
     );
 
-    const result = {
+    const result: RedisHealthCheck = {
       configured,
       ok: ping === "PONG" && set === "OK" && get === "ok" && Number(del) >= 1,
       disabled,
@@ -225,9 +208,7 @@ export async function checkRedisHealth(): Promise<RedisHealthCheck> {
       error: null,
     };
 
-    if (!result.ok) {
-      result.error = `unexpected_result:${JSON.stringify({ ping, set, get, del }).slice(0, 180)}`;
-    }
+    if (!result.ok) result.error = `unexpected_result:${JSON.stringify({ ping, set, get, del }).slice(0, 180)}`;
 
     return result;
   } catch (error) {
