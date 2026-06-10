@@ -7,11 +7,16 @@ type UpstashPipelineResponse = Array<{
 }>;
 
 const REDIS_COMMAND_TIMEOUT_MS = Number(
-  process.env.REDIS_COMMAND_TIMEOUT_MS ?? 1_500,
+  process.env.REDIS_COMMAND_TIMEOUT_MS ?? 250,
+);
+const REDIS_DISABLED_COOLDOWN_MS = Number(
+  process.env.REDIS_DISABLED_COOLDOWN_MS ?? 5 * 60 * 1000,
 );
 
 let endpoint: string | null | undefined;
 let token: string | null | undefined;
+let disabledUntil = 0;
+let hasLoggedFailure = false;
 
 function getEndpoint() {
   if (endpoint !== undefined) return endpoint;
@@ -31,6 +36,23 @@ export function isRedisConfigured() {
   return Boolean(getEndpoint() && getToken());
 }
 
+function isRedisTemporarilyDisabled() {
+  return Date.now() < disabledUntil;
+}
+
+function disableRedis(reason: string, detail?: unknown) {
+  disabledUntil = Date.now() + REDIS_DISABLED_COOLDOWN_MS;
+
+  if (!hasLoggedFailure) {
+    hasLoggedFailure = true;
+    console.warn("Redis disabled temporarily", { reason, detail });
+  }
+}
+
+export function forceRedisCooldown() {
+  disabledUntil = Date.now() + REDIS_DISABLED_COOLDOWN_MS;
+}
+
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
@@ -43,7 +65,7 @@ export async function redisPipeline<T = unknown>(
   const redisEndpoint = getEndpoint();
   const redisToken = getToken();
 
-  if (!redisEndpoint || !redisToken) {
+  if (!redisEndpoint || !redisToken || isRedisTemporarilyDisabled()) {
     return commands.map(() => null);
   }
 
@@ -63,7 +85,7 @@ export async function redisPipeline<T = unknown>(
     });
 
     if (!response.ok) {
-      console.warn("Redis pipeline failed", {
+      disableRedis("bad_response", {
         status: response.status,
         statusText: response.statusText,
       });
@@ -75,15 +97,13 @@ export async function redisPipeline<T = unknown>(
     return commands.map((_, index) => {
       const item = json[index];
       if (!item || item.error) {
-        if (item?.error) console.warn("Redis command failed", item.error);
+        if (item?.error) disableRedis("command_error", item.error);
         return null;
       }
       return (item.result ?? null) as T | null;
     });
   } catch (error) {
-    if (!isAbortError(error)) {
-      console.warn("Redis pipeline unavailable", error);
-    }
+    disableRedis(isAbortError(error) ? "timeout" : "unavailable", error);
     return commands.map(() => null);
   } finally {
     clearTimeout(timeout);
