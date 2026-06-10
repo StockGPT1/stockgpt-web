@@ -6,7 +6,7 @@ import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffects";
 import { NavigationWarmup } from "@/components/NavigationWarmup";
-import { getUnreadNotificationCount } from "@/lib/notifications";
+import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
@@ -174,7 +174,7 @@ export async function AppShell({
     {
       data: { user },
     },
-  ] = await Promise.all([getUnreadNotificationCount(), supabase.auth.getUser()]);
+  ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser()]);
 
   let canUseAskStockGPT = false;
 
