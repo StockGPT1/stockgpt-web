@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   const result = await refreshMarketSnapshots(tickers, {
     batchSize: Number(process.env.MARKET_SNAPSHOT_BATCH_SIZE ?? 10),
-    maxTickers: 520,
+    maxTickers: Number(process.env.MARKET_SNAPSHOT_MAX_TICKERS ?? 520),
   });
 
   return NextResponse.json({ ok: true, ...result });
