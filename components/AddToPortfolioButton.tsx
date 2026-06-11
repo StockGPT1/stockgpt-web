@@ -45,19 +45,21 @@ export function AddToPortfolioButton({
     };
   }, [open]);
 
-  const entryForm = (
-    <ManualPortfolioEntry
-      defaultTicker={ticker}
-      defaultEntryPrice={price}
-      compact
-      isAuthenticated={isAuthenticated}
-      portfolios={portfolios}
-      defaultPortfolioId={defaultPortfolioId}
-      onSuccess={() => {
-        setTimeout(() => setOpen(false), 450);
-      }}
-    />
-  );
+  function renderEntryForm() {
+    return (
+      <ManualPortfolioEntry
+        defaultTicker={ticker}
+        defaultEntryPrice={price}
+        compact
+        isAuthenticated={isAuthenticated}
+        portfolios={portfolios}
+        defaultPortfolioId={defaultPortfolioId}
+        onSuccess={() => {
+          setTimeout(() => setOpen(false), 450);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -114,7 +116,7 @@ export function AddToPortfolioButton({
                   </p>
                 </div>
 
-                <div className="min-w-0 p-4">{entryForm}</div>
+                <div className="min-w-0 p-4">{renderEntryForm()}</div>
               </div>
             </div>
           </div>
@@ -128,7 +130,7 @@ export function AddToPortfolioButton({
             onClose={() => setOpen(false)}
           >
             <div className="rounded-3xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-              {entryForm}
+              {renderEntryForm()}
             </div>
           </MobileSheet>
         </>
