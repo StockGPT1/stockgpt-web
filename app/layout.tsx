@@ -11,6 +11,7 @@ import "./desktop-side-modals.css";
 import "./ask-stockgpt-polish.css";
 import "./ask-stockgpt-mobile-hardening.css";
 import "./stock-action-buttons.css";
+import "./mobile-sheets.css";
 
 const iconVersion = "30";
 
