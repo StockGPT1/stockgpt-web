@@ -18,6 +18,67 @@
   border-radius: 0 !important;
 }
 
+/* Portfolio holdings rows: keep every column inside the available width.
+   The overview page has a right-hand health rail, so the old fixed 6-column
+   row could become wider than the left column on Mac/tablet-sized desktops. */
+[class*="xl:grid-cols-[minmax(0,1fr)_310px]"] {
+  min-width: 0 !important;
+}
+
+[class*="xl:grid-cols-[minmax(0,1fr)_310px]"] > * {
+  min-width: 0 !important;
+}
+
+@media (min-width: 1280px) and (max-width: 1535px) {
+  [class*="xl:grid-cols-[minmax(0,1fr)_310px]"] {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px) !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1535px) {
+  [class*="grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]"] {
+    grid-template-columns: minmax(150px, 1fr) minmax(64px, 0.42fr) minmax(82px, 0.52fr) minmax(50px, 0.34fr) minmax(54px, 0.36fr) minmax(72px, 0.46fr) !important;
+    column-gap: 0.5rem !important;
+  }
+
+  [class*="grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]"] > * {
+    min-width: 0 !important;
+  }
+
+  [class*="grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]"] button {
+    min-width: 0 !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  [class*="grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]"][class*="text-[#faf6f0]/38"] {
+    display: none !important;
+  }
+
+  [class*="shadow-[0_8px_22px"] > [class*="sm:grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px]"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [class*="shadow-[0_8px_22px"] [class*="sm:contents"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+    min-width: 0 !important;
+  }
+
+  [class*="shadow-[0_8px_22px"] [class*="sm:contents"] [class*="sm:hidden"] {
+    display: block !important;
+  }
+
+  [class*="shadow-[0_8px_22px"] [class*="sm:contents"] button {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+}
+
 @media (min-width: 640px) {
   .sm\:bg-\[\#050706\] {
     background:
