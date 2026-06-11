@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MobileSheet } from "@/components/MobileSheet";
-import { StockLogo } from "@/components/StockLogo";
 
 type DailyChangeItem = {
   ticker: string;
@@ -19,6 +18,22 @@ type DailyChangeItem = {
 };
 
 type MoverMode = "gainers" | "losers";
+
+function cleanTicker(ticker?: string | null) {
+  return (ticker ?? "").trim().toUpperCase().replace(".", "-");
+}
+
+function initialsFrom(ticker?: string | null, company?: string | null) {
+  const symbol = cleanTicker(ticker);
+  if (symbol) return symbol.slice(0, 4);
+
+  return (company ?? "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("");
+}
 
 function parseMoveValue(label: string) {
   const value = Number(String(label).replace("%", ""));
@@ -57,6 +72,35 @@ function rankToneClass(tone: DailyChangeItem["rankTone"]) {
   return "text-[#faf6f0]/55 bg-[#faf6f0]/6 border-[#faf6f0]/10";
 }
 
+function MoverLogo({ ticker, company, compact = false }: { ticker: string; company: string; compact?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const symbol = cleanTicker(ticker);
+  const fallback = initialsFrom(ticker, company);
+
+  return (
+    <div
+      className={[
+        "grid shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,0.22)] ring-1 ring-[#ddb159]/12",
+        compact ? "size-[clamp(38px,4.5vw,52px)] p-2" : "size-12 p-2 sm:size-14 sm:p-2.5",
+      ].join(" ")}
+    >
+      {symbol && !failed ? (
+        <img
+          src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+          alt=""
+          aria-hidden="true"
+          className="block h-full w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#f7f2e8] text-[9px] font-black text-[#072116]/70">
+          {fallback}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
   return (
     <button
@@ -65,14 +109,7 @@ function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => 
       className="group flex min-h-0 min-w-0 flex-col items-center justify-center text-center outline-none"
       title={`${item.ticker} ${item.dailyMoveLabel}`}
     >
-      <div className="grid size-[clamp(38px,4.5vw,52px)] place-items-center overflow-hidden rounded-full bg-white p-1.5 shadow-[0_6px_14px_rgba(0,0,0,0.24)] ring-1 ring-[#ddb159]/12 transition group-hover:scale-[1.03] group-hover:ring-[#ddb159]/45">
-        <StockLogo
-          ticker={item.ticker}
-          company={item.company}
-          size={34}
-          className="!border-0 !bg-white !shadow-none [&>img]:!p-1 [&>img]:!object-contain"
-        />
-      </div>
+      <MoverLogo ticker={item.ticker} company={item.company} compact />
       <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#f8f4e8]">
         {item.ticker}
       </p>
@@ -119,23 +156,16 @@ function MoverList({
   }
 
   return (
-    <div className="grid gap-3 bg-[#050706]">
+    <div className="stockgpt-mover-list grid gap-3 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
       {listItems.map((item) => (
         <Link
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
           style={{ backgroundColor: "#101611", color: "#faf6f0" }}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 !bg-[#101611] p-4 !text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] hover:!text-[#faf6f0] focus:!bg-[#101611] focus:!text-[#faf6f0] focus-visible:!bg-[#101611] active:!bg-[#101611] visited:!bg-[#101611]"
+          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 !bg-[#101611] p-4 !text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] hover:!text-[#faf6f0] focus:!bg-[#101611] focus:!text-[#faf6f0] focus-visible:!bg-[#101611] active:!bg-[#101611] visited:!bg-[#101611]"
         >
-          <div className="grid size-12 place-items-center overflow-hidden rounded-full bg-white p-1.5 shadow-[0_8px_18px_rgba(0,0,0,0.22)] sm:size-14">
-            <StockLogo
-              ticker={item.ticker}
-              company={item.company}
-              size={36}
-              className="!border-0 !bg-white !shadow-none [&>img]:!p-1.5 [&>img]:!object-contain"
-            />
-          </div>
+          <MoverLogo ticker={item.ticker} company={item.company} />
 
           <div className="min-w-0">
             <div className="flex min-w-0 items-start justify-between gap-3">
@@ -160,10 +190,7 @@ function MoverList({
               </div>
             </div>
             <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-              <span
-                title={item.rankTitle}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(item.rankTone)}`}
-              >
+              <span title={item.rankTitle} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(item.rankTone)}`}>
                 Rank {item.rankLabel}
               </span>
               <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">
@@ -240,8 +267,8 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         description="Best and worst performing stocks from the selected period, with StockGPT rank and score context."
         onClose={() => setOpen(false)}
       >
-        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]">
-          <div className="flex flex-wrap gap-2">
+        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
+          <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
             <FilterPill label="All" active />
             <FilterPill label="1 day" active />
             <FilterPill label="1 week" />
@@ -280,8 +307,11 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
             aria-label="Close top movers backdrop"
           />
 
-          <aside className="relative z-10 flex h-full w-[min(540px,42vw)] min-w-[440px] flex-col overflow-hidden rounded-l-[34px] border-l border-[#ddb159]/28 bg-[#050706] text-[#f8f4e8] shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 bg-[#050706] px-6 pb-5 pt-6">
+          <aside
+            className="stockgpt-top-movers-drawer relative z-10 flex h-full w-[min(540px,42vw)] min-w-[440px] flex-col overflow-hidden rounded-l-[34px] border-l border-[#ddb159]/28 bg-[#050706] text-[#f8f4e8] shadow-[0_28px_90px_rgba(0,0,0,0.58)]"
+            style={{ backgroundColor: "#050706", color: "#f8f4e8" }}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 bg-[#050706] px-6 pb-5 pt-6" style={{ backgroundColor: "#050706" }}>
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                   Daily market movement
@@ -304,7 +334,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               </button>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4">
+            <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4" style={{ backgroundColor: "#050706" }}>
               <FilterPill label="All" active />
               <FilterPill label="1 day" active />
               <FilterPill label="1 week" />
@@ -312,7 +342,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               <FilterPill label="AI rank movers" />
             </div>
 
-            <div className="flex shrink-0 bg-[#050706] px-6 pb-4">
+            <div className="flex shrink-0 bg-[#050706] px-6 pb-4" style={{ backgroundColor: "#050706" }}>
               <div className="grid w-full grid-cols-2 rounded-full bg-white/8 p-1">
                 {(["gainers", "losers"] as const).map((tab) => (
                   <button
@@ -332,7 +362,10 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#050706] px-6 pb-6">
+            <div
+              className="stockgpt-top-movers-scroll min-h-0 flex-1 overflow-y-auto bg-[#050706] px-6 pb-6"
+              style={{ backgroundColor: "#050706", scrollbarColor: "#d4af37 #050706" }}
+            >
               <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} />
             </div>
           </aside>
