@@ -5,15 +5,19 @@
   scrollbar-color: #d4af37 #050706;
 }
 
-.stockgpt-top-movers-drawer {
+.stockgpt-top-movers-drawer,
+.stockgpt-top-movers-drawer > *,
+.stockgpt-top-movers-scroll,
+.stockgpt-top-movers-scroll > *,
+.stockgpt-mover-list {
   background: #050706 !important;
+  background-color: #050706 !important;
   color: #f8f4e8 !important;
 }
 
-.stockgpt-top-movers-drawer > *,
-.stockgpt-top-movers-scroll,
-.stockgpt-mover-list {
-  background-color: #050706 !important;
+.stockgpt-top-movers-scroll {
+  background-image: linear-gradient(#050706, #050706) !important;
+  color-scheme: dark !important;
 }
 
 .stockgpt-mover-row,
@@ -35,20 +39,19 @@
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar {
   width: 12px;
+  background: #050706 !important;
 }
 
-.stockgpt-top-movers-scroll::-webkit-scrollbar-track {
-  background: #050706;
+.stockgpt-top-movers-scroll::-webkit-scrollbar-track,
+.stockgpt-top-movers-scroll::-webkit-scrollbar-corner {
+  background: #050706 !important;
+  background-color: #050706 !important;
 }
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar-thumb {
-  background: #d4af37;
+  background: #d4af37 !important;
   border-radius: 999px;
   border: 3px solid #050706;
-}
-
-.stockgpt-top-movers-scroll::-webkit-scrollbar-corner {
-  background: #050706;
 }
 
 .stockgpt-mover-row img,
