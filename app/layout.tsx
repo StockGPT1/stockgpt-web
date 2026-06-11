@@ -7,6 +7,7 @@ import "./mobile-overflow.css";
 import "./visual-cleanup.css";
 import "./dashboard-right-rail.css";
 import "./portfolio-final-fixes.css";
+import "./desktop-side-modals.css";
 
 const iconVersion = "30";
 
@@ -47,8 +48,6 @@ export const metadata: Metadata = {
       },
       {
         url: `/apple-touch-icon-precomposed.png?v=${iconVersion}`,
-        sizes: "180x180",
-        type: "image/png",
       },
       {
         url: `/og-image.png?v=${iconVersion}`,
