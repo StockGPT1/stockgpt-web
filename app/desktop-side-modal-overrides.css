@@ -1,0 +1,191 @@
+/* Final desktop drawer polish. Loaded after desktop-side-modals.css. */
+
+@media (min-width: 1024px) {
+  :root {
+    --drawer-green: #061b12;
+    --drawer-deep: #03110b;
+    --drawer-gold: #ddb159;
+    --drawer-cream: #faf6f0;
+    --drawer-card: rgba(250, 246, 240, 0.075);
+    --drawer-card-strong: rgba(250, 246, 240, 0.12);
+    --drawer-line: rgba(221, 177, 89, 0.2);
+  }
+
+  .max-w-xl.overflow-hidden,
+  .max-w-2xl.overflow-hidden,
+  .max-w-3xl.overflow-hidden,
+  .max-w-4xl.overflow-hidden {
+    background:
+      radial-gradient(circle at 88% 0%, rgba(221, 177, 89, 0.16), transparent 34%),
+      linear-gradient(180deg, #0d2b1d 0%, var(--drawer-green) 50%, var(--drawer-deep) 100%) !important;
+    border: 1px solid var(--drawer-line) !important;
+    color: var(--drawer-cream) !important;
+  }
+
+  .max-w-xl.overflow-hidden *,
+  .max-w-2xl.overflow-hidden *,
+  .max-w-3xl.overflow-hidden *,
+  .max-w-4xl.overflow-hidden * {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+
+  .max-w-xl.overflow-hidden [class*="bg-[#faf6f0]"],
+  .max-w-xl.overflow-hidden [class*="bg-white"],
+  .max-w-2xl.overflow-hidden [class*="bg-[#faf6f0]"],
+  .max-w-2xl.overflow-hidden [class*="bg-white"],
+  .max-w-3xl.overflow-hidden [class*="bg-[#faf6f0]"],
+  .max-w-3xl.overflow-hidden [class*="bg-white"],
+  .max-w-4xl.overflow-hidden [class*="bg-[#faf6f0]"],
+  .max-w-4xl.overflow-hidden [class*="bg-white"] {
+    background: var(--drawer-card) !important;
+  }
+
+  .max-w-xl.overflow-hidden [class*="border-[#072116]"],
+  .max-w-2xl.overflow-hidden [class*="border-[#072116]"],
+  .max-w-3xl.overflow-hidden [class*="border-[#072116]"],
+  .max-w-4xl.overflow-hidden [class*="border-[#072116]"] {
+    border-color: rgba(250, 246, 240, 0.12) !important;
+  }
+
+  .max-w-xl.overflow-hidden [class*="text-[#072116]"],
+  .max-w-2xl.overflow-hidden [class*="text-[#072116]"],
+  .max-w-3xl.overflow-hidden [class*="text-[#072116]"],
+  .max-w-4xl.overflow-hidden [class*="text-[#072116]"] {
+    color: rgba(250, 246, 240, 0.65) !important;
+  }
+
+  .max-w-xl.overflow-hidden h1,
+  .max-w-xl.overflow-hidden h2,
+  .max-w-xl.overflow-hidden h3,
+  .max-w-xl.overflow-hidden [class*="font-black"],
+  .max-w-2xl.overflow-hidden h1,
+  .max-w-2xl.overflow-hidden h2,
+  .max-w-2xl.overflow-hidden h3,
+  .max-w-2xl.overflow-hidden [class*="font-black"],
+  .max-w-3xl.overflow-hidden h1,
+  .max-w-3xl.overflow-hidden h2,
+  .max-w-3xl.overflow-hidden h3,
+  .max-w-3xl.overflow-hidden [class*="font-black"],
+  .max-w-4xl.overflow-hidden h1,
+  .max-w-4xl.overflow-hidden h2,
+  .max-w-4xl.overflow-hidden h3,
+  .max-w-4xl.overflow-hidden [class*="font-black"] {
+    color: var(--drawer-cream) !important;
+  }
+
+  .max-w-xl.overflow-hidden [class*="text-[#8a641a]"],
+  .max-w-xl.overflow-hidden [class*="text-[#ddb159]"],
+  .max-w-2xl.overflow-hidden [class*="text-[#8a641a]"],
+  .max-w-2xl.overflow-hidden [class*="text-[#ddb159]"],
+  .max-w-3xl.overflow-hidden [class*="text-[#8a641a]"],
+  .max-w-3xl.overflow-hidden [class*="text-[#ddb159]"],
+  .max-w-4xl.overflow-hidden [class*="text-[#8a641a]"],
+  .max-w-4xl.overflow-hidden [class*="text-[#ddb159]"] {
+    color: var(--drawer-gold) !important;
+  }
+
+  .max-w-xl.overflow-hidden input,
+  .max-w-xl.overflow-hidden textarea,
+  .max-w-2xl.overflow-hidden input,
+  .max-w-2xl.overflow-hidden textarea,
+  .max-w-3xl.overflow-hidden input,
+  .max-w-3xl.overflow-hidden textarea,
+  .max-w-4xl.overflow-hidden input,
+  .max-w-4xl.overflow-hidden textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(221, 177, 89, 0.22) !important;
+    background: linear-gradient(180deg, rgba(250, 246, 240, 0.12), rgba(250, 246, 240, 0.08)) !important;
+    color: var(--drawer-cream) !important;
+    outline: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.16) !important;
+  }
+
+  .max-w-xl.overflow-hidden input::placeholder,
+  .max-w-2xl.overflow-hidden input::placeholder,
+  .max-w-3xl.overflow-hidden input::placeholder,
+  .max-w-4xl.overflow-hidden input::placeholder {
+    color: rgba(250, 246, 240, 0.36) !important;
+    opacity: 1 !important;
+  }
+
+  .max-w-xl.overflow-hidden input[type="number"],
+  .max-w-2xl.overflow-hidden input[type="number"],
+  .max-w-3xl.overflow-hidden input[type="number"],
+  .max-w-4xl.overflow-hidden input[type="number"] {
+    appearance: textfield !important;
+    -moz-appearance: textfield !important;
+  }
+
+  .max-w-xl.overflow-hidden input[type="number"]::-webkit-inner-spin-button,
+  .max-w-xl.overflow-hidden input[type="number"]::-webkit-outer-spin-button,
+  .max-w-2xl.overflow-hidden input[type="number"]::-webkit-inner-spin-button,
+  .max-w-2xl.overflow-hidden input[type="number"]::-webkit-outer-spin-button,
+  .max-w-3xl.overflow-hidden input[type="number"]::-webkit-inner-spin-button,
+  .max-w-3xl.overflow-hidden input[type="number"]::-webkit-outer-spin-button,
+  .max-w-4xl.overflow-hidden input[type="number"]::-webkit-inner-spin-button,
+  .max-w-4xl.overflow-hidden input[type="number"]::-webkit-outer-spin-button {
+    margin: 0 !important;
+    -webkit-appearance: none !important;
+  }
+
+  .max-w-xl.overflow-hidden .grid[class*="grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-xl.overflow-hidden .grid[class*="sm:grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-2xl.overflow-hidden .grid[class*="grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-2xl.overflow-hidden .grid[class*="sm:grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-3xl.overflow-hidden .grid[class*="grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-3xl.overflow-hidden .grid[class*="sm:grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-4xl.overflow-hidden .grid[class*="grid-cols-[minmax(0,1fr)_auto]"],
+  .max-w-4xl.overflow-hidden .grid[class*="sm:grid-cols-[minmax(0,1fr)_auto]"] {
+    grid-template-columns: minmax(0, 1fr) minmax(82px, 96px) !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .max-w-xl.overflow-hidden input + button,
+  .max-w-xl.overflow-hidden label + button,
+  .max-w-2xl.overflow-hidden input + button,
+  .max-w-2xl.overflow-hidden label + button,
+  .max-w-3xl.overflow-hidden input + button,
+  .max-w-3xl.overflow-hidden label + button,
+  .max-w-4xl.overflow-hidden input + button,
+  .max-w-4xl.overflow-hidden label + button {
+    width: 100% !important;
+    max-width: 96px !important;
+    height: 44px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    padding: 0 12px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    background: linear-gradient(180deg, #e7c772, var(--drawer-gold)) !important;
+    color: var(--drawer-green) !important;
+  }
+
+  .max-w-xl.overflow-hidden .grid[class*="sm:grid-cols-2"] > button,
+  .max-w-2xl.overflow-hidden .grid[class*="sm:grid-cols-2"] > button,
+  .max-w-3xl.overflow-hidden .grid[class*="sm:grid-cols-2"] > button,
+  .max-w-4xl.overflow-hidden .grid[class*="sm:grid-cols-2"] > button {
+    min-height: 42px !important;
+    height: auto !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    padding: 10px 14px !important;
+    line-height: 1.12 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-align: center !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .max-w-xl.overflow-hidden button[class*="red"],
+  .max-w-2xl.overflow-hidden button[class*="red"],
+  .max-w-3xl.overflow-hidden button[class*="red"],
+  .max-w-4xl.overflow-hidden button[class*="red"] {
+    background: linear-gradient(180deg, #b8322a, #8f201b) !important;
+    color: #fff8f2 !important;
+  }
+}
