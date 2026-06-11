@@ -12,6 +12,7 @@ import "./ask-stockgpt-polish.css";
 import "./ask-stockgpt-mobile-hardening.css";
 import "./stock-action-buttons.css";
 import "./mobile-sheets.css";
+import "./top-movers-drawer.css";
 
 const iconVersion = "30";
 
