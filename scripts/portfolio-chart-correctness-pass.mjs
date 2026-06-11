@@ -42,11 +42,15 @@ source = source.replace(
   return "MAX" as TimeRange;
 }
 
+function hasChartPoints(data: Partial<Record<TimeRange, ChartPoint[]>>, range: TimeRange) {
+  return (data[range]?.length ?? 0) > 1;
+}
+
 function SectionButton`,
 );
 source = replaceAll(
   source,
   "{money(rangeDelta, currency)} {validRangeLabel} · {pct(rangePct)}",
-  "{validRange === \"MAX\" ? money(summary.totalPnl, currency) : money(rangeDelta, currency)} {validRangeLabel} · {validRange === \"MAX\" ? pct(summary.totalPnlPct) : pct(rangePct)}",
+  "{range === \"MAX\" ? money(summary.totalPnl, currency) : money(rangeDelta, currency)} {validRangeLabel} · {range === \"MAX\" ? pct(summary.totalPnlPct) : pct(rangePct)}",
 );
 fs.writeFileSync(componentFile, source);

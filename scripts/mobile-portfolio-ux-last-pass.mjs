@@ -93,13 +93,19 @@ source = source.replace(
 }) {
   const router = useRouter();
   const rangeData = useMemo(() => buildRangeData(chartData, createdAt), [chartData, createdAt]);
-  const availableRanges = RANGE_LABELS.filter(({ range }) => (rangeData[range]?.length ?? 0) > 1);
-  const [range, setRange] = useState<TimeRange>(() => preferredInitialRange(rangeData));
-  const validRange = (rangeData[range]?.length ?? 0) > 1 ? range : preferredInitialRange(rangeData);
-  const validRangeLabel = RANGE_LABELS.find(({ range: itemRange }) => itemRange === validRange)?.label ?? validRange;
-  const activePoints = rangeData[validRange] ?? [];
-  const rangeStart = activePoints[0]?.close ?? summary.totalValue - summary.totalPnl;
-  const rangeEnd = activePoints[activePoints.length - 1]?.close ?? summary.totalValue;
+  const [range, setRange] = useState<TimeRange>(DEFAULT_PORTFOLIO_RANGE);
+  const selectedRangeHasData = hasChartPoints(rangeData, range);
+  const chartRangeData = selectedRangeHasData
+    ? rangeData
+    : ({ [range]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
+  const availableRanges = RANGE_LABELS.filter(
+    ({ range: itemRange }) => itemRange === DEFAULT_PORTFOLIO_RANGE || hasChartPoints(rangeData, itemRange),
+  );
+  const validRangeLabel = RANGE_LABELS.find(({ range: itemRange }) => itemRange === range)?.label ?? range;
+  const activePoints = chartRangeData[range] ?? [];
+  const hasActiveRangePoints = activePoints.length > 1;
+  const rangeStart = hasActiveRangePoints ? activePoints[0]!.close : summary.totalValue;
+  const rangeEnd = hasActiveRangePoints ? activePoints[activePoints.length - 1]!.close : summary.totalValue;
   const rangeDelta = rangeEnd - rangeStart;
   const rangePct = rangeStart > 0 ? (rangeDelta / rangeStart) * 100 : 0;
   const rangeIsPositive = rangeDelta >= 0;
@@ -126,7 +132,7 @@ source = source.replace(
           <label className="relative inline-flex h-8 items-center gap-1.5 rounded-full border border-[#ddb159]/24 bg-[#061b12]/72 px-3 text-[11px] font-black text-[#ddb159] backdrop-blur">
             <select
               aria-label="Chart timeframe"
-              value={validRange}
+              value={range}
               onChange={(event) => setRange(event.target.value as TimeRange)}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             >
@@ -195,7 +201,7 @@ source = source.replace(
                 onClick={() => setRange(itemRange)}
                 className={[
                   "h-7 rounded-full px-2.5 text-[9.5px] font-black transition",
-                  validRange === itemRange
+                  range === itemRange
                     ? "bg-[#faf6f0] text-[#072116]"
                     : "text-[#faf6f0]/52 hover:text-[#faf6f0]",
                 ].join(" ")}
@@ -208,13 +214,13 @@ source = source.replace(
       </div>
 
       <div className="relative mt-1 sm:mx-0">
-        <MobilePortfolioLineChart points={rangeData[validRange] ?? []} />
+        <MobilePortfolioLineChart points={chartRangeData[range] ?? []} />
         <div className="hidden sm:block">
           <StockChart
-            key={validRange}
+            key={`${range}-${selectedRangeHasData ? "ready" : "pending"}`}
             ticker="Portfolio"
-            data={rangeData}
-            initialRange={validRange}
+            data={chartRangeData}
+            initialRange={range}
             height={190}
             compact
           />

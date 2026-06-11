@@ -86,6 +86,7 @@ const RANGE_LABELS: Array<{ range: TimeRange; label: string; days: number | null
   { range: "1Y", label: "1Y", days: 370 },
   { range: "MAX", label: "All", days: null },
 ];
+const DEFAULT_PORTFOLIO_RANGE = "1D" as TimeRange;
 
 function money(value: number, currency = "USD") {
   const safe = Number.isFinite(value) ? value : 0;
@@ -176,6 +177,10 @@ function preferredInitialRange(data: Partial<Record<TimeRange, ChartPoint[]>>) {
   return "MAX" as TimeRange;
 }
 
+function hasChartPoints(data: Partial<Record<TimeRange, ChartPoint[]>>, range: TimeRange) {
+  return (data[range]?.length ?? 0) > 1;
+}
+
 function SectionButton({ section, active, setSection, label }: { section: Section; active: Section; setSection: (section: Section) => void; label: string }) {
   return (
     <button
@@ -244,9 +249,14 @@ function PortfolioChartHero({
   createdAt?: string | null;
 }) {
   const rangeData = useMemo(() => buildRangeData(chartData, createdAt), [chartData, createdAt]);
-  const availableRanges = RANGE_LABELS.filter(({ range }) => (rangeData[range]?.length ?? 0) > 1);
-  const [range, setRange] = useState<TimeRange>(() => preferredInitialRange(rangeData));
-  const validRange = (rangeData[range]?.length ?? 0) > 1 ? range : preferredInitialRange(rangeData);
+  const [range, setRange] = useState<TimeRange>(DEFAULT_PORTFOLIO_RANGE);
+  const selectedRangeHasData = hasChartPoints(rangeData, range);
+  const chartRangeData = selectedRangeHasData
+    ? rangeData
+    : ({ [range]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
+  const availableRanges = RANGE_LABELS.filter(
+    ({ range: itemRange }) => itemRange === DEFAULT_PORTFOLIO_RANGE || hasChartPoints(rangeData, itemRange),
+  );
   const isPositive = summary.totalPnl >= 0;
 
   return (
@@ -290,7 +300,7 @@ function PortfolioChartHero({
                 onClick={() => setRange(itemRange)}
                 className={[
                   "h-8 rounded-full px-3 text-[10px] font-black transition",
-                  validRange === itemRange
+                  range === itemRange
                     ? "bg-[#faf6f0] text-[#072116]"
                     : "text-[#faf6f0]/52 hover:text-[#faf6f0]",
                 ].join(" ")}
@@ -304,10 +314,10 @@ function PortfolioChartHero({
 
       <div className="relative -mx-1 sm:mx-0">
         <StockChart
-          key={validRange}
+          key={`${range}-${selectedRangeHasData ? "ready" : "pending"}`}
           ticker="Portfolio"
-          data={rangeData}
-          initialRange={validRange}
+          data={chartRangeData}
+          initialRange={range}
           height={260}
           compact
         />
