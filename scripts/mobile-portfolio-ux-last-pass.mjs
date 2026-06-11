@@ -217,7 +217,7 @@ source = source.replace(
         <MobilePortfolioLineChart points={chartRangeData[range] ?? []} />
         <div className="hidden sm:block">
           <StockChart
-            key={`${range}-${selectedRangeHasData ? "ready" : "pending"}`}
+            key={range + "-" + (selectedRangeHasData ? "ready" : "pending")}
             ticker="Portfolio"
             data={chartRangeData}
             initialRange={range}
