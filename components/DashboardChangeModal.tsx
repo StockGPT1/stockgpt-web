@@ -119,13 +119,14 @@ function MoverList({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3 bg-[#050706]">
       {listItems.map((item) => (
         <Link
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 bg-[#101611] p-4 text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] focus-visible:!bg-[#101611] active:!bg-[#101611]"
+          style={{ backgroundColor: "#101611", color: "#faf6f0" }}
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 !bg-[#101611] p-4 !text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] hover:!text-[#faf6f0] focus:!bg-[#101611] focus:!text-[#faf6f0] focus-visible:!bg-[#101611] active:!bg-[#101611] visited:!bg-[#101611]"
         >
           <div className="grid size-12 place-items-center overflow-hidden rounded-full bg-white p-1.5 shadow-[0_8px_18px_rgba(0,0,0,0.22)] sm:size-14">
             <StockLogo
@@ -239,7 +240,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         description="Best and worst performing stocks from the selected period, with StockGPT rank and score context."
         onClose={() => setOpen(false)}
       >
-        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
+        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]">
           <div className="flex flex-wrap gap-2">
             <FilterPill label="All" active />
             <FilterPill label="1 day" active />
@@ -280,7 +281,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
           />
 
           <aside className="relative z-10 flex h-full w-[min(540px,42vw)] min-w-[440px] flex-col overflow-hidden rounded-l-[34px] border-l border-[#ddb159]/28 bg-[#050706] text-[#f8f4e8] shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 px-6 pb-5 pt-6">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 bg-[#050706] px-6 pb-5 pt-6">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                   Daily market movement
@@ -303,7 +304,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               </button>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-2 px-6 py-4">
+            <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4">
               <FilterPill label="All" active />
               <FilterPill label="1 day" active />
               <FilterPill label="1 week" />
@@ -311,7 +312,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               <FilterPill label="AI rank movers" />
             </div>
 
-            <div className="flex shrink-0 px-6 pb-4">
+            <div className="flex shrink-0 bg-[#050706] px-6 pb-4">
               <div className="grid w-full grid-cols-2 rounded-full bg-white/8 p-1">
                 {(["gainers", "losers"] as const).map((tab) => (
                   <button
@@ -331,7 +332,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#050706] px-6 pb-6">
               <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} />
             </div>
           </aside>
