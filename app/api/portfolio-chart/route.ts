@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
+import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
 import { getStockChart } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
 
@@ -7,6 +9,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Number(
+  process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60,
+);
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
@@ -97,6 +102,18 @@ function samplePoints(points: ChartPoint[]) {
 
 function normaliseTransactionType(type: string | null | undefined) {
   return String(type ?? "").trim().toLowerCase();
+}
+
+function portfolioChartCacheKey({
+  userId,
+  portfolioId,
+  inputHash,
+}: {
+  userId: string;
+  portfolioId: string;
+  inputHash: string;
+}) {
+  return `portfolio:chart:${userId}:${portfolioId}:${inputHash}`;
 }
 
 function buildLotsFromLedger({
@@ -348,12 +365,33 @@ export async function GET(req: NextRequest) {
   const portfolioStartMs = Math.max(portfolioCreatedMs, Math.min(firstLotMs, firstCashMs));
   const tickers = Array.from(new Set(lots.map((lot) => lot.ticker)));
 
-  const [{ data: currentRows }, ...chartResults] = await Promise.all([
+  const { data: currentRows } =
     tickers.length > 0
-      ? supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
-      : Promise.resolve({ data: [] }),
-    ...tickers.map((ticker) => getStockChart(ticker, RANGES)),
-  ]);
+      ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+      : { data: [] };
+
+  const chartInputHash = hashPortfolioInputs({
+    version: "portfolio-chart-v2",
+    portfolio: portfolioRow,
+    holdings: holdingRows,
+    transactions: transactionRows,
+    prices: ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
+      .map((row) => ({
+        ticker: String(row.ticker ?? "").toUpperCase(),
+        price: toNumber(row.price, 0),
+      }))
+      .sort((a, b) => a.ticker.localeCompare(b.ticker)),
+  });
+  const cacheKey = portfolioChartCacheKey({
+    userId: user.id,
+    portfolioId,
+    inputHash: chartInputHash,
+  });
+  const cachedChartData =
+    await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
+  if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
+
+  const chartResults = await Promise.all(tickers.map((ticker) => getStockChart(ticker, RANGES)));
 
   const currentPrices = new Map(
     ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>).map((row) => [
@@ -383,6 +421,8 @@ export async function GET(req: NextRequest) {
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});
+
+  void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
 
   return NextResponse.json({ chartData });
 }
