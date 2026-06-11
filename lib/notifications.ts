@@ -202,8 +202,10 @@ function buildTriggeredPriceNotification({
 
 export async function getUserNotifications({
   includeDismissed = false,
+  userId,
 }: {
   includeDismissed?: boolean;
+  userId?: string;
 } = {}): Promise<{
   unread: Notification[];
   read: Notification[];
@@ -211,23 +213,29 @@ export async function getUserNotifications({
 }> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let resolvedUserId = userId;
 
-  if (!user) return { unread: [], read: [], unreadCount: 0 };
+  if (!resolvedUserId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    resolvedUserId = user?.id;
+  }
+
+  if (!resolvedUserId) return { unread: [], read: [], unreadCount: 0 };
 
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
     .select("id, name, risk_tolerance")
-    .eq("user_id", user.id)
+    .eq("user_id", resolvedUserId)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
   const portfolios = (portfoliosData ?? []) as PortfolioRow[];
 
   if (portfolios.length === 0) {
-    await saveUnreadNotificationSummary(user.id, 0);
+    await saveUnreadNotificationSummary(resolvedUserId, 0);
     return { unread: [], read: [], unreadCount: 0 };
   }
 
@@ -243,14 +251,14 @@ export async function getUserNotifications({
   const holdings = (holdingsData ?? []) as HoldingRow[];
 
   if (holdings.length === 0) {
-    await saveUnreadNotificationSummary(user.id, 0);
+    await saveUnreadNotificationSummary(resolvedUserId, 0);
     return { unread: [], read: [], unreadCount: 0 };
   }
 
   const { data: dismissalsData } = await supabase
     .from("notification_dismissals")
     .select("alert_key")
-    .eq("user_id", user.id);
+    .eq("user_id", resolvedUserId);
 
   const dismissedKeys = new Set(
     (dismissalsData ?? []).map((dismissal) => String(dismissal.alert_key)),
@@ -358,7 +366,7 @@ export async function getUserNotifications({
     ? allNotifications.filter((notification) => isDismissed(notification))
     : [];
 
-  await saveUnreadNotificationSummary(user.id, unread.length);
+  await saveUnreadNotificationSummary(resolvedUserId, unread.length);
 
   return {
     unread: unread.map(stripInternal),

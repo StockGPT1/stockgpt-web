@@ -21,10 +21,11 @@ export default async function NotificationsPage() {
 
   const { unread, read } = await getUserNotifications({
     includeDismissed: true,
+    userId: user.id,
   });
 
   return (
-    <AppShell activePath="/notifications">
+    <AppShell activePath="/notifications" user={user}>
       <main className="h-full min-h-0 overflow-y-auto pr-1">
         <NotificationsList unread={unread} read={read} />
       </main>

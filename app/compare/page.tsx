@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { StockLogo } from "@/components/StockLogo";
 import { createClient } from "@/utils/supabase/server";
@@ -8,6 +7,7 @@ import { calculateTradeLevels } from "@/lib/trading-levels";
 type SearchParams = { a?: string; b?: string };
 type Stock = { ticker: string | null; company: string | null; sector: string | null; rank: number | null; score: number | string | null; price: number | string | null };
 type TickerOption = { ticker: string | null; company: string | null };
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 function cleanTicker(value?: string) {
   return String(value ?? "").trim().toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
@@ -35,14 +35,15 @@ function betterClass(left: number | null, right: number | null, side: "left" | "
   return winner === side ? "ring-1 ring-[#ddb159]/45 bg-[#ddb159]/10" : "";
 }
 
-async function loadStock(ticker: string) {
+async function loadStock(supabase: SupabaseClient, ticker: string) {
   if (!ticker) return null;
-  const supabase = await createClient();
-  const { data } = await supabase.from("stock_rankings").select("ticker,company,sector,rank,score,price").eq("ticker", ticker).maybeSingle();
+  const [{ data }, chart] = await Promise.all([
+    supabase.from("stock_rankings").select("ticker,company,sector,rank,score,price").eq("ticker", ticker).maybeSingle(),
+    getStockChart(ticker, ["1D", "6M", "1Y"]),
+  ]);
   if (!data) return null;
 
   const stock = data as Stock;
-  const chart = await getStockChart(ticker, ["1D", "6M", "1Y"]);
   const livePrice = getLatestPriceFromChart(chart) ?? (Number(stock.price) || 0);
   const trade = await calculateTradeLevels({ ticker, price: livePrice, score: Number(stock.score) || 0, rank: Number(stock.rank) || null, sector: stock.sector ?? null });
   if (!trade) return null;
@@ -83,17 +84,28 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
   const rightTicker = cleanTicker(params.b) || "MSFT";
 
   const supabase = await createClient();
-  const { data: tickerOptionsData } = await supabase
-    .from("stock_rankings")
-    .select("ticker,company")
-    .order("ticker", { ascending: true })
-    .limit(600);
+  const [
+    { data: tickerOptionsData },
+    left,
+    right,
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("stock_rankings")
+      .select("ticker,company")
+      .order("ticker", { ascending: true })
+      .limit(600),
+    loadStock(supabase, leftTicker),
+    loadStock(supabase, rightTicker),
+    supabase.auth.getUser(),
+  ]);
 
   const tickerOptions = ((tickerOptionsData ?? []) as TickerOption[]).filter((option) => option.ticker);
-  const [left, right] = await Promise.all([loadStock(leftTicker), loadStock(rightTicker)]);
 
   return (
-    <AppShell activePath="/rankings">
+    <AppShell activePath="/rankings" user={user}>
       <main className="min-h-full overflow-y-auto overflow-x-hidden pb-8 pr-1">
         <section className="rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.025),rgba(221,177,89,0.06))] p-4 shadow-[0_16px_38px_rgba(0,0,0,0.2)]">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">StockGPT comparison</p>

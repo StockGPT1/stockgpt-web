@@ -153,26 +153,33 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let hasSubscription = false;
   let firstName: string | undefined;
 
   if (user) {
     firstName = getFirstNameFromUserMetadata(user);
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-    hasSubscription = hasActiveSubscription(profile?.subscription_status);
   }
 
-  const rankingsLocked = !hasSubscription;
+  const profilePromise = user
+    ? supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("id", user.id)
+        .maybeSingle()
+    : Promise.resolve({ data: null as { subscription_status: string | null } | null });
+  const dashboardPortfolioPromise = user
+    ? getDashboardMainPortfolio(supabase, user.id)
+    : Promise.resolve(null);
+
   const [
+    { data: profile },
+    dashboardPortfolio,
     { data: rankingsData },
     { data: moverUniverseData },
     { count: totalCount },
     { count: bullishCount },
   ] = await Promise.all([
+    profilePromise,
+    dashboardPortfolioPromise,
     supabase
       .from("stock_rankings")
       .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -190,6 +197,9 @@ export default async function Home() {
       .gte("score", 7000),
   ]);
 
+  const subscriptionStatus = profile?.subscription_status ?? null;
+  const hasSubscription = hasActiveSubscription(subscriptionStatus);
+  const rankingsLocked = !hasSubscription;
   const rankings = (rankingsData ?? []) as Ranking[];
   const moverUniverse = ((moverUniverseData ?? rankingsData ?? []) as Ranking[]).filter(
     (stock) => stock.ticker,
@@ -199,8 +209,7 @@ export default async function Home() {
   let portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> = {};
   let portfolioTickers: string[] = [];
 
-  if (user) {
-    const dashboardPortfolio = await getDashboardMainPortfolio(supabase, user.id);
+  if (dashboardPortfolio) {
     portfolioSummary = dashboardPortfolio.summary;
     portfolioValueChart = dashboardPortfolio.chartData;
     portfolioTickers = dashboardPortfolio.tickers;
@@ -258,7 +267,7 @@ export default async function Home() {
     "grid-cols-[34px_minmax(76px,0.55fr)_minmax(120px,1.25fr)_58px_minmax(88px,0.85fr)_70px_70px]";
 
   return (
-    <AppShell activePath="/dashboard">
+    <AppShell activePath="/dashboard" user={user} subscriptionStatus={subscriptionStatus}>
       <main className="min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)] lg:gap-3">
           <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,7dvh,62px)_minmax(0,1fr)] lg:overflow-hidden">

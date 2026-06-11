@@ -1,15 +1,8 @@
-import { readFile } from "fs/promises";
-import path from "path";
+import { stockGptIconResponse } from "@/lib/static-og-image";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
+export const revalidate = 86400;
 
 export async function GET() {
-  const file = await readFile(path.join(process.cwd(), "public", "og-image.png"));
-
-  return new Response(file, {
-    headers: {
-      "Content-Type": "image/png",
-      "Cache-Control": "no-store, max-age=0",
-    },
-  });
+  return stockGptIconResponse();
 }

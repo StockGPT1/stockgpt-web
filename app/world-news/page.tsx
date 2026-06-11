@@ -9,6 +9,10 @@ import {
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
+import {
+  getCachedPortfolioNews,
+  getCachedPortfolioStockUniverse,
+} from "@/lib/portfolio-speed-cache";
 
 export const metadata: Metadata = {
   title: "World News | StockGPT Market Intelligence",
@@ -30,20 +34,9 @@ export default async function WorldNewsPage() {
     redirect("/login");
   }
 
-  const [{ data: newsData }, { data: stockData }] = await Promise.all([
-    supabase
-      .from("news_articles")
-      .select(
-        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
-      )
-      .order("published_at", { ascending: false })
-      .limit(180),
-
-    supabase
-      .from("stock_rankings")
-      .select("ticker,company,sector,rank,score,price")
-      .order("rank", { ascending: true })
-      .limit(500),
+  const [newsData, stockData] = await Promise.all([
+    getCachedPortfolioNews(),
+    getCachedPortfolioStockUniverse(),
   ]);
 
   const articles = (newsData ?? []) as BaseNewsArticle[];
@@ -59,7 +52,7 @@ export default async function WorldNewsPage() {
     .map(({ article }) => enrichArticleWithStockInsights(article, stocks, 8));
 
   return (
-    <AppShell activePath="/world-news">
+    <AppShell activePath="/world-news" user={user}>
       <WorldNewsClient articles={enrichedArticles} />
     </AppShell>
   );

@@ -244,18 +244,18 @@ export default async function RankingsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let hasSubscription = false;
+  const snapshotPromise = getRankSnapshotMapAround24hAgo(supabase);
+  const { data: profileData } = user
+    ? await supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
 
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const profile = profileData as Profile | null;
-    hasSubscription = hasActiveSubscription(profile?.subscription_status);
-  }
+  const profile = profileData as Profile | null;
+  const subscriptionStatus = profile?.subscription_status ?? null;
+  const hasSubscription = hasActiveSubscription(subscriptionStatus);
 
   const rankingsLocked = !hasSubscription;
 
@@ -265,7 +265,7 @@ export default async function RankingsPage({
       .select("id,rank,ticker,company,sector,score,price")
       .order("rank", { ascending: true })
       .limit(hasSubscription ? 500 : 10),
-    getRankSnapshotMapAround24hAgo(supabase),
+    snapshotPromise,
   ]);
 
   const rawRankings = (rankingsData ?? []) as Ranking[];
@@ -300,7 +300,7 @@ export default async function RankingsPage({
   const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px]";
 
   return (
-    <AppShell activePath="/rankings">
+    <AppShell activePath="/rankings" user={user} subscriptionStatus={subscriptionStatus}>
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
           <div className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#ddb159]/12 blur-3xl" />

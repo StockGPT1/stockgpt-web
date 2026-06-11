@@ -123,7 +123,7 @@ function StyleResearchCard({ tags, unlocked }: { tags: string[]; unlocked: boole
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Stock style</p>
           <h2 className="text-[20px] font-black tracking-[-0.03em]">What type of setup is this?</h2>
         </div>
-        <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#072116]/52">These labels explain the stock's current character in plain English. They are research shortcuts, not buy or sell instructions.</p>
+        <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#072116]/52">These labels explain the stock&apos;s current character in plain English. They are research shortcuts, not buy or sell instructions.</p>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -178,24 +178,38 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   const { ticker: rawTicker } = await params;
   const ticker = decodeURIComponent(rawTicker).toUpperCase();
   const supabase = await createClient();
-  const { data: stockData } = await supabase.from("stock_rankings").select("id,rank,ticker,company,sector,score,price").eq("ticker", ticker).maybeSingle();
+  const [
+    { data: stockData },
+    chartData,
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase.from("stock_rankings").select("id,rank,ticker,company,sector,score,price").eq("ticker", ticker).maybeSingle(),
+    getStockChart(ticker, ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]),
+    supabase.auth.getUser(),
+  ]);
   if (!stockData) notFound();
   const stock = stockData as Stock;
-  const chartData = await getStockChart(ticker, ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]);
   const livePrice = getLatestPriceFromChart(chartData) ?? (Number(stock.price) || 0);
-  const { data: { user } } = await supabase.auth.getUser();
   const isAuthenticated = !!user;
   const canSeeRankAndScore = isAuthenticated;
-  let portfolioOptions: PortfolioOption[] = [];
-  let defaultPortfolioId: string | null = null;
 
-  if (user) {
-    const { data: portfoliosData } = await (supabase as any).from("user_portfolios").select("id,name,cash_balance,currency,created_at").eq("user_id", user.id).is("archived_at", null).order("created_at", { ascending: true });
-    portfolioOptions = ((portfoliosData ?? []) as Array<{ id: string; name: string | null; cash_balance: number | null; currency: string | null }>).map((portfolio, index) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name, index), cashBalance: safeNumber(portfolio.cash_balance, 0), currency: portfolio.currency ?? "USD" }));
-    defaultPortfolioId = portfolioOptions[0]?.id ?? null;
-  }
+  const portfolioOptionsPromise = user
+    ? supabase
+        .from("user_portfolios")
+        .select("id,name,cash_balance,currency,created_at")
+        .eq("user_id", user.id)
+        .is("archived_at", null)
+        .order("created_at", { ascending: true })
+        .then(({ data: portfoliosData }: { data: Array<{ id: string; name: string | null; cash_balance: number | null; currency: string | null }> | null }) => {
+          const portfolioOptions = ((portfoliosData ?? []) as Array<{ id: string; name: string | null; cash_balance: number | null; currency: string | null }>).map((portfolio, index) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name, index), cashBalance: safeNumber(portfolio.cash_balance, 0), currency: portfolio.currency ?? "USD" }));
+          return { portfolioOptions, defaultPortfolioId: portfolioOptions[0]?.id ?? null };
+        })
+    : Promise.resolve({ portfolioOptions: [] as PortfolioOption[], defaultPortfolioId: null as string | null });
 
-  const [tradeLevels, watchlistEntry, sectorPeers, daysAtTop, relatedNewsResponse, dailyMoveMap] = await Promise.all([
+  const [portfolioResult, tradeLevels, watchlistEntry, sectorPeers, daysAtTop, relatedNewsResponse, dailyMoveMap] = await Promise.all([
+    portfolioOptionsPromise,
     calculateTradeLevels({ ticker, price: livePrice, score: canSeeRankAndScore ? Number(stock.score) || 0 : 0, rank: canSeeRankAndScore ? Number(stock.rank) || null : null, sector: stock.sector ?? null }),
     isAuthenticated && stock.ticker ? supabase.from("user_watchlist").select("id").eq("user_id", user!.id).eq("ticker", stock.ticker).maybeSingle().then((r) => r.data) : Promise.resolve(null),
     stock.sector ? supabase.from("stock_rankings").select("ticker, company, rank, score, price").eq("sector", stock.sector).neq("ticker", ticker).order("rank", { ascending: true }).limit(5) : Promise.resolve({ data: [] }),
@@ -204,13 +218,14 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     getOneDayMoveMap([ticker]),
   ]);
 
+  const { portfolioOptions, defaultPortfolioId } = portfolioResult;
   const peers = (sectorPeers?.data ?? []) as Peer[];
   const dailyMove = dailyMoveMap.get(ticker)?.changePct ?? null;
   const styleTags = getStyleTags(stock, dailyMove);
   const relevantNews = selectRelevantNewsForStock((relatedNewsResponse.data ?? []) as BaseNewsArticle[], { ticker: stock.ticker, company: stock.company, sector: stock.sector, rank: stock.rank, score: stock.score, price: livePrice } satisfies StockLike, 8).filter((article) => article.affectedStocks.some((insight) => insight.ticker.toUpperCase() === ticker && insight.impactRating >= 5));
 
   return (
-    <AppShell activePath="/rankings">
+    <AppShell activePath="/rankings" user={user}>
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
           <section className="relative max-w-full overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">

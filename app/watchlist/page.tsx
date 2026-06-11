@@ -99,7 +99,7 @@ export default async function WatchlistPage() {
   );
 
   return (
-    <AppShell activePath="/watchlist">
+    <AppShell activePath="/watchlist" user={user}>
       <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
         {/* Header */}
         <div className="flex shrink-0 items-end justify-between">

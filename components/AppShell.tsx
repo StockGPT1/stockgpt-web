@@ -6,7 +6,7 @@ import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffects";
 import { NavigationWarmup } from "@/components/NavigationWarmup";
-import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
+import { getUnreadNotificationCountForUser } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
@@ -163,30 +163,55 @@ function PageBackdrop({ activePath }: { activePath: string }) {
 export async function AppShell({
   children,
   activePath,
+  user,
+  subscriptionStatus,
 }: {
   children: ReactNode;
   activePath: string;
+  user?: { id: string } | null;
+  subscriptionStatus?: string | null;
 }) {
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
+  const getSupabase = async () => {
+    supabase ??= await createClient();
+    return supabase;
+  };
+  const hasUserOverride = user !== undefined;
 
-  const [
-    unreadCount,
-    {
-      data: { user },
-    },
-  ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser()]);
+  let resolvedUser = user ?? null;
 
-  let canUseAskStockGPT = false;
+  if (!hasUserOverride) {
+    const client = await getSupabase();
+    const {
+      data: { user: fetchedUser },
+    } = await client.auth.getUser();
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    canUseAskStockGPT = hasActiveSubscription(profile?.subscription_status);
+    resolvedUser = fetchedUser;
   }
+
+  let unreadCount = 0;
+  let resolvedSubscriptionStatus = subscriptionStatus ?? null;
+
+  if (resolvedUser) {
+    const resolvedUserId = resolvedUser.id;
+    const [nextUnreadCount, profileResult] = await Promise.all([
+      getUnreadNotificationCountForUser(resolvedUserId),
+      subscriptionStatus === undefined
+        ? getSupabase().then((client) =>
+            client
+              .from("profiles")
+              .select("subscription_status")
+              .eq("id", resolvedUserId)
+              .maybeSingle(),
+          )
+        : Promise.resolve({ data: { subscription_status: subscriptionStatus } }),
+    ]);
+
+    unreadCount = nextUnreadCount;
+    resolvedSubscriptionStatus = profileResult.data?.subscription_status ?? null;
+  }
+
+  const canUseAskStockGPT = hasActiveSubscription(resolvedSubscriptionStatus);
 
   return (
     <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
@@ -210,13 +235,13 @@ export async function AppShell({
         </Link>
 
         <div className="hidden min-w-0 flex-1 md:flex">
-          <SearchBar showRankingData={!!user} />
+          <SearchBar showRankingData={!!resolvedUser} />
         </div>
 
         <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
           <AskStockGPTButton
             canUseAskStockGPT={canUseAskStockGPT}
-            isAuthenticated={!!user}
+            isAuthenticated={!!resolvedUser}
           />
 
           <Link
@@ -285,13 +310,13 @@ export async function AppShell({
 
       <div className="sg-mobile-search-row flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
         <div className="min-w-0 flex-1">
-          <SearchBar showRankingData={!!user} />
+          <SearchBar showRankingData={!!resolvedUser} />
         </div>
 
         <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
           <AskStockGPTButton
             canUseAskStockGPT={canUseAskStockGPT}
-            isAuthenticated={!!user}
+            isAuthenticated={!!resolvedUser}
           />
         </div>
       </div>

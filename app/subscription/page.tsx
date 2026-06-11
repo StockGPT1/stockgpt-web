@@ -67,7 +67,7 @@ export default async function SubscriptionPage() {
     profile?.subscription_status?.toLowerCase() === "executive";
 
   return (
-    <AppShell activePath="/settings">
+    <AppShell activePath="/settings" user={user} subscriptionStatus={profile?.subscription_status ?? null}>
       <main className="relative h-full min-h-0 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
           <div className="absolute -left-28 top-8 h-72 w-72 rounded-full bg-[#ddb159]/10 blur-3xl" />

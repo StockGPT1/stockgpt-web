@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { createClient } from "@/utils/supabase/server";
 import { getTickerTape } from "@/lib/yahoo";
+import { getLandingMarketSummary } from "@/lib/landing-data";
 import { LandingClient, type LandingTicker } from "./LandingClient";
 
 export const dynamic = "force-dynamic";
@@ -31,22 +31,6 @@ function getSentiment(bullishPct: number) {
 }
 
 export default async function LandingPage() {
-  const supabase = await createClient();
-
-  const [{ count: totalCount }, { count: bullishCount }, { data: latestRows }] =
-    await Promise.all([
-      supabase.from("stock_rankings").select("*", { count: "exact", head: true }),
-      supabase
-        .from("stock_rankings")
-        .select("*", { count: "exact", head: true })
-        .gte("score", 7000),
-      supabase
-        .from("stock_rankings")
-        .select("updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1),
-    ]);
-
   const publicTickerUniverse = [
     "^GSPC",
     "^IXIC",
@@ -64,7 +48,10 @@ export default async function LandingPage() {
     "MA",
   ];
 
-  const tickerTapeData = await getTickerTape(publicTickerUniverse);
+  const [marketSummary, tickerTapeData] = await Promise.all([
+    getLandingMarketSummary(),
+    getTickerTape(publicTickerUniverse),
+  ]);
 
   const liveTickerTape: LandingTicker[] = tickerTapeData.map((item) => ({
     symbol: item.symbol,
@@ -74,11 +61,9 @@ export default async function LandingPage() {
     changePct: item.changePct,
   }));
 
-  const totalStocks = totalCount ?? 0;
+  const totalStocks = marketSummary.totalStocks;
   const bullishPct =
-    totalStocks > 0 ? Math.round(((bullishCount ?? 0) / totalStocks) * 100) : 0;
-
-  const latestUpdate = latestRows?.[0]?.updated_at ?? null;
+    totalStocks > 0 ? Math.round((marketSummary.bullishCount / totalStocks) * 100) : 0;
 
   return (
     <LandingClient
@@ -87,7 +72,7 @@ export default async function LandingPage() {
         totalStocks,
         bullishPct,
         sentiment: getSentiment(bullishPct),
-        lastUpdatedLabel: formatUpdatedAt(latestUpdate),
+        lastUpdatedLabel: formatUpdatedAt(marketSummary.latestUpdate),
       }}
     />
   );

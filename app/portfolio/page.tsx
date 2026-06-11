@@ -5,13 +5,15 @@ import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { PortfolioCommandCentreRevolut } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
+import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
-import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
+import { enrichHoldings, type EnrichedHolding, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { buildPortfolioHealthSummary, type PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
 import {
   enrichArticleWithStockInsights,
   type BaseNewsArticle,
+  type EnrichedNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
 import {
@@ -264,9 +266,10 @@ export default async function PortfolioPage({
 
   timer.mark("base-data");
 
-  const stockUniverse: StockLike[] = (stockOptionsData ?? [])
-    .filter((stock: any) => stock.ticker)
-    .map((stock: any) => ({
+  const stockRows = (stockOptionsData ?? []) as StockUniverseRow[];
+  const stockUniverse: StockLike[] = stockRows
+    .filter((stock) => stock.ticker)
+    .map((stock) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -275,9 +278,9 @@ export default async function PortfolioPage({
       price: stock.price ?? null,
     }));
 
-  const stockOptions: StockOption[] = (stockOptionsData ?? [])
-    .filter((stock: any) => stock.ticker)
-    .map((stock: any) => ({
+  const stockOptions: StockOption[] = stockRows
+    .filter((stock) => stock.ticker)
+    .map((stock) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -305,7 +308,7 @@ export default async function PortfolioPage({
   if (showBuilder) {
     timer.end({ mode: "builder" });
     return (
-      <AppShell activePath="/portfolio">
+      <AppShell activePath="/portfolio" user={user}>
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
           <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
             <PortfolioBuilder
@@ -328,7 +331,7 @@ export default async function PortfolioPage({
   if (!selectedPortfolioId) {
     timer.end({ mode: "empty" });
     return (
-      <AppShell activePath="/portfolio">
+      <AppShell activePath="/portfolio" user={user}>
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
           <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
             <PortfolioBuilder existingPortfolios={[]} />
@@ -398,7 +401,7 @@ export default async function PortfolioPage({
     portfolio: activePortfolio,
     holdings: rawHoldings,
     transactions,
-    stocks: buildSnapshotStockInputs({ stockOptionsData, portfolioTickerSet }),
+    stocks: buildSnapshotStockInputs({ stockOptionsData: stockRows, portfolioTickerSet }),
     news: ((newsData ?? []) as BaseNewsArticle[]).map((article) => ({
       id: article.id,
       impact: article.impact,
@@ -413,15 +416,15 @@ export default async function PortfolioPage({
     inputHash,
   });
 
-  const cachedEnriched = cachedSnapshot?.enriched as any[] | undefined;
-  const cachedSummary = cachedSnapshot?.summary as any | undefined;
-  const cachedChartData = cachedSnapshot?.chartData as any | undefined;
-  const cachedPortfolioNews = cachedSnapshot?.portfolioNews as any[] | undefined;
+  const cachedEnriched = cachedSnapshot?.enriched as EnrichedHolding[] | undefined;
+  const cachedSummary = cachedSnapshot?.summary as PortfolioHealthSummary | undefined;
+  const cachedChartData = cachedSnapshot?.chartData as Partial<Record<TimeRange, ChartPoint[]>> | undefined;
+  const cachedPortfolioNews = cachedSnapshot?.portfolioNews as EnrichedNewsArticle[] | undefined;
 
   if (cachedEnriched && cachedSummary && cachedChartData && cachedPortfolioNews) {
     timer.end({ mode: "snapshot-hit", holdings: rawHoldings.length });
     return (
-      <AppShell activePath="/portfolio">
+      <AppShell activePath="/portfolio" user={user}>
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
           <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
             <PortfolioCommandCentreRevolut
@@ -432,7 +435,7 @@ export default async function PortfolioPage({
                 currency: portfolio.currency ?? "USD",
                 createdAt: portfolio.created_at ?? null,
               }))}
-              holdings={cachedEnriched as any}
+              holdings={cachedEnriched}
               stockOptions={stockOptions}
               transactions={displayTransactions.map((transaction) => ({
                 id: transaction.id,
@@ -447,8 +450,8 @@ export default async function PortfolioPage({
                 notes: transaction.notes,
                 createdAt: transaction.created_at,
               }))}
-              newsArticles={cachedPortfolioNews as any}
-              chartData={cachedChartData as any}
+              newsArticles={cachedPortfolioNews}
+              chartData={cachedChartData}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
@@ -527,7 +530,7 @@ export default async function PortfolioPage({
   timer.end({ mode: "snapshot-write-scheduled", holdings: rawHoldings.length });
 
   return (
-    <AppShell activePath="/portfolio">
+    <AppShell activePath="/portfolio" user={user}>
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
         <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
           <PortfolioCommandCentreRevolut

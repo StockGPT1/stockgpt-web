@@ -18,18 +18,14 @@ function patchPortfolioCommandCentre() {
   let source = fs.readFileSync(file, "utf8");
 
   if (!source.includes("@/lib/portfolio-trim-recommendation")) {
-    source = replaceOnce(
-      source,
-      'import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";\n',
+    source = source.replace(
+      /import \{ buildPortfolioHealthSummary \} from "@\/lib\/portfolio-health";\r?\n/,
       'import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";\nimport { buildPortfolioTrimRecommendation } from "@/lib/portfolio-trim-recommendation";\n',
-      "trim engine import",
     );
   }
 
-  source = replaceBetween(
-    source,
-    "function recommendedTrimPercent(holding: ExtendedHolding) {",
-    "\n\nfunction SectionButton",
+  source = source.replace(
+    /function recommendedTrimPercent\(holding: ExtendedHolding\) \{[\s\S]*?\r?\n\r?\nfunction SectionButton/,
     [
       "function getTrimRecommendation(holding: ExtendedHolding, riskTolerance: string | null) {",
       "  return buildPortfolioTrimRecommendation(holding, riskTolerance);",
@@ -37,7 +33,6 @@ function patchPortfolioCommandCentre() {
       "",
       "function SectionButton",
     ].join("\n"),
-    "recommended trim function",
   );
 
   source = replaceOnce(
@@ -64,6 +59,7 @@ function patchPortfolioCommandCentre() {
     '            </button>',
     '          </div>',
   ].join("\n");
+  void oldRecommendedBlock;
 
   const newRecommendedBlock = [
     '          <div className="rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/10 p-3">',
@@ -92,7 +88,10 @@ function patchPortfolioCommandCentre() {
     '            )}',
     '          </div>',
   ].join("\n");
-  source = replaceOnce(source, oldRecommendedBlock, newRecommendedBlock, "recommended action block");
+  source = source.replace(
+    /          <div className="rounded-2xl border border-\[#ddb159\]\/20 bg-\[#ddb159\]\/10 p-3">\r?\n\s+<p className="text-\[10px\] font-black uppercase tracking-\[0\.14em\] text-\[#8a641a\]">Recommended action<\/p>[\s\S]*?\r?\n          <\/div>/,
+    newRecommendedBlock,
+  );
 
   const oldHoldingActions = [
     'function HoldingActions({ portfolioId, holding }: { portfolioId: string; holding: ExtendedHolding }) {',
@@ -109,6 +108,7 @@ function patchPortfolioCommandCentre() {
     '  );',
     '}',
   ].join("\n");
+  void oldHoldingActions;
   const newHoldingActions = [
     'function HoldingActions({ portfolioId, holding, riskTolerance }: { portfolioId: string; holding: ExtendedHolding; riskTolerance: string | null }) {',
     '  const [open, setOpen] = useState(false);',
@@ -125,7 +125,10 @@ function patchPortfolioCommandCentre() {
     '  );',
     '}',
   ].join("\n");
-  source = replaceOnce(source, oldHoldingActions, newHoldingActions, "holding actions");
+  source = source.replace(
+    /function HoldingActions\(\{ portfolioId, holding \}: \{ portfolioId: string; holding: ExtendedHolding \}\) \{[\s\S]*?\r?\n\}/,
+    newHoldingActions,
+  );
   source = replaceOnce(source, 'function HoldingRow({ portfolioId, holding, currency }: { portfolioId: string; holding: ExtendedHolding; currency: string }) {', 'function HoldingRow({ portfolioId, holding, currency, riskTolerance }: { portfolioId: string; holding: ExtendedHolding; currency: string; riskTolerance: string | null }) {', "holding row props");
   source = replaceOnce(source, '<HoldingActions portfolioId={portfolioId} holding={holding} />', '<HoldingActions portfolioId={portfolioId} holding={holding} riskTolerance={riskTolerance} />', "holding actions usage");
   source = replaceOnce(source, '<HoldingRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} />', '<HoldingRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} riskTolerance={portfolioMeta.riskTolerance} />', "holding row usage");
@@ -224,10 +227,10 @@ function patchDashboard() {
   ].join("\n");
   source = replaceBetween(source, "function StatBlock({", "\n\nfunction PortfolioDashboardWidget", newStatBlock, "compact stat strip component");
 
-  source = replaceOnce(source, '                  dailyMove={dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? undefined}\n', "", "mobile daily move prop");
-  source = replaceOnce(source, '                      <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} />\n', "", "desktop daily move pill");
+  source = source.replace(/\r?\n\s+dailyMove=\{dailyMoveMap\.get\(stock\.ticker \?\? ""\)\?\.changePct \?\? undefined\}/, "");
+  source = source.replace(/\r?\n\s+<DailyMovePill changePct=\{dailyMoveMap\.get\(stock\.ticker \?\? ""\)\?\.changePct\} \/>/, "");
   source = replaceOnce(source, 'function RankingMobileRow({ stock, dailyMove }: { stock: Ranking; dailyMove?: number }) {', 'function RankingMobileRow({ stock }: { stock: Ranking }) {', "mobile row props");
-  source = source.replace(/\n            <DailyMovePill\n              changePct=\{dailyMove\}\n              className="h-4 min-w-\[38px\] px-1 text-\[7\.5px\]"\n            \/>/, "");
+  source = source.replace(/\r?\n\s+<DailyMovePill\r?\n\s+changePct=\{dailyMove\}\r?\n\s+className="h-4 min-w-\[38px\] px-1 text-\[7\.5px\]"\r?\n\s+\/>/, "");
 
   fs.writeFileSync(file, source);
 }

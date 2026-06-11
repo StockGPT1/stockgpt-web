@@ -51,7 +51,7 @@ export default async function SettingsPage() {
   const watchlistAlertsEnabled = profile?.email_watchlist_alerts !== false;
 
   return (
-    <AppShell activePath="/settings">
+    <AppShell activePath="/settings" user={user} subscriptionStatus={profile?.subscription_status ?? null}>
       <main className="h-full min-h-0 overflow-y-auto pr-1">
         <h1 className="text-[28px] font-black tracking-[-0.03em] text-[#faf6f0]">
           Settings

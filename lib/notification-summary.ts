@@ -58,22 +58,16 @@ export async function saveUnreadNotificationSummary(userId: string, unreadCount:
   }
 }
 
-export async function getUnreadNotificationCountFast(): Promise<number> {
+export async function getUnreadNotificationCountForUser(userId: string): Promise<number> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return 0;
-
-    const redisCount = await getJsonCache<number>(notificationCountKey(user.id));
+    const redisCount = await getJsonCache<number>(notificationCountKey(userId));
     if (typeof redisCount === "number") return normaliseCount(redisCount);
 
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("user_notification_summaries")
       .select("unread_count,updated_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (error || !data) return 0;
@@ -83,11 +77,25 @@ export async function getUnreadNotificationCountFast(): Promise<number> {
 
     const count = normaliseCount(row.unread_count);
     await setJsonCache(
-      notificationCountKey(user.id),
+      notificationCountKey(userId),
       count,
       NOTIFICATION_SUMMARY_TTL_SECONDS,
     );
     return count;
+  } catch {
+    return 0;
+  }
+}
+
+export async function getUnreadNotificationCountFast(): Promise<number> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return 0;
+    return getUnreadNotificationCountForUser(user.id);
   } catch {
     return 0;
   }
