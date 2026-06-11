@@ -18,12 +18,12 @@
   .stockgpt-mobile-sheet-root {
     display: block !important;
     position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
-    inset: 0 !important;
-    z-index: 2147483647 !important;
     isolation: isolate;
     overscroll-behavior: none;
     -webkit-text-size-adjust: 100%;
@@ -73,14 +73,8 @@
     min-height: 44px;
   }
 
-  /* Legacy mobile popup hardening: catches existing modal implementations until each is migrated. */
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) {
+  /* Existing fixed popups: force true app-level sheets on mobile, above app nav/ticker/search. */
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) {
     position: fixed !important;
     z-index: 2147483647 !important;
     inset: 0 !important;
@@ -106,57 +100,21 @@
     transform: none !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) *,
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) *::before,
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) *::after {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) *,
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) *::before,
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) *::after {
     box-sizing: border-box;
     min-width: 0;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) > button[aria-label*="Close"] {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) > button[aria-label*="Close"] {
     background: #020805 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) > div,
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) > div.relative.z-10 {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) > div,
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) > div.relative.z-10 {
     position: relative !important;
     z-index: 1 !important;
     width: 100vw !important;
@@ -172,18 +130,8 @@
     overflow: hidden !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) > div > div,
-  :where(
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) > div.relative.z-10 > div {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) > div > div,
+  :where(div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) > div.relative.z-10 > div {
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
@@ -333,46 +281,22 @@
   }
 
   /* Inner scroll containment for legacy popups. */
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) [class*="overflow-y-auto"] {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) [class*="overflow-y-auto"] {
     scrollbar-width: none !important;
     -webkit-overflow-scrolling: touch;
     overflow-x: hidden !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) [class*="overflow-y-auto"]::-webkit-scrollbar {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) [class*="overflow-y-auto"]::-webkit-scrollbar {
     display: none !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) :is(input, textarea, select) {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) :is(input, textarea, select) {
     font-size: 16px !important;
     max-width: 100% !important;
   }
 
-  :where(
-    div.fixed.inset-0[class*="z-[90]"],
-    div.fixed.inset-0[class*="z-[120]"],
-    div.fixed.inset-0[class*="z-[9999]"],
-    div.fixed.inset-x-0[class*="z-[9999]"],
-    div.fixed.inset-0[class*="z-[2147483647]"]
-  ) :is(button, a) {
+  :where(div.fixed.inset-0[class*="z-[90]"], div.fixed.inset-0[class*="z-[120]"], div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"], div.fixed.inset-0[class*="z-[2147483647]"]) :is(button, a) {
     touch-action: manipulation;
   }
 }
