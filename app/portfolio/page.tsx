@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
-const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v5";
+const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v6";
 
 type SearchParams = {
   builder?: string;
@@ -137,14 +137,37 @@ function buildPortfolioNews({
   stockUniverse: StockLike[];
   portfolioTickerSet: Set<string>;
 }) {
+  const portfolioStocks = stockUniverse.filter((stock) =>
+    portfolioTickerSet.has(String(stock.ticker ?? "").toUpperCase()),
+  );
+  const knownPortfolioTickers = new Set(
+    portfolioStocks.map((stock) => String(stock.ticker ?? "").toUpperCase()),
+  );
+
+  portfolioTickerSet.forEach((ticker) => {
+    if (knownPortfolioTickers.has(ticker)) return;
+    portfolioStocks.push({
+      ticker,
+      company: null,
+      sector: null,
+      rank: null,
+      score: null,
+      price: null,
+    });
+  });
+
   return newsData
-    .map((article) => ({
-      raw: article,
-      enriched: enrichArticleWithStockInsights(article, stockUniverse, 10),
-    }))
-    .filter(({ raw, enriched }) => {
-      const directTickers = parseAffectedTickers(raw.affected_tickers);
-      if (directTickers.some((ticker) => portfolioTickerSet.has(ticker))) return true;
+    .map((article) => {
+      const directTickers = parseAffectedTickers(article.affected_tickers);
+      const hasDirectPortfolioMatch = directTickers.some((ticker) =>
+        portfolioTickerSet.has(ticker),
+      );
+      const enriched = enrichArticleWithStockInsights(article, portfolioStocks, 10);
+
+      return { enriched, hasDirectPortfolioMatch };
+    })
+    .filter(({ enriched, hasDirectPortfolioMatch }) => {
+      if (hasDirectPortfolioMatch) return true;
       return enriched.affectedStocks.some((stock) => portfolioTickerSet.has(stock.ticker));
     })
     .sort(

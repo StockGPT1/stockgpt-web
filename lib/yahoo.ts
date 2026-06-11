@@ -405,6 +405,51 @@ export async function getStockChart(
   return result;
 }
 
+export async function getCachedStockChart(
+  ticker: string,
+  ranges: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"],
+): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
+  const now = Date.now();
+  const normalizedTicker = normalizeTicker(ticker);
+
+  let rangesToLoad: TimeRange[] = [];
+
+  for (const range of ranges) {
+    const key = cacheKey(normalizedTicker, range);
+    const cached = cache.get(key);
+
+    if (cached && now - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
+      result[range] = cached.data;
+    } else {
+      rangesToLoad.push(range);
+    }
+  }
+
+  if (rangesToLoad.length > 0) {
+    const redisCached = await getCachedChartRowsFromRedis(normalizedTicker, rangesToLoad);
+    rangesToLoad = rangesToLoad.filter((range) => {
+      const points = redisCached[range];
+      if (!points || points.length === 0) return true;
+      result[range] = points;
+      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
+      return false;
+    });
+  }
+
+  if (rangesToLoad.length > 0) {
+    const dbCached = await getCachedChartRows(normalizedTicker, rangesToLoad);
+    rangesToLoad.forEach((range) => {
+      const points = dbCached[range];
+      if (!points || points.length === 0) return;
+      result[range] = points;
+      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
+    });
+  }
+
+  return result;
+}
+
 export async function getSP500Chart(
   ranges: TimeRange[] = ["1M", "6M", "1Y", "5Y"],
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {

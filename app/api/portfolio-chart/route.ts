@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
-import { getStockChart } from "@/lib/yahoo";
+import { getCachedStockChart } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -391,7 +391,9 @@ export async function GET(req: NextRequest) {
     await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
   if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
 
-  const chartResults = await Promise.all(tickers.map((ticker) => getStockChart(ticker, RANGES)));
+  const chartResults = await Promise.all(
+    tickers.map((ticker) => getCachedStockChart(ticker, RANGES)),
+  );
 
   const currentPrices = new Map(
     ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>).map((row) => [
@@ -421,6 +423,10 @@ export async function GET(req: NextRequest) {
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});
+
+  if (Object.keys(chartData).length === 0) {
+    return NextResponse.json({ pending: true }, { status: 202 });
+  }
 
   void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
 
