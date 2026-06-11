@@ -17,7 +17,6 @@ import {
 } from "@/lib/actions/portfolio-management";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
-import type { EnrichedNewsArticle } from "@/lib/news-intelligence";
 
 type StockOption = {
   ticker: string;
@@ -54,15 +53,13 @@ type ExtendedHolding = EnrichedHolding & {
   notes?: string | null;
 };
 
-type PortfolioNewsArticle = EnrichedNewsArticle;
-
 type Props = {
   portfolioId: string;
   portfolios: PortfolioOption[];
   holdings: ExtendedHolding[];
   stockOptions?: StockOption[];
   transactions?: PortfolioTransaction[];
-  newsArticles?: PortfolioNewsArticle[];
+  newsArticles?: import("@/lib/news-intelligence").EnrichedNewsArticle[];
   chartData?: Partial<Record<TimeRange, ChartPoint[]>>;
   portfolioMeta: {
     id: string;
