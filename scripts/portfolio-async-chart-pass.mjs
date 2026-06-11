@@ -35,22 +35,33 @@ if (!source.includes(marker)) {
 
   useEffect(() => {
     let mounted = true;
+    let retryTimer: number | null = null;
     setLiveChartData(chartData);
 
-    fetch(\`/api/portfolio-chart?portfolioId=\${encodeURIComponent(portfolioId)}\`, {
-      cache: "no-store",
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (!mounted || !payload?.chartData) return;
-        setLiveChartData(payload.chartData as Partial<Record<TimeRange, ChartPoint[]>>);
+    const loadChart = (attempt = 0) => {
+      fetch(\`/api/portfolio-chart?portfolioId=\${encodeURIComponent(portfolioId)}\`, {
+        cache: "no-store",
       })
-      .catch(() => {
-        // Keep the initial fallback chart if live chart generation fails.
-      });
+        .then((response) => (response.status === 202 || response.ok ? response.json() : null))
+        .then((payload) => {
+          if (!mounted || !payload) return;
+          if (payload.chartData) {
+            setLiveChartData(payload.chartData as Partial<Record<TimeRange, ChartPoint[]>>);
+          }
+          if (payload.pending && attempt < 4) {
+            retryTimer = window.setTimeout(() => loadChart(attempt + 1), 2500 + attempt * 2500);
+          }
+        })
+        .catch(() => {
+          // Keep the initial fallback chart if live chart generation fails.
+        });
+    };
+
+    loadChart();
 
     return () => {
       mounted = false;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [portfolioId, chartData]);`,
   );

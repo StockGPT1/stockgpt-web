@@ -431,15 +431,12 @@ async function getTechnicalLevels(
   currentPrice: number,
 ): Promise<TechnicalLevels> {
   if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
-    return {
-      stopLoss: null,
-      takeProfit: null,
-      support: null,
-      resistance: null,
-      ma50: null,
-      volatilityPct: null,
-      source: "fallback",
-    };
+    return fallbackTechnicalLevels(currentPrice);
+  }
+
+  // FAST_PORTFOLIO_TECHNICAL_LEVELS_PATCH
+  if (process.env.PORTFOLIO_TECHNICAL_CHARTS !== "true") {
+    return fallbackTechnicalLevels(currentPrice);
   }
 
   try {
@@ -454,15 +451,7 @@ async function getTechnicalLevels(
       .filter((price: number) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
-      return {
-        stopLoss: currentPrice * 0.92,
-        takeProfit: currentPrice * 1.14,
-        support: null,
-        resistance: null,
-        ma50: null,
-        volatilityPct: 4,
-        source: "fallback",
-      };
+      return fallbackTechnicalLevels(currentPrice);
     }
 
     const recent = closes.slice(-126);
@@ -518,16 +507,22 @@ async function getTechnicalLevels(
       source: "technical",
     };
   } catch {
-    return {
-      stopLoss: currentPrice * 0.92,
-      takeProfit: currentPrice * 1.14,
-      support: null,
-      resistance: null,
-      ma50: null,
-      volatilityPct: 4,
-      source: "fallback",
-    };
+    return fallbackTechnicalLevels(currentPrice);
   }
+}
+
+function fallbackTechnicalLevels(currentPrice: number): TechnicalLevels {
+  const hasPrice = Number.isFinite(currentPrice) && currentPrice > 0;
+
+  return {
+    stopLoss: hasPrice ? currentPrice * 0.92 : null,
+    takeProfit: hasPrice ? currentPrice * 1.14 : null,
+    support: null,
+    resistance: null,
+    ma50: null,
+    volatilityPct: hasPrice ? 4 : null,
+    source: "fallback",
+  };
 }
 
 function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
@@ -1289,30 +1284,36 @@ export async function enrichHoldings(
   if (holdings.length === 0) return [];
 
   const supabase = await createClient();
-  const tickers = holdings.map((holding) => holding.ticker);
-
-  const { data: currentData } = await supabase
-    .from("stock_rankings")
-    .select("ticker, company, sector, rank, score, price")
-    .in("ticker", tickers);
+  const tickers = Array.from(new Set(holdings.map((holding) => holding.ticker)));
 
   const fourteenDaysAgo = new Date(
     Date.now() - NEWS_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const { data: recentNews } = await supabase
-    .from("news_articles")
-    .select("title, impact, affected_tickers, published_at")
-    .gte("published_at", fourteenDaysAgo)
-    .limit(300);
+  const [currentResult, newsResult, diagnosticsResult, sectorData] = await Promise.all([
+    supabase
+      .from("stock_rankings")
+      .select("ticker, company, sector, rank, score, price")
+      .in("ticker", tickers),
+    supabase
+      .from("news_articles")
+      .select("title, impact, affected_tickers, published_at")
+      .gte("published_at", fourteenDaysAgo)
+      .overlaps("affected_tickers", tickers)
+      .limit(300),
+    supabase
+      .from("stock_factor_diagnostics")
+      .select(
+        "ticker,updated_at,previous_score,current_score,smoothed_score,factor_coverage,quality_change,growth_change,value_change,momentum_change,risk_change,income_change,top_negative_factors,top_positive_factors,diagnosis",
+      )
+      .in("ticker", tickers),
+    getSectorData(),
+  ]);
 
-  const { data: factorDiagnosticsData } = await supabase
-    .from("stock_factor_diagnostics")
-    .select(
-      "ticker,updated_at,previous_score,current_score,smoothed_score,factor_coverage,quality_change,growth_change,value_change,momentum_change,risk_change,income_change,top_negative_factors,top_positive_factors,diagnosis",
-    );
-
-  const { momentum, bullishPct, maxScore, totalStocks } = await getSectorData();
+  const currentData = currentResult.data;
+  const recentNews = newsResult.data;
+  const factorDiagnosticsData = diagnosticsResult.data;
+  const { momentum, bullishPct, maxScore, totalStocks } = sectorData;
 
   const currentMap = new Map(
     ((currentData ?? []) as any[]).map((row) => [String(row.ticker), row]),

@@ -23,33 +23,11 @@ source = source.replace(
   /function buildRangeData\([\s\S]*?\n}\n\nfunction preferredInitialRange/,
   `function buildRangeData(
   source: Partial<Record<TimeRange, ChartPoint[]>>,
-  createdAt?: string | null,
+  _createdAt?: string | null,
 ): Partial<Record<TimeRange, ChartPoint[]>> {
-  const maxPoints = source.MAX ?? [];
-  const data: Partial<Record<TimeRange, ChartPoint[]>> = { ...source };
-  const hasPeriodRange = RANGE_LABELS.some(
-    ({ range }) => range !== "MAX" && (source[range]?.length ?? 0) > 1,
-  );
-
-  if (!hasPeriodRange && maxPoints.length <= 2) {
-    return maxPoints.length > 1 ? { MAX: maxPoints } : data;
-  }
-
-  if (maxPoints.length < 3) return data;
-
-  const createdMs = createdAt ? new Date(createdAt).getTime() : new Date(maxPoints[0].date).getTime();
-  const nowMs = Date.now();
-
-  RANGE_LABELS.forEach(({ range, days }) => {
-    if (range === "MAX" || days == null) return;
-    if ((source[range]?.length ?? 0) > 1) return;
-
-    const startMs = Math.max(createdMs, nowMs - days * 86_400_000);
-    const points = maxPoints.filter((point) => new Date(point.date).getTime() >= startMs);
-    if (points.length > 1) data[range] = points;
-  });
-
-  return data;
+  return Object.fromEntries(
+    Object.entries(source).filter(([, points]) => (points?.length ?? 0) > 1),
+  ) as Partial<Record<TimeRange, ChartPoint[]>>;
 }
 
 function preferredInitialRange`,
@@ -64,11 +42,15 @@ source = source.replace(
   return "MAX" as TimeRange;
 }
 
+function hasChartPoints(data: Partial<Record<TimeRange, ChartPoint[]>>, range: TimeRange) {
+  return (data[range]?.length ?? 0) > 1;
+}
+
 function SectionButton`,
 );
 source = replaceAll(
   source,
   "{money(rangeDelta, currency)} {validRangeLabel} · {pct(rangePct)}",
-  "{validRange === \"MAX\" ? money(summary.totalPnl, currency) : money(rangeDelta, currency)} {validRangeLabel} · {validRange === \"MAX\" ? pct(summary.totalPnlPct) : pct(rangePct)}",
+  "{range === \"MAX\" ? money(summary.totalPnl, currency) : money(rangeDelta, currency)} {validRangeLabel} · {range === \"MAX\" ? pct(summary.totalPnlPct) : pct(rangePct)}",
 );
 fs.writeFileSync(componentFile, source);

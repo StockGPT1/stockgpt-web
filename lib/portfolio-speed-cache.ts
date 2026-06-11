@@ -4,14 +4,14 @@ import { getJsonCache, rememberJson, setJsonCache } from "@/lib/redis-cache";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const PORTFOLIO_SNAPSHOT_TTL_MS = Number(
-  process.env.PORTFOLIO_SNAPSHOT_TTL_MS ?? 2 * 60 * 1000,
+  process.env.PORTFOLIO_SNAPSHOT_TTL_MS ?? 15 * 60 * 1000,
 );
 const PORTFOLIO_SNAPSHOT_TTL_SECONDS = Math.max(
   30,
   Math.round(PORTFOLIO_SNAPSHOT_TTL_MS / 1000),
 );
 const PORTFOLIO_SHARED_CACHE_TTL_SECONDS = Number(
-  process.env.PORTFOLIO_SHARED_CACHE_TTL_SECONDS ?? 5 * 60,
+  process.env.PORTFOLIO_SHARED_CACHE_TTL_SECONDS ?? 10 * 60,
 );
 
 export type PortfolioSnapshotPayload = {
@@ -90,7 +90,7 @@ export async function getPortfolioPageSnapshot({
     if (row.input_hash !== inputHash) return null;
     if (!isFresh(row.updated_at, PORTFOLIO_SNAPSHOT_TTL_MS)) return null;
 
-    await setJsonCache(redisKey, row.snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
+    void setJsonCache(redisKey, row.snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
     return row.snapshot;
   } catch (err) {
     console.warn("Portfolio snapshot read failed", err);
@@ -110,23 +110,26 @@ export async function savePortfolioPageSnapshot({
   snapshot: PortfolioSnapshotPayload;
 }) {
   const redisKey = portfolioSnapshotKey({ ownerId, portfolioId, inputHash });
-  await setJsonCache(redisKey, snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
+  const redisWrite = setJsonCache(redisKey, snapshot, PORTFOLIO_SNAPSHOT_TTL_SECONDS);
+  const supabaseWrite = (async () => {
+    try {
+      const supabase = createAdminClient();
+      await supabase.from("portfolio_page_snapshots").upsert(
+        {
+          portfolio_id: portfolioId,
+          owner_id: ownerId,
+          input_hash: inputHash,
+          snapshot,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "portfolio_id" },
+      );
+    } catch (err) {
+      console.warn("Portfolio snapshot write failed", err);
+    }
+  })();
 
-  try {
-    const supabase = createAdminClient();
-    await supabase.from("portfolio_page_snapshots").upsert(
-      {
-        portfolio_id: portfolioId,
-        owner_id: ownerId,
-        input_hash: inputHash,
-        snapshot,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "portfolio_id" },
-    );
-  } catch (err) {
-    console.warn("Portfolio snapshot write failed", err);
-  }
+  await Promise.allSettled([redisWrite, supabaseWrite]);
 }
 
 const getPortfolioStockUniverseFromSupabase = unstable_cache(
@@ -187,7 +190,11 @@ export function startPortfolioTimer(label: string) {
     },
     end(extra: Record<string, unknown> = {}) {
       const totalMs = Math.round(performance.now() - startedAt);
-      console.info(`[perf:${label}]`, { totalMs, marks, ...extra });
+      const compactMarks = marks.map((mark) => `${mark.label}:${mark.ms}`).join(",");
+      const compactExtra = Object.entries(extra)
+        .map(([key, value]) => `${key}=${String(value)}`)
+        .join(",");
+      console.info(`[perf:${label}] totalMs=${totalMs} marks=${compactMarks} ${compactExtra}`);
     },
   };
 }

@@ -24,7 +24,7 @@ type RedisHealthCheck = {
   error: string | null;
 };
 
-const REDIS_COMMAND_TIMEOUT_MS = Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 3_000);
+const REDIS_COMMAND_TIMEOUT_MS = Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 700);
 const REDIS_DISABLED_COOLDOWN_MS = Number(process.env.REDIS_DISABLED_COOLDOWN_MS ?? 60 * 1000);
 
 let endpoint: string | null | undefined;

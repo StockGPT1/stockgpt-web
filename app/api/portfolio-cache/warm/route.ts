@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     tickers,
     Number(process.env.PORTFOLIO_CACHE_WARM_BATCH_SIZE ?? 10),
     async (ticker) => {
-      await getStockChart(ticker, ["1D", "6M", "1Y", "5Y", "MAX"]);
+      await getStockChart(ticker, ["1D", "1M", "6M", "1Y", "5Y", "MAX"]);
     },
   );
 

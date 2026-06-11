@@ -1,17 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
-import { getStockChart } from "@/lib/yahoo";
+import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
+import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
+import { getCachedStockChart, getStockChart } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Number(
+  process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60,
+);
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
   "6M": 182,
   "1Y": 365,
+};
+const MIN_POINTS_BY_RANGE: Partial<Record<TimeRange, number>> = {
+  "1D": 6,
+  "1M": 5,
+  "6M": 5,
+  "1Y": 5,
+  MAX: 2,
 };
 
 type HoldingRow = {
@@ -97,6 +109,18 @@ function samplePoints(points: ChartPoint[]) {
 
 function normaliseTransactionType(type: string | null | undefined) {
   return String(type ?? "").trim().toLowerCase();
+}
+
+function portfolioChartCacheKey({
+  userId,
+  portfolioId,
+  inputHash,
+}: {
+  userId: string;
+  portfolioId: string;
+  inputHash: string;
+}) {
+  return `portfolio:chart:${userId}:${portfolioId}:${inputHash}`;
 }
 
 function buildLotsFromLedger({
@@ -195,6 +219,7 @@ function priceAtTime({
   charts,
   range,
   currentPrices,
+  allowMaxFallback = false,
 }: {
   ticker: string;
   targetMs: number;
@@ -203,10 +228,14 @@ function priceAtTime({
   charts: Map<string, ChartPoint[]>;
   range: TimeRange;
   currentPrices: Map<string, number>;
+  allowMaxFallback?: boolean;
 }) {
   if (targetMs <= startMs) return entryPrice;
 
-  const rawPoints = charts.get(`${ticker}:${range}`) ?? charts.get(`${ticker}:MAX`) ?? [];
+  const rawPoints =
+    charts.get(`${ticker}:${range}`) ??
+    (allowMaxFallback ? charts.get(`${ticker}:MAX`) : undefined) ??
+    [];
   let price = entryPrice;
 
   for (const point of rawPoints) {
@@ -221,6 +250,24 @@ function priceAtTime({
   }
 
   return price;
+}
+
+function hasRequiredRangeCoverage({
+  lots,
+  charts,
+  range,
+}: {
+  lots: Lot[];
+  charts: Map<string, ChartPoint[]>;
+  range: TimeRange;
+}) {
+  const tickers = Array.from(new Set(lots.map((lot) => lot.ticker)));
+  if (tickers.length === 0) return false;
+
+  return tickers.every((ticker) => {
+    const points = charts.get(`${ticker}:${range}`);
+    return (points?.length ?? 0) >= (MIN_POINTS_BY_RANGE[range] ?? 2);
+  });
 }
 
 function buildRangeValueSeries({
@@ -242,12 +289,18 @@ function buildRangeValueSeries({
   const rangeStartMs = RANGE_DAYS[range]
     ? Math.max(portfolioStartMs, now - RANGE_DAYS[range]! * 86_400_000)
     : portfolioStartMs;
+  const allowMaxFallback = range === "MAX";
 
-  const times = new Set<number>([rangeStartMs, now]);
+  if (!hasRequiredRangeCoverage({ lots, charts, range })) return [];
+
+  const times = new Set<number>(range === "MAX" ? [rangeStartMs, now] : [now]);
 
   lots.forEach((lot) => {
     if (lot.startMs >= rangeStartMs && lot.startMs <= now) times.add(lot.startMs);
-    const rawPoints = charts.get(`${lot.ticker}:${range}`) ?? charts.get(`${lot.ticker}:MAX`) ?? [];
+    const rawPoints =
+      charts.get(`${lot.ticker}:${range}`) ??
+      (allowMaxFallback ? charts.get(`${lot.ticker}:MAX`) : undefined) ??
+      [];
     rawPoints.forEach((point) => {
       const ms = normalisePointDate(point);
       if (Number.isFinite(ms) && ms >= Math.max(rangeStartMs, lot.startMs) && ms <= now) times.add(ms);
@@ -274,6 +327,7 @@ function buildRangeValueSeries({
               charts,
               range,
               currentPrices,
+              allowMaxFallback,
             })
         );
       }, 0);
@@ -288,8 +342,16 @@ function buildRangeValueSeries({
     (point, index, all) => index === 0 || point.date !== all[index - 1].date,
   );
 
-  if (deduped.length <= 1) return [];
+  if (deduped.length < (MIN_POINTS_BY_RANGE[range] ?? 2)) return [];
   return samplePoints(deduped);
+}
+
+async function warmPortfolioChartCache(tickers: string[]) {
+  const uniqueTickers = Array.from(new Set(tickers)).filter(Boolean);
+  for (let index = 0; index < uniqueTickers.length; index += 4) {
+    const batch = uniqueTickers.slice(index, index + 4);
+    await Promise.allSettled(batch.map((ticker) => getStockChart(ticker, RANGES)));
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -348,12 +410,35 @@ export async function GET(req: NextRequest) {
   const portfolioStartMs = Math.max(portfolioCreatedMs, Math.min(firstLotMs, firstCashMs));
   const tickers = Array.from(new Set(lots.map((lot) => lot.ticker)));
 
-  const [{ data: currentRows }, ...chartResults] = await Promise.all([
+  const { data: currentRows } =
     tickers.length > 0
-      ? supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
-      : Promise.resolve({ data: [] }),
-    ...tickers.map((ticker) => getStockChart(ticker, RANGES)),
-  ]);
+      ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+      : { data: [] };
+
+  const chartInputHash = hashPortfolioInputs({
+    version: "portfolio-chart-v3",
+    portfolio: portfolioRow,
+    holdings: holdingRows,
+    transactions: transactionRows,
+    prices: ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
+      .map((row) => ({
+        ticker: String(row.ticker ?? "").toUpperCase(),
+        price: toNumber(row.price, 0),
+      }))
+      .sort((a, b) => a.ticker.localeCompare(b.ticker)),
+  });
+  const cacheKey = portfolioChartCacheKey({
+    userId: user.id,
+    portfolioId,
+    inputHash: chartInputHash,
+  });
+  const cachedChartData =
+    await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
+  if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
+
+  const chartResults = await Promise.all(
+    tickers.map((ticker) => getCachedStockChart(ticker, RANGES)),
+  );
 
   const currentPrices = new Map(
     ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>).map((row) => [
@@ -383,6 +468,18 @@ export async function GET(req: NextRequest) {
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});
+
+  if (Object.keys(chartData).length === 0) {
+    after(() => warmPortfolioChartCache(tickers));
+    return NextResponse.json({ pending: true }, { status: 202 });
+  }
+
+  const missingRanges = RANGES.filter((range) => (chartData[range]?.length ?? 0) === 0);
+  if (missingRanges.length > 0) {
+    after(() => warmPortfolioChartCache(tickers));
+  }
+
+  void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
 
   return NextResponse.json({ chartData });
 }

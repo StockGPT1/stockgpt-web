@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
-const PORTFOLIO_SNAPSHOT_VERSION = "fast-chart-v3";
+const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v7";
 
 type SearchParams = {
   builder?: string;
@@ -67,6 +68,15 @@ type StockOption = {
   sector: string | null;
   rank: number | null;
   price: number | null;
+};
+
+type StockUniverseRow = {
+  ticker?: string | null;
+  company?: string | null;
+  sector?: string | null;
+  rank?: number | string | null;
+  score?: number | string | null;
+  price?: number | string | null;
 };
 
 type TransactionRow = {
@@ -127,14 +137,37 @@ function buildPortfolioNews({
   stockUniverse: StockLike[];
   portfolioTickerSet: Set<string>;
 }) {
+  const portfolioStocks = stockUniverse.filter((stock) =>
+    portfolioTickerSet.has(String(stock.ticker ?? "").toUpperCase()),
+  );
+  const knownPortfolioTickers = new Set(
+    portfolioStocks.map((stock) => String(stock.ticker ?? "").toUpperCase()),
+  );
+
+  portfolioTickerSet.forEach((ticker) => {
+    if (knownPortfolioTickers.has(ticker)) return;
+    portfolioStocks.push({
+      ticker,
+      company: null,
+      sector: null,
+      rank: null,
+      score: null,
+      price: null,
+    });
+  });
+
   return newsData
-    .map((article) => ({
-      raw: article,
-      enriched: enrichArticleWithStockInsights(article, stockUniverse, 10),
-    }))
-    .filter(({ raw, enriched }) => {
-      const directTickers = parseAffectedTickers(raw.affected_tickers);
-      if (directTickers.some((ticker) => portfolioTickerSet.has(ticker))) return true;
+    .map((article) => {
+      const directTickers = parseAffectedTickers(article.affected_tickers);
+      const hasDirectPortfolioMatch = directTickers.some((ticker) =>
+        portfolioTickerSet.has(ticker),
+      );
+      const enriched = enrichArticleWithStockInsights(article, portfolioStocks, 10);
+
+      return { enriched, hasDirectPortfolioMatch };
+    })
+    .filter(({ enriched, hasDirectPortfolioMatch }) => {
+      if (hasDirectPortfolioMatch) return true;
       return enriched.affectedStocks.some((stock) => portfolioTickerSet.has(stock.ticker));
     })
     .sort(
@@ -144,6 +177,26 @@ function buildPortfolioNews({
     )
     .slice(0, 30)
     .map(({ enriched }) => enriched);
+}
+
+function buildSnapshotStockInputs({
+  stockOptionsData,
+  portfolioTickerSet,
+}: {
+  stockOptionsData: StockUniverseRow[] | null | undefined;
+  portfolioTickerSet: Set<string>;
+}) {
+  return (stockOptionsData ?? []).map((stock) => {
+    const ticker = String(stock.ticker ?? "").toUpperCase();
+
+    return {
+      ticker,
+      sector: stock.sector ?? null,
+      rank: stock.rank,
+      score: stock.score,
+      price: portfolioTickerSet.has(ticker) ? stock.price : null,
+    };
+  });
 }
 
 function CompactImportLauncher({
@@ -339,17 +392,13 @@ export default async function PortfolioPage({
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 40);
 
+  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
   const inputHash = hashPortfolioInputs({
     version: PORTFOLIO_SNAPSHOT_VERSION,
     portfolio: activePortfolio,
     holdings: rawHoldings,
     transactions,
-    stocks: (stockOptionsData ?? []).map((stock: any) => ({
-      ticker: stock.ticker,
-      rank: stock.rank,
-      score: stock.score,
-      price: stock.price,
-    })),
+    stocks: buildSnapshotStockInputs({ stockOptionsData, portfolioTickerSet }),
     news: ((newsData ?? []) as BaseNewsArticle[]).map((article) => ({
       id: article.id,
       impact: article.impact,
@@ -419,7 +468,6 @@ export default async function PortfolioPage({
     );
   }
 
-  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
   const portfolioNews = buildPortfolioNews({
     newsData: (newsData ?? []) as BaseNewsArticle[],
     stockUniverse,
@@ -462,19 +510,21 @@ export default async function PortfolioPage({
 
   timer.mark("portfolio-chart");
 
-  await savePortfolioPageSnapshot({
-    portfolioId: selectedPortfolioId,
-    ownerId: user.id,
-    inputHash,
-    snapshot: {
-      enriched,
-      summary,
-      chartData,
-      portfolioNews,
-    },
-  });
+  after(() =>
+    savePortfolioPageSnapshot({
+      portfolioId: selectedPortfolioId,
+      ownerId: user.id,
+      inputHash,
+      snapshot: {
+        enriched,
+        summary,
+        chartData,
+        portfolioNews,
+      },
+    }),
+  );
 
-  timer.end({ mode: "snapshot-write", holdings: rawHoldings.length });
+  timer.end({ mode: "snapshot-write-scheduled", holdings: rawHoldings.length });
 
   return (
     <AppShell activePath="/portfolio">

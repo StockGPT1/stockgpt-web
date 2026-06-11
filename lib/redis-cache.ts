@@ -102,6 +102,6 @@ export async function rememberJson<T>({
   if (cached !== null) return cached;
 
   const fresh = await getFresh();
-  await setJsonCache(key, fresh, ttlSeconds);
+  void setJsonCache(key, fresh, ttlSeconds);
   return fresh;
 }
