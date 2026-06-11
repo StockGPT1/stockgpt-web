@@ -54,26 +54,6 @@ function displayedPerformanceBasis(summary: PortfolioHealthSummary) {
   return Math.max(summary.totalValue, 1);
 }
 
-function visibleFlatPoints(endValue: number, now: number): ChartPoint[] {
-  const safeEnd = Math.max(0, roundMoney(endValue));
-  const wiggle = Math.max(0.01, safeEnd * 0.00025);
-
-  return [
-    {
-      date: new Date(now - 86_400_000).toISOString(),
-      close: roundMoney(Math.max(0, safeEnd - wiggle)),
-    },
-    {
-      date: new Date(now - 43_200_000).toISOString(),
-      close: safeEnd,
-    },
-    {
-      date: new Date(now).toISOString(),
-      close: safeEnd,
-    },
-  ];
-}
-
 function fallbackPortfolioChart(
   summary: PortfolioHealthSummary,
   createdAtMs: number,
@@ -88,14 +68,8 @@ function fallbackPortfolioChart(
     { date: new Date(now).toISOString(), close: endValue },
   ];
 
-  const intradayPoints = visibleFlatPoints(endValue, now);
-
   return {
     MAX: maxPoints,
-    "1D": intradayPoints,
-    "1M": maxPoints,
-    "6M": maxPoints,
-    "1Y": maxPoints,
   };
 }
 
@@ -110,7 +84,7 @@ export async function buildPortfolioPageChart({
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   const createdAtMs = safeDateMs(portfolio.created_at, Date.now());
 
-  // Keep portfolio initial render fast. Detailed contribution-adjusted chart reconstruction
-  // previously fetched historical data for every holding and could block mobile loads.
+  // Keep the first render fast. Short ranges are added only when real cached
+  // holding chart data is available via /api/portfolio-chart.
   return fallbackPortfolioChart(summary, createdAtMs);
 }

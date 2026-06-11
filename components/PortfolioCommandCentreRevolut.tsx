@@ -161,26 +161,15 @@ function recommendedTrimPercent(holding: ExtendedHolding) {
 
 function buildRangeData(
   source: Partial<Record<TimeRange, ChartPoint[]>>,
-  createdAt?: string | null,
+  _createdAt?: string | null,
 ): Partial<Record<TimeRange, ChartPoint[]>> {
-  const maxPoints = source.MAX ?? [];
-  if (maxPoints.length < 2) return source;
-
-  const createdMs = createdAt ? new Date(createdAt).getTime() : new Date(maxPoints[0].date).getTime();
-  const nowMs = Date.now();
-  const data: Partial<Record<TimeRange, ChartPoint[]>> = { MAX: maxPoints };
-
-  RANGE_LABELS.forEach(({ range, days }) => {
-    if (range === "MAX" || days == null) return;
-    const startMs = Math.max(createdMs, nowMs - days * 86_400_000);
-    const points = maxPoints.filter((point) => new Date(point.date).getTime() >= startMs);
-    if (points.length > 1) data[range] = points;
-  });
-
-  return data;
+  return Object.fromEntries(
+    Object.entries(source).filter(([, points]) => (points?.length ?? 0) > 1),
+  ) as Partial<Record<TimeRange, ChartPoint[]>>;
 }
 
 function preferredInitialRange(data: Partial<Record<TimeRange, ChartPoint[]>>) {
+  if ((data["1D"]?.length ?? 0) > 1) return "1D" as TimeRange;
   if ((data["1M"]?.length ?? 0) > 1) return "1M" as TimeRange;
   if ((data["6M"]?.length ?? 0) > 1) return "6M" as TimeRange;
   if ((data["1Y"]?.length ?? 0) > 1) return "1Y" as TimeRange;

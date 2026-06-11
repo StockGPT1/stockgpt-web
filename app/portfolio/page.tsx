@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
-const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v6";
+const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v7";
 
 type SearchParams = {
   builder?: string;
