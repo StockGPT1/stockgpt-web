@@ -44,4 +44,24 @@
     max-width: 100%;
     font-size: 16px !important;
   }
+
+  .stockgpt-mobile-sheet a[href^="/stock/"] > div:first-child {
+    overflow: hidden !important;
+    padding: 0.35rem !important;
+  }
+
+  .stockgpt-mobile-sheet a[href^="/stock/"] > div:first-child img,
+  .stockgpt-mobile-sheet a[href^="/stock/"] > div:first-child svg {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  .stockgpt-mobile-sheet a[href^="/stock/"] p.rounded-full {
+    border: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
 }
