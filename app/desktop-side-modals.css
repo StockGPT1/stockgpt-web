@@ -17,14 +17,12 @@
   }
 
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"]))>:is(.relative.z-10,[role="dialog"]){display:flex!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:hidden!important}
-
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) *{box-sizing:border-box!important;min-width:0!important}
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is(.grid[class*="lg:grid-cols"],.grid[class*="xl:grid-cols"]){grid-template-columns:minmax(0,1fr)!important}
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is(.lg\:block,.xl\:block).hidden:has(img),
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) .relative.hidden:has(img){display:none!important}
 
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is([class*="bg-[#faf6f0]"],[class*="bg-white"],[class*="bg-red-50"],[class*="bg-amber-50"],[class*="bg-blue-50"],[class*="bg-emerald-50"]){background:var(--sg-card)!important}
-  :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is([class*="border-[#072116]"],[class*="border-red"],[class*="border-amber"],[class*="border-blue"],[class*="border-emerald"]){border-color:rgba(250,246,240,.12)!important}
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) [class*="text-[#072116]"]{color:rgba(250,246,240,.65)!important}
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is(h1,h2,h3,h4,strong,[class*="font-black"]){color:var(--sg-cream)!important}
   :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"])) :is([class*="text-[#8a641a]"],[class*="text-[#ddb159]"]){color:var(--sg-gold)!important}
@@ -66,6 +64,11 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] {
   overflow: hidden !important;
 }
 
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
 body [class*="bg-[#020805]"][class*="h-[100dvh]"] > header {
   height: 64px !important;
   min-height: 64px !important;
@@ -85,11 +88,6 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main {
   box-sizing: border-box !important;
 }
 
-body [class*="bg-[#020805]"][class*="h-[100dvh]"] * {
-  box-sizing: border-box;
-  min-width: 0;
-}
-
 body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"], [class*="overflow-auto"]) {
   scrollbar-width: thin;
   scrollbar-color: rgba(221, 177, 89, .48) rgba(250, 246, 240, .06);
@@ -97,8 +95,8 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"]
 }
 
 body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"], [class*="overflow-auto"])::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"], [class*="overflow-auto"])::-webkit-scrollbar-thumb {
@@ -110,13 +108,136 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"]
   background: rgba(250, 246, 240, .06);
 }
 
+/* Ask StockGPT workspace polish: compact, clipped-safe, and no model-list clutter. */
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  overflow: hidden !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:first-child {
+  padding: 16px 16px 12px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:nth-child(2) {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 0 14px 12px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:nth-child(2) > div {
+  border-radius: 20px !important;
+  padding: 12px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:nth-child(2) button {
+  border-radius: 16px !important;
+  padding: 10px 12px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:last-child {
+  padding: 12px 16px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:last-child p:last-child {
+  font-size: 10px !important;
+  line-height: 1.55 !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form {
+  padding: 10px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form > div {
+  max-width: none !important;
+  width: 100% !important;
+  border-radius: 22px !important;
+  padding: 8px !important;
+  overflow: hidden !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea {
+  min-height: 54px !important;
+  max-height: 96px !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea + div {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  padding: 4px 4px 0 !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea + div > p {
+  display: none !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea + div > div {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form button {
+  height: 36px !important;
+  min-height: 36px !important;
+  border-radius: 999px !important;
+  padding: 0 14px !important;
+  white-space: nowrap !important;
+  letter-spacing: .1em !important;
+  font-size: 10px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child > div {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child > div > div:first-child {
+  padding: 14px 16px !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child > div > div:last-child {
+  padding: 12px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child [class*="grid-cols-2"] > button,
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child a,
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child button {
+  min-height: 34px !important;
+  height: 34px !important;
+  border-radius: 999px !important;
+  padding: 0 12px !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+  letter-spacing: .1em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child [class*="grid-cols-2"] {
+  gap: 8px !important;
+}
+
 @media (min-width: 1024px) {
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main {
     display: grid !important;
-    grid-template-columns: clamp(250px, 18vw, 300px) minmax(0, 1fr) clamp(330px, 25vw, 430px) !important;
+    grid-template-columns: clamp(230px, 17vw, 292px) minmax(380px, 1fr) clamp(300px, 24vw, 400px) !important;
     grid-template-rows: minmax(0, 1fr) !important;
-    gap: 12px !important;
-    padding: 12px !important;
+    gap: 10px !important;
+    padding: 10px !important;
   }
 
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside,
@@ -124,29 +245,56 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"]
     height: 100% !important;
     min-height: 0 !important;
     max-height: 100% !important;
-    border-radius: 28px !important;
+    border-radius: 24px !important;
     overflow: hidden !important;
   }
 
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section {
     border: 1px solid rgba(221, 177, 89, .18) !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
   }
 
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > header {
-    padding: 16px 18px !important;
+    padding: 14px 16px !important;
   }
 
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > header h1 {
-    font-size: clamp(26px, 2vw, 32px) !important;
+    font-size: clamp(24px, 1.8vw, 30px) !important;
   }
 
-  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form {
-    padding: 12px !important;
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > header p:last-child {
+    margin-top: 8px !important;
+    line-height: 1.35 !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main {
+    grid-template-columns: 218px minmax(340px, 1fr) 292px !important;
+    gap: 8px !important;
+    padding: 8px !important;
   }
 
-  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea {
-    min-height: 46px !important;
-    max-height: 92px !important;
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:nth-child(2) > div:nth-child(2) {
+    display: none !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > header h1 {
+    font-size: 24px !important;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 1024px) {
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:nth-child(2) > div:nth-child(2) {
+    display: none !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:first-child {
+    padding: 12px 14px 8px !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:first-child > div:last-child {
+    padding: 10px 14px !important;
   }
 }
 
@@ -164,9 +312,9 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"]
     height: calc(100dvh - 58px) !important;
     max-height: calc(100dvh - 58px) !important;
     display: grid !important;
-    grid-template-rows: minmax(0, 1fr) minmax(230px, 38dvh) !important;
-    gap: 10px !important;
-    padding: 10px !important;
+    grid-template-rows: minmax(0, 1fr) minmax(250px, 40dvh) !important;
+    gap: 8px !important;
+    padding: 8px !important;
   }
 
   body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section,
@@ -174,6 +322,18 @@ body [class*="bg-[#020805]"][class*="h-[100dvh]"] :is([class*="overflow-y-auto"]
     min-height: 0 !important;
     max-height: 100% !important;
     overflow: hidden !important;
-    border-radius: 22px !important;
+    border-radius: 20px !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > header {
+    padding: 12px !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > section > form textarea {
+    min-height: 50px !important;
+  }
+
+  body [class*="bg-[#020805]"][class*="h-[100dvh]"] > main > aside:last-child > div > div:first-child {
+    padding: 12px !important;
   }
 }
