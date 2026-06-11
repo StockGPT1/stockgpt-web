@@ -64,4 +64,9 @@
     padding: 0 !important;
     box-shadow: none !important;
   }
+
+  div.fixed.inset-0,
+  div.fixed.inset-x-0 {
+    z-index: 999999 !important;
+  }
 }
