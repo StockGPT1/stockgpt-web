@@ -35,7 +35,7 @@ if (!source.includes(marker)) {
 
   useEffect(() => {
     let mounted = true;
-    let retryTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let retryTimer: number | null = null;
     setLiveChartData(chartData);
 
     const loadChart = (attempt = 0) => {
