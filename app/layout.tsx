@@ -9,6 +9,7 @@ import "./dashboard-right-rail.css";
 import "./portfolio-final-fixes.css";
 import "./desktop-side-modals.css";
 import "./ask-stockgpt-polish.css";
+import "./ask-stockgpt-mobile-hardening.css";
 
 const iconVersion = "30";
 
