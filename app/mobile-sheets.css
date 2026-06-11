@@ -3,13 +3,27 @@
    Desktop modal behaviour is intentionally untouched. */
 
 @media (max-width: 1023px), (pointer: coarse) {
+  html:has(.stockgpt-mobile-sheet-root),
+  body:has(.stockgpt-mobile-sheet-root),
+  html:has(div.fixed[class*="z-[90]"),
+  body:has(div.fixed[class*="z-[90]"),
+  html:has(div.fixed[class*="z-[120]"),
+  body:has(div.fixed[class*="z-[120]"),
+  html:has(div.fixed[class*="z-[9999]"),
+  body:has(div.fixed[class*="z-[9999]") {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+
   .stockgpt-mobile-sheet-root {
     display: block !important;
+    position: fixed !important;
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
     inset: 0 !important;
+    z-index: 2147483647 !important;
     isolation: isolate;
     overscroll-behavior: none;
     -webkit-text-size-adjust: 100%;
@@ -60,72 +74,258 @@
   }
 
   /* Legacy mobile popup hardening: catches existing modal implementations until each is migrated. */
-  body > div.fixed.inset-0[class*="z-[90]"],
-  body > div.fixed.inset-0[class*="z-[120]"],
-  body > div.fixed.inset-0[class*="z-[9999]"],
-  body > div.fixed.inset-0[class*="z-[2147483647]"] {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) {
+    position: fixed !important;
     z-index: 2147483647 !important;
+    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
-    inset: 0 !important;
     overflow: hidden !important;
+    overscroll-behavior: none !important;
     background: #020805 !important;
     padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
     backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    transform: none !important;
   }
 
-  body > div.fixed.inset-0[class*="z-[90]"] *,
-  body > div.fixed.inset-0[class*="z-[120]"] *,
-  body > div.fixed.inset-0[class*="z-[9999]"] *,
-  body > div.fixed.inset-0[class*="z-[2147483647]"] * {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) *,
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) *::before,
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) *::after {
     box-sizing: border-box;
     min-width: 0;
   }
 
-  body > div.fixed.inset-0[class*="z-[90]"] > div,
-  body > div.fixed.inset-0[class*="z-[120]"] > div,
-  body > div.fixed.inset-0[class*="z-[9999]"] > div.relative.z-10,
-  body > div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10 {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) > button[aria-label*="Close"] {
+    background: #020805 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) > div,
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) > div.relative.z-10 {
+    position: relative !important;
+    z-index: 1 !important;
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
+    min-height: 0 !important;
     padding: 0 !important;
+    margin: 0 !important;
     display: flex !important;
     align-items: stretch !important;
     justify-content: stretch !important;
     overflow: hidden !important;
   }
 
-  /* Full-screen legacy sheets: top movers, add holding, manage holding, news/article views. */
-  body > div.fixed.inset-0[class*="z-[90]"] > div,
-  body > div.fixed.inset-0[class*="z-[120]"] > div[class*="max-w-xl"],
-  body > div.fixed.inset-0[class*="z-[9999]"] > div.relative.z-10 > div,
-  body > div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10 > div[class*="bg-[#061b12]"] {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) > div > div,
+  :where(
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) > div.relative.z-10 > div {
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
+    min-height: 0 !important;
     border-radius: 0 !important;
     border-left: 0 !important;
     border-right: 0 !important;
     border-top: 0 !important;
     border-bottom: 0 !important;
     overflow: hidden !important;
+    margin: 0 !important;
   }
 
-  /* Bottom-sheet legacy explainer cards. */
-  body > div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10:has(> div[class*="max-w-xl"]) {
+  /* Top movers and large lists should act like full-screen app sheets, not cards trapped under nav. */
+  div.fixed.inset-0[class*="z-[90]"] > div {
+    display: grid !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+    background: #050706 !important;
+    color: #f8f4e8 !important;
+    padding-top: env(safe-area-inset-top) !important;
+    box-shadow: none !important;
+  }
+
+  div.fixed.inset-0[class*="z-[90]"] > div > div[class*="overflow-y-auto"] {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Manage holding: mobile gets the same dark/gold language as Top Movers. */
+  div.fixed.inset-0[class*="z-[120]"] > div.relative {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    background: #050706 !important;
+    color: #f8f4e8 !important;
+    box-shadow: none !important;
+    padding-top: env(safe-area-inset-top) !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] > div.relative > div:first-child {
+    background: #050706 !important;
+    border-color: rgba(221, 177, 89, 0.18) !important;
+    color: #f8f4e8 !important;
+    padding: 1rem !important;
+    padding-top: calc(1rem + env(safe-area-inset-top)) !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] > div.relative > div:last-child {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem !important;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom)) !important;
+    background: #050706 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] [class*="bg-[#faf6f0]"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="bg-white"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="bg-[#072116]/6"] {
+    background: rgba(250, 246, 240, 0.055) !important;
+    border-color: rgba(221, 177, 89, 0.16) !important;
+    color: #f8f4e8 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] [class*="bg-[#ddb159]/10"] {
+    background: rgba(221, 177, 89, 0.09) !important;
+    border-color: rgba(221, 177, 89, 0.22) !important;
+    color: #f8f4e8 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] [class*="text-[#072116]"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="text-[#072116]/"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="text-[#8a641a]"] {
+    color: rgba(248, 244, 232, 0.72) !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] p[class*="uppercase"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="text-[#8a641a]"][class*="uppercase"],
+  div.fixed.inset-0[class*="z-[120]"] [class*="text-[#072116]/42"][class*="uppercase"] {
+    color: #ddb159 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] h3,
+  div.fixed.inset-0[class*="z-[120]"] [class*="font-black"]:not(button):not(a):not([class*="bg-[#ddb159]"]) {
+    color: #f8f4e8 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] button[aria-label*="Close"],
+  div.fixed.inset-0[class*="z-[120]"] button[class*="size-10"] {
+    border-color: rgba(221, 177, 89, 0.24) !important;
+    background: rgba(250, 246, 240, 0.06) !important;
+    color: #ddb159 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] input {
+    background: rgba(250, 246, 240, 0.08) !important;
+    border-color: rgba(221, 177, 89, 0.22) !important;
+    color: #f8f4e8 !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] input:focus {
+    border-color: rgba(221, 177, 89, 0.72) !important;
+  }
+
+  div.fixed.inset-0[class*="z-[120]"] button[class*="bg-[#072116]"] {
+    background: #ddb159 !important;
+    color: #072116 !important;
+  }
+
+  /* Article/news views should be true full-screen sheets with their own scroll/fixed footer. */
+  :where(div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"]) {
+    color: #f8f4e8 !important;
+  }
+
+  :where(div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"]) > div > div,
+  :where(div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"]) > div.relative.z-10 > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    background: #061b12 !important;
+    color: #f8f4e8 !important;
+    box-shadow: none !important;
+  }
+
+  :where(div.fixed.inset-0[class*="z-[9999]"], div.fixed.inset-x-0[class*="z-[9999]"]) [class*="overflow-y-auto"] {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Bottom-sheet legacy explainer cards only. */
+  div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10:has(> div[class*="max-w-xl"]) {
     align-items: flex-end !important;
     padding: 0 !important;
   }
 
-  body > div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10 > div[class*="max-w-xl"] {
+  div.fixed.inset-0[class*="z-[2147483647]"] > div.relative.z-10 > div[class*="max-w-xl"] {
     width: 100vw !important;
     max-width: 100vw !important;
     max-height: 82dvh !important;
+    height: auto !important;
     border-radius: 28px 28px 0 0 !important;
     border-bottom: 0 !important;
     margin: 0 !important;
@@ -133,34 +333,46 @@
   }
 
   /* Inner scroll containment for legacy popups. */
-  body > div.fixed.inset-0[class*="z-[90]"] [class*="overflow-y-auto"],
-  body > div.fixed.inset-0[class*="z-[120]"] [class*="overflow-y-auto"],
-  body > div.fixed.inset-0[class*="z-[9999]"] [class*="overflow-y-auto"],
-  body > div.fixed.inset-0[class*="z-[2147483647]"] [class*="overflow-y-auto"] {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) [class*="overflow-y-auto"] {
     scrollbar-width: none !important;
     -webkit-overflow-scrolling: touch;
     overflow-x: hidden !important;
   }
 
-  body > div.fixed.inset-0[class*="z-[90]"] [class*="overflow-y-auto"]::-webkit-scrollbar,
-  body > div.fixed.inset-0[class*="z-[120]"] [class*="overflow-y-auto"]::-webkit-scrollbar,
-  body > div.fixed.inset-0[class*="z-[9999]"] [class*="overflow-y-auto"]::-webkit-scrollbar,
-  body > div.fixed.inset-0[class*="z-[2147483647]"] [class*="overflow-y-auto"]::-webkit-scrollbar {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) [class*="overflow-y-auto"]::-webkit-scrollbar {
     display: none !important;
   }
 
-  body > div.fixed.inset-0[class*="z-[90]"] :is(input, textarea, select),
-  body > div.fixed.inset-0[class*="z-[120]"] :is(input, textarea, select),
-  body > div.fixed.inset-0[class*="z-[9999]"] :is(input, textarea, select),
-  body > div.fixed.inset-0[class*="z-[2147483647]"] :is(input, textarea, select) {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) :is(input, textarea, select) {
     font-size: 16px !important;
     max-width: 100% !important;
   }
 
-  body > div.fixed.inset-0[class*="z-[90]"] :is(button, a),
-  body > div.fixed.inset-0[class*="z-[120]"] :is(button, a),
-  body > div.fixed.inset-0[class*="z-[9999]"] :is(button, a),
-  body > div.fixed.inset-0[class*="z-[2147483647]"] :is(button, a) {
+  :where(
+    div.fixed.inset-0[class*="z-[90]"],
+    div.fixed.inset-0[class*="z-[120]"],
+    div.fixed.inset-0[class*="z-[9999]"],
+    div.fixed.inset-x-0[class*="z-[9999]"],
+    div.fixed.inset-0[class*="z-[2147483647]"]
+  ) :is(button, a) {
     touch-action: manipulation;
   }
 }
