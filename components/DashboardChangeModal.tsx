@@ -125,7 +125,7 @@ function MoverList({
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 bg-[#faf6f0]/[0.055] p-4 text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:border-[#ddb159]/28 hover:bg-[#faf6f0]/[0.07]"
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 bg-[#101611] p-4 text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] focus-visible:!bg-[#101611] active:!bg-[#101611]"
         >
           <div className="grid size-12 place-items-center overflow-hidden rounded-full bg-white p-1.5 shadow-[0_8px_18px_rgba(0,0,0,0.22)] sm:size-14">
             <StockLogo
