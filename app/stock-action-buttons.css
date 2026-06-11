@@ -1,0 +1,69 @@
+/* Stock page action button standardisation.
+   Keeps Ask StockGPT, Compare Stock and View Peers equal, centred and contained. */
+
+a[href="/ask-stockgpt"] {
+  color: #07170f !important;
+}
+
+a[href="/ask-stockgpt"] * {
+  color: inherit !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) > div,
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) > a {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) a {
+  display: inline-flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 44px !important;
+  height: 44px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  overflow: hidden !important;
+  text-align: center !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) a[href="/ask-stockgpt"] {
+  border-color: rgba(221, 177, 89, 0.65) !important;
+  background: #ddb159 !important;
+  color: #07170f !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) a[href^="/compare"],
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) a[href^="/rankings"] {
+  border: 1px solid rgba(221, 177, 89, 0.22) !important;
+  background: rgba(251, 244, 229, 0.025) !important;
+  color: #ddb159 !important;
+}
+
+section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) a > span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 639px) {
+  section:has(> div a[href="/ask-stockgpt"]):has(> a[href^="/compare"]) {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
