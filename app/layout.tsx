@@ -8,6 +8,7 @@ import "./visual-cleanup.css";
 import "./dashboard-right-rail.css";
 import "./portfolio-final-fixes.css";
 import "./desktop-side-modals.css";
+import "./ask-stockgpt-polish.css";
 
 const iconVersion = "30";
 
