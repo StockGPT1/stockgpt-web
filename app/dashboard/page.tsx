@@ -94,40 +94,6 @@ function getChartChangePct(
   return ((last - first) / first) * 100;
 }
 
-function dailyMoveClassName(changePct: number | null | undefined) {
-  if (!Number.isFinite(changePct)) {
-    return "border-[#072116]/8 bg-transparent text-[#072116]/35";
-  }
-  if (Number(changePct) >= 0) {
-    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
-  }
-  return "border-red-500/25 bg-red-500/10 text-red-700";
-}
-
-function DailyMovePill({
-  changePct,
-  className = "h-5 min-w-[42px] px-1 text-[8px]",
-}: {
-  changePct: number | null | undefined;
-  className?: string;
-}) {
-  const valid = Number.isFinite(changePct);
-  const value = valid ? Number(changePct) : null;
-
-  return (
-    <span
-      title="1D price move"
-      className={[
-        "inline-flex shrink-0 items-center justify-center rounded-full border font-black tabular-nums",
-        className,
-        dailyMoveClassName(value),
-      ].join(" ")}
-    >
-      {value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}
-    </span>
-  );
-}
-
 function getFirstNameFromUserMetadata(user: { user_metadata?: Record<string, unknown> }) {
   const fullName =
     typeof user.user_metadata?.full_name === "string"
@@ -290,7 +256,6 @@ export default async function Home() {
               rankings={rankings}
               rankingsLocked={rankingsLocked}
               snapshotMap={snapshotMap}
-              dailyMoveMap={dailyMoveMap}
               gridClass={dashboardRankingsGrid}
             />
           </section>
@@ -310,13 +275,11 @@ function RankingsPanel({
   rankings,
   rankingsLocked,
   snapshotMap,
-  dailyMoveMap,
   gridClass,
 }: {
   rankings: Ranking[];
   rankingsLocked: boolean;
   snapshotMap: Map<string, number | null>;
-  dailyMoveMap: Map<string, { changePct: number | null }>;
   gridClass: string;
 }) {
   return (
@@ -353,7 +316,6 @@ function RankingsPanel({
                 <RankingMobileRow
                   key={stock.id}
                   stock={stock}
-                  dailyMove={dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? undefined}
                 />
               ))
             ) : (
@@ -390,7 +352,6 @@ function RankingsPanel({
                     </div>
                     <div className="flex min-w-0 items-center gap-2 px-2 font-semibold tracking-[-0.01em]">
                       <span className="min-w-0 truncate">{stock.company ?? "—"}</span>
-                      <DailyMovePill changePct={dailyMoveMap.get(stock.ticker ?? "")?.changePct} />
                     </div>
                     <div className="min-w-0 px-2">
                       <span
@@ -435,7 +396,7 @@ function EmptyRankings() {
   );
 }
 
-function RankingMobileRow({ stock, dailyMove }: { stock: Ranking; dailyMove?: number }) {
+function RankingMobileRow({ stock }: { stock: Ranking }) {
   return (
     <Link
       href={`/stock/${stock.ticker}`}
@@ -450,10 +411,6 @@ function RankingMobileRow({ stock, dailyMove }: { stock: Ranking; dailyMove?: nu
             <p className="min-w-0 truncate text-[9px] font-semibold text-[#072116]/45">
               {stock.company ?? "—"}
             </p>
-            <DailyMovePill
-              changePct={dailyMove}
-              className="h-4 min-w-[38px] px-1 text-[7.5px]"
-            />
           </div>
         </div>
       </div>

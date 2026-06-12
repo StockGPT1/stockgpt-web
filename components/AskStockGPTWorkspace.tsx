@@ -257,7 +257,7 @@ function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onC
 
 function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setActiveMode: (mode: Mode) => void }) {
   return (
-    <nav className="flex shrink-0 gap-2 overflow-x-auto border-b border-[#ddb159]/12 bg-[#06140d] px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
+    <nav className="grid shrink-0 grid-cols-4 gap-1 border-b border-[#ddb159]/12 bg-[#06140d] px-3 py-2 lg:hidden">
       {modeOptions.map((option) => {
         const selected = activeMode === option.mode;
         return (
@@ -265,7 +265,7 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
             key={option.mode}
             type="button"
             onClick={() => setActiveMode(option.mode)}
-            className={["inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-[11px] font-black uppercase tracking-[0.08em] transition", selected ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]" : "border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/70"].join(" ")}
+            className={["inline-flex h-9 min-w-0 items-center justify-center truncate rounded-full border px-1.5 text-[10px] font-black uppercase tracking-[0.04em] transition", selected ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]" : "border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/70"].join(" ")}
           >
             {option.shortLabel}
           </button>
@@ -466,7 +466,7 @@ function AccountPanel({ onAskPrompt }: { onAskPrompt: (prompt: string) => void }
 
 function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding, onAskPrompt, desktopOnly = false }: { activeMode: Mode; holdings: HoldingOption[]; holdingsLoading: boolean; onAskHolding: (holding: HoldingOption) => void; onAskPrompt: (prompt: string) => void; desktopOnly?: boolean }) {
   return (
-    <aside className={["min-w-0 overflow-hidden bg-[#04140c]/80 lg:min-h-0 lg:border-l lg:border-[#ddb159]/14", desktopOnly ? "hidden xl:block" : ""].join(" ")}>
+    <aside className={["min-w-0 overflow-hidden bg-[#04140c]/80 lg:min-h-0 lg:border-l lg:border-[#ddb159]/14", desktopOnly ? "hidden lg:block" : ""].join(" ")}>
       {activeMode === "portfolio" && <PortfolioPanel holdings={holdings} loading={holdingsLoading} onAskHolding={onAskHolding} onAskPrompt={onAskPrompt} />}
       {activeMode === "rankings" && <RankingsPanel onAskPrompt={onAskPrompt} />}
       {activeMode === "learn" && <LearnPanel onAskPrompt={onAskPrompt} />}
@@ -634,7 +634,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
             </form>
           </main>
 
-          <main className="sg-ask-desktop mx-auto hidden min-h-0 w-full max-w-[1700px] flex-1 grid-cols-[230px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-2 overflow-hidden p-2 lg:grid xl:grid-cols-[270px_minmax(420px,1fr)_340px] 2xl:grid-cols-[300px_minmax(480px,1fr)_390px] xl:p-3">
+          <main className="sg-ask-desktop mx-auto hidden min-h-0 w-full max-w-[1700px] flex-1 grid-cols-[190px_minmax(0,1fr)_260px] grid-rows-[minmax(0,1fr)] gap-2 overflow-hidden p-2 lg:grid xl:grid-cols-[250px_minmax(420px,1fr)_320px] 2xl:grid-cols-[300px_minmax(480px,1fr)_390px] xl:p-3">
             <ModeSidebar activeMode={activeMode} setActiveMode={setActiveMode} visibleStarters={visibleStarters} onPrompt={askPrompt} onClear={() => void clearHistory()} />
 
             <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[26px] border border-[#ddb159]/18 bg-[#06140d] xl:rounded-l-[30px] xl:rounded-r-none xl:border-r-0">

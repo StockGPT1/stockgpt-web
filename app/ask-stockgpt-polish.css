@@ -46,7 +46,7 @@ body:has(.sg-ask-workspace) {
   .sg-ask-desktop {
     height: calc(100dvh - 64px);
     max-height: calc(100dvh - 64px);
-    grid-template-columns: minmax(210px, 238px) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(180px, 210px) minmax(0, 1fr) minmax(248px, 280px) !important;
   }
 
   .sg-ask-desktop > aside,
@@ -62,7 +62,7 @@ body:has(.sg-ask-workspace) {
     grid-template-columns:
       minmax(230px, 270px)
       minmax(420px, 1fr)
-      minmax(300px, 340px) !important;
+      minmax(300px, 330px) !important;
   }
 }
 
@@ -75,7 +75,7 @@ body:has(.sg-ask-workspace) {
   }
 }
 
-@media (min-width: 1024px) and (max-width: 1279px), (max-height: 760px) and (min-width: 1024px) {
+@media (min-width: 1024px) and (max-width: 1279px), (max-height: 860px) and (min-width: 1024px) {
   .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:nth-child(2) {
     display: none;
   }

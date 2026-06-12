@@ -16,6 +16,7 @@ type Props = {
   height?: number;
   compact?: boolean;
   color?: string;
+  mobileTransparentFrame?: boolean;
 };
 
 const RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
@@ -74,6 +75,7 @@ export function StockChart({
   height = 280,
   compact = false,
   color,
+  mobileTransparentFrame = false,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -252,7 +254,10 @@ export function StockChart({
   if (points.length < 2) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl bg-[#072116]/40"
+        className={[
+          "flex items-center justify-center",
+          mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
+        ].join(" ")}
         style={{ height: `${height}px` }}
       >
         <p className="text-[12px] font-semibold text-[#faf6f0]/40">
@@ -296,7 +301,10 @@ export function StockChart({
       )}
 
       <div
-        className="relative overflow-hidden rounded-xl bg-[#072116]/40"
+        className={[
+          "relative overflow-hidden",
+          mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
+        ].join(" ")}
         style={{ height: `${height}px` }}
       >
         <svg
