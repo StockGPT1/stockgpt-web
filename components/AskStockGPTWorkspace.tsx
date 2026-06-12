@@ -516,13 +516,30 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
 
   useEffect(() => {
     if (locked) return;
-    const timeout = window.setTimeout(() => textareaRef.current?.focus(), 120);
+    const timeout = window.setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      if (window.matchMedia("(min-width: 1024px)").matches) {
+        textarea.focus({ preventScroll: true });
+        return;
+      }
+      textarea.focus();
+    }, 120);
     return () => window.clearTimeout(timeout);
   }, [locked]);
 
   useEffect(() => {
     if (locked) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const bottom = bottomRef.current;
+    if (!bottom) return;
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      const scroller = bottom.closest<HTMLElement>(".sg-ask-scroll");
+      if (scroller) {
+        scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+        return;
+      }
+    }
+    bottom.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, historyLoading, locked]);
 
   useEffect(() => {

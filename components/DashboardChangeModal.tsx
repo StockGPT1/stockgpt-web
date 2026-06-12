@@ -267,7 +267,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         description="Best and worst performing stocks from the selected period, with StockGPT rank and score context."
         onClose={() => setOpen(false)}
       >
-        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
+        <div className="stockgpt-top-movers-mobile-content grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
           <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
             <FilterPill label="All" active />
             <FilterPill label="1 day" active />
@@ -299,7 +299,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
       </MobileSheet>
 
       {open && (
-        <div className="hidden lg:fixed lg:inset-0 lg:z-[90] lg:flex lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
+        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:inset-0 lg:z-[90] lg:flex lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setOpen(false)}

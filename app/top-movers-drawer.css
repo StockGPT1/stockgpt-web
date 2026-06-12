@@ -2,27 +2,65 @@
 .stockgpt-top-movers-drawer *,
 .stockgpt-top-movers-scroll,
 .stockgpt-mover-list {
-  scrollbar-color: #d4af37 #050706;
+  scrollbar-color: #d4af37 #03110b;
 }
 
 .stockgpt-top-movers-drawer,
-.stockgpt-top-movers-drawer > *,
+.stockgpt-top-movers-mobile-content,
 .stockgpt-top-movers-scroll,
-.stockgpt-top-movers-scroll > *,
 .stockgpt-mover-list {
-  background-color: #050706 !important;
+  background-color: #061b12 !important;
   color: #f8f4e8 !important;
+}
+
+.stockgpt-top-movers-drawer > *,
+.stockgpt-top-movers-mobile-content > *,
+.stockgpt-top-movers-scroll > * {
+  background-color: transparent !important;
 }
 
 .stockgpt-top-movers-drawer {
   background:
     radial-gradient(circle at 86% 0%, rgba(221, 177, 89, 0.14), transparent 34%),
-    linear-gradient(180deg, #0a2116 0%, #06160f 52%, #050706 100%) !important;
+    linear-gradient(180deg, #0d2b1d 0%, #061b12 50%, #03110b 100%) !important;
 }
 
 .stockgpt-top-movers-scroll {
-  background-image: linear-gradient(#050706, #050706) !important;
+  background-image: linear-gradient(#061b12, #03110b) !important;
   color-scheme: dark !important;
+}
+
+.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) {
+  background:
+    radial-gradient(circle at 86% 0%, rgba(221, 177, 89, 0.14), transparent 34%),
+    linear-gradient(180deg, #0d2b1d 0%, #061b12 50%, #03110b 100%) !important;
+}
+
+.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) .stockgpt-mobile-sheet-header,
+.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) .stockgpt-mobile-sheet-content {
+  background: transparent !important;
+}
+
+@media (min-width: 1024px) {
+  .sg-app-content:has(.stockgpt-top-movers-overlay) {
+    z-index: 2147482999;
+  }
+
+  .stockgpt-top-movers-overlay {
+    z-index: 2147483000 !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+  }
+
+  .stockgpt-top-movers-overlay > .stockgpt-top-movers-drawer {
+    width: min(540px, 42vw) !important;
+    min-width: 440px !important;
+    max-width: min(540px, 42vw) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 34px 0 0 34px !important;
+  }
 }
 
 .stockgpt-mover-row,
@@ -44,19 +82,19 @@
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar {
   width: 12px;
-  background: #050706 !important;
+  background: #03110b !important;
 }
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar-track,
 .stockgpt-top-movers-scroll::-webkit-scrollbar-corner {
-  background: #050706 !important;
-  background-color: #050706 !important;
+  background: #03110b !important;
+  background-color: #03110b !important;
 }
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar-thumb {
   background: #d4af37 !important;
   border-radius: 999px;
-  border: 3px solid #050706;
+  border: 3px solid #03110b;
 }
 
 .stockgpt-mover-row img,
