@@ -257,7 +257,7 @@ function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onC
 
 function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setActiveMode: (mode: Mode) => void }) {
   return (
-    <nav className="flex shrink-0 gap-2 overflow-x-auto border-b border-[#ddb159]/12 bg-[#06140d] px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden">
+    <nav className="grid shrink-0 grid-cols-4 gap-1 border-b border-[#ddb159]/12 bg-[#06140d] px-3 py-2 lg:hidden">
       {modeOptions.map((option) => {
         const selected = activeMode === option.mode;
         return (
@@ -265,7 +265,7 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
             key={option.mode}
             type="button"
             onClick={() => setActiveMode(option.mode)}
-            className={["inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-[11px] font-black uppercase tracking-[0.08em] transition", selected ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]" : "border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/70"].join(" ")}
+            className={["inline-flex h-9 min-w-0 items-center justify-center truncate rounded-full border px-1.5 text-[10px] font-black uppercase tracking-[0.04em] transition", selected ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]" : "border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/70"].join(" ")}
           >
             {option.shortLabel}
           </button>
@@ -464,9 +464,9 @@ function AccountPanel({ onAskPrompt }: { onAskPrompt: (prompt: string) => void }
   return <PanelShell eyebrow="Membership support" title="Account help"><div className="grid gap-3"><div className="rounded-[22px] border border-[#ddb159]/16 bg-[#fbf4e5]/[0.04] p-4"><p className="text-[13px] font-semibold leading-6 text-[#fbf4e5]/58">For account-specific billing, refunds or plan issues, use the subscription page or email sales@stockgpt.pro. Ask StockGPT can explain general steps but will not invent billing details.</p></div><Link href="/subscription" className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-center text-[10px] font-black uppercase tracking-[0.12em] text-[#07170f] transition hover:brightness-105">Subscription</Link><a href="mailto:sales@stockgpt.pro" className="inline-flex h-10 items-center justify-center rounded-full border border-[#ddb159]/24 px-4 text-center text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10">Email sales</a><button type="button" onClick={() => onAskPrompt("How do I manage my StockGPT membership, billing or subscription?")} className="inline-flex h-10 items-center justify-center rounded-full border border-[#ddb159]/24 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10">Ask account</button></div></PanelShell>;
 }
 
-function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding, onAskPrompt }: { activeMode: Mode; holdings: HoldingOption[]; holdingsLoading: boolean; onAskHolding: (holding: HoldingOption) => void; onAskPrompt: (prompt: string) => void }) {
+function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding, onAskPrompt, desktopOnly = false }: { activeMode: Mode; holdings: HoldingOption[]; holdingsLoading: boolean; onAskHolding: (holding: HoldingOption) => void; onAskPrompt: (prompt: string) => void; desktopOnly?: boolean }) {
   return (
-    <aside className="min-w-0 overflow-hidden bg-[#04140c]/80 lg:min-h-0 lg:border-l lg:border-[#ddb159]/14">
+    <aside className={["min-w-0 overflow-hidden bg-[#04140c]/80 lg:min-h-0 lg:border-l lg:border-[#ddb159]/14", desktopOnly ? "hidden lg:block" : ""].join(" ")}>
       {activeMode === "portfolio" && <PortfolioPanel holdings={holdings} loading={holdingsLoading} onAskHolding={onAskHolding} onAskPrompt={onAskPrompt} />}
       {activeMode === "rankings" && <RankingsPanel onAskPrompt={onAskPrompt} />}
       {activeMode === "learn" && <LearnPanel onAskPrompt={onAskPrompt} />}
@@ -597,7 +597,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
   );
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#020805] text-[#fbf4e5]">
+    <div className="sg-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#020805] text-[#fbf4e5]">
       <header className="shrink-0 border-b border-[#ddb159]/16 bg-[#04140c] px-3 py-2 sm:px-5 sm:py-3">
         <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-3">
           <BackButton />
@@ -611,7 +611,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
           <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
 
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+            <div className="sg-ask-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
               <div className="grid gap-3 pb-3">
                 <IntelligencePanel activeMode={activeMode} holdings={holdingOptions} holdingsLoading={holdingLoading} onAskHolding={askAboutHolding} onAskPrompt={askPrompt} />
 
@@ -634,10 +634,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
             </form>
           </main>
 
-          <main className="mx-auto hidden min-h-0 w-full max-w-[1700px] flex-1 grid-cols-[282px_minmax(0,1fr)_390px] grid-rows-[minmax(0,1fr)] overflow-hidden p-3 lg:grid xl:grid-cols-[320px_minmax(0,1fr)_430px] xl:p-4">
+          <main className="sg-ask-desktop mx-auto hidden min-h-0 w-full max-w-[1700px] flex-1 grid-cols-[190px_minmax(0,1fr)_260px] grid-rows-[minmax(0,1fr)] gap-2 overflow-hidden p-2 lg:grid xl:grid-cols-[250px_minmax(420px,1fr)_320px] 2xl:grid-cols-[300px_minmax(480px,1fr)_390px] xl:p-3">
             <ModeSidebar activeMode={activeMode} setActiveMode={setActiveMode} visibleStarters={visibleStarters} onPrompt={askPrompt} onClear={() => void clearHistory()} />
 
-            <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-l-[30px] border border-r-0 border-[#ddb159]/18 bg-[#06140d]">
+            <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[26px] border border-[#ddb159]/18 bg-[#06140d] xl:rounded-l-[30px] xl:rounded-r-none xl:border-r-0">
               <header className="relative shrink-0 border-b border-[#ddb159]/14 px-5 py-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3"><PremiumOrb small /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Portfolio intelligence</p><h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[34px]">Ask StockGPT</h1></div></div>
@@ -645,7 +645,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
                 <p className="mt-3 max-w-full text-[13px] font-medium leading-5 text-[#fbf4e5]/52">Ask naturally. Portfolio and ranking tools load only when needed.</p>
               </header>
 
-              <main className="min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-5 py-4">
+              <main className="sg-ask-scroll min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-5 py-4">
                 <div className="mx-auto grid max-w-3xl gap-3">{chatContent}</div>
               </main>
 
@@ -660,7 +660,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
               </form>
             </section>
 
-            <IntelligencePanel activeMode={activeMode} holdings={holdingOptions} holdingsLoading={holdingLoading} onAskHolding={askAboutHolding} onAskPrompt={askPrompt} />
+            <IntelligencePanel activeMode={activeMode} holdings={holdingOptions} holdingsLoading={holdingLoading} onAskHolding={askAboutHolding} onAskPrompt={askPrompt} desktopOnly />
           </main>
         </>
       )}

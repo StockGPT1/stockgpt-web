@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { StockGPTSelect } from "@/components/StockGPTSelect";
 import { StockLogo } from "@/components/StockLogo";
@@ -33,7 +34,7 @@ type PortfolioOption = {
   createdAt?: string | null;
 };
 
-type PortfolioTransaction = {
+export type PortfolioTransaction = {
   id: string;
   portfolioId: string;
   ticker: string | null;
@@ -47,7 +48,7 @@ type PortfolioTransaction = {
   createdAt: string;
 };
 
-type ExtendedHolding = EnrichedHolding & {
+export type ExtendedHolding = EnrichedHolding & {
   purchaseDate?: string | null;
   source?: string | null;
   notes?: string | null;
@@ -162,7 +163,6 @@ function recommendedTrimPercent(holding: ExtendedHolding) {
 
 function buildRangeData(
   source: Partial<Record<TimeRange, ChartPoint[]>>,
-  _createdAt?: string | null,
 ): Partial<Record<TimeRange, ChartPoint[]>> {
   return Object.fromEntries(
     Object.entries(source).filter(([, points]) => (points?.length ?? 0) > 1),
@@ -181,19 +181,43 @@ function hasChartPoints(data: Partial<Record<TimeRange, ChartPoint[]>>, range: T
   return (data[range]?.length ?? 0) > 1;
 }
 
+function SectionIcon({ section }: { section: Section }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+
+  if (section === "overview") {
+    return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M4 13.5 9.5 8l4 4L20 5.5" /><path {...common} d="M4 19h16" /></svg>;
+  }
+
+  if (section === "holdings") {
+    return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M4 7h16M4 12h16M4 17h16" /><path {...common} d="M8 5v14" /></svg>;
+  }
+
+  if (section === "add") {
+    return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M12 5v14M5 12h14" /><path {...common} d="M4 19h16" /></svg>;
+  }
+
+  if (section === "activity") {
+    return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M4 19V5" /><path {...common} d="M8 17v-5M13 17V7M18 17v-8" /></svg>;
+  }
+
+  return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M12 3v3M12 18v3M4.8 6.8l2.1 2.1M17.1 17.1l2.1 2.1M3 12h3M18 12h3M4.8 17.2l2.1-2.1M17.1 6.9l2.1-2.1" /><circle cx="12" cy="12" r="3.5" {...common} /></svg>;
+}
+
 function SectionButton({ section, active, setSection, label }: { section: Section; active: Section; setSection: (section: Section) => void; label: string }) {
   return (
     <button
       type="button"
+      aria-label={label}
+      title={label}
       onClick={() => setSection(section)}
       className={[
-        "h-10 shrink-0 rounded-full px-4 text-[11px] font-black transition",
+        "grid h-11 min-w-0 flex-1 place-items-center rounded-full transition sm:size-10 sm:flex-none",
         active === section
-          ? "bg-[#ddb159] text-[#072116] shadow-[0_10px_24px_rgba(221,177,89,0.18)]"
+          ? "sg-metal-gold-fill"
           : "bg-white/[0.055] text-[#faf6f0]/56 hover:bg-white/[0.08] hover:text-[#faf6f0]",
       ].join(" ")}
     >
-      {label}
+      <SectionIcon section={section} />
     </button>
   );
 }
@@ -208,7 +232,7 @@ function PortfolioTopBar({ portfolioId, portfolios }: { portfolioId: string; por
   }));
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-white/8 bg-black/18 p-2.5 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+    <div className="hidden min-w-0 flex-col gap-2 rounded-2xl border border-white/8 bg-black/18 p-2.5 backdrop-blur sm:flex sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 px-1">
         <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio</p>
         <p className="mt-0.5 truncate text-[13px] font-black text-[#faf6f0]">{active?.name ?? "Portfolio"}</p>
@@ -226,7 +250,7 @@ function PortfolioTopBar({ portfolioId, portfolios }: { portfolioId: string; por
         )}
         <Link
           href="/portfolio?builder=1"
-          className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116] transition hover:brightness-105"
+          className="sg-metal-gold-fill inline-flex h-10 items-center justify-center rounded-full px-4 text-[11px] font-black transition hover:brightness-105"
         >
           + New
         </Link>
@@ -236,36 +260,61 @@ function PortfolioTopBar({ portfolioId, portfolios }: { portfolioId: string; por
 }
 
 function PortfolioChartHero({
+  portfolioId,
+  portfolios,
   portfolioName,
   currency,
   summary,
   chartData,
   createdAt,
 }: {
+  portfolioId: string;
+  portfolios: PortfolioOption[];
   portfolioName: string;
   currency: string;
   summary: ReturnType<typeof buildPortfolioHealthSummary>;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   createdAt?: string | null;
 }) {
-  const rangeData = useMemo(() => buildRangeData(chartData, createdAt), [chartData, createdAt]);
+  const router = useRouter();
+  const rangeData = useMemo(() => buildRangeData(chartData), [chartData]);
   const [range, setRange] = useState<TimeRange>(DEFAULT_PORTFOLIO_RANGE);
-  const selectedRangeHasData = hasChartPoints(rangeData, range);
-  const chartRangeData = selectedRangeHasData
-    ? rangeData
-    : ({ [range]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
+  const fallbackRange = useMemo(() => preferredInitialRange(rangeData), [rangeData]);
+  const activeRange = hasChartPoints(rangeData, range) ? range : fallbackRange;
+  const activeRangeHasData = hasChartPoints(rangeData, activeRange);
+  const chartRangeData = activeRangeHasData
+    ? ({ [activeRange]: rangeData[activeRange] } as Partial<Record<TimeRange, ChartPoint[]>>)
+    : ({ [activeRange]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
   const availableRanges = RANGE_LABELS.filter(
-    ({ range: itemRange }) => itemRange === DEFAULT_PORTFOLIO_RANGE || hasChartPoints(rangeData, itemRange),
+    ({ range: itemRange }) => hasChartPoints(rangeData, itemRange),
   );
   const isPositive = summary.totalPnl >= 0;
+  const portfolioOptions = portfolios.map((portfolio) => ({
+    value: portfolio.id,
+    label: portfolio.name,
+    description: portfolio.createdAt ? `Created ${formatDate(portfolio.createdAt)}` : portfolio.currency ?? "USD",
+  }));
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[#050706] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[32px]">
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[repeating-linear-gradient(135deg,rgba(221,177,89,0.14)_0px,rgba(221,177,89,0.14)_2px,transparent_2px,transparent_9px)] opacity-50" />
+    <section className="portfolio-chart-hero relative overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[radial-gradient(circle_at_50%_8%,rgba(221,177,89,0.13),transparent_34%),linear-gradient(180deg,#092116_0%,#04140c_56%,#020805_100%)] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[32px]">
       <div className="relative px-5 pb-3 pt-5 text-center sm:px-6 sm:pt-6 lg:text-left">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-center gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">{portfolioName}</p>
+            {portfolios.length > 1 ? (
+              <>
+                <StockGPTSelect
+                  value={portfolioId}
+                  options={portfolioOptions}
+                  onChange={(nextPortfolioId) => router.push(`/portfolio?portfolio=${nextPortfolioId}`)}
+                  ariaLabel="Choose portfolio"
+                  className="mx-auto max-w-[260px] sm:hidden"
+                  buttonClassName="h-8 rounded-full border border-[#ddb159]/18 bg-transparent px-3 text-[10px] uppercase tracking-[0.16em] text-[#ddb159]"
+                />
+                <p className="hidden truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] sm:block">{portfolioName}</p>
+              </>
+            ) : (
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">{portfolioName}</p>
+            )}
             <h1 className="mt-3 text-[42px] font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]">
               {money(summary.totalValue, currency)}
             </h1>
@@ -278,7 +327,7 @@ function PortfolioChartHero({
               {money(summary.totalPnl, currency)} total return · {pct(summary.totalPnlPct)}
             </p>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex">
             <span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#072116]">
               Health {summary.score}/100
             </span>
@@ -288,7 +337,7 @@ function PortfolioChartHero({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p className="hidden text-[11px] font-semibold text-[#faf6f0]/46 sm:block">
             Since {formatDate(createdAt)} · contribution-adjusted portfolio performance
           </p>
@@ -300,7 +349,7 @@ function PortfolioChartHero({
                 onClick={() => setRange(itemRange)}
                 className={[
                   "h-8 rounded-full px-3 text-[10px] font-black transition",
-                  range === itemRange
+                  activeRange === itemRange
                     ? "bg-[#faf6f0] text-[#072116]"
                     : "text-[#faf6f0]/52 hover:text-[#faf6f0]",
                 ].join(" ")}
@@ -312,18 +361,20 @@ function PortfolioChartHero({
         </div>
       </div>
 
-      <div className="relative -mx-1 sm:mx-0">
+      <div className="relative -mx-5 sm:mx-0">
         <StockChart
-          key={`${range}-${selectedRangeHasData ? "ready" : "pending"}`}
+          key={`${activeRange}-${activeRangeHasData ? "ready" : "pending"}`}
           ticker="Portfolio"
           data={chartRangeData}
-          initialRange={range}
+          initialRange={activeRange}
           height={260}
           compact
+          color="#ddb159"
+          mobileTransparentFrame
         />
       </div>
 
-      <div className="relative grid grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:text-left">
+      <div className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left">
         <div className="px-4 py-3">
           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Open positions</p>
           <p className="mt-1 text-[18px] font-black">{summary.holdingsCount}</p>
@@ -492,6 +543,24 @@ function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose 
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscroll;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+
   function runTrim(rawPercent: number) {
     const percent = Math.round(Number(rawPercent) * 10) / 10;
     if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
@@ -527,25 +596,25 @@ function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose 
     });
   }
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483647] flex items-stretch justify-center bg-[#020805]/88 p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] text-[#faf6f0] backdrop-blur-md sm:items-center sm:p-4 lg:justify-end">
       <button type="button" aria-label="Close manage holding" onClick={onClose} className="absolute inset-0 cursor-default" />
-      <div className="relative w-full max-w-xl overflow-hidden rounded-[30px] border border-[#ddb159]/28 bg-[#faf6f0] text-[#072116] shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
-        <div className="flex items-start justify-between gap-3 border-b border-[#072116]/10 p-4 sm:p-5">
+      <div role="dialog" aria-modal="true" aria-label={`Manage ${holding.ticker}`} className="stockgpt-manage-holding-dialog relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border border-[#ddb159]/24 bg-[#061b12] text-[#faf6f0] shadow-[0_24px_90px_rgba(0,0,0,0.62)] sm:max-h-[calc(100dvh-2rem)]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#ddb159]/14 bg-[#04140c] p-4 sm:p-5">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a641a]">Manage holding</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Manage holding</p>
             <div className="mt-2 flex min-w-0 items-center gap-3">
               <StockLogo ticker={holding.ticker} size={38} />
               <div className="min-w-0">
                 <h3 className="truncate text-[28px] font-black leading-none tracking-[-0.05em]">{holding.ticker}</h3>
-                <p className="mt-1 truncate text-[12px] font-bold text-[#072116]/52">{holding.company ?? "Holding"}</p>
+                <p className="mt-1 truncate text-[12px] font-bold text-[#faf6f0]/52">{holding.company ?? "Holding"}</p>
               </div>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full border border-[#072116]/12 text-xl text-[#072116]/55 transition hover:bg-[#072116]/5">×</button>
+          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] text-xl text-[#ddb159] transition hover:bg-[#ddb159]/10">&times;</button>
         </div>
 
-        <div className="grid gap-3 p-4 sm:p-5">
+        <div className="grid min-h-0 gap-3 overflow-y-auto p-4 sm:p-5">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MiniMetric label="Value" value={money(holding.currentValue)} sub={`${number(holding.shares, 4)} sh`} />
             <MiniMetric label="Allocation" value={`${holding.currentAllocationPct.toFixed(1)}%`} sub={`target ${holding.targetAllocationPct?.toFixed(1) ?? "—"}%`} />
@@ -554,42 +623,43 @@ function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose 
           </div>
 
           <div className="rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/10 p-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8a641a]">Recommended action</p>
-            <p className="mt-1 text-[13px] font-semibold leading-5 text-[#072116]/65">
-              StockGPT suggests reviewing a <span className="font-black text-[#072116]">{recommendedPercent}%</span> trim as a starting point. Adjust it manually below.
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Recommended action</p>
+            <p className="mt-1 text-[13px] font-semibold leading-5 text-[#faf6f0]/65">
+              StockGPT suggests reviewing a <span className="font-black text-[#faf6f0]">{recommendedPercent}%</span> trim as a starting point. Adjust it manually below.
             </p>
-            <button type="button" disabled={isPending} onClick={() => runTrim(recommendedPercent)} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-[#072116] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] disabled:opacity-50">
+            <button type="button" disabled={isPending} onClick={() => runTrim(recommendedPercent)} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f3d98b,#d6ae4d_55%,#a77d2e)] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#061b12] shadow-[0_14px_30px_rgba(0,0,0,0.2)] disabled:opacity-50">
               Apply recommended {recommendedPercent}%
             </button>
           </div>
 
-          <div className="rounded-2xl border border-[#072116]/10 bg-white p-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#072116]/42">Custom trim</p>
+          <div className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/42">Custom trim</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <input type="number" min={1} max={100} step={0.5} value={customPercent} onChange={(event) => setCustomPercent(event.target.value)} className="h-11 w-full rounded-2xl border border-[#072116]/10 px-3 text-[14px] font-black outline-none focus:border-[#ddb159]" />
-              <button type="button" disabled={isPending} onClick={() => runTrim(Number(customPercent))} className="h-11 rounded-2xl bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116] disabled:opacity-50">Trim %</button>
+              <input type="number" min={1} max={100} step={0.5} value={customPercent} onChange={(event) => setCustomPercent(event.target.value)} className="h-11 w-full rounded-2xl border border-[#ddb159]/18 bg-[#020805]/55 px-3 text-[14px] font-black text-[#faf6f0] outline-none focus:border-[#ddb159]" />
+              <button type="button" disabled={isPending} onClick={() => runTrim(Number(customPercent))} className="h-11 rounded-2xl bg-[linear-gradient(180deg,#f3d98b,#d6ae4d_55%,#a77d2e)] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#061b12] disabled:opacity-50">Trim %</button>
             </div>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-2xl border border-red-500/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-700 disabled:opacity-50">Sell all + credit cash</button>
-            <button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-2xl border border-[#072116]/15 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]/55 disabled:opacity-50">Remove only</button>
+            <button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-2xl border border-red-400/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-200 disabled:opacity-50">Sell all + credit cash</button>
+            <button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-2xl border border-[#ddb159]/16 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/55 disabled:opacity-50">Remove only</button>
           </div>
 
-          {message && <p className="rounded-2xl bg-[#072116]/6 px-3 py-2 text-[11px] font-bold text-[#072116]/62">{message}</p>}
+          {message && <p className="rounded-2xl bg-[#faf6f0]/[0.055] px-3 py-2 text-[11px] font-bold text-[#faf6f0]/62">{message}</p>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function MiniMetric({ label, value, sub, tone = "neutral" }: { label: string; value: string; sub: string; tone?: "neutral" | "positive" | "negative" | "gold" }) {
-  const valueClass = tone === "positive" ? "text-emerald-700" : tone === "negative" ? "text-red-700" : tone === "gold" ? "text-[#8a641a]" : "text-[#072116]";
+  const valueClass = tone === "positive" ? "text-emerald-300" : tone === "negative" ? "text-red-300" : tone === "gold" ? "text-[#ddb159]" : "text-[#faf6f0]";
   return (
-    <div className="min-w-0 rounded-xl border border-[#072116]/8 bg-white px-2.5 py-2">
-      <p className="truncate text-[8px] font-black uppercase tracking-[0.1em] text-[#072116]/40">{label}</p>
+    <div className="min-w-0 rounded-xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.045] px-2.5 py-2">
+      <p className="truncate text-[8px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/40">{label}</p>
       <p className={`mt-1 truncate text-[13px] font-black leading-none ${valueClass}`}>{value}</p>
-      <p className="mt-1 truncate text-[9px] font-semibold text-[#072116]/42">{sub}</p>
+      <p className="mt-1 truncate text-[9px] font-semibold text-[#faf6f0]/42">{sub}</p>
     </div>
   );
 }
@@ -600,9 +670,9 @@ function HoldingsRow({ portfolioId, holding, currency, maxAllocation }: { portfo
   const widthPct = maxAllocation > 0 ? Math.max(4, Math.min(100, (holding.currentAllocationPct / maxAllocation) * 100)) : 0;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-[#072116]/8 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.10)] transition hover:border-[#ddb159]/45 hover:bg-white">
-      <div className="absolute inset-y-0 left-0 bg-[#ddb159]/10 transition group-hover:bg-[#ddb159]/16" style={{ width: `${widthPct}%` }} />
-      <div className="relative grid gap-3 px-3 py-3 sm:grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px] sm:items-center sm:px-4">
+    <div className="group relative overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] text-[#072116] transition hover:bg-white lg:rounded-2xl lg:border lg:shadow-[0_8px_22px_rgba(0,0,0,0.10)] lg:hover:border-[#ddb159]/45">
+      <div className="absolute inset-y-0 left-0 hidden bg-[#ddb159]/10 transition group-hover:bg-[#ddb159]/16 lg:block" style={{ width: `${widthPct}%` }} />
+      <div className="relative grid gap-2 px-3 py-2.5 lg:grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_54px] lg:items-center sm:px-4 lg:py-3">
         <Link href={`/stock/${holding.ticker}`} className="flex min-w-0 items-center gap-3">
           <StockLogo ticker={holding.ticker} company={holding.company} size={38} />
           <div className="min-w-0">
@@ -611,13 +681,13 @@ function HoldingsRow({ portfolioId, holding, currency, maxAllocation }: { portfo
           </div>
         </Link>
 
-        <div className="grid grid-cols-2 gap-2 sm:contents">
+        <div className="grid grid-cols-[repeat(5,minmax(0,1fr))] items-center gap-1 lg:contents">
           <MetricCell label="Value" value={money(holding.currentValue, currency)} />
           <MetricCell label="P/L" value={money(holding.totalPnLDollars, currency)} sub={pct(holding.pnlPercent)} tone={isPositive ? "positive" : "negative"} />
           <MetricCell label="Alloc." value={`${holding.currentAllocationPct.toFixed(1)}%`} />
           <MetricCell label="AI score" value={number(holding.score, 0)} tone="gold" />
-          <button type="button" onClick={() => setOpen(true)} className="h-9 rounded-full bg-[#072116] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:brightness-110">
-            Manage
+          <button type="button" aria-label={`Manage ${holding.ticker}`} title={`Manage ${holding.ticker}`} onClick={() => setOpen(true)} className="grid size-9 place-items-center justify-self-end rounded-full bg-[#072116] text-[#ddb159] transition hover:brightness-110">
+            <SectionIcon section="manage" />
           </button>
         </div>
       </div>
@@ -629,8 +699,8 @@ function HoldingsRow({ portfolioId, holding, currency, maxAllocation }: { portfo
 function MetricCell({ label, value, sub, tone = "neutral" }: { label: string; value: string; sub?: string; tone?: "neutral" | "positive" | "negative" | "gold" }) {
   const valueClass = tone === "positive" ? "text-emerald-700" : tone === "negative" ? "text-red-700" : tone === "gold" ? "text-[#8a641a]" : "text-[#072116]";
   return (
-    <div className="min-w-0 sm:text-right">
-      <p className="text-[8px] font-black uppercase tracking-[0.1em] text-[#072116]/36 sm:hidden">{label}</p>
+    <div className="min-w-0 lg:text-right">
+      <p className="text-[8px] font-black uppercase tracking-[0.1em] text-[#072116]/36 lg:hidden">{label}</p>
       <p className={`truncate text-[13px] font-black tabular-nums ${valueClass}`}>{value}</p>
       {sub && <p className={`mt-0.5 truncate text-[10px] font-bold tabular-nums ${valueClass}/80`}>{sub}</p>}
     </div>
@@ -698,7 +768,7 @@ function HoldingsPanel({ portfolioId, holdings, currency }: { portfolioId: strin
         </div>
       ) : (
         <div className="grid gap-2">
-          <div className="hidden grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38 sm:grid">
+          <div className="hidden grid-cols-[minmax(210px,1.6fr)_110px_125px_90px_80px_94px] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38 lg:grid">
             <span>Asset</span><span className="text-right">Value</span><span className="text-right">Net P/L</span><span className="text-right">%</span><span className="text-right">AI</span><span className="text-right">Action</span>
           </div>
           {filteredHoldings.map((holding) => (
@@ -811,12 +881,16 @@ export function PortfolioCommandCentreRevolut({
     cashBalance: portfolioMeta.cashBalance,
     cashDepositedTotal: portfolioMeta.cashDepositedTotal,
   });
+  const topHoldings = useMemo(
+    () => [...holdings].sort((a, b) => b.currentValue - a.currentValue).slice(0, 5),
+    [holdings],
+  );
 
   return (
     <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
       <PortfolioTopBar portfolioId={portfolioId} portfolios={portfolios} />
 
-      <div className="flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="portfolio-section-nav hidden min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <SectionButton section="overview" active={section} setSection={setSection} label="Overview" />
         <SectionButton section="holdings" active={section} setSection={setSection} label="Holdings" />
         <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />
@@ -825,6 +899,8 @@ export function PortfolioCommandCentreRevolut({
       </div>
 
       <PortfolioChartHero
+        portfolioId={portfolioId}
+        portfolios={portfolios}
         portfolioName={portfolioMeta.name}
         currency={currency}
         summary={summary}
@@ -832,9 +908,17 @@ export function PortfolioCommandCentreRevolut({
         createdAt={portfolioMeta.createdAt}
       />
 
+      <div className="portfolio-section-nav flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <SectionButton section="overview" active={section} setSection={setSection} label="Overview" />
+        <SectionButton section="holdings" active={section} setSection={setSection} label="Holdings" />
+        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />
+        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />
+        <SectionButton section="manage" active={section} setSection={setSection} label="Manage" />
+      </div>
+
       {section === "overview" && (
-        <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_310px]">
-          <HoldingsPanel portfolioId={portfolioId} holdings={holdings.slice(0, 6)} currency={currency} />
+        <section className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
+          <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} />
           <div className="grid content-start gap-3">
             <div className="rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Health drivers</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 type MobileSheetVariant = "bottom" | "full" | "confirm";
@@ -29,10 +29,8 @@ export function MobileSheet({
   footer,
   labelledById,
 }: MobileSheetProps) {
-  const [mounted, setMounted] = useState(false);
-  const titleId = labelledById ?? `mobile-sheet-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-
-  useEffect(() => setMounted(true), []);
+  const titleId =
+    labelledById ?? `mobile-sheet-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   useEffect(() => {
     if (!open) return;
@@ -58,7 +56,7 @@ export function MobileSheet({
     };
   }, [onClose, open]);
 
-  if (!mounted || !open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const isFull = variant === "full";
   const isConfirm = variant === "confirm";
@@ -68,10 +66,6 @@ export function MobileSheet({
     : isConfirm
       ? "max-h-[72dvh] rounded-t-[28px] border border-b-0 border-[#ddb159]/24 bg-[#07170f]"
       : "max-h-[82dvh] rounded-t-[28px] border border-b-0 border-[#ddb159]/24 bg-[#07170f]";
-
-  const gridRows = isFull
-    ? "grid-rows-[auto_minmax(0,1fr)_auto]"
-    : "grid-rows-[auto_minmax(0,1fr)_auto]";
 
   return createPortal(
     <div
@@ -93,9 +87,8 @@ export function MobileSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         className={[
-          "stockgpt-mobile-sheet relative z-10 ml-auto mt-auto grid w-full max-w-full min-w-0 overflow-hidden shadow-[0_-24px_80px_rgba(0,0,0,0.62)]",
+          "stockgpt-mobile-sheet relative z-10 ml-auto mt-auto grid w-full max-w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden shadow-[0_-24px_80px_rgba(0,0,0,0.62)]",
           sheetClass,
-          gridRows,
         ].join(" ")}
         onClick={(event) => event.stopPropagation()}
       >
@@ -120,11 +113,11 @@ export function MobileSheet({
 
           <button
             type="button"
-            aria-label="Close"
+            aria-label={isFull ? "Back" : "Close"}
             onClick={onClose}
             className="grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] text-[20px] font-black leading-none text-[#ddb159]"
           >
-            {isFull ? "←" : "×"}
+            {isFull ? <span aria-hidden="true">&larr;</span> : <span aria-hidden="true">&times;</span>}
           </button>
         </header>
 

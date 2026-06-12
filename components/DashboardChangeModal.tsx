@@ -80,7 +80,7 @@ function MoverLogo({ ticker, company, compact = false }: { ticker: string; compa
   return (
     <div
       className={[
-        "grid shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_8px_18px_rgba(0,0,0,0.22)] ring-1 ring-[#ddb159]/12",
+        "grid shrink-0 place-items-center overflow-hidden rounded-full border border-[#ddb159]/18 bg-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.22)]",
         compact ? "size-[clamp(38px,4.5vw,52px)] p-2" : "size-12 p-2 sm:size-14 sm:p-2.5",
       ].join(" ")}
     >
@@ -93,7 +93,7 @@ function MoverLogo({ ticker, company, compact = false }: { ticker: string; compa
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#f7f2e8] text-[9px] font-black text-[#072116]/70">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0b2618] text-[9px] font-black text-[#ddb159]">
           {fallback}
         </span>
       )}
@@ -156,14 +156,14 @@ function MoverList({
   }
 
   return (
-    <div className="stockgpt-mover-list grid gap-3 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
+    <div className="stockgpt-mover-list overflow-hidden rounded-[22px] border border-[#ddb159]/12 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
       {listItems.map((item) => (
         <Link
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
-          style={{ backgroundColor: "#101611", color: "#faf6f0" }}
-          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-[24px] border border-[#ddb159]/14 !bg-[#101611] p-4 !text-[#faf6f0] shadow-[0_14px_34px_rgba(0,0,0,0.2)] transition hover:!border-[#ddb159]/28 hover:!bg-[#101611] hover:!text-[#faf6f0] focus:!bg-[#101611] focus:!text-[#faf6f0] focus-visible:!bg-[#101611] active:!bg-[#101611] visited:!bg-[#101611]"
+          style={{ color: "#faf6f0" }}
+          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 bg-transparent p-3 !text-[#faf6f0] transition last:border-b-0 hover:!bg-[#ddb159]/[0.055] hover:!text-[#faf6f0] focus:!bg-[#ddb159]/[0.055] focus:!text-[#faf6f0] focus-visible:!bg-[#ddb159]/[0.055] active:!bg-[#ddb159]/[0.08] visited:!text-[#faf6f0] sm:p-4"
         >
           <MoverLogo ticker={item.ticker} company={item.company} />
 

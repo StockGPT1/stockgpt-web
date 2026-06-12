@@ -83,14 +83,14 @@ async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
 }
 
 function dailyMoveClassName(changePct: number | null | undefined) {
-  if (!Number.isFinite(changePct)) return "border-[#072116]/8 bg-transparent text-[#072116]/35";
-  if (Number(changePct) >= 0) return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700";
-  return "border-red-500/25 bg-red-500/10 text-red-700";
+  if (!Number.isFinite(changePct)) return "text-[#072116]/35";
+  if (Number(changePct) >= 0) return "text-emerald-700";
+  return "text-red-700";
 }
 
 function DailyMovePill({
   changePct,
-  className = "h-6 min-w-[46px] px-2 text-[10px]",
+  className = "text-[10px]",
 }: {
   changePct: number | null | undefined;
   className?: string;
@@ -102,7 +102,7 @@ function DailyMovePill({
     <span
       title="1D price move"
       className={[
-        "inline-flex shrink-0 items-center justify-center rounded-full border font-black tabular-nums",
+        "inline-block shrink-0 font-black tabular-nums",
         className,
         dailyMoveClassName(value),
       ].join(" ")}
@@ -372,7 +372,7 @@ export default async function RankingsPage({
 
         <ScoreMethodCard />
 
-        <RankingsLock isLocked={rankingsLocked} className="grid min-w-0 max-w-full gap-2 overflow-hidden lg:hidden">
+        <RankingsLock isLocked={rankingsLocked} className="min-w-0 max-w-full overflow-hidden bg-[#faf6f0] lg:hidden">
           {rankings.length > 0 ? (
             rankings.map((stock) => {
               const ticker = stock.ticker ?? "";
@@ -381,7 +381,7 @@ export default async function RankingsPage({
               const confidence = getModelConfidence(stock);
 
               return (
-                <div key={stock.id} className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.16)] ring-1 ring-white/20">
+                <div key={stock.id} className="min-w-0 max-w-full overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] last:border-b-0">
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                     <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-2">
                       <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159]">{stock.rank ?? "—"}</div>
@@ -394,11 +394,11 @@ export default async function RankingsPage({
                     <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span>
                   </div>
 
-                  <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Rank move</p><span title={move.title} className={["mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">1D price</p><DailyMovePill changePct={dailyMove} className="mt-1 h-6 min-w-[44px] px-2 text-[10px]" /></div>
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
-                    <div className="rounded-xl border border-[#072116]/10 px-2 py-2"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Confidence</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
+                  <div className="mt-3 grid min-w-0 grid-cols-4 gap-1 text-center">
+                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Rank</p><span title={move.title} className={["mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
+                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">1D</p><DailyMovePill changePct={dailyMove} className="mt-1 block text-[10px]" /></div>
+                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 truncate text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
+                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Conf.</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                   </div>
                   <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} light />
                 </div>

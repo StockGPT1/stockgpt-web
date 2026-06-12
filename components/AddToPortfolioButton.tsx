@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ManualPortfolioEntry } from "@/components/ManualPortfolioEntry";
 import { MobileSheet } from "@/components/MobileSheet";
 
@@ -80,46 +81,52 @@ export function AddToPortfolioButton({
 
       {open && (
         <>
-          <div className="fixed inset-0 z-[9999] hidden overflow-x-hidden bg-black/58 backdrop-blur-[18px] lg:block">
-            <button
-              type="button"
-              aria-label="Close add to portfolio modal"
-              className="absolute inset-0 h-full w-full cursor-default"
-              onClick={() => setOpen(false)}
-            />
+          {createPortal(
+            <div className="fixed inset-0 z-[2147483647] hidden overflow-x-hidden bg-[#020805]/88 text-[#faf6f0] backdrop-blur-md lg:block">
+              <button
+                type="button"
+                aria-label="Close add to portfolio modal"
+                className="absolute inset-0 h-full w-full cursor-default"
+                onClick={() => setOpen(false)}
+              />
 
-            <div className="relative z-10 flex min-h-full w-full items-center justify-center px-5 py-6">
-              <div
-                className="relative max-h-[88vh] w-full max-w-[560px] overflow-y-auto overflow-x-hidden rounded-[28px] border border-[#ddb159]/35 bg-[#faf6f0] shadow-[0_30px_90px_rgba(0,0,0,0.72)]"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="absolute right-4 top-4 z-10 rounded-full border border-[#072116]/12 bg-white/85 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#072116]/60 shadow-[0_8px_18px_rgba(0,0,0,0.12)] transition hover:border-[#ddb159]/70 hover:text-[#072116]"
+              <div className="relative z-10 flex min-h-full w-full items-center justify-center px-5 py-6">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Add ${upperTicker} to portfolio`}
+                  className="relative max-h-[88vh] w-full max-w-[560px] overflow-y-auto overflow-x-hidden rounded-[28px] border border-[#ddb159]/30 bg-[#061b12] shadow-[0_30px_90px_rgba(0,0,0,0.72)]"
+                  onClick={(event) => event.stopPropagation()}
                 >
-                  Close
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="absolute right-4 top-4 z-10 rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] shadow-[0_8px_18px_rgba(0,0,0,0.2)] transition hover:bg-[#ddb159]/10"
+                  >
+                    Close
+                  </button>
 
-                <div className="min-w-0 border-b border-[#072116]/8 px-5 pb-3 pr-24 pt-5">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                    Add holding
-                  </p>
+                  <div className="min-w-0 border-b border-[#ddb159]/14 bg-[#04140c] px-5 pb-3 pr-24 pt-5">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                      Add holding
+                    </p>
 
-                  <h3 className="mt-1 truncate text-[28px] font-black leading-none tracking-[-0.04em] text-[#072116]">
-                    Add {upperTicker} to portfolio
-                  </h3>
+                    <h3 className="mt-1 truncate text-[28px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">
+                      Add {upperTicker} to portfolio
+                    </h3>
 
-                  <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/55">
-                    Log shares you already own, or buy using available portfolio
-                    cash. The latest StockGPT price auto-fills but can be edited.
-                  </p>
+                    <p className="mt-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/55">
+                      Log shares you already own, or buy using available portfolio
+                      cash. The latest StockGPT price auto-fills but can be edited.
+                    </p>
+                  </div>
+
+                  <div className="min-w-0 p-4">{renderEntryForm()}</div>
                 </div>
-
-                <div className="min-w-0 p-4">{renderEntryForm()}</div>
               </div>
-            </div>
-          </div>
+            </div>,
+            document.body,
+          )}
 
           <MobileSheet
             open={open}
@@ -129,7 +136,7 @@ export function AddToPortfolioButton({
             description="Log shares you already own, or buy using available portfolio cash."
             onClose={() => setOpen(false)}
           >
-            <div className="rounded-3xl bg-[#faf6f0] p-3 text-[#072116] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+            <div className="rounded-3xl border border-[#ddb159]/18 bg-[#061b12] p-3 text-[#faf6f0] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
               {renderEntryForm()}
             </div>
           </MobileSheet>

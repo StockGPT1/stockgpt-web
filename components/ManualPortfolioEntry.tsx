@@ -308,7 +308,7 @@ export function ManualPortfolioEntry({
   return (
     <div
       className={[
-        "relative min-w-0 overflow-visible rounded-2xl border border-[#ddb159]/24 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]",
+        "stockgpt-manual-entry relative min-w-0 overflow-visible rounded-2xl border border-[#ddb159]/24 bg-[#faf6f0] text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]",
         compact ? "p-3" : "p-4 sm:p-5",
       ].join(" ")}
     >

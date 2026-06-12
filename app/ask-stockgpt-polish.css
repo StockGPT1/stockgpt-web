@@ -1,334 +1,82 @@
-/* Ask StockGPT route-specific polish.
-   Keeps the standalone workspace fitted, standardised and free of overlapping controls. */
+/* Ask StockGPT route-specific layout guardrails. */
 
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] {
+body:has(.sg-ask-workspace) {
+  overflow: hidden;
+  background: #020805;
+}
+
+.sg-ask-workspace,
+.sg-ask-workspace *,
+.sg-ask-workspace *::before,
+.sg-ask-workspace *::after {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sg-ask-workspace {
   width: 100%;
   max-width: 100vw;
   height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
 }
 
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] *,
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] *::before,
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] *::after {
-  box-sizing: border-box;
+.sg-ask-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(218, 176, 91, 0.58) rgba(250, 246, 240, 0.06);
+  overscroll-behavior: contain;
 }
 
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] :is(section, aside, main, form, div, button, textarea, input) {
-  min-width: 0;
+.sg-ask-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Main desktop fit */
-@media (min-width: 1024px) {
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main {
-    height: calc(100dvh - 65px) !important;
-    max-height: calc(100dvh - 65px) !important;
-    grid-template-columns: clamp(230px, 18vw, 282px) minmax(420px, 1fr) clamp(310px, 27vw, 390px) !important;
-    gap: 0 !important;
-  }
-
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child,
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > section,
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child {
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-  }
+.sg-ask-scroll::-webkit-scrollbar-track {
+  background: rgba(250, 246, 240, 0.06);
 }
 
-/* Left coach/sidebar: no empty bloat, no clipped options */
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child {
-  grid-template-rows: auto minmax(0, 1fr) auto !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child > div:first-child {
-  padding-top: 18px !important;
-  padding-bottom: 14px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child > div:nth-child(2) {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  padding-inline: 16px !important;
-  padding-bottom: 14px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child button {
-  display: flex !important;
-  min-height: 54px;
-  width: 100%;
-  flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child button p {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:first-child > div:last-child {
-  padding: 12px 16px !important;
-}
-
-/* Chat input: remove model label, align controls, prevent overlap */
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form > div {
-  display: grid !important;
-  grid-template-rows: minmax(76px, auto) auto;
-  gap: 8px;
-  width: 100% !important;
-  max-width: min(100%, 780px) !important;
-  padding: 10px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea {
-  min-height: 76px !important;
-  max-height: 116px !important;
-  padding: 12px 14px 0 !important;
-  overflow-y: auto !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea::placeholder {
-  opacity: 0.78;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea + div {
-  min-height: 38px !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  gap: 8px !important;
-  padding: 0 4px 2px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea + div > p {
-  display: none !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea + div > div {
-  flex: 0 0 auto !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  gap: 8px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form button {
-  display: inline-flex !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  min-width: 94px !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 16px !important;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-}
-
-/* Right intelligence panel: compact, readable cards and sleek actions */
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child {
-  overflow: hidden !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child > div {
-  height: 100% !important;
-  max-height: 100% !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child > div > div:last-child {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  padding: 14px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button {
-  max-width: 100%;
-  min-width: 0;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.rounded-2xl {
-  display: grid !important;
-  min-height: 76px;
-  align-content: center;
-  gap: 3px;
-  overflow: hidden;
-  padding: 12px 14px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.rounded-2xl p {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal !important;
-  line-height: 1.24 !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child div[class*="grid-cols-2"] > button {
-  display: inline-flex !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 10px !important;
-  border-radius: 999px !important;
-  font-size: 9px !important;
-  letter-spacing: 0.08em !important;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child div[class*="grid-cols-2"] {
-  gap: 8px !important;
-}
-
-/* Portfolio holdings: match the clearer rankings-card pattern without clipped titles */
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) {
-  display: block !important;
-  min-height: 112px !important;
-  align-content: initial !important;
-  padding: 14px 16px !important;
-  border-radius: 22px !important;
-  background: linear-gradient(135deg, rgba(6, 20, 13, 0.86), rgba(9, 30, 19, 0.72)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex {
-  align-items: flex-start !important;
-  gap: 12px !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:first-child {
-  min-width: 0 !important;
-  flex: 1 1 auto !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:first-child > p:first-child {
-  display: block !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  font-size: 15px !important;
-  line-height: 1.15 !important;
-  letter-spacing: -0.01em;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:first-child > p:first-child span {
-  color: rgba(251, 244, 229, 0.42) !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:first-child > p:nth-child(2) {
-  margin-top: 7px !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  font-size: 12px !important;
-  line-height: 1.25 !important;
-  color: rgba(251, 244, 229, 0.46) !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:last-child {
-  display: flex !important;
-  min-width: 84px !important;
-  flex: 0 0 84px !important;
-  flex-direction: column !important;
-  align-items: flex-end !important;
-  gap: 7px !important;
-  text-align: right !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:last-child > p:first-child {
-  display: inline-flex !important;
-  height: 28px !important;
-  min-width: 46px !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 999px !important;
-  background: #ddb159 !important;
-  padding: 0 10px !important;
-  color: #07170f !important;
-  font-size: 11px !important;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) > div.flex > div:last-child > p:nth-child(2) {
-  max-width: 84px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  font-size: 12px !important;
-  line-height: 1.1 !important;
-  color: rgba(251, 244, 229, 0.58) !important;
-}
-
-body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex)::after {
-  content: "Analyse holding";
-  display: inline-flex;
-  height: 32px;
-  min-width: 142px;
-  align-items: center;
-  justify-content: center;
-  margin-top: 13px;
-  border: 1px solid rgba(221, 177, 89, 0.26);
+.sg-ask-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(250, 246, 240, 0.06);
   border-radius: 999px;
-  padding: 0 16px;
-  color: rgba(221, 177, 89, 0.88);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  background: linear-gradient(180deg, #f3d98b, #caa24b 54%, #8f6b27);
 }
 
-/* Smaller desktop guardrails */
-@media (min-width: 1024px) and (max-width: 1280px) {
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main {
-    grid-template-columns: 230px minmax(360px, 1fr) 318px !important;
-    padding: 10px !important;
+@media (min-width: 1024px) {
+  .sg-ask-desktop {
+    height: calc(100dvh - 64px);
+    max-height: calc(100dvh - 64px);
+    grid-template-columns: minmax(180px, 210px) minmax(0, 1fr) minmax(248px, 280px) !important;
   }
 
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form > div {
-    max-width: 100% !important;
-  }
-
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form button {
-    min-width: 86px !important;
-    padding-inline: 12px !important;
-    font-size: 10px !important;
-    letter-spacing: 0.08em !important;
+  .sg-ask-desktop > aside,
+  .sg-ask-desktop > section {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
   }
 }
 
-/* Mobile/tablet: stack cleanly without clipped controls */
-@media (max-width: 1023px) {
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main {
-    grid-template-rows: minmax(0, 1fr) minmax(320px, 42dvh) !important;
+@media (min-width: 1280px) {
+  .sg-ask-desktop {
+    grid-template-columns:
+      minmax(230px, 270px)
+      minmax(420px, 1fr)
+      minmax(300px, 330px) !important;
   }
+}
 
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form textarea + div {
-    align-items: center !important;
-    justify-content: flex-end !important;
+@media (min-width: 1536px) {
+  .sg-ask-desktop {
+    grid-template-columns:
+      minmax(260px, 300px)
+      minmax(480px, 1fr)
+      minmax(340px, 390px) !important;
   }
+}
 
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] form button {
-    min-width: 82px !important;
-  }
-
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child div[class*="grid-cols-2"] > button {
-    height: 32px !important;
-    min-height: 32px !important;
-  }
-
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex) {
-    min-height: 108px !important;
-    padding: 13px 14px !important;
-  }
-
-  body > div[class*="h-[100dvh]"][class*="bg-[#020805]"] > main > aside:last-child button.group.rounded-2xl:has(> div.flex)::after {
-    height: 30px;
-    min-width: 132px;
-    margin-top: 11px;
-    font-size: 9px;
+@media (min-width: 1024px) and (max-width: 1279px), (max-height: 860px) and (min-width: 1024px) {
+  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:nth-child(2) {
+    display: none;
   }
 }

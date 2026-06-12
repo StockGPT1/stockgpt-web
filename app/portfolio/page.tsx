@@ -3,7 +3,12 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
-import { PortfolioCommandCentreRevolut } from "@/components/PortfolioCommandCentreRevolut";
+import {
+  PortfolioCommandCentreRevolut,
+  type ExtendedHolding,
+  type PortfolioTransaction,
+} from "@/components/PortfolioCommandCentreRevolut";
+import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
@@ -12,6 +17,7 @@ import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
 import {
   enrichArticleWithStockInsights,
   type BaseNewsArticle,
+  type EnrichedNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
 import {
@@ -29,7 +35,7 @@ export const metadata: Metadata = {
     "Track portfolios with StockGPT AI alerts, portfolio health, holdings, imports, cash, transactions and market research insights.",
 };
 
-const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v7";
+const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v8";
 
 type SearchParams = {
   builder?: string;
@@ -92,6 +98,8 @@ type TransactionRow = {
   notes: string | null;
   created_at: string;
 };
+
+type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -264,9 +272,11 @@ export default async function PortfolioPage({
 
   timer.mark("base-data");
 
-  const stockUniverse: StockLike[] = (stockOptionsData ?? [])
-    .filter((stock: any) => stock.ticker)
-    .map((stock: any) => ({
+  const stockRows = (stockOptionsData ?? []) as StockUniverseRow[];
+
+  const stockUniverse: StockLike[] = stockRows
+    .filter((stock) => stock.ticker)
+    .map((stock) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -275,9 +285,9 @@ export default async function PortfolioPage({
       price: stock.price ?? null,
     }));
 
-  const stockOptions: StockOption[] = (stockOptionsData ?? [])
-    .filter((stock: any) => stock.ticker)
-    .map((stock: any) => ({
+  const stockOptions: StockOption[] = stockRows
+    .filter((stock) => stock.ticker)
+    .map((stock) => ({
       ticker: String(stock.ticker).toUpperCase(),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
@@ -398,7 +408,7 @@ export default async function PortfolioPage({
     portfolio: activePortfolio,
     holdings: rawHoldings,
     transactions,
-    stocks: buildSnapshotStockInputs({ stockOptionsData, portfolioTickerSet }),
+    stocks: buildSnapshotStockInputs({ stockOptionsData: stockRows, portfolioTickerSet }),
     news: ((newsData ?? []) as BaseNewsArticle[]).map((article) => ({
       id: article.id,
       impact: article.impact,
@@ -413,10 +423,12 @@ export default async function PortfolioPage({
     inputHash,
   });
 
-  const cachedEnriched = cachedSnapshot?.enriched as any[] | undefined;
-  const cachedSummary = cachedSnapshot?.summary as any | undefined;
-  const cachedChartData = cachedSnapshot?.chartData as any | undefined;
-  const cachedPortfolioNews = cachedSnapshot?.portfolioNews as any[] | undefined;
+  const cachedEnriched = cachedSnapshot?.enriched as ExtendedHolding[] | undefined;
+  const cachedSummary = cachedSnapshot?.summary as
+    | ReturnType<typeof buildPortfolioHealthSummary>
+    | undefined;
+  const cachedChartData = cachedSnapshot?.chartData as PortfolioChartData | undefined;
+  const cachedPortfolioNews = cachedSnapshot?.portfolioNews as EnrichedNewsArticle[] | undefined;
 
   if (cachedEnriched && cachedSummary && cachedChartData && cachedPortfolioNews) {
     timer.end({ mode: "snapshot-hit", holdings: rawHoldings.length });
@@ -432,9 +444,9 @@ export default async function PortfolioPage({
                 currency: portfolio.currency ?? "USD",
                 createdAt: portfolio.created_at ?? null,
               }))}
-              holdings={cachedEnriched as any}
+              holdings={cachedEnriched}
               stockOptions={stockOptions}
-              transactions={displayTransactions.map((transaction) => ({
+              transactions={displayTransactions.map((transaction): PortfolioTransaction => ({
                 id: transaction.id,
                 portfolioId: transaction.portfolio_id,
                 ticker: transaction.ticker,
@@ -447,8 +459,8 @@ export default async function PortfolioPage({
                 notes: transaction.notes,
                 createdAt: transaction.created_at,
               }))}
-              newsArticles={cachedPortfolioNews as any}
-              chartData={cachedChartData as any}
+              newsArticles={cachedPortfolioNews}
+              chartData={cachedChartData}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,

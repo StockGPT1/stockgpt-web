@@ -7,6 +7,7 @@ const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
+const PORTFOLIO_CHART_CACHE_VERSION = "v4";
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
@@ -27,7 +28,7 @@ type SummaryLike = {
 };
 
 function portfolioChartKey(portfolioId: string) {
-  return `portfolio:chart:latest:${portfolioId}`;
+  return `portfolio:chart:${PORTFOLIO_CHART_CACHE_VERSION}:latest:${portfolioId}`;
 }
 
 function toNumber(value: unknown, fallback = 0) {
@@ -46,7 +47,7 @@ function normaliseSummary(summary: SummaryLike) {
 
 export function hasUsablePortfolioChart(chartData: PortfolioChartData | null | undefined) {
   if (!chartData) return false;
-  return Object.values(chartData).some((points) => (points?.length ?? 0) > 2);
+  return Object.values(chartData).some((points) => (points?.length ?? 0) > 1);
 }
 
 function chartMatchesSummary(payload: PortfolioChartCachePayload, summary: SummaryLike) {
