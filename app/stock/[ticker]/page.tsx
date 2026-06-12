@@ -123,7 +123,7 @@ function StyleResearchCard({ tags, unlocked }: { tags: string[]; unlocked: boole
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">✦ Stock style</p>
           <h2 className="text-[20px] font-black tracking-[-0.03em]">What type of setup is this?</h2>
         </div>
-        <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#072116]/52">These labels explain the stock's current character in plain English. They are research shortcuts, not buy or sell instructions.</p>
+        <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#072116]/52">These labels explain the stock&apos;s current character in plain English. They are research shortcuts, not buy or sell instructions.</p>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -190,7 +190,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   let defaultPortfolioId: string | null = null;
 
   if (user) {
-    const { data: portfoliosData } = await (supabase as any).from("user_portfolios").select("id,name,cash_balance,currency,created_at").eq("user_id", user.id).is("archived_at", null).order("created_at", { ascending: true });
+    const { data: portfoliosData } = await supabase.from("user_portfolios").select("id,name,cash_balance,currency,created_at").eq("user_id", user.id).is("archived_at", null).order("created_at", { ascending: true });
     portfolioOptions = ((portfoliosData ?? []) as Array<{ id: string; name: string | null; cash_balance: number | null; currency: string | null }>).map((portfolio, index) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name, index), cashBalance: safeNumber(portfolio.cash_balance, 0), currency: portfolio.currency ?? "USD" }));
     defaultPortfolioId = portfolioOptions[0]?.id ?? null;
   }
@@ -226,8 +226,8 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice />}
           <QuickActions ticker={ticker} sector={stock.sector} isAuthenticated={isAuthenticated} />
-          <StyleResearchCard tags={styleTags} unlocked={canSeeRankAndScore} />
           <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">✦ Price Chart</p><div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart ticker={ticker} data={chartData} initialRange="1Y" height={320} /></div></section>
+          <StyleResearchCard tags={styleTags} unlocked={canSeeRankAndScore} />
           <div className="min-w-0 max-w-full overflow-hidden"><StockRelatedNews ticker={ticker} articles={relevantNews} /></div>
           <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]"><div className="min-w-0 max-w-full overflow-hidden">{canSeeRankAndScore ? (tradeLevels && <TradeSetupCard levels={tradeLevels} />) : <LockedTradePlanCard ticker={ticker} />}</div><PeersCard peers={peers} sector={stock.sector} unlocked={canSeeRankAndScore} /></div>
           <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">StockGPT stock pages are research tools. Rankings, trade plans and reports can be wrong and should be checked against your own risk limits.</p>

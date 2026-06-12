@@ -43,9 +43,15 @@ body:has(.sg-ask-workspace) {
 }
 
 @media (min-width: 1024px) {
+  .sg-ask-workspace > header {
+    flex: 0 0 auto;
+  }
+
   .sg-ask-desktop {
-    height: calc(100dvh - 64px);
-    max-height: calc(100dvh - 64px);
+    flex: 1 1 0%;
+    align-self: stretch;
+    height: auto !important;
+    max-height: none !important;
     grid-template-columns: minmax(180px, 210px) minmax(0, 1fr) minmax(248px, 280px) !important;
   }
 

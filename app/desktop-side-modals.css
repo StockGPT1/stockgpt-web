@@ -69,4 +69,24 @@
     flex:1 1 auto!important;
     overflow-y:auto!important;
   }
+
+  :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"]))>.stockgpt-manage-holding-dialog.stockgpt-manage-holding-dialog>*{
+    position:static!important;
+    z-index:auto!important;
+    width:auto!important;
+    max-width:none!important;
+    height:auto!important;
+    max-height:none!important;
+    margin:0!important;
+    border-radius:0!important;
+    border:0!important;
+    box-shadow:none!important;
+    animation:none!important;
+  }
+
+  :is(.fixed.inset-0[class*="z-"],.fixed.inset-x-0[class*="z-"]):not(.lg\:hidden):is(:has(>.relative.z-10),:has(>[role="dialog"]),:has(>.relative.w-full),:has(>.flex[class*="max-h"]),:has(>.grid[class*="max-h"]))>.stockgpt-manage-holding-dialog.stockgpt-manage-holding-dialog>div:last-child{
+    min-height:0!important;
+    flex:1 1 auto!important;
+    overflow-y:auto!important;
+  }
 }
