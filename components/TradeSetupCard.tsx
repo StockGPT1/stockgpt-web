@@ -279,22 +279,22 @@ function ExplanationPortal({
       <button
         type="button"
         aria-label="Close explanation"
-        className="absolute inset-0 h-full w-full cursor-default bg-black/45 backdrop-blur-[30px] backdrop-saturate-50"
+        className="absolute inset-0 h-full w-full cursor-default bg-[#020805]/88 backdrop-blur-[30px] backdrop-saturate-50"
         onClick={onClose}
       />
 
       <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[calc(132px+env(safe-area-inset-top))] sm:px-5 sm:pb-8 sm:pt-[calc(118px+env(safe-area-inset-top))] lg:pt-[calc(132px+env(safe-area-inset-top))]">
         <div
-          className="relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-[26px] border border-[#ddb159]/35 bg-[#faf6f0] text-[#072116] shadow-[0_34px_110px_rgba(0,0,0,0.62)]"
+          className="relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-[26px] border border-[#ddb159]/30 bg-[#061b12] text-[#faf6f0] shadow-[0_34px_110px_rgba(0,0,0,0.72)]"
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className={`pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full blur-3xl ${styles.glow}`}
+            className={`pointer-events-none hidden ${styles.glow}`}
           />
 
-          <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#072116]/8 p-4 pb-3 sm:p-6 sm:pb-4">
+          <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#ddb159]/14 bg-[#04140c] p-4 pb-3 sm:p-6 sm:pb-4">
             <div className="min-w-0">
-              <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#072116]/50 sm:text-[9px]">
+              <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[9px]">
                 ✦ Trade Plan Explainer
               </p>
 
@@ -306,7 +306,7 @@ function ExplanationPortal({
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-full border border-[#072116]/10 bg-white/70 px-3 py-1.5 text-[10px] font-black text-[#072116]/60 shadow-[0_8px_20px_rgba(0,0,0,0.1)] transition hover:border-[#ddb159]/50 hover:text-[#072116] sm:text-[11px]"
+              className="shrink-0 rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] px-3 py-1.5 text-[10px] font-black text-[#ddb159] shadow-[0_8px_20px_rgba(0,0,0,0.22)] transition hover:bg-[#ddb159]/10 sm:text-[11px]"
             >
               Close
             </button>
@@ -321,33 +321,33 @@ function ExplanationPortal({
               </span>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-[#072116]/8 bg-white/65 p-3 sm:p-4">
+            <div className="mt-4 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3 sm:p-4">
               <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
                 What this means
               </p>
 
-              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#faf6f0]/76 sm:text-[14px]">
                 {modal.meaning}
               </p>
             </div>
 
             <div className="mt-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 p-3 sm:p-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
                 Why StockGPT chose this
               </p>
 
-              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#072116]/78 sm:text-[14px]">
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#faf6f0]/76 sm:text-[14px]">
                 {modal.reasoning}
               </p>
             </div>
 
             {modal.detail && (
-              <p className="mt-4 text-[12px] font-medium leading-5 text-[#072116]/55">
+              <p className="mt-4 text-[12px] font-medium leading-5 text-[#faf6f0]/55">
                 {modal.detail}
               </p>
             )}
 
-            <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/42">
+            <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#faf6f0]/42">
               Educational explanation only. This is not personal financial
               advice and should not be used as the sole basis for an investment
               decision.

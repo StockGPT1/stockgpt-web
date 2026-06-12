@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 
 export type ChartPoint = {
   date: string;
@@ -84,13 +84,9 @@ export function StockChart({
     [data],
   );
 
-  useEffect(() => {
-    if ((data[range]?.length ?? 0) < 2 && availableRanges.length > 0) {
-      setRange(availableRanges[0]);
-    }
-  }, [data, range, availableRanges]);
-
-  const points = data[range] ?? [];
+  const resolvedRange =
+    (data[range]?.length ?? 0) > 1 ? range : availableRanges[0] ?? range;
+  const points = useMemo(() => data[resolvedRange] ?? [], [data, resolvedRange]);
 
   const direction = useMemo(() => {
     if (points.length < 2) return "flat";
@@ -272,7 +268,7 @@ export function StockChart({
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#faf6f0]/45">
-              {ticker} · {range}
+              {ticker} · {resolvedRange}
             </p>
 
             <p className="mt-0.5 text-[24px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
@@ -281,7 +277,7 @@ export function StockChart({
 
             {hoverPoint ? (
               <p className="text-[11px] font-semibold text-[#faf6f0]/55">
-                {formatDate(hoverPoint.date, range)}
+                {formatDate(hoverPoint.date, resolvedRange)}
               </p>
             ) : (
               <p
@@ -380,7 +376,7 @@ export function StockChart({
               {[0, Math.floor(points.length / 2), points.length - 1].map(
                 (idx, i) => {
                   const x = padding.left + (plotW / (points.length - 1)) * idx;
-                  const dateText = formatDate(points[idx].date, range);
+                  const dateText = formatDate(points[idx].date, resolvedRange);
 
                   return (
                     <text
@@ -419,7 +415,7 @@ export function StockChart({
                 compact ? "text-[8px]" : "text-[9px]",
               ].join(" ")}
             >
-              {formatDate(hoverPoint.date, range)}
+              {formatDate(hoverPoint.date, resolvedRange)}
             </p>
 
             <p
@@ -442,8 +438,8 @@ export function StockChart({
               type="button"
               onClick={() => setRange(r)}
               className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
-                range === r
-                  ? "bg-[#ddb159] text-[#072116]"
+                resolvedRange === r
+                  ? "sg-metal-gold-fill"
                   : "bg-[#072116]/40 text-[#faf6f0]/65 hover:bg-[#072116]/60 hover:text-[#faf6f0]"
               }`}
             >

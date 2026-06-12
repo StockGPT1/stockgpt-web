@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   importTrading212Csv,
   previewTrading212Csv,
@@ -241,7 +242,7 @@ function ImportPanel({
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[28px] border border-[#ddb159]/25 bg-[#faf6f0] text-[#072116] shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
+    <div className="stockgpt-import-panel min-w-0 overflow-hidden rounded-[28px] border border-[#ddb159]/25 bg-[#faf6f0] text-[#072116] shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
       <div className="flex items-start justify-between gap-4 border-b border-[#072116]/10 px-4 py-4 sm:px-5">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-3">
@@ -269,7 +270,7 @@ function ImportPanel({
             aria-label="Close Trading 212 import"
             className="grid size-10 shrink-0 place-items-center rounded-full border border-[#072116]/10 bg-white text-[20px] font-black leading-none text-[#072116]/55 transition hover:border-[#ddb159]/50 hover:text-[#072116]"
           >
-            ×
+            &times;
           </button>
         )}
       </div>
@@ -461,8 +462,8 @@ function ImportModal({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto overflow-x-hidden bg-[#020806]/72 px-3 py-4 backdrop-blur-[10px] sm:items-center sm:px-5">
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483647] flex items-start justify-center overflow-y-auto overflow-x-hidden bg-[#020805]/88 px-3 py-4 text-[#faf6f0] backdrop-blur-md sm:items-center sm:px-5">
       <button
         type="button"
         aria-label="Close Trading 212 import overlay"
@@ -478,7 +479,8 @@ function ImportModal({
       >
         <ImportPanel portfolioId={portfolioId} onRequestClose={onClose} onComplete={onClose} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
