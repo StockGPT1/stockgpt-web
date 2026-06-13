@@ -8,6 +8,17 @@ export type PortfolioTrimDriver = {
   weight: number;
 };
 
+export type PortfolioReinvestmentCandidate = {
+  ticker: string;
+  company: string | null;
+  sector: string | null;
+  score: number | null;
+  rank: number | null;
+  price: number | null;
+  sameSector: boolean;
+  rationale: string;
+};
+
 export type PortfolioTrimRecommendation = {
   pct: number | null;
   label: string;
@@ -16,12 +27,23 @@ export type PortfolioTrimRecommendation = {
   estimatedValue: number | null;
   estimatedShares: number | null;
   drivers: PortfolioTrimDriver[];
+  reinvestment: PortfolioReinvestmentCandidate | null;
+  reinvestmentSummary: string | null;
 };
 
 type Holding = EnrichedHolding & {
   purchaseDate?: string | null;
   source?: string | null;
   notes?: string | null;
+};
+
+type StockCandidate = {
+  ticker: string;
+  company: string | null;
+  sector: string | null;
+  score?: number | null;
+  rank: number | null;
+  price: number | null;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -59,9 +81,80 @@ function alertRisk(holding: Holding) {
   return Math.max(0, ...holding.eventAlerts.map((event) => severityScore(event.severity))) * 0.35;
 }
 
+function rankMovementRisk(holding: Holding, scoreDeclinePct: number) {
+  if (!holding.rankAtEntry || !holding.rank) return 0;
+
+  const rankWorsening = Math.max(0, holding.rank - holding.rankAtEntry);
+  if (rankWorsening <= 0) return 0;
+
+  const scoreBase = Math.max(Number(holding.scoreAtEntry) || Number(holding.score) || 1, 1);
+  const scoreScaledMove = (rankWorsening / scoreBase) * 100;
+
+  return scoreScaledMove * (1 + Math.min(scoreDeclinePct, 40) / 100);
+}
+
+function buildReinvestmentCandidate({
+  holding,
+  candidates = [],
+  heldTickers,
+}: {
+  holding: Holding;
+  candidates?: StockCandidate[];
+  heldTickers: Set<string>;
+}): PortfolioReinvestmentCandidate | null {
+  const holdingTicker = holding.ticker.toUpperCase();
+  const holdingSector = String(holding.sector ?? "").trim().toLowerCase();
+
+  const rankedCandidates = candidates
+    .filter((candidate) => {
+      const ticker = String(candidate.ticker ?? "").trim().toUpperCase();
+      if (!ticker || ticker === holdingTicker || heldTickers.has(ticker)) return false;
+      if (!Number.isFinite(Number(candidate.price)) || Number(candidate.price) <= 0) return false;
+      return Number.isFinite(Number(candidate.score)) || Number.isFinite(Number(candidate.rank));
+    })
+    .map((candidate) => {
+      const sameSector =
+        holdingSector.length > 0 &&
+        String(candidate.sector ?? "").trim().toLowerCase() === holdingSector;
+      const score = Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null;
+      const rank = Number.isFinite(Number(candidate.rank)) ? Number(candidate.rank) : null;
+      const rankingScore =
+        (score ?? 0) +
+        (rank == null ? 0 : Math.max(0, 10000 - rank) * 0.18) +
+        (sameSector ? 750 : 0);
+
+      return { candidate, sameSector, score, rank, rankingScore };
+    })
+    .sort((a, b) => b.rankingScore - a.rankingScore);
+
+  const picked =
+    rankedCandidates.find((item) => item.sameSector) ?? rankedCandidates[0] ?? null;
+
+  if (!picked) return null;
+
+  const ticker = String(picked.candidate.ticker).toUpperCase();
+  const company = picked.candidate.company ?? null;
+  const sector = picked.candidate.sector ?? null;
+
+  return {
+    ticker,
+    company,
+    sector,
+    score: picked.score,
+    rank: picked.rank,
+    price: positiveNumber(picked.candidate.price),
+    sameSector: picked.sameSector,
+    rationale: picked.sameSector
+      ? `${ticker} is the strongest available same-sector replacement by StockGPT score/rank, so it keeps the portfolio exposed to ${sector ?? "the same sector"} while moving cash away from the oversized holding.`
+      : `${ticker} is the strongest available replacement by StockGPT score/rank. StockGPT could not find a better unheld same-sector candidate, so this is the best cross-sector option from the current rankings.`,
+  };
+}
+
 export function buildPortfolioTrimRecommendation(
   holding: Holding,
   riskTolerance: string | null,
+  candidates: StockCandidate[] = [],
+  heldTickers: Set<string> = new Set(),
 ): PortfolioTrimRecommendation {
   const currentAllocation = positiveNumber(holding.currentAllocationPct) ?? 0;
   const userTarget = positiveNumber(holding.targetAllocationPct);
@@ -90,14 +183,11 @@ export function buildPortfolioTrimRecommendation(
     holding.scoreAtEntry && holding.scoreAtEntry > 0
       ? Math.max(0, ((holding.scoreAtEntry - holding.score) / holding.scoreAtEntry) * 100)
       : 0;
-  const rankDeteriorationPct =
-    holding.rankAtEntry && holding.rank
-      ? Math.max(0, ((holding.rank - holding.rankAtEntry) / 500) * 100)
-      : 0;
+  const rankDeteriorationPct = rankMovementRisk(holding, scoreDeclinePct);
 
   const convictionRisk = clamp(
     scoreDeclinePct * 1.35 +
-      rankDeteriorationPct * 1.05 +
+      rankDeteriorationPct * 1.1 +
       Math.max(0, 55 - holding.rankPercentile) * 0.75,
     0,
     100,
@@ -144,7 +234,7 @@ export function buildPortfolioTrimRecommendation(
     },
     {
       name: "AI conviction",
-      detail: `score -${scoreDeclinePct.toFixed(1)}%, rank percentile ${holding.rankPercentile}/100`,
+      detail: `score -${scoreDeclinePct.toFixed(1)}%, rank move risk ${rankDeteriorationPct.toFixed(1)}`,
       pct: convictionTrimPct,
       riskScore: Math.round(convictionRisk),
       weight: 25,
@@ -188,6 +278,8 @@ export function buildPortfolioTrimRecommendation(
       estimatedValue: null,
       estimatedShares: null,
       drivers,
+      reinvestment: null,
+      reinvestmentSummary: null,
     };
   }
 
@@ -195,20 +287,36 @@ export function buildPortfolioTrimRecommendation(
   const topDriver = drivers.find((driver) => driver.pct === rawTrimPct) ?? drivers[0];
   const reason =
     topDriver.name === "Position size"
-      ? `Calculated from allocation: ${currentAllocation.toFixed(1)}% back toward ${desiredAllocation.toFixed(1)}%.`
+      ? `StockGPT suggests a ${pct}% trim because this holding is ${currentAllocation.toFixed(1)}% of the portfolio, above the ${ceiling.toFixed(1)}% level StockGPT allows before treating it as concentrated. The suggested trim moves the position back toward roughly ${desiredAllocation.toFixed(1)}%, rather than removing it completely.`
       : topDriver.name === "AI conviction"
-        ? "Calculated from a meaningful score/rank deterioration with enough position size to matter."
+        ? `StockGPT suggests a ${pct}% trim because conviction has weakened since entry: the score is down ${scoreDeclinePct.toFixed(1)}% and the rank-movement risk is ${rankDeteriorationPct.toFixed(1)}. The trim is intentionally partial because the position may still have a valid role in the portfolio.`
         : topDriver.name === "Price / P&L"
-          ? "Calculated from profit protection because gains are extended, the position is large, and rank quality has weakened."
-          : "Calculated from a confirmed trim alert, but only because the position is also oversized.";
+          ? `StockGPT suggests a ${pct}% trim because gains are extended at ${signedPct(holding.pnlPercent)}, the position is now large, and rank quality has weakened. This is a profit-protection rebalance rather than a full exit.`
+          : `StockGPT suggests a ${pct}% trim because a confirmed trim alert is active and the position is also oversized. Alerts alone are not enough to trigger a trim.`;
+
+  const reinvestment = buildReinvestmentCandidate({
+    holding,
+    candidates,
+    heldTickers,
+  });
+  const estimatedValue = holding.currentValue * (pct / 100);
+  const reinvestmentSummary = reinvestment
+    ? `StockGPT would reinvest the estimated ${estimatedValue.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: estimatedValue >= 1000 ? 0 : 2,
+      })} trimmed cash into ${reinvestment.ticker}${reinvestment.company ? ` (${reinvestment.company})` : ""}. ${reinvestment.rationale}`
+    : "StockGPT could not find a suitable reinvestment candidate from the current ranking universe, so the trimmed cash should remain as portfolio cash until a better candidate appears.";
 
   return {
     pct,
     label: `Suggested trim: ${pct}%`,
     reason,
     riskScore,
-    estimatedValue: holding.currentValue * (pct / 100),
+    estimatedValue,
     estimatedShares: holding.shares * (pct / 100),
     drivers,
+    reinvestment,
+    reinvestmentSummary,
   };
 }
