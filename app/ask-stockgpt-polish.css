@@ -91,7 +91,7 @@ body:has(.sg-ask-workspace) {
 @media (min-width: 1536px) {
   .sg-ask-desktop {
     grid-template-columns:
-      minmax(260px, 300px)
+      minmax(300px, 330px)
       minmax(480px, 1fr)
       minmax(340px, 390px) !important;
   }
@@ -119,5 +119,32 @@ body:has(.sg-ask-workspace) {
 
   .sg-ask-desktop > section > form {
     padding: 0.75rem !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .sg-ask-desktop > aside:first-child > div:first-child {
+    padding: 1rem 0.875rem 0.75rem !important;
+  }
+
+  .sg-ask-desktop > aside:first-child > div:nth-child(2) {
+    padding-inline: 0.75rem !important;
+  }
+
+  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child {
+    padding: 0.85rem !important;
+  }
+
+  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child button {
+    padding-inline: 0.85rem !important;
+  }
+
+  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child button p:last-child {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }

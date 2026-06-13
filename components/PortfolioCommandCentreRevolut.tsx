@@ -680,10 +680,10 @@ function MiniMetric({ label, value, sub, tone = "neutral" }: { label: string; va
   );
 }
 
-function HoldingsRow({ portfolioId, holding, currency, maxAllocation, riskTolerance }: { portfolioId: string; holding: ExtendedHolding; currency: string; maxAllocation: number; riskTolerance: string | null }) {
+function HoldingsRow({ portfolioId, holding, currency, riskTolerance }: { portfolioId: string; holding: ExtendedHolding; currency: string; riskTolerance: string | null }) {
   const [open, setOpen] = useState(false);
   const isPositive = holding.totalPnLDollars >= 0;
-  const widthPct = maxAllocation > 0 ? Math.max(4, Math.min(100, (holding.currentAllocationPct / maxAllocation) * 100)) : 0;
+  const widthPct = Math.max(0, Math.min(100, holding.currentAllocationPct));
   const trimRecommendation = useMemo(
     () => buildPortfolioTrimRecommendation(holding, riskTolerance),
     [holding, riskTolerance],
@@ -761,8 +761,6 @@ function HoldingsPanel({ portfolioId, holdings, currency, riskTolerance }: { por
     });
     return next;
   }, [filter, holdings, sort]);
-  const maxAllocation = filteredHoldings.reduce((max, holding) => Math.max(max, holding.currentAllocationPct), 0);
-
   return (
     <section className="grid gap-3">
       <div className="grid gap-3 rounded-2xl border border-white/8 bg-white/[0.045] p-3 text-[#faf6f0] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -792,7 +790,7 @@ function HoldingsPanel({ portfolioId, holdings, currency, riskTolerance }: { por
             <span>Asset</span><span className="text-right">Value</span><span className="text-right">Net P/L</span><span className="text-right">%</span><span className="text-right">AI</span><span className="text-right">Action</span>
           </div>
           {filteredHoldings.map((holding) => (
-            <HoldingsRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} maxAllocation={maxAllocation} riskTolerance={riskTolerance} />
+            <HoldingsRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} riskTolerance={riskTolerance} />
           ))}
         </div>
       )}
