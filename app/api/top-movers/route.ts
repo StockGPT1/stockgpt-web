@@ -21,6 +21,7 @@ type MoverPayload = {
   rankLabel: string;
   rankTone: "up" | "down" | "flat" | "none";
   rankTitle: string;
+  actualRankLabel: string;
   dailyMoveLabel: string;
   dailyMoveTone: MoveTone;
   weeklyMoveLabel?: string;
@@ -37,6 +38,11 @@ function formatPrice(value: unknown) {
 function formatScore(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+}
+
+function formatRank(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? `#${Math.round(n).toLocaleString()}` : "#—";
 }
 
 function formatMove(value: number | null) {
@@ -122,6 +128,7 @@ export async function GET(req: NextRequest) {
       rankLabel: rankMove.label,
       rankTone: rankMove.tone,
       rankTitle: rankMove.title,
+      actualRankLabel: formatRank(stock.rank),
       dailyMoveLabel: formatMove(move),
       dailyMoveTone: moveTone(move),
     };
