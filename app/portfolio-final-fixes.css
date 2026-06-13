@@ -2,6 +2,20 @@
   z-index: 60 !important;
 }
 
+@media (min-width: 768px) {
+  .sg-app-header {
+    z-index: 120 !important;
+  }
+
+  .sg-app-header .sg-search-root {
+    z-index: 121 !important;
+  }
+
+  .sg-app-header .sg-search-dropdown {
+    z-index: 122 !important;
+  }
+}
+
 .z-\[120\].fixed.inset-0,
 .z-\[220\].fixed.inset-0 {
   z-index: 9999 !important;

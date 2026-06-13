@@ -18,6 +18,10 @@ import {
 } from "@/lib/actions/portfolio-management";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
+import {
+  buildPortfolioTrimRecommendation,
+  type PortfolioTrimRecommendation,
+} from "@/lib/portfolio-trim-recommendation";
 
 type StockOption = {
   ticker: string;
@@ -148,19 +152,6 @@ function holdingUrgencyScore(holding: ExtendedHolding) {
   return holding.actionAlerts.length * 20 + holding.eventAlerts.length * 6 + (holding.daysSinceReview > 30 ? 8 : 0);
 }
 
-function recommendedTrimPercent(holding: ExtendedHolding) {
-  if (holding.recommendation.includes("Sell") || holding.recommendation.includes("Urgently")) return 100;
-
-  if (holding.targetAllocationPct && holding.currentAllocationPct > holding.targetAllocationPct + 1) {
-    const trimToTarget = ((holding.currentAllocationPct - holding.targetAllocationPct) / holding.currentAllocationPct) * 100;
-    return Math.round(Math.min(60, Math.max(5, trimToTarget)));
-  }
-
-  if (holding.recommendation.includes("Trim")) return 20;
-  if (holding.actionAlerts.length > 0) return 15;
-  return 10;
-}
-
 function buildRangeData(
   source: Partial<Record<TimeRange, ChartPoint[]>>,
 ): Partial<Record<TimeRange, ChartPoint[]>> {
@@ -222,6 +213,23 @@ function SectionButton({ section, active, setSection, label }: { section: Sectio
   );
 }
 
+function DesktopSectionButton({ section, active, setSection, label }: { section: Section; active: Section; setSection: (section: Section) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => setSection(section)}
+      className={[
+        "h-9 min-w-[104px] rounded-full px-4 text-center text-[11px] font-black uppercase tracking-[0.12em] transition",
+        active === section
+          ? "bg-[#ddb159] text-[#072116] shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+          : "text-[#faf6f0]/56 hover:bg-white/[0.06] hover:text-[#faf6f0]",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
+
 function PortfolioTopBar({ portfolioId, portfolios }: { portfolioId: string; portfolios: PortfolioOption[] }) {
   const router = useRouter();
   const active = portfolios.find((portfolio) => portfolio.id === portfolioId);
@@ -267,6 +275,7 @@ function PortfolioChartHero({
   summary,
   chartData,
   createdAt,
+  cashBalance,
 }: {
   portfolioId: string;
   portfolios: PortfolioOption[];
@@ -275,6 +284,7 @@ function PortfolioChartHero({
   summary: ReturnType<typeof buildPortfolioHealthSummary>;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   createdAt?: string | null;
+  cashBalance: number;
 }) {
   const router = useRouter();
   const rangeData = useMemo(() => buildRangeData(chartData), [chartData]);
@@ -385,7 +395,8 @@ function PortfolioChartHero({
         </div>
         <div className="px-4 py-3">
           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p>
-          <p className="mt-1 text-[18px] font-black">{summary.cashDrag.toFixed(1)}%</p>
+          <p className="mt-1 text-[18px] font-black">{money(cashBalance, currency)}</p>
+          <p className="mt-0.5 text-[10px] font-bold text-[#faf6f0]/42">{summary.cashDrag.toFixed(1)}% drag</p>
         </div>
       </div>
     </section>
@@ -537,9 +548,9 @@ function AddHoldingPanel({ portfolioId, stockOptions }: { portfolioId: string; s
   );
 }
 
-function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose }: { portfolioId: string; holding: ExtendedHolding; recommendedPercent: number; onClose: () => void }) {
+function ManageHoldingModal({ portfolioId, holding, recommendation, onClose }: { portfolioId: string; holding: ExtendedHolding; recommendation: PortfolioTrimRecommendation; onClose: () => void }) {
   const router = useRouter();
-  const [customPercent, setCustomPercent] = useState(String(Math.min(50, recommendedPercent)));
+  const [customPercent, setCustomPercent] = useState(recommendation.pct == null ? "" : String(Math.min(50, recommendation.pct)));
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -624,18 +635,23 @@ function ManageHoldingModal({ portfolioId, holding, recommendedPercent, onClose 
 
           <div className="rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/10 p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Recommended action</p>
+            <p className="mt-1 text-[18px] font-black tracking-[-0.03em] text-[#faf6f0]">{recommendation.label}</p>
             <p className="mt-1 text-[13px] font-semibold leading-5 text-[#faf6f0]/65">
-              StockGPT suggests reviewing a <span className="font-black text-[#faf6f0]">{recommendedPercent}%</span> trim as a starting point. Adjust it manually below.
+              {recommendation.reason}
             </p>
-            <button type="button" disabled={isPending} onClick={() => runTrim(recommendedPercent)} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f3d98b,#d6ae4d_55%,#a77d2e)] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#061b12] shadow-[0_14px_30px_rgba(0,0,0,0.2)] disabled:opacity-50">
-              Apply recommended {recommendedPercent}%
-            </button>
+            {recommendation.pct == null ? (
+              <p className="mt-3 rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 px-3 py-2 text-[11px] font-bold text-[#faf6f0]/55">No automatic trim action is suggested for this holding.</p>
+            ) : (
+              <button type="button" disabled={isPending} onClick={() => runTrim(recommendation.pct ?? 0)} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-[linear-gradient(180deg,#f3d98b,#d6ae4d_55%,#a77d2e)] px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#061b12] shadow-[0_14px_30px_rgba(0,0,0,0.2)] disabled:opacity-50">
+                Apply recommended {recommendation.pct}%
+              </button>
+            )}
           </div>
 
           <div className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/42">Custom trim</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <input type="number" min={1} max={100} step={0.5} value={customPercent} onChange={(event) => setCustomPercent(event.target.value)} className="h-11 w-full rounded-2xl border border-[#ddb159]/18 bg-[#020805]/55 px-3 text-[14px] font-black text-[#faf6f0] outline-none focus:border-[#ddb159]" />
+              <input type="number" min={1} max={100} step={0.5} value={customPercent} onChange={(event) => setCustomPercent(event.target.value)} placeholder="Enter %" className="h-11 w-full rounded-2xl border border-[#ddb159]/18 bg-[#020805]/55 px-3 text-[14px] font-black text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/32 focus:border-[#ddb159]" />
               <button type="button" disabled={isPending} onClick={() => runTrim(Number(customPercent))} className="h-11 rounded-2xl bg-[linear-gradient(180deg,#f3d98b,#d6ae4d_55%,#a77d2e)] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#061b12] disabled:opacity-50">Trim %</button>
             </div>
           </div>
@@ -664,10 +680,14 @@ function MiniMetric({ label, value, sub, tone = "neutral" }: { label: string; va
   );
 }
 
-function HoldingsRow({ portfolioId, holding, currency, maxAllocation }: { portfolioId: string; holding: ExtendedHolding; currency: string; maxAllocation: number }) {
+function HoldingsRow({ portfolioId, holding, currency, riskTolerance }: { portfolioId: string; holding: ExtendedHolding; currency: string; riskTolerance: string | null }) {
   const [open, setOpen] = useState(false);
   const isPositive = holding.totalPnLDollars >= 0;
-  const widthPct = maxAllocation > 0 ? Math.max(4, Math.min(100, (holding.currentAllocationPct / maxAllocation) * 100)) : 0;
+  const widthPct = Math.max(0, Math.min(100, holding.currentAllocationPct));
+  const trimRecommendation = useMemo(
+    () => buildPortfolioTrimRecommendation(holding, riskTolerance),
+    [holding, riskTolerance],
+  );
 
   return (
     <div className="group relative overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] text-[#072116] transition hover:bg-white lg:rounded-2xl lg:border lg:shadow-[0_8px_22px_rgba(0,0,0,0.10)] lg:hover:border-[#ddb159]/45">
@@ -691,7 +711,7 @@ function HoldingsRow({ portfolioId, holding, currency, maxAllocation }: { portfo
           </button>
         </div>
       </div>
-      {open && <ManageHoldingModal portfolioId={portfolioId} holding={holding} recommendedPercent={recommendedTrimPercent(holding)} onClose={() => setOpen(false)} />}
+      {open && <ManageHoldingModal portfolioId={portfolioId} holding={holding} recommendation={trimRecommendation} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -707,7 +727,7 @@ function MetricCell({ label, value, sub, tone = "neutral" }: { label: string; va
   );
 }
 
-function HoldingsPanel({ portfolioId, holdings, currency }: { portfolioId: string; holdings: ExtendedHolding[]; currency: string }) {
+function HoldingsPanel({ portfolioId, holdings, currency, riskTolerance }: { portfolioId: string; holdings: ExtendedHolding[]; currency: string; riskTolerance: string | null }) {
   const [filter, setFilter] = useState<HoldingFilter>("all");
   const [sort, setSort] = useState<HoldingSort>("value");
   const filterOptions = [
@@ -741,8 +761,6 @@ function HoldingsPanel({ portfolioId, holdings, currency }: { portfolioId: strin
     });
     return next;
   }, [filter, holdings, sort]);
-  const maxAllocation = filteredHoldings.reduce((max, holding) => Math.max(max, holding.currentAllocationPct), 0);
-
   return (
     <section className="grid gap-3">
       <div className="grid gap-3 rounded-2xl border border-white/8 bg-white/[0.045] p-3 text-[#faf6f0] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -772,7 +790,7 @@ function HoldingsPanel({ portfolioId, holdings, currency }: { portfolioId: strin
             <span>Asset</span><span className="text-right">Value</span><span className="text-right">Net P/L</span><span className="text-right">%</span><span className="text-right">AI</span><span className="text-right">Action</span>
           </div>
           {filteredHoldings.map((holding) => (
-            <HoldingsRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} maxAllocation={maxAllocation} />
+            <HoldingsRow key={holding.ticker} portfolioId={portfolioId} holding={holding} currency={currency} riskTolerance={riskTolerance} />
           ))}
         </div>
       )}
@@ -890,25 +908,28 @@ export function PortfolioCommandCentreRevolut({
     <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
       <PortfolioTopBar portfolioId={portfolioId} portfolios={portfolios} />
 
-      <div className="portfolio-section-nav hidden min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <SectionButton section="overview" active={section} setSection={setSection} label="Overview" />
-        <SectionButton section="holdings" active={section} setSection={setSection} label="Holdings" />
-        <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />
-        <SectionButton section="activity" active={section} setSection={setSection} label="Activity" />
-        <SectionButton section="manage" active={section} setSection={setSection} label="Manage" />
+      <div className="portfolio-section-nav hidden min-w-0 justify-center gap-1 overflow-x-auto rounded-full border border-white/8 bg-black/18 p-1.5 lg:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <DesktopSectionButton section="overview" active={section} setSection={setSection} label="Overview" />
+        <DesktopSectionButton section="holdings" active={section} setSection={setSection} label="Holdings" />
+        <DesktopSectionButton section="add" active={section} setSection={setSection} label="Add" />
+        <DesktopSectionButton section="activity" active={section} setSection={setSection} label="Activity" />
+        <DesktopSectionButton section="manage" active={section} setSection={setSection} label="Manage" />
       </div>
 
-      <PortfolioChartHero
-        portfolioId={portfolioId}
-        portfolios={portfolios}
-        portfolioName={portfolioMeta.name}
-        currency={currency}
-        summary={summary}
-        chartData={chartData}
-        createdAt={portfolioMeta.createdAt}
-      />
+      {section === "overview" && (
+        <PortfolioChartHero
+          portfolioId={portfolioId}
+          portfolios={portfolios}
+          portfolioName={portfolioMeta.name}
+          currency={currency}
+          summary={summary}
+          chartData={chartData}
+          createdAt={portfolioMeta.createdAt}
+          cashBalance={portfolioMeta.cashBalance}
+        />
+      )}
 
-      <div className="portfolio-section-nav flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="portfolio-section-nav flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <SectionButton section="overview" active={section} setSection={setSection} label="Overview" />
         <SectionButton section="holdings" active={section} setSection={setSection} label="Holdings" />
         <SectionButton section="add" active={section} setSection={setSection} label="Add / Import" />
@@ -918,13 +939,13 @@ export function PortfolioCommandCentreRevolut({
 
       {section === "overview" && (
         <section className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
-          <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} />
+          <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} riskTolerance={portfolioMeta.riskTolerance} />
           <div className="grid content-start gap-3">
             <div className="rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Health drivers</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <MiniMetric label="Holdings" value={String(summary.holdingsCount)} sub={`${summary.sectorCount} sectors`} />
-                <MiniMetric label="Cash" value={`${summary.cashDrag.toFixed(1)}%`} sub="drag" />
+                <MiniMetric label="Cash" value={money(portfolioMeta.cashBalance, currency)} sub={`${summary.cashDrag.toFixed(1)}% drag`} />
                 <MiniMetric label="Alerts" value={String(summary.actionAlerts)} sub={`${summary.eventAlerts} events`} tone={summary.actionAlerts > 0 ? "negative" : "positive"} />
                 <MiniMetric label="Largest" value={`${summary.largestPositionPct.toFixed(1)}%`} sub="position" tone={summary.largestPositionPct > 30 ? "negative" : "positive"} />
               </div>
@@ -936,7 +957,7 @@ export function PortfolioCommandCentreRevolut({
         </section>
       )}
 
-      {section === "holdings" && <HoldingsPanel portfolioId={portfolioId} holdings={holdings} currency={currency} />}
+      {section === "holdings" && <HoldingsPanel portfolioId={portfolioId} holdings={holdings} currency={currency} riskTolerance={portfolioMeta.riskTolerance} />}
       {section === "add" && (
         <section className="grid gap-3 xl:grid-cols-[0.8fr_1fr_0.9fr]">
           <AddCashPanel portfolioId={portfolioId} currency={currency} />

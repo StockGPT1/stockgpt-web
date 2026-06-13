@@ -146,24 +146,39 @@ function MoverList({
   listItems,
   mode,
   onClose,
+  surface = "default",
 }: {
   listItems: DailyChangeItem[];
   mode: MoverMode;
   onClose: () => void;
+  surface?: "default" | "desktop-drawer";
 }) {
   if (listItems.length === 0) {
     return <div className="p-6 text-center text-white/50">No mover data available yet.</div>;
   }
 
+  const isDesktopDrawer = surface === "desktop-drawer";
+
   return (
-    <div className="stockgpt-mover-list overflow-hidden rounded-[22px] border border-[#ddb159]/12 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
+    <div
+      className={[
+        "stockgpt-mover-list overflow-hidden rounded-[22px] border border-[#ddb159]/12",
+        isDesktopDrawer ? "stockgpt-mover-list-desktop bg-[#061b12]" : "bg-[#050706]",
+      ].join(" ")}
+      style={{ backgroundColor: isDesktopDrawer ? "#061b12" : "#050706" }}
+    >
       {listItems.map((item) => (
         <Link
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
           style={{ color: "#faf6f0" }}
-          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 bg-transparent p-3 !text-[#faf6f0] transition last:border-b-0 hover:!bg-[#ddb159]/[0.055] hover:!text-[#faf6f0] focus:!bg-[#ddb159]/[0.055] focus:!text-[#faf6f0] focus-visible:!bg-[#ddb159]/[0.055] active:!bg-[#ddb159]/[0.08] visited:!text-[#faf6f0] sm:p-4"
+          className={[
+            "stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4",
+            isDesktopDrawer
+              ? "stockgpt-mover-row-desktop !bg-[#13251a] hover:!bg-[#1b3324] focus:!bg-[#1b3324] focus-visible:!bg-[#1b3324] active:!bg-[#203d2a]"
+              : "bg-transparent hover:!bg-[#ddb159]/[0.055] hover:!text-[#faf6f0] focus:!bg-[#ddb159]/[0.055] focus:!text-[#faf6f0] focus-visible:!bg-[#ddb159]/[0.055] active:!bg-[#ddb159]/[0.08]",
+          ].join(" ")}
         >
           <MoverLogo ticker={item.ticker} company={item.company} />
 
@@ -267,7 +282,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         description="Best and worst performing stocks from the selected period, with StockGPT rank and score context."
         onClose={() => setOpen(false)}
       >
-        <div className="grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
+        <div className="stockgpt-top-movers-mobile-content grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
           <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
             <FilterPill label="All" active />
             <FilterPill label="1 day" active />
@@ -299,7 +314,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
       </MobileSheet>
 
       {open && (
-        <div className="hidden lg:fixed lg:inset-0 lg:z-[90] lg:flex lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
+        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:inset-0 lg:z-[90] lg:flex lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -309,9 +324,9 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
 
           <aside
             className="stockgpt-top-movers-drawer relative z-10 flex h-full w-[min(540px,42vw)] min-w-[440px] flex-col overflow-hidden rounded-l-[34px] border-l border-[#ddb159]/28 bg-[#050706] text-[#f8f4e8] shadow-[0_28px_90px_rgba(0,0,0,0.58)]"
-            style={{ backgroundColor: "#050706", color: "#f8f4e8" }}
+            style={{ backgroundColor: "#061b12", color: "#f8f4e8" }}
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 bg-[#050706] px-6 pb-5 pt-6" style={{ backgroundColor: "#050706" }}>
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#ddb159]/14 bg-[#050706] px-6 pb-5 pt-6" style={{ backgroundColor: "#04140c" }}>
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                   Daily market movement
@@ -334,7 +349,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               </button>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4" style={{ backgroundColor: "#050706" }}>
+            <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4" style={{ backgroundColor: "#061b12" }}>
               <FilterPill label="All" active />
               <FilterPill label="1 day" active />
               <FilterPill label="1 week" />
@@ -342,7 +357,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               <FilterPill label="AI rank movers" />
             </div>
 
-            <div className="flex shrink-0 bg-[#050706] px-6 pb-4" style={{ backgroundColor: "#050706" }}>
+            <div className="flex shrink-0 bg-[#050706] px-6 pb-4" style={{ backgroundColor: "#061b12" }}>
               <div className="grid w-full grid-cols-2 rounded-full bg-white/8 p-1">
                 {(["gainers", "losers"] as const).map((tab) => (
                   <button
@@ -364,9 +379,9 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
 
             <div
               className="stockgpt-top-movers-scroll min-h-0 flex-1 overflow-y-auto bg-[#050706] px-6 pb-6"
-              style={{ backgroundColor: "#050706", scrollbarColor: "#d4af37 #050706" }}
+              style={{ backgroundColor: "#061b12", scrollbarColor: "#d4af37 #061b12" }}
             >
-              <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} />
+              <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} surface="desktop-drawer" />
             </div>
           </aside>
         </div>
