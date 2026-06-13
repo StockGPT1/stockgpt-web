@@ -18,6 +18,15 @@ type DailyChangeItem = {
 };
 
 type MoverMode = "gainers" | "losers";
+type PeriodFilter = "all" | "1d" | "1w" | "1m" | "rank";
+
+const PERIOD_FILTERS: Array<{ value: PeriodFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "1d", label: "1 day" },
+  { value: "1w", label: "1 week" },
+  { value: "1m", label: "1 month" },
+  { value: "rank", label: "AI rank movers" },
+];
 
 function cleanTicker(ticker?: string | null) {
   return (ticker ?? "").trim().toUpperCase().replace(".", "-");
@@ -40,18 +49,26 @@ function parseMoveValue(label: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function sortMovers(items: DailyChangeItem[], mode: MoverMode) {
-  return [...items]
+function sortMovers(items: DailyChangeItem[], mode: MoverMode, period: PeriodFilter) {
+  const baseItems = period === "rank" ? [...items].sort((a, b) => {
+    const aMagnitude = a.rankTone === "none" || a.rankTone === "flat" ? 0 : Math.abs(Number(String(a.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
+    const bMagnitude = b.rankTone === "none" || b.rankTone === "flat" ? 0 : Math.abs(Number(String(b.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
+    return bMagnitude - aMagnitude;
+  }) : [...items];
+
+  return baseItems
     .sort((a, b) => {
+      if (period === "rank") return 0;
       const aValue = parseMoveValue(a.dailyMoveLabel);
       const bValue = parseMoveValue(b.dailyMoveLabel);
       return mode === "gainers" ? bValue - aValue : aValue - bValue;
     })
-    .filter((item) =>
-      mode === "gainers"
+    .filter((item) => {
+      if (period === "rank") return item.rankTone === "up" || item.rankTone === "down";
+      return mode === "gainers"
         ? parseMoveValue(item.dailyMoveLabel) >= 0
-        : parseMoveValue(item.dailyMoveLabel) < 0,
-    );
+        : parseMoveValue(item.dailyMoveLabel) < 0;
+    });
 }
 
 function directionIcon(tone: DailyChangeItem["dailyMoveTone"]) {
@@ -125,20 +142,35 @@ function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => 
   );
 }
 
-function FilterPill({ label, active = false }: { label: string; active?: boolean }) {
+function FilterPill({ label, active = false, onClick }: { label: string; active?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
-      disabled={!active}
+      onClick={onClick}
       className={[
         "inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[12px] font-black transition",
         active
           ? "bg-[#ddb159] text-[#072116] shadow-[0_8px_18px_rgba(221,177,89,0.22)]"
-          : "cursor-not-allowed border border-[#faf6f0]/8 bg-[#faf6f0]/5 text-[#faf6f0]/25",
+          : "border border-[#ddb159]/14 bg-[#faf6f0]/6 text-[#faf6f0]/55 hover:border-[#ddb159]/34 hover:bg-[#ddb159]/10 hover:text-[#faf6f0]",
       ].join(" ")}
     >
       {label}
     </button>
+  );
+}
+
+function PeriodPills({ period, setPeriod }: { period: PeriodFilter; setPeriod: (period: PeriodFilter) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#061b12" }}>
+      {PERIOD_FILTERS.map((filter) => (
+        <FilterPill
+          key={filter.value}
+          label={filter.label}
+          active={period === filter.value}
+          onClick={() => setPeriod(filter.value)}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -158,6 +190,8 @@ function MoverList({
   }
 
   const isDesktopDrawer = surface === "desktop-drawer";
+  const rowBase = isDesktopDrawer ? "#13251a" : "transparent";
+  const rowHover = isDesktopDrawer ? "#1b3324" : "rgba(221,177,89,0.055)";
 
   return (
     <div
@@ -172,13 +206,20 @@ function MoverList({
           key={`${mode}-list-${item.ticker}`}
           href={`/stock/${item.ticker}`}
           onClick={onClose}
-          style={{ color: "#faf6f0" }}
-          className={[
-            "stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4",
-            isDesktopDrawer
-              ? "stockgpt-mover-row-desktop !bg-[#13251a] hover:!bg-[#1b3324] focus:!bg-[#1b3324] focus-visible:!bg-[#1b3324] active:!bg-[#203d2a]"
-              : "bg-transparent hover:!bg-[#ddb159]/[0.055] hover:!text-[#faf6f0] focus:!bg-[#ddb159]/[0.055] focus:!text-[#faf6f0] focus-visible:!bg-[#ddb159]/[0.055] active:!bg-[#ddb159]/[0.08]",
-          ].join(" ")}
+          style={{ color: "#faf6f0", backgroundColor: rowBase }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.backgroundColor = rowHover;
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.backgroundColor = rowBase;
+          }}
+          onFocus={(event) => {
+            event.currentTarget.style.backgroundColor = rowHover;
+          }}
+          onBlur={(event) => {
+            event.currentTarget.style.backgroundColor = rowBase;
+          }}
+          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4"
         >
           <MoverLogo ticker={item.ticker} company={item.company} />
 
@@ -222,8 +263,9 @@ function MoverList({
 export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<MoverMode>("gainers");
+  const [period, setPeriod] = useState<PeriodFilter>("1d");
 
-  const movers = useMemo(() => sortMovers(items, mode), [items, mode]);
+  const movers = useMemo(() => sortMovers(items, mode, period), [items, mode, period]);
   const previewItems = movers.slice(0, 8);
   const listItems = movers.length > 0 ? movers : items;
 
@@ -283,13 +325,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         onClose={() => setOpen(false)}
       >
         <div className="stockgpt-top-movers-mobile-content grid min-h-full grid-rows-[auto_auto_minmax(0,1fr)] gap-4 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
-          <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#050706" }}>
-            <FilterPill label="All" active />
-            <FilterPill label="1 day" active />
-            <FilterPill label="1 week" />
-            <FilterPill label="1 month" />
-            <FilterPill label="AI rank movers" />
-          </div>
+          <PeriodPills period={period} setPeriod={setPeriod} />
 
           <div className="grid grid-cols-2 rounded-full bg-[#faf6f0]/8 p-1">
             {(["gainers", "losers"] as const).map((tab) => (
@@ -314,7 +350,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
       </MobileSheet>
 
       {open && (
-        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:inset-0 lg:z-[90] lg:flex lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
+        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:bottom-0 lg:right-0 lg:top-[118px] lg:z-[210] lg:flex lg:w-full lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -350,11 +386,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
             </div>
 
             <div className="flex shrink-0 flex-wrap gap-2 bg-[#050706] px-6 py-4" style={{ backgroundColor: "#061b12" }}>
-              <FilterPill label="All" active />
-              <FilterPill label="1 day" active />
-              <FilterPill label="1 week" />
-              <FilterPill label="1 month" />
-              <FilterPill label="AI rank movers" />
+              <PeriodPills period={period} setPeriod={setPeriod} />
             </div>
 
             <div className="flex shrink-0 bg-[#050706] px-6 pb-4" style={{ backgroundColor: "#061b12" }}>
