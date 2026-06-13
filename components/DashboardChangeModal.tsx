@@ -15,6 +15,10 @@ type DailyChangeItem = {
   rankTitle: string;
   dailyMoveLabel: string;
   dailyMoveTone: "positive" | "negative" | "neutral";
+  weeklyMoveLabel?: string;
+  weeklyMoveTone?: "positive" | "negative" | "neutral";
+  monthlyMoveLabel?: string;
+  monthlyMoveTone?: "positive" | "negative" | "neutral";
 };
 
 type MoverMode = "gainers" | "losers";
@@ -44,30 +48,43 @@ function initialsFrom(ticker?: string | null, company?: string | null) {
     .join("");
 }
 
-function parseMoveValue(label: string) {
-  const value = Number(String(label).replace("%", ""));
+function parseMoveValue(label: string | undefined) {
+  const value = Number(String(label ?? "").replace("%", ""));
   return Number.isFinite(value) ? value : 0;
 }
 
-function sortMovers(items: DailyChangeItem[], mode: MoverMode, period: PeriodFilter) {
-  const baseItems = period === "rank" ? [...items].sort((a, b) => {
-    const aMagnitude = a.rankTone === "none" || a.rankTone === "flat" ? 0 : Math.abs(Number(String(a.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
-    const bMagnitude = b.rankTone === "none" || b.rankTone === "flat" ? 0 : Math.abs(Number(String(b.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
-    return bMagnitude - aMagnitude;
-  }) : [...items];
+function periodLabel(item: DailyChangeItem, period: PeriodFilter) {
+  if (period === "1w") return item.weeklyMoveLabel ?? "—";
+  if (period === "1m") return item.monthlyMoveLabel ?? "—";
+  return item.dailyMoveLabel;
+}
 
-  return baseItems
+function periodTone(item: DailyChangeItem, period: PeriodFilter): DailyChangeItem["dailyMoveTone"] {
+  if (period === "1w") return item.weeklyMoveTone ?? "neutral";
+  if (period === "1m") return item.monthlyMoveTone ?? "neutral";
+  return item.dailyMoveTone;
+}
+
+function sortMovers(items: DailyChangeItem[], mode: MoverMode, period: PeriodFilter) {
+  if (period === "rank") {
+    return [...items]
+      .filter((item) => item.rankTone === "up" || item.rankTone === "down")
+      .sort((a, b) => {
+        const aMagnitude = Math.abs(Number(String(a.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
+        const bMagnitude = Math.abs(Number(String(b.rankLabel).replace(/[^0-9.-]/g, "")) || 0);
+        return bMagnitude - aMagnitude;
+      });
+  }
+
+  return [...items]
     .sort((a, b) => {
-      if (period === "rank") return 0;
-      const aValue = parseMoveValue(a.dailyMoveLabel);
-      const bValue = parseMoveValue(b.dailyMoveLabel);
+      const aValue = parseMoveValue(periodLabel(a, period));
+      const bValue = parseMoveValue(periodLabel(b, period));
       return mode === "gainers" ? bValue - aValue : aValue - bValue;
     })
     .filter((item) => {
-      if (period === "rank") return item.rankTone === "up" || item.rankTone === "down";
-      return mode === "gainers"
-        ? parseMoveValue(item.dailyMoveLabel) >= 0
-        : parseMoveValue(item.dailyMoveLabel) < 0;
+      const value = parseMoveValue(periodLabel(item, period));
+      return mode === "gainers" ? value >= 0 : value < 0;
     });
 }
 
@@ -118,41 +135,47 @@ function MoverLogo({ ticker, company, compact = false }: { ticker: string; compa
   );
 }
 
-function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {
+function MoverLogoTile({ item, period, onOpen }: { item: DailyChangeItem; period: PeriodFilter; onOpen: () => void }) {
+  const label = periodLabel(item, period);
+  const tone = periodTone(item, period);
+
   return (
     <button
       type="button"
       onClick={onOpen}
       className="group flex min-h-0 min-w-0 flex-col items-center justify-center text-center outline-none"
-      title={`${item.ticker} ${item.dailyMoveLabel}`}
+      title={`${item.ticker} ${label}`}
     >
       <MoverLogo ticker={item.ticker} company={item.company} compact />
       <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#f8f4e8]">
         {item.ticker}
       </p>
-      <p
-        className={`mt-1 flex max-w-full items-center justify-center gap-1 truncate text-[clamp(9px,0.86vw,11px)] font-black leading-none tabular-nums ${moveToneClassDark(
-          item.dailyMoveTone,
-        )}`}
-      >
-        <span className="text-[8px]">{directionIcon(item.dailyMoveTone)}</span>
-        <span className="truncate">{item.dailyMoveLabel}</span>
+      <p className={`mt-1 flex max-w-full items-center justify-center gap-1 truncate text-[clamp(9px,0.86vw,11px)] font-black leading-none tabular-nums ${moveToneClassDark(tone)}`}>
+        <span className="text-[8px]">{directionIcon(tone)}</span>
+        <span className="truncate">{label}</span>
       </p>
     </button>
   );
 }
 
 function FilterPill({ label, active = false, onClick }: { label: string; active?: boolean; onClick: () => void }) {
+  const bg = active ? "#ddb159" : "rgba(250,246,240,0.06)";
+  const color = active ? "#072116" : "rgba(248,244,232,0.55)";
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[12px] font-black transition",
-        active
-          ? "bg-[#ddb159] text-[#072116] shadow-[0_8px_18px_rgba(221,177,89,0.22)]"
-          : "border border-[#ddb159]/14 bg-[#faf6f0]/6 text-[#faf6f0]/55 hover:border-[#ddb159]/34 hover:bg-[#ddb159]/10 hover:text-[#faf6f0]",
-      ].join(" ")}
+      style={{ backgroundColor: bg, color }}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.backgroundColor = bg;
+        event.currentTarget.style.color = color;
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.backgroundColor = bg;
+        event.currentTarget.style.color = color;
+      }}
+      className="stockgpt-top-movers-period-pill inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/14 px-4 text-[12px] font-black"
     >
       {label}
     </button>
@@ -177,11 +200,13 @@ function PeriodPills({ period, setPeriod }: { period: PeriodFilter; setPeriod: (
 function MoverList({
   listItems,
   mode,
+  period,
   onClose,
   surface = "default",
 }: {
   listItems: DailyChangeItem[];
   mode: MoverMode;
+  period: PeriodFilter;
   onClose: () => void;
   surface?: "default" | "desktop-drawer";
 }) {
@@ -190,8 +215,8 @@ function MoverList({
   }
 
   const isDesktopDrawer = surface === "desktop-drawer";
-  const rowBase = isDesktopDrawer ? "#13251a" : "transparent";
-  const rowHover = isDesktopDrawer ? "#1b3324" : "rgba(221,177,89,0.055)";
+  const rowBase = isDesktopDrawer ? "#13251a" : "#061b12";
+  const rowHover = isDesktopDrawer ? "#1b3324" : "#0d281b";
 
   return (
     <div
@@ -201,61 +226,66 @@ function MoverList({
       ].join(" ")}
       style={{ backgroundColor: isDesktopDrawer ? "#061b12" : "#050706" }}
     >
-      {listItems.map((item) => (
-        <Link
-          key={`${mode}-list-${item.ticker}`}
-          href={`/stock/${item.ticker}`}
-          onClick={onClose}
-          style={{ color: "#faf6f0", backgroundColor: rowBase }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.backgroundColor = rowHover;
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.backgroundColor = rowBase;
-          }}
-          onFocus={(event) => {
-            event.currentTarget.style.backgroundColor = rowHover;
-          }}
-          onBlur={(event) => {
-            event.currentTarget.style.backgroundColor = rowBase;
-          }}
-          className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4"
-        >
-          <MoverLogo ticker={item.ticker} company={item.company} />
+      {listItems.map((item) => {
+        const label = periodLabel(item, period);
+        const tone = periodTone(item, period);
 
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-[17px] font-black leading-tight tracking-[-0.03em] sm:text-[20px]">
-                  {item.company}
-                </p>
-                <p className="mt-1 truncate text-[13px] font-bold text-white/48 sm:text-[14px]">
-                  {item.ticker} · {item.sector}
-                </p>
+        return (
+          <Link
+            key={`${mode}-${period}-list-${item.ticker}`}
+            href={`/stock/${item.ticker}`}
+            onClick={onClose}
+            style={{ color: "#faf6f0", backgroundColor: rowBase, backgroundImage: "none" }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.backgroundColor = rowHover;
+              event.currentTarget.style.backgroundImage = "none";
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.backgroundColor = rowBase;
+              event.currentTarget.style.backgroundImage = "none";
+            }}
+            onFocus={(event) => {
+              event.currentTarget.style.backgroundColor = rowHover;
+              event.currentTarget.style.backgroundImage = "none";
+            }}
+            onBlur={(event) => {
+              event.currentTarget.style.backgroundColor = rowBase;
+              event.currentTarget.style.backgroundImage = "none";
+            }}
+            className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4"
+          >
+            <MoverLogo ticker={item.ticker} company={item.company} />
+
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[17px] font-black leading-tight tracking-[-0.03em] sm:text-[20px]">
+                    {item.company}
+                  </p>
+                  <p className="mt-1 truncate text-[13px] font-bold text-white/48 sm:text-[14px]">
+                    {item.ticker} · {item.sector}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[18px] font-black tabular-nums sm:text-[22px]">{item.price}</p>
+                  <p className={`mt-2 flex items-center justify-end gap-1 text-[13px] font-black tabular-nums sm:text-[16px] ${moveToneClassDark(tone)}`}>
+                    <span>{directionIcon(tone)}</span>
+                    <span>{label}</span>
+                  </p>
+                </div>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[18px] font-black tabular-nums sm:text-[22px]">{item.price}</p>
-                <p
-                  className={`mt-2 flex items-center justify-end gap-1 text-[13px] font-black tabular-nums sm:text-[16px] ${moveToneClassDark(
-                    item.dailyMoveTone,
-                  )}`}
-                >
-                  <span>{directionIcon(item.dailyMoveTone)}</span>
-                  <span>{item.dailyMoveLabel}</span>
-                </p>
+              <div className="mt-3 flex min-w-0 flex-wrap gap-2">
+                <span title={item.rankTitle} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(item.rankTone)}`}>
+                  Rank {item.rankLabel}
+                </span>
+                <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">
+                  Score {item.score}
+                </span>
               </div>
             </div>
-            <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-              <span title={item.rankTitle} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(item.rankTone)}`}>
-                Rank {item.rankLabel}
-              </span>
-              <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">
-                Score {item.score}
-              </span>
-            </div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -302,7 +332,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
         <div className="mt-3 grid min-h-0 grid-cols-4 auto-rows-fr content-stretch gap-x-3 gap-y-3 overflow-hidden pb-1 pt-1">
           {previewItems.length > 0 ? (
             previewItems.map((item) => (
-              <MoverLogoTile key={`${mode}-${item.ticker}`} item={item} onOpen={() => setOpen(true)} />
+              <MoverLogoTile key={`${mode}-${period}-${item.ticker}`} item={item} period={period} onOpen={() => setOpen(true)} />
             ))
           ) : (
             <button
@@ -310,7 +340,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               onClick={() => setOpen(true)}
               className="col-span-4 h-full rounded-2xl border border-[#ddb159]/12 bg-white/[0.055] px-3 py-4 text-left text-[11px] font-bold text-[#f8f4e8]/45"
             >
-              No {mode === "gainers" ? "positive" : "negative"} daily movers available yet.
+              No {mode === "gainers" ? "positive" : "negative"} movers available for this period yet.
             </button>
           )}
         </div>
@@ -345,12 +375,12 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
             ))}
           </div>
 
-          <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} />
+          <MoverList listItems={listItems} mode={mode} period={period} onClose={() => setOpen(false)} />
         </div>
       </MobileSheet>
 
       {open && (
-        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:bottom-0 lg:right-0 lg:top-[118px] lg:z-[210] lg:flex lg:w-full lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
+        <div className="stockgpt-top-movers-overlay hidden lg:fixed lg:bottom-0 lg:right-0 lg:top-[92px] lg:z-[210] lg:flex lg:w-full lg:justify-end lg:bg-[#020806]/76 lg:backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -413,7 +443,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
               className="stockgpt-top-movers-scroll min-h-0 flex-1 overflow-y-auto bg-[#050706] px-6 pb-6"
               style={{ backgroundColor: "#061b12", scrollbarColor: "#d4af37 #061b12" }}
             >
-              <MoverList listItems={listItems} mode={mode} onClose={() => setOpen(false)} surface="desktop-drawer" />
+              <MoverList listItems={listItems} mode={mode} period={period} onClose={() => setOpen(false)} surface="desktop-drawer" />
             </div>
           </aside>
         </div>
