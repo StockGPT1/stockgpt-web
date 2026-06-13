@@ -85,6 +85,30 @@ export function StockGPTSelect({
   }, []);
 
   useEffect(() => {
+    const oldCopy =
+      "Some signals have moved, but not enough to justify a practical trim. StockGPT now requires a clearer oversized, profit-protection, or conviction-break setup.";
+    const newCopy =
+      "Some signals have moved, but the position does not meet StockGPT's threshold for a trim. The holding is not clearly oversized, profit-protection is not compelling, and conviction has not weakened enough to justify action.";
+
+    function replaceCopy(root: ParentNode) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        if (node.textContent?.includes(oldCopy)) {
+          node.textContent = node.textContent.replace(oldCopy, newCopy);
+        }
+        node = walker.nextNode();
+      }
+    }
+
+    replaceCopy(document.body);
+    const observer = new MutationObserver(() => replaceCopy(document.body));
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
 
     updatePosition();
