@@ -121,40 +121,47 @@ export function StockGPTSelect({
   }, [open, updatePosition]);
 
   if (ariaLabel === "Filter holdings") {
-    return <span data-stockgpt-top-holdings-marker className="hidden" aria-hidden="true" />;
-  }
-
-  if (ariaLabel === "Sort holdings") {
     return (
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            section:has([data-stockgpt-top-holdings-marker]) > div:first-child {
-              display: block !important;
-            }
+      <>
+        <span data-stockgpt-top-holdings-marker className="hidden" aria-hidden="true" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              section:has([data-stockgpt-top-holdings-marker]) > div:nth-child(2) > div:first-child {
+                grid-template-columns: minmax(210px, 1.6fr) 110px 125px 90px 80px 54px !important;
+              }
 
-            section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child {
-              font-size: 0 !important;
-              line-height: 0 !important;
-            }
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child {
+                display: block !important;
+              }
 
-            section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child::after {
-              content: "Top holdings";
-              display: inline-block;
-              color: #ddb159;
-              font-size: 10px;
-              font-weight: 900;
-              letter-spacing: 0.14em;
-              line-height: 1.2;
-              text-transform: uppercase;
-            }
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child {
+                font-size: 0 !important;
+                line-height: 0 !important;
+              }
 
-            section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:last-child {
-              display: none !important;
-            }
-          `,
-        }}
-      />
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child::after {
+                content: "Top holdings";
+                display: inline-block;
+                color: #ddb159;
+                font-size: 10px;
+                font-weight: 900;
+                letter-spacing: 0.14em;
+                line-height: 1.2;
+                text-transform: uppercase;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:last-child {
+                display: none !important;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:nth-child(2) > div:first-child {
+                display: none !important;
+              }
+            `,
+          }}
+        />
+      </>
     );
   }
 
