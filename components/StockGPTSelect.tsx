@@ -120,6 +120,29 @@ export function StockGPTSelect({
     };
   }, [open, updatePosition]);
 
+  if (ariaLabel === "Filter holdings") {
+    return (
+      <div className={`relative min-w-0 ${className}`} aria-label="Top holdings notice">
+        <div className="group flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-full border border-[#ddb159]/35 bg-[linear-gradient(180deg,#fff8ea,#efe2cc)] px-4 py-2 text-left text-[#072116] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_10px_24px_rgba(0,0,0,0.16)]">
+          <span className="min-w-0 flex-1 overflow-hidden">
+            <span className="block whitespace-normal break-words text-[11px] font-black uppercase leading-snug tracking-[0.08em] sm:text-[12px]">
+              Top holdings shown
+            </span>
+            <span className="mt-0.5 block whitespace-normal break-words text-[8.5px] font-bold uppercase leading-snug tracking-[0.05em] text-[#072116]/58 sm:text-[9px]">
+              Highest-value positions below
+            </span>
+          </span>
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded-full border border-[#ddb159]/28 bg-[#072116] text-[12px] font-black text-[#ddb159]"
+            aria-hidden="true"
+          >
+            ✦
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const menu =
     open && mounted && position
       ? createPortal(
