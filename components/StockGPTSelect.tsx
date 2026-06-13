@@ -158,6 +158,18 @@ export function StockGPTSelect({
               section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:nth-child(2) > div:first-child {
                 display: none !important;
               }
+
+              .stockgpt-manage-holding-dialog button.mt-3.inline-flex {
+                font-size: 0 !important;
+              }
+
+              .stockgpt-manage-holding-dialog button.mt-3.inline-flex::after {
+                content: "Trim and reinvest";
+                font-size: 11px;
+                font-weight: 900;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+              }
             `,
           }}
         />
