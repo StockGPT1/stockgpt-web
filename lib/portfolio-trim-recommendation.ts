@@ -39,8 +39,8 @@ function signedPct(value: number) {
 
 function concentrationCap(riskTolerance: string | null) {
   if (riskTolerance === "conservative") return 18;
-  if (riskTolerance === "aggressive") return 32;
-  return 25;
+  if (riskTolerance === "aggressive") return 30;
+  return 24;
 }
 
 function severityScore(severity: string) {
@@ -52,12 +52,11 @@ function severityScore(severity: string) {
 function alertRisk(holding: Holding) {
   const action = holding.actionAlerts[0];
 
-  if (action?.action === "sell") return 100;
   if (action?.action === "trim") return 78;
-  if (action?.action === "review") return Math.max(55, severityScore(action.severity));
-  if (action?.action === "buy_more") return 0;
+  if (action?.action === "review") return Math.max(50, severityScore(action.severity));
+  if (action?.action === "sell" || action?.action === "buy_more") return 0;
 
-  return Math.max(0, ...holding.eventAlerts.map((event) => severityScore(event.severity))) * 0.55;
+  return Math.max(0, ...holding.eventAlerts.map((event) => severityScore(event.severity))) * 0.35;
 }
 
 export function buildPortfolioTrimRecommendation(
@@ -68,14 +67,14 @@ export function buildPortfolioTrimRecommendation(
   const userTarget = positiveNumber(holding.targetAllocationPct);
   const riskCap = concentrationCap(riskTolerance);
   const activeAction = holding.actionAlerts[0]?.action ?? "none";
-  const exitSignal = activeAction === "sell" || holding.recommendation.includes("Sell");
   const addingSignal = activeAction === "buy_more" || holding.recommendation.includes("Buying");
 
-  const buffer = userTarget ? Math.max(0.75, userTarget * 0.12) : 0;
-  const ceiling = userTarget ? userTarget + buffer : riskCap;
-  const desiredAllocation = userTarget ? userTarget + buffer * 0.25 : riskCap;
+  const targetBuffer = userTarget ? Math.max(1.5, userTarget * 0.2) : 0;
+  const ceiling = userTarget ? userTarget + targetBuffer : riskCap;
+  const desiredAllocation = userTarget ? userTarget + targetBuffer * 0.35 : riskCap * 0.92;
+  const materiallyOversized = currentAllocation > ceiling && currentAllocation - ceiling >= 1.25;
   const allocationTrimPct =
-    currentAllocation > ceiling && currentAllocation > 0
+    materiallyOversized && currentAllocation > 0
       ? ((currentAllocation - desiredAllocation) / currentAllocation) * 100
       : 0;
 
@@ -84,8 +83,8 @@ export function buildPortfolioTrimRecommendation(
     allocationDriftPct <= 0
       ? 0
       : userTarget
-        ? clamp((allocationDriftPct / Math.max(buffer, 0.75)) * 25, 0, 100)
-        : clamp((allocationDriftPct / Math.max(riskCap, 1)) * 100, 0, 100);
+        ? clamp((allocationDriftPct / Math.max(targetBuffer, 1.5)) * 35, 0, 100)
+        : clamp((allocationDriftPct / Math.max(riskCap * 0.35, 1)) * 100, 0, 100);
 
   const scoreDeclinePct =
     holding.scoreAtEntry && holding.scoreAtEntry > 0
@@ -95,33 +94,42 @@ export function buildPortfolioTrimRecommendation(
     holding.rankAtEntry && holding.rank
       ? Math.max(0, ((holding.rank - holding.rankAtEntry) / 500) * 100)
       : 0;
+
   const convictionRisk = clamp(
-    scoreDeclinePct * 1.6 +
-      rankDeteriorationPct * 1.2 +
-      Math.max(0, 65 - holding.rankPercentile) * 0.6,
+    scoreDeclinePct * 1.35 +
+      rankDeteriorationPct * 1.05 +
+      Math.max(0, 55 - holding.rankPercentile) * 0.75,
     0,
     100,
   );
-  const convictionTrimPct =
-    convictionRisk >= 20 && !addingSignal ? clamp((convictionRisk - 15) * 0.55, 5, 35) : 0;
+  const convictionBreak =
+    !addingSignal &&
+    convictionRisk >= 65 &&
+    (scoreDeclinePct >= 18 || rankDeteriorationPct >= 16 || holding.rankPercentile < 45);
+  const convictionTrimPct = convictionBreak
+    ? clamp((convictionRisk - 50) * 0.42, materiallyOversized ? 10 : 5, materiallyOversized ? 30 : 18)
+    : 0;
 
   const rawAlertRisk = alertRisk(holding);
   const alertTrimPct =
-    rawAlertRisk >= 35 && !addingSignal ? clamp((rawAlertRisk - 25) * 0.45, 5, 40) : 0;
-
-  const priceRisk =
-    holding.pnlPercent > 30 && holding.rankPercentile < 75 && !addingSignal
-      ? clamp((holding.pnlPercent - 30) * 1.1 + (75 - holding.rankPercentile) * 1.2, 0, 100)
-      : holding.pnlPercent <= -20 && holding.rankPercentile < 60 && !addingSignal
-        ? clamp(Math.abs(holding.pnlPercent + 20) * 1.3 + (60 - holding.rankPercentile) * 1.1, 0, 100)
-        : 0;
-  const profitProtectionTrimPct =
-    holding.pnlPercent > 30 && holding.rankPercentile < 75 && !addingSignal
-      ? clamp((holding.pnlPercent - 30) * 0.35 + (75 - holding.rankPercentile) * 0.25, 5, 30)
+    !addingSignal && materiallyOversized && activeAction === "trim" && rawAlertRisk >= 70
+      ? clamp((rawAlertRisk - 55) * 0.35, 5, 20)
       : 0;
 
+  const profitProtectionSetup =
+    !addingSignal &&
+    holding.pnlPercent >= 45 &&
+    currentAllocation >= Math.max(12, (userTarget ?? riskCap) + 3) &&
+    holding.rankPercentile < 65;
+  const priceRisk = profitProtectionSetup
+    ? clamp((holding.pnlPercent - 45) * 0.9 + (65 - holding.rankPercentile) * 1.05, 0, 100)
+    : 0;
+  const profitProtectionTrimPct = profitProtectionSetup
+    ? clamp((holding.pnlPercent - 45) * 0.22 + (65 - holding.rankPercentile) * 0.18, 5, 22)
+    : 0;
+
   const riskScore = Math.round(
-    clamp(allocationRisk * 0.4 + convictionRisk * 0.3 + rawAlertRisk * 0.2 + priceRisk * 0.1, 0, 100),
+    clamp(allocationRisk * 0.55 + convictionRisk * 0.25 + rawAlertRisk * 0.1 + priceRisk * 0.1, 0, 100),
   );
 
   const drivers: PortfolioTrimDriver[] = [
@@ -132,21 +140,21 @@ export function buildPortfolioTrimRecommendation(
         : `${currentAllocation.toFixed(1)}% vs ${riskCap}% cap`,
       pct: allocationTrimPct,
       riskScore: Math.round(allocationRisk),
-      weight: 40,
+      weight: 55,
     },
     {
       name: "AI conviction",
       detail: `score -${scoreDeclinePct.toFixed(1)}%, rank percentile ${holding.rankPercentile}/100`,
       pct: convictionTrimPct,
       riskScore: Math.round(convictionRisk),
-      weight: 30,
+      weight: 25,
     },
     {
       name: "Alerts / news",
       detail: holding.actionAlerts[0]?.title ?? `${holding.eventAlerts.length} warning event alerts`,
       pct: alertTrimPct,
       riskScore: Math.round(rawAlertRisk),
-      weight: 20,
+      weight: 10,
     },
     {
       name: "Price / P&L",
@@ -157,29 +165,25 @@ export function buildPortfolioTrimRecommendation(
     },
   ].sort((a, b) => b.riskScore - a.riskScore || b.pct - a.pct);
 
-  if (exitSignal) {
-    return {
-      pct: 100,
-      label: "Exit candidate: 100%",
-      reason:
-        "A confirmed exit action is active, so StockGPT treats this as a full exit candidate rather than a rebalance trim.",
-      riskScore: 100,
-      estimatedValue: holding.currentValue,
-      estimatedShares: holding.shares,
-      drivers,
-    };
-  }
-
   const rawTrimPct = Math.max(allocationTrimPct, convictionTrimPct, alertTrimPct, profitProtectionTrimPct);
+  const hasStrongReason =
+    materiallyOversized ||
+    (profitProtectionSetup && profitProtectionTrimPct >= 5) ||
+    (convictionBreak && (materiallyOversized || currentAllocation >= 10));
 
-  if (!Number.isFinite(rawTrimPct) || rawTrimPct < 5 || holding.currentValue * (rawTrimPct / 100) < 25) {
+  if (
+    !hasStrongReason ||
+    !Number.isFinite(rawTrimPct) ||
+    rawTrimPct < 7 ||
+    holding.currentValue * (rawTrimPct / 100) < 50
+  ) {
     return {
       pct: null,
       label: "No trim suggested",
       reason:
         riskScore > 0
-          ? "There is some low-level signal movement, but it is below the threshold for a practical trim."
-          : "Allocation is inside range, AI conviction is stable, and no confirmed trim signal is active.",
+          ? "Some signals have moved, but not enough to justify a practical trim. StockGPT now requires a clearer oversized, profit-protection, or conviction-break setup."
+          : "Allocation is inside range, AI conviction is stable, and no confirmed trim setup is active.",
       riskScore,
       estimatedValue: null,
       estimatedShares: null,
@@ -187,16 +191,16 @@ export function buildPortfolioTrimRecommendation(
     };
   }
 
-  const pct = clamp(Math.round(rawTrimPct), 5, 60);
+  const pct = clamp(Math.round(rawTrimPct / 5) * 5, 5, materiallyOversized ? 40 : 25);
   const topDriver = drivers.find((driver) => driver.pct === rawTrimPct) ?? drivers[0];
   const reason =
     topDriver.name === "Position size"
       ? `Calculated from allocation: ${currentAllocation.toFixed(1)}% back toward ${desiredAllocation.toFixed(1)}%.`
       : topDriver.name === "AI conviction"
-        ? "Calculated from score decline, rank deterioration and current rank percentile."
+        ? "Calculated from a meaningful score/rank deterioration with enough position size to matter."
         : topDriver.name === "Price / P&L"
-          ? "Calculated from profit protection because gains are extended while rank is no longer top tier."
-          : "Calculated from active alert severity and event pressure.";
+          ? "Calculated from profit protection because gains are extended, the position is large, and rank quality has weakened."
+          : "Calculated from a confirmed trim alert, but only because the position is also oversized.";
 
   return {
     pct,
