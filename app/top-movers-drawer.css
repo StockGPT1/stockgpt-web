@@ -51,14 +51,17 @@
     padding: 0 !important;
     align-items: stretch !important;
     justify-content: flex-end !important;
+    top: 92px !important;
+    bottom: 0 !important;
+    height: calc(100dvh - 92px) !important;
   }
 
   .stockgpt-top-movers-overlay > .stockgpt-top-movers-drawer {
     width: min(540px, 42vw) !important;
     min-width: 440px !important;
     max-width: min(540px, 42vw) !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    height: 100% !important;
+    max-height: 100% !important;
     border-radius: 34px 0 0 34px !important;
   }
 }
@@ -70,14 +73,19 @@
 .stockgpt-mover-row:focus,
 .stockgpt-mover-row:focus-visible,
 .stockgpt-mover-row:active {
-  background-color: transparent !important;
+  background-color: #13251a !important;
+  background-image: none !important;
   color: #faf6f0 !important;
 }
 
 .stockgpt-mover-row:hover,
-.stockgpt-mover-row:focus-visible {
-  background-color: rgba(221, 177, 89, 0.055) !important;
-  border-color: rgba(221, 177, 89, 0.28) !important;
+.stockgpt-mover-row:focus,
+.stockgpt-mover-row:focus-visible,
+.stockgpt-mover-row:active {
+  background-color: #1b3324 !important;
+  background-image: none !important;
+  border-color: rgba(221, 177, 89, 0.32) !important;
+  color: #faf6f0 !important;
 }
 
 .stockgpt-top-movers-scroll::-webkit-scrollbar {
@@ -102,6 +110,16 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.stockgpt-top-movers-period-pill,
+.stockgpt-top-movers-period-pill:hover,
+.stockgpt-top-movers-period-pill:focus,
+.stockgpt-top-movers-period-pill:focus-visible,
+.stockgpt-top-movers-period-pill:active {
+  background-image: none !important;
+  filter: none !important;
+  transform: none !important;
 }
 
 @media (min-width: 1024px) {
@@ -129,7 +147,7 @@
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:link,
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:visited,
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:active {
-    background-color: rgba(250, 246, 240, 0.045) !important;
+    background-color: #13251a !important;
     background-image: none !important;
     color: #faf6f0 !important;
   }
@@ -137,7 +155,7 @@
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:hover,
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus,
   .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus-visible {
-    background-color: rgba(221, 177, 89, 0.1) !important;
+    background-color: #1b3324 !important;
     background-image: none !important;
     color: #faf6f0 !important;
     border-color: rgba(221, 177, 89, 0.32) !important;
