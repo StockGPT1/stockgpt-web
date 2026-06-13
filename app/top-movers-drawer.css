@@ -103,3 +103,43 @@
   max-height: 100%;
   object-fit: contain;
 }
+
+@media (min-width: 1024px) {
+  .stockgpt-top-movers-overlay {
+    background-color: rgba(2, 8, 5, 0.88) !important;
+  }
+
+  .stockgpt-top-movers-overlay > .stockgpt-top-movers-drawer {
+    background: #061b12 !important;
+    background-image: none !important;
+    color: #faf6f0 !important;
+  }
+
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer > div:first-child {
+    background: #04140c !important;
+  }
+
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-top-movers-scroll,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list {
+    background-color: #061b12 !important;
+    background-image: none !important;
+  }
+
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:link,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:visited,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:active {
+    background-color: rgba(250, 246, 240, 0.045) !important;
+    background-image: none !important;
+    color: #faf6f0 !important;
+  }
+
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:hover,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus,
+  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus-visible {
+    background-color: rgba(221, 177, 89, 0.1) !important;
+    background-image: none !important;
+    color: #faf6f0 !important;
+    border-color: rgba(221, 177, 89, 0.32) !important;
+  }
+}
