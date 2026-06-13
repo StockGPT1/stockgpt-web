@@ -5,7 +5,6 @@ import {
   type AlertSeverity,
   type AlertType,
   type HoldingAlert,
-  type HoldingTrigger,
   type RiskTolerance,
 } from "@/lib/portfolio-alerts";
 
@@ -48,6 +47,9 @@ type HoldingRow = {
   notes?: string | null;
 };
 
+const LOWER_ENTRY_LEVEL_PCT = 0.08;
+const UPPER_ENTRY_LEVEL_PCT = 0.14;
+
 function cleanName(name: string | null | undefined, fallback: string) {
   const value = String(name ?? "").trim();
   return value || fallback;
@@ -85,7 +87,7 @@ function buildLegacyAlertKey(ticker: string, type: string, dateStr: string): str
   return `${ticker}:${type}:${year}w${week}`;
 }
 
-function buildTriggerKey({
+function buildLevelKey({
   portfolioId,
   ticker,
   type,
@@ -99,16 +101,8 @@ function buildTriggerKey({
   return `${portfolioId}:${ticker}:${type}:${level.toFixed(2)}`;
 }
 
-function buildLegacyTriggerKey(ticker: string, type: string, level: number): string {
+function buildLegacyLevelKey(ticker: string, type: string, level: number): string {
   return `${ticker}:${type}:${level.toFixed(2)}`;
-}
-
-function extractDollarLevel(text: string): number | null {
-  const match = text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.\d+)?)/);
-  if (!match) return null;
-
-  const level = Number(match[1].replace(/,/g, ""));
-  return Number.isFinite(level) && level > 0 ? level : null;
 }
 
 function stripInternal(notification: BuiltNotification): Notification {
@@ -116,13 +110,51 @@ function stripInternal(notification: BuiltNotification): Notification {
   return clean;
 }
 
-function buildTriggeredPriceNotification({
+function buildTrimNotification({
+  portfolioId,
+  portfolioName,
+  ticker,
+  company,
+  alert,
+  today,
+}: {
+  portfolioId: string;
+  portfolioName: string;
+  ticker: string;
+  company: string | null;
+  alert: HoldingAlert;
+  today: string;
+}): BuiltNotification {
+  const key = buildAlertKey({
+    portfolioId,
+    ticker,
+    type: alert.type,
+    dateStr: today,
+  });
+
+  return {
+    key,
+    dismissalKeys: [key, buildLegacyAlertKey(ticker, alert.type, today)],
+    portfolioId,
+    portfolioName,
+    ticker,
+    company,
+    type: alert.type,
+    severity: alert.severity,
+    title: alert.title,
+    message: alert.message,
+    recommendation: alert.recommendation,
+    createdAt: today,
+  };
+}
+
+function buildEntryLevelNotifications({
   portfolioId,
   portfolioName,
   ticker,
   company,
   currentPrice,
-  trigger,
+  entryPrice,
   today,
 }: {
   portfolioId: string;
@@ -130,57 +162,36 @@ function buildTriggeredPriceNotification({
   ticker: string;
   company: string | null;
   currentPrice: number;
-  trigger: HoldingTrigger;
+  entryPrice: number;
   today: string;
-}): BuiltNotification | null {
-  const level = extractDollarLevel(trigger.condition);
-
-  if (!level || !Number.isFinite(currentPrice) || currentPrice <= 0) {
-    return null;
+}): BuiltNotification[] {
+  if (
+    !Number.isFinite(currentPrice) ||
+    currentPrice <= 0 ||
+    !Number.isFinite(entryPrice) ||
+    entryPrice <= 0
+  ) {
+    return [];
   }
 
-  if (trigger.type === "take_profit" && currentPrice >= level) {
-    const key = buildTriggerKey({
+  const lowerLevel = entryPrice * (1 - LOWER_ENTRY_LEVEL_PCT);
+  const upperLevel = entryPrice * (1 + UPPER_ENTRY_LEVEL_PCT);
+  const notifications: BuiltNotification[] = [];
+
+  if (currentPrice <= lowerLevel) {
+    const key = buildLevelKey({
       portfolioId,
       ticker,
-      type: "take_profit_hit",
-      level,
+      type: "entry_lower_level_hit",
+      level: lowerLevel,
     });
 
-    return {
+    notifications.push({
       key,
       dismissalKeys: [
         key,
-        buildLegacyTriggerKey(ticker, "take_profit_hit", level),
-      ],
-      portfolioId,
-      portfolioName,
-      ticker,
-      company,
-      type: "price_event",
-      severity: "success",
-      title: `${ticker} has hit its take-profit area`,
-      message: `Current price is $${currentPrice.toFixed(
-        2,
-      )}, above the take-profit level near $${level.toFixed(2)}.`,
-      recommendation: trigger.action,
-      createdAt: today,
-    };
-  }
-
-  if (trigger.type === "stop_loss" && currentPrice <= level) {
-    const key = buildTriggerKey({
-      portfolioId,
-      ticker,
-      type: "stop_loss_hit",
-      level,
-    });
-
-    return {
-      key,
-      dismissalKeys: [
-        key,
-        buildLegacyTriggerKey(ticker, "stop_loss_hit", level),
+        buildLegacyLevelKey(ticker, "entry_lower_level_hit", lowerLevel),
+        buildLegacyLevelKey(ticker, "stop_loss_hit", lowerLevel),
       ],
       portfolioId,
       portfolioName,
@@ -188,16 +199,48 @@ function buildTriggeredPriceNotification({
       company,
       type: "price_event",
       severity: "critical",
-      title: `${ticker} has hit its stop-loss area`,
+      title: `${ticker} has hit its lower entry level`,
       message: `Current price is $${currentPrice.toFixed(
         2,
-      )}, below the risk level near $${level.toFixed(2)}.`,
-      recommendation: trigger.action,
+      )}, below the original lower level near $${lowerLevel.toFixed(2)}.`,
+      recommendation:
+        "Review the position against the original buy-time risk level before taking any further action.",
       createdAt: today,
-    };
+    });
   }
 
-  return null;
+  if (currentPrice >= upperLevel) {
+    const key = buildLevelKey({
+      portfolioId,
+      ticker,
+      type: "entry_upper_level_hit",
+      level: upperLevel,
+    });
+
+    notifications.push({
+      key,
+      dismissalKeys: [
+        key,
+        buildLegacyLevelKey(ticker, "entry_upper_level_hit", upperLevel),
+        buildLegacyLevelKey(ticker, "take_profit_hit", upperLevel),
+      ],
+      portfolioId,
+      portfolioName,
+      ticker,
+      company,
+      type: "price_event",
+      severity: "success",
+      title: `${ticker} has hit its upper entry level`,
+      message: `Current price is $${currentPrice.toFixed(
+        2,
+      )}, above the original upper level near $${upperLevel.toFixed(2)}.`,
+      recommendation:
+        "Review whether the original buy-time target has been met and whether the position size still makes sense.",
+      createdAt: today,
+    });
+  }
+
+  return notifications;
 }
 
 export async function getUserNotifications({
@@ -288,46 +331,32 @@ export async function getUserNotifications({
       );
 
       enriched.forEach((holding) => {
-        holding.alerts.forEach((alert: HoldingAlert) => {
-          const key = buildAlertKey({
-            portfolioId: portfolio.id,
-            ticker: holding.ticker,
-            type: alert.type,
-            dateStr: today,
+        holding.alerts
+          .filter((alert: HoldingAlert) => alert.type === "trim_action")
+          .forEach((alert: HoldingAlert) => {
+            allNotifications.push(
+              buildTrimNotification({
+                portfolioId: portfolio.id,
+                portfolioName,
+                ticker: holding.ticker,
+                company: holding.company,
+                alert,
+                today,
+              }),
+            );
           });
 
-          allNotifications.push({
-            key,
-            dismissalKeys: [
-              key,
-              buildLegacyAlertKey(holding.ticker, alert.type, today),
-            ],
-            portfolioId: portfolio.id,
-            portfolioName,
-            ticker: holding.ticker,
-            company: holding.company,
-            type: alert.type,
-            severity: alert.severity,
-            title: alert.title,
-            message: alert.message,
-            recommendation: alert.recommendation,
-            createdAt: today,
-          });
-        });
-
-        holding.triggers.forEach((trigger) => {
-          const notification = buildTriggeredPriceNotification({
+        allNotifications.push(
+          ...buildEntryLevelNotifications({
             portfolioId: portfolio.id,
             portfolioName,
             ticker: holding.ticker,
             company: holding.company,
             currentPrice: holding.currentPrice,
-            trigger,
+            entryPrice: holding.entryPrice,
             today,
-          });
-
-          if (notification) allNotifications.push(notification);
-        });
+          }),
+        );
       });
     }),
   );
