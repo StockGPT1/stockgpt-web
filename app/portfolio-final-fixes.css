@@ -93,6 +93,14 @@
   }
 }
 
+.stockgpt-manage-holding-dialog input[placeholder="Enter %"] + button {
+  font-size: 10px !important;
+  letter-spacing: 0.075em !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  white-space: nowrap !important;
+}
+
 @media (min-width: 640px) {
   .sm\:bg-\[\#050706\] {
     background:
