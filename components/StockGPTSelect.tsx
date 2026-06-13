@@ -97,9 +97,6 @@ export function StockGPTSelect({
         if (node.textContent?.includes(oldCopy)) {
           node.textContent = node.textContent.replace(oldCopy, newCopy);
         }
-        if (node.textContent?.includes("target —%")) {
-          node.textContent = node.textContent.replaceAll("target —%", "portfolio cap");
-        }
         node = walker.nextNode();
       }
     }
