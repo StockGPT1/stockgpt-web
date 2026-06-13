@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { MobileSheet } from "@/components/MobileSheet";
 
 type DailyChangeItem = {
@@ -13,6 +13,7 @@ type DailyChangeItem = {
   rankLabel: string;
   rankTone: "up" | "down" | "flat" | "none";
   rankTitle: string;
+  actualRankLabel?: string;
   dailyMoveLabel: string;
   dailyMoveTone: "positive" | "negative" | "neutral";
   weeklyMoveLabel?: string;
@@ -39,7 +40,6 @@ function cleanTicker(ticker?: string | null) {
 function initialsFrom(ticker?: string | null, company?: string | null) {
   const symbol = cleanTicker(ticker);
   if (symbol) return symbol.slice(0, 4);
-
   return (company ?? "?")
     .trim()
     .split(/\s+/)
@@ -63,6 +63,18 @@ function periodTone(item: DailyChangeItem, period: PeriodFilter): DailyChangeIte
   if (period === "1w") return item.weeklyMoveTone ?? "neutral";
   if (period === "1m") return item.monthlyMoveTone ?? "neutral";
   return item.dailyMoveTone;
+}
+
+function displayRankLabel(item: DailyChangeItem, period: PeriodFilter) {
+  return period === "rank" ? item.rankLabel : item.actualRankLabel ?? "#—";
+}
+
+function displayRankTitle(item: DailyChangeItem, period: PeriodFilter) {
+  return period === "rank" ? item.rankTitle : "Current StockGPT rank";
+}
+
+function displayRankTone(item: DailyChangeItem, period: PeriodFilter): DailyChangeItem["rankTone"] {
+  return period === "rank" ? item.rankTone : "flat";
 }
 
 function sortMovers(items: DailyChangeItem[], mode: MoverMode, period: PeriodFilter) {
@@ -125,14 +137,11 @@ function MoverLogo({ ticker, company, compact = false }: { ticker: string; compa
 function MoverLogoTile({ item, period, onOpen }: { item: DailyChangeItem; period: PeriodFilter; onOpen: () => void }) {
   const label = periodLabel(item, period);
   const tone = periodTone(item, period);
-
   return (
     <button type="button" onClick={onOpen} className="group flex min-h-0 min-w-0 flex-col items-center justify-center text-center outline-none" title={`${item.ticker} ${label}`}>
       <MoverLogo ticker={item.ticker} company={item.company} compact />
       <p className="mt-1.5 max-w-full truncate text-[clamp(10px,0.95vw,12px)] font-black leading-none tracking-[-0.03em] text-[#f8f4e8]">{item.ticker}</p>
-      <p className={`mt-1 flex max-w-full items-center justify-center gap-1 truncate text-[clamp(9px,0.86vw,11px)] font-black leading-none tabular-nums ${moveToneClassDark(tone)}`}>
-        <span className="text-[8px]">{directionIcon(tone)}</span><span className="truncate">{label}</span>
-      </p>
+      <p className={`mt-1 flex max-w-full items-center justify-center gap-1 truncate text-[clamp(9px,0.86vw,11px)] font-black leading-none tabular-nums ${moveToneClassDark(tone)}`}><span className="text-[8px]">{directionIcon(tone)}</span><span className="truncate">{label}</span></p>
     </button>
   );
 }
@@ -148,11 +157,7 @@ function FilterPill({ label, active = false, loading = false, onClick }: { label
 }
 
 function PeriodPills({ period, loading, onSelect }: { period: PeriodFilter; loading: boolean; onSelect: (period: PeriodFilter) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#061b12" }}>
-      {PERIOD_FILTERS.map((filter) => <FilterPill key={filter.value} label={filter.label} active={period === filter.value} loading={loading} onClick={() => onSelect(filter.value)} />)}
-    </div>
-  );
+  return <div className="flex flex-wrap gap-2 bg-[#050706]" style={{ backgroundColor: "#061b12" }}>{PERIOD_FILTERS.map((filter) => <FilterPill key={filter.value} label={filter.label} active={period === filter.value} loading={loading} onClick={() => onSelect(filter.value)} />)}</div>;
 }
 
 function MoverList({ listItems, mode, period, onClose, surface = "default" }: { listItems: DailyChangeItem[]; mode: MoverMode; period: PeriodFilter; onClose: () => void; surface?: "default" | "desktop-drawer" }) {
@@ -166,10 +171,12 @@ function MoverList({ listItems, mode, period, onClose, surface = "default" }: { 
       {listItems.map((item) => {
         const label = periodLabel(item, period);
         const tone = periodTone(item, period);
+        const rankLabel = displayRankLabel(item, period);
+        const rankTone = displayRankTone(item, period);
         return (
           <Link key={`${mode}-${period}-list-${item.ticker}`} href={`/stock/${item.ticker}`} onClick={onClose} style={{ color: "#faf6f0", backgroundColor: rowBase, backgroundImage: "none" }} onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = rowHover; event.currentTarget.style.backgroundImage = "none"; }} onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = rowBase; event.currentTarget.style.backgroundImage = "none"; }} onFocus={(event) => { event.currentTarget.style.backgroundColor = rowHover; event.currentTarget.style.backgroundImage = "none"; }} onBlur={(event) => { event.currentTarget.style.backgroundColor = rowBase; event.currentTarget.style.backgroundImage = "none"; }} className="stockgpt-mover-row grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#ddb159]/12 p-3 !text-[#faf6f0] transition last:border-b-0 visited:!text-[#faf6f0] sm:p-4">
             <MoverLogo ticker={item.ticker} company={item.company} />
-            <div className="min-w-0"><div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-[17px] font-black leading-tight tracking-[-0.03em] sm:text-[20px]">{item.company}</p><p className="mt-1 truncate text-[13px] font-bold text-white/48 sm:text-[14px]">{item.ticker} · {item.sector}</p></div><div className="shrink-0 text-right"><p className="text-[18px] font-black tabular-nums sm:text-[22px]">{item.price}</p><p className={`mt-2 flex items-center justify-end gap-1 text-[13px] font-black tabular-nums sm:text-[16px] ${moveToneClassDark(tone)}`}><span>{directionIcon(tone)}</span><span>{label}</span></p></div></div><div className="mt-3 flex min-w-0 flex-wrap gap-2"><span title={item.rankTitle} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(item.rankTone)}`}>Rank {item.rankLabel}</span><span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">Score {item.score}</span></div></div>
+            <div className="min-w-0"><div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-[17px] font-black leading-tight tracking-[-0.03em] sm:text-[20px]">{item.company}</p><p className="mt-1 truncate text-[13px] font-bold text-white/48 sm:text-[14px]">{item.ticker} · {item.sector}</p></div><div className="shrink-0 text-right"><p className="text-[18px] font-black tabular-nums sm:text-[22px]">{item.price}</p><p className={`mt-2 flex items-center justify-end gap-1 text-[13px] font-black tabular-nums sm:text-[16px] ${moveToneClassDark(tone)}`}><span>{directionIcon(tone)}</span><span>{label}</span></p></div></div><div className="mt-3 flex min-w-0 flex-wrap gap-2"><span title={displayRankTitle(item, period)} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${rankToneClass(rankTone)}`}>Rank {rankLabel}</span><span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2.5 py-1 text-[10px] font-black text-[#ddb159]">Score {item.score}</span></div></div>
           </Link>
         );
       })}
@@ -184,22 +191,32 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
   const [remoteItems, setRemoteItems] = useState<DailyChangeItem[] | null>(null);
   const [loading, startTransition] = useTransition();
 
-  function selectPeriod(nextPeriod: PeriodFilter) {
-    setPeriod(nextPeriod);
-    if (nextPeriod === "1w" || nextPeriod === "1m") {
-      startTransition(async () => {
-        try {
-          const response = await fetch(`/api/top-movers?period=${nextPeriod}`, { cache: "no-store" });
-          const data = (await response.json()) as { movers?: DailyChangeItem[] };
-          setRemoteItems(Array.isArray(data.movers) ? data.movers : null);
-        } catch {
-          setRemoteItems(null);
-        }
-      });
+  function fetchPeriod(nextPeriod: PeriodFilter) {
+    if (nextPeriod === "rank") {
+      setRemoteItems(null);
       return;
     }
-    setRemoteItems(null);
+    const apiPeriod = nextPeriod === "1w" || nextPeriod === "1m" ? nextPeriod : "1d";
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/top-movers?period=${apiPeriod}`, { cache: "no-store" });
+        const data = (await response.json()) as { movers?: DailyChangeItem[] };
+        setRemoteItems(Array.isArray(data.movers) ? data.movers : null);
+      } catch {
+        setRemoteItems(null);
+      }
+    });
   }
+
+  function selectPeriod(nextPeriod: PeriodFilter) {
+    setPeriod(nextPeriod);
+    fetchPeriod(nextPeriod);
+  }
+
+  useEffect(() => {
+    if (open && !remoteItems && period !== "rank") fetchPeriod(period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const activeItems = remoteItems ?? items;
   const movers = useMemo(() => sortMovers(activeItems, mode, period), [activeItems, mode, period]);
