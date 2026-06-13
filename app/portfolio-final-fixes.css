@@ -94,6 +94,7 @@
 }
 
 .stockgpt-manage-holding-dialog input[placeholder="Enter %"] + button {
+  color: #000000 !important;
   font-size: 10px !important;
   letter-spacing: 0.075em !important;
   padding-left: 1rem !important;
