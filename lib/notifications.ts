@@ -38,6 +38,8 @@ type HoldingRow = {
   entry_price: number | null;
   score_at_entry: number | null;
   rank_at_entry: number | null;
+  risk_level_at_entry: number | null;
+  target_level_at_entry: number | null;
   added_at: string | null;
   last_reviewed_at: string | null;
   shares: number | null;
@@ -46,9 +48,6 @@ type HoldingRow = {
   source?: string | null;
   notes?: string | null;
 };
-
-const LOWER_ENTRY_LEVEL_PCT = 0.08;
-const UPPER_ENTRY_LEVEL_PCT = 0.14;
 
 function cleanName(name: string | null | undefined, fallback: string) {
   const value = String(name ?? "").trim();
@@ -148,13 +147,14 @@ function buildTrimNotification({
   };
 }
 
-function buildEntryLevelNotifications({
+function buildStoredTradeLevelNotifications({
   portfolioId,
   portfolioName,
   ticker,
   company,
   currentPrice,
-  entryPrice,
+  riskLevelAtEntry,
+  targetLevelAtEntry,
   today,
 }: {
   portfolioId: string;
@@ -162,36 +162,35 @@ function buildEntryLevelNotifications({
   ticker: string;
   company: string | null;
   currentPrice: number;
-  entryPrice: number;
+  riskLevelAtEntry: number | null;
+  targetLevelAtEntry: number | null;
   today: string;
 }): BuiltNotification[] {
-  if (
-    !Number.isFinite(currentPrice) ||
-    currentPrice <= 0 ||
-    !Number.isFinite(entryPrice) ||
-    entryPrice <= 0
-  ) {
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
     return [];
   }
 
-  const lowerLevel = entryPrice * (1 - LOWER_ENTRY_LEVEL_PCT);
-  const upperLevel = entryPrice * (1 + UPPER_ENTRY_LEVEL_PCT);
   const notifications: BuiltNotification[] = [];
 
-  if (currentPrice <= lowerLevel) {
+  if (
+    riskLevelAtEntry !== null &&
+    Number.isFinite(riskLevelAtEntry) &&
+    riskLevelAtEntry > 0 &&
+    currentPrice <= riskLevelAtEntry
+  ) {
     const key = buildLevelKey({
       portfolioId,
       ticker,
-      type: "entry_lower_level_hit",
-      level: lowerLevel,
+      type: "entry_risk_level_hit",
+      level: riskLevelAtEntry,
     });
 
     notifications.push({
       key,
       dismissalKeys: [
         key,
-        buildLegacyLevelKey(ticker, "entry_lower_level_hit", lowerLevel),
-        buildLegacyLevelKey(ticker, "stop_loss_hit", lowerLevel),
+        buildLegacyLevelKey(ticker, "entry_risk_level_hit", riskLevelAtEntry),
+        buildLegacyLevelKey(ticker, "stop_loss_hit", riskLevelAtEntry),
       ],
       portfolioId,
       portfolioName,
@@ -199,30 +198,37 @@ function buildEntryLevelNotifications({
       company,
       type: "price_event",
       severity: "critical",
-      title: `${ticker} has hit its lower entry level`,
+      title: `${ticker} has hit its buy-time risk level`,
       message: `Current price is $${currentPrice.toFixed(
         2,
-      )}, below the original lower level near $${lowerLevel.toFixed(2)}.`,
+      )}, at or below the stored buy-time risk level near $${riskLevelAtEntry.toFixed(
+        2,
+      )}.`,
       recommendation:
-        "Review the position against the original buy-time risk level before taking any further action.",
+        "Review the position against the risk level saved when the holding was bought.",
       createdAt: today,
     });
   }
 
-  if (currentPrice >= upperLevel) {
+  if (
+    targetLevelAtEntry !== null &&
+    Number.isFinite(targetLevelAtEntry) &&
+    targetLevelAtEntry > 0 &&
+    currentPrice >= targetLevelAtEntry
+  ) {
     const key = buildLevelKey({
       portfolioId,
       ticker,
-      type: "entry_upper_level_hit",
-      level: upperLevel,
+      type: "entry_target_level_hit",
+      level: targetLevelAtEntry,
     });
 
     notifications.push({
       key,
       dismissalKeys: [
         key,
-        buildLegacyLevelKey(ticker, "entry_upper_level_hit", upperLevel),
-        buildLegacyLevelKey(ticker, "take_profit_hit", upperLevel),
+        buildLegacyLevelKey(ticker, "entry_target_level_hit", targetLevelAtEntry),
+        buildLegacyLevelKey(ticker, "take_profit_hit", targetLevelAtEntry),
       ],
       portfolioId,
       portfolioName,
@@ -230,12 +236,14 @@ function buildEntryLevelNotifications({
       company,
       type: "price_event",
       severity: "success",
-      title: `${ticker} has hit its upper entry level`,
+      title: `${ticker} has hit its buy-time target level`,
       message: `Current price is $${currentPrice.toFixed(
         2,
-      )}, above the original upper level near $${upperLevel.toFixed(2)}.`,
+      )}, at or above the stored buy-time target level near $${targetLevelAtEntry.toFixed(
+        2,
+      )}.`,
       recommendation:
-        "Review whether the original buy-time target has been met and whether the position size still makes sense.",
+        "Review whether the target saved when the holding was bought has now been met.",
       createdAt: today,
     });
   }
@@ -279,7 +287,7 @@ export async function getUserNotifications({
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
     .select(
-      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
+      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
     )
     .in("portfolio_id", portfolioIds);
 
@@ -330,6 +338,16 @@ export async function getUserNotifications({
         riskTolerance,
       );
 
+      const storedLevelsByTicker = new Map(
+        portfolioHoldings.map((holding) => [
+          String(holding.ticker).toUpperCase(),
+          {
+            riskLevelAtEntry: holding.risk_level_at_entry,
+            targetLevelAtEntry: holding.target_level_at_entry,
+          },
+        ]),
+      );
+
       enriched.forEach((holding) => {
         holding.alerts
           .filter((alert: HoldingAlert) => alert.type === "trim_action")
@@ -346,14 +364,20 @@ export async function getUserNotifications({
             );
           });
 
+        const storedLevels = storedLevelsByTicker.get(holding.ticker) ?? {
+          riskLevelAtEntry: null,
+          targetLevelAtEntry: null,
+        };
+
         allNotifications.push(
-          ...buildEntryLevelNotifications({
+          ...buildStoredTradeLevelNotifications({
             portfolioId: portfolio.id,
             portfolioName,
             ticker: holding.ticker,
             company: holding.company,
             currentPrice: holding.currentPrice,
-            entryPrice: holding.entryPrice,
+            riskLevelAtEntry: storedLevels.riskLevelAtEntry,
+            targetLevelAtEntry: storedLevels.targetLevelAtEntry,
             today,
           }),
         );
