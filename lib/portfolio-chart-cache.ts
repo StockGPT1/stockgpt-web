@@ -7,7 +7,8 @@ const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v4";
+const PORTFOLIO_CHART_CACHE_VERSION = "v5";
+const MIN_PORTFOLIO_1D_POINTS = Number(process.env.MIN_PORTFOLIO_1D_POINTS ?? 6);
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
@@ -45,9 +46,16 @@ function normaliseSummary(summary: SummaryLike) {
   };
 }
 
+function hasUsableOneDayChart(chartData: PortfolioChartData) {
+  const oneDayPoints = chartData["1D"] ?? [];
+  if (oneDayPoints.length === 0) return true;
+  return oneDayPoints.length >= MIN_PORTFOLIO_1D_POINTS;
+}
+
 export function hasUsablePortfolioChart(chartData: PortfolioChartData | null | undefined) {
   if (!chartData) return false;
-  return Object.values(chartData).some((points) => (points?.length ?? 0) > 1);
+  const hasAnyUsableRange = Object.values(chartData).some((points) => (points?.length ?? 0) > 1);
+  return hasAnyUsableRange && hasUsableOneDayChart(chartData);
 }
 
 function chartMatchesSummary(payload: PortfolioChartCachePayload, summary: SummaryLike) {
