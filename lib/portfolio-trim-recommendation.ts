@@ -310,8 +310,8 @@ export function buildPortfolioTrimRecommendation(
 
   return {
     pct,
-    label: `Suggested trim: ${pct}%`,
-    reason,
+    label: `Trim and reinvest: ${pct}%`,
+    reason: `${reason} ${reinvestmentSummary}`,
     riskScore,
     estimatedValue,
     estimatedShares: holding.shares * (pct / 100),
