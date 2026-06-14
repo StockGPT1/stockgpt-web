@@ -40,6 +40,8 @@ function formatDate(iso: string, range: TimeRange) {
 
   if (range === "1D") {
     return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
@@ -273,7 +275,7 @@ export function StockChart({
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
   const hideTooltip = compact && ticker === "Portfolio";
   const scrubDateLeft = hoverPoint
-    ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 3.8rem), calc(100% - 8.35rem))`
+    ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 5rem), calc(100% - 10.85rem))`
     : "0.75rem";
 
   if (points.length < 2) {
@@ -466,7 +468,7 @@ export function StockChart({
 
         {hoverPoint && hideTooltip && (
           <div
-            className="pointer-events-none absolute bottom-3 z-20 w-[7.6rem] rounded-full border border-[#ddb159]/28 bg-[#072116]/92 px-2.5 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159] shadow-[0_10px_22px_rgba(0,0,0,0.28)] backdrop-blur"
+            className="pointer-events-none absolute bottom-3 z-20 w-[10rem] rounded-full border border-[#ddb159]/28 bg-[#072116]/92 px-2.5 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.06em] text-[#ddb159] shadow-[0_10px_22px_rgba(0,0,0,0.28)] backdrop-blur"
             style={{ left: scrubDateLeft }}
           >
             {formatDate(hoverPoint.date, resolvedRange)}
