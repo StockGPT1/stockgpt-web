@@ -35,17 +35,32 @@ type LiveRankingRow = {
 };
 
 const MIN_COMPLETE_SNAPSHOT_ROWS = 400;
+const MARKET_TIME_ZONE = "America/New_York";
+const marketWeekdayFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: MARKET_TIME_ZONE,
+  weekday: "short",
+});
 
 function tickerId(ticker: string | null, fallback: number) {
   return ticker && ticker.trim().length > 0 ? ticker.trim().toUpperCase() : `snapshot-${fallback}`;
 }
 
+function marketWeekday(value: string | number | Date) {
+  return marketWeekdayFormatter.format(value instanceof Date ? value : new Date(value));
+}
+
+function isWeekendInNewYork(value: string | number | Date) {
+  const day = marketWeekday(value);
+  return day === "Sat" || day === "Sun";
+}
+
 async function getLatestSnapshotAt(supabase: SupabaseClient) {
+  const holdWeekendRankings = isWeekendInNewYork(new Date());
   const { data } = await supabase
     .from("stock_rank_snapshots")
     .select("snapshot_at")
     .order("snapshot_at", { ascending: false })
-    .limit(12);
+    .limit(40);
 
   const snapshotTimes = Array.from(
     new Set(
@@ -56,6 +71,8 @@ async function getLatestSnapshotAt(supabase: SupabaseClient) {
   );
 
   for (const snapshotAt of snapshotTimes) {
+    if (holdWeekendRankings && isWeekendInNewYork(snapshotAt)) continue;
+
     const { count, error } = await supabase
       .from("stock_rank_snapshots")
       .select("ticker", { count: "exact", head: true })
