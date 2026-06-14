@@ -116,7 +116,7 @@ export function StockChart({
 
   const fillColor = `${lineColor}26`;
   const isPortfolioMiniChart = compact && ticker === "Portfolio";
-  const lineStrokeWidth = isPortfolioMiniChart ? 4.5 : compact ? 2.75 : 2;
+  const lineStrokeWidth = isPortfolioMiniChart ? 1.35 : 2;
 
   const {
     svgWidth,
