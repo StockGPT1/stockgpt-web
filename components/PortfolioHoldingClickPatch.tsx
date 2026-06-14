@@ -28,13 +28,25 @@ function normaliseShares(value: string | null | undefined) {
   return clean.replace(/\s*sh$/i, " shares");
 }
 
+function detectCurrency(text: string | null | undefined) {
+  if (String(text ?? "").includes("£")) return "GBP";
+  if (String(text ?? "").includes("€")) return "EUR";
+  return "USD";
+}
+
+function parseMoneyText(text: string | null | undefined) {
+  const cleaned = String(text ?? "").replace(/[^0-9.-]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function formatMoney(value: unknown, currency = "USD") {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
-    maximumFractionDigits: n >= 1000 ? 0 : 2,
+    maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2,
   }).format(n);
 }
 
@@ -148,6 +160,54 @@ function patchManageTradeLevels() {
   });
 }
 
+function getPortfolioHeroNodes() {
+  const hero = document.querySelector<HTMLElement>(".portfolio-chart-hero");
+  if (!hero) return null;
+  const valueNode = hero.querySelector<HTMLElement>("h1");
+  const returnNode = valueNode?.nextElementSibling instanceof HTMLElement ? valueNode.nextElementSibling : null;
+  if (!valueNode || !returnNode) return null;
+  return { hero, valueNode, returnNode };
+}
+
+function rememberPortfolioHeroDefaults() {
+  const nodes = getPortfolioHeroNodes();
+  if (!nodes) return;
+  const { hero, valueNode, returnNode } = nodes;
+  if (!hero.dataset.stockgptDefaultValue) hero.dataset.stockgptDefaultValue = valueNode.textContent ?? "";
+  if (!hero.dataset.stockgptDefaultReturn) hero.dataset.stockgptDefaultReturn = returnNode.textContent ?? "";
+  if (!hero.dataset.stockgptDefaultReturnClass) hero.dataset.stockgptDefaultReturnClass = returnNode.className;
+  if (!hero.dataset.stockgptCostBasis) {
+    const totalValue = parseMoneyText(hero.dataset.stockgptDefaultValue);
+    const totalReturn = parseMoneyText((hero.dataset.stockgptDefaultReturn ?? "").split(" total return")[0]);
+    hero.dataset.stockgptCostBasis = String(totalValue - totalReturn);
+    hero.dataset.stockgptCurrency = detectCurrency(hero.dataset.stockgptDefaultValue);
+  }
+}
+
+function setPortfolioHeroFromPoint(close: number | null) {
+  const nodes = getPortfolioHeroNodes();
+  if (!nodes) return;
+  const { hero, valueNode, returnNode } = nodes;
+  rememberPortfolioHeroDefaults();
+
+  if (close == null || !Number.isFinite(close)) {
+    valueNode.textContent = hero.dataset.stockgptDefaultValue ?? valueNode.textContent;
+    returnNode.textContent = hero.dataset.stockgptDefaultReturn ?? returnNode.textContent;
+    returnNode.className = hero.dataset.stockgptDefaultReturnClass ?? returnNode.className;
+    return;
+  }
+
+  const currency = hero.dataset.stockgptCurrency ?? "USD";
+  const costBasis = Number(hero.dataset.stockgptCostBasis ?? "0");
+  const pnl = close - costBasis;
+  const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+
+  valueNode.textContent = formatMoney(close, currency);
+  returnNode.textContent = `${formatMoney(pnl, currency)} total return · ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(1)}%`;
+  returnNode.classList.remove("text-emerald-300", "text-red-200");
+  returnNode.classList.add(pnl >= 0 ? "text-emerald-300" : "text-red-200");
+}
+
 export function PortfolioHoldingClickPatch() {
   useEffect(() => {
     function runPatches() {
@@ -156,11 +216,23 @@ export function PortfolioHoldingClickPatch() {
       removeBrokenMarkdownTables();
       patchMobileNewPortfolioButton();
       patchManageTradeLevels();
+      rememberPortfolioHeroDefaults();
     }
 
     runPatches();
     const observer = new MutationObserver(runPatches);
     observer.observe(document.body, { childList: true, subtree: true });
+
+    function onChartScrub(event: Event) {
+      const detail = (event as CustomEvent).detail ?? {};
+      if (detail?.ticker !== "Portfolio") return;
+      if (!detail?.active) {
+        setPortfolioHeroFromPoint(null);
+        return;
+      }
+      const close = Number(detail?.point?.close);
+      setPortfolioHeroFromPoint(Number.isFinite(close) ? close : null);
+    }
 
     function onClick(event: MouseEvent) {
       const target = event.target;
@@ -188,9 +260,11 @@ export function PortfolioHoldingClickPatch() {
       window.location.assign(`/stock/${ticker}`);
     }
 
+    window.addEventListener("stockgpt:portfolio-chart-scrub", onChartScrub);
     document.addEventListener("click", onClick, true);
     return () => {
       observer.disconnect();
+      window.removeEventListener("stockgpt:portfolio-chart-scrub", onChartScrub);
       document.removeEventListener("click", onClick, true);
     };
   }, []);
