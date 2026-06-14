@@ -3,7 +3,7 @@
     min-height: 6.75rem !important;
     padding-top: 0.66rem !important;
     padding-bottom: 0.66rem !important;
-    padding-right: 4.05rem !important;
+    padding-right: 4.35rem !important;
     row-gap: 0.38rem !important;
   }
 
@@ -46,20 +46,20 @@
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) {
-    right: 1.2rem !important;
-    width: 1.95rem !important;
-    height: 1.95rem !important;
+    right: 1.18rem !important;
+    width: 2.36rem !important;
+    height: 2.36rem !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button {
-    width: 1.95rem !important;
-    min-width: 1.95rem !important;
-    height: 1.95rem !important;
-    min-height: 1.95rem !important;
+    width: 2.36rem !important;
+    min-width: 2.36rem !important;
+    height: 2.36rem !important;
+    min-height: 2.36rem !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button::after {
-    font-size: 0.96rem !important;
-    transform: translateY(-0.11rem) !important;
+    font-size: 1.22rem !important;
+    transform: translateY(-0.1rem) !important;
   }
 }
