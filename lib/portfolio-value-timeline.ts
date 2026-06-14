@@ -251,7 +251,8 @@ function getMarketHolidayKeys(year: number) {
   const holidays = marketHolidayKeysForYear(year);
   marketHolidayCache.set(year, holidays);
   return holidays;
-}\n
+}
+
 function isMarketBusinessDay(ms: number) {
   const parts = getMarketDateParts(ms);
   if (!parts) return false;
