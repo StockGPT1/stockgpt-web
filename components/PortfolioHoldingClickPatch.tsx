@@ -213,12 +213,31 @@ function getPortfolioHeroNodes() {
   return { hero, valueNode, returnNode };
 }
 
+function resetPortfolioHeroDefaults(hero: HTMLElement) {
+  delete hero.dataset.stockgptDefaultValue;
+  delete hero.dataset.stockgptDefaultReturn;
+  delete hero.dataset.stockgptDefaultReturnClass;
+  delete hero.dataset.stockgptCostBasis;
+  delete hero.dataset.stockgptCurrency;
+}
+
 function rememberPortfolioHeroDefaults() {
   const nodes = getPortfolioHeroNodes();
   if (!nodes) return;
   const { hero, valueNode, returnNode } = nodes;
-  if (!hero.dataset.stockgptDefaultValue) hero.dataset.stockgptDefaultValue = valueNode.textContent ?? "";
-  if (!hero.dataset.stockgptDefaultReturn) hero.dataset.stockgptDefaultReturn = returnNode.textContent ?? "";
+  const valueText = valueNode.textContent ?? "";
+  const returnText = returnNode.textContent ?? "";
+  const isScrubbing = hero.dataset.stockgptScrubbing === "true";
+
+  if (!isScrubbing && hero.dataset.stockgptDefaultValue && hero.dataset.stockgptDefaultValue !== valueText) {
+    resetPortfolioHeroDefaults(hero);
+  }
+  if (!isScrubbing && hero.dataset.stockgptDefaultReturn && hero.dataset.stockgptDefaultReturn !== returnText) {
+    resetPortfolioHeroDefaults(hero);
+  }
+
+  if (!hero.dataset.stockgptDefaultValue) hero.dataset.stockgptDefaultValue = valueText;
+  if (!hero.dataset.stockgptDefaultReturn) hero.dataset.stockgptDefaultReturn = returnText;
   if (!hero.dataset.stockgptDefaultReturnClass) hero.dataset.stockgptDefaultReturnClass = returnNode.className;
   if (!hero.dataset.stockgptCostBasis) {
     const totalValue = parseMoneyText(hero.dataset.stockgptDefaultValue);
@@ -238,9 +257,11 @@ function setPortfolioHeroFromPoint(close: number | null) {
     valueNode.textContent = hero.dataset.stockgptDefaultValue ?? valueNode.textContent;
     returnNode.textContent = hero.dataset.stockgptDefaultReturn ?? returnNode.textContent;
     returnNode.className = hero.dataset.stockgptDefaultReturnClass ?? returnNode.className;
+    delete hero.dataset.stockgptScrubbing;
     return;
   }
 
+  hero.dataset.stockgptScrubbing = "true";
   const currency = hero.dataset.stockgptCurrency ?? "USD";
   const costBasis = Number(hero.dataset.stockgptCostBasis ?? "0");
   const pnl = close - costBasis;
