@@ -1,30 +1,11 @@
 import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
-import { getJsonCache, getJsonCacheMany, setJsonCache } from "@/lib/redis-cache";
-import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
-
 const YAHOO_FETCH_TIMEOUT_MS = 2_500;
-const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
+const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
 const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 12);
-const LIVE_MOVE_BATCH_SIZE = Number(process.env.LIVE_MOVE_BATCH_SIZE ?? 8);
-const DB_CHART_CACHE_TTL_MS = Number(process.env.DB_CHART_CACHE_TTL_MS ?? 15 * 60 * 1000);
-const REDIS_CHART_CACHE_TTL_SECONDS = Number(
-  process.env.REDIS_CHART_CACHE_TTL_SECONDS ?? 15 * 60,
-);
-const REDIS_MARKET_SNAPSHOT_TTL_SECONDS = Number(
-  process.env.REDIS_MARKET_SNAPSHOT_TTL_SECONDS ?? 5 * 60,
-);
-const REDIS_TICKER_TAPE_TTL_SECONDS = Number(
-  process.env.REDIS_TICKER_TAPE_TTL_SECONDS ?? 5 * 60,
-);
-
-const TICKER_TAPE_CACHE_TTL_MS = 5 * 60 * 1000;
-const MEMORY_CACHE_TTL_MS = CACHE_REVALIDATE_SECONDS * 1000;
-const CHART_CACHE_VERSION = "v4";
 
 type RangeConfig = { range: string; interval: string };
 
@@ -41,64 +22,22 @@ const RANGE_CONFIG: Record<TimeRange, RangeConfig> = {
 type YahooChartResponse = {
   chart: {
     result: Array<{
-      meta: {
-        symbol: string;
-        regularMarketPrice?: number;
-        chartPreviousClose?: number;
-        previousClose?: number;
-        currency?: string;
-        shortName?: string;
-        longName?: string;
-      };
       timestamp?: number[];
-      indicators?: {
-        quote?: Array<{
-          close?: (number | null)[];
-        }>;
-      };
+      indicators?: { quote?: Array<{ close?: (number | null)[] }> };
     }> | null;
     error: { code: string; description: string } | null;
   };
 };
 
 type CacheEntry = { data: ChartPoint[]; fetchedAt: number };
-const cache: Map<string, CacheEntry> = new Map();
-
-type TickerTapeCacheEntry = { data: TickerTapeItem[]; fetchedAt: number };
-const tickerTapeCache: Map<string, TickerTapeCacheEntry> = new Map();
-
-type MarketSnapshotRow = {
-  ticker: string | null;
-  current_price: number | string | null;
-  change_pct_1d: number | string | null;
-  updated_at: string | null;
-};
-
-type ChartCacheRow = {
-  ticker: string | null;
-  range: string | null;
-  points: unknown;
-  fetched_at: string | null;
-};
-
-function cacheKey(ticker: string, range: TimeRange) {
-  return `${CHART_CACHE_VERSION}:${ticker.toUpperCase()}::${range}`;
-}
-
-function chartRedisKey(ticker: string, range: TimeRange) {
-  return `chart:${CHART_CACHE_VERSION}:${ticker.toUpperCase()}:${range}`;
-}
-
-function marketSnapshotRedisKey(ticker: string) {
-  return `market:snapshot:${ticker.toUpperCase()}`;
-}
-
-function tickerTapeRedisKey(symbols: string[]) {
-  return `ticker-tape:${symbols.join("|")}`;
-}
+const memoryChartCache = new Map<string, CacheEntry>();
 
 function normalizeTicker(ticker: string) {
   return ticker.trim().toUpperCase();
+}
+
+function cacheKey(ticker: string, range: TimeRange) {
+  return `v4:${normalizeTicker(ticker)}:${range}`;
 }
 
 function finitePositiveNumber(value: unknown) {
@@ -106,179 +45,10 @@ function finitePositiveNumber(value: unknown) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function finiteNumberOrNull(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function coerceChartPoints(value: unknown): ChartPoint[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((point) => {
-      if (!point || typeof point !== "object") return null;
-      const raw = point as { date?: unknown; close?: unknown };
-      const date = typeof raw.date === "string" ? raw.date : null;
-      const close = finitePositiveNumber(raw.close);
-      if (!date || close === null) return null;
-      return { date, close };
-    })
-    .filter((point): point is ChartPoint => point !== null);
-}
-
-function coerceMover(value: unknown): Mover | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as { ticker?: unknown; currentPrice?: unknown; changePct?: unknown };
-  const ticker = typeof raw.ticker === "string" ? normalizeTicker(raw.ticker) : "";
-  const currentPrice = finitePositiveNumber(raw.currentPrice);
-  const changePct = finiteNumberOrNull(raw.changePct);
-
-  if (!ticker || currentPrice === null || changePct === null) return null;
-  return { ticker, currentPrice, changePct };
-}
-
-function isFreshTimestamp(value: string | null, ttlMs: number) {
-  if (!value) return false;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) && Date.now() - time < ttlMs;
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((resolve) => {
-        timeout = setTimeout(() => resolve(fallback), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
-function getAdminWriteClient() {
-  try {
-    return createAdminClient();
-  } catch (err) {
-    console.warn("Admin Supabase client unavailable for cache write", err);
-    return null;
-  }
-}
-
-async function getCachedChartRowsFromRedis(
-  ticker: string,
-  ranges: TimeRange[],
-): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
-  if (ranges.length === 0) return {};
-
-  const keys = ranges.map((range) => chartRedisKey(ticker, range));
-  const cached = await getJsonCacheMany<ChartPoint[]>(keys);
-  const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
-
-  ranges.forEach((range) => {
-    const points = coerceChartPoints(cached.get(chartRedisKey(ticker, range)));
-    if (points.length > 0) result[range] = points;
-  });
-
-  return result;
-}
-
-async function setChartRowsInRedis(
-  ticker: string,
-  entries: Array<{ range: TimeRange; points: ChartPoint[] }>,
-) {
-  const validEntries = entries.filter((entry) => entry.points.length > 0);
-  if (validEntries.length === 0) return;
-
-  await Promise.all(
-    validEntries.map((entry) =>
-      setJsonCache(
-        chartRedisKey(ticker, entry.range),
-        entry.points,
-        REDIS_CHART_CACHE_TTL_SECONDS,
-      ),
-    ),
-  );
-}
-
-async function getCachedChartRows(
-  ticker: string,
-  ranges: TimeRange[],
-): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
-  const dbRanges = ranges.filter((range) => range !== "1D");
-  if (dbRanges.length === 0) return {};
-
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("stock_chart_cache")
-      .select("ticker,range,points,fetched_at")
-      .eq("ticker", ticker)
-      .in("range", dbRanges);
-
-    if (error) return {};
-
-    const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
-    const redisWrites: Array<{ range: TimeRange; points: ChartPoint[] }> = [];
-
-    ((data ?? []) as ChartCacheRow[]).forEach((row) => {
-      const range = row.range as TimeRange | null;
-      if (!range || !dbRanges.includes(range)) return;
-      if (!isFreshTimestamp(row.fetched_at, DB_CHART_CACHE_TTL_MS)) return;
-
-      const points = coerceChartPoints(row.points);
-      if (points.length === 0) return;
-      result[range] = points;
-      redisWrites.push({ range, points });
-    });
-
-    void setChartRowsInRedis(ticker, redisWrites);
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-async function upsertChartCache(
-  ticker: string,
-  entries: Array<{ range: TimeRange; points: ChartPoint[] }>,
-) {
-  const validEntries = entries.filter((entry) => entry.points.length > 0);
-  if (validEntries.length === 0) return;
-
-  void setChartRowsInRedis(ticker, validEntries);
-
-  try {
-    const supabase = getAdminWriteClient();
-    if (!supabase) return;
-
-    await supabase.from("stock_chart_cache").upsert(
-      validEntries.map((entry) => ({
-        ticker,
-        range: entry.range,
-        points: entry.points,
-        fetched_at: new Date().toISOString(),
-        source: "yahoo",
-      })),
-      { onConflict: "ticker,range" },
-    );
-  } catch (err) {
-    console.warn("Could not persist chart cache", err);
-  }
-}
-
-async function fetchYahooRangeUncached(
-  ticker: string,
-  range: TimeRange,
-): Promise<ChartPoint[]> {
+async function fetchYahooRangeUncached(ticker: string, range: TimeRange): Promise<ChartPoint[]> {
   const cfg = RANGE_CONFIG[range];
   const normalizedTicker = normalizeTicker(ticker);
-  const url = `${YAHOO_BASE}${encodeURIComponent(
-    normalizedTicker,
-  )}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
-
+  const url = `${YAHOO_BASE}${encodeURIComponent(normalizedTicker)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), YAHOO_FETCH_TIMEOUT_MS);
 
@@ -292,36 +62,19 @@ async function fetchYahooRangeUncached(
       signal: controller.signal,
     });
 
-    if (!res.ok) {
-      console.warn(`Yahoo returned ${res.status} for ${normalizedTicker} ${range}`);
-      return [];
-    }
-
+    if (!res.ok) return [];
     const json = (await res.json()) as YahooChartResponse;
-
-    if (
-      json.chart.error ||
-      !json.chart.result ||
-      json.chart.result.length === 0
-    ) {
-      return [];
-    }
+    if (json.chart.error || !json.chart.result?.length) return [];
 
     const result = json.chart.result[0];
     const timestamps = result.timestamp ?? [];
     const closes = result.indicators?.quote?.[0]?.close ?? [];
-
     const points: ChartPoint[] = [];
 
-    for (let i = 0; i < timestamps.length; i++) {
-      const close = closes[i];
-
-      if (close == null || !Number.isFinite(close)) continue;
-
-      points.push({
-        date: new Date(timestamps[i] * 1000).toISOString(),
-        close: Math.round(close * 100) / 100,
-      });
+    for (let i = 0; i < timestamps.length; i += 1) {
+      const close = finitePositiveNumber(closes[i]);
+      if (close == null) continue;
+      points.push({ date: new Date(timestamps[i] * 1000).toISOString(), close: Math.round(close * 100) / 100 });
     }
 
     return points;
@@ -334,75 +87,34 @@ async function fetchYahooRangeUncached(
   }
 }
 
-const fetchYahooRange = unstable_cache(
-  fetchYahooRangeUncached,
-  ["stockgpt-yahoo-chart-v4"],
-  { revalidate: CACHE_REVALIDATE_SECONDS },
-);
+const fetchYahooRange = unstable_cache(fetchYahooRangeUncached, ["stockgpt-yahoo-chart-v4"], {
+  revalidate: CACHE_REVALIDATE_SECONDS,
+});
 
 export async function getStockChart(
   ticker: string,
   ranges: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"],
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
-  const now = Date.now();
   const normalizedTicker = normalizeTicker(ticker);
+  const now = Date.now();
 
-  let rangesToFetch: TimeRange[] = [];
+  await Promise.all(
+    ranges.map(async (range) => {
+      const key = cacheKey(normalizedTicker, range);
+      const cached = memoryChartCache.get(key);
+      if (cached && now - cached.fetchedAt < CACHE_REVALIDATE_SECONDS * 1000) {
+        result[range] = cached.data;
+        return;
+      }
 
-  for (const range of ranges) {
-    const key = cacheKey(normalizedTicker, range);
-    const cached = cache.get(key);
-
-    if (cached && now - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
-      result[range] = cached.data;
-    } else {
-      rangesToFetch.push(range);
-    }
-  }
-
-  if (rangesToFetch.length > 0) {
-    const redisCached = await getCachedChartRowsFromRedis(normalizedTicker, rangesToFetch);
-    rangesToFetch = rangesToFetch.filter((range) => {
-      const points = redisCached[range];
-      if (!points || points.length === 0) return true;
-      result[range] = points;
-      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
-      return false;
-    });
-  }
-
-  if (rangesToFetch.length > 0) {
-    const dbCached = await getCachedChartRows(normalizedTicker, rangesToFetch);
-    rangesToFetch = rangesToFetch.filter((range) => {
-      const points = dbCached[range];
-      if (!points || points.length === 0) return true;
-      result[range] = points;
-      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
-      return false;
-    });
-  }
-
-  if (rangesToFetch.length > 0) {
-    const fetched = await Promise.all(
-      rangesToFetch.map(async (range) => {
-        const points = await fetchYahooRange(normalizedTicker, range);
-        return { range, points };
-      }),
-    );
-
-    const cacheWrites: Array<{ range: TimeRange; points: ChartPoint[] }> = [];
-
-    for (const { range, points } of fetched) {
+      const points = await fetchYahooRange(normalizedTicker, range);
       if (points.length > 0) {
         result[range] = points;
-        cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
-        cacheWrites.push({ range, points });
+        memoryChartCache.set(key, { data: points, fetchedAt: now });
       }
-    }
-
-    void upsertChartCache(normalizedTicker, cacheWrites);
-  }
+    }),
+  );
 
   return result;
 }
@@ -411,44 +123,136 @@ export async function getCachedStockChart(
   ticker: string,
   ranges: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"],
 ): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
-  const result: Partial<Record<TimeRange, ChartPoint[]>> = {};
-  const now = Date.now();
+  return getStockChart(ticker, ranges);
+}
+
+export async function getSP500Chart(
+  ranges: TimeRange[] = ["1M", "6M", "1Y", "5Y"],
+): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  return getStockChart("^GSPC", ranges);
+}
+
+export function getLatestPriceFromChart(data: Partial<Record<TimeRange, ChartPoint[]>>): number | null {
+  const rangeOrder: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
+  for (const range of rangeOrder) {
+    const points = data[range];
+    const last = points?.at(-1)?.close;
+    if (Number.isFinite(last) && Number(last) > 0) return Number(last);
+  }
+  return null;
+}
+
+export type Mover = {
+  ticker: string;
+  currentPrice: number;
+  changePct: number;
+};
+
+function firstValidClose(points: ChartPoint[]) {
+  return points.find((point) => Number.isFinite(point.close) && point.close > 0)?.close ?? null;
+}
+
+function lastValidClose(points: ChartPoint[]) {
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    const close = points[i]?.close;
+    if (Number.isFinite(close) && close > 0) return close;
+  }
+  return null;
+}
+
+async function getOneDayMover(ticker: string): Promise<Mover | null> {
   const normalizedTicker = normalizeTicker(ticker);
+  const data = await getStockChart(normalizedTicker, ["1D", "5D"]);
+  const points = (data["1D"]?.length ?? 0) >= 2 ? data["1D"]! : data["5D"] ?? [];
+  const first = firstValidClose(points);
+  const last = lastValidClose(points);
+  if (first == null || last == null || first <= 0) return null;
+  return { ticker: normalizedTicker, currentPrice: last, changePct: ((last - first) / first) * 100 };
+}
 
-  let rangesToLoad: TimeRange[] = [];
-
-  for (const range of ranges) {
-    const key = cacheKey(normalizedTicker, range);
-    const cached = cache.get(key);
-
-    if (cached && now - cached.fetchedAt < MEMORY_CACHE_TTL_MS) {
-      result[range] = cached.data;
-    } else {
-      rangesToLoad.push(range);
-    }
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeout = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
+}
 
-  if (rangesToLoad.length > 0) {
-    const redisCached = await getCachedChartRowsFromRedis(normalizedTicker, rangesToLoad);
-    rangesToLoad = rangesToLoad.filter((range) => {
-      const points = redisCached[range];
-      if (!points || points.length === 0) return true;
-      result[range] = points;
-      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
-      return false;
-    });
-  }
+function cleanTickerUniverse(tickers: string[], max = 500) {
+  return Array.from(new Set(tickers.map(normalizeTicker).filter(Boolean))).slice(0, max);
+}
 
-  if (rangesToLoad.length > 0) {
-    const dbCached = await getCachedChartRows(normalizedTicker, rangesToLoad);
-    rangesToLoad = rangesToLoad.filter((range) => {
-      const points = dbCached[range];
-      if (!points || points.length === 0) return true;
-      result[range] = points;
-      cache.set(cacheKey(normalizedTicker, range), { data: points, fetchedAt: now });
-      return false;
-    });
-  }
+export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
+  const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, LIVE_MOVE_FALLBACK_LIMIT));
+  const movers = await withTimeout(
+    Promise.all(tickersToCheck.map(getOneDayMover)),
+    ONE_DAY_MOVE_TIMEOUT_MS,
+    [],
+  );
+  return new Map(movers.filter((mover): mover is Mover => mover !== null).map((mover) => [mover.ticker, mover]));
+}
 
-  return result;
+export async function refreshMarketSnapshots(
+  tickers: string[],
+  options: { batchSize?: number; maxTickers?: number } = {},
+): Promise<{ attempted: number; updated: number }> {
+  const tickersToRefresh = cleanTickerUniverse(tickers, options.maxTickers ?? 520);
+  const movers = (await Promise.all(tickersToRefresh.map(getOneDayMover))).filter((mover): mover is Mover => mover !== null);
+  return { attempted: tickersToRefresh.length, updated: movers.length };
+}
+
+export async function getTopMovers(
+  tickers: string[],
+  limit = 5,
+): Promise<{ gainers: Mover[]; losers: Mover[] }> {
+  const moveMap = await getOneDayMoveMap(tickers);
+  const valid = Array.from(moveMap.values());
+  return {
+    gainers: [...valid].sort((a, b) => b.changePct - a.changePct).slice(0, limit),
+    losers: [...valid].sort((a, b) => a.changePct - b.changePct).slice(0, limit),
+  };
+}
+
+export type TickerTapeItem = {
+  symbol: string;
+  yahooSymbol: string;
+  price: number;
+  change: number;
+  changePct: number;
+};
+
+function displaySymbol(symbol: string) {
+  if (symbol === "^GSPC") return "S&P 500";
+  if (symbol === "^IXIC") return "NASDAQ";
+  if (symbol === "^DJI") return "DOW";
+  if (symbol === "^VIX") return "VIX";
+  return symbol;
+}
+
+export async function getTickerTape(
+  symbols: string[] = ["^GSPC", "^IXIC", "^DJI", "^VIX", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META"],
+): Promise<TickerTapeItem[]> {
+  const cleanedSymbols = symbols.map(normalizeTicker).filter(Boolean);
+  const movers = await Promise.all(cleanedSymbols.map(getOneDayMover));
+  return movers
+    .map((mover, index): TickerTapeItem | null => {
+      if (!mover) return null;
+      const previous = mover.currentPrice / (1 + mover.changePct / 100);
+      const change = Number.isFinite(previous) && previous > 0 ? mover.currentPrice - previous : 0;
+      const yahooSymbol = cleanedSymbols[index];
+      return {
+        symbol: displaySymbol(yahooSymbol),
+        yahooSymbol,
+        price: Math.round(mover.currentPrice * 100) / 100,
+        change: Math.round(change * 100) / 100,
+        changePct: Math.round(mover.changePct * 100) / 100,
+      };
+    })
+    .filter((item): item is TickerTapeItem => item !== null);
 }
