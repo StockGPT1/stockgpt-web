@@ -123,6 +123,13 @@ function startOfUtcDay(ms: number) {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
+function buildOneDayHourlyTimes(nowMs: number) {
+  const end = Math.floor(nowMs / ONE_HOUR_MS) * ONE_HOUR_MS;
+  return Array.from({ length: PORTFOLIO_ONE_DAY_POINTS }, (_, index) =>
+    end - (PORTFOLIO_ONE_DAY_POINTS - 1 - index) * ONE_HOUR_MS,
+  );
+}
+
 function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
   const addedMs = safeDateMs(holding.added_at ?? holding.addedAt ?? null);
   const purchaseRaw = holding.purchase_date ?? holding.purchaseDate ?? null;
@@ -482,9 +489,6 @@ function buildRangeSeries({
   const currentCash = cashAtTime(cashEvents, nowMs);
 
   const points = times.map((ms) => {
-    // For fixed ranges, keep the full requested calendar window visible.
-    // Dates before the portfolio existed are intentionally zero, so a new portfolio still has a full 1M/6M/1Y axis.
-    // MAX is different: it starts exactly when the portfolio was made.
     if (ms < portfolioStartMs && range !== "MAX") {
       return { date: new Date(ms).toISOString(), close: 0 };
     }
