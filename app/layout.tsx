@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import { PortfolioHoldingClickPatch } from "@/components/PortfolioHoldingClickPatch";
+import { RankingsFinancialWhyPatch } from "@/components/RankingsFinancialWhyPatch";
 import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
@@ -42,7 +43,6 @@ export const metadata: Metadata = {
     shortcut: [
       {
         url: `/og-image.png?v=${iconVersion}`,
-        type: "image/png",
       },
       {
         url: `/favicon.ico?v=${iconVersion}`,
@@ -101,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <PortfolioHoldingClickPatch />
+        <RankingsFinancialWhyPatch />
         <Analytics />
         <SpeedInsights />
         <Script id="stockgpt-structured-data" type="application/ld+json">
