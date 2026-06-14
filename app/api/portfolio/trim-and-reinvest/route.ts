@@ -20,6 +20,7 @@ type StockRow = {
 };
 
 type HoldingRow = {
+  portfolio_id?: string | null;
   shares: number | string | null;
   entry_price: number | string | null;
   purchase_date?: string | null;
@@ -36,6 +37,11 @@ function cleanTicker(value: unknown) {
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function nullableNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function roundMoney(value: number) {
@@ -85,10 +91,7 @@ async function recordTransaction(
   });
 }
 
-async function saveEntryTradeLevels(
-  stock: StockRow,
-  entryPrice: number,
-) {
+async function saveEntryTradeLevels(stock: StockRow, entryPrice: number) {
   const ticker = cleanTicker(stock.ticker);
   if (!ticker || entryPrice <= 0) return { risk: null as number | null, target: null as number | null };
 
@@ -96,7 +99,7 @@ async function saveEntryTradeLevels(
     ticker,
     price: entryPrice,
     score: toNumber(stock.score, 0),
-    rank: Number.isFinite(Number(stock.rank)) ? Number(stock.rank) : null,
+    rank: nullableNumber(stock.rank),
     sector: stock.sector ?? null,
   });
 
@@ -137,12 +140,11 @@ async function recalculatePortfolioTotals(
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const portfolioId = String(body?.portfolioId ?? "").trim();
+  const requestedPortfolioId = String(body?.portfolioId ?? "").trim();
   const sourceTicker = cleanTicker(body?.ticker);
   const reinvestTicker = cleanTicker(body?.reinvestTicker);
   const percentage = Number(body?.percentage);
 
-  if (!portfolioId) return NextResponse.json({ success: false, error: "Missing portfolio." }, { status: 400 });
   if (!sourceTicker) return NextResponse.json({ success: false, error: "Missing holding ticker." }, { status: 400 });
   if (!reinvestTicker) return NextResponse.json({ success: false, error: "Missing reinvestment ticker." }, { status: 400 });
   if (reinvestTicker === sourceTicker) return NextResponse.json({ success: false, error: "Reinvestment target must be a different stock." }, { status: 400 });
@@ -157,24 +159,34 @@ export async function POST(req: NextRequest) {
 
   if (!user) return NextResponse.json({ success: false, error: "not_authenticated" }, { status: 401 });
 
-  const { data: portfolio } = await supabase
+  const portfolioQuery = supabase
     .from("user_portfolios")
     .select("id,cash_balance,currency")
-    .eq("id", portfolioId)
     .eq("user_id", user.id)
-    .is("archived_at", null)
-    .maybeSingle();
+    .is("archived_at", null);
 
-  if (!portfolio) return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
+  const { data: portfoliosData } = requestedPortfolioId
+    ? await portfolioQuery.eq("id", requestedPortfolioId).limit(1)
+    : await portfolioQuery.order("created_at", { ascending: true }).limit(25);
 
-  const { data: sourceHolding } = await supabase
+  const portfolios = (portfoliosData ?? []) as PortfolioRow[];
+  if (portfolios.length === 0) return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
+
+  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
+  const { data: sourceHoldingRows } = await supabase
     .from("portfolio_holdings")
-    .select("shares,entry_price")
-    .eq("portfolio_id", portfolioId)
+    .select("portfolio_id,shares,entry_price")
+    .in("portfolio_id", portfolioIds)
     .eq("ticker", sourceTicker)
-    .maybeSingle();
+    .order("added_at", { ascending: false })
+    .limit(1);
 
-  if (!sourceHolding) return NextResponse.json({ success: false, error: "Holding not found." }, { status: 404 });
+  const sourceHolding = ((sourceHoldingRows ?? []) as HoldingRow[])[0] ?? null;
+  if (!sourceHolding?.portfolio_id) return NextResponse.json({ success: false, error: "Holding not found." }, { status: 404 });
+
+  const portfolioId = sourceHolding.portfolio_id;
+  const portfolio = portfolios.find((item) => item.id === portfolioId) ?? null;
+  if (!portfolio) return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
 
   const [sourceStock, targetStock] = await Promise.all([
     getStock(supabase, sourceTicker),
@@ -183,8 +195,8 @@ export async function POST(req: NextRequest) {
 
   if (!targetStock) return NextResponse.json({ success: false, error: "Reinvestment stock not found in rankings." }, { status: 404 });
 
-  const currentShares = toNumber((sourceHolding as HoldingRow).shares);
-  const sourceEntryPrice = toNumber((sourceHolding as HoldingRow).entry_price);
+  const currentShares = toNumber(sourceHolding.shares);
+  const sourceEntryPrice = toNumber(sourceHolding.entry_price);
   const sellPrice = toNumber(sourceStock?.price, sourceEntryPrice);
   const buyPrice = toNumber(targetStock.price);
 
@@ -246,8 +258,8 @@ export async function POST(req: NextRequest) {
       entry_price: Math.round(nextTargetEntry * 10_000) / 10_000,
       shares: nextTargetShares,
       allocation_pct: null,
-      score_at_entry: toNumber(targetStock.score, null),
-      rank_at_entry: Number.isFinite(Number(targetStock.rank)) ? Number(targetStock.rank) : null,
+      score_at_entry: nullableNumber(targetStock.score),
+      rank_at_entry: nullableNumber(targetStock.rank),
       risk_level_at_entry: levels.risk,
       target_level_at_entry: levels.target,
       last_reviewed_at: now,
@@ -262,13 +274,13 @@ export async function POST(req: NextRequest) {
 
   const { error: cashError } = await supabase
     .from("user_portfolios")
-    .update({ cash_balance: roundMoney(toNumber((portfolio as PortfolioRow).cash_balance)) })
+    .update({ cash_balance: roundMoney(toNumber(portfolio.cash_balance)) })
     .eq("id", portfolioId)
     .eq("user_id", user.id);
 
   if (cashError) return NextResponse.json({ success: false, error: cashError.message }, { status: 500 });
 
-  const currency = (portfolio as PortfolioRow).currency ?? "USD";
+  const currency = portfolio.currency ?? "USD";
   await recordTransaction(supabase, {
     portfolioId,
     userId: user.id,
