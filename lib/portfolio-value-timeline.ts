@@ -42,9 +42,13 @@ export type PortfolioPriceFetcher = (
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
+const HALF_HOUR_MS = 30 * 60 * 1000;
 const ONE_HOUR_MS = 3_600_000;
 const ONE_DAY_MS = 86_400_000;
 const MARKET_TIME_ZONE = "America/New_York";
+const MARKET_OPEN_MINUTES = 9 * 60 + 30;
+const MARKET_CLOSE_MINUTES = 16 * 60;
+const MARKET_HALF_HOUR_POINTS = 14;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
@@ -69,6 +73,9 @@ const marketDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "2-digit",
   day: "2-digit",
   weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
 });
 
 type Lot = {
@@ -96,6 +103,8 @@ type MarketDateParts = {
   month: number;
   day: number;
   weekday: string;
+  hour: number;
+  minute: number;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -157,8 +166,18 @@ function getMarketDateParts(ms: number): MarketDateParts | null {
   const month = Number(values.month);
   const day = Number(values.day);
   const weekday = String(values.weekday ?? "");
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-  return { year, month, day, weekday };
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute)
+  ) {
+    return null;
+  }
+  return { year, month, day, weekday, hour, minute };
 }
 
 function nthWeekdayOfMonth(year: number, month: number, weekday: number, occurrence: number) {
@@ -241,6 +260,17 @@ function isMarketBusinessDay(ms: number) {
   return !getMarketHolidayKeys(parts.year).has(isoDateKey(parts.year, parts.month, parts.day));
 }
 
+function isMarketTradingTime(ms: number) {
+  const parts = getMarketDateParts(ms);
+  if (!parts || !isMarketBusinessDay(ms)) return false;
+  const minutes = parts.hour * 60 + parts.minute;
+  return minutes >= MARKET_OPEN_MINUTES && minutes <= MARKET_CLOSE_MINUTES;
+}
+
+function floorToHalfHour(ms: number) {
+  return Math.floor(ms / HALF_HOUR_MS) * HALF_HOUR_MS;
+}
+
 function previousMarketBusinessMs(ms: number) {
   let cursor = ms;
   for (let i = 0; i < 24 * 14; i += 1) {
@@ -250,12 +280,21 @@ function previousMarketBusinessMs(ms: number) {
   return ms;
 }
 
-function buildOneDayMarketHourTimes(nowMs: number) {
+function previousMarketTradingMs(ms: number) {
+  let cursor = floorToHalfHour(ms);
+  for (let i = 0; i < 48 * 21; i += 1) {
+    if (isMarketTradingTime(cursor)) return cursor;
+    cursor -= HALF_HOUR_MS;
+  }
+  return floorToHalfHour(ms);
+}
+
+function buildOneDayMarketHalfHourTimes(nowMs: number) {
   const times: number[] = [];
-  let cursor = previousMarketBusinessMs(nowMs);
-  for (let i = 0; times.length < 24 && i < 24 * 21; i += 1) {
-    if (isMarketBusinessDay(cursor)) times.push(cursor);
-    cursor -= ONE_HOUR_MS;
+  let cursor = previousMarketTradingMs(nowMs);
+  for (let i = 0; times.length < MARKET_HALF_HOUR_POINTS && i < 48 * 21; i += 1) {
+    if (isMarketTradingTime(cursor)) times.push(cursor);
+    cursor -= HALF_HOUR_MS;
   }
   return times.sort((a, b) => a - b);
 }
@@ -551,7 +590,7 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
-  if (range === "1D") return Math.max(0, buildOneDayMarketHourTimes(nowMs)[0] ?? nowMs - 23 * ONE_HOUR_MS);
+  if (range === "1D") return Math.max(0, buildOneDayMarketHalfHourTimes(nowMs)[0] ?? nowMs - (MARKET_HALF_HOUR_POINTS - 1) * HALF_HOUR_MS);
   const days = RANGE_DAYS[range];
   if (!days) return portfolioStartMs;
   return Math.max(portfolioStartMs, nowMs - days * ONE_DAY_MS);
@@ -572,7 +611,7 @@ function collectTimes({
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
-  if (range === "1D") return buildOneDayMarketHourTimes(nowMs);
+  if (range === "1D") return buildOneDayMarketHalfHourTimes(nowMs);
 
   const times = new Set<number>([rangeStartMs, nowMs]);
 
