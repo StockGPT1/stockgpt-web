@@ -5,12 +5,14 @@ import type { FinancialMetrics } from "@/lib/yahoo-financials";
 
 type FactorDiagnostic = {
   factor?: string;
-  current?: number;
-  change?: number;
+  previous?: number | null;
+  current?: number | null;
+  change?: number | null;
 };
 
 type RankingDiagnostics = {
   diagnosis?: string | null;
+  factor_contributions?: Record<string, number> | null;
   top_positive_factors?: FactorDiagnostic[] | null;
   top_negative_factors?: FactorDiagnostic[] | null;
   quality_score?: number | null;
@@ -19,6 +21,15 @@ type RankingDiagnostics = {
   momentum_score?: number | null;
   risk_score?: number | null;
   income_score?: number | null;
+  factor_coverage?: number | null;
+};
+
+type RankingRow = {
+  rank?: number | null;
+  score?: number | null;
+  momentum?: number | null;
+  pe?: number | null;
+  risk?: number | null;
   factor_coverage?: number | null;
   data_confidence?: string | null;
 };
@@ -42,15 +53,16 @@ function num(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
-function money(value: number) {
-  if (Math.abs(value) >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(1)}T`;
-  if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(0)}M`;
-  return `$${value.toFixed(2)}`;
+function signed(value: number, digits = 3) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
 function signedPct(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function multiple(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}x`;
 }
 
 function friendlyFactorName(raw: string | undefined) {
@@ -64,79 +76,88 @@ function friendlyFactorName(raw: string | undefined) {
     RevenueGrowth: "revenue growth",
     EPSGrowth: "EPS growth",
     FCFGrowth: "free-cash-flow growth",
-    PE_rel: "P/E versus sector",
-    EVToEBITDA_rel: "EV/EBITDA versus sector",
-    PS_rel: "price/sales versus sector",
+    PE_rel: "sector-adjusted P/E",
+    EVToEBITDA_rel: "sector-adjusted EV/EBITDA",
+    PS_rel: "sector-adjusted price/sales",
     FCFYield: "free-cash-flow yield",
     Momentum12_1: "12-month momentum",
     Momentum6_1: "6-month momentum",
-    MA_dist: "distance above moving average",
-    MA_slope: "moving-average slope",
-    DownsideVol: "downside volatility",
-    MaxDrawdown: "max drawdown",
-    Beta: "beta",
-    DebtToEquity: "debt-to-equity",
+    MA_dist: "price above moving average",
+    MA_slope: "rising moving average",
+    DownsideVol: "lower downside volatility",
+    MaxDrawdown: "controlled drawdown",
+    Beta: "lower beta",
+    DebtToEquity: "lower debt-to-equity",
     DividendYield: "dividend yield",
   };
   return names[factor] ?? factor.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
 }
 
-function sleeveLabel(key: keyof RankingDiagnostics, value: unknown) {
-  const n = num(value);
-  if (n == null) return null;
-  const label = key.replace("_score", "").replace(/^./, (char) => char.toUpperCase());
-  return `${label} ${n >= 0 ? "+" : ""}${n.toFixed(3)}`;
+function contributionDrivers(diagnostics: RankingDiagnostics | null) {
+  const contributions = diagnostics?.factor_contributions ?? {};
+  const rows = Object.entries(contributions)
+    .map(([factor, value]) => ({ factor, current: num(value) ?? 0 }))
+    .filter((item) => item.current > 0.0005)
+    .sort((a, b) => b.current - a.current);
+
+  if (rows.length) return rows.slice(0, 4);
+
+  return (diagnostics?.top_positive_factors ?? [])
+    .map((item) => ({ factor: item.factor ?? "", current: num(item.current) ?? num(item.change) ?? 0 }))
+    .filter((item) => item.current > 0.0005)
+    .sort((a, b) => b.current - a.current)
+    .slice(0, 4);
 }
 
-function diagnosticSummary(diagnostics: RankingDiagnostics | null, metrics: FinancialMetrics | null) {
-  const positives = (diagnostics?.top_positive_factors ?? []).slice(0, 3);
-  const negatives = (diagnostics?.top_negative_factors ?? []).slice(0, 1);
+function isFavourableMetricCard(label: string, value: number | string | null) {
+  if (value == null) return false;
+  if (label === "RSI") {
+    const n = num(value);
+    return n != null && n >= 50 && n < 70;
+  }
+  if (label === "MACD") return value === "bullish" || value === "bullish_cross";
+  if (label === "6M trend") return (num(value) ?? 0) > 0;
+  if (label === "P/E") return (num(value) ?? 0) > 0;
+  if (label === "EPS") return (num(value) ?? 0) > 0;
+  return true;
+}
+
+function diagnosticSummary(
+  ticker: string,
+  diagnostics: RankingDiagnostics | null,
+  metrics: FinancialMetrics | null,
+  ranking: RankingRow | null,
+) {
+  const drivers = contributionDrivers(diagnostics);
   const parts: string[] = [];
 
-  if (positives.length) {
+  if (drivers.length) {
     parts.push(
-      `strongest ranking drivers are ${positives
-        .map((item) => `${friendlyFactorName(item.factor)} (${num(item.current) != null ? `${num(item.current)! >= 0 ? "+" : ""}${num(item.current)!.toFixed(3)}` : "positive"})`)
-        .join(", ")}`,
+      drivers
+        .slice(0, 3)
+        .map((item) => `${friendlyFactorName(item.factor)} (${signed(item.current)})`)
+        .join(", "),
     );
   }
 
+  const pe = num(ranking?.pe) ?? num(metrics?.forwardPE) ?? num(metrics?.trailingPE);
+  const eps = num(metrics?.epsForward) ?? num(metrics?.epsTrailingTwelveMonths);
+  const sixMonth = num(metrics?.sixMonthChangePct);
   const rsi = num(metrics?.rsi14);
-  if (rsi != null) {
-    if (rsi < 30) parts.push(`RSI is oversold at ${rsi.toFixed(1)}`);
-    else if (rsi > 70) parts.push(`RSI is overbought at ${rsi.toFixed(1)}`);
+
+  if (eps != null && eps > 0) parts.push(`positive EPS (${eps.toFixed(2)})`);
+  if (pe != null && pe > 0) parts.push(`P/E ${multiple(pe)}`);
+  if (sixMonth != null && sixMonth > 0) parts.push(`6M trend ${signedPct(sixMonth)}`);
+  if (rsi != null && rsi >= 50 && rsi < 70) parts.push(`RSI ${rsi.toFixed(1)}`);
+  if (metrics?.macdSignal === "bullish_cross") parts.push("MACD bullish cross");
+  else if (metrics?.macdSignal === "bullish") parts.push("MACD bullish");
+
+  const unique = Array.from(new Set(parts)).slice(0, 4);
+  if (unique.length) {
+    return `${ticker} ranks here because the ranking engine is seeing ${unique.join("; ")}.`;
   }
 
-  if (metrics?.macdSignal === "bullish_cross") parts.push("MACD has crossed bullish");
-  if (metrics?.macdSignal === "bearish_cross") parts.push("MACD has crossed bearish");
-
-  if (negatives.length) {
-    parts.push(`main drag is ${friendlyFactorName(negatives[0].factor)}`);
-  }
-
-  if (parts.length) return `This rank is explained by ${parts.slice(0, 4).join("; ")}.`;
-  if (diagnostics?.diagnosis) return diagnostics.diagnosis;
-  return "No factor diagnostics were available for this ticker yet.";
-}
-
-function metricSummary(metrics: FinancialMetrics | null) {
-  if (!metrics) return "";
-
-  const items: string[] = [];
-  if (num(metrics.rsi14) != null) items.push(`RSI ${num(metrics.rsi14)!.toFixed(1)}`);
-  if (metrics.macdSignal) items.push(`MACD ${String(metrics.macdSignal).replace(/_/g, " ")}`);
-  if (num(metrics.ma50) != null && num(metrics.regularMarketPrice) != null) {
-    const price = num(metrics.regularMarketPrice)!;
-    const ma50 = num(metrics.ma50)!;
-    items.push(`price is ${price >= ma50 ? "above" : "below"} the 50-day average (${money(ma50)})`);
-  }
-  if (num(metrics.sixMonthChangePct) != null) items.push(`6M price change ${signedPct(num(metrics.sixMonthChangePct)!)} `);
-  if (num(metrics.forwardPE) != null) items.push(`forward P/E ${num(metrics.forwardPE)!.toFixed(1)}x`);
-  if (num(metrics.epsForward) != null && num(metrics.epsTrailingTwelveMonths) != null) {
-    items.push(`forward EPS ${num(metrics.epsForward)!.toFixed(2)} vs trailing EPS ${num(metrics.epsTrailingTwelveMonths)!.toFixed(2)}`);
-  }
-
-  return items.length ? ` Supporting chart context: ${items.slice(0, 4).join(" · ")}.` : "";
+  return `${ticker} ranks here based on the stored StockGPT score and available factor inputs; no negative or neutral indicators are being shown as support.`;
 }
 
 function makeMetricCard(labelText: string, valueText: string, detailText: string) {
@@ -163,35 +184,43 @@ function makeMetricCard(labelText: string, valueText: string, detailText: string
   return card;
 }
 
-function diagnosticCards(diagnostics: RankingDiagnostics | null, metrics: FinancialMetrics | null) {
+function diagnosticCards(diagnostics: RankingDiagnostics | null, metrics: FinancialMetrics | null, ranking: RankingRow | null) {
   const cards: HTMLElement[] = [];
-  const positives = (diagnostics?.top_positive_factors ?? []).slice(0, 4);
-  positives.forEach((item) => {
-    const current = num(item.current);
-    const change = num(item.change);
+  const drivers = contributionDrivers(diagnostics);
+
+  drivers.forEach((item) => {
     cards.push(makeMetricCard(
       friendlyFactorName(item.factor),
-      current != null ? `${current >= 0 ? "+" : ""}${current.toFixed(3)}` : "Positive",
-      `This factor contributed positively to the current ranking${change != null ? ` and changed ${change >= 0 ? "+" : ""}${change.toFixed(3)} versus the previous diagnostic run.` : "."}`,
+      signed(item.current),
+      `This was one of the largest positive factor contributions in the ranking engine for this ticker.`,
     ));
   });
 
+  const pe = num(ranking?.pe) ?? num(metrics?.forwardPE) ?? num(metrics?.trailingPE);
+  if (isFavourableMetricCard("P/E", pe)) {
+    cards.push(makeMetricCard("P/E", multiple(pe!), `P/E context used for valuation. Sector-adjusted valuation contributes when it screens favourably.`));
+  }
+
+  const eps = num(metrics?.epsForward) ?? num(metrics?.epsTrailingTwelveMonths);
+  if (isFavourableMetricCard("EPS", eps)) {
+    cards.push(makeMetricCard("EPS", eps!.toFixed(2), `Positive EPS gives the ranking engine earnings support where data is available.`));
+  }
+
   const rsi = num(metrics?.rsi14);
-  if (rsi != null) cards.push(makeMetricCard("RSI", rsi.toFixed(1), `14-period RSI from fetched chart history is ${rsi.toFixed(1)}.`));
-  if (metrics?.macdSignal) cards.push(makeMetricCard("MACD", String(metrics.macdSignal).replace(/_/g, " "), `MACD signal from fetched chart history is ${String(metrics.macdSignal).replace(/_/g, " ")}.`));
-  if (num(metrics?.sixMonthChangePct) != null) cards.push(makeMetricCard("6M trend", signedPct(num(metrics?.sixMonthChangePct)!), `Six-month price change is ${signedPct(num(metrics?.sixMonthChangePct)!)}.`));
+  if (isFavourableMetricCard("RSI", rsi)) {
+    cards.push(makeMetricCard("RSI", rsi!.toFixed(1), `RSI is constructive but not overbought.`));
+  }
 
-  const sleeves = [
-    sleeveLabel("quality_score", diagnostics?.quality_score),
-    sleeveLabel("growth_score", diagnostics?.growth_score),
-    sleeveLabel("value_score", diagnostics?.value_score),
-    sleeveLabel("momentum_score", diagnostics?.momentum_score),
-    sleeveLabel("risk_score", diagnostics?.risk_score),
-    sleeveLabel("income_score", diagnostics?.income_score),
-  ].filter(Boolean);
-  if (sleeves.length) cards.push(makeMetricCard("Sleeves", "Scores", sleeves.slice(0, 4).join(" · ")));
+  if (isFavourableMetricCard("MACD", metrics?.macdSignal ?? null)) {
+    cards.push(makeMetricCard("MACD", String(metrics!.macdSignal).replace(/_/g, " "), `MACD is positive, so it is included as supporting chart context.`));
+  }
 
-  return cards.length ? cards.slice(0, 8) : [makeMetricCard("Diagnostics", "Limited", "No ranking factor diagnostics were available for this ticker yet.")];
+  const sixMonth = num(metrics?.sixMonthChangePct) ?? num(ranking?.momentum);
+  if (isFavourableMetricCard("6M trend", sixMonth)) {
+    cards.push(makeMetricCard("Trend", signedPct(sixMonth!), `Positive price trend is included because it is favourable to the setup.`));
+  }
+
+  return cards.length ? cards.slice(0, 8) : [makeMetricCard("Ranking factors", "Loading", "Opening this row fetches the strongest available positive ranking drivers.")];
 }
 
 function detailsContainsStaleCopy(details: HTMLDetailsElement) {
@@ -213,12 +242,13 @@ async function patchDetails(details: HTMLDetailsElement, force = false) {
     const data = response.ok ? await response.json() : null;
     const metrics = (data?.metrics ?? null) as FinancialMetrics | null;
     const diagnostics = (data?.diagnostics ?? null) as RankingDiagnostics | null;
+    const ranking = (data?.ranking ?? null) as RankingRow | null;
     const summary = details.querySelector<HTMLParagraphElement>("summary + p");
     const grid = details.querySelector<HTMLElement>("summary + p + div");
 
     details.dataset.stockgptDiagnosticsOwner = "true";
-    if (summary) summary.textContent = `${ticker}: ${diagnosticSummary(diagnostics, metrics)}${metricSummary(metrics)}`;
-    if (grid) grid.replaceChildren(...diagnosticCards(diagnostics, metrics));
+    if (summary) summary.textContent = diagnosticSummary(ticker, diagnostics, metrics, ranking);
+    if (grid) grid.replaceChildren(...diagnosticCards(diagnostics, metrics, ranking));
     details.dataset.stockgptFinancialPatched = "true";
   } finally {
     delete details.dataset.stockgptFinancialLoading;
