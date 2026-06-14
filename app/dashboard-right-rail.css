@@ -44,11 +44,17 @@
     height: 100% !important;
     min-height: 132px !important;
   }
+
+  main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div > div[style] {
+    height: 100% !important;
+    min-height: 132px !important;
+  }
 }
 
 @media (min-width: 1280px) {
   main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2),
-  main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div {
+  main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div,
+  main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div > div[style] {
     min-height: 154px !important;
   }
 }
