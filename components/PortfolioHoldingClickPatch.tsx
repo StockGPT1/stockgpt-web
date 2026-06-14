@@ -295,11 +295,43 @@ export function PortfolioHoldingClickPatch() {
       window.location.assign(`/stock/${ticker}`);
     }
 
+    async function onTrimAndReinvest(event: Event) {
+      const detail = (event as CustomEvent).detail ?? {};
+      const button = detail.button instanceof HTMLButtonElement ? detail.button : null;
+      const portfolioId = String(detail.portfolioId ?? "");
+      const ticker = cleanTicker(detail.ticker);
+      const reinvestTicker = cleanTicker(detail.reinvestTicker);
+      const percentage = Number(detail.percentage);
+      if (!button || !portfolioId || !ticker || !reinvestTicker || !Number.isFinite(percentage)) return;
+
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Reinvesting…";
+      try {
+        const response = await fetch("/api/portfolio/trim-and-reinvest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ portfolioId, ticker, percentage, reinvestTicker }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.success === false) {
+          window.alert(data?.error ?? "Could not trim and reinvest.");
+          return;
+        }
+        window.location.reload();
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+
     window.addEventListener("stockgpt:portfolio-chart-scrub", onChartScrub);
+    window.addEventListener("stockgpt:trim-and-reinvest", onTrimAndReinvest);
     document.addEventListener("click", onClick, true);
     return () => {
       observer.disconnect();
       window.removeEventListener("stockgpt:portfolio-chart-scrub", onChartScrub);
+      window.removeEventListener("stockgpt:trim-and-reinvest", onTrimAndReinvest);
       document.removeEventListener("click", onClick, true);
     };
   }, []);
