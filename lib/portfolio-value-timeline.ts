@@ -42,6 +42,7 @@ export type PortfolioPriceFetcher = (
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
+const ONE_HOUR_MS = 3_600_000;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
@@ -384,13 +385,14 @@ function priceAtTime({
   if (targetMs >= nowMs - 60_000 && currentPrice > 0) return currentPrice;
 
   let candidate = lot.entryPrice > 0 ? lot.entryPrice : currentPrice;
+  const earliestLookupMs = range === "1D" ? 0 : lot.startMs;
 
   for (const lookupRange of FALLBACK_RANGES[range]) {
     let foundRangePrice = false;
     const points = charts.get(`${ticker}:${lookupRange}`) ?? [];
     for (const point of points) {
       const ms = pointMs(point);
-      if (ms == null || ms < lot.startMs) continue;
+      if (ms == null || ms < earliestLookupMs) continue;
       if (ms > targetMs) break;
       candidate = point.close;
       foundRangePrice = true;
@@ -406,6 +408,7 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
+  if (range === "1D") return Math.max(0, nowMs - 23 * ONE_HOUR_MS);
   const days = RANGE_DAYS[range];
   if (!days) return portfolioStartMs;
   return Math.max(portfolioStartMs, nowMs - days * 86_400_000);
@@ -426,6 +429,12 @@ function collectTimes({
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
+  if (range === "1D") {
+    return Array.from({ length: 24 }, (_, index) => nowMs - (23 - index) * ONE_HOUR_MS).filter(
+      (ms) => ms >= 0,
+    );
+  }
+
   const times = new Set<number>([rangeStartMs, nowMs]);
 
   lots.forEach((lot) => {
@@ -471,10 +480,12 @@ function buildRangeSeries({
 }) {
   const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
   const times = collectTimes({ range, rangeStartMs, nowMs, lots, cashEvents, charts });
+  const currentCash = cashAtTime(cashEvents, nowMs);
 
   const points = times.map((ms) => {
     const holdingsValue = lots.reduce((sum, lot) => {
-      if (ms < lot.startMs || lot.shares <= EPSILON) return sum;
+      if (range !== "1D" && ms < lot.startMs) return sum;
+      if (lot.shares <= EPSILON) return sum;
       const price = priceAtTime({
         ticker: lot.ticker,
         targetMs: ms,
@@ -489,7 +500,7 @@ function buildRangeSeries({
 
     return {
       date: new Date(ms).toISOString(),
-      close: Math.max(0, roundMoney(cashAtTime(cashEvents, ms) + holdingsValue)),
+      close: Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue)),
     };
   });
 
