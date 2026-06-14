@@ -55,6 +55,15 @@ function savedLevel(value: unknown) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function savedScore(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+function formatScore(value: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+}
+
 function distanceText(currentPrice: number | null, level: number | null) {
   if (!currentPrice || !level || currentPrice <= 0 || level <= 0) return "";
   const pct = ((level - currentPrice) / currentPrice) * 100;
@@ -119,6 +128,27 @@ function patchMobileNewPortfolioButton() {
   nav.insertAdjacentElement("afterend", wrapper);
 }
 
+function insertOriginalScore(dialog: Element, originalScore: unknown) {
+  const score = savedScore(originalScore);
+  if (score === null) return;
+
+  const metricGrid = dialog.querySelector("div.grid.grid-cols-2.gap-2");
+  if (!metricGrid) return;
+
+  const scoreCard = Array.from(metricGrid.children).find((card) => {
+    const label = card.querySelector("p:first-child")?.textContent?.trim().toUpperCase();
+    return label === "SCORE";
+  });
+
+  if (!scoreCard || scoreCard.querySelector("[data-stockgpt-original-score]")) return;
+
+  const original = document.createElement("p");
+  original.setAttribute("data-stockgpt-original-score", "true");
+  original.className = "mt-1 text-[10px] font-bold text-[#faf6f0]/46";
+  original.textContent = `original score - ${formatScore(score)}`;
+  scoreCard.appendChild(original);
+}
+
 function insertTradeLevelCard(dialog: Element, levels: any) {
   if (dialog.querySelector("[data-stockgpt-trade-level-card]")) return;
   const metricGrid = dialog.querySelector("div.grid.grid-cols-2.gap-2");
@@ -149,7 +179,6 @@ function patchManageTradeLevels() {
   const dialogs = document.querySelectorAll(".stockgpt-manage-holding-dialog");
   dialogs.forEach((dialog) => {
     if (dialog.getAttribute("data-stockgpt-levels-loading") === "true") return;
-    if (dialog.querySelector("[data-stockgpt-trade-level-card]")) return;
 
     const ticker = cleanTicker(dialog.querySelector("h3")?.textContent);
     if (!ticker) return;
@@ -158,6 +187,7 @@ function patchManageTradeLevels() {
     fetch(`/api/portfolio/holding-trade-levels?ticker=${encodeURIComponent(ticker)}`, { headers: { Accept: "application/json" } })
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
+        insertOriginalScore(dialog, data?.original_score_at_entry);
         if (data?.levels) insertTradeLevelCard(dialog, data.levels);
       })
       .catch(() => null)
