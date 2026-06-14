@@ -60,5 +60,6 @@
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button::after {
     font-size: 0.96rem !important;
+    transform: translateY(-0.11rem) !important;
   }
 }
