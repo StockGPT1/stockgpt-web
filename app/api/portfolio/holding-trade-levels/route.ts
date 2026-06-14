@@ -177,8 +177,11 @@ export async function GET(req: NextRequest) {
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
   if (portfolioIds.length === 0) return NextResponse.json({ levels: null });
 
-  const portfolioId = req.nextUrl.searchParams.get("portfolioId");
-  const scopedPortfolioIds = portfolioId && portfolioIds.includes(portfolioId) ? [portfolioId] : portfolioIds;
+  const requestedPortfolioId = String(req.nextUrl.searchParams.get("portfolioId") ?? "").trim();
+  if (requestedPortfolioId && !portfolioIds.includes(requestedPortfolioId)) {
+    return NextResponse.json({ levels: null, reason: "Portfolio not found." }, { status: 404 });
+  }
+  const scopedPortfolioIds = requestedPortfolioId ? [requestedPortfolioId] : portfolioIds;
 
   const { data: holdingsData, error: holdingError } = await (supabase as any)
     .from("portfolio_holdings")
@@ -186,7 +189,7 @@ export async function GET(req: NextRequest) {
     .in("portfolio_id", scopedPortfolioIds)
     .eq("ticker", ticker)
     .order("added_at", { ascending: false })
-    .limit(8);
+    .limit(requestedPortfolioId ? 1 : 8);
 
   if (holdingError) {
     console.error("[holding-trade-levels] holding read error", holdingError);
