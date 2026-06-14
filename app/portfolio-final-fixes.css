@@ -68,16 +68,20 @@
 }
 
 @media (max-width: 1023px) {
-  /* Compact mobile holdings-card layout: logo/name on one row, four metrics
-     across beneath it, and a small pinned manage button on the right. */
+  /* Reference mobile holdings-card layout copied from the provided screenshot. */
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] {
+    min-height: 0 !important;
+  }
+
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     grid-template-rows: auto auto !important;
     align-items: center !important;
     column-gap: 0.48rem !important;
-    row-gap: 0.62rem !important;
-    padding: 0.92rem 4.35rem 0.92rem 1rem !important;
+    row-gap: 0.46rem !important;
+    min-height: 7.125rem !important;
+    padding: 0.72rem 4.25rem 0.72rem 1rem !important;
     position: relative !important;
   }
 
@@ -87,18 +91,20 @@
     align-self: center !important;
     display: flex !important;
     gap: 0.72rem !important;
-    padding-right: 0.5rem !important;
+    padding-right: 0 !important;
     cursor: pointer !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:first-child p:first-child {
-    font-size: clamp(1.18rem, 5.25vw, 1.62rem) !important;
-    letter-spacing: -0.05em !important;
+    font-size: clamp(1.18rem, 5.25vw, 1.58rem) !important;
+    line-height: 1 !important;
+    letter-spacing: -0.052em !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:first-child p:nth-child(2) {
-    margin-top: 0.18rem !important;
-    font-size: clamp(0.82rem, 3.35vw, 1.05rem) !important;
+    margin-top: 0.22rem !important;
+    font-size: clamp(0.82rem, 3.35vw, 1.02rem) !important;
+    line-height: 1.08 !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(2),
@@ -120,6 +126,7 @@
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:first-child,
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:first-child {
     font-size: 0.58rem !important;
+    line-height: 1 !important;
     letter-spacing: 0.13em !important;
   }
 
@@ -128,25 +135,27 @@
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:nth-child(2),
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:nth-child(2) {
     font-size: 1rem !important;
+    line-height: 1.05 !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(2) p:nth-child(3),
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(3) p:nth-child(3),
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:nth-child(3),
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:nth-child(3) {
-    margin-top: 0.15rem !important;
+    margin-top: 0.18rem !important;
     font-size: 0.72rem !important;
+    line-height: 1 !important;
   }
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) {
     display: flex !important;
     position: absolute !important;
-    right: 0.95rem !important;
+    right: 1.35rem !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
     z-index: 30 !important;
-    width: 3.05rem !important;
-    height: 3.05rem !important;
+    width: 2.25rem !important;
+    height: 2.25rem !important;
     align-items: center !important;
     justify-content: center !important;
     overflow: visible !important;
@@ -154,10 +163,10 @@
 
   div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button {
     display: grid !important;
-    width: 3.05rem !important;
-    min-width: 3.05rem !important;
-    height: 3.05rem !important;
-    min-height: 3.05rem !important;
+    width: 2.25rem !important;
+    min-width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
     place-items: center !important;
     border-radius: 9999px !important;
     padding: 0 !important;
@@ -165,7 +174,7 @@
     color: #ddb159 !important;
     font-size: 0 !important;
     letter-spacing: 0 !important;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14) !important;
+    box-shadow: none !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
@@ -177,10 +186,10 @@
     height: 100% !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 1.45rem !important;
+    font-size: 1.2rem !important;
     line-height: 1 !important;
     color: #ddb159 !important;
-    transform: translateY(-0.02rem) !important;
+    transform: translateY(-0.01rem) !important;
   }
 }
 
