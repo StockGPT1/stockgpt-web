@@ -252,12 +252,19 @@ function recommendedTrimPercent(dialog: Element) {
 
 function recommendedReinvestmentTicker(dialog: Element) {
   const paragraphs = Array.from(dialog.querySelectorAll("p"));
-  const candidate = paragraphs.find((paragraph) =>
-    (paragraph.textContent ?? "").includes("· StockGPT ranked stock") ||
-    (paragraph.textContent ?? "").includes("· "),
+  const header = paragraphs.find((paragraph) =>
+    (paragraph.textContent ?? "").trim().toLowerCase().startsWith("reinvestment candidate"),
   );
-  if (!candidate) return "";
-  return cleanTicker(candidate.textContent?.trim().split(/\s+/)[0]);
+  const block = header?.parentElement;
+  const tickerLine = block
+    ? Array.from(block.querySelectorAll("p")).find((paragraph) => {
+        if (paragraph === header) return false;
+        const firstWord = paragraph.textContent?.trim().split(/\s+/)[0] ?? "";
+        const ticker = cleanTicker(firstWord);
+        return ticker.length > 0 && ticker.length <= 8;
+      })
+    : null;
+  return cleanTicker(tickerLine?.textContent?.trim().split(/\s+/)[0]);
 }
 
 async function trimAndReinvestFromButton(button: HTMLButtonElement) {
@@ -330,7 +337,14 @@ export function PortfolioHoldingClickPatch() {
       }
 
       const trimButton = target.closest("button");
-      if (trimButton instanceof HTMLButtonElement && trimButton.textContent?.trim() === "Trim and reinvest") {
+      const dialog = trimButton?.closest(".stockgpt-manage-holding-dialog") ?? null;
+      if (
+        trimButton instanceof HTMLButtonElement &&
+        dialog &&
+        trimButton.textContent?.trim() === "Trim and reinvest" &&
+        recommendedTrimPercent(dialog) &&
+        recommendedReinvestmentTicker(dialog)
+      ) {
         event.preventDefault();
         event.stopPropagation();
         void trimAndReinvestFromButton(trimButton);
