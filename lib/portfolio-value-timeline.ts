@@ -42,13 +42,10 @@ export type PortfolioPriceFetcher = (
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
-const HALF_HOUR_MS = 30 * 60 * 1000;
 const ONE_HOUR_MS = 3_600_000;
 const ONE_DAY_MS = 86_400_000;
 const MARKET_TIME_ZONE = "America/New_York";
-const MARKET_OPEN_MINUTES = 9 * 60 + 30;
-const MARKET_CLOSE_MINUTES = 16 * 60;
-const MARKET_HALF_HOUR_POINTS = 14;
+const PORTFOLIO_ONE_DAY_POINTS = 24;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
@@ -73,9 +70,6 @@ const marketDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "2-digit",
   day: "2-digit",
   weekday: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
 });
 
 type Lot = {
@@ -96,15 +90,6 @@ type NormalisedHolding = {
   entryPrice: number;
   currentPrice: number;
   startMs: number;
-};
-
-type MarketDateParts = {
-  year: number;
-  month: number;
-  day: number;
-  weekday: string;
-  hour: number;
-  minute: number;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -159,25 +144,15 @@ function datePartsFromUtc(date: Date) {
   };
 }
 
-function getMarketDateParts(ms: number): MarketDateParts | null {
+function getMarketDateParts(ms: number) {
   const parts = marketDateFormatter.formatToParts(new Date(ms));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   const year = Number(values.year);
   const month = Number(values.month);
   const day = Number(values.day);
   const weekday = String(values.weekday ?? "");
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(month) ||
-    !Number.isFinite(day) ||
-    !Number.isFinite(hour) ||
-    !Number.isFinite(minute)
-  ) {
-    return null;
-  }
-  return { year, month, day, weekday, hour, minute };
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return { year, month, day, weekday };
 }
 
 function nthWeekdayOfMonth(year: number, month: number, weekday: number, occurrence: number) {
@@ -260,17 +235,6 @@ function isMarketBusinessDay(ms: number) {
   return !getMarketHolidayKeys(parts.year).has(isoDateKey(parts.year, parts.month, parts.day));
 }
 
-function isMarketTradingTime(ms: number) {
-  const parts = getMarketDateParts(ms);
-  if (!parts || !isMarketBusinessDay(ms)) return false;
-  const minutes = parts.hour * 60 + parts.minute;
-  return minutes >= MARKET_OPEN_MINUTES && minutes <= MARKET_CLOSE_MINUTES;
-}
-
-function floorToHalfHour(ms: number) {
-  return Math.floor(ms / HALF_HOUR_MS) * HALF_HOUR_MS;
-}
-
 function previousMarketBusinessMs(ms: number) {
   let cursor = ms;
   for (let i = 0; i < 24 * 14; i += 1) {
@@ -280,23 +244,11 @@ function previousMarketBusinessMs(ms: number) {
   return ms;
 }
 
-function previousMarketTradingMs(ms: number) {
-  let cursor = floorToHalfHour(ms);
-  for (let i = 0; i < 48 * 21; i += 1) {
-    if (isMarketTradingTime(cursor)) return cursor;
-    cursor -= HALF_HOUR_MS;
-  }
-  return floorToHalfHour(ms);
-}
-
-function buildOneDayMarketHalfHourTimes(nowMs: number) {
-  const times: number[] = [];
-  let cursor = previousMarketTradingMs(nowMs);
-  for (let i = 0; times.length < MARKET_HALF_HOUR_POINTS && i < 48 * 21; i += 1) {
-    if (isMarketTradingTime(cursor)) times.push(cursor);
-    cursor -= HALF_HOUR_MS;
-  }
-  return times.sort((a, b) => a - b);
+function buildOneDayHourlyTimes(nowMs: number) {
+  const end = Math.floor(nowMs / ONE_HOUR_MS) * ONE_HOUR_MS;
+  return Array.from({ length: PORTFOLIO_ONE_DAY_POINTS }, (_, index) =>
+    end - (PORTFOLIO_ONE_DAY_POINTS - 1 - index) * ONE_HOUR_MS,
+  );
 }
 
 function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
@@ -495,9 +447,7 @@ function buildLedger({
 
   const finalCash = cashEvents.reduce((sum, event) => sum + event.amount, 0);
   const cashAdjustment = roundMoney(currentCash - finalCash);
-  if (Math.abs(cashAdjustment) > 0.009) {
-    cashEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
-  }
+  if (Math.abs(cashAdjustment) > 0.009) cashEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
 
   return {
     lots: lots.filter((lot) => lot.shares > EPSILON),
@@ -622,7 +572,7 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
-  if (range === "1D") return Math.max(0, buildOneDayMarketHalfHourTimes(nowMs)[0] ?? nowMs - (MARKET_HALF_HOUR_POINTS - 1) * HALF_HOUR_MS);
+  if (range === "1D") return Math.max(0, nowMs - (PORTFOLIO_ONE_DAY_POINTS - 1) * ONE_HOUR_MS);
   const days = RANGE_DAYS[range];
   if (!days) return portfolioStartMs;
   return Math.max(portfolioStartMs, nowMs - days * ONE_DAY_MS);
@@ -643,7 +593,7 @@ function collectTimes({
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
-  if (range === "1D") return buildOneDayMarketHalfHourTimes(nowMs);
+  if (range === "1D") return buildOneDayHourlyTimes(nowMs);
 
   const times = new Set<number>([rangeStartMs, nowMs]);
 
@@ -654,9 +604,7 @@ function collectTimes({
       const points = charts.get(`${lot.ticker}:${lookupRange}`) ?? [];
       points.forEach((point) => {
         const ms = pointMs(point);
-        if (ms != null && ms >= Math.max(rangeStartMs, lot.startMs) && ms <= nowMs) {
-          times.add(ms);
-        }
+        if (ms != null && ms >= Math.max(rangeStartMs, lot.startMs) && ms <= nowMs) times.add(ms);
       });
     });
   });
@@ -702,15 +650,7 @@ function buildRangeSeries({
     const holdingsValue = lots.reduce((sum, lot) => {
       if (range !== "1D" && ms < lot.startMs) return sum;
       if (lot.shares <= EPSILON) return sum;
-      const price = priceAtTime({
-        ticker: lot.ticker,
-        targetMs: ms,
-        range,
-        lot,
-        charts,
-        currentPrices,
-        nowMs,
-      });
+      const price = priceAtTime({ ticker: lot.ticker, targetMs: ms, range, lot, charts, currentPrices, nowMs });
       return sum + lot.shares * price;
     }, 0);
 
@@ -721,9 +661,7 @@ function buildRangeSeries({
   });
 
   const deduped = Array.from(
-    points
-      .reduce((map, point) => map.set(point.date, point), new Map<string, ChartPoint>())
-      .values(),
+    points.reduce((map, point) => map.set(point.date, point), new Map<string, ChartPoint>()).values(),
   ).sort((a, b) => (pointMs(a) ?? 0) - (pointMs(b) ?? 0));
 
   return samplePoints(deduped).filter((point) => Number.isFinite(point.close));
@@ -783,16 +721,7 @@ export async function buildPortfolioValueTimeline({
   const charts = tickers.length > 0 ? await loadCharts({ tickers, priceFetcher }) : new Map<string, ChartPoint[]>();
 
   return OUTPUT_RANGES.reduce<PortfolioTimelineChartData>((acc, range) => {
-    const points = buildRangeSeries({
-      range,
-      portfolioStartMs,
-      nowMs,
-      lots,
-      cashEvents,
-      charts,
-      currentPrices: currentPriceMap,
-    });
-
+    const points = buildRangeSeries({ range, portfolioStartMs, nowMs, lots, cashEvents, charts, currentPrices: currentPriceMap });
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});
