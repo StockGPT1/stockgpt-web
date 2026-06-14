@@ -50,6 +50,11 @@ function formatMoney(value: unknown, currency = "USD") {
   }).format(n);
 }
 
+function savedLevel(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function distanceText(currentPrice: number | null, level: number | null) {
   if (!currentPrice || !level || currentPrice <= 0 || level <= 0) return "";
   const pct = ((level - currentPrice) / currentPrice) * 100;
@@ -120,9 +125,9 @@ function insertTradeLevelCard(dialog: Element, levels: any) {
   if (!metricGrid) return;
 
   const currency = String(levels?.currency ?? "USD");
-  const risk = Number.isFinite(Number(levels?.risk_level_at_entry)) ? Number(levels.risk_level_at_entry) : null;
-  const target = Number.isFinite(Number(levels?.target_level_at_entry)) ? Number(levels.target_level_at_entry) : null;
-  const current = Number.isFinite(Number(levels?.current_price)) ? Number(levels.current_price) : null;
+  const risk = savedLevel(levels?.risk_level_at_entry);
+  const target = savedLevel(levels?.target_level_at_entry);
+  const current = savedLevel(levels?.current_price);
   if (risk === null && target === null) return;
 
   const card = document.createElement("div");
