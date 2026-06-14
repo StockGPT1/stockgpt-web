@@ -17,6 +17,7 @@ type Props = {
   compact?: boolean;
   color?: string;
   mobileTransparentFrame?: boolean;
+  onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
 
 const RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
@@ -70,11 +71,6 @@ function formatDate(iso: string, range: TimeRange) {
   });
 }
 
-function emitPortfolioChartScrub(detail: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("stockgpt:portfolio-chart-scrub", { detail }));
-}
-
 export function StockChart({
   ticker,
   data,
@@ -83,6 +79,7 @@ export function StockChart({
   compact = false,
   color,
   mobileTransparentFrame = false,
+  onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -230,26 +227,15 @@ export function StockChart({
 
       setHoverIdx(idx);
 
-      if (ticker === "Portfolio") {
-        emitPortfolioChartScrub({
-          active: true,
-          ticker,
-          range: resolvedRange,
-          point: points[idx],
-          first: points[0],
-          last: points[points.length - 1],
-        });
-      }
+      onScrub?.(points[idx], { range: resolvedRange });
     },
-    [points, svgWidth, plotW, padding.left, ticker, resolvedRange],
+    [points, svgWidth, plotW, padding.left, onScrub, resolvedRange],
   );
 
   const handlePointerLeave = useCallback(() => {
     setHoverIdx(null);
-    if (ticker === "Portfolio") {
-      emitPortfolioChartScrub({ active: false, ticker, range: resolvedRange });
-    }
-  }, [ticker, resolvedRange]);
+    onScrub?.(null, { range: resolvedRange });
+  }, [onScrub, resolvedRange]);
 
   const summary = useMemo(() => {
     if (points.length < 2) return null;
@@ -345,7 +331,13 @@ export function StockChart({
           onPointerDown={(e) => handleMove(e.clientX)}
           onPointerLeave={handlePointerLeave}
           onPointerCancel={handlePointerLeave}
-          onPointerUp={(e) => handleMove(e.clientX)}
+          onPointerUp={(e) => {
+            if (onScrub) {
+              handlePointerLeave();
+              return;
+            }
+            handleMove(e.clientX);
+          }}
         >
           {!compact &&
             gridPrices.map((price, i) => {

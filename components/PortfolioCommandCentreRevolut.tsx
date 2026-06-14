@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { StockGPTSelect } from "@/components/StockGPTSelect";
@@ -165,6 +165,18 @@ function hasChartPoints(data: Partial<Record<TimeRange, ChartPoint[]>>, range: T
   return (data[range]?.length ?? 0) > 1;
 }
 
+function portfolioReturnBasis(summary: Pick<ReturnType<typeof buildPortfolioHealthSummary>, "totalValue" | "totalPnl" | "totalPnlPct">) {
+  const pctFraction = summary.totalPnlPct / 100;
+  if (Number.isFinite(pctFraction) && Math.abs(pctFraction) > 0.000001) {
+    const basis = summary.totalPnl / pctFraction;
+    if (Number.isFinite(basis) && basis > 0) return basis;
+  }
+
+  const fallback = summary.totalValue - summary.totalPnl;
+  if (Number.isFinite(fallback) && fallback > 0) return fallback;
+  return Math.max(summary.totalValue, 1);
+}
+
 function SectionIcon({ section }: { section: Section }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (section === "overview") return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M4 13.5 9.5 8l4 4L20 5.5" /><path {...common} d="M4 19h16" /></svg>;
@@ -211,10 +223,33 @@ function PortfolioChartHero({ portfolioId, portfolios, portfolioName, currency, 
   const [range, setRange] = useState<TimeRange>(DEFAULT_PORTFOLIO_RANGE);
   const fallbackRange = useMemo(() => preferredInitialRange(rangeData), [rangeData]);
   const activeRange = hasChartPoints(rangeData, range) ? range : fallbackRange;
-  const activeRangeHasData = hasChartPoints(rangeData, activeRange);
-  const chartRangeData = activeRangeHasData ? ({ [activeRange]: rangeData[activeRange] } as Partial<Record<TimeRange, ChartPoint[]>>) : ({ [activeRange]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
+  const activeRangePoints = useMemo(() => rangeData[activeRange] ?? [], [rangeData, activeRange]);
+  const activeRangeHasData = activeRangePoints.length > 1;
+  const chartRangeData = activeRangeHasData ? ({ [activeRange]: activeRangePoints } as Partial<Record<TimeRange, ChartPoint[]>>) : ({ [activeRange]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
   const availableRanges = RANGE_LABELS.filter(({ range: itemRange }) => hasChartPoints(rangeData, itemRange));
-  const isPositive = summary.totalPnl >= 0;
+  const activeRangeSignature = useMemo(
+    () => activeRangePoints.map((point) => `${point.date}:${point.close}`).join(";"),
+    [activeRangePoints],
+  );
+  const scrubScope = [
+    portfolioId,
+    activeRange,
+    summary.totalValue,
+    summary.totalPnl,
+    summary.totalPnlPct,
+    activeRangeSignature,
+  ].join("|");
+  const [scrubState, setScrubState] = useState<{ scope: string; point: ChartPoint } | null>(null);
+  const scrubPoint = scrubState?.scope === scrubScope ? scrubState.point : null;
+  const handleChartScrub = useCallback((point: ChartPoint | null) => {
+    setScrubState(point ? { scope: scrubScope, point } : null);
+  }, [scrubScope]);
+  const returnBasis = useMemo(() => portfolioReturnBasis(summary), [summary]);
+  const hasScrubPoint = scrubPoint !== null && Number.isFinite(scrubPoint.close);
+  const displayedValue = hasScrubPoint ? scrubPoint.close : summary.totalValue;
+  const displayedReturn = hasScrubPoint ? displayedValue - returnBasis : summary.totalPnl;
+  const displayedReturnPct = hasScrubPoint && returnBasis > 0 ? (displayedReturn / returnBasis) * 100 : summary.totalPnlPct;
+  const isPositive = displayedReturn >= 0;
   const portfolioOptions = portfolios.map((portfolio) => ({ value: portfolio.id, label: portfolio.name, description: portfolio.createdAt ? `Created ${formatDate(portfolio.createdAt)}` : portfolio.currency ?? "USD" }));
   return (
     <section className="portfolio-chart-hero relative overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[radial-gradient(circle_at_50%_8%,rgba(221,177,89,0.13),transparent_34%),linear-gradient(180deg,#092116_0%,#04140c_56%,#020805_100%)] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[32px]">
@@ -222,14 +257,14 @@ function PortfolioChartHero({ portfolioId, portfolios, portfolioName, currency, 
         <div className="flex flex-col items-center gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             {portfolios.length > 1 ? <><StockGPTSelect value={portfolioId} options={portfolioOptions} onChange={(nextPortfolioId) => router.push(`/portfolio?portfolio=${nextPortfolioId}`)} ariaLabel="Choose portfolio" className="mx-auto max-w-[260px] sm:hidden" buttonClassName="h-8 rounded-full border border-[#ddb159]/18 bg-transparent px-3 text-[10px] uppercase tracking-[0.16em] text-[#ddb159]" /><p className="hidden truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] sm:block">{portfolioName}</p></> : <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">{portfolioName}</p>}
-            <h1 className="mt-3 text-[42px] font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]">{money(summary.totalValue, currency)}</h1>
-            <p className={["mt-2 text-[14px] font-black tabular-nums sm:text-[16px]", isPositive ? "text-emerald-300" : "text-red-200"].join(" ")}>{money(summary.totalPnl, currency)} total return · {pct(summary.totalPnlPct)}</p>
+            <h1 className="mt-3 text-[42px] font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]">{money(displayedValue, currency)}</h1>
+            <p className={["mt-2 text-[14px] font-black tabular-nums sm:text-[16px]", isPositive ? "text-emerald-300" : "text-red-200"].join(" ")}>{money(displayedReturn, currency)} total return · {pct(displayedReturnPct)}</p>
           </div>
           <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex"><span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#072116]">Health {summary.score}/100</span><span className="hidden text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:inline">{summary.label}</span></div>
         </div>
         <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between"><p className="hidden text-[11px] font-semibold text-[#faf6f0]/46 sm:block">Since {formatDate(createdAt)} · contribution-adjusted portfolio performance</p><div className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.07] p-1">{availableRanges.map(({ range: itemRange, label }) => <button key={itemRange} type="button" onClick={() => setRange(itemRange)} className={["h-8 rounded-full px-3 text-[10px] font-black transition", activeRange === itemRange ? "bg-[#faf6f0] text-[#072116]" : "text-[#faf6f0]/52 hover:text-[#faf6f0]"].join(" ")}>{label}</button>)}</div></div>
       </div>
-      <div className="relative -mx-5 sm:mx-0"><StockChart key={`${activeRange}-${activeRangeHasData ? "ready" : "pending"}`} ticker="Portfolio" data={chartRangeData} initialRange={activeRange} height={260} compact color="#ddb159" mobileTransparentFrame /></div>
+      <div className="relative -mx-5 sm:mx-0"><StockChart key={`${portfolioId}-${activeRange}-${activeRangeHasData ? "ready" : "pending"}`} ticker="Portfolio" data={chartRangeData} initialRange={activeRange} height={260} compact color="#ddb159" mobileTransparentFrame onScrub={handleChartScrub} /></div>
       <div className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left"><div className="px-4 py-3"><p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Open positions</p><p className="mt-1 text-[18px] font-black">{summary.holdingsCount}</p></div><div className="px-4 py-3"><p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Weighted score</p><p className="mt-1 text-[18px] font-black text-[#ddb159]">{summary.weightedAvgScore ?? "—"}</p></div><div className="px-4 py-3"><p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/38">Cash</p><p className="mt-1 text-[18px] font-black">{money(cashBalance, currency)}</p><p className="mt-0.5 text-[10px] font-bold text-[#faf6f0]/42">{summary.cashDrag.toFixed(1)}% drag</p></div></div>
     </section>
   );
