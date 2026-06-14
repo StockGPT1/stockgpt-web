@@ -11,6 +11,7 @@ function cleanTicker(value: string | null | undefined) {
 }
 
 function num(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -30,11 +31,30 @@ function signedPct(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
+function describeRsi(value: number | null) {
+  if (value == null) return null;
+  if (value < 30) return `RSI ${value.toFixed(1)} is oversold`;
+  if (value < 40) return `RSI ${value.toFixed(1)} shows weak momentum`;
+  if (value > 70) return `RSI ${value.toFixed(1)} is overbought`;
+  if (value > 60) return `RSI ${value.toFixed(1)} shows strong momentum`;
+  return `RSI ${value.toFixed(1)} is neutral`;
+}
+
+function describeMacd(value: FinancialMetrics["macdSignal"]) {
+  if (value === "bullish_cross") return "MACD has crossed bullish";
+  if (value === "bearish_cross") return "MACD has crossed bearish";
+  if (value === "bullish") return "MACD is bullish";
+  if (value === "bearish") return "MACD is bearish";
+  if (value === "neutral") return "MACD is neutral";
+  return null;
+}
+
 function rangePosition(metrics: FinancialMetrics | null) {
   const price = num(metrics?.regularMarketPrice);
   const low = num(metrics?.fiftyTwoWeekLow);
   const high = num(metrics?.fiftyTwoWeekHigh);
   if (price == null || low == null || high == null || high <= low) return null;
+  if (low < price * 0.35 || high > price * 1.85) return null;
   return ((price - low) / (high - low)) * 100;
 }
 
@@ -42,27 +62,32 @@ function metricSummary(metrics: FinancialMetrics | null) {
   if (!metrics) return "No quote or chart metrics were returned for this ticker.";
 
   const items: string[] = [];
+  const rsi = describeRsi(num(metrics.rsi14));
+  const macd = describeMacd(metrics.macdSignal);
+  if (rsi) items.push(rsi);
+  if (macd) items.push(macd);
+  if (num(metrics.ma50) != null && num(metrics.regularMarketPrice) != null) {
+    const price = num(metrics.regularMarketPrice)!;
+    const ma50 = num(metrics.ma50)!;
+    items.push(`price is ${price >= ma50 ? "above" : "below"} the 50-day average (${money(ma50)})`);
+  }
+  if (num(metrics.sixMonthChangePct) != null) items.push(`6M price change ${signedPct(num(metrics.sixMonthChangePct)!)} `);
   if (num(metrics.forwardPE) != null) items.push(`forward P/E ${multiple(num(metrics.forwardPE)!)} `);
   if (num(metrics.trailingPE) != null) items.push(`trailing P/E ${multiple(num(metrics.trailingPE)!)} `);
-  if (num(metrics.epsForward) != null) items.push(`forward EPS ${num(metrics.epsForward)!.toFixed(2)}`);
-  if (num(metrics.epsTrailingTwelveMonths) != null) items.push(`trailing EPS ${num(metrics.epsTrailingTwelveMonths)!.toFixed(2)}`);
+  if (num(metrics.epsForward) != null && num(metrics.epsTrailingTwelveMonths) != null) {
+    items.push(`forward EPS ${num(metrics.epsForward)!.toFixed(2)} vs trailing EPS ${num(metrics.epsTrailingTwelveMonths)!.toFixed(2)}`);
+  }
   if (num(metrics.priceToBook) != null) items.push(`price/book ${multiple(num(metrics.priceToBook)!)} `);
-  if (num(metrics.dividendYieldPct) != null) items.push(`dividend yield ${num(metrics.dividendYieldPct)!.toFixed(1)}%`);
-  if (num(metrics.marketCap) != null) items.push(`market cap ${money(num(metrics.marketCap)!)} `);
-  if (num(metrics.rsi14) != null) items.push(`RSI ${num(metrics.rsi14)!.toFixed(1)}`);
-  if (num(metrics.ma50) != null) items.push(`50-day average ${money(num(metrics.ma50)!)} `);
-  if (num(metrics.ma200) != null) items.push(`200-day average ${money(num(metrics.ma200)!)} `);
-  if (num(metrics.sixMonthChangePct) != null) items.push(`6M price change ${signedPct(num(metrics.sixMonthChangePct)!)} `);
   const pos = rangePosition(metrics);
-  if (pos != null) items.push(`52-week range position ${pos.toFixed(0)}%`);
+  if (pos != null) items.push(`range position ${pos.toFixed(0)}%`);
 
   const sourceNote = metrics.metricsSource === "chart"
-    ? "Yahoo did not return fundamentals, so this uses fetched chart/technical context."
+    ? "Yahoo fundamentals were unavailable, so this uses fetched RSI/MACD/chart context."
     : metrics.metricsSource === "quote+chart"
-      ? "This uses Yahoo quote fundamentals plus fetched chart context."
+      ? "This uses fetched RSI/MACD/chart context plus Yahoo fundamentals."
       : "This uses Yahoo quote fundamentals.";
 
-  return items.length ? `${sourceNote} ${items.join(" · ")}.` : "Yahoo returned the ticker but no usable fundamentals or chart metrics.";
+  return items.length ? `${sourceNote} ${items.slice(0, 5).join(" · ")}.` : "No usable fundamentals or technical metrics were returned for this ticker.";
 }
 
 function makeMetricCard(labelText: string, valueText: string, detailText: string) {
@@ -93,15 +118,20 @@ function metricCards(metrics: FinancialMetrics | null) {
   if (!metrics) return [makeMetricCard("Data", "Limited", "No quote or chart metrics were returned for this ticker.")];
 
   const pos = rangePosition(metrics);
+  const rsi = num(metrics.rsi14);
+  const macd = describeMacd(metrics.macdSignal);
+  const ma50 = num(metrics.ma50);
+  const ma200 = num(metrics.ma200);
+  const price = num(metrics.regularMarketPrice);
   const cards = [
+    makeMetricCard("RSI", rsi != null ? rsi.toFixed(1) : "—", rsi != null ? `14-period RSI from fetched chart history is ${rsi.toFixed(1)}.` : "RSI unavailable."),
+    makeMetricCard("MACD", macd ? macd.replace("MACD ", "") : "—", macd ?? "MACD unavailable."),
+    makeMetricCard("Moving avg", ma50 != null ? money(ma50) : "—", `${ma50 != null ? `50-day average ${money(ma50)}.` : "50-day average unavailable."}${ma200 != null ? ` 200-day average ${money(ma200)}.` : " 200-day average unavailable."}${price != null && ma50 != null ? ` Price is ${price >= ma50 ? "above" : "below"} the 50-day average.` : ""}`),
+    makeMetricCard("6M trend", num(metrics.sixMonthChangePct) != null ? signedPct(num(metrics.sixMonthChangePct)!) : "—", num(metrics.sixMonthChangePct) != null ? `Price change over the fetched six-month window is ${signedPct(num(metrics.sixMonthChangePct)!)}.` : "Six-month price change unavailable."),
     makeMetricCard("P/E", num(metrics.forwardPE) != null ? multiple(num(metrics.forwardPE)!) : num(metrics.trailingPE) != null ? multiple(num(metrics.trailingPE)!) : "—", `Forward P/E: ${num(metrics.forwardPE) != null ? multiple(num(metrics.forwardPE)!) : "unavailable"}; trailing P/E: ${num(metrics.trailingPE) != null ? multiple(num(metrics.trailingPE)!) : "unavailable"}.`),
     makeMetricCard("EPS", num(metrics.epsForward) != null ? metrics.epsForward!.toFixed(2) : num(metrics.epsTrailingTwelveMonths) != null ? metrics.epsTrailingTwelveMonths!.toFixed(2) : "—", `Forward EPS: ${num(metrics.epsForward) != null ? metrics.epsForward!.toFixed(2) : "unavailable"}; trailing EPS: ${num(metrics.epsTrailingTwelveMonths) != null ? metrics.epsTrailingTwelveMonths!.toFixed(2) : "unavailable"}.`),
-    makeMetricCard("RSI", num(metrics.rsi14) != null ? num(metrics.rsi14)!.toFixed(1) : "—", num(metrics.rsi14) != null ? `14-period RSI from fetched chart history is ${num(metrics.rsi14)!.toFixed(1)}.` : "RSI unavailable."),
-    makeMetricCard("Moving avg", num(metrics.ma50) != null ? money(num(metrics.ma50)!) : "—", `${num(metrics.ma50) != null ? `50-day average ${money(num(metrics.ma50)!)}.` : "50-day average unavailable."}${num(metrics.ma200) != null ? ` 200-day average ${money(num(metrics.ma200)!)}.` : " 200-day average unavailable."}`),
-    makeMetricCard("52-week", pos != null ? `${pos.toFixed(0)}%` : "—", pos != null ? `Current price is ${pos.toFixed(0)}% of the way from 52-week low to 52-week high.` : "52-week range data is unavailable."),
-    makeMetricCard("6M trend", num(metrics.sixMonthChangePct) != null ? signedPct(num(metrics.sixMonthChangePct)!) : "—", num(metrics.sixMonthChangePct) != null ? `Price change over the fetched six-month window is ${signedPct(num(metrics.sixMonthChangePct)!)}.` : "Six-month price change unavailable."),
     makeMetricCard("Price/book", num(metrics.priceToBook) != null ? multiple(num(metrics.priceToBook)!) : "—", num(metrics.priceToBook) != null ? `Price/book is ${multiple(num(metrics.priceToBook)!)}.` : "Price/book is unavailable."),
-    makeMetricCard("Size / yield", num(metrics.marketCap) != null ? money(num(metrics.marketCap)!) : "—", `${num(metrics.marketCap) != null ? `Market cap is ${money(num(metrics.marketCap)!)}.` : "Market cap unavailable."}${num(metrics.dividendYieldPct) != null ? ` Dividend yield is ${num(metrics.dividendYieldPct)!.toFixed(1)}%.` : " Dividend yield unavailable."}`),
+    makeMetricCard("Range", pos != null ? `${pos.toFixed(0)}%` : "—", pos != null ? `Current price is ${pos.toFixed(0)}% of the cleaned recent range.` : "Range omitted because the quote range looked unavailable or distorted."),
   ];
 
   return cards;
