@@ -1,5 +1,4 @@
 -- SUPERSEDED
 -- Do not run this file for exact StockGPT SL/TP behaviour.
--- The earlier version used an approximate database trigger.
 -- Exact SL/TP must come from the app trade-plan calculation that powers the stock page Suggested Levels card.
 -- If the old trigger was already applied, run supabase/remove_portfolio_entry_trade_level_trigger.sql.
