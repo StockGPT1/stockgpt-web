@@ -42,6 +42,9 @@ export type PortfolioPriceFetcher = (
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
+const ONE_HOUR_MS = 3_600_000;
+const ONE_DAY_MS = 86_400_000;
+const MARKET_TIME_ZONE = "America/New_York";
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1D": 1,
   "1M": 30,
@@ -59,6 +62,14 @@ const FALLBACK_RANGES: Record<TimeRange, TimeRange[]> = {
 };
 const EPSILON = 0.000001;
 const MAX_POINTS = 260;
+
+const marketDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: MARKET_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  weekday: "short",
+});
 
 type Lot = {
   ticker: string;
@@ -78,6 +89,13 @@ type NormalisedHolding = {
   entryPrice: number;
   currentPrice: number;
   startMs: number;
+};
+
+type MarketDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  weekday: string;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -114,6 +132,132 @@ function pointMs(point: ChartPoint) {
 
 function normaliseTransactionType(type: string | null | undefined) {
   return String(type ?? "").trim().toLowerCase();
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function isoDateKey(year: number, month: number, day: number) {
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+function datePartsFromUtc(date: Date) {
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function getMarketDateParts(ms: number): MarketDateParts | null {
+  const parts = marketDateFormatter.formatToParts(new Date(ms));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const year = Number(values.year);
+  const month = Number(values.month);
+  const day = Number(values.day);
+  const weekday = String(values.weekday ?? "");
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return { year, month, day, weekday };
+}
+
+function nthWeekdayOfMonth(year: number, month: number, weekday: number, occurrence: number) {
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const offset = (weekday - first.getUTCDay() + 7) % 7;
+  return 1 + offset + (occurrence - 1) * 7;
+}
+
+function lastWeekdayOfMonth(year: number, month: number, weekday: number) {
+  const last = new Date(Date.UTC(year, month, 0));
+  return last.getUTCDate() - ((last.getUTCDay() - weekday + 7) % 7);
+}
+
+function observedFixedHoliday(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay();
+  if (weekday === 6) date.setUTCDate(date.getUTCDate() - 1);
+  if (weekday === 0) date.setUTCDate(date.getUTCDate() + 1);
+  return datePartsFromUtc(date);
+}
+
+function easterSundayDate(year: number) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function goodFridayDate(year: number) {
+  const easter = easterSundayDate(year);
+  easter.setUTCDate(easter.getUTCDate() - 2);
+  return datePartsFromUtc(easter);
+}
+
+function marketHolidayKeysForYear(year: number) {
+  const holidays = new Set<string>();
+  const add = ({ year: y, month, day }: { year: number; month: number; day: number }) => {
+    if (y === year) holidays.add(isoDateKey(y, month, day));
+  };
+
+  add(observedFixedHoliday(year, 1, 1));
+  add({ year, month: 1, day: nthWeekdayOfMonth(year, 1, 1, 3) });
+  add({ year, month: 2, day: nthWeekdayOfMonth(year, 2, 1, 3) });
+  add(goodFridayDate(year));
+  add({ year, month: 5, day: lastWeekdayOfMonth(year, 5, 1) });
+  add(observedFixedHoliday(year, 6, 19));
+  add(observedFixedHoliday(year, 7, 4));
+  add({ year, month: 9, day: nthWeekdayOfMonth(year, 9, 1, 1) });
+  add({ year, month: 11, day: nthWeekdayOfMonth(year, 11, 4, 4) });
+  add(observedFixedHoliday(year, 12, 25));
+
+  return holidays;
+}
+
+const marketHolidayCache = new Map<number, Set<string>>();
+
+function getMarketHolidayKeys(year: number) {
+  const cached = marketHolidayCache.get(year);
+  if (cached) return cached;
+  const holidays = marketHolidayKeysForYear(year);
+  marketHolidayCache.set(year, holidays);
+  return holidays;
+}
+
+function isMarketBusinessDay(ms: number) {
+  const parts = getMarketDateParts(ms);
+  if (!parts) return false;
+  if (parts.weekday === "Sat" || parts.weekday === "Sun") return false;
+  return !getMarketHolidayKeys(parts.year).has(isoDateKey(parts.year, parts.month, parts.day));
+}
+
+function previousMarketBusinessMs(ms: number) {
+  let cursor = ms;
+  for (let i = 0; i < 24 * 14; i += 1) {
+    if (isMarketBusinessDay(cursor)) return cursor;
+    cursor -= ONE_HOUR_MS;
+  }
+  return ms;
+}
+
+function buildOneDayMarketHourTimes(nowMs: number) {
+  const times: number[] = [];
+  let cursor = previousMarketBusinessMs(nowMs);
+  for (let i = 0; times.length < 24 && i < 24 * 21; i += 1) {
+    if (isMarketBusinessDay(cursor)) times.push(cursor);
+    cursor -= ONE_HOUR_MS;
+  }
+  return times.sort((a, b) => a - b);
 }
 
 function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
@@ -384,13 +528,14 @@ function priceAtTime({
   if (targetMs >= nowMs - 60_000 && currentPrice > 0) return currentPrice;
 
   let candidate = lot.entryPrice > 0 ? lot.entryPrice : currentPrice;
+  const earliestLookupMs = range === "1D" ? 0 : lot.startMs;
 
   for (const lookupRange of FALLBACK_RANGES[range]) {
     let foundRangePrice = false;
     const points = charts.get(`${ticker}:${lookupRange}`) ?? [];
     for (const point of points) {
       const ms = pointMs(point);
-      if (ms == null || ms < lot.startMs) continue;
+      if (ms == null || ms < earliestLookupMs) continue;
       if (ms > targetMs) break;
       candidate = point.close;
       foundRangePrice = true;
@@ -406,9 +551,10 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
+  if (range === "1D") return Math.max(0, buildOneDayMarketHourTimes(nowMs)[0] ?? nowMs - 23 * ONE_HOUR_MS);
   const days = RANGE_DAYS[range];
   if (!days) return portfolioStartMs;
-  return Math.max(portfolioStartMs, nowMs - days * 86_400_000);
+  return Math.max(portfolioStartMs, nowMs - days * ONE_DAY_MS);
 }
 
 function collectTimes({
@@ -426,6 +572,8 @@ function collectTimes({
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
+  if (range === "1D") return buildOneDayMarketHourTimes(nowMs);
+
   const times = new Set<number>([rangeStartMs, nowMs]);
 
   lots.forEach((lot) => {
@@ -446,10 +594,16 @@ function collectTimes({
     if (event.ms >= rangeStartMs && event.ms <= nowMs) times.add(event.ms);
   });
 
-  if (times.size < 2 && nowMs > rangeStartMs) times.add(nowMs);
-  if (times.size < 2) times.add(Math.max(0, nowMs - 60_000));
+  let output = Array.from(times).filter((ms) => range === "MAX" || isMarketBusinessDay(ms));
+  if (output.length < 2 && range !== "MAX") {
+    const end = previousMarketBusinessMs(nowMs);
+    output = [Math.max(rangeStartMs, end - (RANGE_DAYS[range] ?? 1) * ONE_DAY_MS), end].filter(isMarketBusinessDay);
+  }
 
-  return Array.from(times).sort((a, b) => a - b);
+  if (output.length < 2 && nowMs > rangeStartMs) output.push(nowMs);
+  if (output.length < 2) output.push(Math.max(0, nowMs - 60_000));
+
+  return Array.from(new Set(output)).sort((a, b) => a - b);
 }
 
 function buildRangeSeries({
@@ -471,10 +625,12 @@ function buildRangeSeries({
 }) {
   const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
   const times = collectTimes({ range, rangeStartMs, nowMs, lots, cashEvents, charts });
+  const currentCash = cashAtTime(cashEvents, nowMs);
 
   const points = times.map((ms) => {
     const holdingsValue = lots.reduce((sum, lot) => {
-      if (ms < lot.startMs || lot.shares <= EPSILON) return sum;
+      if (range !== "1D" && ms < lot.startMs) return sum;
+      if (lot.shares <= EPSILON) return sum;
       const price = priceAtTime({
         ticker: lot.ticker,
         targetMs: ms,
@@ -489,7 +645,7 @@ function buildRangeSeries({
 
     return {
       date: new Date(ms).toISOString(),
-      close: Math.max(0, roundMoney(cashAtTime(cashEvents, ms) + holdingsValue)),
+      close: Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue)),
     };
   });
 

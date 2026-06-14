@@ -5,7 +5,6 @@ import {
   type AlertSeverity,
   type AlertType,
   type HoldingAlert,
-  type HoldingTrigger,
   type RiskTolerance,
 } from "@/lib/portfolio-alerts";
 
@@ -39,6 +38,8 @@ type HoldingRow = {
   entry_price: number | null;
   score_at_entry: number | null;
   rank_at_entry: number | null;
+  risk_level_at_entry: number | null;
+  target_level_at_entry: number | null;
   added_at: string | null;
   last_reviewed_at: string | null;
   shares: number | null;
@@ -85,7 +86,7 @@ function buildLegacyAlertKey(ticker: string, type: string, dateStr: string): str
   return `${ticker}:${type}:${year}w${week}`;
 }
 
-function buildTriggerKey({
+function buildLevelKey({
   portfolioId,
   ticker,
   type,
@@ -99,16 +100,8 @@ function buildTriggerKey({
   return `${portfolioId}:${ticker}:${type}:${level.toFixed(2)}`;
 }
 
-function buildLegacyTriggerKey(ticker: string, type: string, level: number): string {
+function buildLegacyLevelKey(ticker: string, type: string, level: number): string {
   return `${ticker}:${type}:${level.toFixed(2)}`;
-}
-
-function extractDollarLevel(text: string): number | null {
-  const match = text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.\d+)?)/);
-  if (!match) return null;
-
-  const level = Number(match[1].replace(/,/g, ""));
-  return Number.isFinite(level) && level > 0 ? level : null;
 }
 
 function stripInternal(notification: BuiltNotification): Notification {
@@ -116,13 +109,52 @@ function stripInternal(notification: BuiltNotification): Notification {
   return clean;
 }
 
-function buildTriggeredPriceNotification({
+function buildTrimNotification({
+  portfolioId,
+  portfolioName,
+  ticker,
+  company,
+  alert,
+  today,
+}: {
+  portfolioId: string;
+  portfolioName: string;
+  ticker: string;
+  company: string | null;
+  alert: HoldingAlert;
+  today: string;
+}): BuiltNotification {
+  const key = buildAlertKey({
+    portfolioId,
+    ticker,
+    type: alert.type,
+    dateStr: today,
+  });
+
+  return {
+    key,
+    dismissalKeys: [key, buildLegacyAlertKey(ticker, alert.type, today)],
+    portfolioId,
+    portfolioName,
+    ticker,
+    company,
+    type: alert.type,
+    severity: alert.severity,
+    title: alert.title,
+    message: alert.message,
+    recommendation: alert.recommendation,
+    createdAt: today,
+  };
+}
+
+function buildStoredTradeLevelNotifications({
   portfolioId,
   portfolioName,
   ticker,
   company,
   currentPrice,
-  trigger,
+  riskLevelAtEntry,
+  targetLevelAtEntry,
   today,
 }: {
   portfolioId: string;
@@ -130,57 +162,35 @@ function buildTriggeredPriceNotification({
   ticker: string;
   company: string | null;
   currentPrice: number;
-  trigger: HoldingTrigger;
+  riskLevelAtEntry: number | null;
+  targetLevelAtEntry: number | null;
   today: string;
-}): BuiltNotification | null {
-  const level = extractDollarLevel(trigger.condition);
-
-  if (!level || !Number.isFinite(currentPrice) || currentPrice <= 0) {
-    return null;
+}): BuiltNotification[] {
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return [];
   }
 
-  if (trigger.type === "take_profit" && currentPrice >= level) {
-    const key = buildTriggerKey({
+  const notifications: BuiltNotification[] = [];
+
+  if (
+    riskLevelAtEntry !== null &&
+    Number.isFinite(riskLevelAtEntry) &&
+    riskLevelAtEntry > 0 &&
+    currentPrice <= riskLevelAtEntry
+  ) {
+    const key = buildLevelKey({
       portfolioId,
       ticker,
-      type: "take_profit_hit",
-      level,
+      type: "entry_risk_level_hit",
+      level: riskLevelAtEntry,
     });
 
-    return {
+    notifications.push({
       key,
       dismissalKeys: [
         key,
-        buildLegacyTriggerKey(ticker, "take_profit_hit", level),
-      ],
-      portfolioId,
-      portfolioName,
-      ticker,
-      company,
-      type: "price_event",
-      severity: "success",
-      title: `${ticker} has hit its take-profit area`,
-      message: `Current price is $${currentPrice.toFixed(
-        2,
-      )}, above the take-profit level near $${level.toFixed(2)}.`,
-      recommendation: trigger.action,
-      createdAt: today,
-    };
-  }
-
-  if (trigger.type === "stop_loss" && currentPrice <= level) {
-    const key = buildTriggerKey({
-      portfolioId,
-      ticker,
-      type: "stop_loss_hit",
-      level,
-    });
-
-    return {
-      key,
-      dismissalKeys: [
-        key,
-        buildLegacyTriggerKey(ticker, "stop_loss_hit", level),
+        buildLegacyLevelKey(ticker, "entry_risk_level_hit", riskLevelAtEntry),
+        buildLegacyLevelKey(ticker, "stop_loss_hit", riskLevelAtEntry),
       ],
       portfolioId,
       portfolioName,
@@ -188,16 +198,57 @@ function buildTriggeredPriceNotification({
       company,
       type: "price_event",
       severity: "critical",
-      title: `${ticker} has hit its stop-loss area`,
+      title: `${ticker} has hit its buy-time risk level`,
       message: `Current price is $${currentPrice.toFixed(
         2,
-      )}, below the risk level near $${level.toFixed(2)}.`,
-      recommendation: trigger.action,
+      )}, at or below the stored buy-time risk level near $${riskLevelAtEntry.toFixed(
+        2,
+      )}.`,
+      recommendation:
+        "Review the position against the risk level saved when the holding was bought.",
       createdAt: today,
-    };
+    });
   }
 
-  return null;
+  if (
+    targetLevelAtEntry !== null &&
+    Number.isFinite(targetLevelAtEntry) &&
+    targetLevelAtEntry > 0 &&
+    currentPrice >= targetLevelAtEntry
+  ) {
+    const key = buildLevelKey({
+      portfolioId,
+      ticker,
+      type: "entry_target_level_hit",
+      level: targetLevelAtEntry,
+    });
+
+    notifications.push({
+      key,
+      dismissalKeys: [
+        key,
+        buildLegacyLevelKey(ticker, "entry_target_level_hit", targetLevelAtEntry),
+        buildLegacyLevelKey(ticker, "take_profit_hit", targetLevelAtEntry),
+      ],
+      portfolioId,
+      portfolioName,
+      ticker,
+      company,
+      type: "price_event",
+      severity: "success",
+      title: `${ticker} has hit its buy-time target level`,
+      message: `Current price is $${currentPrice.toFixed(
+        2,
+      )}, at or above the stored buy-time target level near $${targetLevelAtEntry.toFixed(
+        2,
+      )}.`,
+      recommendation:
+        "Review whether the target saved when the holding was bought has now been met.",
+      createdAt: today,
+    });
+  }
+
+  return notifications;
 }
 
 export async function getUserNotifications({
@@ -236,7 +287,7 @@ export async function getUserNotifications({
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
     .select(
-      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
+      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
     )
     .in("portfolio_id", portfolioIds);
 
@@ -287,47 +338,49 @@ export async function getUserNotifications({
         riskTolerance,
       );
 
+      const storedLevelsByTicker = new Map(
+        portfolioHoldings.map((holding) => [
+          String(holding.ticker).toUpperCase(),
+          {
+            riskLevelAtEntry: holding.risk_level_at_entry,
+            targetLevelAtEntry: holding.target_level_at_entry,
+          },
+        ]),
+      );
+
       enriched.forEach((holding) => {
-        holding.alerts.forEach((alert: HoldingAlert) => {
-          const key = buildAlertKey({
-            portfolioId: portfolio.id,
-            ticker: holding.ticker,
-            type: alert.type,
-            dateStr: today,
+        holding.alerts
+          .filter((alert: HoldingAlert) => alert.type === "trim_action")
+          .forEach((alert: HoldingAlert) => {
+            allNotifications.push(
+              buildTrimNotification({
+                portfolioId: portfolio.id,
+                portfolioName,
+                ticker: holding.ticker,
+                company: holding.company,
+                alert,
+                today,
+              }),
+            );
           });
 
-          allNotifications.push({
-            key,
-            dismissalKeys: [
-              key,
-              buildLegacyAlertKey(holding.ticker, alert.type, today),
-            ],
-            portfolioId: portfolio.id,
-            portfolioName,
-            ticker: holding.ticker,
-            company: holding.company,
-            type: alert.type,
-            severity: alert.severity,
-            title: alert.title,
-            message: alert.message,
-            recommendation: alert.recommendation,
-            createdAt: today,
-          });
-        });
+        const storedLevels = storedLevelsByTicker.get(holding.ticker) ?? {
+          riskLevelAtEntry: null,
+          targetLevelAtEntry: null,
+        };
 
-        holding.triggers.forEach((trigger) => {
-          const notification = buildTriggeredPriceNotification({
+        allNotifications.push(
+          ...buildStoredTradeLevelNotifications({
             portfolioId: portfolio.id,
             portfolioName,
             ticker: holding.ticker,
             company: holding.company,
             currentPrice: holding.currentPrice,
-            trigger,
+            riskLevelAtEntry: storedLevels.riskLevelAtEntry,
+            targetLevelAtEntry: storedLevels.targetLevelAtEntry,
             today,
-          });
-
-          if (notification) allNotifications.push(notification);
-        });
+          }),
+        );
       });
     }),
   );

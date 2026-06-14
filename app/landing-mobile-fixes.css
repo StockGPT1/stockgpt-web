@@ -1,0 +1,13 @@
+@media (max-width: 760px) {
+  main.sg-landing:has(button[aria-label="Dismiss investment risk notice"]) .sg-page-soft > section:first-of-type {
+    padding-top: 11.75rem !important;
+  }
+
+  main.sg-landing:not(:has(button[aria-label="Dismiss investment risk notice"])) .sg-page-soft > section:first-of-type {
+    padding-top: 6.9rem !important;
+  }
+
+  main.sg-landing .sg-page-soft > section:first-of-type > div > div > div:first-child > div:first-child {
+    margin-top: 0.35rem !important;
+  }
+}

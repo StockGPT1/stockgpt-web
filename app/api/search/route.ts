@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { getStableRankings } from "@/lib/stable-rankings";
 import {
   checkRateLimit,
   getClientIp,
@@ -166,28 +167,30 @@ export async function GET(req: NextRequest) {
   const hasAccess = isActiveSubscription(profile?.subscription_status);
 
   if (hasAccess) {
-    const { data, error } = await supabase
-      .from("stock_rankings")
-      .select("ticker, company, sector, rank, score")
-      .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
-      .order("rank", { ascending: true, nullsFirst: false })
-      .limit(8);
+    try {
+      const lower = q.toLowerCase();
+      const data = (await getStableRankings(supabase))
+        .filter((row) => {
+          const ticker = String(row.ticker ?? "").toLowerCase();
+          const company = String(row.company ?? "").toLowerCase();
+          return ticker.startsWith(lower) || company.includes(lower);
+        })
+        .slice(0, 8);
 
-    if (error) {
-      console.error("[/api/search]", error);
+      const tickers: SubscriberTickerResult[] = data.map((row) => ({
+        type: "ticker",
+        ticker: row.ticker,
+        company: row.company,
+        sector: row.sector,
+        rank: row.rank,
+        score: row.score,
+      }));
+
+      return json([...features, ...tickers]);
+    } catch (error) {
+      console.error("[/api/search] stable rankings", error);
       return json(features);
     }
-
-    const tickers: SubscriberTickerResult[] = (data ?? []).map((row) => ({
-      type: "ticker",
-      ticker: row.ticker,
-      company: row.company,
-      sector: row.sector,
-      rank: row.rank,
-      score: row.score,
-    }));
-
-    return json([...features, ...tickers]);
   }
 
   const admin = createAdminClient();

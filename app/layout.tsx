@@ -2,11 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
+import { PortfolioHoldingClickPatch } from "@/components/PortfolioHoldingClickPatch";
 import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
 import "./dashboard-right-rail.css";
 import "./portfolio-final-fixes.css";
+import "./portfolio-mobile-reference.css";
+import "./landing-mobile-fixes.css";
 import "./desktop-side-modals.css";
 import "./ask-stockgpt-polish.css";
 import "./ask-stockgpt-mobile-hardening.css";
@@ -97,6 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
+        <PortfolioHoldingClickPatch />
         <Analytics />
         <SpeedInsights />
         <Script id="stockgpt-structured-data" type="application/ld+json">
