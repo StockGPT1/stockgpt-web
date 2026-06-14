@@ -33,6 +33,24 @@ function cleanSector(sector?: string | null) {
   return sector?.trim() || "Unknown sector";
 }
 
+function rankBand(rank: number) {
+  if (rank <= 25) return "elite top-25 rank";
+  if (rank <= 75) return "high-conviction top-75 rank";
+  if (rank <= 150) return "strong top-150 rank";
+  if (rank <= 250) return "middle-of-table rank";
+  if (rank <= 350) return "weaker lower-half rank";
+  return "low rank versus the wider universe";
+}
+
+function dailyMoveLabel(move: number | null) {
+  if (move == null) return null;
+  if (move >= 3) return `price is surging ${move.toFixed(1)}% today`;
+  if (move >= 1.5) return `price is up ${move.toFixed(1)}% today`;
+  if (move <= -3) return `price is selling off ${Math.abs(move).toFixed(1)}% today`;
+  if (move <= -1.5) return `price is down ${Math.abs(move).toFixed(1)}% today`;
+  return `price action is controlled today at ${move >= 0 ? "+" : ""}${move.toFixed(1)}%`;
+}
+
 export function numericScore(stock: ExplainableStock) {
   return n(stock.score, 0);
 }
@@ -172,58 +190,83 @@ export function getFactorExplanations(stock: ExplainableStock, dailyMovePct?: nu
   const move = Number.isFinite(dailyMovePct) ? Number(dailyMovePct) : null;
   const band = scoreBand(score);
 
+  const scoreDetail =
+    score >= 25000
+      ? `Elite score of ${score.toLocaleString()} is one of the clearest reasons this stock ranks highly.`
+      : score >= 16000
+        ? `Strong score of ${score.toLocaleString()} gives the model a solid reason to keep it high on the list.`
+        : score >= 9000
+          ? `Positive score of ${score.toLocaleString()} supports the rank, but it is not elite.`
+          : score > 0
+            ? `Score of ${score.toLocaleString()} is not strong, which is likely holding the rank back.`
+            : "Score data is missing, so this rank needs extra caution.";
+
+  const rankDetail =
+    rank <= 25
+      ? "Top-25 rank means the model currently sees this as one of the strongest opportunities in the covered universe."
+      : rank <= 75
+        ? "Top-75 rank is a high-conviction placement versus the wider list."
+        : rank <= 150
+          ? "Top-150 rank is still strong, but not the very highest conviction tier."
+          : rank <= 250
+            ? "Middle ranking means the stock has some support, but other names currently screen better."
+            : "Lower ranking means the model sees weaker evidence here than in most of the universe.";
+
+  const priceDetail =
+    move == null
+      ? "Daily price movement is unavailable, so the rank is leaning more heavily on score and stored model data."
+      : move >= 2
+        ? `Strong ${move.toFixed(1)}% daily move is giving the rank positive short-term confirmation.`
+        : move > 0
+          ? `Modest ${move.toFixed(1)}% daily gain supports the setup without looking too stretched.`
+          : move <= -2
+            ? `${Math.abs(move).toFixed(1)}% daily fall is a warning: the rank may be about a pullback opportunity, but fresh news needs checking.`
+            : `Controlled ${move.toFixed(1)}% daily move means the ranking is not just chasing a one-day spike.`;
+
   return [
     {
-      label: "Financial strength",
-      value: score >= 16000 ? "Strong" : score >= 9000 ? "Positive" : "Limited",
-      detail:
-        score >= 9000
-          ? `${band} overall AI score suggests the company clears the model's quality checks better than most names.`
-          : "The visible score is not strong enough to treat financial quality as a clear edge without deeper review.",
+      label: "AI score",
+      value: score >= 16000 ? "Strong" : score >= 9000 ? "Positive" : score > 0 ? "Watch" : "Limited",
+      detail: scoreDetail,
     },
     {
-      label: "Growth potential",
-      value: /Technology|Communication|Consumer Discretionary/i.test(sector) || score >= 16000 ? "Positive" : "Neutral",
+      label: "Rank quality",
+      value: rank <= 75 ? "Strong" : rank <= 250 ? "Positive" : "Watch",
+      detail: rankDetail,
+    },
+    {
+      label: "Price confirmation",
+      value: move == null ? "Limited" : move >= 1.5 ? "Strong" : move <= -2 ? "Watch" : "Neutral",
+      detail: priceDetail,
+    },
+    {
+      label: "Sector setup",
+      value: /Technology|Communication|Consumer Discretionary/i.test(sector) ? "Positive" : /Utilities|Consumer Staples|Health Care|Real Estate/i.test(sector) ? "Neutral" : "Neutral",
       detail: /Technology|Communication|Consumer Discretionary/i.test(sector)
-        ? `${sector} exposure means the stock may have more growth sensitivity than defensive sectors.`
-        : "Growth is treated as neutral from the visible ranking data unless the score or sector suggests otherwise.",
+        ? `${sector} exposure can help when investors are rewarding growth and earnings upgrades.`
+        : /Utilities|Consumer Staples|Health Care|Real Estate/i.test(sector)
+          ? `${sector} exposure can be steadier, so the model may be valuing durability more than explosive momentum.`
+          : `${sector} context is secondary here; score, rank and price confirmation are stronger clues than sector alone.`,
     },
     {
-      label: "Price value",
-      value: score >= 12000 && move != null && Math.abs(move) <= 1 ? "Positive" : "Neutral",
-      detail:
-        score >= 12000 && move != null && Math.abs(move) <= 1
-          ? "The model score is strong while the daily move is not stretched, which makes it a cleaner research setup."
-          : "No direct valuation metric is shown here, so use this as a prompt to check valuation before buying.",
-    },
-    {
-      label: "Market trend",
-      value: move == null ? "Limited" : move > 1.5 ? "Strong" : move < -2 ? "Watch" : "Neutral",
-      detail:
-        move == null
-          ? "Daily price movement is unavailable."
-          : move > 1.5
-            ? `The stock is up ${move.toFixed(1)}% today, giving the ranking positive short-term confirmation.`
-            : move < -2
-              ? `The stock is down ${Math.abs(move).toFixed(1)}% today, so check whether the move is news-driven before acting.`
-              : "Daily price action is relatively controlled, so the ranking signal is not being dominated by a sharp one-day move.",
-    },
-    {
-      label: "Risk level",
-      value: rank <= 75 && score >= 16000 ? "Positive" : rank > 300 ? "Watch" : "Neutral",
+      label: "Risk read",
+      value: rank <= 75 && score >= 16000 ? "Positive" : rank > 300 || score < 4500 ? "Watch" : "Neutral",
       detail:
         rank <= 75 && score >= 16000
-          ? "High rank and strong score reduce model risk, though position sizing still matters."
-          : rank > 300
-            ? "Lower-ranked names carry more model risk and should be reviewed more carefully."
-            : "Risk looks balanced from the visible ranking data, but it still depends on portfolio exposure and news.",
+          ? "High rank plus strong score reduces model-risk versus lower-ranked names, though position sizing still matters."
+          : rank > 300 || score < 4500
+            ? "Weak rank or score means this should be treated as a watchlist idea until better evidence appears."
+            : "Risk looks balanced from the visible rank data, but this still needs price/news confirmation.",
     },
     {
-      label: "Dividend profile",
-      value: /Utilities|Real Estate|Energy|Financials|Consumer Staples/i.test(sector) ? "Neutral" : "Limited",
-      detail: /Utilities|Real Estate|Energy|Financials|Consumer Staples/i.test(sector)
-        ? `${sector} can contain income-focused names, but dividend yield still needs checking before treating it as income.`
-        : "Dividend evidence is not visible in this view, so do not treat this as an income idea without checking yield and payout quality.",
+      label: "Best use",
+      value: score >= 16000 && rank <= 100 ? "Strong" : score >= 9000 ? "Positive" : "Watch",
+      detail:
+        score >= 16000 && rank <= 100
+          ? "Best used as a serious research candidate because both rank and score are supporting it."
+          : score >= 9000
+            ? "Best used as a research candidate, not an automatic buy, because the signal is positive but not elite."
+            : "Best used as a watchlist name because the model is not giving a strong enough reason yet.",
     },
   ];
 }
@@ -235,16 +278,50 @@ export function buildRankExplanation(stock: ExplainableStock, move?: RankMoveLik
   const confidence = getModelConfidence(stock);
   const tags = getStyleTags(stock, dailyMovePct);
   const band = scoreBand(score);
+  const moveValue = Number.isFinite(dailyMovePct) ? Number(dailyMovePct) : null;
 
-  const summary = `${stock.ticker ?? "This stock"} ranks #${rank || "—"} because it has a ${band.toLowerCase()} AI score${
-    score ? ` (${score.toLocaleString()})` : ""
-  }, sits in ${sector}, and currently carries ${confidence.label.toLowerCase()} model confidence.`;
+  const drivers: string[] = [];
+  const cautions: string[] = [];
+
+  if (score >= 25000) drivers.push(`an elite AI score of ${score.toLocaleString()}`);
+  else if (score >= 16000) drivers.push(`a strong AI score of ${score.toLocaleString()}`);
+  else if (score >= 9000) drivers.push(`a positive AI score of ${score.toLocaleString()}`);
+  else if (score > 0) cautions.push(`a weak AI score of ${score.toLocaleString()}`);
+
+  if (rank <= 25) drivers.push("a top-25 rank versus the wider universe");
+  else if (rank <= 75) drivers.push("a top-75 rank");
+  else if (rank <= 150) drivers.push("a still-strong top-150 rank");
+  else if (rank > 300) cautions.push("a lower-half rank that signals weaker model evidence");
+
+  if (moveValue != null) {
+    if (moveValue >= 2) drivers.push(`${moveValue.toFixed(1)}% positive price confirmation today`);
+    else if (moveValue > 0 && score >= 9000) drivers.push(`controlled positive price action today at +${moveValue.toFixed(1)}%`);
+    else if (moveValue <= -2) cautions.push(`${Math.abs(moveValue).toFixed(1)}% downside move today that needs checking`);
+  }
+
+  if (move?.tone === "up") drivers.push(`rank momentum has improved (${move.label})`);
+  if (move?.tone === "down") cautions.push(`rank momentum has weakened (${move.label})`);
+
+  if (/Technology|Communication|Consumer Discretionary/i.test(sector) && score >= 9000) {
+    drivers.push(`${sector} growth sensitivity`);
+  }
+
+  if (drivers.length === 0 && cautions.length === 0) {
+    drivers.push(`${band.toLowerCase()} score band`, `${rankBand(rank)}`);
+  }
+
+  const primary = drivers.slice(0, 3).join(", ");
+  const warning = cautions.slice(0, 2).join(", ");
+  const summary = warning
+    ? `${stock.ticker ?? "This stock"} ranks #${rank || "—"} because of ${primary || rankBand(rank)}, but the rank is being held back by ${warning}.`
+    : `${stock.ticker ?? "This stock"} ranks #${rank || "—"} because of ${primary}.`;
 
   const bullets = [
-    `Score quality: ${band}${score ? ` at ${score.toLocaleString()}` : ""}.`,
-    `Sector context: ${sector}.`,
+    `Best evidence: ${primary || "no single dominant positive driver is visible in the ranking data"}.`,
+    warning ? `Main caution: ${warning}.` : `Main caution: no major red flag is visible from score, rank movement or today's price move.`,
+    `Score band: ${band}${score ? ` at ${score.toLocaleString()}` : ""}.`,
     move?.label && move.label !== "—" ? `Rank movement: ${move.label} over the latest comparison window.` : "Rank movement: no major change detected.",
-    Number.isFinite(dailyMovePct) ? `1D price move: ${Number(dailyMovePct).toFixed(1)}%.` : "1D price move: unavailable.",
+    dailyMoveLabel(moveValue) ?? "1D price move: unavailable.",
     `Best use: ${tags.slice(0, 2).join(" / ")}.`,
   ];
 
