@@ -14,6 +14,7 @@ export type FinancialMetrics = {
   regularMarketPrice: number | null;
   targetMeanPrice: number | null;
   rsi14: number | null;
+  macdSignal: "bullish_cross" | "bearish_cross" | "bullish" | "bearish" | "neutral" | null;
   ma50: number | null;
   ma200: number | null;
   sixMonthChangePct: number | null;
@@ -22,18 +23,18 @@ export type FinancialMetrics = {
 
 type YahooQuoteResult = {
   symbol?: string;
-  marketCap?: number;
-  trailingPE?: number;
-  forwardPE?: number;
-  priceToBook?: number;
-  epsTrailingTwelveMonths?: number;
-  epsForward?: number;
-  dividendYield?: number;
-  trailingAnnualDividendYield?: number;
-  fiftyTwoWeekLow?: number;
-  fiftyTwoWeekHigh?: number;
-  regularMarketPrice?: number;
-  targetMeanPrice?: number;
+  marketCap?: number | null;
+  trailingPE?: number | null;
+  forwardPE?: number | null;
+  priceToBook?: number | null;
+  epsTrailingTwelveMonths?: number | null;
+  epsForward?: number | null;
+  dividendYield?: number | null;
+  trailingAnnualDividendYield?: number | null;
+  fiftyTwoWeekLow?: number | null;
+  fiftyTwoWeekHigh?: number | null;
+  regularMarketPrice?: number | null;
+  targetMeanPrice?: number | null;
 };
 
 type YahooQuoteResponse = {
@@ -53,9 +54,12 @@ function cleanTicker(value: string | null | undefined) {
     .replace(/[^A-Z0-9.-]/g, "");
 }
 
-function finiteNumber(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function finiteNumber(value: unknown, options: { allowZero?: boolean } = {}) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (!options.allowZero && parsed === 0) return null;
+  return parsed;
 }
 
 function normalizeDividendYield(value: unknown) {
@@ -66,6 +70,19 @@ function normalizeDividendYield(value: unknown) {
 
 function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function ema(values: number[], period: number) {
+  if (values.length < period) return [];
+  const k = 2 / (period + 1);
+  const output: number[] = [];
+  let prev = average(values.slice(0, period)) ?? values[0];
+  output.push(prev);
+  for (let i = period; i < values.length; i += 1) {
+    prev = values[i] * k + prev * (1 - k);
+    output.push(prev);
+  }
+  return output;
 }
 
 function rsi(values: number[], period = 14) {
@@ -93,6 +110,35 @@ function rsi(values: number[], period = 14) {
   return 100 - 100 / (1 + rs);
 }
 
+function macdSignal(values: number[]): FinancialMetrics["macdSignal"] {
+  if (values.length < 35) return null;
+  const ema12 = ema(values, 12);
+  const ema26 = ema(values, 26);
+  const offset = ema12.length - ema26.length;
+  const macdLine = ema26.map((value, index) => ema12[index + offset] - value);
+  const signalLine = ema(macdLine, 9);
+  if (signalLine.length < 2) return null;
+  const signalOffset = macdLine.length - signalLine.length;
+  const currentMacd = macdLine[macdLine.length - 1];
+  const previousMacd = macdLine[macdLine.length - 2];
+  const currentSignal = signalLine[signalLine.length - 1];
+  const previousSignal = signalLine[signalLine.length - 2];
+  const previousAlignedSignal = signalLine[Math.max(0, signalLine.length - 2 - Math.max(0, signalOffset - signalOffset))] ?? previousSignal;
+
+  if (previousMacd <= previousAlignedSignal && currentMacd > currentSignal) return "bullish_cross";
+  if (previousMacd >= previousAlignedSignal && currentMacd < currentSignal) return "bearish_cross";
+  if (currentMacd > currentSignal && currentMacd > 0) return "bullish";
+  if (currentMacd < currentSignal && currentMacd < 0) return "bearish";
+  return "neutral";
+}
+
+function validRange(price: number | null, low: number | null, high: number | null) {
+  if (price == null || low == null || high == null || low <= 0 || high <= low) return false;
+  if (low < price * 0.35) return false;
+  if (high > price * 1.85) return false;
+  return true;
+}
+
 async function getChartFallback(ticker: string) {
   try {
     const chart = await getStockChart(ticker, ["6M", "1Y"]);
@@ -104,6 +150,7 @@ async function getChartFallback(ticker: string) {
         fiftyTwoWeekLow: null,
         fiftyTwoWeekHigh: null,
         rsi14: null,
+        macdSignal: null,
         ma50: null,
         ma200: null,
         sixMonthChangePct: null,
@@ -111,12 +158,14 @@ async function getChartFallback(ticker: string) {
     }
 
     const last = closes[closes.length - 1];
-    const sixMonthAnchor = closes[Math.max(0, closes.length - 126)] ?? closes[0];
+    const recentRangeCloses = closes.slice(-126);
+    const sixMonthAnchor = recentRangeCloses[0] ?? closes[0];
     return {
       regularMarketPrice: last,
-      fiftyTwoWeekLow: Math.min(...closes),
-      fiftyTwoWeekHigh: Math.max(...closes),
+      fiftyTwoWeekLow: Math.min(...recentRangeCloses),
+      fiftyTwoWeekHigh: Math.max(...recentRangeCloses),
       rsi14: rsi(closes),
+      macdSignal: macdSignal(closes),
       ma50: average(closes.slice(-50)),
       ma200: closes.length >= 200 ? average(closes.slice(-200)) : null,
       sixMonthChangePct: sixMonthAnchor > 0 ? ((last - sixMonthAnchor) / sixMonthAnchor) * 100 : null,
@@ -128,6 +177,7 @@ async function getChartFallback(ticker: string) {
       fiftyTwoWeekLow: null,
       fiftyTwoWeekHigh: null,
       rsi14: null,
+      macdSignal: null,
       ma50: null,
       ma200: null,
       sixMonthChangePct: null,
@@ -152,6 +202,10 @@ async function toMetrics(row: YahooQuoteResult): Promise<FinancialMetrics | null
   const ticker = cleanTicker(row.symbol);
   if (!ticker) return null;
   const chartFallback = await getChartFallback(ticker);
+  const quotePrice = finiteNumber(row.regularMarketPrice);
+  const quoteLow = finiteNumber(row.fiftyTwoWeekLow);
+  const quoteHigh = finiteNumber(row.fiftyTwoWeekHigh);
+  const useQuoteRange = validRange(quotePrice ?? chartFallback.regularMarketPrice, quoteLow, quoteHigh);
 
   const metrics: FinancialMetrics = {
     ticker,
@@ -162,11 +216,12 @@ async function toMetrics(row: YahooQuoteResult): Promise<FinancialMetrics | null
     epsTrailingTwelveMonths: finiteNumber(row.epsTrailingTwelveMonths),
     epsForward: finiteNumber(row.epsForward),
     dividendYieldPct: normalizeDividendYield(row.dividendYield ?? row.trailingAnnualDividendYield),
-    fiftyTwoWeekLow: finiteNumber(row.fiftyTwoWeekLow) ?? chartFallback.fiftyTwoWeekLow,
-    fiftyTwoWeekHigh: finiteNumber(row.fiftyTwoWeekHigh) ?? chartFallback.fiftyTwoWeekHigh,
-    regularMarketPrice: finiteNumber(row.regularMarketPrice) ?? chartFallback.regularMarketPrice,
+    fiftyTwoWeekLow: useQuoteRange ? quoteLow : chartFallback.fiftyTwoWeekLow,
+    fiftyTwoWeekHigh: useQuoteRange ? quoteHigh : chartFallback.fiftyTwoWeekHigh,
+    regularMarketPrice: quotePrice ?? chartFallback.regularMarketPrice,
     targetMeanPrice: finiteNumber(row.targetMeanPrice),
     rsi14: chartFallback.rsi14,
+    macdSignal: chartFallback.macdSignal,
     ma50: chartFallback.ma50,
     ma200: chartFallback.ma200,
     sixMonthChangePct: chartFallback.sixMonthChangePct,
@@ -236,6 +291,7 @@ export async function getFinancialMetricMap(tickers: string[]) {
         regularMarketPrice: chartFallback.regularMarketPrice,
         targetMeanPrice: null,
         rsi14: chartFallback.rsi14,
+        macdSignal: chartFallback.macdSignal,
         ma50: chartFallback.ma50,
         ma200: chartFallback.ma200,
         sixMonthChangePct: chartFallback.sixMonthChangePct,
