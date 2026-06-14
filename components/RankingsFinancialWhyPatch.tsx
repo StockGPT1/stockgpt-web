@@ -23,6 +23,12 @@ type RankingDiagnostics = {
   data_confidence?: string | null;
 };
 
+const staleWhyRankPatterns = [
+  "rank context from live financial metrics",
+  "52-week range",
+  "price is around",
+];
+
 function cleanTicker(value: string | null | undefined) {
   return String(value ?? "")
     .trim()
@@ -110,11 +116,11 @@ function diagnosticSummary(diagnostics: RankingDiagnostics | null, metrics: Fina
 
   if (parts.length) return `This rank is explained by ${parts.slice(0, 4).join("; ")}.`;
   if (diagnostics?.diagnosis) return diagnostics.diagnosis;
-  return "No factor diagnostics were available for this ticker yet, so the app is falling back to chart and quote metrics.";
+  return "No factor diagnostics were available for this ticker yet.";
 }
 
 function metricSummary(metrics: FinancialMetrics | null) {
-  if (!metrics) return "No quote or chart metrics were returned for this ticker.";
+  if (!metrics) return "";
 
   const items: string[] = [];
   if (num(metrics.rsi14) != null) items.push(`RSI ${num(metrics.rsi14)!.toFixed(1)}`);
@@ -130,7 +136,7 @@ function metricSummary(metrics: FinancialMetrics | null) {
     items.push(`forward EPS ${num(metrics.epsForward)!.toFixed(2)} vs trailing EPS ${num(metrics.epsTrailingTwelveMonths)!.toFixed(2)}`);
   }
 
-  return items.length ? items.slice(0, 5).join(" · ") : "No usable fundamentals or technical metrics were returned for this ticker.";
+  return items.length ? ` Supporting chart context: ${items.slice(0, 4).join(" · ")}.` : "";
 }
 
 function makeMetricCard(labelText: string, valueText: string, detailText: string) {
@@ -188,8 +194,14 @@ function diagnosticCards(diagnostics: RankingDiagnostics | null, metrics: Financ
   return cards.length ? cards.slice(0, 8) : [makeMetricCard("Diagnostics", "Limited", "No ranking factor diagnostics were available for this ticker yet.")];
 }
 
-async function patchDetails(details: HTMLDetailsElement) {
-  if (details.dataset.stockgptFinancialPatched === "true" || details.dataset.stockgptFinancialLoading === "true") return;
+function detailsContainsStaleCopy(details: HTMLDetailsElement) {
+  const text = details.textContent?.toLowerCase() ?? "";
+  return staleWhyRankPatterns.some((pattern) => text.includes(pattern));
+}
+
+async function patchDetails(details: HTMLDetailsElement, force = false) {
+  if (details.dataset.stockgptFinancialLoading === "true") return;
+  if (!force && details.dataset.stockgptFinancialPatched === "true" && !detailsContainsStaleCopy(details)) return;
 
   const link = details.parentElement?.querySelector<HTMLAnchorElement>('a[href^="/stock/"]');
   const ticker = cleanTicker(link?.getAttribute("href")?.split("/stock/")[1] ?? link?.textContent);
@@ -204,7 +216,8 @@ async function patchDetails(details: HTMLDetailsElement) {
     const summary = details.querySelector<HTMLParagraphElement>("summary + p");
     const grid = details.querySelector<HTMLElement>("summary + p + div");
 
-    if (summary) summary.textContent = `${ticker}: ${diagnosticSummary(diagnostics, metrics)} ${metricSummary(metrics)}`;
+    details.dataset.stockgptDiagnosticsOwner = "true";
+    if (summary) summary.textContent = `${ticker}: ${diagnosticSummary(diagnostics, metrics)}${metricSummary(metrics)}`;
     if (grid) grid.replaceChildren(...diagnosticCards(diagnostics, metrics));
     details.dataset.stockgptFinancialPatched = "true";
   } finally {
@@ -219,11 +232,27 @@ export function RankingsFinancialWhyPatch() {
       if (!(details instanceof HTMLDetailsElement) || !details.open) return;
       const summary = details.querySelector("summary")?.textContent?.toLowerCase() ?? "";
       if (!summary.includes("why this rank")) return;
-      void patchDetails(details);
+      void patchDetails(details, true);
     }
 
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+        const details = target?.closest?.("details") as HTMLDetailsElement | null;
+        if (!details || !details.open) continue;
+        const summary = details.querySelector("summary")?.textContent?.toLowerCase() ?? "";
+        if (!summary.includes("why this rank")) continue;
+        if (detailsContainsStaleCopy(details)) void patchDetails(details, true);
+      }
+    });
+
     document.addEventListener("toggle", onToggle, true);
-    return () => document.removeEventListener("toggle", onToggle, true);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      document.removeEventListener("toggle", onToggle, true);
+      observer.disconnect();
+    };
   }, []);
 
   return null;
