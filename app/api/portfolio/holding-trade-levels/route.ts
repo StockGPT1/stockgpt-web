@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calculateTradeLevels } from "@/lib/trading-levels";
 import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
@@ -16,17 +15,10 @@ type HoldingLevelRow = {
   entry_price: number | string | null;
   risk_level_at_entry: number | string | null;
   target_level_at_entry: number | string | null;
-  score_at_entry: number | string | null;
-  rank_at_entry: number | string | null;
-  source: string | null;
 };
 
 type RankingRow = {
-  ticker: string | null;
   price: number | string | null;
-  score: number | string | null;
-  rank: number | string | null;
-  sector: string | null;
 };
 
 function cleanTicker(value: string | null) {
@@ -39,33 +31,6 @@ function cleanTicker(value: string | null) {
 function toNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
-}
-
-function shouldBackfillLevels(holding: HoldingLevelRow) {
-  const source = String(holding.source ?? "").toLowerCase();
-  if (!source) return false;
-  return source !== "manual" && source !== "trading212";
-}
-
-function buildPayload({
-  ticker,
-  portfolio,
-  holding,
-  ranking,
-}: {
-  ticker: string;
-  portfolio?: PortfolioRow;
-  holding: HoldingLevelRow;
-  ranking: RankingRow | null;
-}) {
-  return {
-    ticker,
-    currency: portfolio?.currency ?? "USD",
-    entry_price: toNumber(holding.entry_price),
-    risk_level_at_entry: toNumber(holding.risk_level_at_entry),
-    target_level_at_entry: toNumber(holding.target_level_at_entry),
-    current_price: toNumber(ranking?.price),
-  };
 }
 
 export async function GET(req: NextRequest) {
@@ -103,7 +68,7 @@ export async function GET(req: NextRequest) {
 
   const { data: holdingsData, error: holdingError } = await (supabase as any)
     .from("portfolio_holdings")
-    .select("portfolio_id,ticker,entry_price,risk_level_at_entry,target_level_at_entry,score_at_entry,rank_at_entry,source")
+    .select("portfolio_id,ticker,entry_price,risk_level_at_entry,target_level_at_entry")
     .in("portfolio_id", scopedPortfolioIds)
     .eq("ticker", ticker)
     .order("added_at", { ascending: false })
@@ -115,60 +80,29 @@ export async function GET(req: NextRequest) {
   }
 
   const holdings = ((holdingsData ?? []) as HoldingLevelRow[]).filter((holding) => cleanTicker(holding.ticker) === ticker);
-  if (holdings.length === 0) return NextResponse.json({ levels: null });
+  const holdingWithLevels = holdings.find((holding) => toNumber(holding.risk_level_at_entry) !== null || toNumber(holding.target_level_at_entry) !== null);
+
+  if (!holdingWithLevels) {
+    return NextResponse.json({ levels: null });
+  }
 
   const { data: rankingData } = await supabase
     .from("stock_rankings")
-    .select("ticker,price,score,rank,sector")
+    .select("price")
     .eq("ticker", ticker)
     .maybeSingle();
 
+  const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
   const ranking = rankingData as RankingRow | null;
-  const holdingWithLevels = holdings.find((holding) => toNumber(holding.risk_level_at_entry) !== null || toNumber(holding.target_level_at_entry) !== null);
 
-  if (holdingWithLevels) {
-    const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
-    return NextResponse.json({ levels: buildPayload({ ticker, portfolio, holding: holdingWithLevels, ranking }) });
-  }
-
-  const holdingToBackfill = holdings.find(shouldBackfillLevels);
-  if (!holdingToBackfill || !ranking) return NextResponse.json({ levels: null });
-
-  const entryPrice = toNumber(holdingToBackfill.entry_price) ?? toNumber(ranking.price);
-  if (!entryPrice || entryPrice <= 0) return NextResponse.json({ levels: null });
-
-  const score = toNumber(holdingToBackfill.score_at_entry) ?? toNumber(ranking.score) ?? 0;
-  const rank = toNumber(holdingToBackfill.rank_at_entry) ?? toNumber(ranking.rank);
-
-  const levels = await calculateTradeLevels({
-    ticker,
-    price: entryPrice,
-    score,
-    rank,
-    sector: ranking.sector ?? null,
+  return NextResponse.json({
+    levels: {
+      ticker,
+      currency: portfolio?.currency ?? "USD",
+      entry_price: toNumber(holdingWithLevels.entry_price),
+      risk_level_at_entry: toNumber(holdingWithLevels.risk_level_at_entry),
+      target_level_at_entry: toNumber(holdingWithLevels.target_level_at_entry),
+      current_price: toNumber(ranking?.price),
+    },
   });
-
-  if (!levels || levels.recommendation === "Avoid") return NextResponse.json({ levels: null });
-
-  const { error: updateError } = await (supabase as any)
-    .from("portfolio_holdings")
-    .update({
-      risk_level_at_entry: levels.stopLoss,
-      target_level_at_entry: levels.takeProfit,
-    })
-    .eq("portfolio_id", holdingToBackfill.portfolio_id)
-    .eq("ticker", ticker);
-
-  if (updateError) {
-    console.error("[holding-trade-levels] backfill error", updateError);
-  }
-
-  const backfilledHolding: HoldingLevelRow = {
-    ...holdingToBackfill,
-    risk_level_at_entry: levels.stopLoss,
-    target_level_at_entry: levels.takeProfit,
-  };
-  const portfolio = portfolios.find((item) => item.id === backfilledHolding.portfolio_id);
-
-  return NextResponse.json({ levels: buildPayload({ ticker, portfolio, holding: backfilledHolding, ranking }) });
 }
