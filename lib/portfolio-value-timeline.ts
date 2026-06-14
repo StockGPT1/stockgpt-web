@@ -546,6 +546,31 @@ async function loadCharts({
   return charts;
 }
 
+function interpolatePriceAtTime(points: ChartPoint[], targetMs: number, earliestLookupMs: number) {
+  let previous: { ms: number; close: number } | null = null;
+  let next: { ms: number; close: number } | null = null;
+
+  for (const point of points) {
+    const ms = pointMs(point);
+    if (ms == null || ms < earliestLookupMs || !Number.isFinite(point.close) || point.close <= 0) continue;
+
+    if (ms <= targetMs) previous = { ms, close: point.close };
+    if (ms >= targetMs) {
+      next = { ms, close: point.close };
+      break;
+    }
+  }
+
+  if (previous && next && next.ms !== previous.ms) {
+    const progress = (targetMs - previous.ms) / (next.ms - previous.ms);
+    return previous.close + (next.close - previous.close) * progress;
+  }
+
+  if (previous) return previous.close;
+  if (next) return next.close;
+  return null;
+}
+
 function priceAtTime({
   ticker,
   targetMs,
@@ -570,8 +595,15 @@ function priceAtTime({
   const earliestLookupMs = range === "1D" ? 0 : lot.startMs;
 
   for (const lookupRange of FALLBACK_RANGES[range]) {
-    let foundRangePrice = false;
     const points = charts.get(`${ticker}:${lookupRange}`) ?? [];
+
+    if (range === "1D") {
+      const interpolated = interpolatePriceAtTime(points, targetMs, earliestLookupMs);
+      if (interpolated != null && interpolated > 0) return interpolated;
+      continue;
+    }
+
+    let foundRangePrice = false;
     for (const point of points) {
       const ms = pointMs(point);
       if (ms == null || ms < earliestLookupMs) continue;
