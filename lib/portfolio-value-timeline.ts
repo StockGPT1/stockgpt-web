@@ -482,6 +482,8 @@ function buildRangeSeries({
   const currentCash = cashAtTime(cashEvents, nowMs);
 
   const points = times.map((ms) => {
+    // For fixed ranges, keep the full requested calendar window visible.
+    // Dates before the portfolio existed are intentionally zero, so a new portfolio still has a full 1M/6M/1Y axis.
     if (ms < portfolioStartMs && range !== "MAX") {
       return { date: new Date(ms).toISOString(), close: 0 };
     }
