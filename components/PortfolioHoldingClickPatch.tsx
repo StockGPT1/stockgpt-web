@@ -87,6 +87,21 @@ function removeBrokenMarkdownTables() {
   });
 }
 
+function patchMobileNewPortfolioButton() {
+  if (typeof window === "undefined" || !window.location.pathname.startsWith("/portfolio")) return;
+  if (document.querySelector("[data-stockgpt-mobile-new-portfolio]")) return;
+
+  const holdingsButton = document.querySelector<HTMLButtonElement>('button[aria-label="Holdings"]');
+  const nav = holdingsButton?.parentElement;
+  if (!nav) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.setAttribute("data-stockgpt-mobile-new-portfolio", "true");
+  wrapper.className = "sm:hidden px-1";
+  wrapper.innerHTML = `<a href="/portfolio?builder=1" class="mt-2 inline-flex h-10 w-full items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-[#072116] no-underline shadow-[0_10px_24px_rgba(0,0,0,0.16)]">+ New portfolio</a>`;
+  nav.insertAdjacentElement("afterend", wrapper);
+}
+
 function insertTradeLevelCard(dialog: Element, levels: any) {
   if (dialog.querySelector("[data-stockgpt-trade-level-card]")) return;
   const metricGrid = dialog.querySelector("div.grid.grid-cols-2.gap-2");
@@ -139,6 +154,7 @@ export function PortfolioHoldingClickPatch() {
       patchHoldingTitles();
       patchAskStockGPTCloseButton();
       removeBrokenMarkdownTables();
+      patchMobileNewPortfolioButton();
       patchManageTradeLevels();
     }
 
