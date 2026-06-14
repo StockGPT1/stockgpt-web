@@ -40,6 +40,15 @@ function toNumber(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+function savedLevel(value: unknown) {
+  const n = toNumber(value);
+  return n != null && n > 0 ? n : null;
+}
+
+function hasSavedLevels(holding: HoldingLevelRow) {
+  return savedLevel(holding.risk_level_at_entry) !== null || savedLevel(holding.target_level_at_entry) !== null;
+}
+
 function isStockGPTWrittenHolding(holding: HoldingLevelRow) {
   const source = String(holding.source ?? "").trim().toLowerCase();
   return source !== "manual" && source !== "trading212" && source !== "import";
@@ -56,13 +65,17 @@ function payload({
   holding: HoldingLevelRow;
   ranking: RankingRow | null;
 }) {
+  const risk = savedLevel(holding.risk_level_at_entry);
+  const target = savedLevel(holding.target_level_at_entry);
+  if (risk === null && target === null) return null;
+
   return {
     ticker,
     currency: portfolio?.currency ?? "USD",
     entry_price: toNumber(holding.entry_price),
-    risk_level_at_entry: toNumber(holding.risk_level_at_entry),
-    target_level_at_entry: toNumber(holding.target_level_at_entry),
-    current_price: toNumber(ranking?.price),
+    risk_level_at_entry: risk,
+    target_level_at_entry: target,
+    current_price: savedLevel(ranking?.price),
   };
 }
 
@@ -94,8 +107,10 @@ async function saveExactTradeLevels({
 
   const riskLevel = tradeLevels.stopLoss;
   const targetLevel = tradeLevels.takeProfit;
-  const savedRisk = toNumber(holding.risk_level_at_entry);
-  const savedTarget = toNumber(holding.target_level_at_entry);
+  if (!riskLevel || !targetLevel || riskLevel <= 0 || targetLevel <= 0) return null;
+
+  const savedRisk = savedLevel(holding.risk_level_at_entry);
+  const savedTarget = savedLevel(holding.target_level_at_entry);
 
   if (Math.abs((savedRisk ?? 0) - riskLevel) > 0.01 || Math.abs((savedTarget ?? 0) - targetLevel) > 0.01) {
     const { error: saveError } = await (supabase as any)
@@ -183,12 +198,14 @@ export async function GET(req: NextRequest) {
 
   if (exactHolding) {
     const portfolio = portfolios.find((item) => item.id === exactHolding.portfolio_id);
-    return NextResponse.json({ levels: payload({ ticker, portfolio, holding: exactHolding, ranking }) });
+    const levels = payload({ ticker, portfolio, holding: exactHolding, ranking });
+    return NextResponse.json({ levels });
   }
 
-  const holdingWithLevels = holdings.find((holding) => toNumber(holding.risk_level_at_entry) !== null || toNumber(holding.target_level_at_entry) !== null);
+  const holdingWithLevels = holdings.find(hasSavedLevels);
   if (!holdingWithLevels) return NextResponse.json({ levels: null });
 
   const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
-  return NextResponse.json({ levels: payload({ ticker, portfolio, holding: holdingWithLevels, ranking }) });
+  const levels = payload({ ticker, portfolio, holding: holdingWithLevels, ranking });
+  return NextResponse.json({ levels });
 }
