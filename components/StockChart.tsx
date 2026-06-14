@@ -68,6 +68,11 @@ function formatDate(iso: string, range: TimeRange) {
   });
 }
 
+function emitPortfolioChartScrub(detail: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("stockgpt:portfolio-chart-scrub", { detail }));
+}
+
 export function StockChart({
   ticker,
   data,
@@ -220,11 +225,27 @@ export function StockChart({
       );
 
       setHoverIdx(idx);
+
+      if (ticker === "Portfolio") {
+        emitPortfolioChartScrub({
+          active: true,
+          ticker,
+          range: resolvedRange,
+          point: points[idx],
+          first: points[0],
+          last: points[points.length - 1],
+        });
+      }
     },
-    [points.length, svgWidth, plotW, padding.left],
+    [points, svgWidth, plotW, padding.left, ticker, resolvedRange],
   );
 
-  const handlePointerLeave = useCallback(() => setHoverIdx(null), []);
+  const handlePointerLeave = useCallback(() => {
+    setHoverIdx(null);
+    if (ticker === "Portfolio") {
+      emitPortfolioChartScrub({ active: false, ticker, range: resolvedRange });
+    }
+  }, [ticker, resolvedRange]);
 
   const summary = useMemo(() => {
     if (points.length < 2) return null;
@@ -250,6 +271,7 @@ export function StockChart({
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
+  const hideTooltip = compact && ticker === "Portfolio";
 
   if (points.length < 2) {
     return (
@@ -315,6 +337,8 @@ export function StockChart({
           onPointerMove={(e) => handleMove(e.clientX)}
           onPointerDown={(e) => handleMove(e.clientX)}
           onPointerLeave={handlePointerLeave}
+          onPointerCancel={handlePointerLeave}
+          onPointerUp={(e) => handleMove(e.clientX)}
         >
           {!compact &&
             gridPrices.map((price, i) => {
@@ -408,7 +432,7 @@ export function StockChart({
           )}
         </svg>
 
-        {hoverPoint && (
+        {hoverPoint && !hideTooltip && (
           <div
             className={[
               "pointer-events-none absolute rounded-lg border border-[#ddb159]/30 bg-[#072116]/95 backdrop-blur",
