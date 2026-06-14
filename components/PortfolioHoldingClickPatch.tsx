@@ -9,6 +9,11 @@ function cleanTicker(value: string | null | undefined) {
     .replace(/[^A-Z0-9.-]/g, "");
 }
 
+function activePortfolioIdFromUrl() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("portfolio")?.trim() ?? "";
+}
+
 function findHoldingNameArea(target: EventTarget | null) {
   if (!(target instanceof Element)) return null;
   return target.closest("div.group.relative.overflow-hidden div.relative.grid > div:first-child");
@@ -165,7 +170,7 @@ function insertTradeLevelCard(dialog: Element, levels: any) {
   card.className = "rounded-2xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.045] p-3";
   card.innerHTML = `
     <p class="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Buy-time trade levels</p>
-    <p class="mt-1 text-[12px] font-semibold leading-5 text-[#faf6f0]/58">These are the saved stop-loss and take-profit levels from when this holding was added. Manual holdings without saved levels show nothing here and do not create SL/TP alerts.</p>
+    <p class="mt-1 text-[12px] font-semibold leading-5 text-[#faf6f0]/58">These are the saved stop-loss and take-profit levels for this holding in this specific portfolio. Manual holdings without saved levels show nothing here and do not create SL/TP alerts.</p>
     <div class="mt-3 grid gap-2 sm:grid-cols-2">
       ${risk === null ? "" : `<div class="rounded-2xl border border-red-300/18 bg-red-300/8 px-3 py-2"><p class="text-[9px] font-black uppercase tracking-[0.12em] text-red-200/80">Stop loss</p><p class="mt-1 text-[18px] font-black text-red-100">${formatMoney(risk, currency)}</p><p class="mt-1 text-[10px] font-bold text-[#faf6f0]/46">${distanceText(current, risk)}</p></div>`}
       ${target === null ? "" : `<div class="rounded-2xl border border-emerald-300/18 bg-emerald-300/8 px-3 py-2"><p class="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-200/80">Take profit</p><p class="mt-1 text-[18px] font-black text-emerald-100">${formatMoney(target, currency)}</p><p class="mt-1 text-[10px] font-bold text-[#faf6f0]/46">${distanceText(current, target)}</p></div>`}
@@ -183,8 +188,12 @@ function patchManageTradeLevels() {
     const ticker = cleanTicker(dialog.querySelector("h3")?.textContent);
     if (!ticker) return;
 
+    const params = new URLSearchParams({ ticker });
+    const portfolioId = activePortfolioIdFromUrl();
+    if (portfolioId) params.set("portfolioId", portfolioId);
+
     dialog.setAttribute("data-stockgpt-levels-loading", "true");
-    fetch(`/api/portfolio/holding-trade-levels?ticker=${encodeURIComponent(ticker)}`, { headers: { Accept: "application/json" } })
+    fetch(`/api/portfolio/holding-trade-levels?${params.toString()}`, { headers: { Accept: "application/json" } })
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
         insertOriginalScore(dialog, data?.original_score_at_entry);
@@ -276,6 +285,8 @@ async function trimAndReinvestFromButton(button: HTMLButtonElement) {
   const percentage = recommendedTrimPercent(dialog);
   if (!ticker || !reinvestTicker || !percentage) return false;
 
+  const portfolioId = activePortfolioIdFromUrl();
+
   button.disabled = true;
   const originalText = button.textContent;
   button.textContent = "Reinvesting…";
@@ -283,7 +294,7 @@ async function trimAndReinvestFromButton(button: HTMLButtonElement) {
     const response = await fetch("/api/portfolio/trim-and-reinvest", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ ticker, percentage, reinvestTicker }),
+      body: JSON.stringify({ ticker, percentage, reinvestTicker, portfolioId }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.success === false) {
