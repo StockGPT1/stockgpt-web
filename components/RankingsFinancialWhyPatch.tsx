@@ -288,13 +288,6 @@ async function patchDetails(details: HTMLDetailsElement, force = false) {
   }
 }
 
-function portfolioHeroNodes() {
-  const hero = document.querySelector<HTMLElement>(".portfolio-chart-hero");
-  const value = hero?.querySelector<HTMLElement>("h1") ?? null;
-  const returns = value?.nextElementSibling instanceof HTMLElement ? value.nextElementSibling : null;
-  return hero && value && returns ? { hero, value, returns } : null;
-}
-
 export function RankingsFinancialWhyPatch() {
   useEffect(() => {
     function onToggle(event: Event) {
@@ -322,52 +315,6 @@ export function RankingsFinancialWhyPatch() {
     return () => {
       document.removeEventListener("toggle", onToggle, true);
       observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    let url = window.location.href;
-    let snapshot: { value: string; returns: string; returnsClass: string } | null = null;
-
-    function capture() {
-      const nodes = portfolioHeroNodes();
-      if (!nodes) return;
-      snapshot = {
-        value: nodes.value.textContent ?? "",
-        returns: nodes.returns.textContent ?? "",
-        returnsClass: nodes.returns.className,
-      };
-    }
-
-    function restore() {
-      const currentUrl = window.location.href;
-      if (currentUrl !== url) {
-        url = currentUrl;
-        snapshot = null;
-        window.requestAnimationFrame(() => window.requestAnimationFrame(capture));
-        return;
-      }
-
-      const nodes = portfolioHeroNodes();
-      if (!nodes) return;
-      if (!snapshot) capture();
-      if (!snapshot) return;
-      if ((nodes.value.textContent ?? "") !== snapshot.value) nodes.value.textContent = snapshot.value;
-      if ((nodes.returns.textContent ?? "") !== snapshot.returns) nodes.returns.textContent = snapshot.returns;
-      if (nodes.returns.className !== snapshot.returnsClass) nodes.returns.className = snapshot.returnsClass;
-    }
-
-    capture();
-
-    const observer = new MutationObserver(() => window.requestAnimationFrame(restore));
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    window.addEventListener("stockgpt:portfolio-chart-scrub", restore as EventListener, true);
-    window.addEventListener("popstate", capture);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("stockgpt:portfolio-chart-scrub", restore as EventListener, true);
-      window.removeEventListener("popstate", capture);
     };
   }, []);
 
