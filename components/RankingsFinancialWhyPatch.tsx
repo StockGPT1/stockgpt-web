@@ -65,8 +65,12 @@ function multiple(value: number) {
   return `${value.toFixed(value >= 10 ? 1 : 2)}x`;
 }
 
+function canonicalFactor(raw: string | undefined) {
+  return String(raw ?? "").replace(/_z$/, "");
+}
+
 function friendlyFactorName(raw: string | undefined) {
-  const factor = String(raw ?? "").replace(/_z$/, "");
+  const factor = canonicalFactor(raw);
   const names: Record<string, string> = {
     ROIC: "ROIC",
     ROE: "ROE",
@@ -91,6 +95,35 @@ function friendlyFactorName(raw: string | undefined) {
     DividendYield: "dividend yield",
   };
   return names[factor] ?? factor.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
+}
+
+function factorMeaning(raw: string | undefined) {
+  const factor = canonicalFactor(raw);
+  const meanings: Record<string, string> = {
+    ROE: "ROE means return on equity. It measures how efficiently a company turns shareholder equity into profit; a positive ranking contribution means profitability screens well versus peers.",
+    ROIC: "ROIC means return on invested capital. It measures how productively the company earns returns on the capital used in the business; strong ROIC points to a higher-quality operator.",
+    GrossMargin: "Gross margin is the share of revenue left after direct costs. A positive contribution suggests the company has pricing power or efficient production before overheads.",
+    OperatingMargin: "Operating margin shows operating profit as a share of revenue. A positive contribution means the core business is converting sales into profit well.",
+    FCFMargin: "Free-cash-flow margin measures cash generated after capital spending as a share of revenue. Positive contribution means the business is turning sales into usable cash.",
+    RevenueGrowth: "Revenue growth shows whether sales are expanding. A positive contribution means the model sees stronger top-line growth than many peers.",
+    EPSGrowth: "EPS growth means earnings-per-share growth. It shows whether profit per share is improving, which can support a higher ranking when positive.",
+    FCFGrowth: "Free-cash-flow growth tracks whether usable cash generation is improving. Positive contribution means the company is expanding cash output, not just accounting earnings.",
+    PE_rel: "Sector-adjusted P/E compares price-to-earnings valuation with peers. A positive contribution means the stock looks more attractive on earnings valuation after sector context.",
+    EVToEBITDA_rel: "EV/EBITDA compares enterprise value with operating earnings before depreciation and amortisation. A positive contribution means valuation looks favourable versus peers on this measure.",
+    PS_rel: "Price/sales compares market value with revenue. A positive contribution means the stock screens favourably on sales valuation for its sector.",
+    FCFYield: "Free-cash-flow yield compares cash generation with market value. A higher positive contribution means investors are getting more cash flow for the price paid.",
+    Momentum12_1: "12-month momentum excludes the most recent month to avoid short-term noise. A positive contribution means the longer-term price trend has been strong.",
+    Momentum6_1: "6-month momentum excludes the most recent month. A positive contribution means medium-term trend strength is helping the rank.",
+    MA_dist: "Distance above moving average measures how far price is above its trend line. A positive contribution means price is trading constructively above trend without relying only on one-day movement.",
+    MA_slope: "Moving-average slope measures whether the trend line itself is rising. A positive contribution means the underlying price trend is improving.",
+    DownsideVol: "Downside volatility measures how unstable negative returns have been. A positive contribution means downside swings look relatively controlled.",
+    MaxDrawdown: "Max drawdown measures the biggest recent fall from peak to trough. A positive contribution means recent drawdowns have been more contained.",
+    Beta: "Beta measures sensitivity to the wider market. A positive contribution here means market sensitivity is helping rather than hurting the risk sleeve.",
+    DebtToEquity: "Debt-to-equity compares debt with shareholder equity. A positive contribution means leverage looks more manageable versus peers.",
+    DividendYield: "Dividend yield compares annual dividend income with share price. A positive contribution means income support is helping the ranking where relevant.",
+  };
+
+  return meanings[factor] ?? `${friendlyFactorName(raw)} contributed positively to the ranking engine. This means the metric screened favourably versus the covered universe or sector peers.`;
 }
 
 function contributionDrivers(diagnostics: RankingDiagnostics | null) {
@@ -192,32 +225,32 @@ function diagnosticCards(diagnostics: RankingDiagnostics | null, metrics: Financ
     cards.push(makeMetricCard(
       friendlyFactorName(item.factor),
       signed(item.current),
-      `This was one of the largest positive factor contributions in the ranking engine for this ticker.`,
+      factorMeaning(item.factor),
     ));
   });
 
   const pe = num(ranking?.pe) ?? num(metrics?.forwardPE) ?? num(metrics?.trailingPE);
   if (isFavourableMetricCard("P/E", pe)) {
-    cards.push(makeMetricCard("P/E", multiple(pe!), `P/E context used for valuation. Sector-adjusted valuation contributes when it screens favourably.`));
+    cards.push(makeMetricCard("P/E", multiple(pe!), `P/E means price-to-earnings. It compares the share price with earnings per share; a favourable P/E helps when valuation looks reasonable against earnings and peers.`));
   }
 
   const eps = num(metrics?.epsForward) ?? num(metrics?.epsTrailingTwelveMonths);
   if (isFavourableMetricCard("EPS", eps)) {
-    cards.push(makeMetricCard("EPS", eps!.toFixed(2), `Positive EPS gives the ranking engine earnings support where data is available.`));
+    cards.push(makeMetricCard("EPS", eps!.toFixed(2), `EPS means earnings per share. Positive EPS shows the company is profitable on a per-share basis, which supports the rank when earnings quality is favourable.`));
   }
 
   const rsi = num(metrics?.rsi14);
   if (isFavourableMetricCard("RSI", rsi)) {
-    cards.push(makeMetricCard("RSI", rsi!.toFixed(1), `RSI is constructive but not overbought.`));
+    cards.push(makeMetricCard("RSI", rsi!.toFixed(1), `RSI means relative strength index. A constructive RSI between 50 and 70 suggests positive momentum without looking heavily overbought.`));
   }
 
   if (isFavourableMetricCard("MACD", metrics?.macdSignal ?? null)) {
-    cards.push(makeMetricCard("MACD", String(metrics!.macdSignal).replace(/_/g, " "), `MACD is positive, so it is included as supporting chart context.`));
+    cards.push(makeMetricCard("MACD", String(metrics!.macdSignal).replace(/_/g, " "), `MACD means moving average convergence/divergence. A bullish reading suggests momentum is turning or staying positive.`));
   }
 
   const sixMonth = num(metrics?.sixMonthChangePct) ?? num(ranking?.momentum);
   if (isFavourableMetricCard("6M trend", sixMonth)) {
-    cards.push(makeMetricCard("Trend", signedPct(sixMonth!), `Positive price trend is included because it is favourable to the setup.`));
+    cards.push(makeMetricCard("Trend", signedPct(sixMonth!), `Six-month trend measures medium-term price progress. A positive reading helps when the stock is showing sustained momentum.`));
   }
 
   return cards.length ? cards.slice(0, 8) : [makeMetricCard("Ranking factors", "Loading", "Opening this row fetches the strongest available positive ranking drivers.")];
