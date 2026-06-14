@@ -1,0 +1,64 @@
+@media (max-width: 1023px) {
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] {
+    min-height: 6.75rem !important;
+    padding-top: 0.66rem !important;
+    padding-bottom: 0.66rem !important;
+    padding-right: 4.05rem !important;
+    row-gap: 0.38rem !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:first-child {
+    gap: 0.68rem !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:first-child p:first-child {
+    font-size: clamp(1.05rem, 4.65vw, 1.38rem) !important;
+    line-height: 1.02 !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:first-child p:nth-child(2) {
+    font-size: clamp(0.76rem, 3.05vw, 0.92rem) !important;
+    line-height: 1.08 !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(2) p:first-child,
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(3) p:first-child,
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:first-child,
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:first-child {
+    font-size: 0.52rem !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(2) p:nth-child(2),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(3) p:nth-child(2),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:nth-child(2),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:nth-child(2) {
+    font-size: 0.88rem !important;
+    line-height: 1.02 !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(2) p:nth-child(3),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(3) p:nth-child(3),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(4) p:nth-child(3),
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(5) p:nth-child(3) {
+    font-size: 0.64rem !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) {
+    right: 1.2rem !important;
+    width: 1.95rem !important;
+    height: 1.95rem !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button {
+    width: 1.95rem !important;
+    min-width: 1.95rem !important;
+    height: 1.95rem !important;
+    min-height: 1.95rem !important;
+  }
+
+  div[class*="bg-[#faf6f0]"][class*="text-[#072116]"][class*="border-b"] > div[class*="relative"][class*="grid"][class*="px-3"][class*="py-2.5"] > div:nth-child(6) button::after {
+    font-size: 0.96rem !important;
+  }
+}
