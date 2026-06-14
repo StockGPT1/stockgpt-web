@@ -115,6 +115,8 @@ export function StockChart({
         : "#ddb159");
 
   const fillColor = `${lineColor}26`;
+  const isPortfolioMiniChart = compact && ticker === "Portfolio";
+  const lineStrokeWidth = isPortfolioMiniChart ? 4.5 : compact ? 2.75 : 2;
 
   const {
     svgWidth,
@@ -381,7 +383,7 @@ export function StockChart({
             d={pathD}
             fill="none"
             stroke={lineColor}
-            strokeWidth="2"
+            strokeWidth={lineStrokeWidth}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
