@@ -45,6 +45,11 @@ function savedLevel(value: unknown) {
   return n != null && n > 0 ? n : null;
 }
 
+function savedScore(value: unknown) {
+  const n = toNumber(value);
+  return n != null && n > 0 ? Math.round(n) : null;
+}
+
 function hasSavedLevels(holding: HoldingLevelRow) {
   return savedLevel(holding.risk_level_at_entry) !== null || savedLevel(holding.target_level_at_entry) !== null;
 }
@@ -52,6 +57,13 @@ function hasSavedLevels(holding: HoldingLevelRow) {
 function isStockGPTWrittenHolding(holding: HoldingLevelRow) {
   const source = String(holding.source ?? "").trim().toLowerCase();
   return source !== "manual" && source !== "trading212" && source !== "import";
+}
+
+function holdingMeta(holding: HoldingLevelRow | null | undefined) {
+  return {
+    original_score_at_entry: savedScore(holding?.score_at_entry),
+    original_rank_at_entry: savedScore(holding?.rank_at_entry),
+  };
 }
 
 function payload({
@@ -199,13 +211,14 @@ export async function GET(req: NextRequest) {
   if (exactHolding) {
     const portfolio = portfolios.find((item) => item.id === exactHolding.portfolio_id);
     const levels = payload({ ticker, portfolio, holding: exactHolding, ranking });
-    return NextResponse.json({ levels });
+    return NextResponse.json({ levels, ...holdingMeta(exactHolding) });
   }
 
   const holdingWithLevels = holdings.find(hasSavedLevels);
-  if (!holdingWithLevels) return NextResponse.json({ levels: null });
+  const displayHolding = holdingWithLevels ?? stockgptHolding ?? holdings[0];
+  if (!holdingWithLevels) return NextResponse.json({ levels: null, ...holdingMeta(displayHolding) });
 
   const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
   const levels = payload({ ticker, portfolio, holding: holdingWithLevels, ranking });
-  return NextResponse.json({ levels });
+  return NextResponse.json({ levels, ...holdingMeta(displayHolding) });
 }
