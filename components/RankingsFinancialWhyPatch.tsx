@@ -26,6 +26,10 @@ function money(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
+function signedPct(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
 function rangePosition(metrics: FinancialMetrics | null) {
   const price = num(metrics?.regularMarketPrice);
   const low = num(metrics?.fiftyTwoWeekLow);
@@ -35,7 +39,7 @@ function rangePosition(metrics: FinancialMetrics | null) {
 }
 
 function metricSummary(metrics: FinancialMetrics | null) {
-  if (!metrics) return "Financial metrics were not returned for this ticker.";
+  if (!metrics) return "No quote or chart metrics were returned for this ticker.";
 
   const items: string[] = [];
   if (num(metrics.forwardPE) != null) items.push(`forward P/E ${multiple(num(metrics.forwardPE)!)} `);
@@ -45,10 +49,20 @@ function metricSummary(metrics: FinancialMetrics | null) {
   if (num(metrics.priceToBook) != null) items.push(`price/book ${multiple(num(metrics.priceToBook)!)} `);
   if (num(metrics.dividendYieldPct) != null) items.push(`dividend yield ${num(metrics.dividendYieldPct)!.toFixed(1)}%`);
   if (num(metrics.marketCap) != null) items.push(`market cap ${money(num(metrics.marketCap)!)} `);
+  if (num(metrics.rsi14) != null) items.push(`RSI ${num(metrics.rsi14)!.toFixed(1)}`);
+  if (num(metrics.ma50) != null) items.push(`50-day average ${money(num(metrics.ma50)!)} `);
+  if (num(metrics.ma200) != null) items.push(`200-day average ${money(num(metrics.ma200)!)} `);
+  if (num(metrics.sixMonthChangePct) != null) items.push(`6M price change ${signedPct(num(metrics.sixMonthChangePct)!)} `);
   const pos = rangePosition(metrics);
   if (pos != null) items.push(`52-week range position ${pos.toFixed(0)}%`);
 
-  return items.length ? `Fetched financial metrics: ${items.join(" · ")}.` : "Yahoo returned the ticker but not usable P/E, EPS, book, yield, market-cap or range metrics.";
+  const sourceNote = metrics.metricsSource === "chart"
+    ? "Yahoo did not return fundamentals, so this uses fetched chart/technical context."
+    : metrics.metricsSource === "quote+chart"
+      ? "This uses Yahoo quote fundamentals plus fetched chart context."
+      : "This uses Yahoo quote fundamentals.";
+
+  return items.length ? `${sourceNote} ${items.join(" · ")}.` : "Yahoo returned the ticker but no usable fundamentals or chart metrics.";
 }
 
 function makeMetricCard(labelText: string, valueText: string, detailText: string) {
@@ -76,15 +90,18 @@ function makeMetricCard(labelText: string, valueText: string, detailText: string
 }
 
 function metricCards(metrics: FinancialMetrics | null) {
-  if (!metrics) return [makeMetricCard("Financial data", "Limited", "No financial metrics were returned for this ticker.")];
+  if (!metrics) return [makeMetricCard("Data", "Limited", "No quote or chart metrics were returned for this ticker.")];
 
+  const pos = rangePosition(metrics);
   const cards = [
     makeMetricCard("P/E", num(metrics.forwardPE) != null ? multiple(num(metrics.forwardPE)!) : num(metrics.trailingPE) != null ? multiple(num(metrics.trailingPE)!) : "—", `Forward P/E: ${num(metrics.forwardPE) != null ? multiple(num(metrics.forwardPE)!) : "unavailable"}; trailing P/E: ${num(metrics.trailingPE) != null ? multiple(num(metrics.trailingPE)!) : "unavailable"}.`),
     makeMetricCard("EPS", num(metrics.epsForward) != null ? metrics.epsForward!.toFixed(2) : num(metrics.epsTrailingTwelveMonths) != null ? metrics.epsTrailingTwelveMonths!.toFixed(2) : "—", `Forward EPS: ${num(metrics.epsForward) != null ? metrics.epsForward!.toFixed(2) : "unavailable"}; trailing EPS: ${num(metrics.epsTrailingTwelveMonths) != null ? metrics.epsTrailingTwelveMonths!.toFixed(2) : "unavailable"}.`),
+    makeMetricCard("RSI", num(metrics.rsi14) != null ? num(metrics.rsi14)!.toFixed(1) : "—", num(metrics.rsi14) != null ? `14-period RSI from fetched chart history is ${num(metrics.rsi14)!.toFixed(1)}.` : "RSI unavailable."),
+    makeMetricCard("Moving avg", num(metrics.ma50) != null ? money(num(metrics.ma50)!) : "—", `${num(metrics.ma50) != null ? `50-day average ${money(num(metrics.ma50)!)}.` : "50-day average unavailable."}${num(metrics.ma200) != null ? ` 200-day average ${money(num(metrics.ma200)!)}.` : " 200-day average unavailable."}`),
+    makeMetricCard("52-week", pos != null ? `${pos.toFixed(0)}%` : "—", pos != null ? `Current price is ${pos.toFixed(0)}% of the way from 52-week low to 52-week high.` : "52-week range data is unavailable."),
+    makeMetricCard("6M trend", num(metrics.sixMonthChangePct) != null ? signedPct(num(metrics.sixMonthChangePct)!) : "—", num(metrics.sixMonthChangePct) != null ? `Price change over the fetched six-month window is ${signedPct(num(metrics.sixMonthChangePct)!)}.` : "Six-month price change unavailable."),
     makeMetricCard("Price/book", num(metrics.priceToBook) != null ? multiple(num(metrics.priceToBook)!) : "—", num(metrics.priceToBook) != null ? `Price/book is ${multiple(num(metrics.priceToBook)!)}.` : "Price/book is unavailable."),
-    makeMetricCard("Yield", num(metrics.dividendYieldPct) != null ? `${num(metrics.dividendYieldPct)!.toFixed(1)}%` : "—", num(metrics.dividendYieldPct) != null ? `Dividend yield is ${num(metrics.dividendYieldPct)!.toFixed(1)}%.` : "Dividend yield is unavailable."),
-    makeMetricCard("Market cap", num(metrics.marketCap) != null ? money(num(metrics.marketCap)!) : "—", num(metrics.marketCap) != null ? `Market cap is ${money(num(metrics.marketCap)!)}.` : "Market cap is unavailable."),
-    makeMetricCard("52-week", rangePosition(metrics) != null ? `${rangePosition(metrics)!.toFixed(0)}%` : "—", rangePosition(metrics) != null ? `Current price is ${rangePosition(metrics)!.toFixed(0)}% of the way from 52-week low to 52-week high.` : "52-week range data is unavailable."),
+    makeMetricCard("Size / yield", num(metrics.marketCap) != null ? money(num(metrics.marketCap)!) : "—", `${num(metrics.marketCap) != null ? `Market cap is ${money(num(metrics.marketCap)!)}.` : "Market cap unavailable."}${num(metrics.dividendYieldPct) != null ? ` Dividend yield is ${num(metrics.dividendYieldPct)!.toFixed(1)}%.` : " Dividend yield unavailable."}`),
   ];
 
   return cards;
