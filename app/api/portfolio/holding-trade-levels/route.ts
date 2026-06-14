@@ -66,6 +66,60 @@ function payload({
   };
 }
 
+async function saveExactTradeLevels({
+  supabase,
+  ticker,
+  holding,
+  ranking,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  ticker: string;
+  holding: HoldingLevelRow;
+  ranking: RankingRow | null;
+}) {
+  if (!isStockGPTWrittenHolding(holding) || !ranking) return null;
+
+  const entryPrice = toNumber(holding.entry_price) ?? toNumber(ranking.price);
+  if (!entryPrice || entryPrice <= 0) return null;
+
+  const tradeLevels = await calculateTradeLevels({
+    ticker,
+    price: entryPrice,
+    score: toNumber(holding.score_at_entry) ?? toNumber(ranking.score) ?? 0,
+    rank: toNumber(holding.rank_at_entry) ?? toNumber(ranking.rank),
+    sector: ranking.sector ?? null,
+  });
+
+  if (!tradeLevels || tradeLevels.recommendation === "Avoid") return null;
+
+  const riskLevel = tradeLevels.stopLoss;
+  const targetLevel = tradeLevels.takeProfit;
+  const savedRisk = toNumber(holding.risk_level_at_entry);
+  const savedTarget = toNumber(holding.target_level_at_entry);
+
+  if (Math.abs((savedRisk ?? 0) - riskLevel) > 0.01 || Math.abs((savedTarget ?? 0) - targetLevel) > 0.01) {
+    const { error: saveError } = await (supabase as any)
+      .from("portfolio_holdings")
+      .update({
+        risk_level_at_entry: riskLevel,
+        target_level_at_entry: targetLevel,
+      })
+      .eq("portfolio_id", holding.portfolio_id)
+      .eq("ticker", ticker);
+
+    if (saveError) {
+      console.error("[holding-trade-levels] exact level save error", saveError);
+      return null;
+    }
+  }
+
+  return {
+    ...holding,
+    risk_level_at_entry: riskLevel,
+    target_level_at_entry: targetLevel,
+  } satisfies HoldingLevelRow;
+}
+
 export async function GET(req: NextRequest) {
   const ticker = cleanTicker(req.nextUrl.searchParams.get("ticker"));
   if (!ticker) {
@@ -122,54 +176,19 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   const ranking = rankingData as RankingRow | null;
+  const stockgptHolding = holdings.find(isStockGPTWrittenHolding);
+  const exactHolding = stockgptHolding
+    ? await saveExactTradeLevels({ supabase, ticker, holding: stockgptHolding, ranking })
+    : null;
+
+  if (exactHolding) {
+    const portfolio = portfolios.find((item) => item.id === exactHolding.portfolio_id);
+    return NextResponse.json({ levels: payload({ ticker, portfolio, holding: exactHolding, ranking }) });
+  }
+
   const holdingWithLevels = holdings.find((holding) => toNumber(holding.risk_level_at_entry) !== null || toNumber(holding.target_level_at_entry) !== null);
+  if (!holdingWithLevels) return NextResponse.json({ levels: null });
 
-  if (holdingWithLevels) {
-    const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
-    return NextResponse.json({ levels: payload({ ticker, portfolio, holding: holdingWithLevels, ranking }) });
-  }
-
-  const holdingToSave = holdings.find(isStockGPTWrittenHolding);
-  if (!holdingToSave || !ranking) return NextResponse.json({ levels: null });
-
-  const entryPrice = toNumber(holdingToSave.entry_price) ?? toNumber(ranking.price);
-  if (!entryPrice || entryPrice <= 0) return NextResponse.json({ levels: null });
-
-  const tradeLevels = await calculateTradeLevels({
-    ticker,
-    price: entryPrice,
-    score: toNumber(holdingToSave.score_at_entry) ?? toNumber(ranking.score) ?? 0,
-    rank: toNumber(holdingToSave.rank_at_entry) ?? toNumber(ranking.rank),
-    sector: ranking.sector ?? null,
-  });
-
-  if (!tradeLevels || tradeLevels.recommendation === "Avoid") {
-    return NextResponse.json({ levels: null });
-  }
-
-  const riskLevel = tradeLevels.stopLoss;
-  const targetLevel = tradeLevels.takeProfit;
-
-  const { error: saveError } = await (supabase as any)
-    .from("portfolio_holdings")
-    .update({
-      risk_level_at_entry: riskLevel,
-      target_level_at_entry: targetLevel,
-    })
-    .eq("portfolio_id", holdingToSave.portfolio_id)
-    .eq("ticker", ticker);
-
-  if (saveError) {
-    console.error("[holding-trade-levels] exact level save error", saveError);
-    return NextResponse.json({ levels: null, reason: "Could not save trade levels." }, { status: 500 });
-  }
-
-  const savedHolding: HoldingLevelRow = {
-    ...holdingToSave,
-    risk_level_at_entry: riskLevel,
-    target_level_at_entry: targetLevel,
-  };
-  const portfolio = portfolios.find((item) => item.id === savedHolding.portfolio_id);
-
-  return NextResponse.json({ levels: payload({ ticker, portfolio, holding: savedHolding, ranking }) });
+  const portfolio = portfolios.find((item) => item.id === holdingWithLevels.portfolio_id);
+  return NextResponse.json({ levels: payload({ ticker, portfolio, holding: holdingWithLevels, ranking }) });
 }
