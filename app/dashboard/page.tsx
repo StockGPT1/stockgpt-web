@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { DashboardChangeModal } from "@/components/DashboardChangeModal";
+import { DashboardPortfolioHoverWidget } from "@/components/DashboardPortfolioHoverWidget";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
@@ -511,30 +512,7 @@ function PortfolioDashboardWidget({
         </span>
       </div>
 
-      <div className="relative mt-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(118px,1.05fr)] items-stretch gap-3 lg:mb-3">
-        <div className="flex min-w-0 flex-col justify-between py-1">
-          <div>
-            <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
-              {money(summary.totalValue, summary.currency)}
-            </p>
-            <p
-              className={[
-                "mt-1 truncate text-[12px] font-black tabular-nums",
-                isPositive ? "text-emerald-300" : "text-red-200",
-              ].join(" ")}
-            >
-              {money(summary.totalPnl, summary.currency)} · {pct(summary.totalPnlPct)}
-            </p>
-          </div>
-          <span className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
-            {summary.label}
-          </span>
-        </div>
-
-        <div className="min-h-[74px] overflow-hidden rounded-xl border border-[#ddb159]/12 bg-[#04180f]/40">
-          <StockChart ticker="Portfolio" data={chartData} initialRange="MAX" height={74} compact />
-        </div>
-      </div>
+      <DashboardPortfolioHoverWidget summary={summary} chartData={chartData} />
 
       <div className="relative mt-2 flex shrink-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45 lg:mt-0">
         <span className="truncate">
