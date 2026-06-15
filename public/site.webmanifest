@@ -1,12 +1,15 @@
 {
+  "id": "/",
   "name": "StockGPT",
   "short_name": "StockGPT",
   "description": "AI-powered stock rankings, portfolio builder, and market alerts for new investors.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#072116",
   "theme_color": "#072116",
+  "categories": ["finance", "business", "productivity"],
   "icons": [
     {
       "src": "/og-image.png?v=30",
