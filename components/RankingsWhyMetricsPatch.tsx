@@ -23,7 +23,7 @@ type Factor = {
   detail: string;
 };
 
-const cache = new Map<string, { summary: string; factors: Factor[] }>();
+const cache = new Map<string, { factors: Factor[] }>();
 
 function cleanTicker(value: string | null | undefined) {
   return String(value ?? "")
@@ -135,20 +135,6 @@ function buildFactors(metrics: Metrics | null): Factor[] {
   return factors.slice(0, 6);
 }
 
-function buildSummary(ticker: string, factors: Factor[]) {
-  if (!factors.length) {
-    return `${ticker}: live financial metrics are unavailable right now, so this dropdown cannot honestly quote fundamentals yet.`;
-  }
-
-  const positives = factors.filter((factor) => factor.value === "Strong" || factor.value === "Positive").slice(0, 3);
-  const warnings = factors.filter((factor) => factor.value === "Watch").slice(0, 2);
-  const lead = (positives.length ? positives : factors.slice(0, 3))
-    .map((factor) => factor.detail)
-    .join(" ");
-  const caution = warnings.length ? ` Main caution: ${warnings.map((factor) => factor.detail).join(" ")}` : "";
-  return `${ticker} rank context from live financial metrics: ${lead}${caution}`;
-}
-
 function findTicker(details: HTMLDetailsElement) {
   const row = details.closest("div.border-b, div.min-w-0.max-w-full.overflow-hidden");
   const link = row?.querySelector<HTMLAnchorElement>('a[href^="/stock/"]');
@@ -157,12 +143,16 @@ function findTicker(details: HTMLDetailsElement) {
   return cleanTicker(decodeURIComponent(hrefTicker || textTicker || ""));
 }
 
-function patchDetails(details: HTMLDetailsElement, ticker: string, summary: string, factors: Factor[]) {
+function patchDetails(details: HTMLDetailsElement, factors: Factor[]) {
   const summaryNode = details.querySelector("summary");
   const leadParagraph = summaryNode?.nextElementSibling instanceof HTMLParagraphElement ? summaryNode.nextElementSibling : null;
-  if (leadParagraph) leadParagraph.textContent = summary;
+  const grid = leadParagraph?.nextElementSibling instanceof HTMLElement
+    ? leadParagraph.nextElementSibling
+    : summaryNode?.nextElementSibling instanceof HTMLElement
+      ? summaryNode.nextElementSibling
+      : null;
+  if (leadParagraph) leadParagraph.remove();
 
-  const grid = leadParagraph?.nextElementSibling instanceof HTMLElement ? leadParagraph.nextElementSibling : null;
   if (!grid || !factors.length) return;
 
   grid.innerHTML = factors
@@ -186,7 +176,7 @@ async function loadFinancialContext(ticker: string) {
   if (!response.ok) throw new Error("metrics unavailable");
   const data = (await response.json()) as { metrics: Metrics | null };
   const factors = buildFactors(data.metrics);
-  const payload = { summary: buildSummary(ticker, factors), factors };
+  const payload = { factors };
   cache.set(ticker, payload);
   return payload;
 }
@@ -205,8 +195,8 @@ function patchOpenRankExplanations() {
       if (details.dataset.financialMetricsPatched === "true") return;
       details.dataset.financialMetricsPatched = "loading";
       loadFinancialContext(ticker)
-        .then(({ summary, factors }) => {
-          patchDetails(details, ticker, summary, factors);
+        .then(({ factors }) => {
+          patchDetails(details, factors);
           details.dataset.financialMetricsPatched = "true";
         })
         .catch(() => {

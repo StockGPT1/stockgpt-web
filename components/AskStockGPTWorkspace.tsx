@@ -146,11 +146,19 @@ function renderMessageContent(content: string) {
   return <>{blocks}</>;
 }
 
+function StockGPTIconImage({ fallbackClassName }: { fallbackClassName: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className={fallbackClassName}>S</span>;
+  return <img src="/icon.png" alt="" aria-hidden="true" className="block h-full w-full object-contain" onError={() => setFailed(true)} />;
+}
+
 function PremiumOrb({ small = false }: { small?: boolean }) {
   return (
     <span className={["relative grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#ddb159]/40 bg-[#092418] shadow-[0_10px_35px_rgba(221,177,89,0.18)]", small ? "size-8" : "size-10"].join(" ")}>
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.28),transparent_24%),radial-gradient(circle_at_70%_80%,rgba(221,177,89,0.22),transparent_42%)]" />
-      <span className={["relative font-black text-[#ddb159]", small ? "text-[13px]" : "text-[16px]"].join(" ")}>S</span>
+      <span className={["relative grid place-items-center overflow-hidden rounded-xl", small ? "size-6 p-0.5" : "size-8 p-1"].join(" ")}>
+        <StockGPTIconImage fallbackClassName={["font-black text-[#ddb159]", small ? "text-[13px]" : "text-[16px]"].join(" ")} />
+      </span>
     </span>
   );
 }
@@ -183,7 +191,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       ].join(" ")}>
         {!isUser && (
           <div className="mb-1.5 flex min-w-0 items-center gap-2">
-            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">S</span>
+            <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]">
+              <StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" />
+            </span>
             <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">StockGPT Coach</span>
           </div>
         )}
@@ -228,11 +238,11 @@ function LockedExperience({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onClear }: { activeMode: Mode; setActiveMode: (mode: Mode) => void; visibleStarters: StarterPrompt[]; onPrompt: (prompt: string) => void; onClear: () => void }) {
   return (
-    <aside className="hidden min-h-0 border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto]">
-      <div className="shrink-0 px-5 pb-4 pt-5 xl:px-6 xl:pt-6">
+    <aside className="hidden min-h-0 overflow-hidden border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto]">
+      <div className="shrink-0 px-4 pb-3 pt-4 xl:px-5 xl:pt-5">
         <div className="flex items-center gap-3"><PremiumOrb /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">StockGPT Coach</p><p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">Workspace intelligence</p></div></div>
       </div>
-      <div className="min-h-0 overflow-y-auto px-5 pb-4 xl:px-6">
+      <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden px-4 pb-3 xl:px-5">
         <div className="rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/60 p-3.5 xl:p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Workspace</p>
           <div className="mt-3 grid gap-2">
@@ -242,12 +252,12 @@ function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onC
             })}
           </div>
         </div>
-        <div className="mt-4 rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/45 p-3.5 xl:p-4">
+        <div className="sg-ask-sidebar-secondary flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/45 p-3.5 xl:p-4">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Suggested prompts</p>
-          <div className="mt-3 grid gap-2">{visibleStarters.slice(0, 4).map((starter) => <PromptCard key={starter.prompt} starter={starter} onClick={() => onPrompt(starter.prompt)} />)}</div>
+          <div className="sg-ask-sidebar-scroll mt-3 grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden pr-1">{visibleStarters.slice(0, 4).map((starter) => <PromptCard key={starter.prompt} starter={starter} onClick={() => onPrompt(starter.prompt)} />)}</div>
         </div>
       </div>
-      <div className="shrink-0 border-t border-[#ddb159]/12 px-5 py-3 xl:px-6 xl:py-4">
+      <div className="shrink-0 border-t border-[#ddb159]/12 px-4 py-3 xl:px-5 xl:py-4">
         <div className="mb-2 flex items-center justify-between gap-2"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]/70">Chat log</p><button type="button" onClick={onClear} className="inline-flex h-7 items-center justify-center rounded-full border border-[#ddb159]/20 px-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/70 transition hover:bg-[#ddb159]/10 hover:text-[#ddb159]">Clear</button></div>
         <p className="text-[10.5px] font-medium leading-5 text-[#fbf4e5]/38">Last 7 days are saved. Account-specific billing help goes through <span className="font-bold text-[#ddb159]/75">sales@stockgpt.pro</span>.</p>
       </div>
@@ -608,7 +618,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     <>
       {historyLoading && <div className="flex justify-center"><div className="rounded-full border border-[#ddb159]/18 bg-[#fbf4e5]/[0.045] px-4 py-2 text-[11px] font-bold text-[#fbf4e5]/58">Loading chat log</div></div>}
       {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
-      {loading && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#07170f] text-[9px] font-black text-[#ddb159]">S</span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Analysing</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and app context.</div></div></div>}
+      {loading && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Analysing</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and app context.</div></div></div>}
       <div ref={bottomRef} />
     </>
   );

@@ -155,44 +155,6 @@ function isFavourableMetricCard(label: string, value: number | string | null) {
   return true;
 }
 
-function diagnosticSummary(
-  ticker: string,
-  diagnostics: RankingDiagnostics | null,
-  metrics: FinancialMetrics | null,
-  ranking: RankingRow | null,
-) {
-  const drivers = contributionDrivers(diagnostics);
-  const parts: string[] = [];
-
-  if (drivers.length) {
-    parts.push(
-      drivers
-        .slice(0, 3)
-        .map((item) => `${friendlyFactorName(item.factor)} (${signed(item.current)})`)
-        .join(", "),
-    );
-  }
-
-  const pe = num(ranking?.pe) ?? num(metrics?.forwardPE) ?? num(metrics?.trailingPE);
-  const eps = num(metrics?.epsForward) ?? num(metrics?.epsTrailingTwelveMonths);
-  const sixMonth = num(metrics?.sixMonthChangePct);
-  const rsi = num(metrics?.rsi14);
-
-  if (eps != null && eps > 0) parts.push(`positive EPS (${eps.toFixed(2)})`);
-  if (pe != null && pe > 0) parts.push(`P/E ${multiple(pe)}`);
-  if (sixMonth != null && sixMonth > 0) parts.push(`6M trend ${signedPct(sixMonth)}`);
-  if (rsi != null && rsi >= 50 && rsi < 70) parts.push(`RSI ${rsi.toFixed(1)}`);
-  if (metrics?.macdSignal === "bullish_cross") parts.push("MACD bullish cross");
-  else if (metrics?.macdSignal === "bullish") parts.push("MACD bullish");
-
-  const unique = Array.from(new Set(parts)).slice(0, 4);
-  if (unique.length) {
-    return `${ticker} ranks here because the ranking engine is seeing ${unique.join("; ")}.`;
-  }
-
-  return `${ticker} ranks here based on the stored StockGPT score and available factor inputs; no negative or neutral indicators are being shown as support.`;
-}
-
 function makeMetricCard(labelText: string, valueText: string, detailText: string) {
   const card = document.createElement("div");
   card.className = "rounded-xl border border-[#072116]/8 bg-[#072116]/[0.025] p-2.5";
@@ -276,11 +238,13 @@ async function patchDetails(details: HTMLDetailsElement, force = false) {
     const metrics = (data?.metrics ?? null) as FinancialMetrics | null;
     const diagnostics = (data?.diagnostics ?? null) as RankingDiagnostics | null;
     const ranking = (data?.ranking ?? null) as RankingRow | null;
-    const summary = details.querySelector<HTMLParagraphElement>("summary + p");
-    const grid = details.querySelector<HTMLElement>("summary + p + div");
+    const leadParagraph = details.querySelector<HTMLParagraphElement>("summary + p");
+    const grid = leadParagraph?.nextElementSibling instanceof HTMLElement
+      ? leadParagraph.nextElementSibling
+      : details.querySelector<HTMLElement>("summary + div");
 
     details.dataset.stockgptDiagnosticsOwner = "true";
-    if (summary) summary.textContent = diagnosticSummary(ticker, diagnostics, metrics, ranking);
+    if (leadParagraph) leadParagraph.remove();
     if (grid) grid.replaceChildren(...diagnosticCards(diagnostics, metrics, ranking));
     details.dataset.stockgptFinancialPatched = "true";
   } finally {

@@ -1,163 +1,81 @@
+.stockgpt-top-movers-overlay,
+.stockgpt-top-movers-shell,
 .stockgpt-top-movers-drawer,
-.stockgpt-top-movers-drawer *,
-.stockgpt-top-movers-scroll,
-.stockgpt-mover-list {
-  scrollbar-color: #d4af37 #03110b;
+.stockgpt-top-movers-scroll {
+  color-scheme: dark;
 }
 
-.stockgpt-top-movers-drawer,
-.stockgpt-top-movers-mobile-content,
-.stockgpt-top-movers-scroll,
-.stockgpt-mover-list {
-  background-color: #061b12 !important;
-  color: #f8f4e8 !important;
-}
-
-.stockgpt-top-movers-drawer > *,
-.stockgpt-top-movers-mobile-content > *,
-.stockgpt-top-movers-scroll > * {
-  background-color: transparent !important;
+.stockgpt-top-movers-shell {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin-left: auto;
 }
 
 .stockgpt-top-movers-drawer {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
   background:
-    radial-gradient(circle at 86% 0%, rgba(221, 177, 89, 0.14), transparent 34%),
-    linear-gradient(180deg, #0d2b1d 0%, #061b12 50%, #03110b 100%) !important;
-}
-
-.stockgpt-top-movers-scroll {
-  background-image: linear-gradient(#061b12, #03110b) !important;
-  color-scheme: dark !important;
-}
-
-.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) {
-  background:
-    radial-gradient(circle at 86% 0%, rgba(221, 177, 89, 0.14), transparent 34%),
-    linear-gradient(180deg, #0d2b1d 0%, #061b12 50%, #03110b 100%) !important;
-}
-
-.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) .stockgpt-mobile-sheet-header,
-.stockgpt-mobile-sheet:has(.stockgpt-top-movers-mobile-content) .stockgpt-mobile-sheet-content {
-  background: transparent !important;
+    radial-gradient(circle at 90% 0%, rgba(221, 177, 89, 0.12), transparent 34%),
+    linear-gradient(180deg, #0b281b 0%, #061b12 48%, #03110b 100%);
 }
 
 @media (min-width: 1024px) {
-  .sg-app-content:has(.stockgpt-top-movers-overlay) {
-    z-index: 2147482999;
+  .stockgpt-top-movers-shell {
+    width: min(460px, calc(100vw - 32px)) !important;
+    height: calc(100dvh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+    margin-top: 16px;
+    margin-bottom: 16px;
   }
+}
 
-  .stockgpt-top-movers-overlay {
-    z-index: 2147483000 !important;
-    padding: 0 !important;
-    align-items: stretch !important;
-    justify-content: flex-end !important;
-    top: 92px !important;
-    bottom: 0 !important;
-    height: calc(100dvh - 92px) !important;
-  }
+.stockgpt-top-movers-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(221, 177, 89, 0.62) rgba(250, 246, 240, 0.05);
+}
 
-  .stockgpt-top-movers-overlay > .stockgpt-top-movers-drawer {
-    width: min(540px, 42vw) !important;
-    min-width: 440px !important;
-    max-width: min(540px, 42vw) !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    border-radius: 34px 0 0 34px !important;
-  }
+.stockgpt-top-movers-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.stockgpt-top-movers-scroll::-webkit-scrollbar-track,
+.stockgpt-top-movers-scroll::-webkit-scrollbar-corner {
+  background: rgba(250, 246, 240, 0.05);
+}
+
+.stockgpt-top-movers-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(250, 246, 240, 0.05);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f3d98b, #caa24b 54%, #8f6b27);
 }
 
 .stockgpt-mover-row,
 .stockgpt-mover-row:link,
 .stockgpt-mover-row:visited,
-.stockgpt-mover-row:hover,
-.stockgpt-mover-row:focus,
-.stockgpt-mover-row:focus-visible,
 .stockgpt-mover-row:active {
-  background-color: #13251a !important;
-  background-image: none !important;
-  color: #faf6f0 !important;
+  background-color: #102519;
+  background-image: none;
+  color: #faf6f0;
 }
 
 .stockgpt-mover-row:hover,
 .stockgpt-mover-row:focus,
-.stockgpt-mover-row:focus-visible,
-.stockgpt-mover-row:active {
-  background-color: #1b3324 !important;
-  background-image: none !important;
-  border-color: rgba(221, 177, 89, 0.32) !important;
-  color: #faf6f0 !important;
+.stockgpt-mover-row:focus-visible {
+  background-color: #183523;
+  background-image: none;
+  color: #faf6f0;
 }
 
-.stockgpt-top-movers-scroll::-webkit-scrollbar {
-  width: 12px;
-  background: #03110b !important;
-}
-
-.stockgpt-top-movers-scroll::-webkit-scrollbar-track,
-.stockgpt-top-movers-scroll::-webkit-scrollbar-corner {
-  background: #03110b !important;
-  background-color: #03110b !important;
-}
-
-.stockgpt-top-movers-scroll::-webkit-scrollbar-thumb {
-  background: #d4af37 !important;
-  border-radius: 999px;
-  border: 3px solid #03110b;
-}
-
-.stockgpt-mover-row img,
-.stockgpt-mover-row svg {
+.stockgpt-mover-logo img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-}
-
-.stockgpt-top-movers-period-pill,
-.stockgpt-top-movers-period-pill:hover,
-.stockgpt-top-movers-period-pill:focus,
-.stockgpt-top-movers-period-pill:focus-visible,
-.stockgpt-top-movers-period-pill:active {
-  background-image: none !important;
-  filter: none !important;
-  transform: none !important;
-}
-
-@media (min-width: 1024px) {
-  .stockgpt-top-movers-overlay {
-    background-color: rgba(2, 8, 5, 0.88) !important;
-  }
-
-  .stockgpt-top-movers-overlay > .stockgpt-top-movers-drawer {
-    background: #061b12 !important;
-    background-image: none !important;
-    color: #faf6f0 !important;
-  }
-
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer > div:first-child {
-    background: #04140c !important;
-  }
-
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-top-movers-scroll,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list {
-    background-color: #061b12 !important;
-    background-image: none !important;
-  }
-
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:link,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:visited,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:active {
-    background-color: #13251a !important;
-    background-image: none !important;
-    color: #faf6f0 !important;
-  }
-
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:hover,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus,
-  .stockgpt-top-movers-overlay .stockgpt-top-movers-drawer .stockgpt-mover-list .stockgpt-mover-row:focus-visible {
-    background-color: #1b3324 !important;
-    background-image: none !important;
-    color: #faf6f0 !important;
-    border-color: rgba(221, 177, 89, 0.32) !important;
-  }
 }

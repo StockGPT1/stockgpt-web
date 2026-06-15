@@ -10,7 +10,6 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import {
-  buildRankExplanation,
   getFactorExplanations,
   getModelConfidence,
   lightConfidenceClassName,
@@ -176,16 +175,13 @@ function ScoreMethodCard() {
 
 function WhyRankDetails({
   stock,
-  move,
   dailyMove,
   light = false,
 }: {
   stock: Ranking;
-  move: ReturnType<typeof getRankMove24h>;
   dailyMove: number | null | undefined;
   light?: boolean;
 }) {
-  const explanation = buildRankExplanation(stock, move, dailyMove);
   const factors = getFactorExplanations(stock, dailyMove);
 
   return (
@@ -193,7 +189,6 @@ function WhyRankDetails({
       <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.12em] text-[#8a641a]">
         Why this rank?
       </summary>
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/68">{explanation.summary}</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {factors.map((factor) => (
           <div key={factor.label} className="rounded-xl border border-[#072116]/8 bg-[#072116]/[0.025] p-2.5">
@@ -384,7 +379,7 @@ export default async function RankingsPage({
                     <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 truncate text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
                     <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Conf.</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                   </div>
-                  <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} light />
+                  <WhyRankDetails stock={stock} dailyMove={dailyMove} light />
                 </div>
               );
             })
@@ -420,7 +415,7 @@ export default async function RankingsPage({
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
                       </div>
-                      <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} />
+                      <WhyRankDetails stock={stock} dailyMove={dailyMove} />
                     </div>
                   );
                 })
