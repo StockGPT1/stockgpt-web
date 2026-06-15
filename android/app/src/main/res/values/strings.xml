@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StockGPT</string>
+    <string name="title_activity_main">StockGPT</string>
+    <string name="package_name">pro.stockgpt.app</string>
+    <string name="custom_url_scheme">pro.stockgpt.app</string>
+</resources>
