@@ -9,14 +9,23 @@
   --sg-surface-card: #07170f;
   --sg-surface-card-raised: #0b2116;
   --sg-surface-card-deep: #04100a;
-  --sg-surface-hover: #10281b;
+  --sg-surface-card-hover: #10281b;
   --sg-surface-border-gold: rgba(221, 177, 89, 0.18);
   --sg-surface-border-soft: rgba(130, 154, 120, 0.18);
   --sg-surface-text: #f4f1e8;
   --sg-surface-text-muted: #a8b3a7;
   --sg-surface-text-soft: #d9cfb7;
+
+  /* Match the existing dark widget language rather than creating new light panels. */
+  --sg-widget-surface:
+    linear-gradient(135deg, rgba(250, 246, 240, 0.055), rgba(250, 246, 240, 0.018) 52%, rgba(221, 177, 89, 0.052)),
+    linear-gradient(145deg, var(--sg-surface-card-raised) 0%, var(--sg-surface-card) 58%, var(--sg-surface-card-deep) 100%);
+  --sg-widget-surface-hover:
+    linear-gradient(135deg, rgba(250, 246, 240, 0.065), rgba(250, 246, 240, 0.024) 52%, rgba(221, 177, 89, 0.07)),
+    linear-gradient(145deg, #10281b 0%, #071a11 58%, #04100a 100%);
 }
 
+/* Large white/cream utility surfaces should look like the rest of the dark widgets. */
 .sg-app-shell :where(
   [class~="bg-white"],
   [class~="bg-[#fff]"],
@@ -40,18 +49,58 @@
   [class~="bg-neutral-50"],
   [class~="bg-zinc-50"],
   [class~="bg-slate-50"],
+  [class*="bg-white/"],
+  [class*="bg-[#fff]/"],
+  [class*="bg-[#ffffff]/"],
   [class*="bg-[#faf6f0]/"],
   [class*="bg-[#fffaf0]/"],
   [class*="bg-[#fffbeb]/"],
-  [class*="bg-[#fff7ed]/"]
+  [class*="bg-[#fff7ed]/"],
+  [class*="bg-[#fdf8ef]/"],
+  [class*="bg-[#faf7ef]/"],
+  [class*="bg-[#f8f2e8]/"],
+  [class*="bg-[#f7efe2]/"],
+  [class*="bg-[#f5efe2]/"],
+  [class*="bg-[#f4efe5]/"],
+  [class*="bg-[#f3ead8]/"],
+  [class*="bg-[#fef3c7]/"]
 ) {
-  background:
-    radial-gradient(circle at 16% 0%, rgba(221, 177, 89, 0.09), transparent 38%),
-    linear-gradient(145deg, var(--sg-surface-card-raised) 0%, var(--sg-surface-card) 58%, var(--sg-surface-card-deep) 100%) !important;
+  background: var(--sg-widget-surface) !important;
   border-color: var(--sg-surface-border-gold) !important;
   color: var(--sg-surface-text) !important;
 }
 
+/* Prevent any pale hover utility from flashing white/cream. */
+.sg-app-shell :where(
+  [class*="hover:bg-white"],
+  [class*="hover:bg-[#fff]"],
+  [class*="hover:bg-[#ffffff]"],
+  [class*="hover:bg-[#faf6f0]"],
+  [class*="hover:bg-[#fffaf0]"],
+  [class*="hover:bg-[#fffbeb]"],
+  [class*="hover:bg-[#fff7ed]"],
+  [class*="hover:bg-[#fdf8ef]"],
+  [class*="hover:bg-[#faf7ef]"],
+  [class*="hover:bg-[#f8f2e8]"],
+  [class*="hover:bg-[#f7efe2]"],
+  [class*="hover:bg-[#f5efe2]"],
+  [class*="hover:bg-[#f4efe5]"],
+  [class*="hover:bg-[#f3ead8]"],
+  [class*="hover:bg-[#fef3c7]"],
+  [class*="hover:bg-amber-50"],
+  [class*="hover:bg-yellow-50"],
+  [class*="hover:bg-orange-50"],
+  [class*="hover:bg-stone-50"],
+  [class*="hover:bg-neutral-50"],
+  [class*="hover:bg-zinc-50"],
+  [class*="hover:bg-slate-50"]
+):hover {
+  background: var(--sg-widget-surface-hover) !important;
+  border-color: rgba(221, 177, 89, 0.24) !important;
+  color: var(--sg-surface-text) !important;
+}
+
+/* Rows/cells inside formerly pale widgets need the same readable dark-theme text treatment. */
 .sg-app-shell :where(
   [class~="bg-white"],
   [class~="bg-[#fff]"],
@@ -75,10 +124,21 @@
   [class~="bg-neutral-50"],
   [class~="bg-zinc-50"],
   [class~="bg-slate-50"],
+  [class*="bg-white/"],
+  [class*="bg-[#fff]/"],
+  [class*="bg-[#ffffff]/"],
   [class*="bg-[#faf6f0]/"],
   [class*="bg-[#fffaf0]/"],
   [class*="bg-[#fffbeb]/"],
-  [class*="bg-[#fff7ed]/"]
+  [class*="bg-[#fff7ed]/"],
+  [class*="bg-[#fdf8ef]/"],
+  [class*="bg-[#faf7ef]/"],
+  [class*="bg-[#f8f2e8]/"],
+  [class*="bg-[#f7efe2]/"],
+  [class*="bg-[#f5efe2]/"],
+  [class*="bg-[#f4efe5]/"],
+  [class*="bg-[#f3ead8]/"],
+  [class*="bg-[#fef3c7]/"]
 ) :where(
   [class~="text-black"],
   [class~="text-[#000]"],
@@ -121,10 +181,21 @@
   [class~="bg-neutral-50"],
   [class~="bg-zinc-50"],
   [class~="bg-slate-50"],
+  [class*="bg-white/"],
+  [class*="bg-[#fff]/"],
+  [class*="bg-[#ffffff]/"],
   [class*="bg-[#faf6f0]/"],
   [class*="bg-[#fffaf0]/"],
   [class*="bg-[#fffbeb]/"],
-  [class*="bg-[#fff7ed]/"]
+  [class*="bg-[#fff7ed]/"],
+  [class*="bg-[#fdf8ef]/"],
+  [class*="bg-[#faf7ef]/"],
+  [class*="bg-[#f8f2e8]/"],
+  [class*="bg-[#f7efe2]/"],
+  [class*="bg-[#f5efe2]/"],
+  [class*="bg-[#f4efe5]/"],
+  [class*="bg-[#f3ead8]/"],
+  [class*="bg-[#fef3c7]/"]
 ) :where(
   [class*="text-black/"],
   [class*="text-[#072116]/"],
@@ -144,6 +215,22 @@
   color: var(--sg-surface-text-muted) !important;
 }
 
+/* Nested pale chips/cards inside converted widgets should remain layered, not white. */
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#faf6f0]"],
+  [class*="bg-white/"],
+  [class*="bg-[#faf6f0]/"]
+) :where(
+  [class*="bg-[#072116]/"],
+  [class*="bg-black/"],
+  [class*="bg-white/"],
+  [class*="bg-[#faf6f0]/"]
+) {
+  background-color: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(221, 177, 89, 0.14) !important;
+}
+
 .sg-app-shell :where(
   [class~="bg-white"],
   [class~="bg-[#fff]"],
@@ -158,7 +245,9 @@
   [class~="bg-stone-50"],
   [class~="bg-neutral-50"],
   [class~="bg-zinc-50"],
-  [class~="bg-slate-50"]
+  [class~="bg-slate-50"],
+  [class*="bg-white/"],
+  [class*="bg-[#faf6f0]/"]
 ) :where(input, textarea, select) {
   background-color: rgba(2, 11, 7, 0.72) !important;
   border-color: var(--sg-surface-border-soft) !important;
@@ -179,7 +268,9 @@
   [class~="bg-stone-50"],
   [class~="bg-neutral-50"],
   [class~="bg-zinc-50"],
-  [class~="bg-slate-50"]
+  [class~="bg-slate-50"],
+  [class*="bg-white/"],
+  [class*="bg-[#faf6f0]/"]
 ) :where(input::placeholder, textarea::placeholder) {
   color: rgba(168, 179, 167, 0.72) !important;
 }
