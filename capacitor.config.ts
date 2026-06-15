@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'StockGPT',
   webDir: 'capacitor-fallback',
   server: {
-    url: 'https://stockgpt.pro',
+    url: 'https://stockgpt.pro/dashboard',
     cleartext: false,
   },
   android: {
@@ -26,3 +26,4 @@ const config: CapacitorConfig = {
 };
 
 export default config;
+
