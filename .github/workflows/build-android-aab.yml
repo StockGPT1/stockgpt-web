@@ -57,7 +57,9 @@ jobs:
           CI: true
         run: |
           set -euo pipefail
-          bubblewrap build --skipPwaValidation --signingKeyPath=release-key.jks --signingKeyAlias=stockgpt-upload
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          printf 'n\n%s\nn\n%s\n' "$JAVA_HOME" "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" | bubblewrap build --skipPwaValidation --signingKeyPath=release-key.jks --signingKeyAlias=stockgpt-upload
 
       - name: Locate generated bundle
         id: bundle
