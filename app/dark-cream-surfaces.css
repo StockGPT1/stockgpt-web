@@ -1,0 +1,185 @@
+/*
+  Colour-only StockGPT surface pass.
+  Scope: remove large white/cream app surfaces while preserving layout, content and behaviour.
+  This file intentionally targets surface/background utility classes only.
+*/
+
+:root {
+  --sg-surface-page: #020b07;
+  --sg-surface-card: #07170f;
+  --sg-surface-card-raised: #0b2116;
+  --sg-surface-card-deep: #04100a;
+  --sg-surface-hover: #10281b;
+  --sg-surface-border-gold: rgba(221, 177, 89, 0.18);
+  --sg-surface-border-soft: rgba(130, 154, 120, 0.18);
+  --sg-surface-text: #f4f1e8;
+  --sg-surface-text-muted: #a8b3a7;
+  --sg-surface-text-soft: #d9cfb7;
+}
+
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#fff]"],
+  [class~="bg-[#ffffff]"],
+  [class~="bg-[#faf6f0]"],
+  [class~="bg-[#fffaf0]"],
+  [class~="bg-[#fffbeb]"],
+  [class~="bg-[#fff7ed]"],
+  [class~="bg-[#fdf8ef]"],
+  [class~="bg-[#faf7ef]"],
+  [class~="bg-[#f8f2e8]"],
+  [class~="bg-[#f7efe2]"],
+  [class~="bg-[#f5efe2]"],
+  [class~="bg-[#f4efe5]"],
+  [class~="bg-[#f3ead8]"],
+  [class~="bg-[#fef3c7]"],
+  [class~="bg-amber-50"],
+  [class~="bg-yellow-50"],
+  [class~="bg-orange-50"],
+  [class~="bg-stone-50"],
+  [class~="bg-neutral-50"],
+  [class~="bg-zinc-50"],
+  [class~="bg-slate-50"],
+  [class*="bg-[#faf6f0]/"],
+  [class*="bg-[#fffaf0]/"],
+  [class*="bg-[#fffbeb]/"],
+  [class*="bg-[#fff7ed]/"]
+) {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(221, 177, 89, 0.09), transparent 38%),
+    linear-gradient(145deg, var(--sg-surface-card-raised) 0%, var(--sg-surface-card) 58%, var(--sg-surface-card-deep) 100%) !important;
+  border-color: var(--sg-surface-border-gold) !important;
+  color: var(--sg-surface-text) !important;
+}
+
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#fff]"],
+  [class~="bg-[#ffffff]"],
+  [class~="bg-[#faf6f0]"],
+  [class~="bg-[#fffaf0]"],
+  [class~="bg-[#fffbeb]"],
+  [class~="bg-[#fff7ed]"],
+  [class~="bg-[#fdf8ef]"],
+  [class~="bg-[#faf7ef]"],
+  [class~="bg-[#f8f2e8]"],
+  [class~="bg-[#f7efe2]"],
+  [class~="bg-[#f5efe2]"],
+  [class~="bg-[#f4efe5]"],
+  [class~="bg-[#f3ead8]"],
+  [class~="bg-[#fef3c7]"],
+  [class~="bg-amber-50"],
+  [class~="bg-yellow-50"],
+  [class~="bg-orange-50"],
+  [class~="bg-stone-50"],
+  [class~="bg-neutral-50"],
+  [class~="bg-zinc-50"],
+  [class~="bg-slate-50"],
+  [class*="bg-[#faf6f0]/"],
+  [class*="bg-[#fffaf0]/"],
+  [class*="bg-[#fffbeb]/"],
+  [class*="bg-[#fff7ed]/"]
+) :where(
+  [class~="text-black"],
+  [class~="text-[#000]"],
+  [class~="text-[#072116]"],
+  [class~="text-[#04180f]"],
+  [class~="text-[#111827]"],
+  [class~="text-[#1f2937]"],
+  [class~="text-gray-900"],
+  [class~="text-gray-950"],
+  [class~="text-zinc-900"],
+  [class~="text-zinc-950"],
+  [class~="text-neutral-900"],
+  [class~="text-neutral-950"],
+  [class~="text-stone-900"],
+  [class~="text-slate-900"]
+) {
+  color: var(--sg-surface-text) !important;
+}
+
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#fff]"],
+  [class~="bg-[#ffffff]"],
+  [class~="bg-[#faf6f0]"],
+  [class~="bg-[#fffaf0]"],
+  [class~="bg-[#fffbeb]"],
+  [class~="bg-[#fff7ed]"],
+  [class~="bg-[#fdf8ef]"],
+  [class~="bg-[#faf7ef]"],
+  [class~="bg-[#f8f2e8]"],
+  [class~="bg-[#f7efe2]"],
+  [class~="bg-[#f5efe2]"],
+  [class~="bg-[#f4efe5]"],
+  [class~="bg-[#f3ead8]"],
+  [class~="bg-[#fef3c7]"],
+  [class~="bg-amber-50"],
+  [class~="bg-yellow-50"],
+  [class~="bg-orange-50"],
+  [class~="bg-stone-50"],
+  [class~="bg-neutral-50"],
+  [class~="bg-zinc-50"],
+  [class~="bg-slate-50"],
+  [class*="bg-[#faf6f0]/"],
+  [class*="bg-[#fffaf0]/"],
+  [class*="bg-[#fffbeb]/"],
+  [class*="bg-[#fff7ed]/"]
+) :where(
+  [class*="text-black/"],
+  [class*="text-[#072116]/"],
+  [class*="text-[#04180f]/"],
+  [class~="text-gray-400"],
+  [class~="text-gray-500"],
+  [class~="text-gray-600"],
+  [class~="text-zinc-400"],
+  [class~="text-zinc-500"],
+  [class~="text-zinc-600"],
+  [class~="text-neutral-400"],
+  [class~="text-neutral-500"],
+  [class~="text-stone-500"],
+  [class~="text-slate-500"],
+  [class~="text-slate-600"]
+) {
+  color: var(--sg-surface-text-muted) !important;
+}
+
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#fff]"],
+  [class~="bg-[#ffffff]"],
+  [class~="bg-[#faf6f0]"],
+  [class~="bg-[#fffaf0]"],
+  [class~="bg-[#fffbeb]"],
+  [class~="bg-[#fff7ed]"],
+  [class~="bg-amber-50"],
+  [class~="bg-yellow-50"],
+  [class~="bg-orange-50"],
+  [class~="bg-stone-50"],
+  [class~="bg-neutral-50"],
+  [class~="bg-zinc-50"],
+  [class~="bg-slate-50"]
+) :where(input, textarea, select) {
+  background-color: rgba(2, 11, 7, 0.72) !important;
+  border-color: var(--sg-surface-border-soft) !important;
+  color: var(--sg-surface-text) !important;
+}
+
+.sg-app-shell :where(
+  [class~="bg-white"],
+  [class~="bg-[#fff]"],
+  [class~="bg-[#ffffff]"],
+  [class~="bg-[#faf6f0]"],
+  [class~="bg-[#fffaf0]"],
+  [class~="bg-[#fffbeb]"],
+  [class~="bg-[#fff7ed]"],
+  [class~="bg-amber-50"],
+  [class~="bg-yellow-50"],
+  [class~="bg-orange-50"],
+  [class~="bg-stone-50"],
+  [class~="bg-neutral-50"],
+  [class~="bg-zinc-50"],
+  [class~="bg-slate-50"]
+) :where(input::placeholder, textarea::placeholder) {
+  color: rgba(168, 179, 167, 0.72) !important;
+}
