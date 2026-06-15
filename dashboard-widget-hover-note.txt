@@ -1,1 +1,0 @@
-Dashboard widget hover change marker.
