@@ -13,8 +13,18 @@ export default function Layout({ children }: { children: ReactNode }) {
       {children}
       <style>{`
         @media (min-width: 1024px) {
+          a[href="/portfolio"][class*="hover:border"] > div:nth-last-child(2) {
+            margin-bottom: 16px !important;
+          }
+
           a[href="/portfolio"][class*="hover:border"] > div:last-child {
-            margin-top: 3px !important;
+            z-index: 30;
+            margin-top: 6px !important;
+            transform: translateY(2px);
+          }
+
+          a[href="/portfolio"][class*="hover:border"] [class*="pointer-events-none"][class*="bottom-3"][class*="w-[10rem]"] {
+            bottom: 2.25rem !important;
           }
         }
       `}</style>
