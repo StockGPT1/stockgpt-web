@@ -5,6 +5,9 @@ import { useState, useMemo, useRef, useCallback } from "react";
 export type ChartPoint = {
   date: string;
   close: number;
+  basis?: number;
+  pnl?: number;
+  pnlPct?: number;
 };
 
 export type TimeRange = "1D" | "5D" | "1M" | "6M" | "1Y" | "5Y" | "MAX";

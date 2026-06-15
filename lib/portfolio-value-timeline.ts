@@ -67,9 +67,15 @@ type Lot = {
   shares: number;
   entryPrice: number;
   startMs: number;
+  implicitBasis: boolean;
 };
 
 type CashEvent = {
+  ms: number;
+  amount: number;
+};
+
+type BasisEvent = {
   ms: number;
   amount: number;
 };
@@ -105,10 +111,6 @@ function safeDateMs(value: string | null | undefined) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isDateOnly(value: string | null | undefined) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
-}
-
 function pointMs(point: ChartPoint) {
   const ms = new Date(point.date).getTime();
   return Number.isFinite(ms) ? ms : null;
@@ -135,8 +137,8 @@ function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
   const purchaseRaw = holding.purchase_date ?? holding.purchaseDate ?? null;
   const purchaseMs = safeDateMs(purchaseRaw);
 
-  if (purchaseMs != null && !isDateOnly(purchaseRaw)) return Math.max(fallbackMs, purchaseMs);
-  return Math.max(fallbackMs, addedMs ?? purchaseMs ?? fallbackMs);
+  if (purchaseMs != null) return Math.max(fallbackMs, purchaseMs);
+  return Math.max(fallbackMs, addedMs ?? fallbackMs);
 }
 
 function normaliseHoldings(holdings: PortfolioTimelineHolding[], portfolioStartMs: number) {
@@ -175,13 +177,13 @@ function reduceLots(lots: Lot[], ticker: string, sharesToReduce: number) {
   }
 }
 
-function setTickerExposure(lots: Lot[], ticker: string, shares: number, price: number, startMs: number) {
+function setTickerExposure(lots: Lot[], ticker: string, shares: number, price: number, startMs: number, implicitBasis: boolean) {
   lots.forEach((lot) => {
     if (lot.ticker === ticker) lot.shares = 0;
   });
 
   if (shares > EPSILON) {
-    lots.push({ ticker, shares: roundShares(shares), entryPrice: Math.max(0, price), startMs });
+    lots.push({ ticker, shares: roundShares(shares), entryPrice: Math.max(0, price), startMs, implicitBasis });
   }
 }
 
@@ -192,6 +194,18 @@ function finalSharesByTicker(lots: Lot[]) {
     shares.set(lot.ticker, roundShares((shares.get(lot.ticker) ?? 0) + lot.shares));
   });
   return shares;
+}
+
+function lotCost(lot: Lot) {
+  return Math.max(0, lot.shares) * Math.max(0, lot.entryPrice);
+}
+
+function activeImplicitLotCost(lots: Lot[], ticker: string) {
+  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.implicitBasis && lot.shares > EPSILON ? sum + lotCost(lot) : sum), 0);
+}
+
+function activeLotShares(lots: Lot[], ticker: string) {
+  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.shares > EPSILON ? sum + lot.shares : sum), 0);
 }
 
 function buildLedger({
@@ -209,6 +223,7 @@ function buildLedger({
 }) {
   const lots: Lot[] = [];
   const cashEvents: CashEvent[] = [];
+  const basisEvents: BasisEvent[] = [];
 
   [...transactions]
     .sort(
@@ -231,18 +246,23 @@ function buildLedger({
 
       if (type === "deposit") {
         if (absoluteAmount > 0) cashEvents.push({ ms, amount: absoluteAmount });
+        if (absoluteAmount > 0) basisEvents.push({ ms, amount: absoluteAmount });
         return;
       }
 
       if (type === "withdrawal") {
         if (absoluteAmount > 0) cashEvents.push({ ms, amount: -absoluteAmount });
+        if (absoluteAmount > 0) basisEvents.push({ ms, amount: -absoluteAmount });
         return;
       }
 
       if (type === "cash_adjustment") {
         if (Math.abs(amount) > 0.009) cashEvents.push({ ms, amount });
+        if (Math.abs(amount) > 0.009) basisEvents.push({ ms, amount });
         return;
       }
+
+      if (type === "import") return;
 
       if (!ticker) return;
 
@@ -252,6 +272,7 @@ function buildLedger({
           shares: roundShares(impliedShares),
           entryPrice: price > 0 ? price : absoluteAmount / impliedShares,
           startMs: ms,
+          implicitBasis: false,
         });
         cashEvents.push({ ms, amount: -(absoluteAmount || impliedShares * price) });
         return;
@@ -264,20 +285,33 @@ function buildLedger({
       }
 
       if ((type === "log_existing" || type === "import_holding") && impliedShares > EPSILON) {
+        const entryPrice = price > 0 ? price : absoluteAmount / impliedShares;
         lots.push({
           ticker,
           shares: roundShares(impliedShares),
-          entryPrice: price > 0 ? price : absoluteAmount / impliedShares,
+          entryPrice,
           startMs: ms,
+          implicitBasis: true,
         });
+        basisEvents.push({ ms, amount: impliedShares * entryPrice });
         return;
       }
 
       if (type === "adjustment") {
         if (shares > EPSILON) {
-          setTickerExposure(lots, ticker, shares, price > 0 ? price : shares > 0 ? absoluteAmount / shares : 0, ms);
+          const currentCost = activeImplicitLotCost(lots, ticker);
+          const hasExistingExplicitExposure = activeLotShares(lots, ticker) > EPSILON && currentCost <= EPSILON;
+          const entryPrice = price > 0 ? price : shares > 0 ? absoluteAmount / shares : 0;
+          const nextCost = shares * entryPrice;
+          const tracksImplicitBasis = !hasExistingExplicitExposure;
+          setTickerExposure(lots, ticker, shares, entryPrice, ms, tracksImplicitBasis);
+          if (tracksImplicitBasis && Math.abs(nextCost - currentCost) > 0.009) {
+            basisEvents.push({ ms, amount: nextCost - currentCost });
+          }
         } else if (absoluteAmount <= 0.009) {
-          setTickerExposure(lots, ticker, 0, 0, ms);
+          const currentCost = activeImplicitLotCost(lots, ticker);
+          setTickerExposure(lots, ticker, 0, 0, ms, false);
+          if (currentCost > 0.009) basisEvents.push({ ms, amount: -currentCost });
         }
       }
     });
@@ -290,12 +324,15 @@ function buildLedger({
     const difference = roundShares(holding.shares - replayedShares);
 
     if (difference > EPSILON) {
+      const entryPrice = holding.entryPrice || holding.currentPrice;
       lots.push({
         ticker: holding.ticker,
         shares: difference,
-        entryPrice: holding.entryPrice || holding.currentPrice,
+        entryPrice,
         startMs: holding.startMs,
+        implicitBasis: true,
       });
+      basisEvents.push({ ms: holding.startMs, amount: difference * entryPrice });
     } else if (difference < -EPSILON) {
       reduceLots(lots, holding.ticker, Math.abs(difference));
     }
@@ -309,11 +346,15 @@ function buildLedger({
 
   const finalCash = cashEvents.reduce((sum, event) => sum + event.amount, 0);
   const cashAdjustment = roundMoney(currentCash - finalCash);
-  if (Math.abs(cashAdjustment) > 0.009) cashEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
+  if (Math.abs(cashAdjustment) > 0.009) {
+    cashEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
+    basisEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
+  }
 
   return {
     lots: lots.filter((lot) => lot.shares > EPSILON),
     cashEvents: cashEvents.filter((event) => Math.abs(event.amount) > 0.009 && event.ms <= nowMs),
+    basisEvents: basisEvents.filter((event) => Math.abs(event.amount) > 0.009 && event.ms <= nowMs),
   };
 }
 
@@ -424,6 +465,10 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
   return cashEvents.reduce((sum, event) => (event.ms <= ms ? sum + event.amount : sum), 0);
 }
 
+function basisAtTime(basisEvents: BasisEvent[], ms: number) {
+  return Math.max(0, basisEvents.reduce((sum, event) => (event.ms <= ms ? sum + event.amount : sum), 0));
+}
+
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
   if (range === "1D") return Math.max(0, nowMs - (PORTFOLIO_ONE_DAY_POINTS - 1) * ONE_HOUR_MS);
   if (range === "MAX") return portfolioStartMs;
@@ -473,6 +518,7 @@ function buildRangeSeries({
   nowMs,
   lots,
   cashEvents,
+  basisEvents,
   charts,
   currentPrices,
 }: {
@@ -481,6 +527,7 @@ function buildRangeSeries({
   nowMs: number;
   lots: Lot[];
   cashEvents: CashEvent[];
+  basisEvents: BasisEvent[];
   charts: Map<string, ChartPoint[]>;
   currentPrices: Map<string, number>;
 }) {
@@ -490,7 +537,7 @@ function buildRangeSeries({
 
   const points = times.map((ms) => {
     if (ms < portfolioStartMs && range !== "MAX") {
-      return { date: new Date(ms).toISOString(), close: 0 };
+      return { date: new Date(ms).toISOString(), close: 0, basis: 0, pnl: 0, pnlPct: 0 };
     }
 
     const holdingsValue = lots.reduce((sum, lot) => {
@@ -500,9 +547,16 @@ function buildRangeSeries({
       return sum + lot.shares * price;
     }, 0);
 
+    const close = Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue));
+    const basis = roundMoney(basisAtTime(basisEvents, ms));
+    const pnl = roundMoney(close - basis);
+
     return {
       date: new Date(ms).toISOString(),
-      close: Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue)),
+      close,
+      basis,
+      pnl,
+      pnlPct: basis > EPSILON ? (pnl / basis) * 100 : 0,
     };
   });
 
@@ -553,7 +607,7 @@ export async function buildPortfolioValueTimeline({
     if (holding.currentPrice > 0) currentPriceMap.set(holding.ticker, holding.currentPrice);
   });
 
-  const { lots, cashEvents } = buildLedger({
+  const { lots, cashEvents, basisEvents } = buildLedger({
     transactions,
     holdings: normalisedHoldings,
     currentCash,
@@ -567,7 +621,7 @@ export async function buildPortfolioValueTimeline({
   const charts = tickers.length > 0 ? await loadCharts({ tickers, priceFetcher }) : new Map<string, ChartPoint[]>();
 
   return OUTPUT_RANGES.reduce<PortfolioTimelineChartData>((acc, range) => {
-    const points = buildRangeSeries({ range, portfolioStartMs, nowMs, lots, cashEvents, charts, currentPrices: currentPriceMap });
+    const points = buildRangeSeries({ range, portfolioStartMs, nowMs, lots, cashEvents, basisEvents, charts, currentPrices: currentPriceMap });
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});

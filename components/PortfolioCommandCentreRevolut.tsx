@@ -177,6 +177,10 @@ function portfolioReturnBasis(summary: Pick<ReturnType<typeof buildPortfolioHeal
   return Math.max(summary.totalValue, 1);
 }
 
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function SectionIcon({ section }: { section: Section }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (section === "overview") return <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true"><path {...common} d="M4 13.5 9.5 8l4 4L20 5.5" /><path {...common} d="M4 19h16" /></svg>;
@@ -228,7 +232,7 @@ function PortfolioChartHero({ portfolioId, portfolios, portfolioName, currency, 
   const chartRangeData = activeRangeHasData ? ({ [activeRange]: activeRangePoints } as Partial<Record<TimeRange, ChartPoint[]>>) : ({ [activeRange]: [] } as Partial<Record<TimeRange, ChartPoint[]>>);
   const availableRanges = RANGE_LABELS.filter(({ range: itemRange }) => hasChartPoints(rangeData, itemRange));
   const activeRangeSignature = useMemo(
-    () => activeRangePoints.map((point) => `${point.date}:${point.close}`).join(";"),
+    () => activeRangePoints.map((point) => `${point.date}:${point.close}:${point.basis ?? ""}:${point.pnl ?? ""}:${point.pnlPct ?? ""}`).join(";"),
     [activeRangePoints],
   );
   const scrubScope = [
@@ -247,8 +251,11 @@ function PortfolioChartHero({ portfolioId, portfolios, portfolioName, currency, 
   const returnBasis = useMemo(() => portfolioReturnBasis(summary), [summary]);
   const hasScrubPoint = scrubPoint !== null && Number.isFinite(scrubPoint.close);
   const displayedValue = hasScrubPoint ? scrubPoint.close : summary.totalValue;
-  const displayedReturn = hasScrubPoint ? displayedValue - returnBasis : summary.totalPnl;
-  const displayedReturnPct = hasScrubPoint && returnBasis > 0 ? (displayedReturn / returnBasis) * 100 : summary.totalPnlPct;
+  const historicalReturn = hasScrubPoint && finiteNumber(scrubPoint.pnl) ? scrubPoint.pnl : null;
+  const historicalReturnPct = hasScrubPoint && finiteNumber(scrubPoint.pnlPct) ? scrubPoint.pnlPct : null;
+  const hasHistoricalReturn = historicalReturn !== null && historicalReturnPct !== null;
+  const displayedReturn = hasHistoricalReturn ? historicalReturn : hasScrubPoint ? displayedValue - returnBasis : summary.totalPnl;
+  const displayedReturnPct = hasHistoricalReturn ? historicalReturnPct : hasScrubPoint && returnBasis > 0 ? (displayedReturn / returnBasis) * 100 : summary.totalPnlPct;
   const isPositive = displayedReturn >= 0;
   const portfolioOptions = portfolios.map((portfolio) => ({ value: portfolio.id, label: portfolio.name, description: portfolio.createdAt ? `Created ${formatDate(portfolio.createdAt)}` : portfolio.currency ?? "USD" }));
   return (
