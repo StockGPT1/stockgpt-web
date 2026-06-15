@@ -1,0 +1,80 @@
+name: Build Android AAB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android-aab:
+    name: Build signed Android App Bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Prepare TWA build directory
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          mkdir -p android/twa-build
+          cp android/twa/twa-manifest.json android/twa-build/twa-manifest.json
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/twa-build/release-key.jks
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path('android/twa-build/twa-manifest.json')
+          manifest = json.loads(manifest_path.read_text())
+          manifest['appVersionCode'] = int(os.environ.get('GITHUB_RUN_NUMBER', '1'))
+          manifest['signingKey']['alias'] = os.environ.get('ANDROID_KEY_ALIAS', 'stockgpt-upload')
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+
+      - name: Build signed AAB
+        working-directory: android/twa-build
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Bubblewrap reads twa-manifest.json from the working directory.
+          # The password lines are piped in case Bubblewrap asks for keystore/key passwords during signing.
+          printf '%s\n%s\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" | bubblewrap build --skipPwaValidation
+
+      - name: Locate generated bundle
+        id: bundle
+        run: |
+          set -euo pipefail
+          BUNDLE_PATH=$(find android/twa-build -name '*.aab' -type f | head -n 1)
+          if [ -z "$BUNDLE_PATH" ]; then
+            echo "No .aab file was generated"
+            find android/twa-build -maxdepth 6 -type f | sort
+            exit 1
+          fi
+          echo "bundle_path=$BUNDLE_PATH" >> "$GITHUB_OUTPUT"
+          echo "Generated bundle: $BUNDLE_PATH"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockgpt-android-aab
+          path: ${{ steps.bundle.outputs.bundle_path }}
+          if-no-files-found: error
