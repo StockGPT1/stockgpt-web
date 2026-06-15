@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { StockLogo } from "@/components/StockLogo";
 import { RankingsLock } from "@/components/RankingsLock";
-import { createClient } from "@/utils/supabase/server";
-import { hasActiveSubscription } from "@/lib/subscription";
+import { StockLogo } from "@/components/StockLogo";
 import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
   getRankMove24h,
@@ -12,7 +10,6 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import {
-  buildRankExplanation,
   getFactorExplanations,
   getModelConfidence,
   lightConfidenceClassName,
@@ -20,6 +17,9 @@ import {
   matchesPriceMoveFilter,
   matchesScoreFilter,
 } from "@/lib/research-explainability";
+import { getStableRankings, type StableRankingRow } from "@/lib/stable-rankings";
+import { hasActiveSubscription } from "@/lib/subscription";
+import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
@@ -28,15 +28,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Ranking = {
-  id: string | number;
-  rank: number | null;
-  ticker: string | null;
-  company: string | null;
-  sector: string | null;
-  score: number | string | null;
-  price: number | string | null;
-};
+type Ranking = StableRankingRow;
 
 type RankingsSearchParams = {
   q?: string;
@@ -183,16 +175,13 @@ function ScoreMethodCard() {
 
 function WhyRankDetails({
   stock,
-  move,
   dailyMove,
   light = false,
 }: {
   stock: Ranking;
-  move: ReturnType<typeof getRankMove24h>;
   dailyMove: number | null | undefined;
   light?: boolean;
 }) {
-  const explanation = buildRankExplanation(stock, move, dailyMove);
   const factors = getFactorExplanations(stock, dailyMove);
 
   return (
@@ -200,7 +189,6 @@ function WhyRankDetails({
       <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.12em] text-[#8a641a]">
         Why this rank?
       </summary>
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-[#072116]/68">{explanation.summary}</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {factors.map((factor) => (
           <div key={factor.label} className="rounded-xl border border-[#072116]/8 bg-[#072116]/[0.025] p-2.5">
@@ -258,17 +246,11 @@ export default async function RankingsPage({
   }
 
   const rankingsLocked = !hasSubscription;
-
-  const [{ data: rankingsData }, snapshotMap] = await Promise.all([
-    supabase
-      .from("stock_rankings")
-      .select("id,rank,ticker,company,sector,score,price")
-      .order("rank", { ascending: true })
-      .limit(hasSubscription ? 500 : 10),
+  const [stableRankings, snapshotMap] = await Promise.all([
+    getStableRankings(supabase),
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
-
-  const rawRankings = (rankingsData ?? []) as Ranking[];
+  const rawRankings = stableRankings.slice(0, hasSubscription ? 500 : 10);
   const allRankings = await Promise.all(rawRankings.map((stock) => attachLivePriceIfMissing(stock)));
 
   const dailyMoveMap = await getOneDayMoveMap(
@@ -303,9 +285,6 @@ export default async function RankingsPage({
     <AppShell activePath="/rankings">
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
-          <div className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-[#ddb159]/12 blur-3xl" />
-          <div className="pointer-events-none absolute -left-16 bottom-0 size-44 rounded-full bg-emerald-400/10 blur-3xl" />
-
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -317,7 +296,7 @@ export default async function RankingsPage({
               </h1>
               <p className="mt-2 max-w-[680px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[13px]">
                 {hasSubscription
-                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Search first, then open advanced filters only when needed.`
+                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Rankings use the latest complete StockGPT snapshot.`
                   : "Rankings are locked. Subscribe to Core to unlock the full AI ranking table, score context and why-this-rank explanations."}
               </p>
             </div>
@@ -400,7 +379,7 @@ export default async function RankingsPage({
                     <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 truncate text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
                     <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Conf.</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                   </div>
-                  <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} light />
+                  <WhyRankDetails stock={stock} dailyMove={dailyMove} light />
                 </div>
               );
             })
@@ -436,7 +415,7 @@ export default async function RankingsPage({
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
                       </div>
-                      <WhyRankDetails stock={stock} move={move} dailyMove={dailyMove} />
+                      <WhyRankDetails stock={stock} dailyMove={dailyMove} />
                     </div>
                   );
                 })

@@ -5,6 +5,9 @@ import { useState, useMemo, useRef, useCallback } from "react";
 export type ChartPoint = {
   date: string;
   close: number;
+  basis?: number;
+  pnl?: number;
+  pnlPct?: number;
 };
 
 export type TimeRange = "1D" | "5D" | "1M" | "6M" | "1Y" | "5Y" | "MAX";
@@ -17,6 +20,7 @@ type Props = {
   compact?: boolean;
   color?: string;
   mobileTransparentFrame?: boolean;
+  onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
 
 const RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
@@ -40,6 +44,8 @@ function formatDate(iso: string, range: TimeRange) {
 
   if (range === "1D") {
     return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
@@ -76,6 +82,7 @@ export function StockChart({
   compact = false,
   color,
   mobileTransparentFrame = false,
+  onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -108,6 +115,8 @@ export function StockChart({
         : "#ddb159");
 
   const fillColor = `${lineColor}26`;
+  const isPortfolioMiniChart = compact && ticker === "Portfolio";
+  const lineStrokeWidth = isPortfolioMiniChart ? 1.35 : 2;
 
   const {
     svgWidth,
@@ -220,11 +229,16 @@ export function StockChart({
       );
 
       setHoverIdx(idx);
+
+      onScrub?.(points[idx], { range: resolvedRange });
     },
-    [points.length, svgWidth, plotW, padding.left],
+    [points, svgWidth, plotW, padding.left, onScrub, resolvedRange],
   );
 
-  const handlePointerLeave = useCallback(() => setHoverIdx(null), []);
+  const handlePointerLeave = useCallback(() => {
+    setHoverIdx(null);
+    onScrub?.(null, { range: resolvedRange });
+  }, [onScrub, resolvedRange]);
 
   const summary = useMemo(() => {
     if (points.length < 2) return null;
@@ -250,6 +264,10 @@ export function StockChart({
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
+  const hideTooltip = compact && ticker === "Portfolio";
+  const scrubDateLeft = hoverPoint
+    ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 5rem), calc(100% - 10.85rem))`
+    : "0.75rem";
 
   if (points.length < 2) {
     return (
@@ -315,6 +333,14 @@ export function StockChart({
           onPointerMove={(e) => handleMove(e.clientX)}
           onPointerDown={(e) => handleMove(e.clientX)}
           onPointerLeave={handlePointerLeave}
+          onPointerCancel={handlePointerLeave}
+          onPointerUp={(e) => {
+            if (onScrub) {
+              handlePointerLeave();
+              return;
+            }
+            handleMove(e.clientX);
+          }}
         >
           {!compact &&
             gridPrices.map((price, i) => {
@@ -352,7 +378,7 @@ export function StockChart({
             d={pathD}
             fill="none"
             stroke={lineColor}
-            strokeWidth="2"
+            strokeWidth={lineStrokeWidth}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -408,7 +434,7 @@ export function StockChart({
           )}
         </svg>
 
-        {hoverPoint && (
+        {hoverPoint && !hideTooltip && (
           <div
             className={[
               "pointer-events-none absolute rounded-lg border border-[#ddb159]/30 bg-[#072116]/95 backdrop-blur",
@@ -434,6 +460,15 @@ export function StockChart({
             >
               {formatPrice(hoverPoint.close)}
             </p>
+          </div>
+        )}
+
+        {hoverPoint && hideTooltip && (
+          <div
+            className="pointer-events-none absolute bottom-3 z-20 w-[10rem] rounded-full border border-[#ddb159]/28 bg-[#072116]/92 px-2.5 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.06em] text-[#ddb159] shadow-[0_10px_22px_rgba(0,0,0,0.28)] backdrop-blur"
+            style={{ left: scrubDateLeft }}
+          >
+            {formatDate(hoverPoint.date, resolvedRange)}
           </div>
         )}
       </div>

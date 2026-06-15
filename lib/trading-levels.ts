@@ -40,7 +40,18 @@ type TechnicalLevels = {
   ma50: number | null;
   ma200: number | null;
   atrPct: number | null;
+  rsi14: number | null;
+  macdSignal: "bullish_cross" | "bearish_cross" | "bullish" | "bearish" | "neutral" | null;
+  trendSignal: string | null;
   source: "technical" | "fallback";
+};
+
+type NewsSignal = {
+  count: number;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  earningsSignal: string | null;
 };
 
 type StopSource = "support" | "ma50" | "fallback";
@@ -103,6 +114,77 @@ function detectSwingLevels(closes: number[]) {
   return { swingLows, swingHighs };
 }
 
+function ema(values: number[], period: number) {
+  if (values.length < period) return [];
+  const k = 2 / (period + 1);
+  const output: number[] = [];
+  let prev = average(values.slice(0, period)) ?? values[0];
+  output.push(prev);
+  for (let i = period; i < values.length; i += 1) {
+    prev = values[i] * k + prev * (1 - k);
+    output.push(prev);
+  }
+  return output;
+}
+
+function rsi(values: number[], period = 14) {
+  if (values.length <= period) return null;
+  let gain = 0;
+  let loss = 0;
+
+  for (let i = 1; i <= period; i += 1) {
+    const change = values[i] - values[i - 1];
+    if (change >= 0) gain += change;
+    else loss += Math.abs(change);
+  }
+
+  let avgGain = gain / period;
+  let avgLoss = loss / period;
+
+  for (let i = period + 1; i < values.length; i += 1) {
+    const change = values[i] - values[i - 1];
+    avgGain = (avgGain * (period - 1) + Math.max(change, 0)) / period;
+    avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
+  }
+
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
+function macdSignal(values: number[]) {
+  if (values.length < 35) return null;
+  const ema12 = ema(values, 12);
+  const ema26 = ema(values, 26);
+  const offset = ema12.length - ema26.length;
+  const macdLine = ema26.map((value, index) => ema12[index + offset] - value);
+  const signalLine = ema(macdLine, 9);
+  if (signalLine.length < 2) return null;
+
+  const macdOffset = macdLine.length - signalLine.length;
+  const currentMacd = macdLine[macdLine.length - 1];
+  const previousMacd = macdLine[macdLine.length - 2];
+  const currentSignal = signalLine[signalLine.length - 1];
+  const previousSignal = signalLine[signalLine.length - 2];
+  const previousAlignedSignal = signalLine[signalLine.length - 2 - Math.max(0, macdOffset - macdOffset)] ?? previousSignal;
+
+  if (previousMacd <= previousAlignedSignal && currentMacd > currentSignal) return "bullish_cross";
+  if (previousMacd >= previousAlignedSignal && currentMacd < currentSignal) return "bearish_cross";
+  if (currentMacd > currentSignal && currentMacd > 0) return "bullish";
+  if (currentMacd < currentSignal && currentMacd < 0) return "bearish";
+  return "neutral";
+}
+
+function trendSignal(price: number, ma50: number | null, ma200: number | null) {
+  if (!ma50 && !ma200) return null;
+  if (ma50 && ma200 && ma50 > ma200 && price > ma50) return "price above 50-day and 50-day above 200-day";
+  if (ma50 && price > ma50) return "price above the 50-day average";
+  if (ma50 && price < ma50) return "price below the 50-day average";
+  if (ma200 && price > ma200) return "price above the 200-day average";
+  if (ma200 && price < ma200) return "price below the 200-day average";
+  return null;
+}
+
 async function getTechnicalLevels(ticker: string, currentPrice: number): Promise<TechnicalLevels> {
   try {
     const chart = await getStockChart(ticker, ["6M", "1Y"]);
@@ -112,7 +194,7 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
       .filter((price) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
-      return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+      return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, rsi14: null, macdSignal: null, trendSignal: null, source: "fallback" };
     }
 
     const recent = closes.slice(-126);
@@ -146,10 +228,13 @@ async function getTechnicalLevels(ticker: string, currentPrice: number): Promise
       ma50,
       ma200,
       atrPct,
+      rsi14: rsi(closes),
+      macdSignal: macdSignal(closes),
+      trendSignal: trendSignal(currentPrice, ma50, ma200),
       source: "technical",
     };
   } catch {
-    return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, source: "fallback" };
+    return { support: null, resistance: null, swingLow: null, swingHigh: null, ma50: null, ma200: null, atrPct: null, rsi14: null, macdSignal: null, trendSignal: null, source: "fallback" };
   }
 }
 
@@ -162,6 +247,39 @@ function describeVolatility(vol: number) {
 
 function formatMonth(date: Date) {
   return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+function describeRsi(value: number | null) {
+  if (value == null) return null;
+  if (value < 30) return `RSI is ${round(value, 1)}, an oversold reading below 30`;
+  if (value < 40) return `RSI is ${round(value, 1)}, showing weak but improving momentum`;
+  if (value > 70) return `RSI is ${round(value, 1)}, an overbought reading above 70`;
+  if (value > 60) return `RSI is ${round(value, 1)}, showing strong momentum`;
+  return `RSI is ${round(value, 1)}, broadly neutral`;
+}
+
+function describeMacd(value: TechnicalLevels["macdSignal"]) {
+  if (value === "bullish_cross") return "MACD has just crossed bullish";
+  if (value === "bearish_cross") return "MACD has just crossed bearish";
+  if (value === "bullish") return "MACD remains bullish";
+  if (value === "bearish") return "MACD remains bearish";
+  if (value === "neutral") return "MACD is neutral";
+  return null;
+}
+
+function extractEarningsSignal(news: Array<{ title?: string | null; summary?: string | null; impact?: string | null }>): string | null {
+  const earningsNews = news.find((item) => /earnings|eps|revenue|guidance|profit|margin/i.test(`${item.title ?? ""} ${item.summary ?? ""}`));
+  if (!earningsNews) return null;
+
+  const text = `${earningsNews.title ?? ""} ${earningsNews.summary ?? ""}`;
+  const impact = String(earningsNews.impact ?? "").toLowerCase();
+  if (/miss|missed|cut|lower|weak|fall|fell|drops|dropped|warning|disappoint/i.test(text) || impact === "negative") {
+    return "recent earnings/guidance news is negative";
+  }
+  if (/beat|beats|raise|raised|strong|record|upgrade|above/i.test(text) || impact === "positive") {
+    return "recent earnings/guidance news is positive";
+  }
+  return "recent earnings/guidance news is in focus";
 }
 
 let cachedMaxScore: number | null = null;
@@ -197,6 +315,7 @@ function buildTradePlan({
   technical,
   riskReward,
   stopSource,
+  newsSignal,
 }: {
   ticker: string;
   confidence: number;
@@ -211,6 +330,7 @@ function buildTradePlan({
   technical: TechnicalLevels;
   riskReward: number;
   stopSource: StopSource;
+  newsSignal: NewsSignal;
 }): TradePlan {
   const expectedAnnualReturn = round(8 + confidence * 18, 1);
   const expectedMonthsToTarget = Math.max(9, Math.min(30, Math.round((targetPct / expectedAnnualReturn) * 12)));
@@ -241,7 +361,15 @@ function buildTradePlan({
       ? `below the 50-day area around $${technical.ma50.toFixed(2)}`
       : "volatility fallback because no qualified medium-term support was detected";
 
-  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}), ${sectorDesc}, and an asymmetric setup targeting $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk invalidated ${stopReason}.`;
+  const evidence = [
+    describeRsi(technical.rsi14),
+    describeMacd(technical.macdSignal),
+    technical.trendSignal,
+    technical.resistance ? `next resistance is near $${technical.resistance.toFixed(2)}` : null,
+    newsSignal.earningsSignal,
+  ].filter(Boolean).slice(0, 4).join("; ");
+
+  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}). Stock-specific evidence: ${evidence || `${sectorDesc} with limited technical confirmation`}. The setup targets $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk invalidated ${stopReason}.`;
 
   const targetReason = technical.resistance
     ? `first checkpoint is prior resistance around $${technical.resistance.toFixed(2)}, but the medium-term target uses a measured extension beyond it`
@@ -266,7 +394,7 @@ function buildTradePlan({
     {
       type: "review", icon: "calendar", tone: "neutral",
       condition: `Every 3 months`,
-      action: `Review price structure, AI rank, news, and whether support/resistance has shifted`,
+      action: `Review price structure, RSI/MACD, AI rank, earnings/news, and whether support/resistance has shifted`,
     },
   ];
 
@@ -295,7 +423,7 @@ export async function calculateTradeLevels({
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recentNews } = await supabase
     .from("news_articles")
-    .select("impact,affected_tickers")
+    .select("title,summary,impact,affected_tickers")
     .gte("published_at", fourteenDaysAgo)
     .order("published_at", { ascending: false })
     .limit(150);
@@ -309,6 +437,13 @@ export async function calculateTradeLevels({
   const positiveCount = tickerNews.filter((n) => (n.impact ?? "").toLowerCase() === "positive").length;
   const negativeCount = tickerNews.filter((n) => (n.impact ?? "").toLowerCase() === "negative").length;
   const neutralCount = newsCount - positiveCount - negativeCount;
+  const newsSignal: NewsSignal = {
+    count: newsCount,
+    positiveCount,
+    negativeCount,
+    neutralCount,
+    earningsSignal: extractEarningsSignal(tickerNews),
+  };
 
   const newsNorm = newsCount === 0 ? 0.5 : (positiveCount + neutralCount * 0.5) / newsCount;
   const scoreNorm = Math.min(Math.max(score / maxScore, 0), 1);
@@ -403,6 +538,18 @@ export async function calculateTradeLevels({
         : "Below median",
     },
     {
+      label: "RSI", value: technical.rsi14 == null ? "—" : round(technical.rsi14, 1).toString(),
+      note: describeRsi(technical.rsi14) ?? "Not enough price history",
+    },
+    {
+      label: "MACD", value: describeMacd(technical.macdSignal)?.replace("MACD ", "") ?? "—",
+      note: describeMacd(technical.macdSignal) ?? "Not enough price history",
+    },
+    {
+      label: "Trend", value: technical.ma50 ? `$${technical.ma50.toFixed(2)} 50D` : "—",
+      note: technical.trendSignal ?? "Moving-average trend not available",
+    },
+    {
       label: "Risk/reward", value: `1:${round(riskReward, 1)}`,
       note: confidence >= 0.75 ? "Medium-term asymmetric target" : "Risk-adjusted target",
     },
@@ -416,13 +563,12 @@ export async function calculateTradeLevels({
       value: technical.resistance ? `$${technical.resistance.toFixed(2)}+` : "Measured extension",
       note: technical.resistance ? "Resistance checkpoint, then extension" : "Medium-term measured move",
     },
-    { label: "Sector", value: sector ?? "—", note: describeVolatility(baseVol) },
     {
-      label: "Recent news",
-      value: newsCount === 0 ? "No recent coverage" : `${newsCount} article${newsCount === 1 ? "" : "s"} (14d)`,
-      note: newsCount === 0 ? "Treated as neutral"
-        : `${positiveCount} positive · ${negativeCount} negative · ${neutralCount} neutral`,
+      label: "Earnings/news",
+      value: newsSignal.earningsSignal ? "Catalyst detected" : newsCount === 0 ? "No recent coverage" : `${newsCount} article${newsCount === 1 ? "" : "s"} (14d)`,
+      note: newsSignal.earningsSignal ?? (newsCount === 0 ? "Treated as neutral" : `${positiveCount} positive · ${negativeCount} negative · ${neutralCount} neutral`),
     },
+    { label: "Sector", value: sector ?? "—", note: describeVolatility(baseVol) },
   ];
 
   const roundedEntry = round(entry, 2);
@@ -446,6 +592,7 @@ export async function calculateTradeLevels({
     technical,
     riskReward: roundedRiskReward,
     stopSource,
+    newsSignal,
   }) : null;
 
   return {

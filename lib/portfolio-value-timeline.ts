@@ -42,8 +42,10 @@ export type PortfolioPriceFetcher = (
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
+const ONE_HOUR_MS = 3_600_000;
+const ONE_DAY_MS = 86_400_000;
+const PORTFOLIO_ONE_DAY_POINTS = 24;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
-  "1D": 1,
   "1M": 30,
   "6M": 182,
   "1Y": 365,
@@ -65,9 +67,15 @@ type Lot = {
   shares: number;
   entryPrice: number;
   startMs: number;
+  implicitBasis: boolean;
 };
 
 type CashEvent = {
+  ms: number;
+  amount: number;
+};
+
+type BasisEvent = {
   ms: number;
   amount: number;
 };
@@ -103,10 +111,6 @@ function safeDateMs(value: string | null | undefined) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isDateOnly(value: string | null | undefined) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
-}
-
 function pointMs(point: ChartPoint) {
   const ms = new Date(point.date).getTime();
   return Number.isFinite(ms) ? ms : null;
@@ -116,19 +120,28 @@ function normaliseTransactionType(type: string | null | undefined) {
   return String(type ?? "").trim().toLowerCase();
 }
 
+function startOfUtcDay(ms: number) {
+  const date = new Date(ms);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function buildOneDayHourlyTimes(nowMs: number) {
+  const end = Math.floor(nowMs / ONE_HOUR_MS) * ONE_HOUR_MS;
+  return Array.from({ length: PORTFOLIO_ONE_DAY_POINTS }, (_, index) =>
+    end - (PORTFOLIO_ONE_DAY_POINTS - 1 - index) * ONE_HOUR_MS,
+  );
+}
+
 function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
   const addedMs = safeDateMs(holding.added_at ?? holding.addedAt ?? null);
   const purchaseRaw = holding.purchase_date ?? holding.purchaseDate ?? null;
   const purchaseMs = safeDateMs(purchaseRaw);
 
-  if (purchaseMs != null && !isDateOnly(purchaseRaw)) return Math.max(fallbackMs, purchaseMs);
-  return Math.max(fallbackMs, addedMs ?? purchaseMs ?? fallbackMs);
+  if (purchaseMs != null) return Math.max(fallbackMs, purchaseMs);
+  return Math.max(fallbackMs, addedMs ?? fallbackMs);
 }
 
-function normaliseHoldings(
-  holdings: PortfolioTimelineHolding[],
-  portfolioStartMs: number,
-) {
+function normaliseHoldings(holdings: PortfolioTimelineHolding[], portfolioStartMs: number) {
   return holdings
     .map((holding): NormalisedHolding | null => {
       const ticker = cleanTicker(holding.ticker);
@@ -137,10 +150,7 @@ function normaliseHoldings(
 
       const currentValue = toNumber(holding.currentValue, 0);
       const currentPriceFromValue = currentValue > 0 ? currentValue / shares : 0;
-      const currentPrice = toNumber(
-        holding.currentPrice,
-        currentPriceFromValue > 0 ? currentPriceFromValue : 0,
-      );
+      const currentPrice = toNumber(holding.currentPrice, currentPriceFromValue > 0 ? currentPriceFromValue : 0);
       const entryPrice = toNumber(
         holding.entry_price ?? holding.entryPrice,
         currentPrice > 0 ? currentPrice : currentPriceFromValue,
@@ -167,18 +177,13 @@ function reduceLots(lots: Lot[], ticker: string, sharesToReduce: number) {
   }
 }
 
-function setTickerExposure(lots: Lot[], ticker: string, shares: number, price: number, startMs: number) {
+function setTickerExposure(lots: Lot[], ticker: string, shares: number, price: number, startMs: number, implicitBasis: boolean) {
   lots.forEach((lot) => {
     if (lot.ticker === ticker) lot.shares = 0;
   });
 
   if (shares > EPSILON) {
-    lots.push({
-      ticker,
-      shares: roundShares(shares),
-      entryPrice: Math.max(0, price),
-      startMs,
-    });
+    lots.push({ ticker, shares: roundShares(shares), entryPrice: Math.max(0, price), startMs, implicitBasis });
   }
 }
 
@@ -189,6 +194,18 @@ function finalSharesByTicker(lots: Lot[]) {
     shares.set(lot.ticker, roundShares((shares.get(lot.ticker) ?? 0) + lot.shares));
   });
   return shares;
+}
+
+function lotCost(lot: Lot) {
+  return Math.max(0, lot.shares) * Math.max(0, lot.entryPrice);
+}
+
+function activeImplicitLotCost(lots: Lot[], ticker: string) {
+  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.implicitBasis && lot.shares > EPSILON ? sum + lotCost(lot) : sum), 0);
+}
+
+function activeLotShares(lots: Lot[], ticker: string) {
+  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.shares > EPSILON ? sum + lot.shares : sum), 0);
 }
 
 function buildLedger({
@@ -206,6 +223,7 @@ function buildLedger({
 }) {
   const lots: Lot[] = [];
   const cashEvents: CashEvent[] = [];
+  const basisEvents: BasisEvent[] = [];
 
   [...transactions]
     .sort(
@@ -228,18 +246,23 @@ function buildLedger({
 
       if (type === "deposit") {
         if (absoluteAmount > 0) cashEvents.push({ ms, amount: absoluteAmount });
+        if (absoluteAmount > 0) basisEvents.push({ ms, amount: absoluteAmount });
         return;
       }
 
       if (type === "withdrawal") {
         if (absoluteAmount > 0) cashEvents.push({ ms, amount: -absoluteAmount });
+        if (absoluteAmount > 0) basisEvents.push({ ms, amount: -absoluteAmount });
         return;
       }
 
       if (type === "cash_adjustment") {
         if (Math.abs(amount) > 0.009) cashEvents.push({ ms, amount });
+        if (Math.abs(amount) > 0.009) basisEvents.push({ ms, amount });
         return;
       }
+
+      if (type === "import") return;
 
       if (!ticker) return;
 
@@ -249,6 +272,7 @@ function buildLedger({
           shares: roundShares(impliedShares),
           entryPrice: price > 0 ? price : absoluteAmount / impliedShares,
           startMs: ms,
+          implicitBasis: false,
         });
         cashEvents.push({ ms, amount: -(absoluteAmount || impliedShares * price) });
         return;
@@ -261,26 +285,33 @@ function buildLedger({
       }
 
       if ((type === "log_existing" || type === "import_holding") && impliedShares > EPSILON) {
+        const entryPrice = price > 0 ? price : absoluteAmount / impliedShares;
         lots.push({
           ticker,
           shares: roundShares(impliedShares),
-          entryPrice: price > 0 ? price : absoluteAmount / impliedShares,
+          entryPrice,
           startMs: ms,
+          implicitBasis: true,
         });
+        basisEvents.push({ ms, amount: impliedShares * entryPrice });
         return;
       }
 
       if (type === "adjustment") {
         if (shares > EPSILON) {
-          setTickerExposure(
-            lots,
-            ticker,
-            shares,
-            price > 0 ? price : shares > 0 ? absoluteAmount / shares : 0,
-            ms,
-          );
+          const currentCost = activeImplicitLotCost(lots, ticker);
+          const hasExistingExplicitExposure = activeLotShares(lots, ticker) > EPSILON && currentCost <= EPSILON;
+          const entryPrice = price > 0 ? price : shares > 0 ? absoluteAmount / shares : 0;
+          const nextCost = shares * entryPrice;
+          const tracksImplicitBasis = !hasExistingExplicitExposure;
+          setTickerExposure(lots, ticker, shares, entryPrice, ms, tracksImplicitBasis);
+          if (tracksImplicitBasis && Math.abs(nextCost - currentCost) > 0.009) {
+            basisEvents.push({ ms, amount: nextCost - currentCost });
+          }
         } else if (absoluteAmount <= 0.009) {
-          setTickerExposure(lots, ticker, 0, 0, ms);
+          const currentCost = activeImplicitLotCost(lots, ticker);
+          setTickerExposure(lots, ticker, 0, 0, ms, false);
+          if (currentCost > 0.009) basisEvents.push({ ms, amount: -currentCost });
         }
       }
     });
@@ -293,12 +324,15 @@ function buildLedger({
     const difference = roundShares(holding.shares - replayedShares);
 
     if (difference > EPSILON) {
+      const entryPrice = holding.entryPrice || holding.currentPrice;
       lots.push({
         ticker: holding.ticker,
         shares: difference,
-        entryPrice: holding.entryPrice || holding.currentPrice,
+        entryPrice,
         startMs: holding.startMs,
+        implicitBasis: true,
       });
+      basisEvents.push({ ms: holding.startMs, amount: difference * entryPrice });
     } else if (difference < -EPSILON) {
       reduceLots(lots, holding.ticker, Math.abs(difference));
     }
@@ -314,11 +348,13 @@ function buildLedger({
   const cashAdjustment = roundMoney(currentCash - finalCash);
   if (Math.abs(cashAdjustment) > 0.009) {
     cashEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
+    basisEvents.push({ ms: portfolioStartMs, amount: cashAdjustment });
   }
 
   return {
     lots: lots.filter((lot) => lot.shares > EPSILON),
     cashEvents: cashEvents.filter((event) => Math.abs(event.amount) > 0.009 && event.ms <= nowMs),
+    basisEvents: basisEvents.filter((event) => Math.abs(event.amount) > 0.009 && event.ms <= nowMs),
   };
 }
 
@@ -337,19 +373,10 @@ function samplePoints(points: ChartPoint[]) {
   return sampled;
 }
 
-async function loadCharts({
-  tickers,
-  priceFetcher,
-}: {
-  tickers: string[];
-  priceFetcher: PortfolioPriceFetcher;
-}) {
+async function loadCharts({ tickers, priceFetcher }: { tickers: string[]; priceFetcher: PortfolioPriceFetcher }) {
   const charts = new Map<string, ChartPoint[]>();
   const results = await Promise.allSettled(
-    tickers.map(async (ticker) => ({
-      ticker,
-      chart: await priceFetcher(ticker, FETCH_RANGES),
-    })),
+    tickers.map(async (ticker) => ({ ticker, chart: await priceFetcher(ticker, FETCH_RANGES) })),
   );
 
   results.forEach((result) => {
@@ -361,6 +388,31 @@ async function loadCharts({
   });
 
   return charts;
+}
+
+function interpolatePriceAtTime(points: ChartPoint[], targetMs: number, earliestLookupMs: number) {
+  let previous: { ms: number; close: number } | null = null;
+  let next: { ms: number; close: number } | null = null;
+
+  for (const point of points) {
+    const ms = pointMs(point);
+    if (ms == null || ms < earliestLookupMs || !Number.isFinite(point.close) || point.close <= 0) continue;
+
+    if (ms <= targetMs) previous = { ms, close: point.close };
+    if (ms >= targetMs) {
+      next = { ms, close: point.close };
+      break;
+    }
+  }
+
+  if (previous && next && next.ms !== previous.ms) {
+    const progress = (targetMs - previous.ms) / (next.ms - previous.ms);
+    return previous.close + (next.close - previous.close) * progress;
+  }
+
+  if (previous) return previous.close;
+  if (next) return next.close;
+  return null;
 }
 
 function priceAtTime({
@@ -384,13 +436,21 @@ function priceAtTime({
   if (targetMs >= nowMs - 60_000 && currentPrice > 0) return currentPrice;
 
   let candidate = lot.entryPrice > 0 ? lot.entryPrice : currentPrice;
+  const earliestLookupMs = lot.startMs;
 
   for (const lookupRange of FALLBACK_RANGES[range]) {
-    let foundRangePrice = false;
     const points = charts.get(`${ticker}:${lookupRange}`) ?? [];
+
+    if (range === "1D") {
+      const interpolated = interpolatePriceAtTime(points, targetMs, 0);
+      if (interpolated != null && interpolated > 0) return interpolated;
+      continue;
+    }
+
+    let foundRangePrice = false;
     for (const point of points) {
       const ms = pointMs(point);
-      if (ms == null || ms < lot.startMs) continue;
+      if (ms == null || ms < earliestLookupMs) continue;
       if (ms > targetMs) break;
       candidate = point.close;
       foundRangePrice = true;
@@ -405,19 +465,35 @@ function cashAtTime(cashEvents: CashEvent[], ms: number) {
   return cashEvents.reduce((sum, event) => (event.ms <= ms ? sum + event.amount : sum), 0);
 }
 
+function basisAtTime(basisEvents: BasisEvent[], ms: number) {
+  return Math.max(0, basisEvents.reduce((sum, event) => (event.ms <= ms ? sum + event.amount : sum), 0));
+}
+
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
+  if (range === "1D") return Math.max(0, nowMs - (PORTFOLIO_ONE_DAY_POINTS - 1) * ONE_HOUR_MS);
+  if (range === "MAX") return portfolioStartMs;
   const days = RANGE_DAYS[range];
-  if (!days) return portfolioStartMs;
-  return Math.max(portfolioStartMs, nowMs - days * 86_400_000);
+  return days ? Math.max(0, nowMs - days * ONE_DAY_MS) : portfolioStartMs;
+}
+
+function buildCalendarDayTimes(rangeStartMs: number, nowMs: number) {
+  const startDay = startOfUtcDay(rangeStartMs);
+  const endDay = startOfUtcDay(nowMs);
+  const times: number[] = [];
+
+  for (let ms = startDay; ms <= endDay; ms += ONE_DAY_MS) {
+    times.push(ms === endDay ? nowMs : ms);
+  }
+
+  if (times.length === 0 || times[times.length - 1] !== nowMs) times.push(nowMs);
+  return Array.from(new Set(times)).sort((a, b) => a - b);
 }
 
 function collectTimes({
   range,
   rangeStartMs,
   nowMs,
-  lots,
   cashEvents,
-  charts,
 }: {
   range: TimeRange;
   rangeStartMs: number;
@@ -426,28 +502,12 @@ function collectTimes({
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
-  const times = new Set<number>([rangeStartMs, nowMs]);
+  if (range === "1D") return buildOneDayHourlyTimes(nowMs);
 
-  lots.forEach((lot) => {
-    if (lot.startMs >= rangeStartMs && lot.startMs <= nowMs) times.add(lot.startMs);
-
-    FALLBACK_RANGES[range].forEach((lookupRange) => {
-      const points = charts.get(`${lot.ticker}:${lookupRange}`) ?? [];
-      points.forEach((point) => {
-        const ms = pointMs(point);
-        if (ms != null && ms >= Math.max(rangeStartMs, lot.startMs) && ms <= nowMs) {
-          times.add(ms);
-        }
-      });
-    });
-  });
-
+  const times = new Set<number>(buildCalendarDayTimes(rangeStartMs, nowMs));
   cashEvents.forEach((event) => {
     if (event.ms >= rangeStartMs && event.ms <= nowMs) times.add(event.ms);
   });
-
-  if (times.size < 2 && nowMs > rangeStartMs) times.add(nowMs);
-  if (times.size < 2) times.add(Math.max(0, nowMs - 60_000));
 
   return Array.from(times).sort((a, b) => a - b);
 }
@@ -458,6 +518,7 @@ function buildRangeSeries({
   nowMs,
   lots,
   cashEvents,
+  basisEvents,
   charts,
   currentPrices,
 }: {
@@ -466,37 +527,42 @@ function buildRangeSeries({
   nowMs: number;
   lots: Lot[];
   cashEvents: CashEvent[];
+  basisEvents: BasisEvent[];
   charts: Map<string, ChartPoint[]>;
   currentPrices: Map<string, number>;
 }) {
   const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
   const times = collectTimes({ range, rangeStartMs, nowMs, lots, cashEvents, charts });
+  const currentCash = cashAtTime(cashEvents, nowMs);
+  const currentBasis = roundMoney(basisAtTime(basisEvents, nowMs));
 
   const points = times.map((ms) => {
+    if (ms < portfolioStartMs && range !== "MAX") {
+      return { date: new Date(ms).toISOString(), close: 0, basis: 0, pnl: 0, pnlPct: 0 };
+    }
+
     const holdingsValue = lots.reduce((sum, lot) => {
-      if (ms < lot.startMs || lot.shares <= EPSILON) return sum;
-      const price = priceAtTime({
-        ticker: lot.ticker,
-        targetMs: ms,
-        range,
-        lot,
-        charts,
-        currentPrices,
-        nowMs,
-      });
+      if (ms < lot.startMs) return sum;
+      if (lot.shares <= EPSILON) return sum;
+      const price = priceAtTime({ ticker: lot.ticker, targetMs: ms, range, lot, charts, currentPrices, nowMs });
       return sum + lot.shares * price;
     }, 0);
 
+    const close = Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue));
+    const basis = range === "1D" ? currentBasis : roundMoney(basisAtTime(basisEvents, ms));
+    const pnl = roundMoney(close - basis);
+
     return {
       date: new Date(ms).toISOString(),
-      close: Math.max(0, roundMoney(cashAtTime(cashEvents, ms) + holdingsValue)),
+      close,
+      basis,
+      pnl,
+      pnlPct: basis > EPSILON ? (pnl / basis) * 100 : 0,
     };
   });
 
   const deduped = Array.from(
-    points
-      .reduce((map, point) => map.set(point.date, point), new Map<string, ChartPoint>())
-      .values(),
+    points.reduce((map, point) => map.set(point.date, point), new Map<string, ChartPoint>()).values(),
   ).sort((a, b) => (pointMs(a) ?? 0) - (pointMs(b) ?? 0));
 
   return samplePoints(deduped).filter((point) => Number.isFinite(point.close));
@@ -542,7 +608,7 @@ export async function buildPortfolioValueTimeline({
     if (holding.currentPrice > 0) currentPriceMap.set(holding.ticker, holding.currentPrice);
   });
 
-  const { lots, cashEvents } = buildLedger({
+  const { lots, cashEvents, basisEvents } = buildLedger({
     transactions,
     holdings: normalisedHoldings,
     currentCash,
@@ -556,16 +622,7 @@ export async function buildPortfolioValueTimeline({
   const charts = tickers.length > 0 ? await loadCharts({ tickers, priceFetcher }) : new Map<string, ChartPoint[]>();
 
   return OUTPUT_RANGES.reduce<PortfolioTimelineChartData>((acc, range) => {
-    const points = buildRangeSeries({
-      range,
-      portfolioStartMs,
-      nowMs,
-      lots,
-      cashEvents,
-      charts,
-      currentPrices: currentPriceMap,
-    });
-
+    const points = buildRangeSeries({ range, portfolioStartMs, nowMs, lots, cashEvents, basisEvents, charts, currentPrices: currentPriceMap });
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});

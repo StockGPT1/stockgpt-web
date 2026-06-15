@@ -85,6 +85,30 @@ export function StockGPTSelect({
   }, []);
 
   useEffect(() => {
+    const oldCopy =
+      "Some signals have moved, but not enough to justify a practical trim. StockGPT now requires a clearer oversized, profit-protection, or conviction-break setup.";
+    const newCopy =
+      "Some signals have moved, but the position does not meet StockGPT's threshold for a trim. The holding is not clearly oversized, profit-protection is not compelling, and conviction has not weakened enough to justify action.";
+
+    function replaceCopy(root: ParentNode) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        if (node.textContent?.includes(oldCopy)) {
+          node.textContent = node.textContent.replace(oldCopy, newCopy);
+        }
+        node = walker.nextNode();
+      }
+    }
+
+    replaceCopy(document.body);
+    const observer = new MutationObserver(() => replaceCopy(document.body));
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
 
     updatePosition();
@@ -119,6 +143,63 @@ export function StockGPTSelect({
       window.removeEventListener("scroll", handleReposition, true);
     };
   }, [open, updatePosition]);
+
+  if (ariaLabel === "Filter holdings") {
+    return (
+      <>
+        <span data-stockgpt-top-holdings-marker className="hidden" aria-hidden="true" />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              section:has([data-stockgpt-top-holdings-marker]) > div:nth-child(2) > div:first-child {
+                grid-template-columns: minmax(210px, 1.6fr) 110px 125px 90px 80px 54px !important;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child {
+                display: block !important;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child {
+                font-size: 0 !important;
+                line-height: 0 !important;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:first-child > p:first-child::after {
+                content: "Top holdings";
+                display: inline-block;
+                color: #ddb159;
+                font-size: 10px;
+                font-weight: 900;
+                letter-spacing: 0.14em;
+                line-height: 1.2;
+                text-transform: uppercase;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:first-child > div:last-child {
+                display: none !important;
+              }
+
+              section[class*="2xl:grid-cols"] > section:has([data-stockgpt-top-holdings-marker]) > div:nth-child(2) > div:first-child {
+                display: none !important;
+              }
+
+              .stockgpt-manage-holding-dialog button.mt-3.inline-flex {
+                font-size: 0 !important;
+              }
+
+              .stockgpt-manage-holding-dialog button.mt-3.inline-flex::after {
+                content: "Trim and reinvest";
+                font-size: 11px;
+                font-weight: 900;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+              }
+            `,
+          }}
+        />
+      </>
+    );
+  }
 
   const menu =
     open && mounted && position

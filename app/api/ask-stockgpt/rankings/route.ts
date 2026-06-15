@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
+import { getStableRankings, type StableRankingRow } from "@/lib/stable-rankings";
 
 export const dynamic = "force-dynamic";
 
-type RankingRow = {
-  rank: number | null;
-  previous_rank: number | null;
-  ticker: string | null;
-  company: string | null;
-  sector: string | null;
-  score: number | string | null;
-  price: number | string | null;
-  updated_at: string | null;
-};
+type RankingRow = StableRankingRow;
 
 function toNumber(value: unknown) {
   const n = Number(value);
@@ -59,7 +51,7 @@ function compactRanking(row: RankingRow) {
     sector: row.sector ?? null,
     score,
     price: toNumber(row.price),
-    updated_at: row.updated_at,
+    updated_at: row.updated_at ?? null,
     confidence: confidenceFromScore(score),
     rank_move:
       rank !== null && previousRank !== null ? previousRank - rank : null,
@@ -91,42 +83,39 @@ export async function GET(req: NextRequest) {
   const offset = cleanOffset(searchParams.get("offset"));
   const search = cleanSearch(searchParams.get("search"));
 
-  let query = supabase
-    .from("stock_rankings")
-    .select("rank,previous_rank,ticker,company,sector,score,price,updated_at", {
-      count: "exact",
-    })
-    .order("rank", { ascending: true })
-    .range(offset, offset + limit - 1);
+  try {
+    const stableRows = await getStableRankings(supabase);
+    const filteredRows = stableRows.filter((row) => {
+      if (!search) return true;
 
-  if (search) {
-    query = query.or(`ticker.ilike.%${search}%,company.ilike.%${search}%`);
-  }
+      const ticker = String(row.ticker ?? "").toLowerCase();
+      const company = String(row.company ?? "").toLowerCase();
+      const term = search.toLowerCase();
 
-  const { data, error, count } = await query;
+      return ticker.includes(term) || company.includes(term);
+    });
 
-  if (error) {
-    console.error("[ask-stockgpt-rankings] Could not load rankings", error);
+    const pagedRows = filteredRows.slice(offset, offset + limit);
+    const rankings = pagedRows
+      .map(compactRanking)
+      .filter((row) => row.ticker.length > 0);
+    const nextOffset = offset + rankings.length;
+
+    return NextResponse.json({
+      rankings,
+      limit,
+      offset,
+      next_offset: nextOffset,
+      has_more: nextOffset < filteredRows.length,
+      total: filteredRows.length,
+      data_as_of:
+        rankings.map((row) => row.updated_at).find(Boolean) ?? new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[ask-stockgpt-rankings] Could not load stable rankings", error);
     return NextResponse.json(
       { error: "Could not load StockGPT rankings.", rankings: [] },
       { status: 500 },
     );
   }
-
-  const rankings = ((data ?? []) as RankingRow[])
-    .map(compactRanking)
-    .filter((row) => row.ticker.length > 0);
-
-  const nextOffset = offset + rankings.length;
-
-  return NextResponse.json({
-    rankings,
-    limit,
-    offset,
-    next_offset: nextOffset,
-    has_more: typeof count === "number" ? nextOffset < count : rankings.length === limit,
-    total: count ?? null,
-    data_as_of:
-      rankings.map((row) => row.updated_at).find(Boolean) ?? new Date().toISOString(),
-  });
 }
