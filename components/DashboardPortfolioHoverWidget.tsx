@@ -18,6 +18,11 @@ function pct(value: number, digits = 1) {
   return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
 }
 
+function validPoint(point: ChartPoint | null) {
+  if (!point || !Number.isFinite(point.close) || point.close <= 0) return null;
+  return point;
+}
+
 export function DashboardPortfolioHoverWidget({
   summary,
   chartData,
@@ -25,20 +30,24 @@ export function DashboardPortfolioHoverWidget({
   summary: PortfolioHealthSummary;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
 }) {
-  const [scrubPoint, setScrubPoint] = useState<ChartPoint | null>(null);
+  const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
   const costBasis = useMemo(
     () => summary.totalValue - summary.totalPnl,
     [summary.totalPnl, summary.totalValue],
   );
 
-  const displayValue = scrubPoint?.close ?? summary.totalValue;
-  const displayPnl = scrubPoint?.pnl ?? displayValue - costBasis;
+  const point = validPoint(hoverPoint);
+  const displayValue = point?.close ?? summary.totalValue;
+  const displayPnl = point?.pnl ?? displayValue - costBasis;
   const displayPnlPct =
-    scrubPoint?.pnlPct ?? (costBasis > 0 ? (displayPnl / costBasis) * 100 : summary.totalPnlPct);
+    point?.pnlPct ?? (costBasis > 0 ? (displayPnl / costBasis) * 100 : summary.totalPnlPct);
   const isPositive = displayPnl >= 0;
 
   return (
-    <div className="relative mt-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(118px,1.05fr)] items-stretch gap-3 lg:mb-3">
+    <div
+      className="relative mt-2 grid min-h-0 flex-1 grid-cols-[minmax(0,0.95fr)_minmax(118px,1.05fr)] items-stretch gap-3 lg:mb-3"
+      onPointerLeave={() => setHoverPoint(null)}
+    >
       <div className="flex min-w-0 flex-col justify-between py-1">
         <div>
           <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
@@ -65,7 +74,7 @@ export function DashboardPortfolioHoverWidget({
           initialRange="MAX"
           height={74}
           compact
-          onScrub={(point) => setScrubPoint(point)}
+          onScrub={(point) => setHoverPoint(validPoint(point))}
         />
       </div>
     </div>
