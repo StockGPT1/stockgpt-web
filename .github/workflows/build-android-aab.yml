@@ -7,6 +7,7 @@ jobs:
   build-android-aab:
     name: Build signed Android App Bundle
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repo
@@ -51,13 +52,12 @@ jobs:
       - name: Build signed AAB
         working-directory: android/twa-build
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          CI: true
         run: |
           set -euo pipefail
-          # Bubblewrap reads twa-manifest.json from the working directory.
-          # The password lines are piped in case Bubblewrap asks for keystore/key passwords during signing.
-          printf '%s\n%s\n' "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" | bubblewrap build --skipPwaValidation
+          bubblewrap build --skipPwaValidation --signingKeyPath=release-key.jks --signingKeyAlias=stockgpt-upload
 
       - name: Locate generated bundle
         id: bundle
