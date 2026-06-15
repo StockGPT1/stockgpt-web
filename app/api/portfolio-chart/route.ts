@@ -53,7 +53,7 @@ function portfolioChartCacheKey({
   portfolioId: string;
   inputHash: string;
 }) {
-  return `portfolio:chart:v5:${userId}:${portfolioId}:${inputHash}`;
+  return `portfolio:chart:v6:${userId}:${portfolioId}:${inputHash}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 
   const chartInputHash = hashPortfolioInputs({
-    version: "portfolio-chart-v5",
+    version: "portfolio-chart-v6",
     portfolio: portfolioRow,
     holdings: holdingRows,
     transactions: transactionRows,

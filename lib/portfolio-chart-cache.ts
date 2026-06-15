@@ -7,7 +7,7 @@ const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v6";
+const PORTFOLIO_CHART_CACHE_VERSION = "v7";
 const MIN_PORTFOLIO_1D_POINTS = Number(process.env.MIN_PORTFOLIO_1D_POINTS ?? 6);
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;

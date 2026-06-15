@@ -534,6 +534,7 @@ function buildRangeSeries({
   const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
   const times = collectTimes({ range, rangeStartMs, nowMs, lots, cashEvents, charts });
   const currentCash = cashAtTime(cashEvents, nowMs);
+  const currentBasis = roundMoney(basisAtTime(basisEvents, nowMs));
 
   const points = times.map((ms) => {
     if (ms < portfolioStartMs && range !== "MAX") {
@@ -548,7 +549,7 @@ function buildRangeSeries({
     }, 0);
 
     const close = Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue));
-    const basis = roundMoney(basisAtTime(basisEvents, ms));
+    const basis = range === "1D" ? currentBasis : roundMoney(basisAtTime(basisEvents, ms));
     const pnl = roundMoney(close - basis);
 
     return {
