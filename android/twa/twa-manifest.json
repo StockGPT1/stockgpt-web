@@ -1,0 +1,38 @@
+{
+  "packageId": "pro.stockgpt.app",
+  "host": "stockgpt.pro",
+  "name": "StockGPT",
+  "launcherName": "StockGPT",
+  "display": "standalone",
+  "themeColor": "#072116",
+  "themeColorDark": "#072116",
+  "navigationColor": "#02160F",
+  "navigationColorDark": "#02160F",
+  "navigationDividerColor": "#D4AF37",
+  "navigationDividerColorDark": "#D4AF37",
+  "backgroundColor": "#02160F",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://stockgpt.pro/og-image.png?v=30",
+  "maskableIconUrl": "https://stockgpt.pro/og-image.png?v=30",
+  "monochromeIconUrl": "",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "release-key.jks",
+    "alias": "stockgpt-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://stockgpt.pro/site.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://stockgpt.pro/"
+}
