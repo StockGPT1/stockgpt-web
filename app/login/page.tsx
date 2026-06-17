@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { AuthProviderButtons } from "@/components/AuthProviderButtons";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -77,6 +78,14 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-5 space-y-3">
+          <AuthProviderButtons onError={setErrorMessage} />
+
+          <div className="flex items-center gap-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/35">
+            <span className="h-px min-w-0 flex-1 bg-[#ddb159]/14" />
+            <span className="shrink-0">or use email</span>
+            <span className="h-px min-w-0 flex-1 bg-[#ddb159]/14" />
+          </div>
+
           <label className="block">
             <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/85 sm:text-[10px]">
               Email
