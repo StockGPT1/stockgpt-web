@@ -22,6 +22,15 @@ export const maxDuration = 60;
 
 const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v10";
 
+type StockRecord = {
+  ticker?: string | null;
+  company?: string | null;
+  sector?: string | null;
+  rank?: string | number | null;
+  score?: string | number | null;
+  price?: string | number | null;
+};
+
 function isAuthorized(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return true;
@@ -95,11 +104,11 @@ function buildSnapshotStockInputs({
   stockRows,
   portfolioTickerSet,
 }: {
-  stockRows: Array<Record<string, unknown>>;
+  stockRows: StockRecord[];
   portfolioTickerSet: Set<string>;
 }) {
   return stockRows.map((stock) => {
-    const ticker = cleanTicker(stock.ticker as string | null | undefined);
+    const ticker = cleanTicker(stock.ticker);
     return {
       ticker,
       sector: stock.sector ?? null,
@@ -132,7 +141,7 @@ export async function GET(req: NextRequest) {
     getTickerTape().catch(() => null),
   ]).then(([stockRows, newsRows]) => [stockRows, newsRows] as const);
 
-  const stockRows = (stockOptionsData ?? []) as Array<Record<string, unknown>>;
+  const stockRows = (stockOptionsData ?? []) as StockRecord[];
   const newsRows = (newsData ?? []) as BaseNewsArticle[];
   const portfolioLimit = Number(req.nextUrl.searchParams.get("limit") ?? process.env.PORTFOLIO_CACHE_WARM_PORTFOLIO_LIMIT ?? 25);
 
@@ -177,7 +186,7 @@ export async function GET(req: NextRequest) {
   const stockUniverse: StockLike[] = stockRows
     .filter((stock) => stock.ticker)
     .map((stock) => ({
-      ticker: cleanTicker(stock.ticker as string),
+      ticker: cleanTicker(stock.ticker),
       company: stock.company ? String(stock.company) : null,
       sector: stock.sector ? String(stock.sector) : null,
       rank: stock.rank == null ? null : Number(stock.rank),
