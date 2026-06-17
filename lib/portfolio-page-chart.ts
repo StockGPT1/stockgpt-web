@@ -27,6 +27,7 @@ type PortfolioLike = {
   cash_deposited_total?: number | null;
   currency: string | null;
   created_at?: string | null;
+  user_id?: string | null;
 };
 
 type TransactionLike = {
@@ -60,6 +61,32 @@ function holdingsForSnapshots(enriched: EnrichedHolding[]) {
   }));
 }
 
+async function resolvePortfolioOwnerId({
+  supabase,
+  portfolio,
+  ownerId,
+}: {
+  supabase: ReturnType<typeof createAdminClient>;
+  portfolio: PortfolioLike;
+  ownerId?: string | null;
+}) {
+  if (ownerId) return ownerId;
+  if (portfolio.user_id) return portfolio.user_id;
+
+  const { data, error } = await supabase
+    .from("user_portfolios")
+    .select("user_id")
+    .eq("id", portfolio.id)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Could not resolve portfolio owner for chart snapshots", error.message ?? error);
+    return null;
+  }
+
+  return typeof data?.user_id === "string" ? data.user_id : null;
+}
+
 export async function buildPortfolioPageChart({
   portfolio,
   enriched,
@@ -71,7 +98,7 @@ export async function buildPortfolioPageChart({
   enriched: EnrichedHolding[];
   transactions: TransactionLike[];
   summary: PortfolioHealthSummary;
-  ownerId: string;
+  ownerId?: string | null;
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
     const cachedChart = await getLatestPortfolioChart({ portfolioId: portfolio.id, summary });
@@ -79,6 +106,7 @@ export async function buildPortfolioPageChart({
   }
 
   const supabase = createAdminClient();
+  const resolvedOwnerId = await resolvePortfolioOwnerId({ supabase, portfolio, ownerId });
   const snapshotHoldings = holdingsForSnapshots(enriched);
   const latestInputMs = latestPortfolioInputChangeMs({
     portfolioCreatedAt: portfolio.created_at ?? null,
@@ -86,24 +114,26 @@ export async function buildPortfolioPageChart({
     transactions,
   });
 
-  const snapshotChartData = await getPortfolioSnapshotChartData({
-    supabase,
-    portfolioId: portfolio.id,
-    userId: ownerId,
-    portfolioCreatedAt: portfolio.created_at ?? null,
-    latestInputMs,
-  });
+  if (resolvedOwnerId) {
+    const snapshotChartData = await getPortfolioSnapshotChartData({
+      supabase,
+      portfolioId: portfolio.id,
+      userId: resolvedOwnerId,
+      portfolioCreatedAt: portfolio.created_at ?? null,
+      latestInputMs,
+    });
 
-  if (snapshotChartData) {
-    if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
-      await saveLatestPortfolioChart({
-        portfolioId: portfolio.id,
-        summary,
-        chartData: snapshotChartData,
-      });
+    if (snapshotChartData) {
+      if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
+        await saveLatestPortfolioChart({
+          portfolioId: portfolio.id,
+          summary,
+          chartData: snapshotChartData,
+        });
+      }
+
+      return snapshotChartData;
     }
-
-    return snapshotChartData;
   }
 
   const currentPoint = buildCurrentPortfolioSnapshotPoint({
@@ -119,13 +149,15 @@ export async function buildPortfolioPageChart({
   });
   const chartData = buildMinimalCurrentChartData(currentPoint);
 
-  void saveLatestPortfolioSnapshotFromChartData({
-    supabase,
-    portfolioId: portfolio.id,
-    userId: ownerId,
-    chartData,
-    source: "page_current_value",
-  });
+  if (resolvedOwnerId) {
+    void saveLatestPortfolioSnapshotFromChartData({
+      supabase,
+      portfolioId: portfolio.id,
+      userId: resolvedOwnerId,
+      chartData,
+      source: "page_current_value",
+    });
+  }
 
   return chartData;
 }
