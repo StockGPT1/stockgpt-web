@@ -5,7 +5,7 @@ import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
 import {
   getPortfolioSnapshotChartData,
   latestPortfolioInputChangeMs,
-  saveLatestPortfolioSnapshotFromChartData,
+  savePortfolioSnapshotsFromChartData,
 } from "@/lib/portfolio-snapshots";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createClient } from "@/utils/supabase/server";
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
     currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
   });
 
-  void saveLatestPortfolioSnapshotFromChartData({
+  void savePortfolioSnapshotsFromChartData({
     supabase,
     portfolioId,
     userId: user.id,
