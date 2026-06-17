@@ -138,9 +138,7 @@ export async function buildPortfolioPageChart({
 
   const currentPoint = buildCurrentPortfolioSnapshotPoint({
     portfolio: {
-      id: portfolio.id,
       cash_balance: portfolio.cash_balance,
-      created_at: portfolio.created_at,
     },
     holdings: snapshotHoldings,
     currentPrices: Object.fromEntries(
