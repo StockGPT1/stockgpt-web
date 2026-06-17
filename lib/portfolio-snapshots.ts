@@ -14,9 +14,6 @@ const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
 const SNAPSHOT_READ_LIMIT = Number(
   process.env.PORTFOLIO_SNAPSHOT_READ_LIMIT ?? 10_000,
 );
-const SNAPSHOT_STALE_MS = Number(
-  process.env.PORTFOLIO_SNAPSHOT_STALE_MS ?? 20 * 60 * 1000,
-);
 
 type SnapshotChartPoint = ChartPoint & { cash?: number };
 
@@ -58,6 +55,21 @@ type DatedInput = {
   purchaseDate?: string | null;
 };
 
+type CurrentPortfolioInput = {
+  cash_balance?: unknown;
+  cashBalance?: unknown;
+};
+
+type CurrentHoldingInput = {
+  ticker?: string | null;
+  shares?: unknown;
+  entry_price?: unknown;
+  entryPrice?: unknown;
+  currentPrice?: unknown;
+  current_value?: unknown;
+  currentValue?: unknown;
+};
+
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -65,6 +77,10 @@ function toNumber(value: unknown, fallback = 0) {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function cleanTicker(ticker?: string | null) {
+  return String(ticker ?? "").trim().toUpperCase();
 }
 
 function safeDateMs(value: string | null | undefined) {
@@ -165,6 +181,7 @@ function hasRangeCoverage({
 }) {
   const first = points[0];
   if (!first) return false;
+  if (range === "1D") return true;
   if (range === "MAX") return first.ms <= portfolioStartMs + ONE_DAY_MS;
   return first.ms <= rangeStartMs + coverageToleranceMs(range);
 }
@@ -184,20 +201,14 @@ function snapshotsToChartData(points: NormalisedSnapshotPoint[], portfolioStartM
   }, {});
 }
 
-function hasCompleteSnapshotChartData(chartData: PortfolioSnapshotChartData) {
-  return OUTPUT_RANGES.every((range) => (chartData[range]?.length ?? 0) > 1);
+function hasAnySnapshotChartData(chartData: PortfolioSnapshotChartData) {
+  return OUTPUT_RANGES.some((range) => (chartData[range]?.length ?? 0) > 1);
 }
 
-function latestSnapshotIsUsable(points: NormalisedSnapshotPoint[], latestInputMs: number) {
+function latestSnapshotCoversLatestInput(points: NormalisedSnapshotPoint[], latestInputMs: number) {
   const latest = points.at(-1);
   if (!latest) return false;
-  if (latest.ms + 1_000 < latestInputMs) return false;
-
-  if (SNAPSHOT_STALE_MS > 0 && Date.now() - latest.ms > SNAPSHOT_STALE_MS) {
-    return false;
-  }
-
-  return true;
+  return latest.ms + 1_000 >= latestInputMs;
 }
 
 export async function getPortfolioSnapshotChartData({
@@ -231,10 +242,10 @@ export async function getPortfolioSnapshotChartData({
     }
 
     const points = normaliseRows((data ?? []) as PortfolioSnapshotRow[], portfolioStartMs);
-    if (!latestSnapshotIsUsable(points, latestInputMs)) return null;
+    if (!latestSnapshotCoversLatestInput(points, latestInputMs)) return null;
 
     const chartData = snapshotsToChartData(points, portfolioStartMs);
-    return hasCompleteSnapshotChartData(chartData) ? chartData : null;
+    return hasAnySnapshotChartData(chartData) ? chartData : null;
   } catch (error) {
     console.warn("Portfolio snapshot read failed", error);
     return null;
@@ -326,6 +337,67 @@ async function upsertSnapshotRows(supabase: SupabaseLike, rows: SnapshotUpsertRo
   }
 
   return wrote;
+}
+
+export function buildCurrentPortfolioSnapshotPoint({
+  portfolio,
+  holdings,
+  currentPrices,
+  snapshotAt = new Date(),
+}: {
+  portfolio: CurrentPortfolioInput;
+  holdings: CurrentHoldingInput[];
+  currentPrices?: Record<string, unknown> | Map<string, unknown>;
+  snapshotAt?: Date;
+}): SnapshotChartPoint {
+  const priceForTicker = (ticker: string) => {
+    if (!currentPrices) return 0;
+    if (currentPrices instanceof Map) return toNumber(currentPrices.get(ticker), 0);
+    return toNumber(currentPrices[ticker], 0);
+  };
+
+  const cash = roundMoney(toNumber(portfolio.cash_balance ?? portfolio.cashBalance, 0));
+  let holdingsValue = 0;
+  let holdingsBasis = 0;
+
+  holdings.forEach((holding) => {
+    const ticker = cleanTicker(holding.ticker);
+    const shares = toNumber(holding.shares, 0);
+    if (!ticker || shares <= 0) return;
+
+    const currentValue = toNumber(holding.current_value ?? holding.currentValue, 0);
+    const entryPrice = toNumber(holding.entry_price ?? holding.entryPrice, 0);
+    const currentPrice = toNumber(
+      holding.currentPrice,
+      priceForTicker(ticker) || (currentValue > 0 ? currentValue / shares : 0) || entryPrice,
+    );
+
+    holdingsValue += shares * Math.max(0, currentPrice);
+    holdingsBasis += shares * Math.max(0, entryPrice || currentPrice);
+  });
+
+  const close = roundMoney(cash + holdingsValue);
+  const basis = roundMoney(cash + holdingsBasis);
+  const pnl = roundMoney(close - basis);
+
+  return {
+    date: snapshotAt.toISOString(),
+    close,
+    cash,
+    basis,
+    pnl,
+    pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+  };
+}
+
+export function buildMinimalCurrentChartData(point: SnapshotChartPoint): PortfolioSnapshotChartData {
+  const ms = pointMs(point) ?? Date.now();
+  const previousPoint = {
+    ...point,
+    date: new Date(ms - 60_000).toISOString(),
+  };
+
+  return { "1D": [previousPoint, point] };
 }
 
 export async function savePortfolioSnapshotsFromChartData({
