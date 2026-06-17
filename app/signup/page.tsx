@@ -2,9 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
 
 function ConsentCheckbox({
   id,
@@ -54,14 +55,29 @@ export default function SignupPage() {
   const [newsletterDigestConsent, setNewsletterDigestConsent] = useState(false);
 
   const [sent, setSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"info" | "success" | "error">("info");
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timeout = window.setTimeout(() => {
+      setResendCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [resendCooldown]);
 
   async function signUp() {
     if (loading) return;
 
     setLoading(true);
     setMessage("");
+    setMessageTone("info");
 
     try {
       const res = await fetch("/api/auth/signup", {
@@ -86,16 +102,93 @@ export default function SignupPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        setMessageTone("error");
         setMessage(data?.error ?? "Could not create account. Please check your details.");
         return;
       }
 
       setSent(true);
-      setMessage(data?.message ?? "Check your email to verify your account.");
+      setCode("");
+      setResendCooldown(60);
+      setMessageTone("info");
+      setMessage(data?.message ?? "If this email is eligible, enter the 6-digit code from your email.");
     } finally {
       setLoading(false);
     }
   }
+
+  async function verifyCode() {
+    if (loading || code.length !== 6) return;
+
+    setLoading(true);
+    setMessage("");
+    setMessageTone("info");
+
+    try {
+      const { error } = await createClient().auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code,
+        type: "email",
+      });
+
+      if (error) {
+        setMessageTone("error");
+        setMessage("That code is invalid or expired. Check it, or request a new one.");
+        return;
+      }
+
+      setMessageTone("success");
+      setMessage("Email verified. Taking you to StockGPT...");
+      window.location.href = "/dashboard";
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resendCode() {
+    if (resending || resendCooldown > 0) return;
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setMessageTone("error");
+      setMessage("Enter your email again before requesting a new code.");
+      return;
+    }
+
+    setResending(true);
+    setMessage("");
+    setMessageTone("info");
+
+    try {
+      const { error } = await createClient().auth.resend({
+        type: "signup",
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
+      });
+
+      if (error) {
+        setMessageTone("error");
+        setMessage("Could not resend the code yet. Please wait a moment and try again.");
+        return;
+      }
+
+      setMessageTone("info");
+      setMessage("We sent a new 6-digit code. Please check your inbox and junk folder.");
+      setResendCooldown(60);
+    } finally {
+      setResending(false);
+    }
+  }
+
+  const messageClasses =
+    messageTone === "error"
+      ? "rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-[12px] font-bold text-red-200 sm:text-[13px]"
+      : messageTone === "success"
+        ? "rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 text-[12px] font-bold text-emerald-100 sm:text-[13px]"
+        : "rounded-2xl border border-[#ddb159]/20 bg-[#ddb159]/10 p-3 text-[12px] font-bold text-[#f6e7bf] sm:text-[13px]";
 
   return (
     <main className="relative flex min-h-[100svh] w-full items-start justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#0F2A1F] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-[#faf6f0] [-webkit-overflow-scrolling:touch] sm:min-h-dvh sm:px-6 sm:py-4">
@@ -142,8 +235,68 @@ export default function SignupPage() {
 
           <div className="min-w-0">
             {sent ? (
-              <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4 text-center text-[13px] font-bold leading-relaxed text-emerald-100 sm:text-left">
-                {message || "Check your email to verify your account."}
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/55 p-4 text-center sm:text-left">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] sm:text-[10px]">
+                    Email verification
+                  </p>
+                  <h2 className="mt-1.5 text-[24px] font-black leading-none tracking-[-0.04em] sm:text-[28px]">
+                    Enter your 6-digit code.
+                  </h2>
+                  <p className="mt-2 break-words text-[12px] font-semibold leading-relaxed text-[#faf6f0]/62 sm:text-[13px]">
+                    If this email is eligible, we sent a code to <span className="text-[#faf6f0]">{email}</span>. Check your inbox and junk folder.
+                  </p>
+                </div>
+
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/85 sm:text-[10px]">
+                    Verification code
+                  </span>
+                  <input
+                    className="block h-12 w-full min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-center text-[22px] font-black tracking-[0.45em] text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/18 focus:border-[#ddb159]/70 focus:bg-[#04180f]"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    value={code}
+                    maxLength={6}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+                  />
+                </label>
+
+                {message && <div className={messageClasses}>{message}</div>}
+
+                <button
+                  onClick={verifyCode}
+                  disabled={loading || code.length !== 6}
+                  className="h-10 w-full rounded-full bg-[#ddb159] px-4 text-[14px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.22)] transition hover:brightness-105 disabled:opacity-60 lg:h-11"
+                >
+                  {loading ? "Checking..." : "Verify email"}
+                </button>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={resendCode}
+                    disabled={resending || resendCooldown > 0}
+                    className="h-10 rounded-full border border-[#ddb159]/22 bg-[#04180f]/65 px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55 disabled:opacity-55"
+                  >
+                    {resending ? "Sending..." : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSent(false);
+                      setCode("");
+                      setMessage("");
+                      setMessageTone("info");
+                    }}
+                    className="h-10 rounded-full border border-[#ddb159]/22 bg-[#04180f]/65 px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55"
+                  >
+                    Change details
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2.5 lg:space-y-2">
@@ -261,11 +414,7 @@ export default function SignupPage() {
                   </ConsentCheckbox>
                 </div>
 
-                {message && (
-                  <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-[12px] font-bold text-red-200 sm:text-[13px]">
-                    {message}
-                  </div>
-                )}
+                {message && <div className={messageClasses}>{message}</div>}
 
                 <button
                   onClick={signUp}
