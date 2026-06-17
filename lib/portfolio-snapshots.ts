@@ -18,7 +18,9 @@ const SNAPSHOT_STALE_MS = Number(
   process.env.PORTFOLIO_SNAPSHOT_STALE_MS ?? 20 * 60 * 1000,
 );
 
-export type PortfolioSnapshotChartData = Partial<Record<TimeRange, ChartPoint[]>>;
+type SnapshotChartPoint = ChartPoint & { cash?: number };
+
+export type PortfolioSnapshotChartData = Partial<Record<TimeRange, SnapshotChartPoint[]>>;
 
 type SupabaseLike = {
   from: (table: string) => any;
@@ -45,7 +47,7 @@ type SnapshotUpsertRow = {
   source: string;
 };
 
-type NormalisedSnapshotPoint = ChartPoint & { ms: number };
+type NormalisedSnapshotPoint = SnapshotChartPoint & { ms: number };
 
 type DatedInput = {
   created_at?: string | null;
@@ -71,7 +73,7 @@ function safeDateMs(value: string | null | undefined) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function pointMs(point: ChartPoint) {
+function pointMs(point: SnapshotChartPoint) {
   return safeDateMs(point.date);
 }
 
@@ -240,7 +242,7 @@ export async function getPortfolioSnapshotChartData({
 }
 
 function getLatestPoint(chartData: PortfolioSnapshotChartData) {
-  return OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).reduce<ChartPoint | null>(
+  return OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).reduce<SnapshotChartPoint | null>(
     (latest, point) => {
       const ms = pointMs(point);
       const latestMs = latest ? pointMs(latest) : null;
@@ -260,7 +262,7 @@ function pointToSnapshotRow({
 }: {
   portfolioId: string;
   userId: string;
-  point: ChartPoint;
+  point: SnapshotChartPoint;
   source: string;
 }): SnapshotUpsertRow | null {
   const snapshotMs = pointMs(point);
