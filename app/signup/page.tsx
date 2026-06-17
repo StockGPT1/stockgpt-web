@@ -72,6 +72,8 @@ export default function SignupPage() {
     return () => window.clearTimeout(timeout);
   }, [resendCooldown]);
 
+  const isCodeLengthValid = code.length >= 6 && code.length <= 8;
+
   async function signUp() {
     if (loading) return;
 
@@ -111,14 +113,14 @@ export default function SignupPage() {
       setCode("");
       setResendCooldown(60);
       setMessageTone("info");
-      setMessage(data?.message ?? "If this email is eligible, enter the 6-digit code from your email.");
+      setMessage(data?.message ?? "If this email is eligible, enter the verification code from your email.");
     } finally {
       setLoading(false);
     }
   }
 
   async function verifyCode() {
-    if (loading || code.length !== 6) return;
+    if (loading || !isCodeLengthValid) return;
 
     setLoading(true);
     setMessage("");
@@ -176,7 +178,7 @@ export default function SignupPage() {
       }
 
       setMessageTone("info");
-      setMessage("We sent a new 6-digit code. Please check your inbox and junk folder.");
+      setMessage("We sent a new verification code. Please check your inbox and junk folder.");
       setResendCooldown(60);
     } finally {
       setResending(false);
@@ -241,7 +243,7 @@ export default function SignupPage() {
                     Email verification
                   </p>
                   <h2 className="mt-1.5 text-[24px] font-black leading-none tracking-[-0.04em] sm:text-[28px]">
-                    Enter your 6-digit code.
+                    Enter your verification code.
                   </h2>
                   <p className="mt-2 break-words text-[12px] font-semibold leading-relaxed text-[#faf6f0]/62 sm:text-[13px]">
                     If this email is eligible, we sent a code to <span className="text-[#faf6f0]">{email}</span>. Check your inbox and junk folder.
@@ -253,13 +255,13 @@ export default function SignupPage() {
                     Verification code
                   </span>
                   <input
-                    className="block h-12 w-full min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-center text-[22px] font-black tracking-[0.45em] text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/18 focus:border-[#ddb159]/70 focus:bg-[#04180f]"
+                    className="block h-12 w-full min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-center text-[20px] font-black tracking-[0.32em] text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/18 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:text-[22px] sm:tracking-[0.45em]"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    placeholder="000000"
+                    placeholder="00000000"
                     value={code}
-                    maxLength={6}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    maxLength={8}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
                     onKeyDown={(e) => e.key === "Enter" && verifyCode()}
                   />
                 </label>
@@ -268,7 +270,7 @@ export default function SignupPage() {
 
                 <button
                   onClick={verifyCode}
-                  disabled={loading || code.length !== 6}
+                  disabled={loading || !isCodeLengthValid}
                   className="h-10 w-full rounded-full bg-[#ddb159] px-4 text-[14px] font-black text-[#072116] shadow-[0_12px_30px_rgba(221,177,89,0.22)] transition hover:brightness-105 disabled:opacity-60 lg:h-11"
                 >
                   {loading ? "Checking..." : "Verify email"}
