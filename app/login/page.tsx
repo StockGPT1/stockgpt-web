@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { AuthProviderButtons } from "@/components/AuthProviderButtons";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
