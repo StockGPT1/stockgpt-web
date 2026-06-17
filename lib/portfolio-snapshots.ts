@@ -60,6 +60,10 @@ type DatedInput = {
 type CurrentPortfolioInput = {
   cash_balance?: unknown;
   cashBalance?: unknown;
+  cash_deposited_total?: unknown;
+  cashDepositedTotal?: unknown;
+  investment_amount?: unknown;
+  investmentAmount?: unknown;
 };
 
 type CurrentHoldingInput = {
@@ -411,6 +415,10 @@ export function buildCurrentPortfolioSnapshotPoint({
   };
 
   const cash = roundMoney(toNumber(portfolio.cash_balance ?? portfolio.cashBalance, 0));
+  const cashDepositedTotal = toNumber(
+    portfolio.cash_deposited_total ?? portfolio.cashDepositedTotal,
+    toNumber(portfolio.investment_amount ?? portfolio.investmentAmount, 0),
+  );
   let holdingsValue = 0;
   let holdingsBasis = 0;
 
@@ -431,8 +439,9 @@ export function buildCurrentPortfolioSnapshotPoint({
   });
 
   const close = roundMoney(cash + holdingsValue);
-  const basis = roundMoney(cash + holdingsBasis);
-  const pnl = roundMoney(close - basis);
+  const returnBasis = Math.max(cashDepositedTotal, holdingsBasis, close > 0 ? 1 : 0);
+  const basis = roundMoney(returnBasis);
+  const pnl = roundMoney(returnBasis > 0 ? close - returnBasis : 0);
 
   return {
     date: snapshotAt.toISOString(),
