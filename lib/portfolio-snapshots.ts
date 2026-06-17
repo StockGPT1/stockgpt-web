@@ -5,6 +5,7 @@ const ONE_HOUR_MS = 3_600_000;
 const ONE_DAY_MS = 86_400_000;
 const MAX_POINTS = 260;
 const WRITE_BATCH_SIZE = 400;
+const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1M": 30,
   "6M": 182,
@@ -30,6 +31,7 @@ type PortfolioSnapshotRow = {
   basis: number | string | null;
   pnl: number | string | null;
   pnl_pct: number | string | null;
+  source?: string | null;
 };
 
 type SnapshotUpsertRow = {
@@ -83,6 +85,22 @@ function cleanTicker(ticker?: string | null) {
   return String(ticker ?? "").trim().toUpperCase();
 }
 
+function cleanSource(source?: string | null) {
+  return String(source ?? "").trim().toLowerCase();
+}
+
+function isHistoricalSnapshotSource(source?: string | null) {
+  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSource(source));
+}
+
+function snapshotSourcePriority(source?: string | null) {
+  const cleaned = cleanSource(source);
+  if (cleaned === "page_current_value" || cleaned === "page") return 4;
+  if (cleaned === "cron_refresh") return 3;
+  if (!isHistoricalSnapshotSource(cleaned)) return 2;
+  return 1;
+}
+
 function safeDateMs(value: string | null | undefined) {
   if (!value) return null;
   const ms = new Date(value).getTime();
@@ -120,32 +138,57 @@ export function latestPortfolioInputChangeMs({
   );
 }
 
+function latestLiveSnapshotMs(rows: PortfolioSnapshotRow[]) {
+  return rows.reduce<number | null>((latest, row) => {
+    if (isHistoricalSnapshotSource(row.source)) return latest;
+    const ms = safeDateMs(row.snapshot_at);
+    if (ms == null) return latest;
+    return latest == null || ms > latest ? ms : latest;
+  }, null);
+}
+
 function normaliseRows(rows: PortfolioSnapshotRow[], portfolioStartMs: number) {
-  const byDate = new Map<string, NormalisedSnapshotPoint>();
+  const latestLiveMs = latestLiveSnapshotMs(rows);
+  const byDate = new Map<string, { point: NormalisedSnapshotPoint; priority: number }>();
 
   rows.forEach((row) => {
     const ms = safeDateMs(row.snapshot_at);
     const value = toNumber(row.value, Number.NaN);
     if (ms == null || ms < portfolioStartMs || !Number.isFinite(value) || value < 0) return;
 
+    // Backfill is only historical context. If live/current rows exist, never let a
+    // later backfill point become the effective current portfolio value.
+    if (latestLiveMs != null && isHistoricalSnapshotSource(row.source) && ms > latestLiveMs) {
+      return;
+    }
+
     const date = new Date(ms).toISOString();
     const cash = roundMoney(toNumber(row.cash, 0));
     const basis = roundMoney(toNumber(row.basis, 0));
     const pnl = roundMoney(toNumber(row.pnl, value - basis));
     const pnlPct = toNumber(row.pnl_pct, basis > 0 ? (pnl / basis) * 100 : 0);
+    const priority = snapshotSourcePriority(row.source);
+    const existing = byDate.get(date);
+
+    if (existing && existing.priority > priority) return;
 
     byDate.set(date, {
-      ms,
-      date,
-      close: roundMoney(value),
-      cash,
-      basis,
-      pnl,
-      pnlPct,
+      priority,
+      point: {
+        ms,
+        date,
+        close: roundMoney(value),
+        cash,
+        basis,
+        pnl,
+        pnlPct,
+      },
     });
   });
 
-  return Array.from(byDate.values()).sort((a, b) => a.ms - b.ms);
+  return Array.from(byDate.values())
+    .map(({ point }) => point)
+    .sort((a, b) => a.ms - b.ms);
 }
 
 function samplePoints(points: NormalisedSnapshotPoint[]) {
@@ -229,7 +272,7 @@ export async function getPortfolioSnapshotChartData({
   try {
     const { data, error } = await supabase
       .from("portfolio_snapshots")
-      .select("snapshot_at,value,cash,basis,pnl,pnl_pct")
+      .select("snapshot_at,value,cash,basis,pnl,pnl_pct,source")
       .eq("portfolio_id", portfolioId)
       .eq("user_id", userId)
       .gte("snapshot_at", new Date(portfolioStartMs).toISOString())
@@ -303,17 +346,28 @@ function getSnapshotRowsFromChartData({
   userId,
   chartData,
   source,
+  maxSnapshotAtBefore,
 }: {
   portfolioId: string;
   userId: string;
   chartData: PortfolioSnapshotChartData;
   source: string;
+  maxSnapshotAtBefore?: string | Date | null;
 }) {
   const byTimestamp = new Map<string, SnapshotUpsertRow>();
+  const maxSnapshotMs =
+    maxSnapshotAtBefore instanceof Date
+      ? maxSnapshotAtBefore.getTime()
+      : safeDateMs(maxSnapshotAtBefore ?? null);
 
   OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).forEach((point) => {
     const row = pointToSnapshotRow({ portfolioId, userId, point, source });
-    if (row) byTimestamp.set(row.snapshot_at, row);
+    if (!row) return;
+
+    const snapshotMs = safeDateMs(row.snapshot_at);
+    if (maxSnapshotMs != null && snapshotMs != null && snapshotMs >= maxSnapshotMs) return;
+
+    byTimestamp.set(row.snapshot_at, row);
   });
 
   return Array.from(byTimestamp.values()).sort((a, b) => a.snapshot_at.localeCompare(b.snapshot_at));
@@ -406,17 +460,25 @@ export async function savePortfolioSnapshotsFromChartData({
   userId,
   chartData,
   source = "chart_rebuild",
+  maxSnapshotAtBefore = null,
 }: {
   supabase: SupabaseLike;
   portfolioId: string;
   userId: string;
   chartData: PortfolioSnapshotChartData;
   source?: string;
+  maxSnapshotAtBefore?: string | Date | null;
 }) {
   try {
     return await upsertSnapshotRows(
       supabase,
-      getSnapshotRowsFromChartData({ portfolioId, userId, chartData, source }),
+      getSnapshotRowsFromChartData({
+        portfolioId,
+        userId,
+        chartData,
+        source,
+        maxSnapshotAtBefore,
+      }),
     );
   } catch (error) {
     console.warn("Portfolio snapshot write failed", error);
