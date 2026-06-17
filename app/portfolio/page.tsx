@@ -8,7 +8,6 @@ import {
   type ExtendedHolding,
   type PortfolioTransaction,
 } from "@/components/PortfolioCommandCentreRevolut";
-import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
@@ -98,8 +97,6 @@ type TransactionRow = {
   notes: string | null;
   created_at: string;
 };
-
-type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -427,10 +424,27 @@ export default async function PortfolioPage({
   const cachedSummary = cachedSnapshot?.summary as
     | ReturnType<typeof buildPortfolioHealthSummary>
     | undefined;
-  const cachedChartData = cachedSnapshot?.chartData as PortfolioChartData | undefined;
   const cachedPortfolioNews = cachedSnapshot?.portfolioNews as EnrichedNewsArticle[] | undefined;
 
-  if (cachedEnriched && cachedSummary && cachedChartData && cachedPortfolioNews) {
+  if (cachedEnriched && cachedSummary && cachedPortfolioNews) {
+    const chartData = await buildPortfolioPageChart({
+      portfolio: {
+        id: activePortfolio.id,
+        name: activePortfolio.name,
+        risk_tolerance: activePortfolio.risk_tolerance,
+        time_horizon: activePortfolio.time_horizon,
+        investment_amount: toNumber(activePortfolio.investment_amount, 0),
+        cash_balance: toNumber(activePortfolio.cash_balance, 0),
+        cash_deposited_total: cashDepositedTotal,
+        currency,
+        created_at: activePortfolio.created_at ?? null,
+      },
+      enriched: cachedEnriched,
+      transactions,
+      summary: cachedSummary,
+      ownerId: user.id,
+    });
+
     timer.end({ mode: "snapshot-hit", holdings: rawHoldings.length });
     return (
       <AppShell activePath="/portfolio">
@@ -460,7 +474,7 @@ export default async function PortfolioPage({
                 createdAt: transaction.created_at,
               }))}
               newsArticles={cachedPortfolioNews}
-              chartData={cachedChartData}
+              chartData={chartData}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
@@ -518,6 +532,7 @@ export default async function PortfolioPage({
     enriched,
     transactions,
     summary,
+    ownerId: user.id,
   });
 
   timer.mark("portfolio-chart");
