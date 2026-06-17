@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { saveLatestPortfolioSnapshotFromChartData } from "@/lib/portfolio-snapshots";
-import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
+import {
+  buildCurrentPortfolioSnapshotPoint,
+  buildMinimalCurrentChartData,
+  saveLatestPortfolioSnapshotFromChartData,
+} from "@/lib/portfolio-snapshots";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 type PortfolioRow = {
   id: string;
@@ -22,17 +25,6 @@ type HoldingRow = {
   entry_price: number | null;
   purchase_date?: string | null;
   added_at?: string | null;
-};
-
-type TransactionRow = {
-  portfolio_id: string;
-  ticker: string | null;
-  type: string | null;
-  shares: number | null;
-  price: number | null;
-  amount: number | null;
-  realised_pnl: number | null;
-  created_at: string | null;
 };
 
 function isAuthorized(req: NextRequest) {
@@ -80,8 +72,8 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const portfolioLimit = Number(process.env.PORTFOLIO_SNAPSHOT_REFRESH_LIMIT ?? 50);
-  const batchSize = Number(process.env.PORTFOLIO_SNAPSHOT_REFRESH_BATCH_SIZE ?? 3);
+  const portfolioLimit = Number(process.env.PORTFOLIO_SNAPSHOT_REFRESH_LIMIT ?? 250);
+  const batchSize = Number(process.env.PORTFOLIO_SNAPSHOT_REFRESH_BATCH_SIZE ?? 25);
 
   const { data: portfolioRows, error: portfolioError } = await supabase
     .from("user_portfolios")
@@ -100,27 +92,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, portfolios: 0, saved: 0, failed: 0 });
   }
 
-  const [{ data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] =
-    await Promise.all([
-      supabase
-        .from("portfolio_holdings")
-        .select("portfolio_id,ticker,shares,entry_price,purchase_date,added_at")
-        .in("portfolio_id", portfolioIds)
-        .not("ticker", "is", null),
-      supabase
-        .from("portfolio_transactions")
-        .select("portfolio_id,ticker,type,shares,price,amount,realised_pnl,created_at")
-        .in("portfolio_id", portfolioIds)
-        .order("created_at", { ascending: true })
-        .limit(Number(process.env.PORTFOLIO_SNAPSHOT_TRANSACTION_LIMIT ?? 5000)),
-    ]);
+  const { data: holdingRows, error: holdingsError } = await supabase
+    .from("portfolio_holdings")
+    .select("portfolio_id,ticker,shares,entry_price,purchase_date,added_at")
+    .in("portfolio_id", portfolioIds)
+    .not("ticker", "is", null);
 
-  if (holdingsError || transactionError) {
-    return NextResponse.json({ error: "Could not load portfolio inputs" }, { status: 500 });
+  if (holdingsError) {
+    return NextResponse.json({ error: "Could not load portfolio holdings" }, { status: 500 });
   }
 
   const holdingsByPortfolio = groupByPortfolio((holdingRows ?? []) as HoldingRow[]);
-  const transactionsByPortfolio = groupByPortfolio((transactionRows ?? []) as TransactionRow[]);
   const tickers = Array.from(
     new Set(
       ((holdingRows ?? []) as HoldingRow[])
@@ -142,16 +124,14 @@ export async function GET(req: NextRequest) {
 
   const result = await runInBatches(portfolios, Math.max(1, batchSize), async (portfolio) => {
     const holdings = holdingsByPortfolio.get(portfolio.id) ?? [];
-    const transactions = transactionsByPortfolio.get(portfolio.id) ?? [];
     const portfolioPrices = Object.fromEntries(
       Array.from(new Set(holdings.map((holding) => String(holding.ticker ?? "").trim().toUpperCase()).filter(Boolean)))
         .map((ticker) => [ticker, priceMap.get(ticker) ?? 0]),
     );
 
-    const chartData = await buildPortfolioValueTimeline({
+    const currentPoint = buildCurrentPortfolioSnapshotPoint({
       portfolio,
       holdings,
-      transactions,
       currentPrices: portfolioPrices,
     });
 
@@ -159,13 +139,14 @@ export async function GET(req: NextRequest) {
       supabase,
       portfolioId: portfolio.id,
       userId: portfolio.user_id,
-      chartData,
+      chartData: buildMinimalCurrentChartData(currentPoint),
       source: "cron_refresh",
     });
   });
 
   return NextResponse.json({
     ok: true,
+    mode: "current-value-only",
     portfolios: portfolios.length,
     saved: result.saved,
     failed: result.failed,
