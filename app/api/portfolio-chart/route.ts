@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
+import {
+  getPortfolioSnapshotChartData,
+  latestPortfolioInputChangeMs,
+  savePortfolioSnapshotsFromChartData,
+} from "@/lib/portfolio-snapshots";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createClient } from "@/utils/supabase/server";
 
@@ -111,6 +116,8 @@ export async function GET(req: NextRequest) {
       : { data: [] };
 
   const portfolioRow = portfolio as PortfolioRow;
+  const holdings = (holdingRows ?? []) as HoldingRow[];
+  const transactions = (transactionRows ?? []) as TransactionRow[];
   const prices = ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
     .map((row) => ({
       ticker: String(row.ticker ?? "").toUpperCase(),
@@ -119,10 +126,10 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 
   const chartInputHash = hashPortfolioInputs({
-    version: "portfolio-chart-v6",
+    version: "portfolio-chart-v7-snapshots",
     portfolio: portfolioRow,
-    holdings: holdingRows,
-    transactions: transactionRows,
+    holdings,
+    transactions,
     prices,
   });
   const cacheKey = portfolioChartCacheKey({
@@ -134,13 +141,39 @@ export async function GET(req: NextRequest) {
     await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
   if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
 
+  const latestInputMs = latestPortfolioInputChangeMs({
+    portfolioCreatedAt: portfolioRow.created_at ?? null,
+    holdings,
+    transactions,
+  });
+
+  const snapshotChartData = await getPortfolioSnapshotChartData({
+    supabase,
+    portfolioId,
+    userId: user.id,
+    portfolioCreatedAt: portfolioRow.created_at ?? null,
+    latestInputMs,
+  });
+
+  if (snapshotChartData) {
+    void setJsonCache(cacheKey, snapshotChartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
+    return NextResponse.json({ chartData: snapshotChartData });
+  }
+
   const chartData = await buildPortfolioValueTimeline({
     portfolio: portfolioRow,
-    holdings: (holdingRows ?? []) as HoldingRow[],
-    transactions: (transactionRows ?? []) as TransactionRow[],
+    holdings,
+    transactions,
     currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
   });
 
+  void savePortfolioSnapshotsFromChartData({
+    supabase,
+    portfolioId,
+    userId: user.id,
+    chartData,
+    source: "chart_rebuild",
+  });
   void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
 
   return NextResponse.json({ chartData });
