@@ -6,6 +6,11 @@ import { createAdminClient } from "@/utils/supabase/admin";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
+const BACKFILL_LIVE_BUFFER_MS = Number(
+  process.env.PORTFOLIO_BACKFILL_LIVE_BUFFER_MS ?? 10 * 60 * 1000,
+);
+
 type PortfolioRow = {
   id: string;
   user_id: string;
@@ -52,6 +57,20 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function safeDateMs(value: string | null | undefined) {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function cleanSource(source?: string | null) {
+  return String(source ?? "").trim().toLowerCase();
+}
+
+function isHistoricalSnapshotSource(source?: string | null) {
+  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSource(source));
+}
+
 function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   return rows.reduce((map, row) => {
     const list = map.get(row.portfolio_id) ?? [];
@@ -62,7 +81,22 @@ function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
 }
 
 function portfolioHasHistoricalBackfill(rows: SnapshotRow[]) {
-  return rows.some((row) => row.source === "backfill" || row.source === "chart_rebuild");
+  return rows.some((row) => isHistoricalSnapshotSource(row.source));
+}
+
+function latestLiveSnapshotMs(rows: SnapshotRow[]) {
+  return rows.reduce<number | null>((latest, row) => {
+    if (isHistoricalSnapshotSource(row.source)) return latest;
+    const ms = safeDateMs(row.snapshot_at);
+    if (ms == null) return latest;
+    return latest == null || ms > latest ? ms : latest;
+  }, null);
+}
+
+function backfillCutoff(rows: SnapshotRow[]) {
+  const liveMs = latestLiveSnapshotMs(rows);
+  const cutoffMs = (liveMs ?? Date.now()) - Math.max(0, BACKFILL_LIVE_BUFFER_MS);
+  return new Date(cutoffMs).toISOString();
 }
 
 async function runSequentially<T>(items: T[], fn: (item: T) => Promise<boolean>) {
@@ -181,6 +215,7 @@ export async function GET(req: NextRequest) {
   const result = await runSequentially(selected, async (portfolio) => {
     const holdings = holdingsByPortfolio.get(portfolio.id) ?? [];
     const transactions = transactionsByPortfolio.get(portfolio.id) ?? [];
+    const existingSnapshots = snapshotsByPortfolio.get(portfolio.id) ?? [];
     const portfolioPrices = Object.fromEntries(
       Array.from(new Set(holdings.map((holding) => String(holding.ticker ?? "").trim().toUpperCase()).filter(Boolean)))
         .map((ticker) => [ticker, priceMap.get(ticker) ?? 0]),
@@ -199,11 +234,13 @@ export async function GET(req: NextRequest) {
       userId: portfolio.user_id,
       chartData,
       source: "backfill",
+      maxSnapshotAtBefore: backfillCutoff(existingSnapshots),
     });
   });
 
   return NextResponse.json({
     ok: true,
+    mode: "historical-only",
     candidates: candidates.length,
     selected: selected.length,
     saved: result.saved,
