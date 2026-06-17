@@ -3,18 +3,19 @@ import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
 import {
+  buildCurrentPortfolioSnapshotPoint,
+  buildMinimalCurrentChartData,
   getPortfolioSnapshotChartData,
   latestPortfolioInputChangeMs,
-  savePortfolioSnapshotsFromChartData,
+  saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
-import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 20;
 
 const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Number(
-  process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60,
+  process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 60,
 );
 
 type HoldingRow = {
@@ -58,7 +59,7 @@ function portfolioChartCacheKey({
   portfolioId: string;
   inputHash: string;
 }) {
-  return `portfolio:chart:v6:${userId}:${portfolioId}:${inputHash}`;
+  return `portfolio:chart:v8:${userId}:${portfolioId}:${inputHash}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -125,8 +126,14 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 
+  const latestInputMs = latestPortfolioInputChangeMs({
+    portfolioCreatedAt: portfolioRow.created_at ?? null,
+    holdings,
+    transactions,
+  });
+
   const chartInputHash = hashPortfolioInputs({
-    version: "portfolio-chart-v7-snapshots",
+    version: "portfolio-chart-v8",
     portfolio: portfolioRow,
     holdings,
     transactions,
@@ -141,12 +148,6 @@ export async function GET(req: NextRequest) {
     await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
   if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
 
-  const latestInputMs = latestPortfolioInputChangeMs({
-    portfolioCreatedAt: portfolioRow.created_at ?? null,
-    holdings,
-    transactions,
-  });
-
   const snapshotChartData = await getPortfolioSnapshotChartData({
     supabase,
     portfolioId,
@@ -160,19 +161,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ chartData: snapshotChartData });
   }
 
-  const chartData = await buildPortfolioValueTimeline({
+  const currentPoint = buildCurrentPortfolioSnapshotPoint({
     portfolio: portfolioRow,
     holdings,
-    transactions,
     currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
   });
+  const chartData = buildMinimalCurrentChartData(currentPoint);
 
-  void savePortfolioSnapshotsFromChartData({
+  void saveLatestPortfolioSnapshotFromChartData({
     supabase,
     portfolioId,
     userId: user.id,
     chartData,
-    source: "chart_rebuild",
+    source: "page",
   });
   void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
 
