@@ -4,6 +4,7 @@ const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const ONE_HOUR_MS = 3_600_000;
 const ONE_DAY_MS = 86_400_000;
 const MAX_POINTS = 260;
+const WRITE_BATCH_SIZE = 400;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1M": 30,
   "6M": 182,
@@ -30,6 +31,18 @@ type PortfolioSnapshotRow = {
   basis: number | string | null;
   pnl: number | string | null;
   pnl_pct: number | string | null;
+};
+
+type SnapshotUpsertRow = {
+  portfolio_id: string;
+  user_id: string;
+  snapshot_at: string;
+  value: number;
+  cash: number;
+  basis: number;
+  pnl: number;
+  pnl_pct: number;
+  source: string;
 };
 
 type NormalisedSnapshotPoint = ChartPoint & { ms: number };
@@ -133,22 +146,44 @@ function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number
   return days ? Math.max(portfolioStartMs, nowMs - days * ONE_DAY_MS) : portfolioStartMs;
 }
 
+function coverageToleranceMs(range: TimeRange) {
+  return range === "1D" ? ONE_HOUR_MS : ONE_DAY_MS;
+}
+
+function hasRangeCoverage({
+  range,
+  points,
+  rangeStartMs,
+  portfolioStartMs,
+}: {
+  range: TimeRange;
+  points: NormalisedSnapshotPoint[];
+  rangeStartMs: number;
+  portfolioStartMs: number;
+}) {
+  const first = points[0];
+  if (!first) return false;
+  if (range === "MAX") return first.ms <= portfolioStartMs + ONE_DAY_MS;
+  return first.ms <= rangeStartMs + coverageToleranceMs(range);
+}
+
 function snapshotsToChartData(points: NormalisedSnapshotPoint[], portfolioStartMs: number): PortfolioSnapshotChartData {
   const nowMs = Date.now();
 
   return OUTPUT_RANGES.reduce<PortfolioSnapshotChartData>((acc, range) => {
     const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
-    const rangePoints = samplePoints(points.filter((point) => point.ms >= rangeStartMs && point.ms <= nowMs))
-      .map(({ ms: _ms, ...point }) => point);
+    const coveredPoints = points.filter((point) => point.ms >= rangeStartMs && point.ms <= nowMs);
+    if (coveredPoints.length <= 1) return acc;
+    if (!hasRangeCoverage({ range, points: coveredPoints, rangeStartMs, portfolioStartMs })) return acc;
 
+    const rangePoints = samplePoints(coveredPoints).map(({ ms: _ms, ...point }) => point);
     if (rangePoints.length > 1) acc[range] = rangePoints;
     return acc;
   }, {});
 }
 
-function hasUsableDefaultRange(chartData: PortfolioSnapshotChartData) {
-  if ((chartData["1D"]?.length ?? 0) > 1) return true;
-  return OUTPUT_RANGES.some((range) => (chartData[range]?.length ?? 0) > 1);
+function hasCompleteSnapshotChartData(chartData: PortfolioSnapshotChartData) {
+  return OUTPUT_RANGES.every((range) => (chartData[range]?.length ?? 0) > 1);
 }
 
 function latestSnapshotIsUsable(points: NormalisedSnapshotPoint[], latestInputMs: number) {
@@ -197,7 +232,7 @@ export async function getPortfolioSnapshotChartData({
     if (!latestSnapshotIsUsable(points, latestInputMs)) return null;
 
     const chartData = snapshotsToChartData(points, portfolioStartMs);
-    return hasUsableDefaultRange(chartData) ? chartData : null;
+    return hasCompleteSnapshotChartData(chartData) ? chartData : null;
   } catch (error) {
     console.warn("Portfolio snapshot read failed", error);
     return null;
@@ -217,6 +252,104 @@ function getLatestPoint(chartData: PortfolioSnapshotChartData) {
   );
 }
 
+function pointToSnapshotRow({
+  portfolioId,
+  userId,
+  point,
+  source,
+}: {
+  portfolioId: string;
+  userId: string;
+  point: ChartPoint;
+  source: string;
+}): SnapshotUpsertRow | null {
+  const snapshotMs = pointMs(point);
+
+  if (snapshotMs == null || !Number.isFinite(point.close) || point.close < 0) {
+    return null;
+  }
+
+  const basis = roundMoney(toNumber(point.basis, 0));
+  const pnl = roundMoney(toNumber(point.pnl, point.close - basis));
+
+  return {
+    portfolio_id: portfolioId,
+    user_id: userId,
+    snapshot_at: new Date(snapshotMs).toISOString(),
+    value: roundMoney(point.close),
+    cash: roundMoney(toNumber(point.cash, 0)),
+    basis,
+    pnl,
+    pnl_pct: toNumber(point.pnlPct, basis > 0 ? (pnl / basis) * 100 : 0),
+    source,
+  };
+}
+
+function getSnapshotRowsFromChartData({
+  portfolioId,
+  userId,
+  chartData,
+  source,
+}: {
+  portfolioId: string;
+  userId: string;
+  chartData: PortfolioSnapshotChartData;
+  source: string;
+}) {
+  const byTimestamp = new Map<string, SnapshotUpsertRow>();
+
+  OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).forEach((point) => {
+    const row = pointToSnapshotRow({ portfolioId, userId, point, source });
+    if (row) byTimestamp.set(row.snapshot_at, row);
+  });
+
+  return Array.from(byTimestamp.values()).sort((a, b) => a.snapshot_at.localeCompare(b.snapshot_at));
+}
+
+async function upsertSnapshotRows(supabase: SupabaseLike, rows: SnapshotUpsertRow[]) {
+  if (rows.length === 0) return false;
+
+  let wrote = false;
+  for (let i = 0; i < rows.length; i += WRITE_BATCH_SIZE) {
+    const { error } = await supabase
+      .from("portfolio_snapshots")
+      .upsert(rows.slice(i, i + WRITE_BATCH_SIZE), { onConflict: "portfolio_id,snapshot_at" });
+
+    if (error) {
+      console.warn("Portfolio snapshot write failed", error.message ?? error);
+      return wrote;
+    }
+
+    wrote = true;
+  }
+
+  return wrote;
+}
+
+export async function savePortfolioSnapshotsFromChartData({
+  supabase,
+  portfolioId,
+  userId,
+  chartData,
+  source = "chart_rebuild",
+}: {
+  supabase: SupabaseLike;
+  portfolioId: string;
+  userId: string;
+  chartData: PortfolioSnapshotChartData;
+  source?: string;
+}) {
+  try {
+    return await upsertSnapshotRows(
+      supabase,
+      getSnapshotRowsFromChartData({ portfolioId, userId, chartData, source }),
+    );
+  } catch (error) {
+    console.warn("Portfolio snapshot write failed", error);
+    return false;
+  }
+}
+
 export async function saveLatestPortfolioSnapshotFromChartData({
   supabase,
   portfolioId,
@@ -231,37 +364,13 @@ export async function saveLatestPortfolioSnapshotFromChartData({
   source?: string;
 }) {
   const point = getLatestPoint(chartData);
-  const snapshotMs = point ? pointMs(point) : null;
+  if (!point) return false;
 
-  if (!point || snapshotMs == null || !Number.isFinite(point.close) || point.close < 0) {
-    return false;
-  }
-
-  const basis = roundMoney(toNumber(point.basis, 0));
-  const pnl = roundMoney(toNumber(point.pnl, point.close - basis));
+  const row = pointToSnapshotRow({ portfolioId, userId, point, source });
+  if (!row) return false;
 
   try {
-    const { error } = await supabase.from("portfolio_snapshots").upsert(
-      {
-        portfolio_id: portfolioId,
-        user_id: userId,
-        snapshot_at: new Date(snapshotMs).toISOString(),
-        value: roundMoney(point.close),
-        cash: roundMoney(toNumber(point.cash, 0)),
-        basis,
-        pnl,
-        pnl_pct: toNumber(point.pnlPct, basis > 0 ? (pnl / basis) * 100 : 0),
-        source,
-      },
-      { onConflict: "portfolio_id,snapshot_at" },
-    );
-
-    if (error) {
-      console.warn("Portfolio snapshot write failed", error.message ?? error);
-      return false;
-    }
-
-    return true;
+    return await upsertSnapshotRows(supabase, [row]);
   } catch (error) {
     console.warn("Portfolio snapshot write failed", error);
     return false;
