@@ -50,7 +50,7 @@ export default function LoginPage() {
         <div className="absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ddb159]/5" />
       </div>
 
-      <section className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-[430px] overflow-y-auto rounded-[2rem] border border-[#ddb159]/28 bg-[#082519]/82 p-5 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:max-h-none sm:p-6 lg:my-0 lg:max-h-[calc(100dvh-1.5rem)] lg:max-w-[400px] lg:p-5">
+      <section className="relative my-auto w-full max-w-[430px] rounded-[2rem] border border-[#ddb159]/28 bg-[#082519]/82 p-5 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6 lg:my-0 lg:max-h-[calc(100dvh-1.5rem)] lg:max-w-[400px] lg:overflow-y-auto lg:p-5">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#ddb159]/70 to-transparent" />
 
         <div className="relative mx-auto mb-4 h-10 w-40 sm:mx-0 sm:h-11 sm:w-44 lg:mb-3 lg:h-9 lg:w-40">
