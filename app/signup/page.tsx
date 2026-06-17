@@ -204,7 +204,7 @@ export default function SignupPage() {
 
         <div className="relative grid min-w-0 gap-4 lg:grid-cols-[0.82fr_1.18fr] lg:items-start lg:gap-6">
           <div className="min-w-0">
-            <div className="relative mx-auto mb-3 h-9 w-38 sm:mx-0 sm:h-10 sm:w-44 lg:mb-4 lg:h-11 lg:w-48">
+            <div className="relative mx-auto mb-3 h-9 w-40 sm:mx-0 sm:h-10 sm:w-44 lg:mb-4 lg:h-11 lg:w-48">
               <Image
                 src="/logo.png"
                 alt="StockGPT"
