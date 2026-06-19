@@ -41,6 +41,7 @@ export function StockNewsSection({
 
         <Link
           href="/world-news"
+          prefetch={false}
           className="w-fit rounded-full border border-[#ddb159]/25 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10"
         >
           Open world news
@@ -211,6 +212,7 @@ export function StockNewsSection({
                       <Link
                         key={stock.ticker}
                         href={`/stock/${stock.ticker}`}
+                        prefetch={false}
                         className="rounded-xl border border-[#ddb159]/16 bg-[#0b2b1d] p-3 transition hover:border-[#ddb159]/45 hover:bg-[#103522]"
                       >
                         <div className="flex items-start justify-between gap-3">

@@ -81,6 +81,7 @@ function NotificationCard({
             </span>
             <Link
               href={`/stock/${notification.ticker}`}
+              prefetch={false}
               className="text-[11px] font-black tracking-wider text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 hover:decoration-[#ddb159]"
             >
               {notification.ticker}
@@ -131,6 +132,7 @@ function NotificationCard({
 
           <Link
             href={`/stock/${notification.ticker}`}
+            prefetch={false}
             className="rounded-full bg-[#072116] px-3 py-1 text-[10px] font-bold text-[#ddb159] transition hover:bg-[#0b2b1d]"
           >
             View →

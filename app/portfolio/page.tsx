@@ -10,7 +10,7 @@ import {
 } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { enrichHoldings, enrichHoldingsAdmin, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
 import {
@@ -22,10 +22,11 @@ import {
 import {
   getCachedPortfolioNews,
   getCachedPortfolioStockUniverse,
-  getPortfolioPageSnapshot,
+  getPortfolioPageSnapshotWithFallback,
   hashPortfolioInputs,
   savePortfolioPageSnapshot,
   startPortfolioTimer,
+  tryStartPortfolioPageSnapshotRefresh,
 } from "@/lib/portfolio-speed-cache";
 
 export const metadata: Metadata = {
@@ -184,26 +185,6 @@ function buildPortfolioNews({
     .map(({ enriched }) => enriched);
 }
 
-function buildSnapshotStockInputs({
-  stockOptionsData,
-  portfolioTickerSet,
-}: {
-  stockOptionsData: StockUniverseRow[] | null | undefined;
-  portfolioTickerSet: Set<string>;
-}) {
-  return (stockOptionsData ?? []).map((stock) => {
-    const ticker = String(stock.ticker ?? "").toUpperCase();
-
-    return {
-      ticker,
-      sector: stock.sector ?? null,
-      rank: stock.rank,
-      score: stock.score,
-      price: portfolioTickerSet.has(ticker) ? stock.price : null,
-    };
-  });
-}
-
 function CompactImportLauncher({
   portfolioId,
 }: {
@@ -234,6 +215,218 @@ function CompactImportLauncher({
       </div>
     </div>
   );
+}
+
+type RawHoldingInput = {
+  ticker: string;
+  entry_price: number | null;
+  score_at_entry: number | null;
+  rank_at_entry: number | null;
+  added_at: string;
+  last_reviewed_at: string;
+  shares: number | null;
+  allocation_pct: number | null;
+  purchase_date: string | null;
+  source: string | null;
+  notes: string | null;
+};
+
+function round1(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function buildPortfolioStructureHash({
+  portfolio,
+  holdings,
+  transactions,
+}: {
+  portfolio: PortfolioRow;
+  holdings: RawHoldingInput[];
+  transactions: TransactionRow[];
+}) {
+  return hashPortfolioInputs({
+    version: PORTFOLIO_SNAPSHOT_VERSION,
+    portfolio,
+    holdings,
+    transactions,
+  });
+}
+
+function repriceCachedHoldings({
+  holdings,
+  stockRows,
+}: {
+  holdings: ExtendedHolding[];
+  stockRows: StockUniverseRow[];
+}) {
+  const marketByTicker = new Map(
+    stockRows
+      .filter((stock) => stock.ticker)
+      .map((stock) => [String(stock.ticker).toUpperCase(), stock] as const),
+  );
+  const maxScore = Math.max(
+    1,
+    ...stockRows
+      .map((stock) => toNumber(stock.score, 0))
+      .filter((score) => Number.isFinite(score) && score > 0),
+  );
+
+  const repriced = holdings.map((holding) => {
+    const market = marketByTicker.get(holding.ticker);
+    const currentPrice = Math.max(
+      0,
+      toNumber(market?.price, toNumber(holding.currentPrice, 0)),
+    );
+    const shares = Math.max(0, toNumber(holding.shares, 0));
+    const entryPrice = Math.max(0, toNumber(holding.entryPrice, currentPrice));
+    const costBasis = entryPrice * shares;
+    const currentValue = currentPrice * shares;
+    const totalPnLDollars = currentValue - costBasis;
+    const pnlDollars = currentPrice - entryPrice;
+    const pnlPercent = entryPrice > 0 ? (pnlDollars / entryPrice) * 100 : 0;
+
+    return {
+      ...holding,
+      company: market?.company ? String(market.company) : holding.company,
+      sector: market?.sector ? String(market.sector) : holding.sector,
+      rank: market?.rank == null ? holding.rank : Number(market.rank),
+      score: market?.score == null ? holding.score : toNumber(market.score, holding.score),
+      maxScore,
+      currentPrice: round1(currentPrice),
+      entryPrice: round1(entryPrice),
+      shares,
+      costBasis: round1(costBasis),
+      currentValue: round1(currentValue),
+      totalPnLDollars: round1(totalPnLDollars),
+      pnlDollars: round1(pnlDollars),
+      pnlPercent: round1(pnlPercent),
+    };
+  });
+
+  const totalPortfolioValue = repriced.reduce((sum, holding) => sum + holding.currentValue, 0);
+  return repriced.map((holding) => ({
+    ...holding,
+    currentAllocationPct:
+      totalPortfolioValue > 0 ? round1((holding.currentValue / totalPortfolioValue) * 100) : 0,
+  }));
+}
+
+async function buildPortfolioSnapshotPayload({
+  activePortfolio,
+  rawHoldings,
+  transactions,
+  stockUniverse,
+  selectedPortfolioId,
+  currency,
+  cashDepositedTotal,
+  ownerId,
+  useAdminEnrichment = false,
+}: {
+  activePortfolio: PortfolioRow;
+  rawHoldings: RawHoldingInput[];
+  transactions: TransactionRow[];
+  stockUniverse: StockLike[];
+  selectedPortfolioId: string;
+  currency: string;
+  cashDepositedTotal: number;
+  ownerId: string;
+  useAdminEnrichment?: boolean;
+}) {
+  const newsData = (await getCachedPortfolioNews()) as BaseNewsArticle[];
+  const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
+  const portfolioNews = buildPortfolioNews({
+    newsData,
+    stockUniverse,
+    portfolioTickerSet,
+  });
+  const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
+  const enriched = useAdminEnrichment
+    ? await enrichHoldingsAdmin(rawHoldings, riskTolerance)
+    : await enrichHoldings(rawHoldings, riskTolerance);
+  const summary = buildPortfolioHealthSummary({
+    id: selectedPortfolioId,
+    name: activePortfolio.name as string,
+    currency,
+    riskTolerance: activePortfolio.risk_tolerance,
+    holdings: enriched,
+    transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+    cashBalance: toNumber(activePortfolio.cash_balance, 0),
+    cashDepositedTotal,
+  });
+  const chartData = await buildPortfolioPageChart({
+    portfolio: {
+      id: activePortfolio.id,
+      name: activePortfolio.name,
+      risk_tolerance: activePortfolio.risk_tolerance,
+      time_horizon: activePortfolio.time_horizon,
+      investment_amount: toNumber(activePortfolio.investment_amount, 0),
+      cash_balance: toNumber(activePortfolio.cash_balance, 0),
+      cash_deposited_total: cashDepositedTotal,
+      currency,
+      created_at: activePortfolio.created_at ?? null,
+    },
+    enriched,
+    transactions,
+    summary,
+    ownerId,
+  });
+
+  return { enriched, summary, chartData, portfolioNews };
+}
+
+async function schedulePortfolioSnapshotRefresh({
+  portfolioId,
+  ownerId,
+  inputHash,
+  activePortfolio,
+  rawHoldings,
+  transactions,
+  stockUniverse,
+  currency,
+  cashDepositedTotal,
+}: {
+  portfolioId: string;
+  ownerId: string;
+  inputHash: string;
+  activePortfolio: PortfolioRow;
+  rawHoldings: RawHoldingInput[];
+  transactions: TransactionRow[];
+  stockUniverse: StockLike[];
+  currency: string;
+  cashDepositedTotal: number;
+}) {
+  const shouldRefresh = await tryStartPortfolioPageSnapshotRefresh({ portfolioId, ownerId });
+  if (!shouldRefresh) return false;
+
+  after(async () => {
+    const startedAt = performance.now();
+    try {
+      const snapshot = await buildPortfolioSnapshotPayload({
+        activePortfolio,
+        rawHoldings,
+        transactions,
+        stockUniverse,
+        selectedPortfolioId: portfolioId,
+        currency,
+        cashDepositedTotal,
+        ownerId,
+        useAdminEnrichment: true,
+      });
+      await savePortfolioPageSnapshot({
+        portfolioId,
+        ownerId,
+        inputHash,
+        snapshot,
+      });
+      console.info(
+        `[portfolio-page-refresh] portfolioId=${portfolioId} holdings=${rawHoldings.length} transactions=${transactions.length} elapsedMs=${Math.round(performance.now() - startedAt)}`,
+      );
+    } catch (error) {
+      console.warn("Portfolio page snapshot background refresh failed", error);
+    }
+  });
+
+  return true;
 }
 
 export default async function PortfolioPage({
@@ -348,7 +541,7 @@ export default async function PortfolioPage({
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
 
-  const [{ data: holdingsData }, { data: transactionData }, newsData] = await Promise.all([
+  const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
@@ -365,13 +558,11 @@ export default async function PortfolioPage({
       .eq("portfolio_id", selectedPortfolioId)
       .order("created_at", { ascending: true })
       .limit(1000),
-
-    getCachedPortfolioNews(),
   ]);
 
   timer.mark("portfolio-rows");
 
-  const rawHoldings = ((holdingsData ?? []) as HoldingRow[])
+  const rawHoldings: RawHoldingInput[] = ((holdingsData ?? []) as HoldingRow[])
     .filter((holding) => holding.ticker)
     .map((holding) => ({
       ticker: String(holding.ticker).toUpperCase(),
@@ -400,33 +591,48 @@ export default async function PortfolioPage({
     .slice(0, 40);
 
   const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
-  const inputHash = hashPortfolioInputs({
-    version: PORTFOLIO_SNAPSHOT_VERSION,
+  const inputHash = buildPortfolioStructureHash({
     portfolio: activePortfolio,
     holdings: rawHoldings,
     transactions,
-    stocks: buildSnapshotStockInputs({ stockOptionsData: stockRows, portfolioTickerSet }),
-    news: ((newsData ?? []) as BaseNewsArticle[]).map((article) => ({
-      id: article.id,
-      impact: article.impact,
-      affected_tickers: article.affected_tickers,
-      published_at: article.published_at,
-    })),
   });
 
-  const cachedSnapshot = await getPortfolioPageSnapshot({
+  const snapshotLookup = await getPortfolioPageSnapshotWithFallback({
     portfolioId: selectedPortfolioId,
     ownerId: user.id,
     inputHash,
   });
+  const cachedSnapshot = snapshotLookup.snapshot;
 
   const cachedEnriched = cachedSnapshot?.enriched as ExtendedHolding[] | undefined;
-  const cachedSummary = cachedSnapshot?.summary as
-    | ReturnType<typeof buildPortfolioHealthSummary>
-    | undefined;
   const cachedPortfolioNews = cachedSnapshot?.portfolioNews as EnrichedNewsArticle[] | undefined;
 
-  if (cachedEnriched && cachedSummary && cachedPortfolioNews) {
+  if (cachedEnriched && cachedPortfolioNews) {
+    const displayEnriched = repriceCachedHoldings({ holdings: cachedEnriched, stockRows });
+    const displaySummary = buildPortfolioHealthSummary({
+      id: selectedPortfolioId,
+      name: activePortfolio.name as string,
+      currency,
+      riskTolerance: activePortfolio.risk_tolerance,
+      holdings: displayEnriched,
+      transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+      cashBalance: toNumber(activePortfolio.cash_balance, 0),
+      cashDepositedTotal,
+    });
+    const backgroundRefreshScheduled =
+      snapshotLookup.mode === "stale"
+        ? await schedulePortfolioSnapshotRefresh({
+            portfolioId: selectedPortfolioId,
+            ownerId: user.id,
+            inputHash,
+            activePortfolio,
+            rawHoldings,
+            transactions,
+            stockUniverse,
+            currency,
+            cashDepositedTotal,
+          })
+        : false;
     const chartData = await buildPortfolioPageChart({
       portfolio: {
         id: activePortfolio.id,
@@ -439,13 +645,19 @@ export default async function PortfolioPage({
         currency,
         created_at: activePortfolio.created_at ?? null,
       },
-      enriched: cachedEnriched,
+      enriched: displayEnriched,
       transactions,
-      summary: cachedSummary,
+      summary: displaySummary,
       ownerId: user.id,
     });
 
-    timer.end({ mode: "snapshot-hit", holdings: rawHoldings.length });
+    timer.end({
+      cacheMode: snapshotLookup.mode,
+      inputHashMatched: snapshotLookup.inputHashMatched,
+      backgroundRefreshScheduled,
+      holdings: rawHoldings.length,
+      selectedPortfolioId,
+    });
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
@@ -458,7 +670,7 @@ export default async function PortfolioPage({
                 currency: portfolio.currency ?? "USD",
                 createdAt: portfolio.created_at ?? null,
               }))}
-              holdings={cachedEnriched}
+              holdings={displayEnriched}
               stockOptions={stockOptions}
               transactions={displayTransactions.map((transaction): PortfolioTransaction => ({
                 id: transaction.id,
@@ -494,8 +706,9 @@ export default async function PortfolioPage({
     );
   }
 
+  const newsData = (await getCachedPortfolioNews()) as BaseNewsArticle[];
   const portfolioNews = buildPortfolioNews({
-    newsData: (newsData ?? []) as BaseNewsArticle[],
+    newsData,
     stockUniverse,
     portfolioTickerSet,
   });
@@ -551,7 +764,12 @@ export default async function PortfolioPage({
     }),
   );
 
-  timer.end({ mode: "snapshot-write-scheduled", holdings: rawHoldings.length });
+  timer.end({
+    cacheMode: "miss",
+    backgroundRefreshScheduled: true,
+    holdings: rawHoldings.length,
+    selectedPortfolioId,
+  });
 
   return (
     <AppShell activePath="/portfolio">

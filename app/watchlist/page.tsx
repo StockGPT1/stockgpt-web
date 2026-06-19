@@ -182,6 +182,7 @@ export default async function WatchlistPage() {
                         <td className="px-3 py-2.5">
                           <Link
                             href={`/stock/${stock.ticker}`}
+                            prefetch={false}
                             className="font-black text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 transition hover:decoration-[#ddb159]"
                           >
                             {stock.ticker}

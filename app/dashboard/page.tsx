@@ -340,6 +340,7 @@ function RankingsPanel({
                   <Link
                     key={stock.id}
                     href={`/stock/${stock.ticker}`}
+                    prefetch={false}
                     className={`group grid ${gridClass} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[clamp(10px,0.72vw,12px)] text-[#072116] transition last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
                   >
                     <div className="min-w-0 px-2 font-bold tabular-nums text-[#072116]/75">
@@ -401,6 +402,7 @@ function RankingMobileRow({ stock }: { stock: Ranking }) {
   return (
     <Link
       href={`/stock/${stock.ticker}`}
+      prefetch={false}
       className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 px-3 py-2 text-[11px] text-[#072116] transition hover:bg-[#ddb159]/10"
     >
       <div className="font-bold tabular-nums text-[#072116]/65">{stock.rank ?? "—"}</div>

@@ -321,6 +321,7 @@ function StockImpactPopup({
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               href={`/stock/${stock.ticker}`}
+              prefetch={false}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.13em] text-[#061b12] transition hover:brightness-110"
             >
               View stock →

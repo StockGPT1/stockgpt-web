@@ -196,7 +196,7 @@ export async function AppShell({
       <header className="sg-app-header relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
         <Link
           href="/dashboard"
-          prefetch
+          prefetch={false}
           className="sg-no-premium absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
         >
           <Image
@@ -221,7 +221,7 @@ export async function AppShell({
 
           <Link
             href="/notifications"
-            prefetch
+            prefetch={false}
             aria-label="Notifications"
             className="sg-icon-button relative grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
@@ -245,7 +245,7 @@ export async function AppShell({
 
           <Link
             href="/settings"
-            prefetch
+            prefetch={false}
             aria-label="Account settings"
             className="sg-icon-button grid size-10 shrink-0 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f2d27a] hover:bg-[#ddb159]/10 hover:shadow-[0_0_24px_rgba(221,177,89,0.14)]"
           >
@@ -264,7 +264,7 @@ export async function AppShell({
 
         <Link
           href="/settings"
-          prefetch
+          prefetch={false}
           aria-label="Account settings"
           className="sg-icon-button absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
         >
@@ -307,7 +307,7 @@ export async function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch
+                  prefetch={false}
                   data-active={isActive ? "true" : "false"}
                   className={[
                     "sg-side-nav-link group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
@@ -358,7 +358,7 @@ export async function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              prefetch
+              prefetch={false}
               data-active={isActive ? "true" : "false"}
               className={`sg-mobile-nav-link relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
                 isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"

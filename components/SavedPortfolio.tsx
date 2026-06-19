@@ -1297,6 +1297,7 @@ function HoldingRow({
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Link
                     href={`/stock/${holding.ticker}`}
+                    prefetch={false}
                     className="min-w-0 truncate text-[22px] font-black leading-none tracking-[-0.05em] transition hover:text-[#0b2b1d]"
                   >
                     {holding.ticker}
@@ -1429,6 +1430,7 @@ function HoldingRow({
                 <div className="min-w-0">
                   <Link
                     href={`/stock/${replacement.ticker}`}
+                    prefetch={false}
                     className="text-[15px] font-black tracking-[-0.02em] text-[#072116] hover:underline"
                   >
                     {replacement.ticker} · {replacement.company}
@@ -1440,6 +1442,7 @@ function HoldingRow({
 
                 <Link
                   href={`/stock/${replacement.ticker}`}
+                  prefetch={false}
                   className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[#072116] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
                 >
                   View

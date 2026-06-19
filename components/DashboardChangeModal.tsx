@@ -126,7 +126,7 @@ function MoverList({
         const rankLabel = item.actualRankLabel ?? "#--";
         const symbol = cleanTicker(item.ticker);
         return (
-          <Link key={`${symbol}-${item.dailyMoveLabel}`} href={`/stock/${symbol}`} onClick={onClose} className="stockgpt-mover-row grid min-h-[76px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-[#ddb159]/12 bg-[#102519] p-3 text-[#faf6f0] outline-none transition hover:border-[#ddb159]/28 hover:bg-[#183523] focus-visible:border-[#ddb159]/55 focus-visible:bg-[#183523]">
+          <Link key={`${symbol}-${item.dailyMoveLabel}`} href={`/stock/${symbol}`} prefetch={false} onClick={onClose} className="stockgpt-mover-row grid min-h-[76px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-[#ddb159]/12 bg-[#102519] p-3 text-[#faf6f0] outline-none transition hover:border-[#ddb159]/28 hover:bg-[#183523] focus-visible:border-[#ddb159]/55 focus-visible:bg-[#183523]">
             <MoverLogo ticker={item.ticker} company={item.company} />
             <div className="min-w-0">
               <p className="truncate text-[15px] font-black leading-tight tracking-[-0.03em] text-[#faf6f0]">{item.ticker}</p>

@@ -418,7 +418,7 @@ function HoldingRow({ portfolioId, holding, currency }: { portfolioId: string; h
   return (
     <div className="grid min-w-0 gap-3 rounded-2xl border border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition hover:border-[#ddb159]/45 hover:bg-white sm:grid-cols-[minmax(0,1.1fr)_340px] sm:items-center">
       <div className="min-w-0">
-        <Link href={`/stock/${holding.ticker}`} className="flex min-w-0 items-start gap-3">
+        <Link href={`/stock/${holding.ticker}`} prefetch={false} className="flex min-w-0 items-start gap-3">
           <StockLogo ticker={holding.ticker} size={40} />
           <div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-2"><span className="shrink-0 text-[22px] font-black leading-none tracking-[-0.045em] text-[#072116]">{holding.ticker}</span><span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] ${recClass}`}>{holding.recommendation}</span></div><p className="mt-2 truncate text-[13px] font-black text-[#072116]/68">{holding.company ?? "—"}</p><p className="mt-2 line-clamp-2 text-[11px] font-semibold leading-5 text-[#072116]/62">{mainSignal ? mainSignal.title : holding.aiSummary}</p></div>
         </Link>

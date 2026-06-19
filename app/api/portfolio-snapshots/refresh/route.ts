@@ -67,6 +67,7 @@ async function runInBatches<T>(
 }
 
 export async function GET(req: NextRequest) {
+  const startedAt = performance.now();
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -89,6 +90,7 @@ export async function GET(req: NextRequest) {
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
   if (portfolioIds.length === 0) {
+    console.info("[portfolio-refresh] portfoliosScanned=0 snapshotsWritten=0 failed=0 elapsedMs=0");
     return NextResponse.json({ ok: true, portfolios: 0, saved: 0, failed: 0 });
   }
 
@@ -143,6 +145,11 @@ export async function GET(req: NextRequest) {
       source: "cron_refresh",
     });
   });
+
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  console.info(
+    `[portfolio-refresh] portfoliosScanned=${portfolios.length} snapshotsWritten=${result.saved} failed=${result.failed} elapsedMs=${elapsedMs}`,
+  );
 
   return NextResponse.json({
     ok: true,

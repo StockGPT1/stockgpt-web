@@ -362,7 +362,7 @@ export default async function RankingsPage({
               return (
                 <div key={stock.id} className="min-w-0 max-w-full overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] last:border-b-0">
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-2">
+                    <Link href={`/stock/${stock.ticker}`} prefetch={false} className="flex min-w-0 items-center gap-2">
                       <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159]">{stock.rank ?? "—"}</div>
                       <StockLogo ticker={stock.ticker} company={stock.company} size={28} />
                       <div className="min-w-0">
@@ -409,7 +409,7 @@ export default async function RankingsPage({
                       <div className={`grid ${gridCols} items-center text-[12px] text-[#072116] transition hover:bg-[#ddb159]/8`}>
                         <div className="px-4 py-2.5 font-bold text-[#072116]/70">{stock.rank ?? "—"}</div>
                         <div className="px-4 py-2.5"><span title={move.title} className={["inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                        <Link href={`/stock/${stock.ticker}`} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
+                        <Link href={`/stock/${stock.ticker}`} prefetch={false} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
                         <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>

@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { savePortfolioSnapshotsFromChartData } from "@/lib/portfolio-snapshots";
+import {
+  getFirstLiveSnapshotMs,
+  isHistoricalSnapshotSource,
+  savePortfolioSnapshotsFromChartData,
+} from "@/lib/portfolio-snapshots";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
 const BACKFILL_LIVE_BUFFER_MS = Number(
   process.env.PORTFOLIO_BACKFILL_LIVE_BUFFER_MS ?? 10 * 60 * 1000,
 );
@@ -57,20 +60,6 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function safeDateMs(value: string | null | undefined) {
-  if (!value) return null;
-  const ms = new Date(value).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
-function cleanSource(source?: string | null) {
-  return String(source ?? "").trim().toLowerCase();
-}
-
-function isHistoricalSnapshotSource(source?: string | null) {
-  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSource(source));
-}
-
 function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   return rows.reduce((map, row) => {
     const list = map.get(row.portfolio_id) ?? [];
@@ -84,18 +73,9 @@ function portfolioHasHistoricalBackfill(rows: SnapshotRow[]) {
   return rows.some((row) => isHistoricalSnapshotSource(row.source));
 }
 
-function latestLiveSnapshotMs(rows: SnapshotRow[]) {
-  return rows.reduce<number | null>((latest, row) => {
-    if (isHistoricalSnapshotSource(row.source)) return latest;
-    const ms = safeDateMs(row.snapshot_at);
-    if (ms == null) return latest;
-    return latest == null || ms > latest ? ms : latest;
-  }, null);
-}
-
 function backfillCutoff(rows: SnapshotRow[]) {
-  const liveMs = latestLiveSnapshotMs(rows);
-  const cutoffMs = (liveMs ?? Date.now()) - Math.max(0, BACKFILL_LIVE_BUFFER_MS);
+  const firstLiveMs = getFirstLiveSnapshotMs(rows);
+  const cutoffMs = firstLiveMs ?? Date.now() - Math.max(0, BACKFILL_LIVE_BUFFER_MS);
   return new Date(cutoffMs).toISOString();
 }
 
@@ -117,6 +97,7 @@ async function runSequentially<T>(items: T[], fn: (item: T) => Promise<boolean>)
 }
 
 export async function GET(req: NextRequest) {
+  const startedAt = performance.now();
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -147,6 +128,7 @@ export async function GET(req: NextRequest) {
   const candidateIds = candidates.map((portfolio) => portfolio.id);
 
   if (candidateIds.length === 0) {
+    console.info("[portfolio-backfill] portfoliosScanned=0 selected=0 snapshotsWritten=0 failed=0 elapsedMs=0");
     return NextResponse.json({ ok: true, candidates: 0, selected: 0, saved: 0, failed: 0 });
   }
 
@@ -169,6 +151,10 @@ export async function GET(req: NextRequest) {
   const selectedIds = selected.map((portfolio) => portfolio.id);
 
   if (selectedIds.length === 0) {
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    console.info(
+      `[portfolio-backfill] portfoliosScanned=${candidates.length} selected=0 snapshotsWritten=0 failed=0 elapsedMs=${elapsedMs}`,
+    );
     return NextResponse.json({ ok: true, candidates: candidates.length, selected: 0, saved: 0, failed: 0 });
   }
 
@@ -237,6 +223,11 @@ export async function GET(req: NextRequest) {
       maxSnapshotAtBefore: backfillCutoff(existingSnapshots),
     });
   });
+
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  console.info(
+    `[portfolio-backfill] portfoliosScanned=${candidates.length} selected=${selected.length} snapshotsWritten=${result.saved} failed=${result.failed} elapsedMs=${elapsedMs}`,
+  );
 
   return NextResponse.json({
     ok: true,

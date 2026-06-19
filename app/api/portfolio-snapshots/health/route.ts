@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   buildCurrentPortfolioSnapshotPoint,
   buildMinimalCurrentChartData,
+  getFirstLiveSnapshotMs,
+  getLatestLiveSnapshotMs,
+  isHistoricalSnapshotSource,
   saveLatestPortfolioSnapshotFromChartData,
   savePortfolioSnapshotsFromChartData,
 } from "@/lib/portfolio-snapshots";
@@ -11,8 +14,6 @@ import { createAdminClient } from "@/utils/supabase/admin";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
-const LIVE_SNAPSHOT_SOURCES = new Set(["cron_refresh", "page_current_value", "page", "health_repair_live"]);
 const DEFAULT_STALE_LIVE_MS = 20 * 60 * 1000;
 const DEFAULT_MIN_HISTORY_AGE_MS = 30 * 60 * 1000;
 const DEFAULT_BACKFILL_LIVE_BUFFER_MS = 10 * 60 * 1000;
@@ -47,6 +48,7 @@ type TransactionRow = {
 };
 
 type SnapshotRow = {
+  id: string;
   portfolio_id: string;
   source: string | null;
   snapshot_at: string | null;
@@ -59,10 +61,11 @@ type PortfolioHealth = {
   portfolio: PortfolioRow;
   snapshotRows: SnapshotRow[];
   hasLive: boolean;
+  firstLiveMs: number | null;
   latestLiveMs: number | null;
   hasHistorical: boolean;
-  hasInvalidSnapshot: boolean;
-  hasHistoricalAfterLive: boolean;
+  invalidSnapshotIds: string[];
+  historicalOverlapIds: string[];
   isLiveStale: boolean;
   isMissingHistorical: boolean;
 };
@@ -88,18 +91,6 @@ function cleanTicker(ticker?: string | null) {
   return String(ticker ?? "").trim().toUpperCase();
 }
 
-function cleanSource(source?: string | null) {
-  return String(source ?? "").trim().toLowerCase();
-}
-
-function isHistoricalSource(source?: string | null) {
-  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSource(source));
-}
-
-function isLiveSource(source?: string | null) {
-  return LIVE_SNAPSHOT_SOURCES.has(cleanSource(source));
-}
-
 function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   return rows.reduce((map, row) => {
     const list = map.get(row.portfolio_id) ?? [];
@@ -109,30 +100,28 @@ function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   }, new Map<string, T[]>());
 }
 
-function latestLiveSnapshotMs(rows: SnapshotRow[]) {
-  return rows.reduce<number | null>((latest, row) => {
-    if (!isLiveSource(row.source)) return latest;
-    const ms = safeDateMs(row.snapshot_at);
-    if (ms == null) return latest;
-    return latest == null || ms > latest ? ms : latest;
-  }, null);
-}
-
-function hasInvalidSnapshot(rows: SnapshotRow[]) {
-  return rows.some((row) => {
+function invalidSnapshotIds(rows: SnapshotRow[]) {
+  return rows.flatMap((row) => {
     const value = toNumber(row.value, Number.NaN);
     const cash = toNumber(row.cash, Number.NaN);
     const basis = toNumber(row.basis, Number.NaN);
-    return !Number.isFinite(value) || value < 0 || !Number.isFinite(cash) || cash < 0 || !Number.isFinite(basis) || basis < 0;
+    const invalid =
+      !Number.isFinite(value) ||
+      value < 0 ||
+      !Number.isFinite(cash) ||
+      cash < 0 ||
+      !Number.isFinite(basis) ||
+      basis < 0;
+    return invalid ? [row.id] : [];
   });
 }
 
-function hasHistoricalAfterLive(rows: SnapshotRow[], latestLiveMs: number | null) {
-  if (latestLiveMs == null) return false;
-  return rows.some((row) => {
-    if (!isHistoricalSource(row.source)) return false;
+function historicalOverlapIds(rows: SnapshotRow[], firstLiveMs: number | null) {
+  if (firstLiveMs == null) return [];
+  return rows.flatMap((row) => {
+    if (!isHistoricalSnapshotSource(row.source)) return [];
     const ms = safeDateMs(row.snapshot_at);
-    return ms != null && ms > latestLiveMs;
+    return ms != null && ms >= firstLiveMs ? [row.id] : [];
   });
 }
 
@@ -151,20 +140,24 @@ function buildHealthRows({
 }) {
   return portfolios.map<PortfolioHealth>((portfolio) => {
     const snapshotRows = snapshotsByPortfolio.get(portfolio.id) ?? [];
-    const latestLiveMs = latestLiveSnapshotMs(snapshotRows);
+    const firstLiveMs = getFirstLiveSnapshotMs(snapshotRows);
+    const latestLiveMs = getLatestLiveSnapshotMs(snapshotRows);
     const hasLive = latestLiveMs != null;
-    const hasHistorical = snapshotRows.some((row) => isHistoricalSource(row.source));
+    const hasHistorical = snapshotRows.some((row) => isHistoricalSnapshotSource(row.source));
     const createdMs = safeDateMs(portfolio.created_at) ?? nowMs;
     const oldEnoughForHistory = nowMs - createdMs >= minHistoryAgeMs;
+    const invalidIds = invalidSnapshotIds(snapshotRows);
+    const overlapIds = historicalOverlapIds(snapshotRows, firstLiveMs);
 
     return {
       portfolio,
       snapshotRows,
       hasLive,
+      firstLiveMs,
       latestLiveMs,
       hasHistorical,
-      hasInvalidSnapshot: hasInvalidSnapshot(snapshotRows),
-      hasHistoricalAfterLive: hasHistoricalAfterLive(snapshotRows, latestLiveMs),
+      invalidSnapshotIds: invalidIds,
+      historicalOverlapIds: overlapIds,
       isLiveStale: !hasLive || nowMs - latestLiveMs > staleLiveMs,
       isMissingHistorical: oldEnoughForHistory && !hasHistorical,
     };
@@ -257,7 +250,7 @@ async function repairHistoricalBackfill({
         priceMap.get(ticker) ?? 0,
       ]),
     );
-    const cutoffMs = (row.latestLiveMs ?? Date.now()) - Math.max(0, liveBufferMs);
+    const cutoffMs = row.firstLiveMs ?? Date.now() - Math.max(0, liveBufferMs);
 
     try {
       const chartData = await buildPortfolioValueTimeline({
@@ -287,7 +280,34 @@ async function repairHistoricalBackfill({
   return { selected: selected.length, repaired, failed };
 }
 
+async function deleteSnapshotRows({
+  supabase,
+  ids,
+}: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ids: string[];
+}) {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  const batchSize = 400;
+  let deleted = 0;
+  let failed = 0;
+
+  for (let i = 0; i < uniqueIds.length; i += batchSize) {
+    const batch = uniqueIds.slice(i, i + batchSize);
+    const { error } = await supabase.from("portfolio_snapshots").delete().in("id", batch);
+    if (error) {
+      console.warn("Portfolio health snapshot cleanup failed", error.message ?? error);
+      failed += batch.length;
+    } else {
+      deleted += batch.length;
+    }
+  }
+
+  return { selected: uniqueIds.length, deleted, failed };
+}
+
 export async function GET(req: NextRequest) {
+  const startedAt = performance.now();
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -298,6 +318,8 @@ export async function GET(req: NextRequest) {
   const portfolioLimit = Number(req.nextUrl.searchParams.get("portfolioLimit") ?? process.env.PORTFOLIO_HEALTH_PORTFOLIO_LIMIT ?? 500);
   const repairLimit = Number(req.nextUrl.searchParams.get("repairLimit") ?? process.env.PORTFOLIO_HEALTH_REPAIR_LIMIT ?? 2);
   const liveRepairLimit = Number(req.nextUrl.searchParams.get("liveRepairLimit") ?? process.env.PORTFOLIO_HEALTH_LIVE_REPAIR_LIMIT ?? 20);
+  const cleanupHistoricalOverlap = req.nextUrl.searchParams.get("cleanupHistoricalOverlap") !== "0";
+  const cleanupInvalid = req.nextUrl.searchParams.get("cleanupInvalid") !== "0";
   const staleLiveMs = Number(process.env.PORTFOLIO_HEALTH_STALE_LIVE_MS ?? DEFAULT_STALE_LIVE_MS);
   const minHistoryAgeMs = Number(process.env.PORTFOLIO_HEALTH_MIN_HISTORY_AGE_MS ?? DEFAULT_MIN_HISTORY_AGE_MS);
   const liveBufferMs = Number(process.env.PORTFOLIO_BACKFILL_LIVE_BUFFER_MS ?? DEFAULT_BACKFILL_LIVE_BUFFER_MS);
@@ -317,13 +339,14 @@ export async function GET(req: NextRequest) {
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
   if (portfolioIds.length === 0) {
+    console.info("[portfolio-health] portfolios=0 issues=0 repairsPerformed=0 elapsedMs=0");
     return NextResponse.json({ ok: true, portfolios: 0, issues: {}, repairs: {} });
   }
 
   const [{ data: snapshotRows, error: snapshotError }, { data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] = await Promise.all([
     supabase
       .from("portfolio_snapshots")
-      .select("portfolio_id,source,snapshot_at,value,cash,basis")
+      .select("id,portfolio_id,source,snapshot_at,value,cash,basis")
       .in("portfolio_id", portfolioIds)
       .order("snapshot_at", { ascending: false })
       .limit(Number(process.env.PORTFOLIO_HEALTH_SNAPSHOT_SCAN_LIMIT ?? 25_000)),
@@ -365,14 +388,33 @@ export async function GET(req: NextRequest) {
 
   const staleLive = healthRows.filter((row) => row.isLiveStale);
   const missingHistorical = healthRows.filter((row) => row.isMissingHistorical);
-  const invalidSnapshots = healthRows.filter((row) => row.hasInvalidSnapshot);
-  const historicalAfterLive = healthRows.filter((row) => row.hasHistoricalAfterLive);
+  const invalidSnapshots = healthRows.filter((row) => row.invalidSnapshotIds.length > 0);
+  const historicalAfterLive = healthRows.filter((row) => row.historicalOverlapIds.length > 0);
   const activeWithoutSnapshots = healthRows.filter((row) => row.snapshotRows.length === 0);
 
   let liveRepairs = { repaired: 0, failed: 0 };
   let historicalRepairs = { selected: 0, repaired: 0, failed: 0 };
+  let historicalOverlapCleanup = { selected: 0, deleted: 0, failed: 0 };
+  let invalidSnapshotCleanup = { selected: 0, deleted: 0, failed: 0 };
 
   if (repair) {
+    if (cleanupHistoricalOverlap) {
+      historicalOverlapCleanup = await deleteSnapshotRows({
+        supabase,
+        ids: historicalAfterLive.flatMap((row) => row.historicalOverlapIds),
+      });
+    }
+
+    if (cleanupInvalid) {
+      const alreadyDeleted = new Set(historicalAfterLive.flatMap((row) => row.historicalOverlapIds));
+      invalidSnapshotCleanup = await deleteSnapshotRows({
+        supabase,
+        ids: invalidSnapshots
+          .flatMap((row) => row.invalidSnapshotIds)
+          .filter((id) => !alreadyDeleted.has(id)),
+      });
+    }
+
     liveRepairs = await repairLiveSnapshots({
       supabase,
       portfolios: staleLive.slice(0, Math.max(0, liveRepairLimit)).map((row) => row.portfolio),
@@ -391,6 +433,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  const repairsPerformed =
+    liveRepairs.repaired +
+    historicalRepairs.repaired +
+    historicalOverlapCleanup.deleted +
+    invalidSnapshotCleanup.deleted;
+  console.info(
+    `[portfolio-health] portfolios=${portfolios.length} activeWithoutSnapshots=${activeWithoutSnapshots.length} staleLive=${staleLive.length} missingHistorical=${missingHistorical.length} invalidSnapshots=${invalidSnapshots.length} historicalAfterLive=${historicalAfterLive.length} repairsPerformed=${repairsPerformed} elapsedMs=${elapsedMs}`,
+  );
+
   return NextResponse.json({
     ok: true,
     checkedAt: new Date(nowMs).toISOString(),
@@ -406,6 +458,10 @@ export async function GET(req: NextRequest) {
     repairs: {
       live: liveRepairs,
       historical: historicalRepairs,
+      cleanup: {
+        historicalOverlap: historicalOverlapCleanup,
+        invalidSnapshots: invalidSnapshotCleanup,
+      },
     },
   });
 }

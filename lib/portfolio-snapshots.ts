@@ -1,16 +1,34 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+const FIVE_MINUTES_MS = 5 * 60_000;
+const FIFTEEN_MINUTES_MS = 15 * 60_000;
 const ONE_HOUR_MS = 3_600_000;
+const SIX_HOURS_MS = 6 * ONE_HOUR_MS;
 const ONE_DAY_MS = 86_400_000;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+const ONE_MONTH_MS = 30 * ONE_DAY_MS;
 const MAX_POINTS = 260;
 const WRITE_BATCH_SIZE = 400;
-const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1M": 30,
   "6M": 182,
   "1Y": 365,
 };
+
+export const HISTORICAL_SNAPSHOT_SOURCES = new Set([
+  "backfill",
+  "chart_rebuild",
+]);
+
+export const LIVE_SNAPSHOT_SOURCES = new Set([
+  "cron_refresh",
+  "page_current_value",
+  "page",
+  "health_repair_live",
+  "system",
+]);
 
 const SNAPSHOT_READ_LIMIT = Number(
   process.env.PORTFOLIO_SNAPSHOT_READ_LIMIT ?? 10_000,
@@ -21,17 +39,20 @@ type SnapshotChartPoint = ChartPoint & { cash?: number };
 export type PortfolioSnapshotChartData = Partial<Record<TimeRange, SnapshotChartPoint[]>>;
 
 type SupabaseLike = {
-  from: (table: string) => any;
+  from: SupabaseClient["from"];
 };
 
-type PortfolioSnapshotRow = {
+export type PortfolioSnapshotSourceRow = {
   snapshot_at: string | null;
+  source?: string | null;
+};
+
+type PortfolioSnapshotRow = PortfolioSnapshotSourceRow & {
   value: number | string | null;
   cash: number | string | null;
   basis: number | string | null;
   pnl: number | string | null;
   pnl_pct: number | string | null;
-  source?: string | null;
 };
 
 type SnapshotUpsertRow = {
@@ -46,7 +67,41 @@ type SnapshotUpsertRow = {
   source: string;
 };
 
-type NormalisedSnapshotPoint = SnapshotChartPoint & { ms: number };
+type SnapshotSourceKind = "live" | "historical" | "unknown";
+
+type NormalisedSnapshotPoint = SnapshotChartPoint & {
+  ms: number;
+  source: string;
+  sourceKind: SnapshotSourceKind;
+};
+
+type SnapshotNormaliseStats = {
+  inputRows: number;
+  liveRows: number;
+  historicalRows: number;
+  unknownRows: number;
+  droppedBeforeStart: number;
+  droppedInvalid: number;
+  droppedHistoricalOverlap: number;
+  droppedUnknownAfterLive: number;
+  droppedDuplicate: number;
+};
+
+type ChartRangeMeta = {
+  range: TimeRange;
+  pointCount: number;
+  bucketIntervalMs: number;
+  firstDate: string | null;
+  lastDate: string | null;
+};
+
+export type PortfolioSnapshotBuildResult = {
+  chartData: PortfolioSnapshotChartData;
+  stats: SnapshotNormaliseStats;
+  rangeMeta: ChartRangeMeta[];
+  firstLiveSnapshotMs: number | null;
+  latestLiveSnapshotMs: number | null;
+};
 
 type DatedInput = {
   created_at?: string | null;
@@ -89,20 +144,22 @@ function cleanTicker(ticker?: string | null) {
   return String(ticker ?? "").trim().toUpperCase();
 }
 
-function cleanSource(source?: string | null) {
+export function cleanSnapshotSource(source?: string | null) {
   return String(source ?? "").trim().toLowerCase();
 }
 
-function isHistoricalSnapshotSource(source?: string | null) {
-  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSource(source));
+export function isHistoricalSnapshotSource(source?: string | null) {
+  return HISTORICAL_SNAPSHOT_SOURCES.has(cleanSnapshotSource(source));
 }
 
-function snapshotSourcePriority(source?: string | null) {
-  const cleaned = cleanSource(source);
-  if (cleaned === "page_current_value" || cleaned === "page") return 4;
-  if (cleaned === "cron_refresh") return 3;
-  if (!isHistoricalSnapshotSource(cleaned)) return 2;
-  return 1;
+export function isLiveSnapshotSource(source?: string | null) {
+  return LIVE_SNAPSHOT_SOURCES.has(cleanSnapshotSource(source));
+}
+
+export function snapshotSourceKind(source?: string | null): SnapshotSourceKind {
+  if (isHistoricalSnapshotSource(source)) return "historical";
+  if (isLiveSnapshotSource(source)) return "live";
+  return "unknown";
 }
 
 function safeDateMs(value: string | null | undefined) {
@@ -142,46 +199,123 @@ export function latestPortfolioInputChangeMs({
   );
 }
 
-function latestLiveSnapshotMs(rows: PortfolioSnapshotRow[]) {
+export function getFirstLiveSnapshotMs(rows: PortfolioSnapshotSourceRow[]) {
+  return rows.reduce<number | null>((first, row) => {
+    if (!isLiveSnapshotSource(row.source)) return first;
+    const ms = safeDateMs(row.snapshot_at);
+    if (ms == null) return first;
+    return first == null || ms < first ? ms : first;
+  }, null);
+}
+
+export function getLatestLiveSnapshotMs(rows: PortfolioSnapshotSourceRow[]) {
   return rows.reduce<number | null>((latest, row) => {
-    if (isHistoricalSnapshotSource(row.source)) return latest;
+    if (!isLiveSnapshotSource(row.source)) return latest;
     const ms = safeDateMs(row.snapshot_at);
     if (ms == null) return latest;
     return latest == null || ms > latest ? ms : latest;
   }, null);
 }
 
+export function filterHistoricalOverlap<T extends PortfolioSnapshotSourceRow>(rows: T[]) {
+  const firstLiveMs = getFirstLiveSnapshotMs(rows);
+  if (firstLiveMs == null) return rows;
+
+  return rows.filter((row) => {
+    if (!isHistoricalSnapshotSource(row.source)) return true;
+    const ms = safeDateMs(row.snapshot_at);
+    return ms != null && ms < firstLiveMs;
+  });
+}
+
+function sourcePriority(source?: string | null) {
+  const cleaned = cleanSnapshotSource(source);
+  if (cleaned === "page_current_value" || cleaned === "page") return 5;
+  if (cleaned === "cron_refresh" || cleaned === "health_repair_live") return 4;
+  if (isLiveSnapshotSource(cleaned)) return 3;
+  if (snapshotSourceKind(cleaned) === "unknown") return 2;
+  return 1;
+}
+
+function emptyStats(inputRows: number): SnapshotNormaliseStats {
+  return {
+    inputRows,
+    liveRows: 0,
+    historicalRows: 0,
+    unknownRows: 0,
+    droppedBeforeStart: 0,
+    droppedInvalid: 0,
+    droppedHistoricalOverlap: 0,
+    droppedUnknownAfterLive: 0,
+    droppedDuplicate: 0,
+  };
+}
+
 function normaliseRows(rows: PortfolioSnapshotRow[], portfolioStartMs: number) {
-  const latestLiveMs = latestLiveSnapshotMs(rows);
+  const firstLiveSnapshotMs = getFirstLiveSnapshotMs(rows);
+  const latestLiveSnapshotMs = getLatestLiveSnapshotMs(rows);
+  const stats = emptyStats(rows.length);
   const byDate = new Map<string, { point: NormalisedSnapshotPoint; priority: number }>();
 
   rows.forEach((row) => {
     const ms = safeDateMs(row.snapshot_at);
-    const value = toNumber(row.value, Number.NaN);
-    if (ms == null || ms < portfolioStartMs || !Number.isFinite(value) || value < 0) return;
+    if (ms == null || ms < portfolioStartMs) {
+      stats.droppedBeforeStart += 1;
+      return;
+    }
 
-    // Backfill is only historical context. If live/current rows exist, never let a
-    // later backfill point become the effective current portfolio value.
-    if (latestLiveMs != null && isHistoricalSnapshotSource(row.source) && ms > latestLiveMs) {
+    const value = roundMoney(toNumber(row.value, Number.NaN));
+    const cash = roundMoney(toNumber(row.cash, Number.NaN));
+    const basis = roundMoney(toNumber(row.basis, Number.NaN));
+    if (
+      !Number.isFinite(value) ||
+      value < 0 ||
+      !Number.isFinite(cash) ||
+      cash < 0 ||
+      !Number.isFinite(basis) ||
+      basis < 0
+    ) {
+      stats.droppedInvalid += 1;
+      return;
+    }
+
+    const source = cleanSnapshotSource(row.source);
+    const sourceKind = snapshotSourceKind(source);
+    if (sourceKind === "live") stats.liveRows += 1;
+    else if (sourceKind === "historical") stats.historicalRows += 1;
+    else stats.unknownRows += 1;
+
+    if (firstLiveSnapshotMs != null && sourceKind === "historical" && ms >= firstLiveSnapshotMs) {
+      stats.droppedHistoricalOverlap += 1;
+      return;
+    }
+
+    if (firstLiveSnapshotMs != null && sourceKind === "unknown" && ms >= firstLiveSnapshotMs) {
+      stats.droppedUnknownAfterLive += 1;
       return;
     }
 
     const date = new Date(ms).toISOString();
-    const cash = roundMoney(toNumber(row.cash, 0));
-    const basis = roundMoney(toNumber(row.basis, 0));
     const pnl = roundMoney(toNumber(row.pnl, value - basis));
     const pnlPct = toNumber(row.pnl_pct, basis > 0 ? (pnl / basis) * 100 : 0);
-    const priority = snapshotSourcePriority(row.source);
+    const priority = sourcePriority(source);
     const existing = byDate.get(date);
 
-    if (existing && existing.priority > priority) return;
+    if (existing && existing.priority >= priority) {
+      stats.droppedDuplicate += 1;
+      return;
+    }
+
+    if (existing) stats.droppedDuplicate += 1;
 
     byDate.set(date, {
       priority,
       point: {
         ms,
+        source,
+        sourceKind,
         date,
-        close: roundMoney(value),
+        close: value,
         cash,
         basis,
         pnl,
@@ -190,18 +324,11 @@ function normaliseRows(rows: PortfolioSnapshotRow[], portfolioStartMs: number) {
     });
   });
 
-  return Array.from(byDate.values())
+  const points = Array.from(byDate.values())
     .map(({ point }) => point)
     .sort((a, b) => a.ms - b.ms);
-}
 
-function samplePoints(points: NormalisedSnapshotPoint[]) {
-  if (points.length <= MAX_POINTS) return points;
-  const step = Math.ceil(points.length / MAX_POINTS);
-  const sampled = points.filter((_, index) => index % step === 0);
-  const last = points.at(-1);
-  if (last && sampled.at(-1)?.date !== last.date) sampled.push(last);
-  return sampled;
+  return { points, stats, firstLiveSnapshotMs, latestLiveSnapshotMs };
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
@@ -212,7 +339,9 @@ function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number
 }
 
 function coverageToleranceMs(range: TimeRange) {
-  return range === "1D" ? ONE_HOUR_MS : ONE_DAY_MS;
+  if (range === "1D") return ONE_HOUR_MS;
+  if (range === "1M") return ONE_DAY_MS * 2;
+  return ONE_DAY_MS * 3;
 }
 
 function hasRangeCoverage({
@@ -233,19 +362,167 @@ function hasRangeCoverage({
   return first.ms <= rangeStartMs + coverageToleranceMs(range);
 }
 
-function snapshotsToChartData(points: NormalisedSnapshotPoint[], portfolioStartMs: number): PortfolioSnapshotChartData {
-  const nowMs = Date.now();
+function chooseBucketInterval({
+  range,
+  points,
+  rangeStartMs,
+  nowMs,
+}: {
+  range: TimeRange;
+  points: NormalisedSnapshotPoint[];
+  rangeStartMs: number;
+  nowMs: number;
+}) {
+  if (range === "1D") return points.length > 240 ? FIFTEEN_MINUTES_MS : FIVE_MINUTES_MS;
+  if (range === "1M") return SIX_HOURS_MS;
+  if (range === "6M") return ONE_DAY_MS;
+  if (range === "1Y") return points.length > MAX_POINTS ? ONE_WEEK_MS : ONE_DAY_MS;
 
-  return OUTPUT_RANGES.reduce<PortfolioSnapshotChartData>((acc, range) => {
-    const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
-    const coveredPoints = points.filter((point) => point.ms >= rangeStartMs && point.ms <= nowMs);
-    if (coveredPoints.length <= 1) return acc;
-    if (!hasRangeCoverage({ range, points: coveredPoints, rangeStartMs, portfolioStartMs })) return acc;
+  const spanMs = Math.max(0, nowMs - rangeStartMs);
+  return spanMs > 2 * 365 * ONE_DAY_MS ? ONE_MONTH_MS : ONE_WEEK_MS;
+}
 
-    const rangePoints = samplePoints(coveredPoints).map(({ ms: _ms, ...point }) => point);
-    if (rangePoints.length > 1) acc[range] = rangePoints;
-    return acc;
-  }, {});
+function dedupeByTimestamp(points: NormalisedSnapshotPoint[]) {
+  return Array.from(
+    points.reduce((map, point) => map.set(point.ms, point), new Map<number, NormalisedSnapshotPoint>()).values(),
+  ).sort((a, b) => a.ms - b.ms);
+}
+
+function bucketPoints({
+  points,
+  intervalMs,
+  rangeStartMs,
+}: {
+  points: NormalisedSnapshotPoint[];
+  intervalMs: number;
+  rangeStartMs: number;
+}) {
+  if (points.length <= 2) return points;
+
+  const byBucket = new Map<number, NormalisedSnapshotPoint>();
+  points.forEach((point) => {
+    const bucket = Math.floor((point.ms - rangeStartMs) / intervalMs);
+    byBucket.set(bucket, point);
+  });
+
+  const first = points[0];
+  const latest = points.at(-1);
+  const latestLive = [...points].reverse().find((point) => point.sourceKind === "live");
+
+  return dedupeByTimestamp([
+    first,
+    ...Array.from(byBucket.values()),
+    ...(latestLive ? [latestLive] : []),
+    ...(latest ? [latest] : []),
+  ]);
+}
+
+function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
+  return points.map((point) => ({
+    date: point.date,
+    close: point.close,
+    cash: point.cash,
+    basis: point.basis,
+    pnl: point.pnl,
+    pnlPct: point.pnlPct,
+  }));
+}
+
+function validateRangePoints({
+  range,
+  points,
+  portfolioStartMs,
+  firstLiveSnapshotMs,
+}: {
+  range: TimeRange;
+  points: NormalisedSnapshotPoint[];
+  portfolioStartMs: number;
+  firstLiveSnapshotMs: number | null;
+}) {
+  const seen = new Set<number>();
+  let previousMs: number | null = null;
+
+  for (const point of points) {
+    if (point.ms < portfolioStartMs) return false;
+    if (previousMs != null && point.ms < previousMs) return false;
+    if (seen.has(point.ms)) return false;
+    if (range === "1D" && point.sourceKind !== "live") return false;
+    if (
+      firstLiveSnapshotMs != null &&
+      point.sourceKind === "historical" &&
+      point.ms >= firstLiveSnapshotMs
+    ) {
+      return false;
+    }
+    if (!Number.isFinite(point.close) || point.close < 0) return false;
+    if (point.cash != null && (!Number.isFinite(point.cash) || point.cash < 0)) return false;
+    if (point.basis != null && (!Number.isFinite(point.basis) || point.basis < 0)) return false;
+
+    seen.add(point.ms);
+    previousMs = point.ms;
+  }
+
+  return points.length <= MAX_POINTS;
+}
+
+function snapshotsToChartData({
+  points,
+  portfolioStartMs,
+  firstLiveSnapshotMs,
+  nowMs,
+}: {
+  points: NormalisedSnapshotPoint[];
+  portfolioStartMs: number;
+  firstLiveSnapshotMs: number | null;
+  nowMs: number;
+}) {
+  return OUTPUT_RANGES.reduce<{
+    chartData: PortfolioSnapshotChartData;
+    rangeMeta: ChartRangeMeta[];
+  }>(
+    (acc, range) => {
+      const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
+      const sourcePoints = points.filter((point) => point.ms >= rangeStartMs && point.ms <= nowMs);
+      const coveredPoints =
+        range === "1D"
+          ? sourcePoints.filter((point) => point.sourceKind === "live")
+          : sourcePoints;
+
+      if (coveredPoints.length <= 1) return acc;
+      if (!hasRangeCoverage({ range, points: coveredPoints, rangeStartMs, portfolioStartMs })) {
+        return acc;
+      }
+
+      const bucketIntervalMs = chooseBucketInterval({
+        range,
+        points: coveredPoints,
+        rangeStartMs,
+        nowMs,
+      });
+      const bucketed = bucketPoints({
+        points: coveredPoints,
+        intervalMs: bucketIntervalMs,
+        rangeStartMs,
+      });
+
+      if (
+        bucketed.length > 1 &&
+        validateRangePoints({ range, points: bucketed, portfolioStartMs, firstLiveSnapshotMs })
+      ) {
+        acc.chartData[range] = serialiseChartPoints(bucketed);
+        acc.rangeMeta.push({
+          range,
+          pointCount: bucketed.length,
+          bucketIntervalMs,
+          firstDate: bucketed[0]?.date ?? null,
+          lastDate: bucketed.at(-1)?.date ?? null,
+        });
+      }
+
+      return acc;
+    },
+    { chartData: {}, rangeMeta: [] },
+  );
 }
 
 function hasAnySnapshotChartData(chartData: PortfolioSnapshotChartData) {
@@ -256,6 +533,86 @@ function latestSnapshotCoversLatestInput(points: NormalisedSnapshotPoint[], late
   const latest = points.at(-1);
   if (!latest) return false;
   return latest.ms + 1_000 >= latestInputMs;
+}
+
+export function buildPortfolioSnapshotChartDataFromRows({
+  rows,
+  portfolioCreatedAt,
+  latestInputMs = 0,
+  nowMs = Date.now(),
+}: {
+  rows: PortfolioSnapshotRow[];
+  portfolioCreatedAt?: string | null;
+  latestInputMs?: number;
+  nowMs?: number;
+}): PortfolioSnapshotBuildResult | null {
+  const portfolioStartMs = safeDateMs(portfolioCreatedAt) ?? 0;
+  const { points, stats, firstLiveSnapshotMs, latestLiveSnapshotMs } = normaliseRows(
+    rows,
+    portfolioStartMs,
+  );
+
+  if (!latestSnapshotCoversLatestInput(points, latestInputMs)) return null;
+
+  const { chartData, rangeMeta } = snapshotsToChartData({
+    points,
+    portfolioStartMs,
+    firstLiveSnapshotMs,
+    nowMs,
+  });
+
+  if (!hasAnySnapshotChartData(chartData)) return null;
+
+  return {
+    chartData,
+    stats,
+    rangeMeta,
+    firstLiveSnapshotMs,
+    latestLiveSnapshotMs,
+  };
+}
+
+function formatIso(ms: number | null) {
+  return ms == null ? "none" : new Date(ms).toISOString();
+}
+
+function intervalLabel(ms: number) {
+  if (ms % ONE_MONTH_MS === 0) return `${ms / ONE_MONTH_MS}mo`;
+  if (ms % ONE_WEEK_MS === 0) return `${ms / ONE_WEEK_MS}w`;
+  if (ms % ONE_DAY_MS === 0) return `${ms / ONE_DAY_MS}d`;
+  if (ms % ONE_HOUR_MS === 0) return `${ms / ONE_HOUR_MS}h`;
+  return `${Math.round(ms / 60_000)}m`;
+}
+
+function logSnapshotChartBuild({
+  portfolioId,
+  result,
+}: {
+  portfolioId: string;
+  result: PortfolioSnapshotBuildResult;
+}) {
+  const ranges = result.rangeMeta
+    .map(
+      (meta) =>
+        `${meta.range}:${meta.pointCount}@${intervalLabel(meta.bucketIntervalMs)}:${meta.firstDate ?? "none"}..${meta.lastDate ?? "none"}`,
+    )
+    .join("|");
+
+  console.info(
+    [
+      "[portfolio-chart]",
+      `portfolioId=${portfolioId}`,
+      `ranges=${ranges}`,
+      `liveRows=${result.stats.liveRows}`,
+      `historicalRows=${result.stats.historicalRows}`,
+      `unknownRows=${result.stats.unknownRows}`,
+      `droppedHistoricalOverlap=${result.stats.droppedHistoricalOverlap}`,
+      `droppedUnknownAfterLive=${result.stats.droppedUnknownAfterLive}`,
+      `droppedInvalid=${result.stats.droppedInvalid}`,
+      `firstLiveSnapshotAt=${formatIso(result.firstLiveSnapshotMs)}`,
+      `latestLiveSnapshotAt=${formatIso(result.latestLiveSnapshotMs)}`,
+    ].join(" "),
+  );
 }
 
 export async function getPortfolioSnapshotChartData({
@@ -288,11 +645,15 @@ export async function getPortfolioSnapshotChartData({
       return null;
     }
 
-    const points = normaliseRows((data ?? []) as PortfolioSnapshotRow[], portfolioStartMs);
-    if (!latestSnapshotCoversLatestInput(points, latestInputMs)) return null;
+    const result = buildPortfolioSnapshotChartDataFromRows({
+      rows: (data ?? []) as PortfolioSnapshotRow[],
+      portfolioCreatedAt,
+      latestInputMs,
+    });
 
-    const chartData = snapshotsToChartData(points, portfolioStartMs);
-    return hasAnySnapshotChartData(chartData) ? chartData : null;
+    if (!result) return null;
+    logSnapshotChartBuild({ portfolioId, result });
+    return result.chartData;
   } catch (error) {
     console.warn("Portfolio snapshot read failed", error);
     return null;
@@ -324,20 +685,30 @@ function pointToSnapshotRow({
   source: string;
 }): SnapshotUpsertRow | null {
   const snapshotMs = pointMs(point);
+  const close = roundMoney(toNumber(point.close, Number.NaN));
+  const cash = roundMoney(toNumber(point.cash, 0));
+  const basis = roundMoney(toNumber(point.basis, 0));
 
-  if (snapshotMs == null || !Number.isFinite(point.close) || point.close < 0) {
+  if (
+    snapshotMs == null ||
+    !Number.isFinite(close) ||
+    close < 0 ||
+    !Number.isFinite(cash) ||
+    cash < 0 ||
+    !Number.isFinite(basis) ||
+    basis < 0
+  ) {
     return null;
   }
 
-  const basis = roundMoney(toNumber(point.basis, 0));
-  const pnl = roundMoney(toNumber(point.pnl, point.close - basis));
+  const pnl = roundMoney(toNumber(point.pnl, close - basis));
 
   return {
     portfolio_id: portfolioId,
     user_id: userId,
     snapshot_at: new Date(snapshotMs).toISOString(),
-    value: roundMoney(point.close),
-    cash: roundMoney(toNumber(point.cash, 0)),
+    value: close,
+    cash,
     basis,
     pnl,
     pnl_pct: toNumber(point.pnlPct, basis > 0 ? (pnl / basis) * 100 : 0),
@@ -414,10 +785,13 @@ export function buildCurrentPortfolioSnapshotPoint({
     return toNumber(currentPrices[ticker], 0);
   };
 
-  const cash = roundMoney(toNumber(portfolio.cash_balance ?? portfolio.cashBalance, 0));
-  const cashDepositedTotal = toNumber(
-    portfolio.cash_deposited_total ?? portfolio.cashDepositedTotal,
-    toNumber(portfolio.investment_amount ?? portfolio.investmentAmount, 0),
+  const cash = roundMoney(Math.max(0, toNumber(portfolio.cash_balance ?? portfolio.cashBalance, 0)));
+  const cashDepositedTotal = Math.max(
+    0,
+    toNumber(
+      portfolio.cash_deposited_total ?? portfolio.cashDepositedTotal,
+      toNumber(portfolio.investment_amount ?? portfolio.investmentAmount, 0),
+    ),
   );
   let holdingsValue = 0;
   let holdingsBasis = 0;

@@ -393,6 +393,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
               <Link
                 key={holding.ticker}
                 href={`/stock/${holding.ticker}`}
+                prefetch={false}
                 className="group grid min-w-0 gap-3 rounded-xl border border-[#072116]/8 bg-white px-3 py-3 transition hover:border-[#ddb159] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] sm:flex sm:items-center sm:gap-4 sm:px-4"
               >
                 <div className="flex min-w-0 items-start justify-between gap-3 sm:block sm:w-16 sm:shrink-0">

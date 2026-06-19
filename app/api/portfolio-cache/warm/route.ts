@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
-import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { enrichHoldingsAdmin, type RiskTolerance } from "@/lib/portfolio-alerts";
 import {
   getCachedPortfolioNews,
   getCachedPortfolioStockUniverse,
@@ -14,7 +14,6 @@ import {
   type StockLike,
 } from "@/lib/news-intelligence";
 import { redisCommand } from "@/lib/redis";
-import { getTickerTape } from "@/lib/yahoo";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +28,48 @@ type StockRecord = {
   rank?: string | number | null;
   score?: string | number | null;
   price?: string | number | null;
+};
+
+type WarmPortfolioRow = {
+  id: string;
+  user_id: string;
+  name: string | null;
+  risk_tolerance: string | null;
+  time_horizon: string | null;
+  investment_amount: number | string | null;
+  cash_balance: number | string | null;
+  cash_deposited_total: number | string | null;
+  currency: string | null;
+  created_at: string | null;
+};
+
+type WarmHoldingRow = {
+  portfolio_id: string;
+  ticker: string | null;
+  entry_price: number | null;
+  score_at_entry: number | null;
+  rank_at_entry: number | null;
+  added_at: string | null;
+  last_reviewed_at: string | null;
+  shares: number | null;
+  allocation_pct: number | null;
+  purchase_date: string | null;
+  source: string | null;
+  notes: string | null;
+};
+
+type WarmTransactionRow = {
+  id: string;
+  portfolio_id: string;
+  ticker: string | null;
+  type: string;
+  shares: number | null;
+  price: number | null;
+  amount: number | null;
+  realised_pnl: number | null;
+  currency: string | null;
+  notes: string | null;
+  created_at: string;
 };
 
 function isAuthorized(req: NextRequest) {
@@ -100,25 +141,6 @@ function buildPortfolioNews({
     .map(({ enriched }) => enriched);
 }
 
-function buildSnapshotStockInputs({
-  stockRows,
-  portfolioTickerSet,
-}: {
-  stockRows: StockRecord[];
-  portfolioTickerSet: Set<string>;
-}) {
-  return stockRows.map((stock) => {
-    const ticker = cleanTicker(stock.ticker);
-    return {
-      ticker,
-      sector: stock.sector ?? null,
-      rank: stock.rank ?? null,
-      score: stock.score ?? null,
-      price: portfolioTickerSet.has(ticker) ? stock.price ?? null : null,
-    };
-  });
-}
-
 function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   return rows.reduce((map, row) => {
     const list = map.get(row.portfolio_id) ?? [];
@@ -129,6 +151,7 @@ function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
 }
 
 export async function GET(req: NextRequest) {
+  const startedAt = performance.now();
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -138,28 +161,35 @@ export async function GET(req: NextRequest) {
   const [stockOptionsData, newsData] = await Promise.all([
     getCachedPortfolioStockUniverse(),
     getCachedPortfolioNews(),
-    getTickerTape().catch(() => null),
-  ]).then(([stockRows, newsRows]) => [stockRows, newsRows] as const);
+  ]);
 
   const stockRows = (stockOptionsData ?? []) as StockRecord[];
   const newsRows = (newsData ?? []) as BaseNewsArticle[];
   const portfolioLimit = Number(req.nextUrl.searchParams.get("limit") ?? process.env.PORTFOLIO_CACHE_WARM_PORTFOLIO_LIMIT ?? 25);
+  const requestedPortfolioId = req.nextUrl.searchParams.get("portfolioId");
 
-  const { data: portfoliosData, error: portfoliosError } = await supabase
+  let portfolioQuery = supabase
     .from("user_portfolios")
     .select("id,user_id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
     .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(portfolioLimit);
 
+  if (requestedPortfolioId) {
+    portfolioQuery = portfolioQuery.eq("id", requestedPortfolioId).limit(1);
+  }
+
+  const { data: portfoliosData, error: portfoliosError } = await portfolioQuery;
+
   if (portfoliosError) {
     return NextResponse.json({ error: "Could not load portfolios" }, { status: 500 });
   }
 
-  const portfolios = (portfoliosData ?? []) as Array<Record<string, any>>;
+  const portfolios = (portfoliosData ?? []) as WarmPortfolioRow[];
   const portfolioIds = portfolios.map((portfolio) => String(portfolio.id)).filter(Boolean);
 
   if (portfolioIds.length === 0) {
+    console.info("[portfolio-cache-warm] portfoliosScanned=0 warmed=0 failed=0 elapsedMs=0");
     return NextResponse.json({ ok: true, mode: "portfolio-page-snapshots", redis: redisPing === "PONG" ? "ok" : "miss", portfolios: 0, warmed: 0, failed: 0 });
   }
 
@@ -181,8 +211,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Could not load portfolio inputs" }, { status: 500 });
   }
 
-  const holdingsByPortfolio = groupByPortfolio((holdingRows ?? []) as Array<Record<string, any> & { portfolio_id: string }>);
-  const transactionsByPortfolio = groupByPortfolio((transactionRows ?? []) as Array<Record<string, any> & { portfolio_id: string }>);
+  const holdingsByPortfolio = groupByPortfolio((holdingRows ?? []) as WarmHoldingRow[]);
+  const transactionsByPortfolio = groupByPortfolio((transactionRows ?? []) as WarmTransactionRow[]);
   const stockUniverse: StockLike[] = stockRows
     .filter((stock) => stock.ticker)
     .map((stock) => ({
@@ -230,16 +260,9 @@ export async function GET(req: NextRequest) {
         portfolio: normalisedPortfolio,
         holdings: rawHoldings,
         transactions,
-        stocks: buildSnapshotStockInputs({ stockRows, portfolioTickerSet }),
-        news: newsRows.map((article) => ({
-          id: article.id,
-          impact: article.impact,
-          affected_tickers: article.affected_tickers,
-          published_at: article.published_at,
-        })),
       });
       const riskTolerance = (portfolio.risk_tolerance as RiskTolerance) ?? null;
-      const enriched = await enrichHoldings(rawHoldings, riskTolerance);
+      const enriched = await enrichHoldingsAdmin(rawHoldings, riskTolerance);
       const portfolioNews = buildPortfolioNews({ newsData: newsRows, stockUniverse, portfolioTickerSet });
       const summary = buildPortfolioHealthSummary({
         id: portfolioId,
@@ -282,6 +305,11 @@ export async function GET(req: NextRequest) {
       failed += 1;
     }
   }
+
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  console.info(
+    `[portfolio-cache-warm] portfoliosScanned=${portfolios.length} warmed=${warmed} failed=${failed} elapsedMs=${elapsedMs}`,
+  );
 
   return NextResponse.json({
     ok: true,

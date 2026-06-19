@@ -107,6 +107,7 @@ export async function TickerTape() {
               <Link
                 key={`${item.yahooSymbol}-${index}`}
                 href={`/stock/${encodeURIComponent(item.yahooSymbol)}`}
+                prefetch={false}
                 className={className}
                 title={`${title} — open ${item.yahooSymbol}`}
               >

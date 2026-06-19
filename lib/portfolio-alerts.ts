@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { getStockChart } from "@/lib/yahoo";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AlertSeverity = "critical" | "warning" | "info" | "success";
 export type AlertCategory = "event" | "action";
@@ -134,9 +136,39 @@ type AlertContext = {
   latestNegativeHeadline: string | null;
   latestPositiveHeadline: string | null;
   riskTolerance: RiskTolerance;
-  factorDiagnostics?: Record<string, any> | null;
+  factorDiagnostics?: Record<string, unknown> | null;
   technical: TechnicalLevels;
 };
+
+type DiagnosticRecord = Record<string, unknown>;
+
+type TechnicalChartPoint = {
+  close?: unknown;
+};
+
+type TechnicalChartData = {
+  "6M"?: TechnicalChartPoint[];
+  "1Y"?: TechnicalChartPoint[];
+};
+
+type CurrentStockRow = {
+  ticker?: string | null;
+  company?: string | null;
+  sector?: string | null;
+  rank?: unknown;
+  score?: unknown;
+  price?: unknown;
+};
+
+type RecentNewsRow = {
+  title?: unknown;
+  impact?: unknown;
+  affected_tickers?: unknown;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value != null && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
 
 const RECENT_HOLDING_GRACE_DAYS = 7;
 const NEWS_WINDOW_DAYS = 14;
@@ -201,7 +233,7 @@ function makeAlert(
   return { id, ...alert };
 }
 
-function latestDiagnosticScore(diagnostics?: Record<string, any> | null) {
+function latestDiagnosticScore(diagnostics?: DiagnosticRecord | null) {
   if (!diagnostics) return null;
   return (
     nullableNumber(diagnostics.smoothed_score) ??
@@ -209,12 +241,12 @@ function latestDiagnosticScore(diagnostics?: Record<string, any> | null) {
   );
 }
 
-function previousDiagnosticScore(diagnostics?: Record<string, any> | null) {
+function previousDiagnosticScore(diagnostics?: DiagnosticRecord | null) {
   if (!diagnostics) return null;
   return nullableNumber(diagnostics.previous_score);
 }
 
-function sleeveChanges(diagnostics?: Record<string, any> | null) {
+function sleeveChanges(diagnostics?: DiagnosticRecord | null) {
   if (!diagnostics) return [];
 
   return [
@@ -229,7 +261,7 @@ function sleeveChanges(diagnostics?: Record<string, any> | null) {
     .sort((a, b) => a[1] - b[1]);
 }
 
-function negativeFactorEvidence(diagnostics?: Record<string, any> | null) {
+function negativeFactorEvidence(diagnostics?: DiagnosticRecord | null) {
   if (!diagnostics) return [];
 
   const evidence: string[] = [];
@@ -252,9 +284,10 @@ function negativeFactorEvidence(diagnostics?: Record<string, any> | null) {
   if (topNegative.length > 0) {
     evidence.push(
       `Weakest factors: ${topNegative
-        .map((item: any) => {
-          const factor = formatFactorName(String(item.factor ?? "Unknown"));
-          const change = nullableNumber(item.change);
+        .map((item: unknown) => {
+          const record = asRecord(item);
+          const factor = formatFactorName(String(record.factor ?? "Unknown"));
+          const change = nullableNumber(record.change);
           return change === null ? factor : `${factor} (${change.toFixed(3)})`;
         })
         .join(", ")}`,
@@ -274,7 +307,7 @@ function negativeFactorEvidence(diagnostics?: Record<string, any> | null) {
   return evidence;
 }
 
-function positiveFactorEvidence(diagnostics?: Record<string, any> | null) {
+function positiveFactorEvidence(diagnostics?: DiagnosticRecord | null) {
   if (!diagnostics) return [];
 
   const evidence: string[] = [];
@@ -298,9 +331,10 @@ function positiveFactorEvidence(diagnostics?: Record<string, any> | null) {
   if (topPositive.length > 0) {
     evidence.push(
       `Improving factors: ${topPositive
-        .map((item: any) => {
-          const factor = formatFactorName(String(item.factor ?? "Unknown"));
-          const change = nullableNumber(item.change);
+        .map((item: unknown) => {
+          const record = asRecord(item);
+          const factor = formatFactorName(String(record.factor ?? "Unknown"));
+          const change = nullableNumber(record.change);
           return change === null ? factor : `${factor} (+${change.toFixed(3)})`;
         })
         .join(", ")}`,
@@ -310,8 +344,11 @@ function positiveFactorEvidence(diagnostics?: Record<string, any> | null) {
   return evidence;
 }
 
-async function getSectorData() {
-  const supabase = await createClient();
+type SupabaseQueryClient = {
+  from: SupabaseClient["from"];
+};
+
+async function getSectorData(supabase: SupabaseQueryClient) {
   const { data } = await supabase
     .from("stock_rankings")
     .select("sector, rank, score");
@@ -440,14 +477,14 @@ async function getTechnicalLevels(
   }
 
   try {
-    const chart = await getStockChart(ticker, ["6M", "1Y"]);
-    const sixMonth = (chart as any)["6M"] ?? [];
-    const oneYear = (chart as any)["1Y"] ?? [];
+    const chart = (await getStockChart(ticker, ["6M", "1Y"])) as TechnicalChartData;
+    const sixMonth = chart["6M"] ?? [];
+    const oneYear = chart["1Y"] ?? [];
     const points =
       Array.isArray(sixMonth) && sixMonth.length >= 80 ? sixMonth : oneYear;
 
     const closes = points
-      .map((point: any) => finiteNumber(point.close, 0))
+      .map((point) => finiteNumber(point.close, 0))
       .filter((price: number) => Number.isFinite(price) && price > 0);
 
     if (closes.length < 40) {
@@ -1265,7 +1302,8 @@ function buildAISummary(
   )}%, and the position can be left alone for now.`;
 }
 
-export async function enrichHoldings(
+async function enrichHoldingsWithClient(
+  supabase: SupabaseQueryClient,
   holdings: Array<{
     ticker: string;
     entry_price: number | null;
@@ -1283,7 +1321,6 @@ export async function enrichHoldings(
 ): Promise<EnrichedHolding[]> {
   if (holdings.length === 0) return [];
 
-  const supabase = await createClient();
   const tickers = Array.from(new Set(holdings.map((holding) => holding.ticker)));
 
   const fourteenDaysAgo = new Date(
@@ -1307,7 +1344,7 @@ export async function enrichHoldings(
         "ticker,updated_at,previous_score,current_score,smoothed_score,factor_coverage,quality_change,growth_change,value_change,momentum_change,risk_change,income_change,top_negative_factors,top_positive_factors,diagnosis",
       )
       .in("ticker", tickers),
-    getSectorData(),
+    getSectorData(supabase),
   ]);
 
   const currentData = currentResult.data;
@@ -1316,11 +1353,11 @@ export async function enrichHoldings(
   const { momentum, bullishPct, maxScore, totalStocks } = sectorData;
 
   const currentMap = new Map(
-    ((currentData ?? []) as any[]).map((row) => [String(row.ticker), row]),
+    ((currentData ?? []) as CurrentStockRow[]).map((row) => [String(row.ticker), row]),
   );
 
   const diagnosticsMap = new Map(
-    ((factorDiagnosticsData ?? []) as any[]).map((row) => [
+    ((factorDiagnosticsData ?? []) as DiagnosticRecord[]).map((row) => [
       String(row.ticker),
       row,
     ]),
@@ -1336,7 +1373,7 @@ export async function enrichHoldings(
     }
   > = {};
 
-  ((recentNews ?? []) as any[]).forEach((article) => {
+  ((recentNews ?? []) as RecentNewsRow[]).forEach((article) => {
     const affectedTickers: string[] = Array.isArray(article.affected_tickers)
       ? article.affected_tickers.map((ticker: unknown) => String(ticker))
       : [];
@@ -1528,4 +1565,18 @@ export async function enrichHoldings(
       };
     }),
   );
+}
+
+export async function enrichHoldings(
+  holdings: Parameters<typeof enrichHoldingsWithClient>[1],
+  riskTolerance: RiskTolerance = null,
+): Promise<EnrichedHolding[]> {
+  return enrichHoldingsWithClient(await createClient(), holdings, riskTolerance);
+}
+
+export async function enrichHoldingsAdmin(
+  holdings: Parameters<typeof enrichHoldingsWithClient>[1],
+  riskTolerance: RiskTolerance = null,
+): Promise<EnrichedHolding[]> {
+  return enrichHoldingsWithClient(createAdminClient(), holdings, riskTolerance);
 }
