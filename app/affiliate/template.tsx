@@ -24,6 +24,34 @@ export default function AffiliateTemplate({ children }: { children: React.ReactN
         .affiliate-page > header {
           z-index: 40 !important;
         }
+
+        @media (max-width: 767px) {
+          html,
+          body {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+          }
+
+          .affiliate-page,
+          #affiliate-scroll-root {
+            min-height: 100vh !important;
+            min-height: 100svh !important;
+            height: auto !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
+            padding-right: 0 !important;
+          }
+
+          .affiliate-page > .pointer-events-none {
+            position: absolute !important;
+            inset: 0 !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            z-index: 0 !important;
+          }
+        }
       `}</style>
       {children}
     </>
