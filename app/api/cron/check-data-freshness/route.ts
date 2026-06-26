@@ -2,23 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDataFreshness, getStaleFreshnessItems } from "@/lib/data-freshness";
 import { sendDataFreshnessAlertEmail } from "@/lib/founder-alerts";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function isAuthorized(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-
-  if (!secret) return true;
-
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorizedCron(req)) return unauthorizedCron();
 
   try {
     const admin = createAdminClient();

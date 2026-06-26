@@ -232,30 +232,36 @@ export default async function RankingsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let hasSubscription = false;
-
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const profile = profileData as Profile | null;
-    hasSubscription = hasActiveSubscription(profile?.subscription_status);
-  }
-
-  const rankingsLocked = !hasSubscription;
-  const [stableRankings, snapshotMap] = await Promise.all([
+  // Fetch profile subscription status and rankings data in parallel —
+  // previously the profile fetch blocked the rankings query.
+  const [profileResult, stableRankings, snapshotMap] = await Promise.all([
+    user
+      ? supabase
+          .from("profiles")
+          .select("subscription_status")
+          .eq("id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     getStableRankings(supabase),
     getRankSnapshotMapAround24hAgo(supabase),
   ]);
-  const rawRankings = stableRankings.slice(0, hasSubscription ? 500 : 10);
-  const allRankings = await Promise.all(rawRankings.map((stock) => attachLivePriceIfMissing(stock)));
 
-  const dailyMoveMap = await getOneDayMoveMap(
-    allRankings.map((stock) => stock.ticker).filter((ticker): ticker is string => !!ticker),
-  );
+  const profile = (profileResult.data ?? null) as Profile | null;
+  const hasSubscription = hasActiveSubscription(profile?.subscription_status);
+
+  const rankingsLocked = !hasSubscription;
+  const rawRankings = stableRankings.slice(0, hasSubscription ? 500 : 10);
+
+  // Run price enrichment and daily move fetch concurrently —
+  // previously dailyMoveMap waited for allRankings to complete first.
+  const tickers = rawRankings
+    .map((stock) => stock.ticker)
+    .filter((ticker): ticker is string => !!ticker);
+
+  const [allRankings, dailyMoveMap] = await Promise.all([
+    Promise.all(rawRankings.map((stock) => attachLivePriceIfMissing(stock))),
+    getOneDayMoveMap(tickers),
+  ]);
 
   const sectors = Array.from(
     new Set(allRankings.map((stock) => stock.sector).filter((sector): sector is string => Boolean(sector))),
@@ -362,7 +368,7 @@ export default async function RankingsPage({
               return (
                 <div key={stock.id} className="min-w-0 max-w-full overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] last:border-b-0">
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <Link href={`/stock/${stock.ticker}`} prefetch={false} className="flex min-w-0 items-center gap-2">
+                    <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-2">
                       <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159]">{stock.rank ?? "—"}</div>
                       <StockLogo ticker={stock.ticker} company={stock.company} size={28} />
                       <div className="min-w-0">
@@ -409,7 +415,7 @@ export default async function RankingsPage({
                       <div className={`grid ${gridCols} items-center text-[12px] text-[#072116] transition hover:bg-[#ddb159]/8`}>
                         <div className="px-4 py-2.5 font-bold text-[#072116]/70">{stock.rank ?? "—"}</div>
                         <div className="px-4 py-2.5"><span title={move.title} className={["inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                        <Link href={`/stock/${stock.ticker}`} prefetch={false} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
+                        <Link href={`/stock/${stock.ticker}`} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
                         <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>

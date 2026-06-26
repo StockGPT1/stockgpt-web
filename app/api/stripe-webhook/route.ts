@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import {
   sendCoreSubscriptionActivatedEmail,
   sendPaymentFailedEmail,
   sendSubscriptionCancelledEmail,
 } from "@/lib/transactional-email";
+import { stripe } from "@/lib/stripe";
 
 type ProfileEmailRow = {
   email: string | null;
@@ -44,19 +45,17 @@ async function getProfileEmailByStripeCustomer(
 }
 
 export async function POST(request: Request) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!stripeKey || !webhookSecret || !supabaseUrl || !serviceRole) {
+  if (!webhookSecret || !supabaseUrl || !serviceRole) {
     return NextResponse.json(
       { error: "Missing webhook environment variables" },
       { status: 500 },
     );
   }
 
-  const stripe = new Stripe(stripeKey);
   const supabaseAdmin = createClient<any>(supabaseUrl, serviceRole);
 
   const body = await request.text();

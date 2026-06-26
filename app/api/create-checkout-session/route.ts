@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@/utils/supabase/server";
+import { stripe } from "@/lib/stripe";
 
 const LEGAL_VERSION = "2026-05-17";
 
@@ -50,12 +50,6 @@ function getPriceId(plan: BillingPlan) {
 }
 
 async function createCheckoutSession(request: Request) {
-  const key = process.env.STRIPE_SECRET_KEY;
-
-  if (!key) {
-    throw new Error("Missing STRIPE_SECRET_KEY");
-  }
-
   const formData = await request.formData();
   const plan = normaliseBillingPlan(formData.get("plan"));
   const legalAcknowledgement = String(
@@ -74,7 +68,6 @@ async function createCheckoutSession(request: Request) {
   const trialPeriodDays = getTrialPeriodDays();
   const endorselyReferral = String(formData.get("endorsely_referral") ?? "");
 
-  const stripe = new Stripe(key);
   const supabase = await createClient();
 
   const {

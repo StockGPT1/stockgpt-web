@@ -120,26 +120,25 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let hasSubscription = false;
-  let firstName: string | undefined;
+  const firstName = user ? getFirstNameFromUserMetadata(user) : undefined;
 
-  if (user) {
-    firstName = getFirstNameFromUserMetadata(user);
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-    hasSubscription = hasActiveSubscription(profile?.subscription_status);
-  }
-
-  const rankingsLocked = !hasSubscription;
+  // Run profile subscription check, all rankings queries, and portfolio fetch
+  // concurrently — previously profile blocked rankings, and portfolio blocked sp500/snapshots.
   const [
+    profileResult,
     { data: rankingsData },
     { data: moverUniverseData },
     { count: totalCount },
     { count: bullishCount },
+    dashboardPortfolio,
   ] = await Promise.all([
+    user
+      ? supabase
+          .from("profiles")
+          .select("subscription_status")
+          .eq("id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from("stock_rankings")
       .select("id,rank,ticker,company,sector,score,price,updated_at")
@@ -155,23 +154,23 @@ export default async function Home() {
       .from("stock_rankings")
       .select("*", { count: "exact", head: true })
       .gte("score", 7000),
+    user ? getDashboardMainPortfolio(supabase, user.id) : Promise.resolve(null),
   ]);
+
+  const hasSubscription = hasActiveSubscription(
+    (profileResult.data as { subscription_status?: string } | null)?.subscription_status,
+  );
+  const rankingsLocked = !hasSubscription;
 
   const rankings = (rankingsData ?? []) as Ranking[];
   const moverUniverse = ((moverUniverseData ?? rankingsData ?? []) as Ranking[]).filter(
     (stock) => stock.ticker,
   );
   const topRanked = rankings[0];
-  let portfolioSummary: PortfolioHealthSummary | null = null;
-  let portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> = {};
-  let portfolioTickers: string[] = [];
-
-  if (user) {
-    const dashboardPortfolio = await getDashboardMainPortfolio(supabase, user.id);
-    portfolioSummary = dashboardPortfolio.summary;
-    portfolioValueChart = dashboardPortfolio.chartData;
-    portfolioTickers = dashboardPortfolio.tickers;
-  }
+  const portfolioSummary: PortfolioHealthSummary | null = dashboardPortfolio?.summary ?? null;
+  const portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> =
+    dashboardPortfolio?.chartData ?? {};
+  const portfolioTickers: string[] = dashboardPortfolio?.tickers ?? [];
 
   const dashboardTickerList = Array.from(
     new Set([
@@ -340,7 +339,7 @@ function RankingsPanel({
                   <Link
                     key={stock.id}
                     href={`/stock/${stock.ticker}`}
-                    prefetch={false}
+                   
                     className={`group grid ${gridClass} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[clamp(10px,0.72vw,12px)] text-[#072116] transition last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
                   >
                     <div className="min-w-0 px-2 font-bold tabular-nums text-[#072116]/75">
@@ -402,7 +401,7 @@ function RankingMobileRow({ stock }: { stock: Ranking }) {
   return (
     <Link
       href={`/stock/${stock.ticker}`}
-      prefetch={false}
+     
       className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 px-3 py-2 text-[11px] text-[#072116] transition hover:bg-[#ddb159]/10"
     >
       <div className="font-bold tabular-nums text-[#072116]/65">{stock.rank ?? "—"}</div>

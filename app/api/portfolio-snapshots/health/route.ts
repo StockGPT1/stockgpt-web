@@ -10,6 +10,7 @@ import {
 } from "@/lib/portfolio-snapshots";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -69,12 +70,6 @@ type PortfolioHealth = {
   isLiveStale: boolean;
   isMissingHistorical: boolean;
 };
-
-function isAuthorized(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return true;
-  return (req.headers.get("authorization") ?? "") === `Bearer ${cronSecret}`;
-}
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -308,9 +303,7 @@ async function deleteSnapshotRows({
 
 export async function GET(req: NextRequest) {
   const startedAt = performance.now();
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorizedCron(req)) return unauthorizedCron();
 
   const supabase = createAdminClient();
   const nowMs = Date.now();

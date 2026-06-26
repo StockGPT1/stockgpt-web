@@ -188,7 +188,7 @@ function PeersCard({ peers, sector, unlocked }: { peers: Peer[]; sector: string 
       <p className="mt-1 text-[11px] font-semibold text-[#072116]/55">Top 5 in {sector ?? "sector"}</p>
       <div className="mt-3 grid min-w-0 gap-1.5">
         {peers.map((peer) => (
-          <Link key={peer.ticker} href={`/stock/${peer.ticker}`} prefetch={false} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]">
+          <Link key={peer.ticker} href={`/stock/${peer.ticker}`} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]">
             <div className="min-w-0"><p className="text-[12px] font-black tracking-[-0.01em] text-[#072116]">{peer.ticker}</p><p className="truncate text-[10px] font-semibold text-[#072116]/55">{peer.company}</p></div>
             <div className="shrink-0 text-right"><p className="text-[10px] font-bold text-[#072116]/65">#<LockedValue unlocked={unlocked} placeholder="Locked">{peer.rank}</LockedValue></p><span className="mt-1 inline-flex rounded-full bg-[#ddb159] px-2 py-0.5 text-[9px] font-black text-[#072116]"><LockedValue unlocked={unlocked} placeholder="Locked">{formatScore(peer.score)}</LockedValue></span></div>
           </Link>

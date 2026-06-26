@@ -1,23 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refreshMarketSnapshots } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
+import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function isAuthorized(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) return true;
-
-  const authHeader = req.headers.get("authorization") ?? "";
-  return authHeader === `Bearer ${cronSecret}`;
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorizedCron(req)) return unauthorizedCron();
 
   const supabase = await createClient();
   const { data, error } = await supabase

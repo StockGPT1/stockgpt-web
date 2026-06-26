@@ -15,6 +15,7 @@ import {
 } from "@/lib/news-intelligence";
 import { redisCommand } from "@/lib/redis";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -71,12 +72,6 @@ type WarmTransactionRow = {
   notes: string | null;
   created_at: string;
 };
-
-function isAuthorized(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return true;
-  return (req.headers.get("authorization") ?? "") === `Bearer ${cronSecret}`;
-}
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -152,9 +147,7 @@ function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
 
 export async function GET(req: NextRequest) {
   const startedAt = performance.now();
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorizedCron(req)) return unauthorizedCron();
 
   const supabase = createAdminClient();
   const redisPing = await redisCommand<string>(["PING"]);

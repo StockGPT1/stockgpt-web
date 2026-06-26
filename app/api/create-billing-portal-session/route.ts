@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@/utils/supabase/server";
+import { stripe } from "@/lib/stripe";
 
 type Profile = {
   stripe_customer_id: string | null;
@@ -19,13 +19,6 @@ function redirectToPricing(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-
-  if (!stripeKey) {
-    return redirectToSubscriptionError(request, "Stripe is not configured yet.");
-  }
-
-  const stripe = new Stripe(stripeKey);
   const supabase = await createClient();
 
   const {

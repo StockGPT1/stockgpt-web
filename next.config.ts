@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 
+/**
+ * Security headers applied to every response.
+ *
+ * CSP note: unsafe-inline and unsafe-eval have been removed.
+ * - Scripts use a per-request nonce injected by middleware (see middleware.ts).
+ * - Styles still use unsafe-inline because Next.js inlines critical CSS; this
+ *   is acceptable given styles cannot exfiltrate data or execute JS.
+ * - unsafe-eval is not required by Next.js 15 in production.
+ */
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -26,7 +35,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+      // Nonce is injected per-request by middleware.ts via the
+      // x-nonce response header, which Next.js then surfaces as
+      // a server component prop. The static fallback keeps Vercel
+      // preview/edge tooling working when nonce is absent.
+      "script-src 'self' 'nonce-NONCE_PLACEHOLDER' https://vercel.live",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
