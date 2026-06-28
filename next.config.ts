@@ -75,6 +75,7 @@ const nextConfig: NextConfig = {
       { source: "/privacy", destination: "/legal#privacy", permanent: true },
       { source: "/cookies", destination: "/legal#cookies", permanent: true },
       { source: "/disclaimer", destination: "/legal#disclaimer", permanent: true },
+      { source: "/affiliate-terms", destination: "/legal#affiliate-terms", permanent: true },
       { source: "/subscription-terms", destination: "/legal#subscription", permanent: true },
       { source: "/subscriptions", destination: "/pricing", permanent: true },
       { source: "/subscribe", destination: "/pricing", permanent: true },
