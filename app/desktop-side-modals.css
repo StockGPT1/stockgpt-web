@@ -90,3 +90,36 @@
     overflow-y:auto!important;
   }
 }
+
+@media (min-width:1024px){
+  [role="dialog"][aria-label="Trading 212 CSV import"]>.stockgpt-import-panel{
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+  }
+
+  [role="dialog"][aria-label="Trading 212 CSV import"]>.stockgpt-import-panel>div:first-child{
+    flex:0 0 auto!important;
+  }
+
+  [role="dialog"][aria-label="Trading 212 CSV import"]>.stockgpt-import-panel>.grid.overflow-y-auto{
+    min-height:0!important;
+    max-height:none!important;
+    flex:1 1 auto!important;
+    align-content:start!important;
+    grid-auto-rows:max-content!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    scrollbar-gutter:auto!important;
+  }
+
+  [role="dialog"][aria-label="Trading 212 CSV import"] input[type="checkbox"]{
+    width:1rem!important;
+    min-width:1rem!important;
+    max-width:1rem!important;
+    height:1rem!important;
+    flex:0 0 1rem!important;
+    border-radius:.25rem!important;
+    box-shadow:none!important;
+  }
+}
