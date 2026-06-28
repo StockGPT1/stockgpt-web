@@ -18,7 +18,7 @@ import "./stock-action-buttons.css";
 import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
 
-const iconVersion = "30";
+const iconVersion = "31";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stockgpt.pro"),
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: `/og-image.png?v=${iconVersion}`,
+        url: `/icon.png?v=${iconVersion}`,
         type: "image/png",
       },
       {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     ],
     shortcut: [
       {
-        url: `/og-image.png?v=${iconVersion}`,
+        url: `/icon.png?v=${iconVersion}`,
       },
       {
         url: `/favicon.ico?v=${iconVersion}`,
