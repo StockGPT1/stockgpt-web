@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { LegalCandleScrollbar } from "@/components/LegalCandleScrollbar";
 
 export const metadata: Metadata = {
@@ -55,7 +56,9 @@ function List({ children }: { children: React.ReactNode }) {
   return <ul className="ml-5 list-disc space-y-2">{children}</ul>;
 }
 
-export default function LegalPage() {
+export default async function LegalPage() {
+  await connection();
+
   return (
     <main
       id="legal-scroll-root"

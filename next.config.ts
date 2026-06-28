@@ -1,14 +1,6 @@
 import type { NextConfig } from "next";
 
-/**
- * Security headers applied to every response.
- *
- * CSP note: unsafe-inline and unsafe-eval have been removed.
- * - Scripts use a per-request nonce injected by middleware (see middleware.ts).
- * - Styles still use unsafe-inline because Next.js inlines critical CSS; this
- *   is acceptable given styles cannot exfiltrate data or execute JS.
- * - unsafe-eval is not required by Next.js 15 in production.
- */
+/** Static security headers. Per-request CSP headers are set in middleware.ts. */
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -30,27 +22,6 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value:
       "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), interest-cohort=()",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      // Nonce is injected per-request by middleware.ts via the
-      // x-nonce response header, which Next.js then surfaces as
-      // a server component prop. The static fallback keeps Vercel
-      // preview/edge tooling working when nonce is absent.
-      "script-src 'self' 'nonce-NONCE_PLACEHOLDER' https://vercel.live",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co https://*.stripe.com https://api.stripe.com https://openrouter.ai https://api.resend.com",
-      "frame-src https://*.stripe.com https://stripe.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self' https://*.stripe.com",
-      "frame-ancestors 'none'",
-      "upgrade-insecure-requests",
-    ].join("; "),
   },
 ];
 

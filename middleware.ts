@@ -44,6 +44,23 @@ function generateNonce(): string {
   return Buffer.from(array).toString("base64");
 }
 
+function buildContentSecurityPolicy(nonce: string) {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://vercel.live`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co https://*.stripe.com https://api.stripe.com https://openrouter.ai https://api.resend.com",
+    "frame-src https://*.stripe.com https://stripe.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self' https://*.stripe.com",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -60,29 +77,28 @@ export async function middleware(request: NextRequest) {
   // while the page renders, so we let them through.
 
   const nonce = generateNonce();
+  const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
 
   // Forward nonce to server components via request header.
   // We clone the request with the extra header so updateSession
   // receives a proper NextRequest (not a plain Request).
   const requestWithNonce = new NextRequest(request, {
-    headers: { ...Object.fromEntries(request.headers), "x-nonce": nonce },
+    headers: requestHeaders,
   });
 
   if (!needsSessionRefresh(pathname)) {
     const response = NextResponse.next({ request: { headers: requestWithNonce.headers } });
     response.headers.set("x-nonce", nonce);
-    const csp = response.headers.get("Content-Security-Policy") ?? "";
-    if (csp) response.headers.set("Content-Security-Policy", csp.replace("NONCE_PLACEHOLDER", nonce));
+    response.headers.set("Content-Security-Policy", contentSecurityPolicy);
     return response;
   }
 
   const response = await updateSession(requestWithNonce);
 
-  // Patch the nonce into the CSP header on the session-refreshed response
-  const csp = response.headers.get("Content-Security-Policy") ?? "";
-  if (csp) {
-    response.headers.set("Content-Security-Policy", csp.replace("NONCE_PLACEHOLDER", nonce));
-  }
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
   response.headers.set("x-nonce", nonce);
 
   return response;
