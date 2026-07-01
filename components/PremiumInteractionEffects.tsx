@@ -2,6 +2,46 @@
 
 import { useEffect } from "react";
 
+const PORTFOLIO_NAV_ICON_FIXES = `
+.sg-side-nav-link[href="/portfolio"] .sg-nav-icon,
+.sg-mobile-nav-link[href="/portfolio"] .sg-mobile-nav-icon,
+.sg-side-nav-link[href="/portfolio"] > span:nth-of-type(2),
+.sg-mobile-nav-link[href="/portfolio"] > span:first-child {
+  position: relative !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.sg-side-nav-link[href="/portfolio"] .sg-nav-icon > svg,
+.sg-mobile-nav-link[href="/portfolio"] .sg-mobile-nav-icon > svg,
+.sg-side-nav-link[href="/portfolio"] > span:nth-of-type(2) > svg,
+.sg-mobile-nav-link[href="/portfolio"] > span:first-child > svg {
+  opacity: 0 !important;
+}
+
+.sg-side-nav-link[href="/portfolio"] .sg-nav-icon::before,
+.sg-mobile-nav-link[href="/portfolio"] .sg-mobile-nav-icon::before,
+.sg-side-nav-link[href="/portfolio"] > span:nth-of-type(2)::before,
+.sg-mobile-nav-link[href="/portfolio"] > span:first-child::before {
+  content: "";
+  position: absolute;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 1.8px solid currentColor;
+  border-radius: 999px;
+  background: conic-gradient(currentColor 0deg 84deg, transparent 84deg 360deg);
+  box-sizing: border-box;
+}
+
+.sg-mobile-nav-link[href="/portfolio"] .sg-mobile-nav-icon::before,
+.sg-mobile-nav-link[href="/portfolio"] > span:first-child::before {
+  width: 20px;
+  height: 20px;
+  border-width: 1.7px;
+}
+`;
+
 const ANDROID_MOBILE_LAYOUT_FIXES = `
 @media (max-width: 767px) {
   html[data-stockgpt-android="true"] .sg-app-shell {
@@ -100,8 +140,8 @@ export function PremiumInteractionEffects() {
 
   return (
     <style
-      id="stockgpt-android-mobile-layout-fixes"
-      dangerouslySetInnerHTML={{ __html: ANDROID_MOBILE_LAYOUT_FIXES }}
+      id="stockgpt-premium-interaction-effects"
+      dangerouslySetInnerHTML={{ __html: `${PORTFOLIO_NAV_ICON_FIXES}\n${ANDROID_MOBILE_LAYOUT_FIXES}` }}
     />
   );
 }
