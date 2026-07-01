@@ -114,7 +114,7 @@ export function MarketingSeoPage({ page }: { page: MarketingPage }) {
               href="/demo"
               eventName="seo_page_cta_clicked"
               eventProperties={{ slug: page.slug, destination: "demo" }}
-              className="inline-flex min-h-13 items-center justify-center rounded-full bg-[#0a2d1d] px-7 text-center text-[12px] font-black uppercase tracking-[0.13em] text-white"
+              className="inline-flex min-h-13 items-center justify-center rounded-full bg-[#0a2d1d] px-7 text-center text-[12px] font-black uppercase tracking-[0.13em] !text-white"
             >
               Take the 60-second tour
             </TrackedLink>
@@ -206,7 +206,7 @@ export function MarketingSeoPage({ page }: { page: MarketingPage }) {
                 href={`/signup?coupon=50PORTFOLIO2026&source=${source}_portfolio`}
                 eventName="seo_page_cta_clicked"
                 eventProperties={{ slug: page.slug, destination: "portfolio_draft" }}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0a2d1d] px-5 text-[11px] font-black text-white"
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0a2d1d] px-5 text-[11px] font-black !text-white"
               >
                 Build Portfolio Draft
               </TrackedLink>
@@ -257,7 +257,7 @@ export function MarketingSeoPage({ page }: { page: MarketingPage }) {
             See the complete fake-data workflow, then create an account when you are ready to start your own research.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <TrackedLink href="/demo" eventName="seo_page_cta_clicked" eventProperties={{ slug: page.slug, destination: "demo_final" }} className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0a2d1d] px-7 text-[12px] font-black uppercase tracking-[0.12em] text-white">
+            <TrackedLink href="/demo" eventName="seo_page_cta_clicked" eventProperties={{ slug: page.slug, destination: "demo_final" }} className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0a2d1d] px-7 text-[12px] font-black uppercase tracking-[0.12em] !text-white">
               Take the tour
             </TrackedLink>
             <TrackedLink href={`/signup?coupon=50PORTFOLIO2026&source=${source}`} eventName="seo_page_cta_clicked" eventProperties={{ slug: page.slug, destination: "signup_final" }} className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#0a2d1d]/18 bg-white px-7 text-[12px] font-black uppercase tracking-[0.12em] text-[#0a2d1d]">

@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { generatePortfolioAction } from "@/lib/actions/portfolio";
 import { savePortfolio } from "@/lib/actions/portfolio-management";
 import type { Portfolio, RiskTolerance, TimeHorizon } from "@/lib/portfolio";
+import {
+  ManualPortfolioBuilder,
+  type ManualBuilderStockOption,
+} from "@/components/ManualPortfolioBuilder";
 
 type ExistingPortfolio = {
   id: string;
@@ -14,6 +18,8 @@ type ExistingPortfolio = {
 
 type Props = {
   existingPortfolios?: ExistingPortfolio[];
+  stockOptions?: ManualBuilderStockOption[];
+  initialMode?: "choice" | "ai" | "manual";
 };
 
 const SECTOR_COLORS: Record<string, string> = {
@@ -88,8 +94,15 @@ function amountLabel(value: number) {
   return `$${value.toLocaleString()}`;
 }
 
-export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
+export function PortfolioBuilder({
+  existingPortfolios = [],
+  stockOptions = [],
+  initialMode = "choice",
+}: Props) {
   const router = useRouter();
+  const [creationMode, setCreationMode] = useState<"choice" | "ai" | "manual">(
+    initialMode,
+  );
 
   const [risk, setRisk] = useState<RiskTolerance>("moderate");
   const [horizon, setHorizon] = useState<TimeHorizon>("medium");
@@ -157,6 +170,95 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
         router.push(id ? `/portfolio?portfolio=${id}` : "/portfolio");
       }, 650);
     });
+  }
+
+  if (creationMode === "manual") {
+    return (
+      <ManualPortfolioBuilder
+        stockOptions={stockOptions}
+        existingCount={existingPortfolios.length}
+        onBack={() => setCreationMode("choice")}
+      />
+    );
+  }
+
+  if (creationMode === "choice") {
+    return (
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
+        <header className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="relative">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+              Portfolio workspace
+            </p>
+            <h1 className="mt-1 text-[32px] font-black leading-tight tracking-[-0.05em] text-[#faf6f0] sm:text-[42px]">
+              Create a portfolio
+            </h1>
+            <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/60">
+              Start with an AI Portfolio Draft or build your own holdings and cash
+              position manually.
+            </p>
+          </div>
+        </header>
+
+        <section className="grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setCreationMode("ai")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] p-5 text-left text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full bg-[#072116] text-xl text-[#ddb159]">
+              ✦
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#8a641a]">
+              Fastest route
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Generate with AI
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#072116]/58">
+              Build a Portfolio Draft from your preferences, then review allocations,
+              risks and trade-offs.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]">
+              Generate Portfolio Draft →
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreationMode("manual")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/35 bg-[#ddb159]/10 text-xl text-[#ddb159]">
+              +
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159]">
+              Full control
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Build manually
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">
+              Add your own holdings and cash, then let StockGPT analyse the
+              structure.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-[#ddb159]/40 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Open manual builder →
+            </span>
+          </button>
+        </section>
+
+        {existingPortfolios.length > 0 && (
+          <Link
+            href="/portfolio"
+            className="mx-auto inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/28 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+          >
+            Back to portfolios
+          </Link>
+        )}
+      </div>
+    );
   }
 
   if (portfolio) {
@@ -480,6 +582,13 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+      <button
+        type="button"
+        onClick={() => setCreationMode("choice")}
+        className="w-fit min-h-11 rounded-full border border-[#ddb159]/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+      >
+        ← Creation options
+      </button>
       <div className="relative min-w-0 overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-6 sm:py-6">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/10 blur-3xl" />
 

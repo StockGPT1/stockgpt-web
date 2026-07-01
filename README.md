@@ -59,8 +59,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-NEXT_PUBLIC_STRIPE_PRICE_ID=
+STRIPE_CORE_MONTHLY_PRICE_ID=
+STRIPE_CORE_ANNUAL_PRICE_ID=
+STRIPE_CORE_TRIAL_DAYS=
+STRIPE_PROMO_50_FIRST_MONTH=
+NEXT_PUBLIC_SITE_URL=
 ```
+
+`STRIPE_PROMO_50_FIRST_MONTH` must contain the server-side Stripe Promotion Code
+ID approved for the `50PORTFOLIO2026` offer. It is never exposed to browser code.
 
 Check the implementation before adding or renaming variables, because some routes may require additional provider keys.
 

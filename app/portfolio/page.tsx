@@ -9,6 +9,7 @@ import {
   type PortfolioTransaction,
 } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
+import { PortfolioCreationSuccess } from "@/components/PortfolioCreationSuccess";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, enrichHoldingsAdmin, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
@@ -39,6 +40,8 @@ const PORTFOLIO_SNAPSHOT_VERSION = "portfolio-fast-v10";
 
 type SearchParams = {
   builder?: string;
+  created?: string;
+  mode?: string;
   portfolio?: string;
 };
 
@@ -513,6 +516,14 @@ export default async function PortfolioPage({
                 id: portfolio.id,
                 name: portfolio.name ?? "Portfolio",
               }))}
+              stockOptions={stockOptions}
+              initialMode={
+                params.mode === "manual"
+                  ? "manual"
+                  : params.mode === "ai"
+                    ? "ai"
+                    : "choice"
+              }
             />
           </div>
         </main>
@@ -531,7 +542,7 @@ export default async function PortfolioPage({
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
           <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-            <PortfolioBuilder existingPortfolios={[]} />
+            <PortfolioBuilder existingPortfolios={[]} stockOptions={stockOptions} />
           </div>
         </main>
       </AppShell>
@@ -662,6 +673,10 @@ export default async function PortfolioPage({
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
           <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
+            {params.created === "manual" && (
+              <PortfolioCreationSuccess portfolioId={selectedPortfolioId} />
+            )}
+            <div id="portfolio-check">
             <PortfolioCommandCentreRevolut
               portfolioId={selectedPortfolioId}
               portfolios={portfolios.map((portfolio, index) => ({
@@ -700,6 +715,7 @@ export default async function PortfolioPage({
               }}
               compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
             />
+            </div>
           </div>
         </main>
       </AppShell>
@@ -775,6 +791,10 @@ export default async function PortfolioPage({
     <AppShell activePath="/portfolio">
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
         <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
+          {params.created === "manual" && (
+            <PortfolioCreationSuccess portfolioId={selectedPortfolioId} />
+          )}
+          <div id="portfolio-check">
           <PortfolioCommandCentreRevolut
             portfolioId={selectedPortfolioId}
             portfolios={portfolios.map((portfolio, index) => ({
@@ -813,6 +833,7 @@ export default async function PortfolioPage({
             }}
             compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
           />
+          </div>
         </div>
       </main>
     </AppShell>

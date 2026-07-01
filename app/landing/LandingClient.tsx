@@ -252,7 +252,7 @@ function ProofStack({ stockCountLabel }: { stockCountLabel: string }) {
             </h2>
           </div>
           <p className="text-[11px] font-bold text-[#66746b]">
-            Account first · a few days free · cancel anytime
+            Account first · free trial included · research before subscribing
           </p>
         </div>
 
@@ -270,7 +270,7 @@ function ProofStack({ stockCountLabel }: { stockCountLabel: string }) {
             href="/signup?coupon=50PORTFOLIO2026&source=proof_stack"
             eventName="proof_stack_cta_clicked"
             eventProperties={{ destination: "signup" }}
-            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0a2d1d] px-6 text-center text-[12px] font-black uppercase tracking-[0.12em] text-white"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0a2d1d] px-6 text-center text-[12px] font-black uppercase tracking-[0.12em] !text-white transition hover:bg-[#123d2a] focus:outline-none focus:ring-2 focus:ring-[#0a2d1d] focus:ring-offset-2"
           >
             Build your first Portfolio Draft
           </TrackedLink>

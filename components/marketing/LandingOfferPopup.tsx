@@ -8,6 +8,7 @@ import { trackClientEvent } from "@/lib/analytics/client-events";
 
 const OFFER_CODE = "50PORTFOLIO2026";
 const DISMISSAL_KEY = "stockgpt.offer.dismissal";
+const SESSION_DISMISSAL_KEY = "stockgpt.offer.dismissedThisSession";
 const SAVED_COUPON_KEY = "stockgpt.savedCoupon";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -26,15 +27,6 @@ function readDismissal(): DismissalState {
   } catch {
     return { count: 0, dismissedUntil: null };
   }
-}
-
-function scrollProgress(target: EventTarget | null) {
-  if (target instanceof HTMLElement) {
-    return target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight);
-  }
-
-  const root = document.scrollingElement;
-  return root ? root.scrollTop / Math.max(1, root.scrollHeight - root.clientHeight) : 0;
 }
 
 export function LandingOfferPopup() {
@@ -66,30 +58,27 @@ export function LandingOfferPopup() {
       trackClientEvent("offer_popup_shown", { pathname });
     };
 
-    const handleScroll = (event: Event) => {
-      if (scrollProgress(event.target) < 0.45) return;
-      document.removeEventListener("scroll", handleScroll, true);
-      showOffer();
-    };
-
     async function prepareOffer() {
       if (localStorage.getItem(SAVED_COUPON_KEY) === OFFER_CODE) return;
+      if (sessionStorage.getItem(SESSION_DISMISSAL_KEY) === "1") return;
 
       const dismissal = readDismissal();
       if (dismissal.count >= 2) return;
       if (dismissal.dismissedUntil && dismissal.dismissedUntil > Date.now()) return;
 
+      timer = window.setTimeout(showOffer, 1_000);
+
       try {
         const {
-          data: { user },
-        } = await createClient().auth.getUser();
-        if (user || cancelled) return;
+          data: { session },
+        } = await createClient().auth.getSession();
+        if (session?.user || cancelled) {
+          if (timer) window.clearTimeout(timer);
+          setOpen(false);
+        }
       } catch {
-        if (cancelled) return;
+        // The public offer can still render if local session inspection fails.
       }
-
-      timer = window.setTimeout(showOffer, 12_000);
-      document.addEventListener("scroll", handleScroll, true);
     }
 
     void prepareOffer();
@@ -97,7 +86,6 @@ export function LandingOfferPopup() {
     return () => {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
-      document.removeEventListener("scroll", handleScroll, true);
     };
   }, [pathname]);
 
@@ -122,6 +110,7 @@ export function LandingOfferPopup() {
         dismissedUntil: nextCount >= 2 ? null : Date.now() + SEVEN_DAYS_MS,
       } satisfies DismissalState),
     );
+    sessionStorage.setItem(SESSION_DISMISSAL_KEY, "1");
     setOpen(false);
     trackClientEvent("offer_popup_dismissed", { pathname, dismissal_count: nextCount });
   }
@@ -154,9 +143,9 @@ export function LandingOfferPopup() {
         </button>
       </div>
 
-      <p className="mt-3 text-[13px] font-semibold leading-6 text-white/66">
-        Get a few days free, then 50% off your first month with code{" "}
-        <span className="font-black text-[#ddb159]">{OFFER_CODE}</span>. Cancel anytime.
+      <p className="mt-3 text-[13px] font-semibold leading-6 text-white/68">
+        Start your free trial, then get 50% off your first month. The discount is
+        applied automatically at checkout.
       </p>
       <p className="mt-2 text-[10px] font-semibold text-white/38">
         Educational research only. Not financial advice.
@@ -164,13 +153,13 @@ export function LandingOfferPopup() {
 
       <div className="mt-4 grid gap-2">
         <TrackedLink
-          href="/signup?coupon=50PORTFOLIO2026&source=offer_popup"
+          href="/checkout/confirm?plan=monthly&offer=50PORTFOLIO2026"
           eventName="offer_popup_claimed"
           eventProperties={{ pathname, coupon: OFFER_CODE }}
           onClick={claimOffer}
-          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#ddb159] px-5 text-center text-[12px] font-black text-[#072116]"
+          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#ddb159] px-5 text-center text-[12px] font-black !text-[#072116] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#061b12]"
         >
-          Claim 50% off
+          Claim 50% off first month
         </TrackedLink>
         <TrackedLink
           href="/demo?source=offer_popup"

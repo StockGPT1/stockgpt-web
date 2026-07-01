@@ -30,7 +30,10 @@ type Props = {
   portfolios?: PortfolioOption[];
   defaultPortfolioId?: string | null;
   stockOptions?: StockOption[];
-  onSuccess?: () => void;
+  onSuccess?: (result: {
+    portfolioId: string;
+    updatedExisting: boolean;
+  }) => void;
 };
 
 function formatPrice(value: number | null | undefined) {
@@ -224,7 +227,11 @@ export function ManualPortfolioEntry({
       }
 
       setIsSuccess(true);
-      setMessage(`${cleanTicker} logged successfully.`);
+      setMessage(
+        result.data?.updatedExisting
+          ? `${cleanTicker} was already in this portfolio and has been updated.`
+          : `${cleanTicker} logged successfully.`,
+      );
       setShares("");
       setNotes("");
 
@@ -236,7 +243,7 @@ export function ManualPortfolioEntry({
       }
 
       router.refresh();
-      onSuccess?.();
+      if (result.data) onSuccess?.(result.data);
     });
   }
 
@@ -280,7 +287,11 @@ export function ManualPortfolioEntry({
       }
 
       setIsSuccess(true);
-      setMessage(`${cleanTicker} added using portfolio cash.`);
+      setMessage(
+        result.data?.updatedExisting
+          ? `${cleanTicker} was already held. Shares and average price have been updated.`
+          : `${cleanTicker} added using portfolio cash.`,
+      );
       setDollarAmount("");
       setNotes("");
 
@@ -292,7 +303,7 @@ export function ManualPortfolioEntry({
       }
 
       router.refresh();
-      onSuccess?.();
+      if (result.data) onSuccess?.(result.data);
     });
   }
 
@@ -540,18 +551,22 @@ export function ManualPortfolioEntry({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={submit}
-            disabled={isPending}
-            className="h-11 rounded-2xl bg-[#ddb159] px-4 text-[12px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105 disabled:opacity-60 sm:col-span-2"
-          >
-            {isPending
-              ? "Adding…"
-              : mode === "existing"
-                ? "+ Log holding"
-                : "+ Buy with cash"}
-          </button>
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              onClick={submit}
+              disabled={isPending}
+              className="sg-modal-dark-label h-11 w-full rounded-2xl bg-[#ddb159] px-4 text-[12px] font-black uppercase tracking-[0.1em] text-[#072116] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#072116] focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#cbb77e] disabled:text-[#072116]/70"
+            >
+              {isPending
+                ? "Adding…"
+                : compact
+                  ? "Add to portfolio"
+                  : mode === "existing"
+                    ? "+ Log holding"
+                    : "+ Buy with cash"}
+            </button>
+          </div>
         </div>
 
         {message && (

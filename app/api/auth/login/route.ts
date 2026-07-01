@@ -8,6 +8,7 @@ import {
   tooManyRequests,
 } from "@/lib/security/rate-limit";
 import { cleanEmail, isValidEmail } from "@/lib/security/validation";
+import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
 
   const email = cleanEmail(record.email);
   const password = typeof record.password === "string" ? record.password : "";
+  const redirectTo = normaliseInternalRedirect(record.next);
 
   if (!email || !password || !isValidEmail(email)) {
     await auditSecurityEvent({
@@ -79,5 +81,5 @@ export async function POST(req: NextRequest) {
     metadata: { email_hash: emailKey },
   });
 
-  return NextResponse.json({ ok: true, redirectTo: "/dashboard" });
+  return NextResponse.json({ ok: true, redirectTo });
 }

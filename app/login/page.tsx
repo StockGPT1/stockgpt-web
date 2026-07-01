@@ -6,6 +6,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AuthProviderButtons } from "@/components/AuthProviderButtons";
+import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,10 @@ export default function LoginPage() {
   async function login() {
     if (loading) return;
 
+    const next = normaliseInternalRedirect(
+      new URLSearchParams(window.location.search).get("next"),
+    );
+
     setLoading(true);
     setErrorMessage("");
 
@@ -25,7 +30,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, next }),
       });
 
       const data = await res.json().catch(() => null);

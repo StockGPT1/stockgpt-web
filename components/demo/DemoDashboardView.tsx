@@ -1,80 +1,222 @@
+import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { demoRankings } from "@/lib/demo/demoData";
 import { DemoMiniChart } from "./DemoMiniChart";
 
+function DemoStatBlock({
+  icon,
+  label,
+  main,
+  sub,
+}: {
+  icon: string;
+  label: string;
+  main: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex min-h-[58px] items-center gap-3 rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_6px_16px_rgba(0,0,0,0.14)] ring-1 ring-white/30">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black text-[#ddb159]">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
+          {label}
+        </p>
+        <p className="mt-0.5 truncate text-[14px] font-black leading-none tracking-[-0.02em]">
+          {main}
+        </p>
+        <p className="mt-1 truncate text-[9.5px] font-semibold text-[#072116]/45">
+          {sub}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DemoRankingsPanel() {
+  return (
+    <div className="overflow-hidden rounded-2xl bg-[#faf6f0] text-[#072116] shadow-[0_18px_42px_rgba(0,0,0,0.22)] ring-1 ring-white/20 lg:min-h-0">
+      <div className="flex h-[54px] items-center justify-between gap-3 border-b border-[#072116]/10 px-4 py-2">
+        <div className="min-w-0">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
+            ✦ AI Rankings
+          </p>
+          <h2 className="mt-0.5 truncate text-[18px] font-black leading-none tracking-[-0.04em]">
+            Top 10 Ranked Stocks
+          </h2>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#ddb159] px-4 py-2 text-[10px] font-black text-[#072116]">
+          View All →
+        </span>
+      </div>
+
+      <div className="lg:hidden">
+        <div className="grid grid-cols-[32px_minmax(0,1fr)_72px_68px] bg-[#072116] px-3 py-2 text-[9px] font-black uppercase tracking-wide text-[#faf6f0]">
+          <span>#</span>
+          <span>Ticker</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">Score</span>
+        </div>
+        {demoRankings.slice(0, 5).map((stock) => (
+          <div
+            key={stock.ticker}
+            className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 border-b border-[#072116]/8 px-3 py-2 text-[11px] last:border-0"
+          >
+            <span className="font-bold text-[#072116]/65">{stock.rank}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-[12px] font-black">{stock.ticker}</span>
+              <span className="block truncate text-[9px] font-semibold text-[#072116]/45">
+                {stock.company}
+              </span>
+            </span>
+            <span className="text-right text-[10px] font-bold">{stock.price}</span>
+            <span className="ml-auto min-w-[52px] rounded-full bg-[#ddb159] px-2 py-0.5 text-center text-[9px] font-black">
+              {stock.score}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden h-[calc(100%-54px)] min-h-0 lg:flex lg:flex-col">
+        {demoRankings.slice(0, 10).map((stock) => (
+          <div
+            key={stock.ticker}
+            className="grid min-h-[38px] flex-1 grid-cols-[34px_minmax(76px,0.55fr)_minmax(120px,1.25fr)_minmax(88px,0.85fr)_70px_70px] items-center border-b border-[#072116]/8 text-[11px] last:border-0"
+          >
+            <span className="px-2 font-bold text-[#072116]/75">{stock.rank}</span>
+            <span className="truncate px-2 font-black">{stock.ticker}</span>
+            <span className="truncate px-2 font-semibold">{stock.company}</span>
+            <span className="truncate px-2 text-[#072116]/60">{stock.sector}</span>
+            <span className="px-2 text-right font-semibold">{stock.price}</span>
+            <span className="mx-2 rounded-full bg-[#ddb159] px-2 py-0.5 text-center text-[9px] font-black">
+              {stock.score}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DemoPortfolioWidget() {
+  return (
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-[#ddb159]">
+            ✦ Portfolio
+          </p>
+          <h2 className="mt-1 truncate text-[18px] font-black leading-none tracking-[-0.05em]">
+            Balanced Portfolio Draft
+          </h2>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
+          Health 82/100
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-3">
+        <div>
+          <p className="text-2xl font-black tracking-[-0.05em]">£8,012</p>
+          <p className="mt-1 text-[11px] font-black text-emerald-300">+£434 · +5.6%</p>
+        </div>
+        <div className="min-w-0 overflow-hidden rounded-xl bg-[#072116]/35">
+          <DemoMiniChart height={76} gold />
+        </div>
+      </div>
+      <p className="mt-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45">
+        Since created · 6 holdings
+      </p>
+    </div>
+  );
+}
+
+function DemoMarketOverview() {
+  return (
+    <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.035] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+            ✦ Market Overview
+          </p>
+          <h3 className="mt-1 text-[22px] font-black leading-none tracking-[-0.05em]">
+            S&amp;P 500 <span className="text-[13px] text-[#faf6f0]/72">5,487.03</span>
+          </h3>
+        </div>
+        <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
+          +0.42%
+        </span>
+      </div>
+      <div className="mt-3 min-h-[108px] overflow-hidden rounded-xl bg-[#072116]/35">
+        <DemoMiniChart height={108} gold />
+      </div>
+    </div>
+  );
+}
+
+function DemoChanges() {
+  return (
+    <div className="min-w-0 overflow-hidden rounded-2xl bg-[#faf6f0] p-4 text-[#072116]">
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">
+        Today
+      </p>
+      <h2 className="mt-1 text-xl font-black">What changed</h2>
+      <div className="mt-3 grid gap-2">
+        {demoRankings.slice(0, 4).map((stock) => (
+          <div
+            key={stock.ticker}
+            className="flex min-w-0 items-center justify-between rounded-xl border border-[#072116]/8 bg-white p-2.5"
+          >
+            <span className="truncate font-black">{stock.ticker}</span>
+            <span
+              className={
+                stock.move.startsWith("+") ? "text-emerald-700" : "text-red-700"
+              }
+            >
+              {stock.move}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DemoDashboardView() {
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <section className="grid min-w-0 gap-3">
-        <div className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(120deg,#061f15,#123b25)] p-5">
-          <div className="absolute inset-y-0 right-0 hidden w-1/2 opacity-65 sm:block">
-            <DemoMiniChart height={150} gold />
-          </div>
-          <div className="relative max-w-lg">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Dashboard</p>
-            <h1 className="mt-2 text-2xl font-black tracking-[-0.04em] text-[#faf6f0] sm:text-4xl">
-              Your research workflow at a glance.
-            </h1>
-            <p className="mt-2 text-xs font-semibold text-[#faf6f0]/58">
-              Review the market, shortlist companies, then test each idea against the evidence.
-            </p>
+    <div className="grid min-w-0 gap-3 lg:min-h-full lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)]">
+      <section className="grid min-w-0 content-start gap-3 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_auto_minmax(380px,1fr)]">
+        <WelcomeBanner demoMode />
+
+        <div className="rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/75 px-4 py-3">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">
+                Getting started
+              </p>
+              <p className="truncate text-[12px] font-bold text-[#faf6f0]/72">
+                Plan selected · Portfolio Draft created · First StockGPT Check ready
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-emerald-400/15 px-3 py-1 text-[10px] font-black text-emerald-300">
+              3/3
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            ["Portfolio", "£8,012", "+5.6% total"],
-            ["Top ranked", "NVDA", "8,742 score"],
-            ["Bullish", "42%", "cautious market"],
-            ["Coverage", "503", "stocks ranked"],
-          ].map(([label, value, detail]) => (
-            <div key={label} className="min-w-0 rounded-2xl bg-[#faf6f0] p-3 text-[#072116]">
-              <p className="truncate text-[9px] font-black uppercase tracking-[0.12em] text-[#072116]/45">{label}</p>
-              <p className="mt-1 truncate text-xl font-black">{value}</p>
-              <p className="mt-1 truncate text-[10px] font-semibold text-[#072116]/48">{detail}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <DemoStatBlock icon="♛" label="Top Ranked" main="NVDA" sub="NVIDIA" />
+          <DemoStatBlock icon="↗" label="Bullish %" main="42%" sub="cautious market" />
+          <DemoStatBlock icon="▦" label="Total" main="503" sub="stocks ranked" />
+          <DemoStatBlock icon="◷" label="Updated" main="09:30" sub="latest model run" />
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-[#faf6f0] text-[#072116]">
-          <div className="flex items-center justify-between border-b border-[#072116]/10 px-4 py-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#8a641a]">AI rankings</p>
-              <h2 className="text-lg font-black">Research priorities</h2>
-            </div>
-            <span className="rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black">View all</span>
-          </div>
-          {demoRankings.slice(0, 4).map((stock) => (
-            <div key={stock.ticker} className="grid grid-cols-[32px_72px_minmax(0,1fr)_68px] items-center border-b border-[#072116]/8 px-3 py-2.5 text-xs last:border-0">
-              <span className="font-black text-[#072116]/45">#{stock.rank}</span>
-              <span className="font-black">{stock.ticker}</span>
-              <span className="min-w-0 truncate font-semibold text-[#072116]/55">{stock.company}</span>
-              <span className="rounded-full bg-[#ddb159] px-2 py-0.5 text-center text-[9px] font-black">{stock.score}</span>
-            </div>
-          ))}
-        </div>
+        <DemoRankingsPanel />
       </section>
 
-      <aside className="grid min-w-0 content-start gap-3">
-        <div className="overflow-hidden rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Balanced Portfolio Draft</p>
-          <p className="mt-2 text-3xl font-black tracking-[-0.05em]">£8,012</p>
-          <p className="mt-1 text-xs font-black text-emerald-300">+£434 · +5.6%</p>
-          <div className="mt-3 overflow-hidden rounded-xl bg-[#072116]/40">
-            <DemoMiniChart height={132} gold />
-          </div>
-        </div>
-        <div className="rounded-2xl bg-[#faf6f0] p-4 text-[#072116]">
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#072116]/45">Today</p>
-          <h2 className="mt-1 text-xl font-black">What changed</h2>
-          <div className="mt-3 grid gap-2">
-            {demoRankings.slice(0, 3).map((stock) => (
-              <div key={stock.ticker} className="flex items-center justify-between rounded-xl bg-white p-2.5">
-                <span className="font-black">{stock.ticker}</span>
-                <span className={stock.move.startsWith("+") ? "text-emerald-700" : "text-red-700"}>{stock.move}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <aside className="grid min-w-0 content-start gap-3 lg:grid-rows-[auto_auto_minmax(280px,1fr)]">
+        <DemoPortfolioWidget />
+        <DemoMarketOverview />
+        <DemoChanges />
       </aside>
     </div>
   );

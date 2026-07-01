@@ -75,6 +75,22 @@ type SavePortfolioOptions = {
   portfolioId?: string | null;
 };
 
+export type ManualPortfolioHoldingInput = {
+  ticker: string;
+  shares: number;
+  averagePrice: number;
+  purchaseDate?: string | null;
+  notes?: string | null;
+};
+
+export type ManualPortfolioInput = {
+  name: string;
+  currency: "GBP" | "USD" | "EUR";
+  startingCash: number;
+  goal: "growth" | "income" | "balanced" | "watchlist" | "long-term";
+  holdings: ManualPortfolioHoldingInput[];
+};
+
 type AddCashInput = {
   portfolioId?: string | null;
   amount: number;
@@ -1125,6 +1141,225 @@ export async function savePortfolio(
   return { success: true, data: { portfolioId } };
 }
 
+export async function createManualPortfolio(
+  input: ManualPortfolioInput,
+): Promise<ActionResult<{ portfolioId: string }>> {
+  const name = input.name.trim().slice(0, 80);
+  const allowedCurrencies = new Set(["GBP", "USD", "EUR"]);
+  const goalMap = {
+    growth: { riskTolerance: "aggressive", timeHorizon: "long" },
+    income: { riskTolerance: "moderate", timeHorizon: "medium" },
+    balanced: { riskTolerance: "moderate", timeHorizon: "medium" },
+    watchlist: { riskTolerance: "conservative", timeHorizon: "medium" },
+    "long-term": { riskTolerance: "moderate", timeHorizon: "long" },
+  } as const;
+
+  if (!name) {
+    return { success: false, error: "Portfolio name is required." };
+  }
+
+  if (!allowedCurrencies.has(input.currency)) {
+    return { success: false, error: "Choose a supported portfolio currency." };
+  }
+
+  if (
+    !Number.isFinite(input.startingCash) ||
+    input.startingCash < 0 ||
+    input.startingCash > 100_000_000
+  ) {
+    return { success: false, error: "Starting cash must be zero or more." };
+  }
+
+  if (!goalMap[input.goal]) {
+    return { success: false, error: "Choose a valid portfolio goal." };
+  }
+
+  if (input.holdings.length > 100) {
+    return { success: false, error: "A manual portfolio can contain up to 100 holdings." };
+  }
+
+  if (input.holdings.length === 0 && input.startingCash === 0) {
+    return {
+      success: false,
+      error: "Add at least one holding or enter starting cash.",
+    };
+  }
+
+  const cleanedHoldings = input.holdings.map((holding) => ({
+    ticker: cleanTicker(holding.ticker),
+    shares: Number(holding.shares),
+    averagePrice: Number(holding.averagePrice),
+    purchaseDate: holding.purchaseDate?.trim() || null,
+    notes: holding.notes?.trim().slice(0, 500) || null,
+  }));
+
+  const seenTickers = new Set<string>();
+
+  for (const holding of cleanedHoldings) {
+    if (!holding.ticker || !/^[A-Z][A-Z0-9.-]{0,11}$/.test(holding.ticker)) {
+      return { success: false, error: "Every holding needs a valid ticker." };
+    }
+    if (seenTickers.has(holding.ticker)) {
+      return {
+        success: false,
+        error: `${holding.ticker} appears more than once. Edit the existing row instead.`,
+      };
+    }
+    if (!Number.isFinite(holding.shares) || holding.shares <= 0) {
+      return {
+        success: false,
+        error: `${holding.ticker} needs a positive share quantity.`,
+      };
+    }
+    if (!Number.isFinite(holding.averagePrice) || holding.averagePrice < 0) {
+      return {
+        success: false,
+        error: `${holding.ticker} needs a non-negative average price.`,
+      };
+    }
+    seenTickers.add(holding.ticker);
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const tickers = cleanedHoldings.map((holding) => holding.ticker);
+  const { data: stockRows, error: stockError } =
+    tickers.length > 0
+      ? await supabase
+          .from("stock_rankings")
+          .select("ticker,price,score,rank")
+          .in("ticker", tickers)
+      : { data: [], error: null };
+
+  if (stockError) return { success: false, error: stockError.message };
+
+  const stocks = new Map(
+    ((stockRows ?? []) as Array<{
+      ticker: string | null;
+      price: number | null;
+      score: number | null;
+      rank: number | null;
+    }>).map((stock) => [String(stock.ticker ?? "").toUpperCase(), stock]),
+  );
+
+  const missingTicker = tickers.find((ticker) => !stocks.has(ticker));
+
+  if (missingTicker) {
+    return {
+      success: false,
+      error: `${missingTicker} is not available in the StockGPT stock universe.`,
+    };
+  }
+
+  const costBasis = cleanedHoldings.reduce(
+    (sum, holding) => sum + holding.shares * holding.averagePrice,
+    0,
+  );
+  const estimatedHoldingsValue = cleanedHoldings.reduce((sum, holding) => {
+    const currentPrice = moneyNumber(stocks.get(holding.ticker)?.price);
+    return sum + holding.shares * (currentPrice || holding.averagePrice);
+  }, 0);
+  const estimatedTotalValue = input.startingCash + estimatedHoldingsValue;
+  const goal = goalMap[input.goal];
+
+  const { data: created, error: createError } = await supabase
+    .from("user_portfolios")
+    .insert({
+      user_id: user.id,
+      name,
+      risk_tolerance: goal.riskTolerance,
+      time_horizon: goal.timeHorizon,
+      investment_amount: roundMoney(costBasis),
+      cash_balance: roundMoney(input.startingCash),
+      cash_deposited_total: roundMoney(input.startingCash + costBasis),
+      currency: input.currency,
+    })
+    .select("id")
+    .single();
+
+  if (createError || !created) {
+    return {
+      success: false,
+      error: createError?.message ?? "Could not create the portfolio.",
+    };
+  }
+
+  const portfolioId = String(created.id);
+  const now = new Date().toISOString();
+
+  if (cleanedHoldings.length > 0) {
+    const holdingsToInsert = cleanedHoldings.map((holding) => {
+      const stock = stocks.get(holding.ticker);
+      const currentPrice = moneyNumber(stock?.price) || holding.averagePrice;
+      const estimatedValue = holding.shares * currentPrice;
+
+      return {
+        portfolio_id: portfolioId,
+        ticker: holding.ticker,
+        entry_price: roundMoney(holding.averagePrice),
+        shares: roundShares(holding.shares),
+        allocation_pct:
+          estimatedTotalValue > 0
+            ? Math.round((estimatedValue / estimatedTotalValue) * 10_000) / 100
+            : null,
+        score_at_entry: stock?.score ?? null,
+        rank_at_entry: stock?.rank ?? null,
+        last_reviewed_at: now,
+        purchase_date: holding.purchaseDate,
+        source: "manual_builder",
+        notes: holding.notes,
+      };
+    });
+
+    const { error: holdingsError } = await supabase
+      .from("portfolio_holdings")
+      .insert(holdingsToInsert);
+
+    if (holdingsError) {
+      await supabase
+        .from("user_portfolios")
+        .delete()
+        .eq("id", portfolioId)
+        .eq("user_id", user.id);
+
+      return { success: false, error: holdingsError.message };
+    }
+  }
+
+  if (input.startingCash > 0) {
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      type: "deposit",
+      amount: input.startingCash,
+      currency: input.currency,
+      notes: "Starting cash added during manual portfolio creation.",
+    });
+  }
+
+  for (const holding of cleanedHoldings) {
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      ticker: holding.ticker,
+      type: "log_existing",
+      shares: holding.shares,
+      price: holding.averagePrice,
+      amount: holding.shares * holding.averagePrice,
+      currency: input.currency,
+      notes: holding.notes ?? "Added during manual portfolio creation.",
+    });
+    revalidateStock(holding.ticker);
+  }
+
+  revalidatePortfolio(portfolioId);
+
+  return { success: true, data: { portfolioId } };
+}
+
 export async function renamePortfolio(
   input: RenamePortfolioInput,
 ): Promise<ActionResult> {
@@ -1151,7 +1386,7 @@ export async function renamePortfolio(
 
 export async function logExistingHolding(
   input: LogExistingHoldingInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
@@ -1238,12 +1473,15 @@ export async function logExistingHolding(
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
-  return { success: true };
+  return {
+    success: true,
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(existingHolding) },
+  };
 }
 
 export async function buyHoldingWithCash(
   input: BuyHoldingWithCashInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
@@ -1363,7 +1601,10 @@ export async function buyHoldingWithCash(
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
-  return { success: true };
+  return {
+    success: true,
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(existingHolding) },
+  };
 }
 
 export async function updateHoldingDetails(
@@ -1681,7 +1922,7 @@ export async function addHolding(
   ticker: string,
   entryPrice?: number,
   shares?: number,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   return logExistingHolding({
     ticker,
     entryPrice,
@@ -1695,7 +1936,7 @@ export async function addHoldingByAmount(
   ticker: string,
   dollarAmount: number,
   entryPrice?: number,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   return buyHoldingWithCash({
     portfolioId: null,
     ticker,

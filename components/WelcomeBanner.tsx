@@ -57,23 +57,44 @@ function getGreeting(now: Date, name?: string) {
   return name ? `${base}, ${name}` : base;
 }
 
-export function WelcomeBanner({ name }: { name?: string }) {
+export function WelcomeBanner({
+  name,
+  demoMode = false,
+}: {
+  name?: string;
+  demoMode?: boolean;
+}) {
   const [state, setState] = useState<null | {
     greeting: string;
     tagline: string;
     subline: string;
     market: ReturnType<typeof getMarketStatus>;
-  }>(null);
+  }>(() =>
+    demoMode
+      ? {
+          greeting: "Good morning, Alex",
+          tagline: "Ranked by data, not by hype.",
+          subline: "Demo workspace — review the research workflow with illustrative data.",
+          market: { label: "Markets open", tone: "open" as const },
+        }
+      : null,
+  );
 
   useEffect(() => {
+    if (demoMode) return;
+
     const now = new Date();
-    setState({
-      greeting: getGreeting(now, name),
-      tagline: pick(taglines),
-      subline: sublines[now.getDay()] ?? "",
-      market: getMarketStatus(now),
-    });
-  }, [name]);
+    const timeout = window.setTimeout(() => {
+      setState({
+        greeting: getGreeting(now, name),
+        tagline: pick(taglines),
+        subline: sublines[now.getDay()] ?? "",
+        market: getMarketStatus(now),
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [demoMode, name]);
 
   if (!state) {
     return <div className="min-h-[112px] rounded-3xl bg-[#082519] md:min-h-[124px] lg:h-full lg:min-h-0 xl:min-h-0" />;

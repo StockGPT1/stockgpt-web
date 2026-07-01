@@ -9,18 +9,20 @@ export function DemoInfoBox({
   totalSteps,
   onBack,
   onNext,
+  onMinimise,
 }: {
   step: DemoStep;
   stepIndex: number;
   totalSteps: number;
   onBack: () => void;
   onNext: () => void;
+  onMinimise: () => void;
 }) {
   const isLast = stepIndex === totalSteps - 1;
 
   return (
     <aside
-      className="demo-tour-box pointer-events-auto fixed inset-x-2 bottom-[calc(70px+env(safe-area-inset-bottom))] z-50 max-h-[56dvh] overflow-y-auto rounded-[24px] border border-[#ddb159]/42 bg-[#04180f]/[0.98] p-3 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.58)] backdrop-blur-xl sm:inset-x-4 sm:p-5 xl:inset-x-auto xl:bottom-auto xl:right-5 xl:top-[112px] xl:max-h-[calc(100dvh-132px)] xl:w-[360px]"
+      className="demo-tour-box pointer-events-auto fixed inset-x-2 bottom-[calc(70px+env(safe-area-inset-bottom))] z-50 max-h-[42dvh] overflow-y-auto rounded-[24px] border border-[#ddb159]/42 bg-[#04180f]/[0.98] p-3 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.58)] backdrop-blur-xl sm:inset-x-4 sm:p-4 lg:inset-x-auto lg:bottom-5 lg:right-5 lg:max-h-[44dvh] lg:w-[360px]"
       aria-live="polite"
       aria-label={`Demo step ${stepIndex + 1} of ${totalSteps}`}
     >
@@ -73,13 +75,22 @@ export function DemoInfoBox({
           </TrackedLink>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={onNext}
-          className="mt-3 min-h-12 w-full rounded-full bg-[#ddb159] px-4 text-[12px] font-black text-[#072116] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#04180f] sm:mt-4"
-        >
-          {step.nextLabel}
-        </button>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4">
+          <button
+            type="button"
+            onClick={onMinimise}
+            className="min-h-12 rounded-full border border-[#ddb159]/35 px-3 text-[11px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+          >
+            View page
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            className="min-h-12 rounded-full bg-[#ddb159] px-3 text-[11px] font-black leading-4 text-[#072116] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#04180f]"
+          >
+            {step.nextLabel}
+          </button>
+        </div>
       )}
 
       {stepIndex > 0 && (

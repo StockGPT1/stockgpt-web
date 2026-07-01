@@ -8,6 +8,7 @@ import {
   tooManyRequests,
 } from "@/lib/security/rate-limit";
 import { validateSignupPayload } from "@/lib/security/validation";
+import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const validated = validateSignupPayload(body);
+  const record =
+    body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const next = normaliseInternalRedirect(record.next);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
 
   if (!validated.ok) {
     await auditSecurityEvent({
@@ -59,7 +64,7 @@ export async function POST(req: NextRequest) {
     email: validated.data.email,
     password: validated.data.password,
     options: {
-      emailRedirectTo: "https://stockgpt.pro/auth/callback?next=/dashboard",
+      emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`,
       data: {
         first_name: validated.data.firstName,
         last_name: validated.data.lastName,

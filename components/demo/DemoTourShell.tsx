@@ -13,6 +13,7 @@ import { DemoStockView, type DemoStockSectionRefs } from "./DemoStockView";
 
 export function DemoTourShell() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [guideOpen, setGuideOpen] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const previousViewRef = useRef(demoSteps[0].view);
   const stockOverviewRef = useRef<HTMLElement>(null);
@@ -78,16 +79,28 @@ export function DemoTourShell() {
 
   return (
     <main className="relative h-[100dvh] overflow-hidden bg-[#072116]">
-      <DemoAppShell view={step.view} contentRef={contentRef}>
+      <DemoAppShell view={step.view} contentRef={contentRef} guideOpen={guideOpen}>
         {view}
       </DemoAppShell>
-      <DemoInfoBox
-        step={step}
-        stepIndex={currentStep}
-        totalSteps={demoSteps.length}
-        onBack={() => setCurrentStep((value) => Math.max(0, value - 1))}
-        onNext={() => setCurrentStep((value) => Math.min(demoSteps.length - 1, value + 1))}
-      />
+      {guideOpen ? (
+        <DemoInfoBox
+          step={step}
+          stepIndex={currentStep}
+          totalSteps={demoSteps.length}
+          onBack={() => setCurrentStep((value) => Math.max(0, value - 1))}
+          onNext={() => setCurrentStep((value) => Math.min(demoSteps.length - 1, value + 1))}
+          onMinimise={() => setGuideOpen(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setGuideOpen(true)}
+          className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-3 z-50 min-h-11 rounded-full border border-[#ddb159]/45 bg-[#04180f] px-4 text-[11px] font-black text-[#ddb159] shadow-[0_14px_34px_rgba(0,0,0,0.38)] transition hover:bg-[#0b2b1d] focus:outline-none focus:ring-2 focus:ring-[#ddb159] lg:bottom-5 lg:right-5"
+          aria-label={`Open guided tour, step ${currentStep + 1} of ${demoSteps.length}`}
+        >
+          Tour {currentStep + 1}/{demoSteps.length} · Open guide
+        </button>
+      )}
     </main>
   );
 }

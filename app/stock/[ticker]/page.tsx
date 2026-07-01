@@ -262,7 +262,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3"><StockLogo ticker={stock.ticker} company={stock.company} size={42} /><div className="min-w-0"><h1 className="text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">{stock.ticker}</h1><p className="mt-1 break-words text-[16px] font-bold leading-snug text-[#faf6f0]/70">{stock.company ?? "—"}</p></div></div>
                 <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3"><p className="text-[26px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">{formatMoney(livePrice)}</p><span className="inline-flex items-center gap-1.5 rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#072116]">AI Score · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatScore(stock.score)}</LockedValue></span><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">Days at top · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatDays(daysAtTop)}</LockedValue></span></div>
               </div>
-              <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end"><WatchlistToggle ticker={ticker} initialInWatchlist={!!watchlistEntry} isAuthenticated={isAuthenticated} /><AddToPortfolioButton ticker={ticker} price={livePrice} isAuthenticated={isAuthenticated} portfolios={portfolioOptions} defaultPortfolioId={defaultPortfolioId} /></div>
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end"><WatchlistToggle ticker={ticker} initialInWatchlist={!!watchlistEntry} isAuthenticated={isAuthenticated} /></div>
             </div>
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice />}
@@ -270,7 +270,38 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-4 backdrop-blur"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">Price Chart</p><div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart ticker={ticker} data={chartData} initialRange="1Y" height={320} /></div></section>
           <StyleResearchCard tags={styleTags} unlocked={canSeeRankAndScore} />
           <div className="min-w-0 max-w-full overflow-hidden"><StockRelatedNews ticker={ticker} articles={relevantNews} /></div>
-          <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]"><div className="min-w-0 max-w-full overflow-hidden">{canSeeRankAndScore ? (tradeLevels && <TradeSetupCard levels={tradeLevels} />) : <LockedTradePlanCard ticker={ticker} />}</div><PeersCard peers={peers} sector={stock.sector} unlocked={canSeeRankAndScore} /></div>
+          <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid min-w-0 max-w-full gap-3 overflow-hidden">
+              {canSeeRankAndScore
+                ? tradeLevels && <TradeSetupCard levels={tradeLevels} />
+                : <LockedTradePlanCard ticker={ticker} />}
+              <section className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/72 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                    Continue your research
+                  </p>
+                  <h2 className="mt-1 text-[18px] font-black tracking-[-0.03em] text-[#faf6f0]">
+                    Add {ticker} to a Portfolio Draft
+                  </h2>
+                  <p className="mt-1 max-w-xl text-[11px] font-semibold leading-5 text-[#faf6f0]/52">
+                    Track this stock alongside your holdings and review its allocation
+                    before making your own decision.
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <AddToPortfolioButton
+                    ticker={ticker}
+                    price={livePrice}
+                    isAuthenticated={isAuthenticated}
+                    portfolios={portfolioOptions}
+                    defaultPortfolioId={defaultPortfolioId}
+                    initialInWatchlist={Boolean(watchlistEntry)}
+                  />
+                </div>
+              </section>
+            </div>
+            <PeersCard peers={peers} sector={stock.sector} unlocked={canSeeRankAndScore} />
+          </div>
           <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">StockGPT stock pages are research tools. Rankings, trade plans and reports can be wrong and should be checked against your own risk limits.</p>
         </div>
       </main>

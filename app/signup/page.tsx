@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { trackClientEvent } from "@/lib/analytics/client-events";
+import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 
 const LAUNCH_COUPON = "50PORTFOLIO2026";
 const SAVED_COUPON_KEY = "stockgpt.savedCoupon";
@@ -99,6 +100,10 @@ export default function SignupPage() {
   async function signUp() {
     if (loading) return;
 
+    const next = normaliseInternalRedirect(
+      new URLSearchParams(window.location.search).get("next"),
+    );
+
     trackClientEvent("signup_started", { coupon_saved: offerSaved });
     setLoading(true);
     setMessage("");
@@ -120,6 +125,7 @@ export default function SignupPage() {
           emailConsent,
           termsAccepted,
           newsletterDigestConsent,
+          next,
         }),
       });
 
@@ -163,7 +169,9 @@ export default function SignupPage() {
 
       setMessageTone("success");
       setMessage("Email verified. Taking you to StockGPT...");
-      window.location.href = "/dashboard";
+      window.location.href = normaliseInternalRedirect(
+        new URLSearchParams(window.location.search).get("next"),
+      );
     } finally {
       setLoading(false);
     }
@@ -189,7 +197,11 @@ export default function SignupPage() {
         type: "signup",
         email: normalizedEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+            normaliseInternalRedirect(
+              new URLSearchParams(window.location.search).get("next"),
+            ),
+          )}`,
         },
       });
 

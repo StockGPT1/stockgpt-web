@@ -56,10 +56,15 @@ export function AuthProviderButtons({
     onError("");
 
     const origin = window.location.origin;
+    const requestedNext = new URLSearchParams(window.location.search).get("next");
+    const safeRedirectTo =
+      requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+        ? requestedNext
+        : redirectTo;
     const { error } = await createClient().auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}`,
       },
     });
 
