@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { StockIcon } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
   title: "Pricing | StockGPT AI Market Research Plans",
@@ -36,7 +37,7 @@ const comingSoon = [
 function Tick({ muted = false }: { muted?: boolean }) {
   return (
     <span className={muted ? "mt-0.5 shrink-0 text-[11px] font-black text-[#faf6f0]/28" : "mt-0.5 shrink-0 text-[11px] font-black text-emerald-300"}>
-      {muted ? "✦" : "✓"}
+      <StockIcon name={muted ? "ask" : "check"} className="size-3.5" />
     </span>
   );
 }

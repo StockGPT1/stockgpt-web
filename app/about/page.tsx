@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { StockIcon } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
   title: "About StockGPT | AI Stock Ranking Methodology",
@@ -235,7 +236,7 @@ export default function AboutPage() {
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-3">
                     <span className="grid size-6 place-items-center rounded-full bg-[#ddb159] text-[10px] font-black text-[#072116]">
-                      ✓
+                      <StockIcon name="check" className="size-3.5" />
                     </span>
                     <span className="text-[13px] font-bold text-[#faf6f0]/78">
                       {item}

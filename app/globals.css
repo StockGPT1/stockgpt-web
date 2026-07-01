@@ -57,6 +57,34 @@ select {
   font: inherit;
 }
 
+button,
+a[href],
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]) {
+  transition-duration: 100ms;
+  user-select: none;
+}
+
+button:not(:disabled):active,
+a[href]:active,
+[role="button"]:not([aria-disabled="true"]):active {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+button:focus-visible,
+a[href]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #ddb159;
+  outline-offset: 2px;
+}
+
 .font-luxury,
 .luxury-heading,
 h1,
@@ -80,6 +108,12 @@ h2 {
 }
 
 @media (max-width: 639px) {
+  .portfolio-mobile-page button,
+  .stockgpt-manual-entry button,
+  .stockgpt-manage-holding-dialog button {
+    min-height: 44px;
+  }
+
   .portfolio-mobile-page {
     overflow: visible !important;
     max-width: 100% !important;

@@ -18,6 +18,7 @@ import {
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { getDashboardMainPortfolio } from "@/lib/dashboard-portfolio";
 import { ActivationChecklist } from "@/components/ActivationChecklist";
+import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -226,31 +227,33 @@ export default async function Home() {
 
   return (
     <AppShell activePath="/dashboard">
-      <main className="min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
+      <main className="sg-dashboard-main min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)] lg:gap-3">
           <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_minmax(0,1fr)] lg:overflow-hidden">
             <WelcomeBanner name={firstName} />
-            <ActivationChecklist
-              planComplete={hasSubscription}
-              portfolioComplete={Boolean(dashboardPortfolio)}
-            />
+            <div className="min-h-0 min-w-0">
+              <ActivationChecklist
+                planComplete={hasSubscription}
+                portfolioComplete={Boolean(dashboardPortfolio)}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4">
               <StatBlock
-                icon="♛"
+                icon="rankings"
                 label="Top Ranked"
                 main={rankingsLocked ? "Locked" : topRanked?.ticker ?? "—"}
                 sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}
               />
-              <StatBlock icon="↗︎" label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
+              <StatBlock icon="trend-up" label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
               <StatBlock
-                icon="▦"
+                icon="total"
                 label="Total"
                 main={(totalCount ?? rankings.length).toLocaleString()}
                 sub="stocks ranked"
               />
               <StatBlock
-                icon="◷"
+                icon="clock"
                 label="Updated"
                 main={formatUpdatedTime(topRanked?.updated_at)}
                 sub="latest model run"
@@ -292,7 +295,7 @@ function RankingsPanel({
       <div className="flex h-[54px] items-center justify-between gap-3 border-b border-[#072116]/10 px-4 py-2 xl:h-[58px]">
         <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            ✦ AI Rankings
+            AI Rankings
           </p>
           <h2 className="mt-0.5 truncate text-[18px] font-black leading-none tracking-[-0.04em]">
             Top 10 Ranked Stocks
@@ -439,15 +442,15 @@ function StatBlock({
   main,
   sub,
 }: {
-  icon: string;
+  icon: StockIconName;
   label: string;
   main: string;
   sub: string;
 }) {
   return (
     <div className="group flex min-h-[58px] items-center gap-3 rounded-xl bg-[#faf6f0] px-3 py-2 text-[#072116] shadow-[0_6px_16px_rgba(0,0,0,0.14)] ring-1 ring-white/30 lg:min-h-0 lg:overflow-hidden">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[15px] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] [font-variant-emoji:text]">
-        {icon}
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <StockIcon name={icon} className="size-4" />
       </div>
       <div className="min-w-0">
         <p className="truncate text-[8.5px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/55">
@@ -476,7 +479,7 @@ function PortfolioDashboardWidget({
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-              ✦ Portfolio
+              Portfolio
             </p>
             <h2 className="mt-1 truncate text-[19px] font-black leading-none tracking-[-0.05em]">
               Build your first portfolio
@@ -507,7 +510,7 @@ function PortfolioDashboardWidget({
       <div className="relative flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-[#ddb159]">
-            ✦ Portfolio
+            Portfolio
           </p>
           <h2 className="mt-1 truncate text-[16px] font-black leading-none tracking-[-0.05em] xl:text-[18px]">
             {summary.name}
@@ -552,7 +555,7 @@ function MarketOverviewCard({
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-            ✦ Market Overview
+            Market Overview
           </p>
           <div className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1">
             <h3 className="truncate text-[22px] font-black leading-none tracking-[-0.05em]">

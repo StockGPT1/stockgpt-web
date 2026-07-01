@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
 type NavItem = {
   href: string;
@@ -15,12 +16,24 @@ type Props = {
   unreadCount: number;
 };
 
+function iconForLabel(label: string): StockIconName {
+  const normalised = label.toLowerCase();
+  if (normalised.includes("rank")) return "rankings";
+  if (normalised.includes("portfolio")) return "portfolio";
+  if (normalised.includes("watch")) return "watchlist";
+  if (normalised.includes("alert") || normalised.includes("notification")) return "alerts";
+  if (normalised.includes("news")) return "news";
+  if (normalised.includes("setting")) return "settings";
+  return "dashboard";
+}
+
 export function MobileNav({ navItems, activePath, unreadCount }: Props) {
   const [open, setOpen] = useState(false);
 
   // Close on route change
   useEffect(() => {
-    setOpen(false);
+    const timeout = window.setTimeout(() => setOpen(false), 0);
+    return () => window.clearTimeout(timeout);
   }, [activePath]);
 
   // Lock body scroll when menu is open
@@ -95,7 +108,9 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
                       : "border-transparent text-[#faf6f0]/82 hover:border-[#ddb159]/40 hover:bg-[#ddb159]/8",
                   ].join(" ")}
                 >
-                  <span className="w-5 text-center text-lg text-[#ddb159]">{item.icon}</span>
+                  <span className="grid w-5 place-items-center text-[#ddb159]">
+                    <StockIcon name={iconForLabel(item.label)} className="size-[18px]" />
+                  </span>
                   <span className="truncate">{item.label}</span>
                   {isAlerts && unreadCount > 0 && (
                     <span className="ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
@@ -112,7 +127,9 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
               href="/settings"
               className="flex h-11 items-center gap-3 rounded-xl border border-transparent px-3 text-[13px] font-bold text-[#faf6f0]/75 transition hover:border-[#ddb159]/40 hover:text-[#faf6f0]"
             >
-              <span className="w-5 text-center text-lg text-[#ddb159]">⚙</span>
+              <span className="grid w-5 place-items-center text-[#ddb159]">
+                <StockIcon name="settings" className="size-[18px]" />
+              </span>
               <span>Settings</span>
             </Link>
           </div>

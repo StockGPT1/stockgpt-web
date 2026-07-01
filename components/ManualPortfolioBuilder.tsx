@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { StockIcon } from "@/components/StockIcon";
 import { useRouter } from "next/navigation";
 import {
   createManualPortfolio,
@@ -608,7 +609,7 @@ export function ManualPortfolioBuilder({
                             aria-label={`Remove ${holding.ticker}`}
                             className="grid size-9 place-items-center rounded-full border border-red-200 font-black text-red-700"
                           >
-                            ×
+                            <StockIcon name="close" className="size-4" />
                           </button>
                         </span>
                       </div>

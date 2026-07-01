@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ExecutiveWaitlistButton } from "@/components/ExecutiveWaitlistButton";
+import { StockIcon } from "@/components/StockIcon";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
 
@@ -89,7 +90,7 @@ export default async function SubscriptionPage() {
             <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#ddb159]">
-                  ✦ StockGPT Membership
+                  StockGPT Membership
                 </p>
 
                 <h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#faf6f0] sm:text-[38px] lg:text-[40px]">
@@ -148,7 +149,7 @@ export default async function SubscriptionPage() {
                       className="flex min-h-[38px] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:min-h-[42px] sm:py-2 lg:min-h-[38px] lg:py-1.5 xl:min-h-[42px] xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
-                        ✓
+                        <StockIcon name="check" className="size-3.5" />
                       </span>
                       <span className="min-w-0 text-[12px] font-semibold leading-5 text-[#faf6f0]/68">
                         {feature}
@@ -217,7 +218,7 @@ export default async function SubscriptionPage() {
                       className="flex min-h-[38px] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#061b12]/55 px-3 py-1.5 sm:min-h-[42px] sm:py-2 lg:min-h-[38px] lg:py-1.5 xl:min-h-[42px] xl:py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ddb159]/15 text-[11px] font-black text-[#ddb159]">
-                        ✦
+                        <StockIcon name="ask" className="size-3.5" />
                       </span>
                       <span className="min-w-0 text-[12px] font-semibold leading-5 text-[#faf6f0]/68">
                         {feature}

@@ -10,23 +10,24 @@ import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
+import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "▦" },
-  { href: "/rankings", label: "Rankings", icon: "♛" },
-  { href: "/portfolio", label: "Portfolio", icon: "✦" },
-  { href: "/watchlist", label: "Watchlist", icon: "☆" },
-  { href: "/notifications", label: "Alerts", icon: "◐" },
-  { href: "/world-news", label: "World News", icon: "◈" },
-  { href: "/settings", label: "Settings", icon: "⚙" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/rankings", label: "Rankings", icon: "rankings" },
+  { href: "/portfolio", label: "Portfolio", icon: "portfolio" },
+  { href: "/watchlist", label: "Watchlist", icon: "watchlist" },
+  { href: "/notifications", label: "Alerts", icon: "alerts" },
+  { href: "/world-news", label: "World News", icon: "news" },
+  { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
 const mobileBottomNav = [
-  { href: "/dashboard", label: "Home", icon: "▦" },
-  { href: "/rankings", label: "Rankings", icon: "♛" },
-  { href: "/portfolio", label: "Portfolio", icon: "✦" },
-  { href: "/notifications", label: "Alerts", icon: "◐" },
-  { href: "/world-news", label: "News", icon: "◈" },
+  { href: "/dashboard", label: "Home", icon: "dashboard" },
+  { href: "/rankings", label: "Rankings", icon: "rankings" },
+  { href: "/portfolio", label: "Portfolio", icon: "portfolio" },
+  { href: "/notifications", label: "Alerts", icon: "alerts" },
+  { href: "/world-news", label: "News", icon: "news" },
 ] as const;
 
 function PageBackdrop({ activePath }: { activePath: string }) {
@@ -92,8 +93,8 @@ function PageBackdrop({ activePath }: { activePath: string }) {
       {variant === "watchlist" && (
         <>
           <div className="absolute right-[8%] top-[12%] h-[300px] w-[300px] rounded-full border border-[#ddb159]/12" />
-          <div className="absolute right-[15%] top-[21%] text-[190px] leading-none text-[#ddb159]/[0.055]">
-            ☆
+          <div className="absolute right-[15%] top-[21%] text-[#ddb159]/[0.055]">
+            <StockIcon name="watchlist" className="size-[190px]" />
           </div>
         </>
       )}
@@ -324,7 +325,7 @@ export async function AppShell({
                   />
 
                   <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110">
-                    {item.icon}
+                    <StockIcon name={item.icon as StockIconName} className="size-[18px]" />
                   </span>
 
                   <span className="truncate">{item.label}</span>
@@ -364,7 +365,7 @@ export async function AppShell({
                 isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"
               }`}
             >
-              <span className="text-xl">{item.icon}</span>
+              <StockIcon name={item.icon as StockIconName} className="size-5" />
               <span className="text-[10px] font-bold">{item.label}</span>
 
               {isAlerts && unreadCount > 0 && (

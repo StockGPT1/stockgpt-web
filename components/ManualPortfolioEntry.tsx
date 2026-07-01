@@ -242,8 +242,8 @@ export function ManualPortfolioEntry({
         setPriceEdited(false);
       }
 
-      router.refresh();
       if (result.data) onSuccess?.(result.data);
+      window.setTimeout(() => router.refresh(), 120);
     });
   }
 
@@ -302,8 +302,8 @@ export function ManualPortfolioEntry({
         setPriceEdited(false);
       }
 
-      router.refresh();
       if (result.data) onSuccess?.(result.data);
+      window.setTimeout(() => router.refresh(), 120);
     });
   }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { StockIcon } from "@/components/StockIcon";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
@@ -105,7 +106,7 @@ export default async function CheckoutConfirmPage({
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
               {includedFeatures.map((feature) => (
                 <div key={feature} className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] px-4 py-3 text-[12px] font-bold leading-5 text-[#faf6f0]/76">
-                  <span className="mr-2 text-[#ddb159]">✓</span>
+                  <StockIcon name="check" className="mr-2 inline size-4 text-[#ddb159]" />
                   {feature}
                 </div>
               ))}

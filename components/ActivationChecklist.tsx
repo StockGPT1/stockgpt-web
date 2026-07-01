@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { trackClientEvent } from "@/lib/analytics/client-events";
+import { StockIcon } from "@/components/StockIcon";
 
 const STORAGE_KEY = "stockgpt.activationChecklist";
 
@@ -46,7 +47,9 @@ export function ActivationChecklist({
     trackClientEvent("activation_task_clicked", { task: id, href });
   }
 
-  if (!loaded || stored.dismissed) return null;
+  if (!loaded || stored.dismissed) {
+    return <div aria-hidden="true" className="h-0 min-h-0 w-full" />;
+  }
 
   const tasks = [
     {
@@ -91,17 +94,18 @@ export function ActivationChecklist({
             type="button"
             onClick={() => save({ ...stored, collapsed: !stored.collapsed })}
             aria-expanded={!stored.collapsed}
-            className="grid size-8 place-items-center rounded-full border border-white/10 text-sm text-white/55 transition hover:border-[#ddb159]/35 hover:text-[#ddb159]"
+            className="grid size-11 place-items-center rounded-full border border-white/10 text-white/55 transition hover:border-[#ddb159]/35 hover:text-[#ddb159] sm:size-8"
           >
-            {stored.collapsed ? "+" : "−"}
+            <StockIcon name={stored.collapsed ? "expand" : "collapse"} className="size-4" />
             <span className="sr-only">{stored.collapsed ? "Expand checklist" : "Collapse checklist"}</span>
           </button>
           <button
             type="button"
             onClick={() => save({ ...stored, dismissed: true })}
-            className="grid size-8 place-items-center rounded-full border border-white/10 text-base text-white/55 transition hover:border-[#ddb159]/35 hover:text-[#ddb159]"
+            aria-label="Dismiss checklist"
+            className="grid size-11 place-items-center rounded-full border border-white/10 text-white/55 transition hover:border-[#ddb159]/35 hover:text-[#ddb159] sm:size-8"
           >
-            ×<span className="sr-only">Dismiss checklist</span>
+            <StockIcon name="close" className="size-4" />
           </button>
         </div>
       </div>
@@ -110,8 +114,8 @@ export function ActivationChecklist({
         <div className="grid gap-1.5 border-t border-white/8 p-2 sm:grid-cols-3">
           {tasks.map((task) => (
             <div key={task.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/7 bg-white/[0.035] p-2.5">
-              <span className={`grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-black ${task.complete ? "bg-emerald-500/16 text-emerald-300" : "bg-[#ddb159]/12 text-[#ddb159]"}`}>
-                {task.complete ? "✓" : "·"}
+              <span className={`grid size-7 shrink-0 place-items-center rounded-full ${task.complete ? "bg-emerald-500/16 text-emerald-300" : "bg-[#ddb159]/12 text-[#ddb159]"}`}>
+                {task.complete ? <StockIcon name="check" className="size-4" /> : <span className="size-1.5 rounded-full bg-current" />}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-[10px] font-black leading-4 text-white sm:text-[11px]">{task.title}</p>

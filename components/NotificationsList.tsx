@@ -103,7 +103,7 @@ function NotificationCard({
 
           <div className="mt-2 rounded-lg border border-[#072116]/10 bg-white/70 px-3 py-2">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/45">
-              ✦ AI Recommendation
+              AI Recommendation
             </p>
             <p className="mt-0.5 text-[12px] font-bold text-[#072116]/85">
               {notification.recommendation}
@@ -173,7 +173,7 @@ export function NotificationsList({
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-              ✦ AI Notifications
+              AI Notifications
             </p>
             <h1 className="mt-1 text-[28px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0]">
               {unread.length === 0

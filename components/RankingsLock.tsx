@@ -23,7 +23,7 @@ export function RankingsLock({
       <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#faf6f0]/18 px-4 backdrop-blur-[1px]">
         <div className="max-w-[320px] rounded-2xl border border-[#ddb159]/40 bg-[#072116]/92 px-5 py-4 text-center text-[#faf6f0] shadow-[0_18px_46px_rgba(0,0,0,0.38)]">
           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-            ✦ Core Rankings
+            Core Rankings
           </p>
 
           <h3 className="mt-1.5 text-[18px] font-black leading-tight tracking-[-0.03em]">

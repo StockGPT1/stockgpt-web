@@ -89,7 +89,7 @@ export default async function LegalPage() {
             href="/"
             className="text-sm font-black uppercase tracking-[0.18em] text-[#ddb159]"
           >
-            ✦ StockGPT, LLC
+            StockGPT, LLC
           </Link>
 
           <nav className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/58 sm:text-xs">

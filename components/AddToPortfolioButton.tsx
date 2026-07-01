@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { ManualPortfolioEntry } from "@/components/ManualPortfolioEntry";
 import { MobileSheet } from "@/components/MobileSheet";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
+import { StockIcon } from "@/components/StockIcon";
 
 type PortfolioOption = {
   id: string;
@@ -77,8 +78,8 @@ export function AddToPortfolioButton({
     if (success) {
       return (
         <div className="rounded-3xl border border-emerald-300/25 bg-emerald-300/10 p-5 text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-full bg-emerald-300/15 text-2xl text-emerald-300">
-            ✓
+          <div className="mx-auto grid size-12 place-items-center rounded-full bg-emerald-300/15 text-emerald-300">
+            <StockIcon name="check" className="size-6" />
           </div>
           <h3 className="mt-4 text-[24px] font-black tracking-[-0.04em] text-[#faf6f0]">
             {success.updatedExisting ? `${upperTicker} updated.` : `${upperTicker} added.`}
@@ -183,6 +184,7 @@ export function AddToPortfolioButton({
       <button
         type="button"
         onClick={openFlow}
+        aria-haspopup="dialog"
         className="inline-flex min-h-11 max-w-full items-center justify-center rounded-full border border-[#ddb159]/40 bg-[#ddb159]/12 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] shadow-[0_10px_24px_rgba(0,0,0,0.16)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 hover:bg-[#ddb159]/18 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] disabled:text-[#ddb159]/60"
       >
         Add to portfolio
@@ -210,7 +212,7 @@ export function AddToPortfolioButton({
                   <button
                     type="button"
                     onClick={close}
-                    className="absolute right-4 top-4 z-10 min-h-10 rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] px-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+                    className="absolute right-4 top-4 z-10 min-h-11 rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] px-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
                   >
                     Close
                   </button>

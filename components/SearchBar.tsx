@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StockLogo } from "@/components/StockLogo";
+import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
 type StockSearchResult = {
   ticker: string;
@@ -18,7 +19,7 @@ type FeatureSearchResult = {
   description: string;
   href: string;
   keywords: string[];
-  icon: string;
+  icon: StockIconName;
 };
 
 type SearchItem =
@@ -40,7 +41,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Dashboard",
     description: "Market overview, top ranked stocks, movers and alerts.",
     href: "/dashboard",
-    icon: "▦",
+    icon: "dashboard",
     keywords: ["dashboard", "home", "overview", "market", "summary"],
   },
   {
@@ -48,7 +49,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Rankings",
     description: "Full ranked stock table and model scores.",
     href: "/rankings",
-    icon: "♛",
+    icon: "rankings",
     keywords: ["rankings", "ranking", "stocks", "table", "score", "scores"],
   },
   {
@@ -56,7 +57,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Portfolio",
     description: "Build, import and review your holdings.",
     href: "/portfolio",
-    icon: "✦",
+    icon: "portfolio",
     keywords: ["portfolio", "holdings", "positions", "import", "csv", "trading 212"],
   },
   {
@@ -64,7 +65,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Watchlist",
     description: "Track stocks you want to monitor.",
     href: "/watchlist",
-    icon: "☆",
+    icon: "watchlist",
     keywords: ["watchlist", "watch", "saved", "track", "tracking"],
   },
   {
@@ -72,7 +73,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Ask StockGPT",
     description: "Open the research assistant for stock and market questions.",
     href: "/ask",
-    icon: "◌",
+    icon: "ask",
     keywords: ["ask", "chat", "assistant", "stockgpt", "research assistant"],
   },
   {
@@ -80,7 +81,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Alerts",
     description: "View portfolio, ranking and market alerts.",
     href: "/notifications",
-    icon: "◐",
+    icon: "alerts",
     keywords: ["alerts", "notifications", "notification", "changes"],
   },
   {
@@ -88,7 +89,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "World News",
     description: "Market news connected to stocks, sectors and events.",
     href: "/world-news",
-    icon: "◈",
+    icon: "news",
     keywords: ["news", "world news", "headlines", "market news", "events"],
   },
   {
@@ -96,7 +97,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Settings",
     description: "Account, theme, digest and security preferences.",
     href: "/settings",
-    icon: "⚙",
+    icon: "settings",
     keywords: ["settings", "account", "theme", "light mode", "dark mode", "preferences"],
   },
   {
@@ -104,7 +105,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     label: "Subscription",
     description: "Billing, plan and Core access details.",
     href: "/subscription",
-    icon: "£",
+    icon: "portfolio",
     keywords: ["subscription", "billing", "plan", "core", "payment", "stripe"],
   },
 ];
@@ -191,16 +192,20 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(RECENT_KEY);
+    const timeout = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(RECENT_KEY);
 
-      if (raw) {
-        const parsed = JSON.parse(raw) as StockSearchResult[];
-        setRecents(
-          parsed.map((item) => cleanResultForAccess(item, showRankingData)),
-        );
-      }
-    } catch {}
+        if (raw) {
+          const parsed = JSON.parse(raw) as StockSearchResult[];
+          setRecents(
+            parsed.map((item) => cleanResultForAccess(item, showRankingData)),
+          );
+        }
+      } catch {}
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
   }, [showRankingData]);
 
   useEffect(() => {
@@ -230,10 +235,12 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     const trimmed = query.trim();
 
     if (!trimmed) {
-      setResults([]);
-      setLoading(false);
-      setActive(-1);
-      return;
+      const timeout = window.setTimeout(() => {
+        setResults([]);
+        setLoading(false);
+        setActive(-1);
+      }, 0);
+      return () => window.clearTimeout(timeout);
     }
 
     const cacheKey = getSearchCacheKey(trimmed, showRankingData);
@@ -241,21 +248,23 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     const sessionHit = readSessionSearchCache(cacheKey);
 
     if (memoryHit) {
-      setResults(memoryHit);
-      setLoading(false);
-      setActive(-1);
-      return;
+      const timeout = window.setTimeout(() => {
+        setResults(memoryHit);
+        setLoading(false);
+        setActive(-1);
+      }, 0);
+      return () => window.clearTimeout(timeout);
     }
 
     if (sessionHit) {
       memorySearchCache.set(cacheKey, sessionHit);
-      setResults(sessionHit);
-      setLoading(false);
-      setActive(-1);
-      return;
+      const timeout = window.setTimeout(() => {
+        setResults(sessionHit);
+        setLoading(false);
+        setActive(-1);
+      }, 0);
+      return () => window.clearTimeout(timeout);
     }
-
-    setLoading(true);
 
     const controller = new AbortController();
 
@@ -369,8 +378,6 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     }
   }
 
-  let runningIndex = -1;
-
   return (
     <div ref={wrapRef} className="sg-search-root relative mx-auto w-full max-w-[560px]">
       <div className="sg-search-shell flex h-10 items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5">
@@ -378,8 +385,10 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
           ref={inputRef}
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value);
+            const value = e.target.value;
+            setQuery(value);
             setOpen(true);
+            setLoading(Boolean(value.trim()));
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
@@ -395,6 +404,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             onClick={() => {
               setQuery("");
               setResults([]);
+              setLoading(false);
               setActive(-1);
               inputRef.current?.focus();
             }}
@@ -458,10 +468,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
           )}
 
           {!loading &&
-            stockList.map((item) => {
-              runningIndex += 1;
-              const index = runningIndex;
-
+            stockList.map((item, index) => {
               return (
                 <button
                   key={`stock-${item.ticker}`}
@@ -512,10 +519,8 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             </div>
           )}
 
-          {featureList.map((item) => {
-            runningIndex += 1;
-            const index = runningIndex;
-
+          {featureList.map((item, featureIndex) => {
+            const index = stockList.length + featureIndex;
             return (
               <button
                 key={`feature-${item.id}`}
@@ -527,7 +532,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
                 ].join(" ")}
               >
                 <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[#ddb159]/25 bg-[#072116] text-base text-[#ddb159]">
-                  {item.icon}
+                  <StockIcon name={item.icon} className="size-[18px]" />
                 </span>
 
                 <div className="min-w-0 flex-1">

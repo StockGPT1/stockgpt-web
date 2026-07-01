@@ -208,7 +208,7 @@ export function PortfolioBuilder({
             className="group min-h-[230px] rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] p-5 text-left text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
           >
             <span className="grid size-11 place-items-center rounded-full bg-[#072116] text-xl text-[#ddb159]">
-              ✦
+              AI
             </span>
             <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#8a641a]">
               Fastest route
@@ -272,7 +272,7 @@ export function PortfolioBuilder({
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
-                  ✦ New AI-generated portfolio
+                  New AI-generated portfolio
                 </p>
 
                 <h1 className="mt-1 text-[25px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[32px]">
@@ -298,7 +298,7 @@ export function PortfolioBuilder({
                   }}
                   className="min-w-0 rounded-full px-4 py-2 text-[11px] font-black transition hover:opacity-90 disabled:opacity-90 sm:px-5 sm:text-[12px]"
                 >
-                  {savedPortfolioId ? "✓ Saved" : isSaving ? "Saving…" : "Save new"}
+                  {savedPortfolioId ? "Saved" : isSaving ? "Saving…" : "Save new"}
                 </button>
 
                 <button
@@ -406,7 +406,7 @@ export function PortfolioBuilder({
 
         <div className="min-w-0 rounded-2xl border border-[#ddb159]/30 bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Investment Strategy
+            AI Investment Strategy
           </p>
           <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#072116]/85 sm:text-[13px]">
             {portfolio.strategy}
@@ -424,7 +424,7 @@ export function PortfolioBuilder({
 
         <div className="min-w-0 rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Sector Allocation
+            AI Sector Allocation
           </p>
           <p className="mt-1 text-[10px] font-semibold text-[#072116]/55 sm:text-[11px]">
             Why each sector is weighted this way
@@ -484,7 +484,7 @@ export function PortfolioBuilder({
 
         <div className="min-w-0 rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Stock Picks
+            AI Stock Research
           </p>
           <p className="mt-1 text-[10px] font-semibold text-[#072116]/55 sm:text-[11px]">
             Sorted by allocation · click any stock for full AI analysis
@@ -596,7 +596,7 @@ export function PortfolioBuilder({
           <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                ✦ AI Portfolio Builder
+                AI Portfolio Builder
               </p>
               <h1 className="mt-1 text-[30px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[36px]">
                 Build a new portfolio in 30 seconds.
@@ -823,7 +823,7 @@ export function PortfolioBuilder({
               </>
             ) : (
               <>
-                ✦ Generate AI Portfolio<span>→</span>
+                Generate AI Portfolio<span>→</span>
               </>
             )}
           </button>

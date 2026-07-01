@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
+import { StockIcon } from "@/components/StockIcon";
 import { StockLogo } from "@/components/StockLogo";
 import {
   addCash,
@@ -1072,7 +1073,7 @@ function EditHoldingModal({
             onClick={onClose}
             className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#072116]/12 text-[18px] font-black text-[#072116]/50 transition hover:bg-white"
           >
-            ×
+            <StockIcon name="close" className="size-4" />
           </button>
         </div>
 

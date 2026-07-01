@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { LandingOfferPopup } from "@/components/marketing/LandingOfferPopup";
+import { StockIcon } from "@/components/StockIcon";
 import {
   AskStockGPTVisual,
   NewsVisual,
@@ -864,7 +865,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                     {pricingFeatures.map((item) => (
                       <div key={item} className="flex items-start gap-3">
                         <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-emerald-500/28 bg-emerald-500/10 text-[11px] text-emerald-700">
-                          ✓
+                          <StockIcon name="check" className="size-3" />
                         </span>
                         <span className="text-sm font-bold leading-6 text-[#0a2d1d]">
                           {item}

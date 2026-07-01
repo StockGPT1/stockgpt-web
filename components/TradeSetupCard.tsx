@@ -295,7 +295,7 @@ function ExplanationPortal({
           <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#ddb159]/14 bg-[#04140c] p-4 pb-3 sm:p-6 sm:pb-4">
             <div className="min-w-0">
               <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[9px]">
-                ✦ Trade Plan Explainer
+                Trade Plan Explainer
               </p>
 
               <h3 className="mt-1 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.04em] sm:text-[24px]">
@@ -381,7 +381,7 @@ export function TradeSetupCard({
       <div className="relative flex min-w-0 items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            ✦ AI Trade Plan
+            AI Trade Plan
           </p>
 
           <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
@@ -552,7 +552,7 @@ export function TradeSetupCard({
           {levels.plan && (
             <div className="relative mt-4 rounded-xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#fdf8ed,#faf6f0)] p-4">
               <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-                ✦ AI Projected Timeline
+                AI Projected Timeline
               </p>
 
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -655,7 +655,7 @@ export function TradeSetupCard({
 
               <div className="mt-4">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-                  ✦ AI Action Plan — If This, Then That
+                  AI Action Plan — If This, Then That
                 </p>
 
                 <div className="mt-2 grid gap-2">
@@ -732,7 +732,7 @@ export function TradeSetupCard({
 
       <div className="relative mt-4">
         <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-          ✦ Built From
+          Built From
         </p>
 
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
