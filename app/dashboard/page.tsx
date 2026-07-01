@@ -17,6 +17,7 @@ import {
 } from "@/lib/rank-history";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { getDashboardMainPortfolio } from "@/lib/dashboard-portfolio";
+import { ActivationChecklist } from "@/components/ActivationChecklist";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -227,8 +228,12 @@ export default async function Home() {
     <AppShell activePath="/dashboard">
       <main className="min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)] lg:gap-3">
-          <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[clamp(118px,17dvh,150px)_clamp(54px,7dvh,62px)_minmax(0,1fr)] lg:overflow-hidden">
+          <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_minmax(0,1fr)] lg:overflow-hidden">
             <WelcomeBanner name={firstName} />
+            <ActivationChecklist
+              planComplete={hasSubscription}
+              portfolioComplete={Boolean(dashboardPortfolio)}
+            />
 
             <div className="grid grid-cols-2 gap-2 lg:min-h-0 lg:grid-cols-4">
               <StatBlock

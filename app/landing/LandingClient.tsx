@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
+import { LandingOfferPopup } from "@/components/marketing/LandingOfferPopup";
 import {
   AskStockGPTVisual,
   NewsVisual,
@@ -219,25 +221,70 @@ function TickerMarquee({ tickerTape }: { tickerTape: LandingTicker[] }) {
   );
 }
 
-function TrustStrip({ stockCountLabel }: { stockCountLabel: string }) {
+function ProofStack({ stockCountLabel }: { stockCountLabel: string }) {
   const items = [
-    `${stockCountLabel} US stocks scanned`,
-    "Research tool, not financial advice",
-    "Account first, subscribe inside",
-    "Cancel anytime",
+    {
+      title: "S&P 500 coverage",
+      copy: `Scans ${stockCountLabel} US stocks so you can start from a structured research list instead of random stock ideas.`,
+    },
+    {
+      title: "Portfolio Drafts",
+      copy: "Build a draft portfolio from your preferences, then review allocation, risk and trade-offs.",
+    },
+    {
+      title: "Trade-plan analysis",
+      copy: "Review possible entry, risk and scenario logic before making your own decision.",
+    },
+    {
+      title: "Research-first design",
+      copy: "Built to help you research before reacting. Educational only. Not financial advice.",
+    },
   ];
 
   return (
-    <div className="mx-auto mt-6 grid max-w-7xl gap-2 px-4 sm:mt-8 sm:grid-cols-4 sm:px-6 lg:px-8">
-      {items.map((item) => (
-        <div
-          key={item}
-          className="rounded-2xl border border-[#dfe5dc] bg-white/86 px-4 py-3 text-center text-[12px] font-black uppercase tracking-[0.08em] text-[#0a2d1d] shadow-[0_10px_30px_rgba(7,27,17,0.045)]"
-        >
-          {item}
+    <section className="mx-auto mt-6 max-w-7xl px-4 sm:mt-8 sm:px-6 lg:px-8" aria-labelledby="proof-stack-title">
+      <div className="rounded-[2rem] border border-[#dfe5dc] bg-white/88 p-4 shadow-[0_18px_55px_rgba(7,27,17,0.06)] sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a6828]">Product proof</p>
+            <h2 id="proof-stack-title" className="sg-heading mt-1 text-3xl font-medium text-[#071b11] sm:text-4xl">
+              A clearer research process, end to end.
+            </h2>
+          </div>
+          <p className="text-[11px] font-bold text-[#66746b]">
+            Account first · a few days free · cancel anytime
+          </p>
         </div>
-      ))}
-    </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {items.map((item) => (
+            <article key={item.title} className="rounded-2xl border border-[#dfe5dc] bg-[#fbfaf6] p-4">
+              <p className="text-sm font-black text-[#0a2d1d]">{item.title}</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#66746b]">{item.copy}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <TrackedLink
+            href="/signup?coupon=50PORTFOLIO2026&source=proof_stack"
+            eventName="proof_stack_cta_clicked"
+            eventProperties={{ destination: "signup" }}
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#0a2d1d] px-6 text-center text-[12px] font-black uppercase tracking-[0.12em] text-white"
+          >
+            Build your first Portfolio Draft
+          </TrackedLink>
+          <TrackedLink
+            href="/demo"
+            eventName="proof_stack_cta_clicked"
+            eventProperties={{ destination: "demo" }}
+            className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#0a2d1d]/18 px-6 text-center text-[12px] font-black uppercase tracking-[0.12em] text-[#0a2d1d]"
+          >
+            Take a 60-second tour
+          </TrackedLink>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -259,7 +306,7 @@ function MobileDemoGroup({
         <h2 className="sg-heading mb-5 text-[34px] font-medium leading-[1.02] text-[#071b11]">
           {title}
         </h2>
-        <div className="grid gap-5">{children}</div>
+        <div className="grid min-w-0 gap-5 [&>*]:min-w-0">{children}</div>
       </div>
     </section>
   );
@@ -656,8 +703,8 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           ].join(" ")}
         >
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
-              <div className="max-w-2xl">
+            <div className="grid min-w-0 gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-center [&>*]:min-w-0">
+              <div className="min-w-0 max-w-2xl">
                 <div className="inline-flex items-center rounded-full border border-[#ddb159]/28 bg-[#fff8e6] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828] sm:text-[11px]">
                   Stock research platform
                 </div>
@@ -675,8 +722,14 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                   to tickers and gives your portfolio a clearer research workflow.
                 </p>
 
-                <div className="mt-7 hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start">
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-start">
                   <SignupButton variant="green">Create free account</SignupButton>
+                  <Link
+                    href="/demo"
+                    className="inline-flex h-14 w-full items-center justify-center rounded-full border border-[#0a2d1d]/18 bg-white px-8 text-sm font-black uppercase tracking-[0.16em] !text-[#0a2d1d] no-underline transition hover:border-[#ddb159] hover:bg-[#fff8e6] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 sm:w-fit"
+                  >
+                    Take the tour
+                  </Link>
                 </div>
 
                 <p className="mt-4 hidden max-w-lg text-xs leading-6 text-[#66746b] sm:block">
@@ -690,7 +743,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </section>
 
-        <TrustStrip stockCountLabel={stockCountLabel} />
+        <ProofStack stockCountLabel={stockCountLabel} />
 
         <div className="mt-8 hidden sm:block">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -973,6 +1026,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
           </div>
         </footer>
       </div>
+      <LandingOfferPopup />
     </main>
   );
 }

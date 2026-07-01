@@ -65,7 +65,6 @@ export async function POST(req: NextRequest) {
         last_name: validated.data.lastName,
         full_name: validated.data.fullName,
         date_of_birth: validated.data.dob,
-        phone: validated.data.phone,
         marketing_consent: validated.data.marketingConsent,
         email_consent: validated.data.emailConsent,
         terms_accepted: validated.data.termsAccepted,

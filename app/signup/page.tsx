@@ -6,6 +6,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { trackClientEvent } from "@/lib/analytics/client-events";
+
+const LAUNCH_COUPON = "50PORTFOLIO2026";
+const SAVED_COUPON_KEY = "stockgpt.savedCoupon";
 
 function ConsentCheckbox({
   id,
@@ -45,7 +49,6 @@ export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -61,6 +64,25 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"info" | "success" | "error">("info");
+  const [offerSaved, setOfferSaved] = useState(false);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const coupon = new URLSearchParams(window.location.search).get("coupon");
+      const savedCoupon = localStorage.getItem(SAVED_COUPON_KEY);
+
+      if (coupon === LAUNCH_COUPON) {
+        localStorage.setItem(SAVED_COUPON_KEY, LAUNCH_COUPON);
+        localStorage.setItem("stockgpt.savedCouponAt", String(Date.now()));
+      }
+
+      // TODO: Pass this saved code into Stripe Checkout once the checkout route
+      // supports safe, server-validated automatic promotion-code application.
+      setOfferSaved(coupon === LAUNCH_COUPON || savedCoupon === LAUNCH_COUPON);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -77,6 +99,7 @@ export default function SignupPage() {
   async function signUp() {
     if (loading) return;
 
+    trackClientEvent("signup_started", { coupon_saved: offerSaved });
     setLoading(true);
     setMessage("");
     setMessageTone("info");
@@ -91,7 +114,6 @@ export default function SignupPage() {
           firstName,
           lastName,
           dob,
-          phone,
           email,
           password,
           marketingConsent,
@@ -236,6 +258,12 @@ export default function SignupPage() {
           </div>
 
           <div className="min-w-0">
+            {offerSaved && !sent && (
+              <div className="mb-3 rounded-2xl border border-[#ddb159]/25 bg-[#ddb159]/10 px-4 py-3 text-[11px] font-bold leading-5 text-[#f6e7bf]">
+                Offer saved: 50% off your first month after your free trial.
+              </div>
+            )}
+
             {sent ? (
               <div className="space-y-3">
                 <div className="rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/55 p-4 text-center sm:text-left">
@@ -332,34 +360,18 @@ export default function SignupPage() {
                   </label>
                 </div>
 
-                <div className="grid w-full min-w-0 gap-2.5 sm:grid-cols-2 lg:gap-2">
-                  <label className="block min-w-0">
-                    <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/85 sm:text-[10px]">
-                      Date of birth
-                    </span>
-                    <input
-                      className="block h-10 w-full min-w-0 appearance-none rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-3 text-[13px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:px-4 sm:text-[14px] lg:h-9"
-                      type="date"
-                      value={dob}
-                      autoComplete="bday"
-                      onChange={(e) => setDob(e.target.value)}
-                    />
-                  </label>
-
-                  <label className="block min-w-0">
-                    <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/85 sm:text-[10px]">
-                      Phone
-                    </span>
-                    <input
-                      className="block h-10 w-full min-w-0 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] lg:h-9"
-                      placeholder="Optional"
-                      value={phone}
-                      maxLength={25}
-                      autoComplete="tel"
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </label>
-                </div>
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159]/85 sm:text-[10px]">
+                    Date of birth
+                  </span>
+                  <input
+                    className="block h-10 w-full min-w-0 appearance-none rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/75 px-3 text-[13px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-[#faf6f0]/35 focus:border-[#ddb159]/70 focus:bg-[#04180f] sm:px-4 sm:text-[14px] lg:h-9"
+                    type="date"
+                    value={dob}
+                    autoComplete="bday"
+                    onChange={(e) => setDob(e.target.value)}
+                  />
+                </label>
 
                 <div className="grid w-full min-w-0 gap-2.5 sm:grid-cols-2 lg:gap-2">
                   <label className="block min-w-0">
