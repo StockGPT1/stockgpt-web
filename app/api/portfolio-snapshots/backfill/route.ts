@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  buildPortfolioSnapshotChartDataFromRows,
   getFirstLiveSnapshotMs,
   isHistoricalSnapshotSource,
   savePortfolioSnapshotsFromChartData,
+  type PortfolioSnapshotRow,
 } from "@/lib/portfolio-snapshots";
+import { assessPortfolioChartHealth } from "@/lib/portfolio-chart-health";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
@@ -48,6 +51,11 @@ type SnapshotRow = {
   portfolio_id: string;
   source: string | null;
   snapshot_at: string | null;
+  value: number | string | null;
+  cash: number | string | null;
+  basis: number | string | null;
+  pnl: number | string | null;
+  pnl_pct: number | string | null;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -64,14 +72,28 @@ function groupByPortfolio<T extends { portfolio_id: string }>(rows: T[]) {
   }, new Map<string, T[]>());
 }
 
-function portfolioHasHistoricalBackfill(rows: SnapshotRow[]) {
-  return rows.some((row) => isHistoricalSnapshotSource(row.source));
-}
-
 function backfillCutoff(rows: SnapshotRow[]) {
   const firstLiveMs = getFirstLiveSnapshotMs(rows);
   const cutoffMs = firstLiveMs ?? Date.now() - Math.max(0, BACKFILL_LIVE_BUFFER_MS);
   return new Date(cutoffMs).toISOString();
+}
+
+function needsBackfill(portfolio: PortfolioRow, rows: SnapshotRow[]) {
+  if (!rows.some((row) => isHistoricalSnapshotSource(row.source))) return true;
+
+  const chartBuild = buildPortfolioSnapshotChartDataFromRows({
+    rows: rows as PortfolioSnapshotRow[],
+    portfolioCreatedAt: portfolio.created_at ?? null,
+    requireLatestInputCoverage: false,
+  });
+  const health = assessPortfolioChartHealth({
+    portfolioCreatedAt: portfolio.created_at ?? null,
+    snapshotRows: rows,
+    chartData: chartBuild?.chartData ?? {},
+    summary: { holdingsCount: 1, totalValue: 1 },
+  });
+
+  return health.status !== "healthy";
 }
 
 async function runSequentially<T>(items: T[], fn: (item: T) => Promise<boolean>) {
@@ -127,7 +149,7 @@ export async function GET(req: NextRequest) {
 
   const { data: snapshotRows, error: snapshotError } = await supabase
     .from("portfolio_snapshots")
-    .select("portfolio_id,source,snapshot_at")
+    .select("portfolio_id,source,snapshot_at,value,cash,basis,pnl,pnl_pct")
     .in("portfolio_id", candidateIds)
     .order("snapshot_at", { ascending: false })
     .limit(10_000);
@@ -138,7 +160,7 @@ export async function GET(req: NextRequest) {
 
   const snapshotsByPortfolio = groupByPortfolio((snapshotRows ?? []) as SnapshotRow[]);
   const selected = candidates
-    .filter((portfolio) => requestedPortfolioId || !portfolioHasHistoricalBackfill(snapshotsByPortfolio.get(portfolio.id) ?? []))
+    .filter((portfolio) => requestedPortfolioId || needsBackfill(portfolio, snapshotsByPortfolio.get(portfolio.id) ?? []))
     .slice(0, Math.max(1, backfillLimit));
 
   const selectedIds = selected.map((portfolio) => portfolio.id);

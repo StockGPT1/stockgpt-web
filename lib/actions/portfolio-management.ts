@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import type { Portfolio } from "@/lib/portfolio";
+import { invalidatePortfolioPageSnapshot } from "@/lib/portfolio-speed-cache";
+import {
+  buildCurrentPortfolioSnapshotPoint,
+  buildMinimalCurrentChartData,
+  saveLatestPortfolioSnapshotFromChartData,
+} from "@/lib/portfolio-snapshots";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -19,6 +25,18 @@ type PortfolioRecord = {
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
   currency?: string | null;
+};
+
+type PortfolioBalanceRow = Pick<
+  PortfolioRecord,
+  "cash_balance" | "cash_deposited_total"
+>;
+
+type PortfolioHoldingTradeRow = {
+  shares?: number | null;
+  entry_price?: number | null;
+  purchase_date?: string | null;
+  notes?: string | null;
 };
 
 type ParsedCsvRow = Record<string, string>;
@@ -391,7 +409,7 @@ function parseTrading212Holdings(csvText: string): ParsedHolding[] {
 
     let shares = Math.abs(parseFlexibleNumber(shareValue));
     const price = Math.abs(parseFlexibleNumber(priceValue));
-    let value = Math.abs(parseFlexibleNumber(totalValue));
+    const value = Math.abs(parseFlexibleNumber(totalValue));
     const purchaseDate = parsePossibleDate(dateValue);
 
     if (shares <= 0 && price > 0 && value > 0) {
@@ -606,8 +624,9 @@ async function recalculatePortfolioTotals(
     0,
   );
 
-  const currentCash = moneyNumber((portfolio as any)?.cash_balance);
-  const currentDeposited = moneyNumber((portfolio as any)?.cash_deposited_total);
+  const balance = portfolio as PortfolioBalanceRow | null;
+  const currentCash = moneyNumber(balance?.cash_balance);
+  const currentDeposited = moneyNumber(balance?.cash_deposited_total);
   const minimumDeposited = currentCash + holdingsCost;
 
   const nextDeposited = options.ensureDepositedCoversCurrentValue
@@ -633,6 +652,77 @@ function revalidatePortfolio(portfolioId?: string | null) {
 
 function revalidateStock(ticker: string) {
   revalidatePath(`/stock/${cleanTicker(ticker)}`);
+}
+
+async function markPortfolioChartInputsChanged({
+  supabase,
+  portfolioId,
+  userId,
+  writeCurrentSnapshot = true,
+}: {
+  supabase: SupabaseClient;
+  portfolioId: string;
+  userId: string;
+  writeCurrentSnapshot?: boolean;
+}) {
+  await invalidatePortfolioPageSnapshot({ portfolioId, ownerId: userId });
+
+  if (!writeCurrentSnapshot) return;
+
+  try {
+    const [{ data: portfolio }, { data: holdings }] = await Promise.all([
+      supabase
+        .from("user_portfolios")
+        .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
+        .eq("id", portfolioId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("portfolio_holdings")
+        .select("ticker,shares,entry_price,purchase_date,added_at")
+        .eq("portfolio_id", portfolioId)
+        .not("ticker", "is", null),
+    ]);
+
+    if (!portfolio) return;
+
+    const holdingRows = (holdings ?? []) as Array<{
+      ticker: string | null;
+      shares: number | null;
+      entry_price: number | null;
+      purchase_date?: string | null;
+      added_at?: string | null;
+    }>;
+    const tickers = Array.from(new Set(holdingRows.map((holding) => cleanTicker(holding.ticker ?? "")).filter(Boolean)));
+    const { data: currentRows } =
+      tickers.length > 0
+        ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+        : { data: [] };
+    const currentPrices = Object.fromEntries(
+      ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
+        .map((row) => [cleanTicker(row.ticker ?? ""), moneyNumber(row.price)] as const)
+        .filter(([ticker, price]) => Boolean(ticker) && price > 0),
+    );
+    const point = buildCurrentPortfolioSnapshotPoint({
+      portfolio: portfolio as {
+        cash_balance?: number | null;
+        cash_deposited_total?: number | null;
+        investment_amount?: number | null;
+      },
+      holdings: holdingRows,
+      currentPrices,
+    });
+
+    await saveLatestPortfolioSnapshotFromChartData({
+      supabase,
+      portfolioId,
+      userId,
+      chartData: buildMinimalCurrentChartData(point),
+      source: "page_current_value",
+    });
+  } catch (error) {
+    console.warn("[portfolio-chart-repair] mutation current snapshot failed", error);
+  }
 }
 
 async function prepareTrading212Import(
@@ -948,6 +1038,7 @@ export async function importTrading212Csv(
       ensureDepositedCoversCurrentValue: true,
     });
 
+    await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
     revalidatePortfolio(portfolio.id);
 
     for (const holding of prepared.holdingsToInsert) {
@@ -1018,6 +1109,7 @@ export async function addCash(
     notes: "Cash added manually.",
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   return { success: true };
 }
@@ -1132,6 +1224,7 @@ export async function savePortfolio(
       : "New AI portfolio created.",
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId, userId: user.id });
   revalidatePortfolio(portfolioId);
 
   for (const holding of portfolio.holdings) {
@@ -1380,6 +1473,12 @@ export async function renamePortfolio(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: input.portfolioId,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio(input.portfolioId);
   return { success: true };
 }
@@ -1470,6 +1569,7 @@ export async function logExistingHolding(
     ensureDepositedCoversCurrentValue: true,
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1545,8 +1645,9 @@ export async function buyHoldingWithCash(
     .eq("ticker", upperTicker)
     .maybeSingle();
 
-  const oldShares = moneyNumber((existingHolding as any)?.shares);
-  const oldEntryPrice = moneyNumber((existingHolding as any)?.entry_price);
+  const existingTrade = existingHolding as PortfolioHoldingTradeRow | null;
+  const oldShares = moneyNumber(existingTrade?.shares);
+  const oldEntryPrice = moneyNumber(existingTrade?.entry_price);
   const oldCost = oldShares * oldEntryPrice;
   const newCost = input.dollarAmount;
   const nextShares = roundShares(oldShares + boughtShares);
@@ -1565,9 +1666,9 @@ export async function buyHoldingWithCash(
       rank_at_entry: stock.rank,
       last_reviewed_at: now,
       purchase_date:
-        (existingHolding as any)?.purchase_date ?? input.purchaseDate ?? null,
+        existingTrade?.purchase_date ?? input.purchaseDate ?? null,
       source: "cash",
-      notes: input.notes ?? (existingHolding as any)?.notes ?? null,
+      notes: input.notes ?? existingTrade?.notes ?? null,
     },
     { onConflict: "portfolio_id,ticker" },
   );
@@ -1598,6 +1699,7 @@ export async function buyHoldingWithCash(
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1668,6 +1770,7 @@ export async function updateHoldingDetails(
     ensureDepositedCoversCurrentValue: true,
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1706,8 +1809,9 @@ export async function trimHolding(
 
   const stock = await getStock(supabase, upperTicker);
 
-  const currentShares = moneyNumber((holding as any).shares);
-  const entryPrice = moneyNumber((holding as any).entry_price);
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
+  const currentShares = moneyNumber(tradeHolding.shares);
+  const entryPrice = moneyNumber(tradeHolding.entry_price);
   const sellPrice = moneyNumber(stock?.price, entryPrice);
 
   if (currentShares <= 0 || sellPrice <= 0) {
@@ -1769,6 +1873,7 @@ export async function trimHolding(
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1835,6 +1940,7 @@ export async function removeHolding(
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1867,6 +1973,12 @@ export async function markReviewed(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: portfolio.id,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1904,6 +2016,12 @@ export async function deletePortfolio(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: portfolio.id,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio();
 
   for (const ticker of tickers) {
@@ -1973,13 +2091,14 @@ export async function updateEntryPrice(
 
   if (!holding) return { success: false, error: "Holding not found." };
 
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
   return updateHoldingDetails({
     portfolioId: portfolio.id,
     ticker: upperTicker,
-    shares: moneyNumber((holding as any).shares),
+    shares: moneyNumber(tradeHolding.shares),
     entryPrice: newPrice,
-    purchaseDate: (holding as any).purchase_date ?? null,
-    notes: (holding as any).notes ?? null,
+    purchaseDate: tradeHolding.purchase_date ?? null,
+    notes: tradeHolding.notes ?? null,
   });
 }
 
@@ -2010,12 +2129,13 @@ export async function updateShares(
 
   if (!holding) return { success: false, error: "Holding not found." };
 
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
   return updateHoldingDetails({
     portfolioId: portfolio.id,
     ticker: upperTicker,
     shares: newShares,
-    entryPrice: moneyNumber((holding as any).entry_price),
-    purchaseDate: (holding as any).purchase_date ?? null,
-    notes: (holding as any).notes ?? null,
+    entryPrice: moneyNumber(tradeHolding.entry_price),
+    purchaseDate: tradeHolding.purchase_date ?? null,
+    notes: tradeHolding.notes ?? null,
   });
 }

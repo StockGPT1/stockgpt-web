@@ -1,4 +1,9 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import {
+  assessPortfolioChartHealth,
+  emptyPortfolioChartHealth,
+  type PortfolioChartMeta,
+} from "@/lib/portfolio-chart-health";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
 import {
@@ -8,7 +13,7 @@ import {
 import {
   buildCurrentPortfolioSnapshotPoint,
   buildMinimalCurrentChartData,
-  getPortfolioSnapshotChartData,
+  getPortfolioSnapshotChartDataWithHealth,
   latestPortfolioInputChangeMs,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
@@ -42,6 +47,11 @@ type TransactionLike = {
   currency?: string | null;
   notes?: string | null;
   created_at?: string | null;
+};
+
+export type PortfolioPageChartResult = {
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  meta: PortfolioChartMeta;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -100,9 +110,42 @@ export async function buildPortfolioPageChart({
   summary: PortfolioHealthSummary;
   ownerId?: string | null;
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
+  return (
+    await buildPortfolioPageChartResult({
+      portfolio,
+      enriched,
+      transactions,
+      summary,
+      ownerId,
+    })
+  ).chartData;
+}
+
+export async function buildPortfolioPageChartResult({
+  portfolio,
+  enriched,
+  transactions,
+  summary,
+  ownerId,
+}: {
+  portfolio: PortfolioLike;
+  enriched: EnrichedHolding[];
+  transactions: TransactionLike[];
+  summary: PortfolioHealthSummary;
+  ownerId?: string | null;
+}): Promise<PortfolioPageChartResult> {
   if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
     const cachedChart = await getLatestPortfolioChart({ portfolioId: portfolio.id, summary });
-    if (cachedChart) return cachedChart;
+    if (cachedChart) {
+      const health = assessPortfolioChartHealth({
+        portfolioCreatedAt: portfolio.created_at ?? null,
+        chartData: cachedChart,
+        summary,
+      });
+      if (health.displayable) {
+        return { chartData: cachedChart, meta: { source: "cached-good", health } };
+      }
+    }
   }
 
   const supabase = createAdminClient();
@@ -115,32 +158,88 @@ export async function buildPortfolioPageChart({
   });
 
   if (resolvedOwnerId) {
-    const snapshotChartData = await getPortfolioSnapshotChartData({
+    const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
       supabase,
       portfolioId: portfolio.id,
       userId: resolvedOwnerId,
       portfolioCreatedAt: portfolio.created_at ?? null,
       latestInputMs,
+      summary,
     });
 
-    if (snapshotChartData) {
+    if (snapshotChart?.health.displayable) {
       if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
         await saveLatestPortfolioChart({
           portfolioId: portfolio.id,
           summary,
-          chartData: snapshotChartData,
+          chartData: snapshotChart.chartData,
         });
       }
 
-      return snapshotChartData;
+      return {
+        chartData: snapshotChart.chartData,
+        meta: {
+          source: "snapshots",
+          health: snapshotChart.health,
+        },
+      };
+    }
+
+    if (snapshotChart) {
+      void writeCurrentSnapshotSeed({
+        supabase,
+        portfolio,
+        enriched,
+        resolvedOwnerId,
+      });
+      return { chartData: {}, meta: { source: "building", health: snapshotChart.health } };
     }
   }
 
+  if ((summary.holdingsCount ?? 0) <= 0 && summary.totalValue <= 0.01) {
+    return {
+      chartData: {},
+      meta: { source: "empty", health: emptyPortfolioChartHealth() },
+    };
+  }
+
+  const currentChart = await writeCurrentSnapshotSeed({
+    supabase,
+    portfolio,
+    enriched,
+    resolvedOwnerId,
+  });
+  const health = assessPortfolioChartHealth({
+    portfolioCreatedAt: portfolio.created_at ?? null,
+    latestInputMs,
+    chartData: currentChart,
+    summary,
+  });
+
+  return {
+    chartData: {},
+    meta: { source: "building", health },
+  };
+}
+
+async function writeCurrentSnapshotSeed({
+  supabase,
+  portfolio,
+  enriched,
+  resolvedOwnerId,
+}: {
+  supabase: ReturnType<typeof createAdminClient>;
+  portfolio: PortfolioLike;
+  enriched: EnrichedHolding[];
+  resolvedOwnerId: string | null;
+}) {
   const currentPoint = buildCurrentPortfolioSnapshotPoint({
     portfolio: {
       cash_balance: portfolio.cash_balance,
+      cash_deposited_total: portfolio.cash_deposited_total,
+      investment_amount: portfolio.investment_amount,
     },
-    holdings: snapshotHoldings,
+    holdings: holdingsForSnapshots(enriched),
     currentPrices: Object.fromEntries(
       enriched.map((holding) => [holding.ticker, toNumber(holding.currentPrice, 0)]),
     ),
