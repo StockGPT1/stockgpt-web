@@ -11,6 +11,7 @@ import {
   type ManualBuilderStockOption,
 } from "@/components/ManualPortfolioBuilder";
 import { Trading212PortfolioCreator } from "@/components/Trading212PortfolioCreator";
+import type { SupportedCurrency } from "@/lib/currency";
 
 type ExistingPortfolio = {
   id: string;
@@ -21,6 +22,8 @@ type Props = {
   existingPortfolios?: ExistingPortfolio[];
   stockOptions?: ManualBuilderStockOption[];
   initialMode?: "choice" | "ai" | "manual";
+  displayCurrency?: SupportedCurrency;
+  usdToDisplayRate?: number;
 };
 
 type CreationMode = "choice" | "ai" | "existing" | "manual" | "csv";
@@ -101,6 +104,8 @@ export function PortfolioBuilder({
   existingPortfolios = [],
   stockOptions = [],
   initialMode = "choice",
+  displayCurrency = "USD",
+  usdToDisplayRate = 1,
 }: Props) {
   const router = useRouter();
   const [creationMode, setCreationMode] = useState<CreationMode>(initialMode);
@@ -178,6 +183,8 @@ export function PortfolioBuilder({
       <ManualPortfolioBuilder
         stockOptions={stockOptions}
         existingCount={existingPortfolios.length}
+        displayCurrency={displayCurrency}
+        usdToDisplayRate={usdToDisplayRate}
         onBack={() => setCreationMode("existing")}
       />
     );

@@ -85,6 +85,28 @@ a[href]:focus-visible,
   outline-offset: 2px;
 }
 
+@media (min-width: 1024px) {
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] {
+    grid-template-columns:
+      minmax(230px, 1.55fr)
+      minmax(96px, 112px)
+      minmax(112px, 130px)
+      minmax(76px, 92px)
+      minmax(104px, 120px)
+      minmax(112px, 124px) !important;
+  }
+
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] > div:last-child {
+    justify-content: flex-end;
+  }
+
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] > div:last-child > button {
+    min-width: 104px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 .font-luxury,
 .luxury-heading,
 h1,

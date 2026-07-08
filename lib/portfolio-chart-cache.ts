@@ -8,7 +8,7 @@ const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v8";
+const PORTFOLIO_CHART_CACHE_VERSION = "v9";
 const MIN_PORTFOLIO_1D_POINTS = Number(process.env.MIN_PORTFOLIO_1D_POINTS ?? 6);
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
@@ -50,6 +50,7 @@ function normaliseSummary(summary: SummaryLike) {
 function hasUsableOneDayChart(chartData: PortfolioChartData) {
   const oneDayPoints = chartData["1D"] ?? [];
   if (oneDayPoints.length === 0) return true;
+  if (oneDayPoints.some((point) => point.synthetic)) return oneDayPoints.length >= 2;
   return oneDayPoints.length >= MIN_PORTFOLIO_1D_POINTS;
 }
 

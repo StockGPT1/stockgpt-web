@@ -7,6 +7,7 @@ import {
   createManualPortfolio,
   type ManualPortfolioHoldingInput,
 } from "@/lib/actions/portfolio-management";
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/currency";
 
 export type ManualBuilderStockOption = {
   ticker: string;
@@ -40,6 +41,13 @@ const emptyHolding = (): HoldingForm => ({
   notes: "",
 });
 
+const CURRENCY_LABELS: Record<SupportedCurrency, string> = {
+  USD: "USD · US dollars",
+  GBP: "GBP · British pounds",
+  EUR: "EUR · Euros",
+  CHF: "CHF · Swiss francs",
+};
+
 function money(value: number, currency = "USD") {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -55,16 +63,21 @@ function normaliseTicker(value: string) {
 export function ManualPortfolioBuilder({
   stockOptions,
   existingCount,
+  displayCurrency = "USD",
+  usdToDisplayRate = 1,
   onBack,
 }: {
   stockOptions: ManualBuilderStockOption[];
   existingCount: number;
+  displayCurrency?: SupportedCurrency;
+  usdToDisplayRate?: number;
   onBack: () => void;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState(`Manual Portfolio ${existingCount + 1}`);
-  const [currency] = useState<"USD">("USD");
+  const currency = displayCurrency;
+  const inputRate = Number.isFinite(usdToDisplayRate) && usdToDisplayRate > 0 ? usdToDisplayRate : 1;
   const [startingCash, setStartingCash] = useState("0");
   const [goal, setGoal] = useState<Goal>("balanced");
   const [holdings, setHoldings] = useState<DraftHolding[]>([]);
@@ -237,13 +250,13 @@ export function ManualPortfolioBuilder({
     startSaving(async () => {
       const result = await createManualPortfolio({
         name,
-        currency,
-        startingCash: summary.cash,
+        currency: "USD",
+        startingCash: summary.cash / inputRate,
         goal,
         holdings: holdings.map((holding) => ({
           ticker: holding.ticker,
           shares: holding.shares,
-          averagePrice: holding.averagePrice,
+          averagePrice: holding.averagePrice / inputRate,
           purchaseDate: holding.purchaseDate,
           notes: holding.notes,
         })),
@@ -320,10 +333,14 @@ export function ManualPortfolioBuilder({
                     disabled
                     className="h-12 w-full rounded-2xl border-2 border-[#072116]/10 bg-[#f2eee5] px-4 text-[14px] font-black text-[#072116]/70"
                   >
-                    <option value="USD">USD · US dollars</option>
+                    {SUPPORTED_CURRENCIES.map((option) => (
+                      <option key={option} value={option}>
+                        {CURRENCY_LABELS[option]}
+                      </option>
+                    ))}
                   </select>
                   <p className="mt-1 text-[10px] font-semibold text-[#072116]/45">
-                    StockGPT’s current ranked-stock price feed uses USD.
+                    Values are shown in your selected currency and saved in USD for reliable portfolio maths.
                   </p>
                 </label>
 

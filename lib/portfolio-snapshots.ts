@@ -430,6 +430,54 @@ function bucketPoints({
   ]);
 }
 
+function clonePointAtMs<T extends SnapshotChartPoint>(point: T, ms: number): T {
+  return {
+    ...point,
+    date: new Date(ms).toISOString(),
+    synthetic: true,
+  };
+}
+
+function cloneNormalisedPointAtMs(point: NormalisedSnapshotPoint, ms: number): NormalisedSnapshotPoint {
+  return {
+    ...point,
+    ms,
+    date: new Date(ms).toISOString(),
+    source: "synthetic_anchor",
+    sourceKind: "live",
+    synthetic: true,
+  };
+}
+
+function ensureOneDayCoverage<T extends SnapshotChartPoint>({
+  points,
+  rangeStartMs,
+}: {
+  points: T[];
+  rangeStartMs: number;
+}) {
+  const first = points[0];
+  if (!first) return points;
+
+  const firstMs = pointMs(first);
+  if (firstMs == null || firstMs <= rangeStartMs + ONE_HOUR_MS) return points;
+
+  return [clonePointAtMs(first, rangeStartMs), ...points];
+}
+
+function ensureOneDayNormalisedCoverage({
+  points,
+  rangeStartMs,
+}: {
+  points: NormalisedSnapshotPoint[];
+  rangeStartMs: number;
+}) {
+  const first = points[0];
+  if (!first || first.ms <= rangeStartMs + ONE_HOUR_MS) return points;
+
+  return [cloneNormalisedPointAtMs(first, rangeStartMs), ...points];
+}
+
 function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
   return points.map((point) => ({
     date: point.date,
@@ -438,6 +486,7 @@ function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
     basis: point.basis,
     pnl: point.pnl,
     pnlPct: point.pnlPct,
+    ...(point.synthetic ? { synthetic: true } : {}),
   }));
 }
 
@@ -500,20 +549,24 @@ function snapshotsToChartData({
         range === "1D"
           ? sourcePoints.filter((point) => point.sourceKind === "live")
           : sourcePoints;
+      const displayPoints =
+        range === "1D"
+          ? ensureOneDayNormalisedCoverage({ points: coveredPoints, rangeStartMs })
+          : coveredPoints;
 
-      if (coveredPoints.length <= 1) return acc;
-      if (!hasRangeCoverage({ range, points: coveredPoints, rangeStartMs, portfolioStartMs })) {
+      if (displayPoints.length <= 1) return acc;
+      if (!hasRangeCoverage({ range, points: displayPoints, rangeStartMs, portfolioStartMs })) {
         return acc;
       }
 
       const bucketIntervalMs = chooseBucketInterval({
         range,
-        points: coveredPoints,
+        points: displayPoints,
         rangeStartMs,
         nowMs,
       });
       const bucketed = bucketPoints({
-        points: coveredPoints,
+        points: displayPoints,
         intervalMs: bucketIntervalMs,
         rangeStartMs,
       });
@@ -580,11 +633,13 @@ function sampleSnapshotPoints(points: SnapshotChartPoint[]) {
 function mergeRangeWithCurrentPoint({
   points,
   currentPoint,
+  range,
   rangeStartMs,
   nowMs,
 }: {
   points: SnapshotChartPoint[];
   currentPoint: SnapshotChartPoint;
+  range: TimeRange;
   rangeStartMs: number;
   nowMs: number;
 }) {
@@ -605,7 +660,10 @@ function mergeRangeWithCurrentPoint({
     .sort(([a], [b]) => a - b)
     .map(([, point]) => point);
 
-  return sampleSnapshotPoints(sorted);
+  const displayPoints =
+    range === "1D" ? ensureOneDayCoverage({ points: sorted, rangeStartMs }) : sorted;
+
+  return sampleSnapshotPoints(displayPoints);
 }
 
 export function appendCurrentPointToPortfolioChartData({
@@ -628,6 +686,7 @@ export function appendCurrentPointToPortfolioChartData({
     const merged = mergeRangeWithCurrentPoint({
       points: range === "1D" && existingPoints.length === 0 ? minimalOneDay : existingPoints,
       currentPoint,
+      range,
       rangeStartMs,
       nowMs,
     });
@@ -899,6 +958,8 @@ function getSnapshotRowsFromChartData({
       : safeDateMs(maxSnapshotAtBefore ?? null);
 
   OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).forEach((point) => {
+    if (point.synthetic) return;
+
     const row = pointToSnapshotRow({ portfolioId, userId, point, source });
     if (!row) return;
 
@@ -994,7 +1055,8 @@ export function buildMinimalCurrentChartData(point: SnapshotChartPoint): Portfol
   const ms = pointMs(point) ?? Date.now();
   const previousPoint = {
     ...point,
-    date: new Date(ms - 60_000).toISOString(),
+    date: new Date(ms - ONE_DAY_MS).toISOString(),
+    synthetic: true,
   };
 
   return { "1D": [previousPoint, point] };

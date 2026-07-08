@@ -10,6 +10,7 @@ import {
 } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { PortfolioCreationSuccess } from "@/components/PortfolioCreationSuccess";
+import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, enrichHoldingsAdmin, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
@@ -34,6 +35,14 @@ import {
   startPortfolioTimer,
   tryStartPortfolioPageSnapshotRefresh,
 } from "@/lib/portfolio-speed-cache";
+import {
+  convertUsdToCurrency,
+  normaliseCurrency,
+  rateForCurrency,
+  type SupportedCurrency,
+  type UsdFxRates,
+} from "@/lib/currency";
+import { getUsdFxRates } from "@/lib/fx-rates";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -107,9 +116,115 @@ type TransactionRow = {
   created_at: string;
 };
 
+type ProfileCurrencyRow = {
+  preferred_currency?: string | null;
+};
+
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function displayNumber(
+  value: number | null | undefined,
+  displayCurrency: SupportedCurrency,
+  usdFxRates: UsdFxRates,
+) {
+  return convertUsdToCurrency(toNumber(value, 0), displayCurrency, usdFxRates);
+}
+
+function displayStockOptionsForCurrency({
+  stockOptions,
+  displayCurrency,
+  usdFxRates,
+}: {
+  stockOptions: StockOption[];
+  displayCurrency: SupportedCurrency;
+  usdFxRates: UsdFxRates;
+}) {
+  if (displayCurrency === "USD") return stockOptions;
+  return stockOptions.map((stock) => ({
+    ...stock,
+    price: stock.price == null ? null : displayNumber(stock.price, displayCurrency, usdFxRates),
+  }));
+}
+
+function displayHoldingsForCurrency({
+  holdings,
+  displayCurrency,
+  usdFxRates,
+}: {
+  holdings: ExtendedHolding[];
+  displayCurrency: SupportedCurrency;
+  usdFxRates: UsdFxRates;
+}) {
+  if (displayCurrency === "USD") return holdings;
+  return holdings.map((holding) => ({
+    ...holding,
+    entryPrice: displayNumber(holding.entryPrice, displayCurrency, usdFxRates),
+    currentPrice: displayNumber(holding.currentPrice, displayCurrency, usdFxRates),
+    currentValue: displayNumber(holding.currentValue, displayCurrency, usdFxRates),
+    costBasis: displayNumber(holding.costBasis, displayCurrency, usdFxRates),
+    pnlDollars: displayNumber(holding.pnlDollars, displayCurrency, usdFxRates),
+    totalPnLDollars: displayNumber(holding.totalPnLDollars, displayCurrency, usdFxRates),
+  }));
+}
+
+function displayTransactionsForCurrency({
+  transactions,
+  displayCurrency,
+  usdFxRates,
+}: {
+  transactions: TransactionRow[];
+  displayCurrency: SupportedCurrency;
+  usdFxRates: UsdFxRates;
+}) {
+  if (displayCurrency === "USD") return transactions;
+  return transactions.map((transaction) => ({
+    ...transaction,
+    price:
+      transaction.price == null
+        ? null
+        : displayNumber(transaction.price, displayCurrency, usdFxRates),
+    amount:
+      transaction.amount == null
+        ? null
+        : displayNumber(transaction.amount, displayCurrency, usdFxRates),
+    realised_pnl:
+      transaction.realised_pnl == null
+        ? null
+        : displayNumber(transaction.realised_pnl, displayCurrency, usdFxRates),
+    currency: displayCurrency,
+  }));
+}
+
+function displayChartForCurrency({
+  chartData,
+  displayCurrency,
+  usdFxRates,
+}: {
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  displayCurrency: SupportedCurrency;
+  usdFxRates: UsdFxRates;
+}) {
+  if (displayCurrency === "USD") return chartData;
+  return Object.fromEntries(
+    Object.entries(chartData).map(([range, points]) => [
+      range,
+      points?.map((point) => ({
+        ...point,
+        close: displayNumber(point.close, displayCurrency, usdFxRates),
+        basis:
+          point.basis == null
+            ? undefined
+            : displayNumber(point.basis, displayCurrency, usdFxRates),
+        pnl:
+          point.pnl == null
+            ? undefined
+            : displayNumber(point.pnl, displayCurrency, usdFxRates),
+      })),
+    ]),
+  ) as typeof chartData;
 }
 
 function cleanPortfolioName(name: string | null | undefined, index: number) {
@@ -487,7 +602,7 @@ export default async function PortfolioPage({
 
   const showBuilder = params.builder === "1";
 
-  const [stockOptionsData, { data: portfoliosData }] = await Promise.all([
+  const [stockOptionsData, { data: portfoliosData }, { data: profileCurrencyData }, usdFxRates] = await Promise.all([
     getCachedPortfolioStockUniverse(),
     supabase
       .from("user_portfolios")
@@ -497,11 +612,21 @@ export default async function PortfolioPage({
       .eq("user_id", user.id)
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("preferred_currency")
+      .eq("id", user.id)
+      .maybeSingle(),
+    getUsdFxRates(),
   ]);
 
   timer.mark("base-data");
 
   const stockRows = (stockOptionsData ?? []) as StockUniverseRow[];
+  const displayCurrency = normaliseCurrency(
+    (profileCurrencyData as ProfileCurrencyRow | null)?.preferred_currency,
+  );
+  const usdToDisplayRate = rateForCurrency(displayCurrency, usdFxRates);
 
   const stockUniverse: StockLike[] = stockRows
     .filter((stock) => stock.ticker)
@@ -526,6 +651,11 @@ export default async function PortfolioPage({
           ? null
           : Number(stock.price),
     }));
+  const displayStockOptions = displayStockOptionsForCurrency({
+    stockOptions,
+    displayCurrency,
+    usdFxRates,
+  });
 
   const portfolios: PortfolioRow[] = ((portfoliosData ?? []) as PortfolioRow[]).map(
     (portfolio, index) => ({
@@ -552,7 +682,9 @@ export default async function PortfolioPage({
                 id: portfolio.id,
                 name: portfolio.name ?? "Portfolio",
               }))}
-              stockOptions={stockOptions}
+              stockOptions={displayStockOptions}
+              displayCurrency={displayCurrency}
+              usdToDisplayRate={usdToDisplayRate}
               initialMode={
                 params.mode === "manual"
                   ? "manual"
@@ -578,7 +710,12 @@ export default async function PortfolioPage({
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1">
           <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-            <PortfolioBuilder existingPortfolios={[]} stockOptions={stockOptions} />
+            <PortfolioBuilder
+              existingPortfolios={[]}
+              stockOptions={displayStockOptions}
+              displayCurrency={displayCurrency}
+              usdToDisplayRate={usdToDisplayRate}
+            />
           </div>
         </main>
       </AppShell>
@@ -633,9 +770,14 @@ export default async function PortfolioPage({
     toNumber(activePortfolio.investment_amount, 0),
   );
 
-  const displayTransactions = [...transactions]
+  const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 40);
+  const displayTransactions = displayTransactionsForCurrency({
+    transactions: recentTransactions,
+    displayCurrency,
+    usdFxRates,
+  });
 
   const portfolioTickerSet = new Set(rawHoldings.map((holding) => holding.ticker));
   const inputHash = buildPortfolioStructureHash({
@@ -655,16 +797,21 @@ export default async function PortfolioPage({
   const cachedPortfolioNews = cachedSnapshot?.portfolioNews as EnrichedNewsArticle[] | undefined;
 
   if (cachedEnriched && cachedPortfolioNews) {
-    const displayEnriched = repriceCachedHoldings({ holdings: cachedEnriched, stockRows });
-    const displaySummary = buildPortfolioHealthSummary({
+    const canonicalEnriched = repriceCachedHoldings({ holdings: cachedEnriched, stockRows });
+    const canonicalSummary = buildPortfolioHealthSummary({
       id: selectedPortfolioId,
       name: activePortfolio.name as string,
       currency,
       riskTolerance: activePortfolio.risk_tolerance,
-      holdings: displayEnriched,
+      holdings: canonicalEnriched,
       transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
       cashBalance: toNumber(activePortfolio.cash_balance, 0),
       cashDepositedTotal,
+    });
+    const displayEnriched = displayHoldingsForCurrency({
+      holdings: canonicalEnriched,
+      displayCurrency,
+      usdFxRates,
     });
     const backgroundRefreshScheduled =
       snapshotLookup.mode === "stale"
@@ -692,10 +839,15 @@ export default async function PortfolioPage({
         currency,
         created_at: activePortfolio.created_at ?? null,
       },
-      enriched: displayEnriched,
+      enriched: canonicalEnriched,
       transactions,
-      summary: displaySummary,
+      summary: canonicalSummary,
       ownerId: user.id,
+    });
+    const displayChartData = displayChartForCurrency({
+      chartData: chartResult.chartData,
+      displayCurrency,
+      usdFxRates,
     });
     const chartRepairScheduled = schedulePortfolioChartRepair({
       portfolioId: selectedPortfolioId,
@@ -724,11 +876,11 @@ export default async function PortfolioPage({
               portfolios={portfolios.map((portfolio, index) => ({
                 id: portfolio.id,
                 name: cleanPortfolioName(portfolio.name, index),
-                currency: portfolio.currency ?? "USD",
+                currency: displayCurrency,
                 createdAt: portfolio.created_at ?? null,
               }))}
               holdings={displayEnriched}
-              stockOptions={stockOptions}
+              stockOptions={displayStockOptions}
               transactions={displayTransactions.map((transaction): PortfolioTransaction => ({
                 id: transaction.id,
                 portfolioId: transaction.portfolio_id,
@@ -738,22 +890,24 @@ export default async function PortfolioPage({
                 price: transaction.price,
                 amount: transaction.amount,
                 realisedPnl: transaction.realised_pnl,
-                currency: transaction.currency ?? "USD",
+                currency: displayCurrency,
                 notes: transaction.notes,
                 createdAt: transaction.created_at,
               }))}
               newsArticles={cachedPortfolioNews}
-              chartData={chartResult.chartData}
+              chartData={displayChartData}
               chartMeta={chartResult.meta}
+              displayCurrency={displayCurrency}
+              usdToDisplayRate={usdToDisplayRate}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
                 riskTolerance: activePortfolio.risk_tolerance as string | null,
                 timeHorizon: activePortfolio.time_horizon as string | null,
-                investmentAmount: toNumber(activePortfolio.investment_amount, 0),
-                cashBalance: toNumber(activePortfolio.cash_balance, 0),
-                cashDepositedTotal,
-                currency,
+                investmentAmount: displayNumber(activePortfolio.investment_amount, displayCurrency, usdFxRates),
+                cashBalance: displayNumber(activePortfolio.cash_balance, displayCurrency, usdFxRates),
+                cashDepositedTotal: displayNumber(cashDepositedTotal, displayCurrency, usdFxRates),
+                currency: displayCurrency,
                 createdAt: activePortfolio.created_at ?? null,
               }}
               compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
@@ -811,6 +965,16 @@ export default async function PortfolioPage({
     ownerId: user.id,
     chartMeta: chartResult.meta,
   });
+  const displayEnriched = displayHoldingsForCurrency({
+    holdings: enriched,
+    displayCurrency,
+    usdFxRates,
+  });
+  const displayChartData = displayChartForCurrency({
+    chartData: chartResult.chartData,
+    displayCurrency,
+    usdFxRates,
+  });
 
   timer.mark("portfolio-chart");
 
@@ -850,11 +1014,11 @@ export default async function PortfolioPage({
             portfolios={portfolios.map((portfolio, index) => ({
               id: portfolio.id,
               name: cleanPortfolioName(portfolio.name, index),
-              currency: portfolio.currency ?? "USD",
+              currency: displayCurrency,
               createdAt: portfolio.created_at ?? null,
             }))}
-            holdings={enriched}
-            stockOptions={stockOptions}
+            holdings={displayEnriched}
+            stockOptions={displayStockOptions}
             transactions={displayTransactions.map((transaction) => ({
               id: transaction.id,
               portfolioId: transaction.portfolio_id,
@@ -864,22 +1028,24 @@ export default async function PortfolioPage({
               price: transaction.price,
               amount: transaction.amount,
               realisedPnl: transaction.realised_pnl,
-              currency: transaction.currency ?? "USD",
+              currency: displayCurrency,
               notes: transaction.notes,
               createdAt: transaction.created_at,
             }))}
             newsArticles={portfolioNews}
-            chartData={chartResult.chartData}
+            chartData={displayChartData}
             chartMeta={chartResult.meta}
+            displayCurrency={displayCurrency}
+            usdToDisplayRate={usdToDisplayRate}
             portfolioMeta={{
               id: selectedPortfolioId,
               name: activePortfolio.name as string,
               riskTolerance: activePortfolio.risk_tolerance as string | null,
               timeHorizon: activePortfolio.time_horizon as string | null,
-              investmentAmount: toNumber(activePortfolio.investment_amount, 0),
-              cashBalance: toNumber(activePortfolio.cash_balance, 0),
-              cashDepositedTotal,
-              currency,
+              investmentAmount: displayNumber(activePortfolio.investment_amount, displayCurrency, usdFxRates),
+              cashBalance: displayNumber(activePortfolio.cash_balance, displayCurrency, usdFxRates),
+              cashDepositedTotal: displayNumber(cashDepositedTotal, displayCurrency, usdFxRates),
+              currency: displayCurrency,
               createdAt: activePortfolio.created_at ?? null,
             }}
             compactImportWidget={<CompactImportLauncher portfolioId={selectedPortfolioId} />}
