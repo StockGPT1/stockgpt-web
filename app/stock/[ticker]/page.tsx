@@ -28,6 +28,7 @@ type Stock = {
   sector: string | null;
   score: number | string | null;
   price: number | string | null;
+  risk?: number | string | null;
 };
 
 type PortfolioOption = {
@@ -80,6 +81,58 @@ function formatDays(days: number | null) {
   if (days == null) return "Tracking";
   if (days <= 0) return "0";
   return days.toLocaleString();
+}
+
+function getRiskIndicator(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+
+  const score =
+    n <= 1
+      ? Math.max(1, Math.min(10, Math.round(n * 9) + 1))
+      : Math.max(1, Math.min(10, Math.round(n)));
+  const label = score <= 3 ? "Lower" : score <= 6 ? "Medium" : "Higher";
+  const className =
+    score <= 3
+      ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
+      : score <= 6
+        ? "border-[#ddb159]/36 bg-[#ddb159]/14 text-[#f2d27a]"
+        : "border-red-400/30 bg-red-400/12 text-red-200";
+
+  return { score, label, className };
+}
+
+function RiskIndicatorBadge({ risk, unlocked }: { risk: unknown; unlocked: boolean }) {
+  if (!unlocked) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
+        Risk · Locked
+      </span>
+    );
+  }
+
+  const riskIndicator = getRiskIndicator(risk);
+
+  if (!riskIndicator) {
+    return (
+      <span
+        title="Risk data is unavailable for this stock. StockGPT does not invent a risk score when source data is missing."
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#faf6f0]/16 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#faf6f0]/58"
+      >
+        Risk unavailable
+      </span>
+    );
+  }
+
+  return (
+    <span
+      title="Estimated risk indicator from StockGPT's existing ranking data. 1 is lower risk, 10 is higher risk. Educational only, not financial advice."
+      aria-label={`Estimated risk ${riskIndicator.score} out of 10, ${riskIndicator.label.toLowerCase()} risk. Educational only, not financial advice.`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${riskIndicator.className}`}
+    >
+      Risk {riskIndicator.score}/10 · {riskIndicator.label}
+    </span>
+  );
 }
 
 function LockedValue({ children, placeholder, unlocked }: { children: ReactNode; placeholder: string; unlocked: boolean }) {
@@ -209,7 +262,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   let stockData: Stock | null = null;
 
   if (isAuthenticated) {
-    const { data } = await supabase.from("stock_rankings").select("id,rank,ticker,company,sector,score,price").eq("ticker", ticker).maybeSingle();
+    const { data } = await supabase.from("stock_rankings").select("id,rank,ticker,company,sector,score,price,risk").eq("ticker", ticker).maybeSingle();
     stockData = data as Stock | null;
     if (!stockData) notFound();
   } else {
@@ -222,7 +275,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
   if (!stockData) {
     if (!chartPrice) notFound();
-    stockData = { id: ticker, rank: null, ticker, company: ticker, sector: null, score: null, price: chartPrice };
+    stockData = { id: ticker, rank: null, ticker, company: ticker, sector: null, score: null, price: chartPrice, risk: null };
   }
 
   const stock = stockData;
@@ -260,7 +313,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-bold text-[#ddb159]/70"><Link href="/rankings" className="hover:text-[#ddb159]">← Rankings</Link>{canSeeRankAndScore ? <><span>·</span><span>Rank #{stock.rank ?? "—"}</span></> : <><span>·</span><span>Rank locked</span></>}{stock.sector && <><span>·</span><span>{stock.sector}</span></>}</div>
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3"><StockLogo ticker={stock.ticker} company={stock.company} size={42} /><div className="min-w-0"><h1 className="text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">{stock.ticker}</h1><p className="mt-1 break-words text-[16px] font-bold leading-snug text-[#faf6f0]/70">{stock.company ?? "—"}</p></div></div>
-                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3"><p className="text-[26px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">{formatMoney(livePrice)}</p><span className="inline-flex items-center gap-1.5 rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#072116]">AI Score · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatScore(stock.score)}</LockedValue></span><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">Days at top · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatDays(daysAtTop)}</LockedValue></span></div>
+                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3"><p className="text-[26px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">{formatMoney(livePrice)}</p><span className="inline-flex items-center gap-1.5 rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#072116]">AI Score · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatScore(stock.score)}</LockedValue></span><RiskIndicatorBadge risk={stock.risk} unlocked={canSeeRankAndScore} /><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">Days at top · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatDays(daysAtTop)}</LockedValue></span></div>
               </div>
               <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end"><WatchlistToggle ticker={ticker} initialInWatchlist={!!watchlistEntry} isAuthenticated={isAuthenticated} /></div>
             </div>
