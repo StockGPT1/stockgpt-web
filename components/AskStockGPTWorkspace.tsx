@@ -1,7 +1,8 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode, RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -149,7 +150,7 @@ function renderMessageContent(content: string) {
 function StockGPTIconImage({ fallbackClassName }: { fallbackClassName: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <span className={fallbackClassName}>S</span>;
-  return <img src="/icon.png" alt="" aria-hidden="true" className="block h-full w-full object-contain" onError={() => setFailed(true)} />;
+  return <Image src="/icon.png" alt="" aria-hidden="true" width={32} height={32} className="block h-full w-full object-contain" onError={() => setFailed(true)} />;
 }
 
 function PremiumOrb({ small = false }: { small?: boolean }) {
@@ -489,19 +490,64 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>("portfolio");
   const [holdingOptions, setHoldingOptions] = useState<HoldingOption[]>([]);
   const [holdingLoading, setHoldingLoading] = useState(false);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const mobileBottomRef = useRef<HTMLDivElement>(null);
+  const desktopBottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const forceNextScrollRef = useRef(false);
   const locked = !canUseAskStockGPT;
 
   const visibleStarters = useMemo(() => starterPrompts.filter((prompt) => prompt.mode === activeMode), [activeMode]);
   const mobileStarters = useMemo(() => visibleStarters.slice(0, 2), [visibleStarters]);
-  const showStarterCards = messages.length <= 1 && !loading && !historyLoading;
+  const showStarterCards = messages.length <= 1 && !loading && !streaming && !historyLoading;
+
+  const visibleScrollerFromRef = useCallback((ref: RefObject<HTMLDivElement | null>) => {
+    const node = ref.current;
+    if (!node) return null;
+
+    const scroller = node.closest<HTMLElement>(".sg-ask-scroll");
+    if (!scroller) return null;
+
+    const rect = scroller.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+
+    return scroller;
+  }, []);
+
+  const getActiveChatScroller = useCallback(() => {
+    return (
+      visibleScrollerFromRef(mobileBottomRef) ??
+      visibleScrollerFromRef(desktopBottomRef)
+    );
+  }, [visibleScrollerFromRef]);
+
+  const isNearBottom = useCallback((scroller: HTMLElement) => {
+    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 180;
+  }, []);
+
+  const updateAutoScrollPreference = useCallback(() => {
+    const scroller = getActiveChatScroller();
+    shouldAutoScrollRef.current = scroller ? isNearBottom(scroller) : true;
+  }, [getActiveChatScroller, isNearBottom]);
+
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const scroller = getActiveChatScroller();
+
+    if (scroller) {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+      return;
+    }
+
+    const target = mobileBottomRef.current ?? desktopBottomRef.current;
+    target?.scrollIntoView({ behavior });
+  }, [getActiveChatScroller]);
 
   useEffect(() => {
     if (locked) return;
@@ -540,17 +586,32 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
 
   useEffect(() => {
     if (locked) return;
-    const bottom = bottomRef.current;
-    if (!bottom) return;
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      const scroller = bottom.closest<HTMLElement>(".sg-ask-scroll");
-      if (scroller) {
-        scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-        return;
-      }
-    }
-    bottom.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, historyLoading, locked]);
+    if (!forceNextScrollRef.current && !shouldAutoScrollRef.current) return;
+    scrollChatToBottom(forceNextScrollRef.current ? "auto" : "smooth");
+    forceNextScrollRef.current = false;
+  }, [messages, loading, historyLoading, locked, scrollChatToBottom]);
+
+  useEffect(() => {
+    if (locked) return;
+
+    const scrollers = Array.from(
+      document.querySelectorAll<HTMLElement>(".sg-ask-scroll"),
+    );
+
+    scrollers.forEach((scroller) => {
+      scroller.addEventListener("scroll", updateAutoScrollPreference, {
+        passive: true,
+      });
+    });
+
+    updateAutoScrollPreference();
+
+    return () => {
+      scrollers.forEach((scroller) => {
+        scroller.removeEventListener("scroll", updateAutoScrollPreference);
+      });
+    };
+  }, [locked, updateAutoScrollPreference]);
 
   useEffect(() => {
     if (locked || activeMode !== "portfolio" || holdingsLoaded || holdingLoading) return;
@@ -569,17 +630,92 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     if (!text || loading || historyLoading) return;
     setQuestion("");
     setLoading(true);
+    setStreaming(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
     const userMessage: ChatMessage = { role: "user", content: text };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     try {
-      const response = await fetch("/api/ask-stockgpt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text, mode: activeMode, messages: nextMessages.slice(-14) }) });
+      const response = await fetch("/api/ask-stockgpt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/plain, application/json",
+        },
+        body: JSON.stringify({
+          question: text,
+          mode: activeMode,
+          messages: nextMessages.slice(-14),
+          stream: true,
+        }),
+      });
+
+      const isStreamingResponse =
+        response.ok &&
+        response.body &&
+        response.headers.get("x-stockgpt-stream") === "1";
+
+      if (isStreamingResponse) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantStarted = false;
+        let streamedAnswer = "";
+
+        setStreaming(true);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk) continue;
+
+          streamedAnswer += chunk;
+
+          setMessages((current) => {
+            if (!assistantStarted) {
+              assistantStarted = true;
+              return [...current, { role: "assistant", content: chunk }];
+            }
+
+            const next = [...current];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") {
+              next[next.length - 1] = {
+                ...last,
+                content: `${last.content}${chunk}`,
+              };
+              return next;
+            }
+
+            return [...next, { role: "assistant", content: chunk }];
+          });
+        }
+
+        if (!streamedAnswer.trim()) {
+          setMessages((current) => [
+            ...current,
+            {
+              role: "assistant",
+              content:
+                "Ask StockGPT connected, but the model returned an empty response. Please retry.",
+            },
+          ]);
+        }
+
+        return;
+      }
+
       const data = (await response.json().catch(() => null)) as { answer?: string } | null;
-      const answer = data?.answer ?? "I could not return an answer from Ask StockGPT. Try again, or email sales@stockgpt.pro if this relates to membership or billing.";
+      const answer =
+        data?.answer ??
+        "I could not return an answer from Ask StockGPT. Try again, or email sales@stockgpt.pro if this relates to membership or billing.";
       setMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch {
       setMessages((current) => [...current, { role: "assistant", content: "I could not connect to the StockGPT coach. Check the deployment logs and API route. For membership or billing questions, contact sales@stockgpt.pro." }]);
     } finally {
+      setStreaming(false);
       setLoading(false);
     }
   }
@@ -614,11 +750,11 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     void sendQuestion();
   }
 
-  const chatContent = (
+  const renderChatContent = (bottomRef: RefObject<HTMLDivElement | null>) => (
     <>
       {historyLoading && <div className="flex justify-center"><div className="rounded-full border border-[#ddb159]/18 bg-[#fbf4e5]/[0.045] px-4 py-2 text-[11px] font-bold text-[#fbf4e5]/58">Loading chat log</div></div>}
       {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
-      {loading && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Analysing</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and app context.</div></div></div>}
+      {loading && !streaming && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Connecting</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and opening the response stream.</div></div></div>}
       <div ref={bottomRef} />
     </>
   );
@@ -648,7 +784,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
                     <div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Chat</p><p className="truncate text-[12px] font-semibold text-[#fbf4e5]/45">Ask naturally</p></div>
                   </div>
                   {showStarterCards && <div className="grid grid-cols-2 gap-2">{mobileStarters.map((starter) => <button key={starter.prompt} type="button" onClick={() => void sendQuestion(starter.prompt)} className="min-h-[58px] min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.04] px-3 py-2.5 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/80"><span className="block truncate text-[8px] font-black uppercase tracking-[0.13em] text-[#ddb159]/72">{starter.eyebrow}</span><span className="mt-1 block line-clamp-2">{starter.label}</span></button>)}</div>}
-                  <div className="grid gap-3">{chatContent}</div>
+                  <div className="grid gap-3">{renderChatContent(mobileBottomRef)}</div>
                 </section>
               </div>
             </div>
@@ -673,7 +809,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
               </header>
 
               <main className="sg-ask-scroll min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-5 py-4">
-                <div className="mx-auto grid max-w-3xl gap-3">{chatContent}</div>
+                <div className="mx-auto grid max-w-3xl gap-3">{renderChatContent(desktopBottomRef)}</div>
               </main>
 
               <form onSubmit={handleSubmit} className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-4">

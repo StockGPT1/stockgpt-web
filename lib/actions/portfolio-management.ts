@@ -66,6 +66,19 @@ type Trading212PreviewSummary = Trading212ImportSummary & {
   replaceWarning?: string | null;
 };
 
+type Trading212PortfolioCreateInput = {
+  name: string;
+  csvText: string;
+  currency?: "USD";
+};
+
+type Trading212PortfolioCreateSummary = Trading212ImportSummary & {
+  portfolioId: string;
+  portfolioName: string;
+  currency: "USD";
+  matchedTickers: string[];
+};
+
 type StockMatch = {
   ticker: string;
   price: number;
@@ -929,6 +942,196 @@ export async function previewTrading212Csv(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Could not preview CSV.",
+    };
+  }
+}
+
+export async function previewTrading212CsvForNewPortfolio(
+  csvText: string,
+): Promise<ActionResult<Trading212PreviewSummary>> {
+  if (!csvText || csvText.length > 2_000_000) {
+    return {
+      success: false,
+      error: "Upload a valid Trading 212 CSV under 2MB.",
+    };
+  }
+
+  const parsedHoldings = parseTrading212Holdings(csvText);
+
+  if (parsedHoldings.length === 0) {
+    return {
+      success: false,
+      error:
+        "No holdings could be found. Export your Trading 212 Invest/ISA history as CSV and make sure it includes ticker, shares and price/value columns.",
+    };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  try {
+    const prepared = await prepareTrading212Import(
+      supabase,
+      "new-portfolio-preview",
+      parsedHoldings,
+    );
+
+    return {
+      success: true,
+      data: {
+        imported: prepared.holdingsToInsert.length,
+        skipped: prepared.skippedTickers.length,
+        totalValue: prepared.importedValue,
+        skippedTickers: prepared.skippedTickers,
+        matchedTickers: prepared.matchedTickers,
+        replaceWarning: null,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Could not preview CSV.",
+    };
+  }
+}
+
+export async function createPortfolioFromTrading212Csv(
+  input: Trading212PortfolioCreateInput,
+): Promise<ActionResult<Trading212PortfolioCreateSummary>> {
+  const name = input.name.trim().slice(0, 80);
+  const currency = input.currency ?? "USD";
+
+  if (!name) {
+    return { success: false, error: "Portfolio name is required." };
+  }
+
+  if (currency !== "USD") {
+    return {
+      success: false,
+      error:
+        "Trading 212 import currently uses StockGPT's USD ranked-stock price feed. Create the portfolio in USD for this import.",
+    };
+  }
+
+  if (!input.csvText || input.csvText.length > 2_000_000) {
+    return {
+      success: false,
+      error: "Upload a valid Trading 212 CSV under 2MB.",
+    };
+  }
+
+  const parsedHoldings = parseTrading212Holdings(input.csvText);
+
+  if (parsedHoldings.length === 0) {
+    return {
+      success: false,
+      error:
+        "No holdings could be found. Export your Trading 212 Invest/ISA history as CSV and make sure it includes ticker, shares and price/value columns.",
+    };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  try {
+    const prepared = await prepareTrading212Import(
+      supabase,
+      "new-portfolio",
+      parsedHoldings,
+    );
+
+    if (prepared.holdingsToInsert.length === 0) {
+      return {
+        success: false,
+        error:
+          "None of the CSV tickers matched StockGPT rankings. Check that the export contains supported US stock tickers rather than only names/ISINs.",
+      };
+    }
+
+    const { data: created, error: createError } = await supabase
+      .from("user_portfolios")
+      .insert({
+        user_id: user.id,
+        name,
+        risk_tolerance: "moderate",
+        time_horizon: "medium",
+        investment_amount: prepared.importedValue,
+        cash_balance: 0,
+        cash_deposited_total: prepared.importedValue,
+        currency,
+      })
+      .select("id")
+      .single();
+
+    if (createError || !created) {
+      return {
+        success: false,
+        error: createError?.message ?? "Could not create the portfolio.",
+      };
+    }
+
+    const portfolioId = String(created.id);
+    const holdingsToInsert = prepared.holdingsToInsert.map((holding) => ({
+      ...holding,
+      portfolio_id: portfolioId,
+    }));
+
+    const { error: holdingsError } = await supabase
+      .from("portfolio_holdings")
+      .insert(holdingsToInsert);
+
+    if (holdingsError) {
+      await supabase
+        .from("user_portfolios")
+        .delete()
+        .eq("id", portfolioId)
+        .eq("user_id", user.id);
+
+      return { success: false, error: holdingsError.message };
+    }
+
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      type: "import",
+      amount: prepared.importedValue,
+      currency,
+      notes: `Created normal portfolio from Trading 212 CSV with ${holdingsToInsert.length} imported holding${
+        holdingsToInsert.length === 1 ? "" : "s"
+      }.`,
+    });
+
+    await markPortfolioChartInputsChanged({ supabase, portfolioId, userId: user.id });
+    revalidatePortfolio(portfolioId);
+
+    for (const holding of holdingsToInsert) {
+      revalidateStock(holding.ticker);
+    }
+
+    return {
+      success: true,
+      data: {
+        portfolioId,
+        portfolioName: name,
+        currency,
+        imported: prepared.holdingsToInsert.length,
+        skipped: prepared.skippedTickers.length,
+        totalValue: prepared.importedValue,
+        skippedTickers: prepared.skippedTickers,
+        matchedTickers: prepared.matchedTickers,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not create a portfolio from this CSV.",
     };
   }
 }

@@ -10,6 +10,7 @@ import {
   ManualPortfolioBuilder,
   type ManualBuilderStockOption,
 } from "@/components/ManualPortfolioBuilder";
+import { Trading212PortfolioCreator } from "@/components/Trading212PortfolioCreator";
 
 type ExistingPortfolio = {
   id: string;
@@ -21,6 +22,8 @@ type Props = {
   stockOptions?: ManualBuilderStockOption[];
   initialMode?: "choice" | "ai" | "manual";
 };
+
+type CreationMode = "choice" | "ai" | "existing" | "manual" | "csv";
 
 const SECTOR_COLORS: Record<string, string> = {
   "Information Technology": "#ddb159",
@@ -100,9 +103,7 @@ export function PortfolioBuilder({
   initialMode = "choice",
 }: Props) {
   const router = useRouter();
-  const [creationMode, setCreationMode] = useState<"choice" | "ai" | "manual">(
-    initialMode,
-  );
+  const [creationMode, setCreationMode] = useState<CreationMode>(initialMode);
 
   const [risk, setRisk] = useState<RiskTolerance>("moderate");
   const [horizon, setHorizon] = useState<TimeHorizon>("medium");
@@ -177,8 +178,96 @@ export function PortfolioBuilder({
       <ManualPortfolioBuilder
         stockOptions={stockOptions}
         existingCount={existingPortfolios.length}
-        onBack={() => setCreationMode("choice")}
+        onBack={() => setCreationMode("existing")}
       />
+    );
+  }
+
+  if (creationMode === "csv") {
+    return (
+      <Trading212PortfolioCreator
+        existingCount={existingPortfolios.length}
+        onBack={() => setCreationMode("existing")}
+      />
+    );
+  }
+
+  if (creationMode === "existing") {
+    return (
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
+        <header className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+                Add Existing Portfolio
+              </p>
+              <h1 className="mt-1 text-[32px] font-black leading-tight tracking-[-0.05em] text-[#faf6f0] sm:text-[42px]">
+                Add holdings your way
+              </h1>
+              <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/60">
+                Import a Trading 212 CSV for speed, or add holdings and cash manually.
+                Both paths create a normal StockGPT portfolio after review.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreationMode("choice")}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/36 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+            >
+              Back
+            </button>
+          </div>
+        </header>
+
+        <section className="grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setCreationMode("csv")}
+            className="group min-h-[230px] rounded-3xl border border-[#00a6ff]/30 bg-[#faf6f0] p-5 text-left text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#00a6ff] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full bg-[#00a6ff] text-[12px] font-black text-white">
+              212
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#0078bd]">
+              Fastest if you already use Trading 212
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Import Trading 212 CSV
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#072116]/58">
+              Upload your CSV, preview supported holdings and skipped rows, then save
+              the reviewed import as a normal portfolio.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#072116] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Upload CSV
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreationMode("manual")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/35 bg-[#ddb159]/10 text-xl text-[#ddb159]">
+              +
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159]">
+              Full control
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Add manually
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">
+              Enter tickers, share counts, average prices and starting cash yourself,
+              then review before creating.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-[#ddb159]/40 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Open manual builder
+            </span>
+          </button>
+        </section>
+      </div>
     );
   }
 
@@ -195,8 +284,8 @@ export function PortfolioBuilder({
               Create a portfolio
             </h1>
             <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/60">
-              Start with an AI Portfolio Draft or build your own holdings and cash
-              position manually.
+              Start with an AI Portfolio Draft or add an existing portfolio by
+              importing Trading 212 CSV data or entering holdings manually.
             </p>
           </div>
         </header>
@@ -214,20 +303,20 @@ export function PortfolioBuilder({
               Fastest route
             </p>
             <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
-              Generate with AI
+              AI Portfolio Draft
             </h2>
             <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#072116]/58">
               Build a Portfolio Draft from your preferences, then review allocations,
               risks and trade-offs.
             </p>
             <span className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]">
-              Generate Portfolio Draft →
+              Create draft
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setCreationMode("manual")}
+            onClick={() => setCreationMode("existing")}
             className="group min-h-[230px] rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
           >
             <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/35 bg-[#ddb159]/10 text-xl text-[#ddb159]">
@@ -237,14 +326,14 @@ export function PortfolioBuilder({
               Full control
             </p>
             <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
-              Build manually
+              Add Existing Portfolio
             </h2>
             <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">
-              Add your own holdings and cash, then let StockGPT analyse the
-              structure.
+              Import a Trading 212 CSV or add holdings manually, then let StockGPT
+              analyse the structure.
             </p>
             <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-[#ddb159]/40 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
-              Open manual builder →
+              Add existing portfolio
             </span>
           </button>
         </section>

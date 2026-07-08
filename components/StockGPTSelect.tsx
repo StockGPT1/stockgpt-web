@@ -42,7 +42,6 @@ export function StockGPTSelect({
   menuClassName = "",
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -78,10 +77,6 @@ export function StockGPTSelect({
       : Math.min(rect.bottom + gap, viewportHeight - maxHeight - 12);
 
     setPosition({ top, left, width: menuWidth, maxHeight });
-  }, []);
-
-  useEffect(() => {
-    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -202,7 +197,7 @@ export function StockGPTSelect({
   }
 
   const menu =
-    open && mounted && position
+    open && position
       ? createPortal(
           <div
             ref={menuRef}

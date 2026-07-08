@@ -33,6 +33,17 @@ type OpenRouterResponse = {
   };
 };
 
+type OpenRouterStreamChunk = {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
 type RankingRow = {
   rank: number | null;
   previous_rank: number | null;
@@ -79,6 +90,50 @@ type PortfolioHoldingRow = {
   purchase_date: string | null;
   source: string | null;
   notes: string | null;
+};
+
+type HoldingTriggerContext = {
+  type?: unknown;
+  condition?: unknown;
+  action?: unknown;
+  tone?: unknown;
+};
+
+type HoldingAlertContext = {
+  type?: unknown;
+  action?: unknown;
+  severity?: unknown;
+  title?: unknown;
+  recommendation?: unknown;
+  evidence?: unknown;
+};
+
+type EnrichedHoldingContext = {
+  ticker?: unknown;
+  company?: unknown;
+  sector?: unknown;
+  rank?: unknown;
+  score?: unknown;
+  recommendation?: unknown;
+  currentPrice?: unknown;
+  entryPrice?: unknown;
+  shares?: unknown;
+  currentValue?: unknown;
+  costBasis?: unknown;
+  pnlPercent?: unknown;
+  totalPnLDollars?: unknown;
+  currentAllocationPct?: unknown;
+  targetAllocationPct?: unknown;
+  scoreAtEntry?: unknown;
+  rankAtEntry?: unknown;
+  scoreChange?: unknown;
+  rankChange?: unknown;
+  daysHeld?: unknown;
+  sectorMomentum?: unknown;
+  aiSummary?: unknown;
+  triggers?: HoldingTriggerContext[];
+  actionAlerts?: HoldingAlertContext[];
+  eventAlerts?: HoldingAlertContext[];
 };
 
 const CHAT_LOG_DAYS = 7;
@@ -310,12 +365,12 @@ async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, 
   }
 }
 
-function compactHolding(holding: any) {
+function compactHolding(holding: EnrichedHoldingContext) {
   const stopTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger: any) => trigger.type === "stop_loss")
+    ? holding.triggers.find((trigger) => trigger.type === "stop_loss")
     : null;
   const takeProfitTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger: any) => trigger.type === "take_profit")
+    ? holding.triggers.find((trigger) => trigger.type === "take_profit")
     : null;
 
   return {
@@ -341,14 +396,14 @@ function compactHolding(holding: any) {
     days_held: holding.daysHeld,
     sector_momentum: holding.sectorMomentum,
     ai_summary: holding.aiSummary,
-    action_alerts: (holding.actionAlerts ?? []).slice(0, 5).map((alert: any) => ({
+    action_alerts: (holding.actionAlerts ?? []).slice(0, 5).map((alert) => ({
       action: alert.action,
       severity: alert.severity,
       title: alert.title,
       recommendation: alert.recommendation,
       evidence: alert.evidence,
     })),
-    event_alerts: (holding.eventAlerts ?? []).slice(0, 5).map((alert: any) => ({
+    event_alerts: (holding.eventAlerts ?? []).slice(0, 5).map((alert) => ({
       type: alert.type,
       severity: alert.severity,
       title: alert.title,
@@ -365,7 +420,7 @@ function compactHolding(holding: any) {
   };
 }
 
-function buildPortfolioSummary(holdings: any[], portfolio: PortfolioRow) {
+function buildPortfolioSummary(holdings: EnrichedHoldingContext[], portfolio: PortfolioRow) {
   const holdingsValue = holdings.reduce((sum, holding) => sum + finiteNumber(holding.currentValue, 0), 0);
   const totalCost = holdings.reduce((sum, holding) => sum + finiteNumber(holding.costBasis, 0), 0);
   const unrealisedPnL = holdings.reduce((sum, holding) => sum + finiteNumber(holding.totalPnLDollars, 0), 0);
@@ -410,7 +465,7 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
       .select("title,summary,source,affected_tickers,impact,impact_reason,published_at")
       .order("published_at", { ascending: false })
       .limit(30),
-    (supabase as any)
+    supabase
       .from("user_portfolios")
       .select("id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
       .eq("user_id", userId)
@@ -442,7 +497,7 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
 
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
   const { data: holdingsData } = portfolioIds.length > 0
-    ? await (supabase as any)
+      ? await supabase
         .from("portfolio_holdings")
         .select("portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes")
         .in("portfolio_id", portfolioIds)
@@ -494,7 +549,7 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
   const news = ((newsData ?? []) as NewsRow[]).map(compactNews);
   const mentionedRankings = suppliedRankings.filter((ranking) => possibleTickers.includes(ranking.ticker));
   const allHoldings = portfolioContexts.flatMap((portfolio) => portfolio.holdings.map((holding) => ({ ...holding, portfolio_name: portfolio.meta.name })));
-  const mentionedHoldings = allHoldings.filter((holding) => possibleTickers.includes(holding.ticker));
+  const mentionedHoldings = allHoldings.filter((holding) => possibleTickers.includes(cleanTicker(holding.ticker)));
   const relevantNews = news.filter((article) =>
     possibleTickers.length === 0 || article.affected_tickers.some((ticker) => possibleTickers.includes(cleanTicker(ticker))),
   );
@@ -646,6 +701,170 @@ async function callOpenRouter({
   return { answer: null, model: null, failures };
 }
 
+function parseOpenRouterFailureText(text: string) {
+  if (!text.trim()) return "OpenRouter returned no response body.";
+
+  try {
+    const parsed = JSON.parse(text) as OpenRouterResponse | null;
+    return parsed?.error?.message ?? text.slice(0, 240);
+  } catch {
+    return text.slice(0, 240);
+  }
+}
+
+async function openOpenRouterStream({
+  apiKey,
+  messages,
+}: {
+  apiKey: string;
+  messages: OpenRouterMessage[];
+}) {
+  const failures: Array<{ model: string; status?: number; message: string }> = [];
+
+  for (const model of openRouterModels()) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          "HTTP-Referer": "https://stockgpt.pro",
+          "X-Title": "StockGPT",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.28,
+          max_tokens: 1400,
+          stream: true,
+        }),
+      });
+
+      if (response.ok && response.body) {
+        return { response, model, failures };
+      }
+
+      const text = await response.text().catch(() => "");
+      failures.push({
+        model,
+        status: response.status,
+        message: parseOpenRouterFailureText(text),
+      });
+    } catch (error) {
+      failures.push({
+        model,
+        message: error instanceof Error ? error.message : "OpenRouter stream request failed.",
+      });
+    }
+  }
+
+  return { response: null, model: null, failures };
+}
+
+function streamOpenRouterAnswer({
+  response,
+  supabase,
+  userId,
+}: {
+  response: Response;
+  supabase: ServerSupabaseClient;
+  userId: string;
+}) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const reader = response.body?.getReader();
+
+      if (!reader) {
+        const answer =
+          "Ask StockGPT could not open the AI response stream. Please retry.";
+        controller.enqueue(encoder.encode(answer));
+        await storeChatMessage(supabase, userId, { role: "assistant", content: answer });
+        controller.close();
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let answer = "";
+
+      async function finishWithFallback(message: string) {
+        const finalAnswer = answer.trim() || message;
+        if (!answer.trim()) controller.enqueue(encoder.encode(message));
+        await storeChatMessage(supabase, userId, {
+          role: "assistant",
+          content: finalAnswer,
+        });
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+
+            let chunk: OpenRouterStreamChunk | null = null;
+            try {
+              chunk = JSON.parse(payload) as OpenRouterStreamChunk;
+            } catch {
+              continue;
+            }
+
+            if (chunk.error?.message) {
+              throw new Error(chunk.error.message);
+            }
+
+            const delta = chunk.choices?.[0]?.delta?.content ?? "";
+
+            if (delta) {
+              answer += delta;
+              controller.enqueue(encoder.encode(delta));
+            }
+          }
+        }
+
+        await finishWithFallback(
+          "Ask StockGPT connected, but the model returned an empty response. Please retry.",
+        );
+      } catch (error) {
+        console.warn("[ask-stockgpt] Stream interrupted", error);
+        const interruption =
+          "\n\nAsk StockGPT's response stream was interrupted. The partial answer above was saved; retry if you need the full response.";
+
+        if (answer.trim()) {
+          controller.enqueue(encoder.encode(interruption));
+          await storeChatMessage(supabase, userId, {
+            role: "assistant",
+            content: `${answer.trim()}${interruption}`,
+          });
+        } else {
+          const failure =
+            "Ask StockGPT could not stream a response. Please retry, or email sales@stockgpt.pro if this relates to membership or billing.";
+          controller.enqueue(encoder.encode(failure));
+          await storeChatMessage(supabase, userId, {
+            role: "assistant",
+            content: failure,
+          });
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+}
+
 export async function GET() {
   const supabase = await createClient();
   const access = await requireSubscribedUser(supabase);
@@ -719,12 +938,45 @@ export async function POST(req: NextRequest) {
     const context = await buildAppContext(supabase, access.userId, question);
     const messages: OpenRouterMessage[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+      ...history
+        .slice(-16)
+        .map(
+          (message): OpenRouterMessage => ({
+            role: message.role,
+            content: message.content,
+          }),
+        ),
       {
         role: "user",
         content: `User question:\n${question}\n\nCurrent StockGPT app context:\n${JSON.stringify(context, null, 2)}`,
       },
     ];
+
+    if (body?.stream !== false) {
+      const streamResult = await openOpenRouterStream({ apiKey, messages });
+
+      if (streamResult.response) {
+        return new Response(
+          streamOpenRouterAnswer({
+            response: streamResult.response,
+            supabase,
+            userId: access.userId,
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Cache-Control": "no-cache, no-transform",
+              "X-Accel-Buffering": "no",
+              "X-StockGPT-Stream": "1",
+              "X-StockGPT-Model": streamResult.model ?? "",
+            },
+          },
+        );
+      }
+
+      console.warn("[ask-stockgpt] Streaming unavailable; falling back to full response", streamResult.failures);
+    }
 
     const result = await callOpenRouter({ apiKey, messages });
 
