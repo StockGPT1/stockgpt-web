@@ -4,9 +4,11 @@ import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
 import { assessPortfolioChartHealth } from "@/lib/portfolio-chart-health";
 import {
+  appendCurrentPointToPortfolioChartData,
   buildCurrentPortfolioSnapshotPoint,
   buildMinimalCurrentChartData,
   getPortfolioSnapshotChartDataWithHealth,
+  isPortfolioChartLatestPointFresh,
   latestPortfolioInputChangeMs,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
@@ -126,6 +128,23 @@ export async function GET(req: NextRequest) {
       price: toNumber(row.price, 0),
     }))
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
+  const nowMs = Date.now();
+  const currentPoint = buildCurrentPortfolioSnapshotPoint({
+    portfolio: portfolioRow,
+    holdings,
+    currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
+    snapshotAt: new Date(nowMs),
+  });
+  const currentChartData = buildMinimalCurrentChartData(currentPoint);
+  const saveCurrentSnapshot = () => {
+    void saveLatestPortfolioSnapshotFromChartData({
+      supabase,
+      portfolioId,
+      userId: user.id,
+      chartData: currentChartData,
+      source: "page",
+    });
+  };
 
   const latestInputMs = latestPortfolioInputChangeMs({
     portfolioCreatedAt: portfolioRow.created_at ?? null,
@@ -151,10 +170,13 @@ export async function GET(req: NextRequest) {
     const health = assessPortfolioChartHealth({
       portfolioCreatedAt: portfolioRow.created_at ?? null,
       latestInputMs,
+      nowMs,
       chartData: cachedChartData,
       summary: { holdingsCount: holdings.length },
     });
-    if (health.displayable) return NextResponse.json({ chartData: cachedChartData, meta: { source: "cached-good", health } });
+    if (health.displayable && isPortfolioChartLatestPointFresh({ chartData: cachedChartData, nowMs })) {
+      return NextResponse.json({ chartData: cachedChartData, meta: { source: "cached-good", health } });
+    }
   }
 
   const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
@@ -167,30 +189,52 @@ export async function GET(req: NextRequest) {
   });
 
   if (snapshotChart?.health.displayable) {
-    void setJsonCache(cacheKey, snapshotChart.chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
-    return NextResponse.json({ chartData: snapshotChart.chartData, meta: { source: "snapshots", health: snapshotChart.health } });
+    const needsCurrentPoint =
+      snapshotChart.health.status === "stale" ||
+      !isPortfolioChartLatestPointFresh({
+        chartData: snapshotChart.chartData,
+        nowMs,
+      });
+    const chartData = needsCurrentPoint
+      ? appendCurrentPointToPortfolioChartData({
+          chartData: snapshotChart.chartData,
+          currentPoint,
+          portfolioCreatedAt: portfolioRow.created_at ?? null,
+          nowMs,
+        })
+      : snapshotChart.chartData;
+    const health = needsCurrentPoint
+      ? assessPortfolioChartHealth({
+          portfolioCreatedAt: portfolioRow.created_at ?? null,
+          latestInputMs,
+          chartData,
+          summary: { holdingsCount: holdings.length },
+          nowMs,
+        })
+      : snapshotChart.health;
+
+    if (needsCurrentPoint) saveCurrentSnapshot();
+    void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
+    return NextResponse.json({ chartData, meta: { source: "snapshots", health } });
   }
 
-  const currentPoint = buildCurrentPortfolioSnapshotPoint({
-    portfolio: portfolioRow,
-    holdings,
-    currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
-  });
-  const chartData = buildMinimalCurrentChartData(currentPoint);
+  const chartData = snapshotChart
+    ? appendCurrentPointToPortfolioChartData({
+        chartData: snapshotChart.chartData,
+        currentPoint,
+        portfolioCreatedAt: portfolioRow.created_at ?? null,
+        nowMs,
+      })
+    : currentChartData;
 
-  void saveLatestPortfolioSnapshotFromChartData({
-    supabase,
-    portfolioId,
-    userId: user.id,
-    chartData,
-    source: "page",
-  });
+  saveCurrentSnapshot();
   const health = assessPortfolioChartHealth({
     portfolioCreatedAt: portfolioRow.created_at ?? null,
     latestInputMs,
     chartData,
     summary: { holdingsCount: holdings.length },
+    nowMs,
   });
 
-  return NextResponse.json({ chartData: {}, meta: { source: "building", health } });
+  return NextResponse.json({ chartData, meta: { source: "minimal-current", health } });
 }

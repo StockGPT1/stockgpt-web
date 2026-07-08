@@ -2,12 +2,13 @@ import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import type { PortfolioSnapshotPayload } from "@/lib/portfolio-speed-cache";
+import { isPortfolioChartLatestPointFresh } from "@/lib/portfolio-snapshots";
 
 const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v7";
+const PORTFOLIO_CHART_CACHE_VERSION = "v8";
 const MIN_PORTFOLIO_1D_POINTS = Number(process.env.MIN_PORTFOLIO_1D_POINTS ?? 6);
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
@@ -80,6 +81,7 @@ export async function getLatestPortfolioChart({
 
   if (!payload || !hasUsablePortfolioChart(payload.chartData)) return null;
   if (!chartMatchesSummary(payload, summary)) return null;
+  if (!isPortfolioChartLatestPointFresh({ chartData: payload.chartData })) return null;
 
   return payload.chartData;
 }

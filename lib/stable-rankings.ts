@@ -29,6 +29,11 @@ function tickerId(ticker: string | null, fallback: number) {
 }
 
 const RANKING_SELECT = "id,rank,previous_rank,ticker,company,sector,score,price,updated_at";
+const RANKING_SECTORS_CACHE_TTL_MS = Number(
+  process.env.RANKING_SECTORS_CACHE_TTL_MS ?? 5 * 60 * 1000,
+);
+
+let rankingSectorsCache: { data: string[]; fetchedAt: number } | null = null;
 
 function mapRankingRows(data: LiveRankingRow[] | null): StableRankingRow[] {
   return (data ?? []).map((row, index) => ({
@@ -93,6 +98,13 @@ export async function getStableRankingsPage(
 }
 
 export async function getRankingSectors(supabase: SupabaseClient): Promise<string[]> {
+  if (
+    rankingSectorsCache &&
+    Date.now() - rankingSectorsCache.fetchedAt < RANKING_SECTORS_CACHE_TTL_MS
+  ) {
+    return rankingSectorsCache.data;
+  }
+
   const { data, error } = await supabase
     .from("stock_rankings")
     .select("sector")
@@ -105,13 +117,19 @@ export async function getRankingSectors(supabase: SupabaseClient): Promise<strin
     return [];
   }
 
-  return Array.from(
+  const sectors = Array.from(
     new Set(
       (data ?? [])
         .map((row) => (typeof row.sector === "string" ? row.sector.trim() : ""))
         .filter(Boolean),
     ),
   );
+
+  if (sectors.length > 0) {
+    rankingSectorsCache = { data: sectors, fetchedAt: Date.now() };
+  }
+
+  return sectors;
 }
 
 export async function getStableRankings(supabase: SupabaseClient): Promise<StableRankingRow[]> {
