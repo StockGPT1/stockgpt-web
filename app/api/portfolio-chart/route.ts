@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
+import { assessPortfolioChartHealth } from "@/lib/portfolio-chart-health";
 import {
   buildCurrentPortfolioSnapshotPoint,
   buildMinimalCurrentChartData,
-  getPortfolioSnapshotChartData,
+  getPortfolioSnapshotChartDataWithHealth,
   latestPortfolioInputChangeMs,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
@@ -146,19 +147,28 @@ export async function GET(req: NextRequest) {
   });
   const cachedChartData =
     await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
-  if (cachedChartData) return NextResponse.json({ chartData: cachedChartData });
+  if (cachedChartData) {
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolioRow.created_at ?? null,
+      latestInputMs,
+      chartData: cachedChartData,
+      summary: { holdingsCount: holdings.length },
+    });
+    if (health.displayable) return NextResponse.json({ chartData: cachedChartData, meta: { source: "cached-good", health } });
+  }
 
-  const snapshotChartData = await getPortfolioSnapshotChartData({
+  const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
     supabase,
     portfolioId,
     userId: user.id,
     portfolioCreatedAt: portfolioRow.created_at ?? null,
     latestInputMs,
+    summary: { holdingsCount: holdings.length },
   });
 
-  if (snapshotChartData) {
-    void setJsonCache(cacheKey, snapshotChartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
-    return NextResponse.json({ chartData: snapshotChartData });
+  if (snapshotChart?.health.displayable) {
+    void setJsonCache(cacheKey, snapshotChart.chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
+    return NextResponse.json({ chartData: snapshotChart.chartData, meta: { source: "snapshots", health: snapshotChart.health } });
   }
 
   const currentPoint = buildCurrentPortfolioSnapshotPoint({
@@ -175,7 +185,12 @@ export async function GET(req: NextRequest) {
     chartData,
     source: "page",
   });
-  void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
+  const health = assessPortfolioChartHealth({
+    portfolioCreatedAt: portfolioRow.created_at ?? null,
+    latestInputMs,
+    chartData,
+    summary: { holdingsCount: holdings.length },
+  });
 
-  return NextResponse.json({ chartData });
+  return NextResponse.json({ chartData: {}, meta: { source: "building", health } });
 }
