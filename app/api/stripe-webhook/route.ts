@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   sendCoreSubscriptionActivatedEmail,
   sendPaymentFailedEmail,
@@ -12,7 +12,7 @@ type ProfileEmailRow = {
   email: string | null;
 };
 
-type SupabaseAdminClient = ReturnType<typeof createClient<any>>;
+type SupabaseAdminClient = SupabaseClient;
 
 async function getProfileEmail(
   supabaseAdmin: SupabaseAdminClient,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabaseAdmin = createClient<any>(supabaseUrl, serviceRole);
+  const supabaseAdmin = createClient(supabaseUrl, serviceRole);
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");

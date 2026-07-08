@@ -2,16 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { WorldNewsClient } from "@/components/WorldNewsClient";
+import { hasActiveSubscription } from "@/lib/subscription";
+import { getCachedWorldNewsFeed } from "@/lib/world-news-feed";
 import { createClient } from "@/utils/supabase/server";
-import {
-  analyseArticleForMarketRelevance,
-  enrichArticleWithStockInsights,
-  type BaseNewsArticle,
-  type StockLike,
-} from "@/lib/news-intelligence";
 
 export const metadata: Metadata = {
-  title: "World News | StockGPT Market Intelligence",
+  title: "Market Briefing | StockGPT Market Intelligence",
   description:
     "Follow global market news, sentiment and AI-assisted summaries from StockGPT.",
   robots: { index: false, follow: false },
@@ -30,37 +26,33 @@ export default async function WorldNewsPage() {
     redirect("/login");
   }
 
-  const [{ data: newsData }, { data: stockData }] = await Promise.all([
-    supabase
-      .from("news_articles")
-      .select(
-        "id,title,summary,source,url,image_url,affected_tickers,impact,impact_reason,published_at",
-      )
-      .order("published_at", { ascending: false })
-      .limit(180),
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_status")
+    .eq("id", user.id)
+    .maybeSingle();
 
-    supabase
-      .from("stock_rankings")
-      .select("ticker,company,sector,rank,score,price")
-      .order("rank", { ascending: true })
-      .limit(500),
-  ]);
-
-  const articles = (newsData ?? []) as BaseNewsArticle[];
-  const stocks = (stockData ?? []) as StockLike[];
-
-  const enrichedArticles = articles
-    .map((article) => ({
-      article,
-      decision: analyseArticleForMarketRelevance(article, stocks),
-    }))
-    .filter(({ decision }) => decision.relevant)
-    .sort((a, b) => b.decision.score - a.decision.score)
-    .map(({ article }) => enrichArticleWithStockInsights(article, stocks, 8));
+  const hasSubscription = hasActiveSubscription(profile?.subscription_status);
+  const feed = hasSubscription
+    ? await getCachedWorldNewsFeed()
+    : {
+        articles: [],
+        fetchedAt: new Date().toISOString(),
+        latestPublishedAt: null,
+        sourceArticleCount: 0,
+        stockUniverseCount: 0,
+      };
 
   return (
     <AppShell activePath="/world-news">
-      <WorldNewsClient articles={enrichedArticles} />
+      <WorldNewsClient
+        articles={feed.articles}
+        fetchedAt={feed.fetchedAt}
+        latestPublishedAt={feed.latestPublishedAt}
+        sourceArticleCount={feed.sourceArticleCount}
+        stockUniverseCount={feed.stockUniverseCount}
+        locked={!hasSubscription}
+      />
     </AppShell>
   );
 }

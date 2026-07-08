@@ -8,6 +8,7 @@ export type ChartPoint = {
   basis?: number;
   pnl?: number;
   pnlPct?: number;
+  synthetic?: boolean;
 };
 
 export type TimeRange = "1D" | "5D" | "1M" | "6M" | "1Y" | "5Y" | "MAX";
@@ -74,6 +75,11 @@ function formatDate(iso: string, range: TimeRange) {
   });
 }
 
+function pointTime(point: ChartPoint) {
+  const ms = new Date(point.date).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
 export function StockChart({
   ticker,
   data,
@@ -128,6 +134,7 @@ export function StockChart({
     pathD,
     areaD,
     gridPrices,
+    pointXs,
   } = useMemo(() => {
     const svgWidth = 800;
 
@@ -149,6 +156,7 @@ export function StockChart({
         pathD: "",
         areaD: "",
         gridPrices: [] as number[],
+        pointXs: [] as number[],
       };
     }
 
@@ -165,16 +173,27 @@ export function StockChart({
       maxP += buffer;
     }
 
-    const xStep = plotW / (points.length - 1);
+    const times = points.map((point, index) => pointTime(point) ?? index);
+    let minTime = Math.min(...times);
+    let maxTime = Math.max(...times);
+    if (minTime === maxTime) {
+      minTime -= 1;
+      maxTime += 1;
+    }
 
     const yScale = (price: number) =>
       padding.top + plotH * (1 - (price - minP) / (maxP - minP));
+
+    const xScale = (ms: number) =>
+      padding.left + plotW * ((ms - minTime) / (maxTime - minTime));
+
+    const pointXs = times.map((ms) => xScale(ms));
 
     let pathD = "";
     let areaD = "";
 
     points.forEach((p, i) => {
-      const x = padding.left + i * xStep;
+      const x = pointXs[i] ?? padding.left;
       const y = yScale(p.close);
 
       if (i === 0) {
@@ -188,7 +207,7 @@ export function StockChart({
       }
     });
 
-    const lastX = padding.left + (points.length - 1) * xStep;
+    const lastX = pointXs.at(-1) ?? padding.left + plotW;
     areaD += ` L ${lastX.toFixed(2)} ${(padding.top + plotH).toFixed(2)} Z`;
 
     const gridPrices: number[] = [];
@@ -209,6 +228,7 @@ export function StockChart({
       pathD,
       areaD,
       gridPrices,
+      pointXs,
     };
   }, [points, height, compact]);
 
@@ -218,21 +238,19 @@ export function StockChart({
 
       const rect = svgRef.current.getBoundingClientRect();
       const cursorX = ((clientX - rect.left) / rect.width) * svgWidth;
-      const xStep = plotW / (points.length - 1);
-
-      const idx = Math.max(
+      const idx = pointXs.reduce(
+        (nearest, x, index) =>
+          Math.abs(x - cursorX) < Math.abs((pointXs[nearest] ?? 0) - cursorX)
+            ? index
+            : nearest,
         0,
-        Math.min(
-          points.length - 1,
-          Math.round((cursorX - padding.left) / xStep),
-        ),
       );
 
       setHoverIdx(idx);
 
       onScrub?.(points[idx], { range: resolvedRange });
     },
-    [points, svgWidth, plotW, padding.left, onScrub, resolvedRange],
+    [points, svgWidth, pointXs, onScrub, resolvedRange],
   );
 
   const handlePointerLeave = useCallback(() => {
@@ -260,7 +278,7 @@ export function StockChart({
 
   const xPos =
     hoverIdx != null
-      ? padding.left + (plotW / Math.max(1, points.length - 1)) * hoverIdx
+      ? pointXs[hoverIdx] ?? 0
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
@@ -409,7 +427,7 @@ export function StockChart({
             <>
               {[0, Math.floor(points.length / 2), points.length - 1].map(
                 (idx, i) => {
-                  const x = padding.left + (plotW / (points.length - 1)) * idx;
+                  const x = pointXs[idx] ?? padding.left;
                   const dateText = formatDate(points[idx].date, resolvedRange);
 
                   return (

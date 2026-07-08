@@ -341,7 +341,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
+        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[calc(108px+env(safe-area-inset-bottom))] sm:p-3 lg:overflow-hidden lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
@@ -350,7 +350,11 @@ export async function AppShell({
         </section>
       </div>
 
-      <nav className="sg-bottom-nav fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
+      <nav
+        aria-label="Primary mobile navigation"
+        className="sg-bottom-nav fixed left-3 right-3 z-30 mx-auto flex h-[64px] max-w-[430px] shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#ddb159]/20 bg-[#04180f]/88 px-2 shadow-[0_18px_55px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(250,246,240,0.06)] backdrop-blur-xl lg:hidden"
+        style={{ bottom: "max(12px, env(safe-area-inset-bottom))" }}
+      >
         {mobileBottomNav.map((item) => {
           const isActive = activePath === item.href;
           const isAlerts = item.href === "/notifications";
@@ -360,22 +364,33 @@ export async function AppShell({
               key={item.href}
               href={item.href}
               prefetch={false}
+              aria-label={item.label}
               data-active={isActive ? "true" : "false"}
-              className={`sg-mobile-nav-link relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
-                isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"
-              }`}
+              className={[
+                "sg-mobile-nav-link relative flex h-12 min-w-0 items-center justify-center rounded-full text-[#faf6f0]/62 motion-safe:transition-all motion-safe:duration-300",
+                isActive
+                  ? "flex-[1.35] gap-2 bg-[#ddb159] px-3 text-[#061b12] shadow-[0_10px_24px_rgba(221,177,89,0.26)]"
+                  : "w-11 flex-none hover:bg-[#faf6f0]/7 hover:text-[#faf6f0] max-[340px]:w-10",
+              ].join(" ")}
             >
-              <StockIcon name={item.icon as StockIconName} className="size-5" />
-              <span className="text-[10px] font-bold">{item.label}</span>
+              <StockIcon
+                name={item.icon as StockIconName}
+                className={isActive ? "size-[18px]" : "size-5"}
+              />
+              <span
+                className={
+                  isActive
+                    ? "max-w-[76px] truncate text-[11px] font-black"
+                    : "sr-only"
+                }
+              >
+                {item.label}
+              </span>
 
               {isAlerts && unreadCount > 0 && (
-                <span className="absolute right-2 top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
+                <span className="absolute -right-0.5 top-0 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-[#04180f]">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
-              )}
-
-              {isActive && (
-                <span className="absolute inset-x-4 top-0 h-[2px] bg-[#ddb159]" />
               )}
             </Link>
           );

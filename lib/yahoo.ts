@@ -2,10 +2,10 @@ import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const YAHOO_FETCH_TIMEOUT_MS = 2_500;
+const YAHOO_FETCH_TIMEOUT_MS = Number(process.env.YAHOO_FETCH_TIMEOUT_MS ?? 1_800);
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
-const ONE_DAY_MOVE_TIMEOUT_MS = 4_000;
-const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 12);
+const ONE_DAY_MOVE_TIMEOUT_MS = Number(process.env.ONE_DAY_MOVE_TIMEOUT_MS ?? 1_800);
+const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 8);
 
 type RangeConfig = { range: string; interval: string };
 

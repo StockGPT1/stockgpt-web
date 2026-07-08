@@ -16,6 +16,7 @@ const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const ONE_MONTH_MS = 30 * ONE_DAY_MS;
 const MAX_POINTS = 260;
 const WRITE_BATCH_SIZE = 400;
+const DEFAULT_LATEST_POINT_MAX_AGE_MS = 2 * ONE_HOUR_MS;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
   "1M": 30,
   "6M": 182,
@@ -429,6 +430,54 @@ function bucketPoints({
   ]);
 }
 
+function clonePointAtMs<T extends SnapshotChartPoint>(point: T, ms: number): T {
+  return {
+    ...point,
+    date: new Date(ms).toISOString(),
+    synthetic: true,
+  };
+}
+
+function cloneNormalisedPointAtMs(point: NormalisedSnapshotPoint, ms: number): NormalisedSnapshotPoint {
+  return {
+    ...point,
+    ms,
+    date: new Date(ms).toISOString(),
+    source: "synthetic_anchor",
+    sourceKind: "live",
+    synthetic: true,
+  };
+}
+
+function ensureOneDayCoverage<T extends SnapshotChartPoint>({
+  points,
+  rangeStartMs,
+}: {
+  points: T[];
+  rangeStartMs: number;
+}) {
+  const first = points[0];
+  if (!first) return points;
+
+  const firstMs = pointMs(first);
+  if (firstMs == null || firstMs <= rangeStartMs + ONE_HOUR_MS) return points;
+
+  return [clonePointAtMs(first, rangeStartMs), ...points];
+}
+
+function ensureOneDayNormalisedCoverage({
+  points,
+  rangeStartMs,
+}: {
+  points: NormalisedSnapshotPoint[];
+  rangeStartMs: number;
+}) {
+  const first = points[0];
+  if (!first || first.ms <= rangeStartMs + ONE_HOUR_MS) return points;
+
+  return [cloneNormalisedPointAtMs(first, rangeStartMs), ...points];
+}
+
 function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
   return points.map((point) => ({
     date: point.date,
@@ -437,6 +486,7 @@ function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
     basis: point.basis,
     pnl: point.pnl,
     pnlPct: point.pnlPct,
+    ...(point.synthetic ? { synthetic: true } : {}),
   }));
 }
 
@@ -499,20 +549,24 @@ function snapshotsToChartData({
         range === "1D"
           ? sourcePoints.filter((point) => point.sourceKind === "live")
           : sourcePoints;
+      const displayPoints =
+        range === "1D"
+          ? ensureOneDayNormalisedCoverage({ points: coveredPoints, rangeStartMs })
+          : coveredPoints;
 
-      if (coveredPoints.length <= 1) return acc;
-      if (!hasRangeCoverage({ range, points: coveredPoints, rangeStartMs, portfolioStartMs })) {
+      if (displayPoints.length <= 1) return acc;
+      if (!hasRangeCoverage({ range, points: displayPoints, rangeStartMs, portfolioStartMs })) {
         return acc;
       }
 
       const bucketIntervalMs = chooseBucketInterval({
         range,
-        points: coveredPoints,
+        points: displayPoints,
         rangeStartMs,
         nowMs,
       });
       const bucketed = bucketPoints({
-        points: coveredPoints,
+        points: displayPoints,
         intervalMs: bucketIntervalMs,
         rangeStartMs,
       });
@@ -539,6 +593,107 @@ function snapshotsToChartData({
 
 function hasAnySnapshotChartData(chartData: PortfolioSnapshotChartData) {
   return OUTPUT_RANGES.some((range) => (chartData[range]?.length ?? 0) > 1);
+}
+
+export function latestPortfolioChartPointMs(chartData: PortfolioSnapshotChartData | null | undefined) {
+  return OUTPUT_RANGES.flatMap((range) => chartData?.[range] ?? []).reduce<number | null>(
+    (latest, point) => {
+      const ms = pointMs(point);
+      if (ms == null) return latest;
+      return latest == null || ms > latest ? ms : latest;
+    },
+    null,
+  );
+}
+
+export function isPortfolioChartLatestPointFresh({
+  chartData,
+  nowMs = Date.now(),
+  maxAgeMs = Number(
+    process.env.PORTFOLIO_CHART_LATEST_POINT_MAX_AGE_MS ?? DEFAULT_LATEST_POINT_MAX_AGE_MS,
+  ),
+}: {
+  chartData: PortfolioSnapshotChartData | null | undefined;
+  nowMs?: number;
+  maxAgeMs?: number;
+}) {
+  const latestMs = latestPortfolioChartPointMs(chartData);
+  return latestMs != null && nowMs - latestMs <= maxAgeMs;
+}
+
+function sampleSnapshotPoints(points: SnapshotChartPoint[]) {
+  if (points.length <= MAX_POINTS) return points;
+  const step = Math.ceil(points.length / MAX_POINTS);
+  const sampled = points.filter((_, index) => index % step === 0);
+  const last = points.at(-1);
+  if (last && sampled.at(-1)?.date !== last.date) sampled.push(last);
+  return sampled;
+}
+
+function mergeRangeWithCurrentPoint({
+  points,
+  currentPoint,
+  range,
+  rangeStartMs,
+  nowMs,
+}: {
+  points: SnapshotChartPoint[];
+  currentPoint: SnapshotChartPoint;
+  range: TimeRange;
+  rangeStartMs: number;
+  nowMs: number;
+}) {
+  const currentMs = pointMs(currentPoint) ?? nowMs;
+  const byTimestamp = new Map<number, SnapshotChartPoint>();
+
+  points.forEach((point) => {
+    const ms = pointMs(point);
+    if (ms == null || ms < rangeStartMs || ms > nowMs) return;
+    byTimestamp.set(ms, point);
+  });
+
+  if (currentMs >= rangeStartMs && currentMs <= nowMs + 1_000) {
+    byTimestamp.set(currentMs, currentPoint);
+  }
+
+  const sorted = Array.from(byTimestamp.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, point]) => point);
+
+  const displayPoints =
+    range === "1D" ? ensureOneDayCoverage({ points: sorted, rangeStartMs }) : sorted;
+
+  return sampleSnapshotPoints(displayPoints);
+}
+
+export function appendCurrentPointToPortfolioChartData({
+  chartData,
+  currentPoint,
+  portfolioCreatedAt,
+  nowMs = Date.now(),
+}: {
+  chartData: PortfolioSnapshotChartData | null | undefined;
+  currentPoint: SnapshotChartPoint;
+  portfolioCreatedAt?: string | null;
+  nowMs?: number;
+}): PortfolioSnapshotChartData {
+  const portfolioStartMs = safeDateMs(portfolioCreatedAt ?? null) ?? 0;
+  const minimalOneDay = buildMinimalCurrentChartData(currentPoint)["1D"] ?? [];
+
+  return OUTPUT_RANGES.reduce<PortfolioSnapshotChartData>((acc, range) => {
+    const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
+    const existingPoints = chartData?.[range] ?? [];
+    const merged = mergeRangeWithCurrentPoint({
+      points: range === "1D" && existingPoints.length === 0 ? minimalOneDay : existingPoints,
+      currentPoint,
+      range,
+      rangeStartMs,
+      nowMs,
+    });
+
+    if (merged.length > 1) acc[range] = merged;
+    return acc;
+  }, {});
 }
 
 function latestSnapshotCoversLatestInput(points: NormalisedSnapshotPoint[], latestInputMs: number) {
@@ -803,6 +958,8 @@ function getSnapshotRowsFromChartData({
       : safeDateMs(maxSnapshotAtBefore ?? null);
 
   OUTPUT_RANGES.flatMap((range) => chartData[range] ?? []).forEach((point) => {
+    if (point.synthetic) return;
+
     const row = pointToSnapshotRow({ portfolioId, userId, point, source });
     if (!row) return;
 
@@ -898,7 +1055,8 @@ export function buildMinimalCurrentChartData(point: SnapshotChartPoint): Portfol
   const ms = pointMs(point) ?? Date.now();
   const previousPoint = {
     ...point,
-    date: new Date(ms - 60_000).toISOString(),
+    date: new Date(ms - ONE_DAY_MS).toISOString(),
+    synthetic: true,
   };
 
   return { "1D": [previousPoint, point] };
