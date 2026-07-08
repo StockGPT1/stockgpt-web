@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  buildPortfolioSnapshotChartDataFromRows,
   buildCurrentPortfolioSnapshotPoint,
   buildMinimalCurrentChartData,
   getFirstLiveSnapshotMs,
@@ -7,7 +8,9 @@ import {
   isHistoricalSnapshotSource,
   saveLatestPortfolioSnapshotFromChartData,
   savePortfolioSnapshotsFromChartData,
+  type PortfolioSnapshotRow,
 } from "@/lib/portfolio-snapshots";
+import { assessPortfolioChartHealth } from "@/lib/portfolio-chart-health";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
@@ -56,6 +59,8 @@ type SnapshotRow = {
   value: number | string | null;
   cash: number | string | null;
   basis: number | string | null;
+  pnl: number | string | null;
+  pnl_pct: number | string | null;
 };
 
 type PortfolioHealth = {
@@ -69,6 +74,9 @@ type PortfolioHealth = {
   historicalOverlapIds: string[];
   isLiveStale: boolean;
   isMissingHistorical: boolean;
+  chartStatus: string;
+  chartReason: string;
+  isChartUnhealthy: boolean;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -143,6 +151,19 @@ function buildHealthRows({
     const oldEnoughForHistory = nowMs - createdMs >= minHistoryAgeMs;
     const invalidIds = invalidSnapshotIds(snapshotRows);
     const overlapIds = historicalOverlapIds(snapshotRows, firstLiveMs);
+    const chartBuild = buildPortfolioSnapshotChartDataFromRows({
+      rows: snapshotRows as PortfolioSnapshotRow[],
+      portfolioCreatedAt: portfolio.created_at ?? null,
+      requireLatestInputCoverage: false,
+    });
+    const chartHealth = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolio.created_at ?? null,
+      snapshotRows,
+      chartData: chartBuild?.chartData ?? {},
+      summary: { holdingsCount: 1, totalValue: 1 },
+      nowMs,
+      staleLiveMs,
+    });
 
     return {
       portfolio,
@@ -155,6 +176,9 @@ function buildHealthRows({
       historicalOverlapIds: overlapIds,
       isLiveStale: !hasLive || nowMs - latestLiveMs > staleLiveMs,
       isMissingHistorical: oldEnoughForHistory && !hasHistorical,
+      chartStatus: chartHealth.status,
+      chartReason: chartHealth.reason,
+      isChartUnhealthy: chartHealth.status !== "healthy",
     };
   });
 }
@@ -231,7 +255,7 @@ async function repairHistoricalBackfill({
   let repaired = 0;
   let failed = 0;
   const selected = healthRows
-    .filter((row) => row.isMissingHistorical)
+    .filter((row) => row.isMissingHistorical || row.isChartUnhealthy)
     .sort((a, b) => (safeDateMs(a.portfolio.created_at) ?? 0) - (safeDateMs(b.portfolio.created_at) ?? 0))
     .slice(0, Math.max(0, limit));
 
@@ -339,7 +363,7 @@ export async function GET(req: NextRequest) {
   const [{ data: snapshotRows, error: snapshotError }, { data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] = await Promise.all([
     supabase
       .from("portfolio_snapshots")
-      .select("id,portfolio_id,source,snapshot_at,value,cash,basis")
+      .select("id,portfolio_id,source,snapshot_at,value,cash,basis,pnl,pnl_pct")
       .in("portfolio_id", portfolioIds)
       .order("snapshot_at", { ascending: false })
       .limit(Number(process.env.PORTFOLIO_HEALTH_SNAPSHOT_SCAN_LIMIT ?? 25_000)),
@@ -381,6 +405,7 @@ export async function GET(req: NextRequest) {
 
   const staleLive = healthRows.filter((row) => row.isLiveStale);
   const missingHistorical = healthRows.filter((row) => row.isMissingHistorical);
+  const unhealthyCharts = healthRows.filter((row) => row.isChartUnhealthy);
   const invalidSnapshots = healthRows.filter((row) => row.invalidSnapshotIds.length > 0);
   const historicalAfterLive = healthRows.filter((row) => row.historicalOverlapIds.length > 0);
   const activeWithoutSnapshots = healthRows.filter((row) => row.snapshotRows.length === 0);
@@ -433,7 +458,7 @@ export async function GET(req: NextRequest) {
     historicalOverlapCleanup.deleted +
     invalidSnapshotCleanup.deleted;
   console.info(
-    `[portfolio-health] portfolios=${portfolios.length} activeWithoutSnapshots=${activeWithoutSnapshots.length} staleLive=${staleLive.length} missingHistorical=${missingHistorical.length} invalidSnapshots=${invalidSnapshots.length} historicalAfterLive=${historicalAfterLive.length} repairsPerformed=${repairsPerformed} elapsedMs=${elapsedMs}`,
+    `[portfolio-health] portfolios=${portfolios.length} activeWithoutSnapshots=${activeWithoutSnapshots.length} staleLive=${staleLive.length} missingHistorical=${missingHistorical.length} unhealthyCharts=${unhealthyCharts.length} invalidSnapshots=${invalidSnapshots.length} historicalAfterLive=${historicalAfterLive.length} repairsPerformed=${repairsPerformed} elapsedMs=${elapsedMs}`,
   );
 
   return NextResponse.json({
@@ -445,6 +470,7 @@ export async function GET(req: NextRequest) {
       activeWithoutSnapshots: activeWithoutSnapshots.length,
       staleLive: staleLive.length,
       missingHistorical: missingHistorical.length,
+      unhealthyCharts: unhealthyCharts.length,
       invalidSnapshots: invalidSnapshots.length,
       historicalAfterLive: historicalAfterLive.length,
     },

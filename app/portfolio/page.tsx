@@ -13,7 +13,12 @@ import { PortfolioCreationSuccess } from "@/components/PortfolioCreationSuccess"
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, enrichHoldingsAdmin, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
-import { buildPortfolioPageChart } from "@/lib/portfolio-page-chart";
+import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
+import {
+  repairPortfolioChartForPortfolio,
+  shouldRepairHistorical,
+} from "@/lib/portfolio-chart-repair";
+import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import {
   enrichArticleWithStockInsights,
   type BaseNewsArticle,
@@ -356,7 +361,7 @@ async function buildPortfolioSnapshotPayload({
     cashBalance: toNumber(activePortfolio.cash_balance, 0),
     cashDepositedTotal,
   });
-  const chartData = await buildPortfolioPageChart({
+  const chartResult = await buildPortfolioPageChartResult({
     portfolio: {
       id: activePortfolio.id,
       name: activePortfolio.name,
@@ -374,7 +379,7 @@ async function buildPortfolioSnapshotPayload({
     ownerId,
   });
 
-  return { enriched, summary, chartData, portfolioNews };
+  return { enriched, summary, chartData: chartResult.chartData, chartMeta: chartResult.meta, portfolioNews };
 }
 
 async function schedulePortfolioSnapshotRefresh({
@@ -426,6 +431,37 @@ async function schedulePortfolioSnapshotRefresh({
       );
     } catch (error) {
       console.warn("Portfolio page snapshot background refresh failed", error);
+    }
+  });
+
+  return true;
+}
+
+function schedulePortfolioChartRepair({
+  portfolioId,
+  ownerId,
+  chartMeta,
+}: {
+  portfolioId: string;
+  ownerId: string;
+  chartMeta: PortfolioChartMeta;
+}) {
+  if (!chartMeta.health.repairNeeded) return false;
+
+  after(async () => {
+    try {
+      await repairPortfolioChartForPortfolio({
+        portfolioId,
+        userId: ownerId,
+        reason: chartMeta.health.reason,
+        includeHistorical: shouldRepairHistorical(
+          chartMeta.health.status,
+          chartMeta.health.reason,
+        ),
+        source: "portfolio-page",
+      });
+    } catch (error) {
+      console.warn("Portfolio chart background repair failed", error);
     }
   });
 
@@ -644,7 +680,7 @@ export default async function PortfolioPage({
             cashDepositedTotal,
           })
         : false;
-    const chartData = await buildPortfolioPageChart({
+    const chartResult = await buildPortfolioPageChartResult({
       portfolio: {
         id: activePortfolio.id,
         name: activePortfolio.name,
@@ -661,11 +697,17 @@ export default async function PortfolioPage({
       summary: displaySummary,
       ownerId: user.id,
     });
+    const chartRepairScheduled = schedulePortfolioChartRepair({
+      portfolioId: selectedPortfolioId,
+      ownerId: user.id,
+      chartMeta: chartResult.meta,
+    });
 
     timer.end({
       cacheMode: snapshotLookup.mode,
       inputHashMatched: snapshotLookup.inputHashMatched,
       backgroundRefreshScheduled,
+      chartRepairScheduled,
       holdings: rawHoldings.length,
       selectedPortfolioId,
     });
@@ -701,7 +743,8 @@ export default async function PortfolioPage({
                 createdAt: transaction.created_at,
               }))}
               newsArticles={cachedPortfolioNews}
-              chartData={chartData}
+              chartData={chartResult.chartData}
+              chartMeta={chartResult.meta}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
@@ -746,7 +789,7 @@ export default async function PortfolioPage({
     cashBalance: toNumber(activePortfolio.cash_balance, 0),
     cashDepositedTotal,
   });
-  const chartData = await buildPortfolioPageChart({
+  const chartResult = await buildPortfolioPageChartResult({
     portfolio: {
       id: activePortfolio.id,
       name: activePortfolio.name,
@@ -763,6 +806,11 @@ export default async function PortfolioPage({
     summary,
     ownerId: user.id,
   });
+  const chartRepairScheduled = schedulePortfolioChartRepair({
+    portfolioId: selectedPortfolioId,
+    ownerId: user.id,
+    chartMeta: chartResult.meta,
+  });
 
   timer.mark("portfolio-chart");
 
@@ -774,7 +822,8 @@ export default async function PortfolioPage({
       snapshot: {
         enriched,
         summary,
-        chartData,
+        chartData: chartResult.chartData,
+        chartMeta: chartResult.meta,
         portfolioNews,
       },
     }),
@@ -783,6 +832,7 @@ export default async function PortfolioPage({
   timer.end({
     cacheMode: "miss",
     backgroundRefreshScheduled: true,
+    chartRepairScheduled,
     holdings: rawHoldings.length,
     selectedPortfolioId,
   });
@@ -819,7 +869,8 @@ export default async function PortfolioPage({
               createdAt: transaction.created_at,
             }))}
             newsArticles={portfolioNews}
-            chartData={chartData}
+            chartData={chartResult.chartData}
+            chartMeta={chartResult.meta}
             portfolioMeta={{
               id: selectedPortfolioId,
               name: activePortfolio.name as string,

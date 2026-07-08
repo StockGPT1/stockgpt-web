@@ -1,4 +1,9 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import {
+  assessPortfolioChartHealth,
+  type PortfolioChartHealth,
+  type PortfolioChartSnapshotHealthRow,
+} from "@/lib/portfolio-chart-health";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
@@ -47,7 +52,7 @@ export type PortfolioSnapshotSourceRow = {
   source?: string | null;
 };
 
-type PortfolioSnapshotRow = PortfolioSnapshotSourceRow & {
+export type PortfolioSnapshotRow = PortfolioSnapshotSourceRow & {
   value: number | string | null;
   cash: number | string | null;
   basis: number | string | null;
@@ -101,6 +106,13 @@ export type PortfolioSnapshotBuildResult = {
   rangeMeta: ChartRangeMeta[];
   firstLiveSnapshotMs: number | null;
   latestLiveSnapshotMs: number | null;
+};
+
+export type PortfolioSnapshotChartReadResult = {
+  chartData: PortfolioSnapshotChartData;
+  health: PortfolioChartHealth;
+  rows: PortfolioSnapshotRow[];
+  buildResult: PortfolioSnapshotBuildResult | null;
 };
 
 type DatedInput = {
@@ -540,11 +552,13 @@ export function buildPortfolioSnapshotChartDataFromRows({
   portfolioCreatedAt,
   latestInputMs = 0,
   nowMs = Date.now(),
+  requireLatestInputCoverage = true,
 }: {
   rows: PortfolioSnapshotRow[];
   portfolioCreatedAt?: string | null;
   latestInputMs?: number;
   nowMs?: number;
+  requireLatestInputCoverage?: boolean;
 }): PortfolioSnapshotBuildResult | null {
   const portfolioStartMs = safeDateMs(portfolioCreatedAt) ?? 0;
   const { points, stats, firstLiveSnapshotMs, latestLiveSnapshotMs } = normaliseRows(
@@ -552,7 +566,9 @@ export function buildPortfolioSnapshotChartDataFromRows({
     portfolioStartMs,
   );
 
-  if (!latestSnapshotCoversLatestInput(points, latestInputMs)) return null;
+  if (requireLatestInputCoverage && !latestSnapshotCoversLatestInput(points, latestInputMs)) {
+    return null;
+  }
 
   const { chartData, rangeMeta } = snapshotsToChartData({
     points,
@@ -628,6 +644,33 @@ export async function getPortfolioSnapshotChartData({
   portfolioCreatedAt?: string | null;
   latestInputMs: number;
 }): Promise<PortfolioSnapshotChartData | null> {
+  const result = await getPortfolioSnapshotChartDataWithHealth({
+    supabase,
+    portfolioId,
+    userId,
+    portfolioCreatedAt,
+    latestInputMs,
+  });
+
+  if (!result?.health.displayable) return null;
+  return result.chartData;
+}
+
+export async function getPortfolioSnapshotChartDataWithHealth({
+  supabase,
+  portfolioId,
+  userId,
+  portfolioCreatedAt,
+  latestInputMs,
+  summary,
+}: {
+  supabase: SupabaseLike;
+  portfolioId: string;
+  userId: string;
+  portfolioCreatedAt?: string | null;
+  latestInputMs: number;
+  summary?: { holdingsCount?: unknown; totalValue?: unknown } | null;
+}): Promise<PortfolioSnapshotChartReadResult | null> {
   const portfolioStartMs = safeDateMs(portfolioCreatedAt) ?? 0;
 
   try {
@@ -645,15 +688,39 @@ export async function getPortfolioSnapshotChartData({
       return null;
     }
 
+    const rows = (data ?? []) as PortfolioSnapshotRow[];
     const result = buildPortfolioSnapshotChartDataFromRows({
-      rows: (data ?? []) as PortfolioSnapshotRow[],
+      rows,
       portfolioCreatedAt,
       latestInputMs,
+      requireLatestInputCoverage: false,
+    });
+    const chartData = result?.chartData ?? {};
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt,
+      latestInputMs,
+      snapshotRows: rows as PortfolioChartSnapshotHealthRow[],
+      chartData,
+      summary,
     });
 
-    if (!result) return null;
-    logSnapshotChartBuild({ portfolioId, result });
-    return result.chartData;
+    console.info(
+      [
+        "[portfolio-chart-health]",
+        `portfolioId=${portfolioId}`,
+        "source=snapshots",
+        `status=${health.status}`,
+        `reason=${health.reason}`,
+        `ranges=${health.rangesAvailable.join(",") || "none"}`,
+        `snapshotCount=${health.snapshotCount}`,
+        `liveCount=${health.liveCount}`,
+        `historicalCount=${health.historicalCount}`,
+        `latestSnapshotAt=${health.latestSnapshotAt ?? "none"}`,
+      ].join(" "),
+    );
+
+    if (result) logSnapshotChartBuild({ portfolioId, result });
+    return { chartData, health, rows, buildResult: result };
   } catch (error) {
     console.warn("Portfolio snapshot read failed", error);
     return null;
