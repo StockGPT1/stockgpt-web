@@ -9,13 +9,14 @@ import {
   type EnrichedHolding,
   type RiskTolerance,
 } from "@/lib/portfolio-alerts";
-import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
+import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 type PortfolioRow = {
   id: string;
   name: string | null;
+  objective?: string | null;
   risk_tolerance: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
@@ -76,10 +77,24 @@ type PortfolioCandidate = {
   summary: PortfolioHealthSummary;
 };
 
+export type DashboardPortfolioOpportunity = {
+  ticker: string;
+  company: string | null;
+  sector: string;
+  category: "High-conviction fit" | "Diversification fit" | "Add-more candidate" | "Alternative to review" | "Watchlist idea";
+  score: number;
+  rank: number | null;
+  recentMovePct: number | null;
+  updatedAt: string | null;
+  reason: string;
+  risk: string;
+};
+
 export type DashboardMainPortfolioResult = {
   summary: PortfolioHealthSummary | null;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   tickers: string[];
+  opportunities: DashboardPortfolioOpportunity[];
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -93,6 +108,150 @@ function cleanTicker(ticker?: string | null) {
 
 function cleanPortfolioName(name: string | null | undefined) {
   return String(name ?? "").trim() || "Main Portfolio";
+}
+
+function recentIsoMs(value?: string | null) {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isFreshEnough(value?: string | null) {
+  const ms = recentIsoMs(value);
+  if (ms == null) return false;
+  return Date.now() - ms <= 36 * 60 * 60 * 1000;
+}
+
+function riskSectorCap(riskTolerance?: string | null) {
+  if (riskTolerance === "conservative") return 18;
+  if (riskTolerance === "aggressive") return 34;
+  return 26;
+}
+
+function objectiveBonus(objective: string | null | undefined, stock: { score: number; rank: number | null; sector: string | null }) {
+  if (objective === "growth") return stock.score >= 7600 ? 10 : 0;
+  if (objective === "income") {
+    return /utilities|consumer|health|financial/i.test(stock.sector ?? "") ? 6 : -4;
+  }
+  if (objective === "capital_preservation") return stock.rank != null && stock.rank <= 75 ? 5 : -8;
+  if (objective === "watchlist") return stock.rank != null && stock.rank <= 125 ? 4 : 0;
+  return stock.rank != null && stock.rank <= 100 ? 4 : 0;
+}
+
+async function buildDashboardOpportunities(
+  supabase: SupabaseClient,
+  portfolio: PortfolioRow,
+  holdings: EnrichedHolding[],
+  summary: PortfolioHealthSummary,
+): Promise<DashboardPortfolioOpportunity[]> {
+  if (holdings.length === 0) return [];
+
+  const { data } = await supabase
+    .from("stock_rankings")
+    .select("ticker,company,sector,score,rank,price,updated_at,last_price_update,last_ranking_update")
+    .order("rank", { ascending: true })
+    .limit(180);
+
+  const heldByTicker = new Map(holdings.map((holding) => [holding.ticker.toUpperCase(), holding]));
+  const sectorExposure = holdings.reduce<Map<string, number>>((acc, holding) => {
+    const sector = String(holding.sector ?? "Unclassified");
+    acc.set(sector, (acc.get(sector) ?? 0) + holding.currentAllocationPct);
+    return acc;
+  }, new Map());
+  const weakBySector = holdings.reduce<Map<string, EnrichedHolding>>((acc, holding) => {
+    const sector = String(holding.sector ?? "Unclassified");
+    const current = acc.get(sector);
+    const isWeak = holding.score < 6200 || holding.actionAlerts.length > 0 || holding.rankPercentile < 35;
+    if (isWeak && (!current || holding.score < current.score)) acc.set(sector, holding);
+    return acc;
+  }, new Map());
+  const sectorCap = riskSectorCap(portfolio.risk_tolerance);
+
+  const candidates = ((data ?? []) as Array<{
+    ticker: string | null;
+    company: string | null;
+    sector: string | null;
+    score: number | string | null;
+    rank: number | null;
+    price: number | string | null;
+    updated_at: string | null;
+    last_price_update?: string | null;
+    last_ranking_update?: string | null;
+  }>)
+    .map((stock) => {
+      const ticker = cleanTicker(stock.ticker);
+      const score = toNumber(stock.score, Number.NaN);
+      const price = toNumber(stock.price, Number.NaN);
+      const updatedAt = stock.last_ranking_update ?? stock.updated_at ?? stock.last_price_update ?? null;
+      const sector = stock.sector ?? "Unclassified";
+      const held = heldByTicker.get(ticker);
+      const exposure = sectorExposure.get(sector) ?? 0;
+      const weakSameSector = weakBySector.get(sector);
+
+      if (!ticker || !Number.isFinite(score) || score < 6500 || !Number.isFinite(price) || price <= 0) return null;
+      if (!isFreshEnough(updatedAt)) return null;
+
+      let category: DashboardPortfolioOpportunity["category"] = "Watchlist idea";
+      let fitScore = score / 100;
+      const rank = stock.rank;
+
+      if (held) {
+        const target = held.targetAllocationPct ?? held.currentAllocationPct;
+        if (held.currentAllocationPct >= target - 1 || summary.cashDrag < 2) return null;
+        category = "Add-more candidate";
+        fitScore += Math.max(0, target - held.currentAllocationPct) * 1.6;
+      } else if (weakSameSector && score >= weakSameSector.score + 900) {
+        category = "Alternative to review";
+        fitScore += 14;
+      } else if (exposure <= 1) {
+        category = "Diversification fit";
+        fitScore += 12;
+      } else if (score >= 7800 && (rank ?? 9999) <= 80) {
+        category = "High-conviction fit";
+        fitScore += 8;
+      }
+
+      if (!held && exposure > sectorCap && category !== "Alternative to review") return null;
+
+      fitScore += objectiveBonus(portfolio.objective, { score, rank, sector });
+      fitScore -= Math.max(0, exposure - sectorCap) * 1.2;
+
+      const reason =
+        category === "Add-more candidate"
+          ? `${ticker} is already held but remains below target with a strong current StockGPT score.`
+          : category === "Alternative to review"
+            ? `${ticker} screens stronger than a weaker same-sector holding and may be worth comparing.`
+            : category === "Diversification fit"
+              ? `${ticker} adds exposure outside the portfolio's current main sectors while retaining strong AI conviction.`
+              : `${ticker} combines strong AI conviction with a reasonable portfolio fit.`;
+      const risk =
+        exposure > 0
+          ? `${sector} exposure is already ${exposure.toFixed(1)}%, so sizing should stay controlled.`
+          : "New sector exposure should still be sized conservatively and reviewed against current news.";
+      const opportunity: DashboardPortfolioOpportunity = {
+        ticker,
+        company: stock.company,
+        sector,
+        category,
+        score,
+        rank,
+        recentMovePct: null,
+        updatedAt,
+        reason,
+        risk,
+      };
+
+      return {
+        opportunity,
+        fitScore,
+      };
+    })
+    .filter((candidate): candidate is { opportunity: DashboardPortfolioOpportunity; fitScore: number } => Boolean(candidate))
+    .sort((a, b) => b.fitScore - a.fitScore)
+    .slice(0, 3)
+    .map((candidate) => candidate.opportunity);
+
+  return candidates;
 }
 
 function normaliseHolding(holding: HoldingRow): RawHolding | null {
@@ -115,33 +274,6 @@ function normaliseHolding(holding: HoldingRow): RawHolding | null {
   };
 }
 
-async function buildPortfolioPerformanceChart({
-  portfolio,
-  enriched,
-  transactions,
-}: PortfolioCandidate): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
-  return buildPortfolioValueTimeline({
-    portfolio: {
-      id: portfolio.id,
-      cash_balance: portfolio.cash_balance,
-      created_at: portfolio.created_at,
-    },
-    holdings: enriched.map((holding) => ({
-      ticker: holding.ticker,
-      shares: holding.shares,
-      entryPrice: holding.entryPrice,
-      currentPrice: holding.currentPrice,
-      currentValue: holding.currentValue,
-      purchaseDate: holding.purchaseDate,
-      addedAt: holding.addedAt,
-    })),
-    transactions,
-    currentPrices: Object.fromEntries(
-      enriched.map((holding) => [holding.ticker, toNumber(holding.currentPrice, 0)]),
-    ),
-  });
-}
-
 export async function getDashboardMainPortfolio(
   supabase: SupabaseClient,
   userId: string,
@@ -149,7 +281,7 @@ export async function getDashboardMainPortfolio(
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
     .select(
-      "id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
+      "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
     )
     .eq("user_id", userId)
     .is("archived_at", null)
@@ -168,7 +300,7 @@ export async function getDashboardMainPortfolio(
   }));
 
   if (portfolios.length === 0) {
-    return { summary: null, chartData: {}, tickers: [] };
+    return { summary: null, chartData: {}, tickers: [], opportunities: [] };
   }
 
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
@@ -234,13 +366,37 @@ export async function getDashboardMainPortfolio(
   }
 
   const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { summary: null, chartData: {}, tickers: [] };
+  if (!mainPortfolio) return { summary: null, chartData: {}, tickers: [], opportunities: [] };
 
-  const chartData = await buildPortfolioPerformanceChart(mainPortfolio);
+  const chartResult = await buildPortfolioPageChartResult({
+    portfolio: {
+      id: mainPortfolio.portfolio.id,
+      name: mainPortfolio.portfolio.name,
+      objective: mainPortfolio.portfolio.objective ?? null,
+      risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
+      time_horizon: mainPortfolio.portfolio.time_horizon,
+      investment_amount: mainPortfolio.portfolio.investment_amount,
+      cash_balance: mainPortfolio.portfolio.cash_balance,
+      cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
+      currency: mainPortfolio.portfolio.currency,
+      created_at: mainPortfolio.portfolio.created_at,
+      user_id: userId,
+    },
+    enriched: mainPortfolio.enriched,
+    transactions: mainPortfolio.transactions,
+    summary: mainPortfolio.summary,
+    ownerId: userId,
+  });
 
   return {
     summary: mainPortfolio.summary,
-    chartData,
+    chartData: chartResult.chartData,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
+    opportunities: await buildDashboardOpportunities(
+      supabase,
+      mainPortfolio.portfolio,
+      mainPortfolio.enriched,
+      mainPortfolio.summary,
+    ),
   };
 }

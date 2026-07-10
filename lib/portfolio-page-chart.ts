@@ -2,6 +2,7 @@ import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import {
   assessPortfolioChartHealth,
   emptyPortfolioChartHealth,
+  filterDisplayablePortfolioChartData,
   type PortfolioChartMeta,
 } from "@/lib/portfolio-chart-health";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
@@ -13,7 +14,6 @@ import {
 import {
   appendCurrentPointToPortfolioChartData,
   buildCurrentPortfolioSnapshotPoint,
-  buildMinimalCurrentChartData,
   getPortfolioSnapshotChartDataWithHealth,
   isPortfolioChartLatestPointFresh,
   latestPortfolioInputChangeMs,
@@ -27,6 +27,7 @@ const PORTFOLIO_PAGE_CHART_CACHE_ENABLED =
 type PortfolioLike = {
   id: string;
   name: string | null;
+  objective?: string | null;
   risk_tolerance: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
@@ -168,14 +169,16 @@ export async function buildPortfolioPageChartResult({
     ),
     snapshotAt: new Date(nowMs),
   });
-  const currentChart = buildMinimalCurrentChartData(currentPoint);
+  const currentSnapshotChart = { "1D": [currentPoint] } satisfies Partial<
+    Record<TimeRange, ChartPoint[]>
+  >;
   const saveCurrentSnapshot = () => {
     if (!resolvedOwnerId) return;
     void saveLatestPortfolioSnapshotFromChartData({
       supabase,
       portfolioId: portfolio.id,
       userId: resolvedOwnerId,
-      chartData: currentChart,
+      chartData: currentSnapshotChart,
       source: "page_current_value",
     });
   };
@@ -202,14 +205,16 @@ export async function buildPortfolioPageChartResult({
           chartData: snapshotChart.chartData,
           nowMs,
         });
-      const chartData = needsCurrentPoint
-        ? appendCurrentPointToPortfolioChartData({
-            chartData: snapshotChart.chartData,
-            currentPoint,
-            portfolioCreatedAt: portfolio.created_at ?? null,
-            nowMs,
-          })
-        : snapshotChart.chartData;
+      const chartData = filterDisplayablePortfolioChartData(
+        needsCurrentPoint
+          ? appendCurrentPointToPortfolioChartData({
+              chartData: snapshotChart.chartData,
+              currentPoint,
+              portfolioCreatedAt: portfolio.created_at ?? null,
+              nowMs,
+            })
+          : snapshotChart.chartData,
+      );
       const health = needsCurrentPoint
         ? assessPortfolioChartHealth({
             portfolioCreatedAt: portfolio.created_at ?? null,
@@ -240,12 +245,12 @@ export async function buildPortfolioPageChartResult({
     }
 
     if (snapshotChart) {
-      const chartData = appendCurrentPointToPortfolioChartData({
+      const chartData = filterDisplayablePortfolioChartData(appendCurrentPointToPortfolioChartData({
         chartData: snapshotChart.chartData,
         currentPoint,
         portfolioCreatedAt: portfolio.created_at ?? null,
         nowMs,
-      });
+      }));
       const health = assessPortfolioChartHealth({
         portfolioCreatedAt: portfolio.created_at ?? null,
         latestInputMs,
@@ -253,15 +258,14 @@ export async function buildPortfolioPageChartResult({
         summary,
         nowMs,
       });
-      const hasDisplayPoints = Object.values(chartData).some((points) => (points?.length ?? 0) > 1);
 
       saveCurrentSnapshot();
 
       return {
         chartData,
         meta: {
-          source: hasDisplayPoints ? "minimal-current" : "building",
-          health: hasDisplayPoints ? health : snapshotChart.health,
+          source: health.displayable ? "snapshots" : "building",
+          health: health.displayable ? health : snapshotChart.health,
         },
       };
     }
@@ -278,13 +282,13 @@ export async function buildPortfolioPageChartResult({
   const health = assessPortfolioChartHealth({
     portfolioCreatedAt: portfolio.created_at ?? null,
     latestInputMs,
-    chartData: currentChart,
+    chartData: {},
     summary,
     nowMs,
   });
 
   return {
-    chartData: currentChart,
-    meta: { source: "minimal-current", health },
+    chartData: {},
+    meta: { source: "building", health },
   };
 }

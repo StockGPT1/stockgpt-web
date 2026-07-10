@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   buildPortfolioSnapshotChartDataFromRows,
   buildCurrentPortfolioSnapshotPoint,
-  buildMinimalCurrentChartData,
   getFirstLiveSnapshotMs,
   getLatestLiveSnapshotMs,
   isHistoricalSnapshotSource,
@@ -224,7 +223,7 @@ async function repairLiveSnapshots({
       supabase,
       portfolioId: portfolio.id,
       userId: portfolio.user_id,
-      chartData: buildMinimalCurrentChartData(currentPoint),
+      chartData: { "1D": [currentPoint] },
       source: "health_repair_live",
     });
 

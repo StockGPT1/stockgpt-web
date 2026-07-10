@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   buildCurrentPortfolioSnapshotPoint,
-  buildMinimalCurrentChartData,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
 import { createAdminClient } from "@/utils/supabase/admin";
@@ -134,7 +133,7 @@ export async function GET(req: NextRequest) {
       supabase,
       portfolioId: portfolio.id,
       userId: portfolio.user_id,
-      chartData: buildMinimalCurrentChartData(currentPoint),
+      chartData: { "1D": [currentPoint] },
       source: "cron_refresh",
     });
   });

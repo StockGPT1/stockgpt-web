@@ -31,6 +31,15 @@ export type HoldingAlert = {
   evidence: string[];
   priority: number;
   expiresWhen: string;
+  generatedAt?: string;
+  dataUpdatedAt?: string | null;
+  triggeredAt?: string | null;
+  sourceData?: {
+    rankingUpdatedAt?: string | null;
+    diagnosticsUpdatedAt?: string | null;
+    latestNewsPublishedAt?: string | null;
+    technicalSource?: TechnicalLevels["source"] | null;
+  };
 };
 
 export type SectorMomentum =
@@ -158,12 +167,16 @@ type CurrentStockRow = {
   rank?: unknown;
   score?: unknown;
   price?: unknown;
+  updated_at?: string | null;
+  last_price_update?: string | null;
+  last_ranking_update?: string | null;
 };
 
 type RecentNewsRow = {
   title?: unknown;
   impact?: unknown;
   affected_tickers?: unknown;
+  published_at?: unknown;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -203,6 +216,21 @@ function safeDate(value: string | null | undefined, fallback: string) {
   if (Number.isNaN(parsed.getTime())) return new Date(fallback);
 
   return parsed;
+}
+
+function safeIso(value: unknown) {
+  if (typeof value !== "string" || !value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function latestIso(values: Array<unknown>) {
+  return values.reduce<string | null>((latest, value) => {
+    const iso = safeIso(value);
+    if (!iso) return latest;
+    if (!latest) return iso;
+    return new Date(iso).getTime() > new Date(latest).getTime() ? iso : latest;
+  }, null);
 }
 
 function concentrationThreshold(risk: RiskTolerance) {
@@ -1330,7 +1358,7 @@ async function enrichHoldingsWithClient(
   const [currentResult, newsResult, diagnosticsResult, sectorData] = await Promise.all([
     supabase
       .from("stock_rankings")
-      .select("ticker, company, sector, rank, score, price")
+      .select("ticker, company, sector, rank, score, price, updated_at, last_price_update, last_ranking_update")
       .in("ticker", tickers),
     supabase
       .from("news_articles")
@@ -1370,6 +1398,7 @@ async function enrichHoldingsWithClient(
       negative: number;
       latestPositiveHeadline: string | null;
       latestNegativeHeadline: string | null;
+      latestPublishedAt: string | null;
     }
   > = {};
 
@@ -1388,8 +1417,14 @@ async function enrichHoldingsWithClient(
           negative: 0,
           latestPositiveHeadline: null,
           latestNegativeHeadline: null,
+          latestPublishedAt: null,
         };
       }
+
+      newsByTicker[ticker].latestPublishedAt = latestIso([
+        newsByTicker[ticker].latestPublishedAt,
+        article.published_at,
+      ]);
 
       if (impact === "positive") {
         newsByTicker[ticker].positive += 1;
@@ -1478,10 +1513,30 @@ async function enrichHoldingsWithClient(
         negative: 0,
         latestPositiveHeadline: null,
         latestNegativeHeadline: null,
+        latestPublishedAt: null,
       };
 
       const factorDiagnostics = diagnosticsMap.get(ticker) ?? null;
       const technical = await getTechnicalLevels(ticker, currentPrice);
+      const rankingUpdatedAt = latestIso([
+        current?.last_price_update,
+        current?.last_ranking_update,
+        current?.updated_at,
+      ]);
+      const diagnosticsUpdatedAt = safeIso(factorDiagnostics?.updated_at);
+      const latestNewsPublishedAt = news.latestPublishedAt;
+      const dataUpdatedAt = latestIso([
+        rankingUpdatedAt,
+        diagnosticsUpdatedAt,
+        latestNewsPublishedAt,
+      ]);
+      const generatedAt = now.toISOString();
+      const sourceData = {
+        rankingUpdatedAt,
+        diagnosticsUpdatedAt,
+        latestNewsPublishedAt,
+        technicalSource: technical.source,
+      };
 
       const ctx: AlertContext = {
         ticker,
@@ -1513,9 +1568,16 @@ async function enrichHoldingsWithClient(
         technical,
       };
 
-      const eventAlerts = buildEventAlerts(ctx);
+      const attachFreshness = (alert: HoldingAlert): HoldingAlert => ({
+        ...alert,
+        generatedAt,
+        dataUpdatedAt,
+        triggeredAt: dataUpdatedAt,
+        sourceData,
+      });
+      const eventAlerts = buildEventAlerts(ctx).map(attachFreshness);
       const actionAlert = buildActionAlert(ctx, eventAlerts);
-      const actionAlerts = actionAlert ? [actionAlert] : [];
+      const actionAlerts = actionAlert ? [attachFreshness(actionAlert)] : [];
       const alerts = [...actionAlerts, ...eventAlerts].sort(
         (a, b) => a.priority - b.priority,
       );
