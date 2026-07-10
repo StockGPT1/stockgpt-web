@@ -3,13 +3,22 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { DashboardChangeModal } from "@/components/DashboardChangeModal";
 import { DashboardPortfolioHoverWidget } from "@/components/DashboardPortfolioHoverWidget";
+import { PortfolioOpportunitiesWidget as SharedPortfolioOpportunitiesWidget } from "@/components/PortfolioOpportunitiesWidget";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
-import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
+import {
+  StockChart,
+  type ChartPoint,
+  type TimeRange,
+} from "@/components/StockChart";
 import { RankingsLock } from "@/components/RankingsLock";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { getLatestPriceFromChart, getOneDayMoveMap, getSP500Chart } from "@/lib/yahoo";
+import {
+  getLatestPriceFromChart,
+  getOneDayMoveMap,
+  getSP500Chart,
+} from "@/lib/yahoo";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -64,11 +73,6 @@ function formatScore(value: Ranking["score"] | null | undefined) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-function pct(value: number, digits = 1) {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
-}
-
 function formatUpdatedTime(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleTimeString([], {
@@ -83,7 +87,9 @@ function getChartChangePct(
 ) {
   const points = data[range];
   if (!points || points.length < 2) return null;
-  const first = points.find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
+  const first = points.find(
+    (p) => Number.isFinite(p.close) && p.close > 0,
+  )?.close;
   const last = [...points]
     .reverse()
     .find((p) => Number.isFinite(p.close) && p.close > 0)?.close;
@@ -91,7 +97,9 @@ function getChartChangePct(
   return ((last - first) / first) * 100;
 }
 
-function getFirstNameFromUserMetadata(user: { user_metadata?: Record<string, unknown> }) {
+function getFirstNameFromUserMetadata(user: {
+  user_metadata?: Record<string, unknown>;
+}) {
   const fullName =
     typeof user.user_metadata?.full_name === "string"
       ? user.user_metadata.full_name.trim()
@@ -103,7 +111,9 @@ function getFirstNameFromUserMetadata(user: { user_metadata?: Record<string, unk
   return fullName.split(/\s+/)[0];
 }
 
-function dailyMoveTone(value: number | null | undefined): DailyChangeItem["dailyMoveTone"] {
+function dailyMoveTone(
+  value: number | null | undefined,
+): DailyChangeItem["dailyMoveTone"] {
   if (!Number.isFinite(value)) return "neutral";
   if (Number(value) > 0) return "positive";
   if (Number(value) < 0) return "negative";
@@ -154,16 +164,18 @@ export default async function Home() {
   ]);
 
   const hasSubscription = hasActiveSubscription(
-    (profileResult.data as { subscription_status?: string } | null)?.subscription_status,
+    (profileResult.data as { subscription_status?: string } | null)
+      ?.subscription_status,
   );
   const rankingsLocked = !hasSubscription;
 
   const rankings = (rankingsData ?? []) as Ranking[];
-  const moverUniverse = ((moverUniverseData ?? rankingsData ?? []) as Ranking[]).filter(
-    (stock) => stock.ticker,
-  );
+  const moverUniverse = (
+    (moverUniverseData ?? rankingsData ?? []) as Ranking[]
+  ).filter((stock) => stock.ticker);
   const topRanked = rankings[0];
-  const portfolioSummary: PortfolioHealthSummary | null = dashboardPortfolio?.summary ?? null;
+  const portfolioSummary: PortfolioHealthSummary | null =
+    dashboardPortfolio?.summary ?? null;
   const portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> =
     dashboardPortfolio?.chartData ?? {};
   const portfolioTickers: string[] = dashboardPortfolio?.tickers ?? [];
@@ -238,10 +250,19 @@ export default async function Home() {
               <StatBlock
                 icon="rankings"
                 label="Top Ranked"
-                main={rankingsLocked ? "Locked" : topRanked?.ticker ?? "—"}
-                sub={rankingsLocked ? "Subscribe to unlock" : topRanked?.company ?? "—"}
+                main={rankingsLocked ? "Locked" : (topRanked?.ticker ?? "—")}
+                sub={
+                  rankingsLocked
+                    ? "Subscribe to unlock"
+                    : (topRanked?.company ?? "—")
+                }
               />
-              <StatBlock icon="trend-up" label="Bullish %" main={`${bullishPct}%`} sub={sentiment} />
+              <StatBlock
+                icon="trend-up"
+                label="Bullish %"
+                main={`${bullishPct}%`}
+                sub={sentiment}
+              />
               <StatBlock
                 icon="total"
                 label="Total"
@@ -264,10 +285,18 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(172px,20dvh,216px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
-            <PortfolioDashboardWidget summary={portfolioSummary} chartData={portfolioValueChart} />
-            <PortfolioOpportunitiesWidget opportunities={portfolioOpportunities} />
-            <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
+          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(188px,22dvh,240px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
+            <PortfolioDashboardWidget
+              summary={portfolioSummary}
+              chartData={portfolioValueChart}
+            />
+            <SharedPortfolioOpportunitiesWidget
+              opportunities={portfolioOpportunities}
+            />
+            <MarketOverviewCard
+              sp500Data={sp500Data}
+              changePct={sp500DailyChangePct}
+            />
             <DashboardChangeModal items={whatChangedToday} />
           </aside>
         </div>
@@ -318,10 +347,7 @@ function RankingsPanel({
           <div className="divide-y divide-[#072116]/8">
             {rankings.length > 0 ? (
               rankings.map((stock) => (
-                <RankingMobileRow
-                  key={stock.id}
-                  stock={stock}
-                />
+                <RankingMobileRow key={stock.id} stock={stock} />
               ))
             ) : (
               <EmptyRankings />
@@ -338,26 +364,35 @@ function RankingsPanel({
           <div className="min-h-0 flex-1 overflow-hidden">
             {rankings.length > 0 ? (
               rankings.map((stock) => {
-                const move = getRankMove24h(stock.rank, snapshotMap.get(stock.ticker ?? ""));
+                const move = getRankMove24h(
+                  stock.rank,
+                  snapshotMap.get(stock.ticker ?? ""),
+                );
 
                 return (
                   <Link
                     key={stock.id}
                     href={`/stock/${stock.ticker}`}
-                   
+
                     className={`group grid ${gridClass} h-[10%] min-h-0 items-center border-b border-[#072116]/8 text-[clamp(10px,0.72vw,12px)] text-[#072116] transition last:border-b-0 hover:bg-[#ddb159]/12 hover:shadow-[inset_3px_0_0_#ddb159]`}
                   >
                     <div className="min-w-0 px-2 font-bold tabular-nums text-[#072116]/75">
                       {stock.rank ?? "—"}
                     </div>
                     <div className="flex min-w-0 items-center gap-2 px-2 font-black">
-                      <StockLogo ticker={stock.ticker} company={stock.company} size={17} />
+                      <StockLogo
+                        ticker={stock.ticker}
+                        company={stock.company}
+                        size={17}
+                      />
                       <span className="min-w-0 truncate tracking-[-0.01em]">
                         {stock.ticker ?? "—"}
                       </span>
                     </div>
                     <div className="flex min-w-0 items-center gap-2 px-2 font-semibold tracking-[-0.01em]">
-                      <span className="min-w-0 truncate">{stock.company ?? "—"}</span>
+                      <span className="min-w-0 truncate">
+                        {stock.company ?? "—"}
+                      </span>
                     </div>
                     <div className="min-w-0 px-2">
                       <span
@@ -406,14 +441,18 @@ function RankingMobileRow({ stock }: { stock: Ranking }) {
   return (
     <Link
       href={`/stock/${stock.ticker}`}
-     
+
       className="grid min-h-[42px] grid-cols-[32px_minmax(0,1fr)_72px_68px] items-center gap-1 px-3 py-2 text-[11px] text-[#072116] transition hover:bg-[#ddb159]/10"
     >
-      <div className="font-bold tabular-nums text-[#072116]/65">{stock.rank ?? "—"}</div>
+      <div className="font-bold tabular-nums text-[#072116]/65">
+        {stock.rank ?? "—"}
+      </div>
       <div className="flex min-w-0 items-center gap-2">
         <StockLogo ticker={stock.ticker} company={stock.company} size={18} />
         <div className="min-w-0">
-          <p className="truncate text-[12px] font-black">{stock.ticker ?? "—"}</p>
+          <p className="truncate text-[12px] font-black">
+            {stock.ticker ?? "—"}
+          </p>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             <p className="min-w-0 truncate text-[9px] font-semibold text-[#072116]/45">
               {stock.company ?? "—"}
@@ -456,7 +495,9 @@ function StatBlock({
         <p className="mt-0.5 truncate text-[14px] font-black leading-none tracking-[-0.02em] xl:text-[15px]">
           {main}
         </p>
-        <p className="mt-1 truncate text-[9.5px] font-semibold text-[#072116]/45">{sub}</p>
+        <p className="mt-1 truncate text-[9.5px] font-semibold text-[#072116]/45">
+          {sub}
+        </p>
       </div>
     </div>
   );
@@ -490,7 +531,8 @@ function PortfolioDashboardWidget({
           </Link>
         </div>
         <p className="relative mt-2 line-clamp-2 text-[11px] font-semibold leading-4 text-[#faf6f0]/58">
-          Add holdings or import Trading 212 CSVs so StockGPT can monitor value, risk and alerts.
+          Add holdings or import Trading 212 CSVs so StockGPT can monitor value,
+          risk and alerts.
         </p>
       </div>
     );
@@ -534,76 +576,6 @@ function formatIndexValue(value: number | null) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function PortfolioOpportunitiesWidget({
-  opportunities,
-}: {
-  opportunities: DashboardPortfolioOpportunity[];
-}) {
-  return (
-    <div className="min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/88 p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)] lg:min-h-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-            StockGPT opportunities
-          </p>
-          <h3 className="mt-0.5 truncate text-[17px] font-black leading-none tracking-[-0.04em]">
-            Portfolio-fit ideas
-          </h3>
-        </div>
-        <Link
-          href="/rankings"
-          className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
-        >
-          Review
-        </Link>
-      </div>
-
-      {opportunities.length === 0 ? (
-        <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
-          <p className="text-[12px] font-black text-[#faf6f0]">No strong recommendations right now.</p>
-          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#faf6f0]/52">
-            StockGPT is not forcing a stock idea because current ranking, fit and concentration data do not show a strong enough setup.
-          </p>
-        </div>
-      ) : (
-        <div className="mt-2 grid gap-2 lg:max-h-[158px] lg:overflow-y-auto lg:pr-1">
-          {opportunities.map((item) => (
-            <Link
-              key={item.ticker}
-              href={`/stock/${item.ticker}`}
-              className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0] px-2.5 py-2 text-[#072116] transition hover:border-[#ddb159]/55"
-            >
-              <StockLogo ticker={item.ticker} size={30} />
-              <div className="min-w-0">
-                <p className="truncate text-[12px] font-black leading-none">
-                  {item.ticker}
-                  <span className="ml-1 text-[10px] font-bold text-[#072116]/45">
-                    {item.company ?? item.category}
-                  </span>
-                </p>
-                <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8a641a]">
-                  {item.category}
-                </p>
-                <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-[#072116]/54">
-                  {item.reason}
-                </p>
-                <p className="mt-0.5 truncate text-[9px] font-bold text-[#072116]/40">
-                  {item.recentMovePct == null ? "Recent move unavailable" : `Recent move ${pct(item.recentMovePct)}`}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[11px] font-black text-[#8a641a]">{formatScore(item.score)}</p>
-                <p className="mt-0.5 text-[9px] font-bold text-[#072116]/45">#{item.rank ?? "—"}</p>
-                <p className="mt-1 text-[8px] font-bold text-[#072116]/40">Updated {formatUpdatedTime(item.updatedAt)}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function MarketOverviewCard({
@@ -651,10 +623,22 @@ function MarketOverviewCard({
       </div>
 
       <div className="mt-3 min-h-0 overflow-hidden rounded-xl bg-[#072116]/35 lg:hidden">
-        <StockChart ticker="S&P 500" data={sp500Data} initialRange="1D" height={150} compact />
+        <StockChart
+          ticker="S&P 500"
+          data={sp500Data}
+          initialRange="1D"
+          height={150}
+          compact
+        />
       </div>
       <div className="mt-3 hidden min-h-0 overflow-hidden rounded-xl bg-[#072116]/35 lg:block">
-        <StockChart ticker="S&P 500" data={sp500Data} initialRange="1D" height={118} compact />
+        <StockChart
+          ticker="S&P 500"
+          data={sp500Data}
+          initialRange="1D"
+          height={118}
+          compact
+        />
       </div>
     </div>
   );

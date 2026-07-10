@@ -10,6 +10,8 @@ import {
   type RiskTolerance,
 } from "@/lib/portfolio-alerts";
 import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
+import { derivePortfolioHoldingAction } from "@/lib/portfolio-action-engine";
+import { getOneDayMoveMap } from "@/lib/yahoo";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -22,8 +24,8 @@ type PortfolioRow = {
   investment_amount: number | null;
   cash_balance: number | null;
   cash_deposited_total?: number | null;
-  currency: string | null;
-  created_at: string | null;
+  currency?: string | null;
+  created_at?: string | null;
 };
 
 type HoldingRow = {
@@ -81,7 +83,13 @@ export type DashboardPortfolioOpportunity = {
   ticker: string;
   company: string | null;
   sector: string;
-  category: "High-conviction fit" | "Diversification fit" | "Add-more candidate" | "Alternative to review" | "Watchlist idea";
+  category:
+    | "High-conviction fit"
+    | "Diversification fit"
+    | "Add-more candidate"
+    | "Alternative to review"
+    | "Review existing holding"
+    | "Watchlist idea";
   score: number;
   rank: number | null;
   recentMovePct: number | null;
@@ -138,7 +146,7 @@ function objectiveBonus(objective: string | null | undefined, stock: { score: nu
   return stock.rank != null && stock.rank <= 100 ? 4 : 0;
 }
 
-async function buildDashboardOpportunities(
+export async function buildPortfolioOpportunities(
   supabase: SupabaseClient,
   portfolio: PortfolioRow,
   holdings: EnrichedHolding[],
@@ -161,13 +169,26 @@ async function buildDashboardOpportunities(
   const weakBySector = holdings.reduce<Map<string, EnrichedHolding>>((acc, holding) => {
     const sector = String(holding.sector ?? "Unclassified");
     const current = acc.get(sector);
-    const isWeak = holding.score < 6200 || holding.actionAlerts.length > 0 || holding.rankPercentile < 35;
+    const action = derivePortfolioHoldingAction(holding, {
+      riskTolerance: portfolio.risk_tolerance,
+      objective: portfolio.objective,
+      timeHorizon: portfolio.time_horizon,
+      cashBalance: portfolio.cash_balance,
+      cashDrag: summary.cashDrag,
+      sectorExposurePct: sectorExposure.get(sector) ?? 0,
+    });
+    const isWeak =
+      action.action === "review" ||
+      action.action === "trim" ||
+      action.action === "exit" ||
+      holding.score < 6200 ||
+      holding.rankPercentile < 35;
     if (isWeak && (!current || holding.score < current.score)) acc.set(sector, holding);
     return acc;
   }, new Map());
   const sectorCap = riskSectorCap(portfolio.risk_tolerance);
 
-  const candidates = ((data ?? []) as Array<{
+  const rawCandidates = ((data ?? []) as Array<{
     ticker: string | null;
     company: string | null;
     sector: string | null;
@@ -196,19 +217,35 @@ async function buildDashboardOpportunities(
       const rank = stock.rank;
 
       if (held) {
-        const target = held.targetAllocationPct ?? held.currentAllocationPct;
-        if (held.currentAllocationPct >= target - 1 || summary.cashDrag < 2) return null;
-        category = "Add-more candidate";
-        fitScore += Math.max(0, target - held.currentAllocationPct) * 1.6;
+        const holdingAction = derivePortfolioHoldingAction(held, {
+          riskTolerance: portfolio.risk_tolerance,
+          objective: portfolio.objective,
+          timeHorizon: portfolio.time_horizon,
+          cashBalance: portfolio.cash_balance,
+          cashDrag: summary.cashDrag,
+          sectorExposurePct: exposure,
+        });
+        if (holdingAction.action === "review" || holdingAction.action === "trim" || holdingAction.action === "exit") {
+          category = "Review existing holding";
+          fitScore += holdingAction.action === "exit" ? 7 : 5;
+        } else {
+          const target = held.targetAllocationPct ?? held.currentAllocationPct;
+          if (held.currentAllocationPct >= target - 1 || summary.cashDrag < 2 || exposure > sectorCap * 0.9) return null;
+          category = "Add-more candidate";
+          fitScore += Math.max(0, target - held.currentAllocationPct) * 1.6;
+        }
       } else if (weakSameSector && score >= weakSameSector.score + 900) {
+        if (exposure > sectorCap * 1.15) return null;
         category = "Alternative to review";
         fitScore += 14;
-      } else if (exposure <= 1) {
+      } else if (exposure <= 3 && score >= 7200) {
         category = "Diversification fit";
         fitScore += 12;
-      } else if (score >= 7800 && (rank ?? 9999) <= 80) {
+      } else if (score >= 8000 && (rank ?? 9999) <= 50 && exposure <= sectorCap * 0.6) {
         category = "High-conviction fit";
         fitScore += 8;
+      } else if (score < 7200 || exposure > sectorCap * 0.75) {
+        return null;
       }
 
       if (!held && exposure > sectorCap && category !== "Alternative to review") return null;
@@ -219,8 +256,10 @@ async function buildDashboardOpportunities(
       const reason =
         category === "Add-more candidate"
           ? `${ticker} is already held but remains below target with a strong current StockGPT score.`
+          : category === "Review existing holding"
+            ? `${ticker} is already in the portfolio and has a review signal, so this is not a diversification idea.`
           : category === "Alternative to review"
-            ? `${ticker} screens stronger than a weaker same-sector holding and may be worth comparing.`
+            ? `${ticker} screens stronger than ${weakSameSector?.ticker ?? "a weaker same-sector holding"} and may be worth comparing as an alternative.`
             : category === "Diversification fit"
               ? `${ticker} adds exposure outside the portfolio's current main sectors while retaining strong AI conviction.`
               : `${ticker} combines strong AI conviction with a reasonable portfolio fit.`;
@@ -248,10 +287,18 @@ async function buildDashboardOpportunities(
     })
     .filter((candidate): candidate is { opportunity: DashboardPortfolioOpportunity; fitScore: number } => Boolean(candidate))
     .sort((a, b) => b.fitScore - a.fitScore)
-    .slice(0, 3)
-    .map((candidate) => candidate.opportunity);
+    .slice(0, 6);
 
-  return candidates;
+  const moveMap = await getOneDayMoveMap(rawCandidates.map((candidate) => candidate.opportunity.ticker));
+  return rawCandidates
+    .map(({ opportunity }) => {
+      const move = moveMap.get(opportunity.ticker);
+      return {
+        ...opportunity,
+        recentMovePct: move?.changePct == null ? null : Math.round(move.changePct * 10) / 10,
+      };
+    })
+    .slice(0, 3);
 }
 
 function normaliseHolding(holding: HoldingRow): RawHolding | null {
@@ -378,8 +425,8 @@ export async function getDashboardMainPortfolio(
       investment_amount: mainPortfolio.portfolio.investment_amount,
       cash_balance: mainPortfolio.portfolio.cash_balance,
       cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
-      currency: mainPortfolio.portfolio.currency,
-      created_at: mainPortfolio.portfolio.created_at,
+      currency: mainPortfolio.portfolio.currency ?? null,
+      created_at: mainPortfolio.portfolio.created_at ?? null,
       user_id: userId,
     },
     enriched: mainPortfolio.enriched,
@@ -392,7 +439,7 @@ export async function getDashboardMainPortfolio(
     summary: mainPortfolio.summary,
     chartData: chartResult.chartData,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
-    opportunities: await buildDashboardOpportunities(
+    opportunities: await buildPortfolioOpportunities(
       supabase,
       mainPortfolio.portfolio,
       mainPortfolio.enriched,

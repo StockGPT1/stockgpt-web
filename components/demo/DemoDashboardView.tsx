@@ -1,5 +1,6 @@
 import { WelcomeBanner } from "@/components/WelcomeBanner";
-import { demoRankings } from "@/lib/demo/demoData";
+import { PortfolioOpportunitiesWidget } from "@/components/PortfolioOpportunitiesWidget";
+import { demoOpportunities, demoRankings } from "@/lib/demo/demoData";
 import { DemoMiniChart } from "./DemoMiniChart";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
@@ -65,12 +66,16 @@ function DemoRankingsPanel() {
           >
             <span className="font-bold text-[#072116]/65">{stock.rank}</span>
             <span className="min-w-0">
-              <span className="block truncate text-[12px] font-black">{stock.ticker}</span>
+              <span className="block truncate text-[12px] font-black">
+                {stock.ticker}
+              </span>
               <span className="block truncate text-[9px] font-semibold text-[#072116]/45">
                 {stock.company}
               </span>
             </span>
-            <span className="text-right text-[10px] font-bold">{stock.price}</span>
+            <span className="text-right text-[10px] font-bold">
+              {stock.price}
+            </span>
             <span className="ml-auto min-w-[52px] rounded-full bg-[#ddb159] px-2 py-0.5 text-center text-[9px] font-black">
               {stock.score}
             </span>
@@ -84,10 +89,14 @@ function DemoRankingsPanel() {
             key={stock.ticker}
             className="grid min-h-[38px] flex-1 grid-cols-[34px_minmax(76px,0.55fr)_minmax(120px,1.25fr)_minmax(88px,0.85fr)_70px_70px] items-center border-b border-[#072116]/8 text-[11px] last:border-0"
           >
-            <span className="px-2 font-bold text-[#072116]/75">{stock.rank}</span>
+            <span className="px-2 font-bold text-[#072116]/75">
+              {stock.rank}
+            </span>
             <span className="truncate px-2 font-black">{stock.ticker}</span>
             <span className="truncate px-2 font-semibold">{stock.company}</span>
-            <span className="truncate px-2 text-[#072116]/60">{stock.sector}</span>
+            <span className="truncate px-2 text-[#072116]/60">
+              {stock.sector}
+            </span>
             <span className="px-2 text-right font-semibold">{stock.price}</span>
             <span className="mx-2 rounded-full bg-[#ddb159] px-2 py-0.5 text-center text-[9px] font-black">
               {stock.score}
@@ -118,7 +127,9 @@ function DemoPortfolioWidget() {
       <div className="mt-2 grid grid-cols-[auto_1fr] items-end gap-3">
         <div>
           <p className="text-2xl font-black tracking-[-0.05em]">£8,012</p>
-          <p className="mt-1 text-[11px] font-black text-emerald-300">+£434 · +5.6%</p>
+          <p className="mt-1 text-[11px] font-black text-emerald-300">
+            +£434 · +5.6%
+          </p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-xl bg-[#072116]/35">
           <DemoMiniChart height={76} gold />
@@ -140,7 +151,8 @@ function DemoMarketOverview() {
             Market Overview
           </p>
           <h3 className="mt-1 text-[22px] font-black leading-none tracking-[-0.05em]">
-            S&amp;P 500 <span className="text-[13px] text-[#faf6f0]/72">5,487.03</span>
+            S&amp;P 500{" "}
+            <span className="text-[13px] text-[#faf6f0]/72">5,487.03</span>
           </h3>
         </div>
         <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-300">
@@ -195,7 +207,8 @@ export function DemoDashboardView() {
                 Getting started
               </p>
               <p className="line-clamp-2 text-[11px] font-bold leading-4 text-[#faf6f0]/72 sm:text-[12px]">
-                Plan selected · Portfolio Draft created · First StockGPT Check ready
+                Plan selected · Portfolio Draft created · First StockGPT Check
+                ready
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-emerald-400/15 px-3 py-1 text-[10px] font-black text-emerald-300">
@@ -205,17 +218,41 @@ export function DemoDashboardView() {
         </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 lg:grid-cols-4">
-          <DemoStatBlock icon="rankings" label="Top Ranked" main="NVDA" sub="NVIDIA" />
-          <DemoStatBlock icon="trend-up" label="Bullish %" main="42%" sub="cautious market" />
-          <DemoStatBlock icon="total" label="Total" main="503" sub="stocks ranked" />
-          <DemoStatBlock icon="clock" label="Updated" main="09:30" sub="latest model run" />
+          <DemoStatBlock
+            icon="rankings"
+            label="Top Ranked"
+            main="NVDA"
+            sub="NVIDIA"
+          />
+          <DemoStatBlock
+            icon="trend-up"
+            label="Bullish %"
+            main="42%"
+            sub="cautious market"
+          />
+          <DemoStatBlock
+            icon="total"
+            label="Total"
+            main="503"
+            sub="stocks ranked"
+          />
+          <DemoStatBlock
+            icon="clock"
+            label="Updated"
+            main="09:30"
+            sub="latest model run"
+          />
         </div>
 
         <DemoRankingsPanel />
       </section>
 
-      <aside className="grid w-full min-w-0 max-w-full content-start gap-3 lg:grid-rows-[auto_auto_minmax(280px,1fr)]">
+      <aside className="grid w-full min-w-0 max-w-full content-start gap-3 lg:min-h-0 lg:grid-rows-[auto_minmax(188px,236px)_auto_minmax(280px,1fr)]">
         <DemoPortfolioWidget />
+        <PortfolioOpportunitiesWidget
+          opportunities={[...demoOpportunities]}
+          variant="dashboard"
+        />
         <DemoMarketOverview />
         <DemoChanges />
       </aside>

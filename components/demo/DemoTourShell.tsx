@@ -73,24 +73,55 @@ export function DemoTourShell() {
 
   let view = <DemoDashboardView />;
   if (step.view === "rankings") view = <DemoRankingsView />;
-  if (step.view === "stock") view = <DemoStockView sectionRefs={stockSectionRefs} />;
+  if (step.view === "stock")
+    view = <DemoStockView sectionRefs={stockSectionRefs} />;
   if (step.view === "portfolio-build") view = <DemoPortfolioBuildView />;
   if (step.view === "portfolio-manage") view = <DemoPortfolioManageView />;
 
   return (
-    <main className="relative h-[100dvh] overflow-hidden bg-[#072116]">
-      <DemoAppShell view={step.view} contentRef={contentRef} guideOpen={guideOpen}>
+    <main
+      className={[
+        "relative h-[100dvh] overflow-hidden bg-[#072116]",
+        guideOpen ? "xl:grid xl:grid-cols-[minmax(0,1fr)_372px]" : "",
+      ].join(" ")}
+    >
+      <DemoAppShell
+        view={step.view}
+        contentRef={contentRef}
+        guideOpen={guideOpen}
+      >
         {view}
       </DemoAppShell>
       {guideOpen ? (
-        <DemoInfoBox
-          step={step}
-          stepIndex={currentStep}
-          totalSteps={demoSteps.length}
-          onBack={() => setCurrentStep((value) => Math.max(0, value - 1))}
-          onNext={() => setCurrentStep((value) => Math.min(demoSteps.length - 1, value + 1))}
-          onMinimise={() => setGuideOpen(false)}
-        />
+        <>
+          <DemoInfoBox
+            step={step}
+            stepIndex={currentStep}
+            totalSteps={demoSteps.length}
+            onBack={() => setCurrentStep((value) => Math.max(0, value - 1))}
+            onNext={() =>
+              setCurrentStep((value) =>
+                Math.min(demoSteps.length - 1, value + 1),
+              )
+            }
+            onMinimise={() => setGuideOpen(false)}
+          />
+          <div className="hidden min-h-0 border-l border-[#ddb159]/18 bg-[#04180f] p-5 xl:block">
+            <DemoInfoBox
+              step={step}
+              stepIndex={currentStep}
+              totalSteps={demoSteps.length}
+              onBack={() => setCurrentStep((value) => Math.max(0, value - 1))}
+              onNext={() =>
+                setCurrentStep((value) =>
+                  Math.min(demoSteps.length - 1, value + 1),
+                )
+              }
+              onMinimise={() => setGuideOpen(false)}
+              placement="rail"
+            />
+          </div>
+        </>
       ) : (
         <button
           type="button"

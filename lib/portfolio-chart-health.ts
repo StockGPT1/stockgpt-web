@@ -248,9 +248,10 @@ function chartDisplayState({
     return "updating";
   }
   if (status === "missing" || status === "building" || status === "sparse") return "building";
-  if (status === "broken" || status === "flat" || status === "rebuild_needed" || status === "stale") {
+  if (status === "broken" || status === "rebuild_needed") {
     return "repairing";
   }
+  if (status === "stale") return displayable ? "updating" : "building";
   return displayable ? "ready" : "building";
 }
 
@@ -360,9 +361,6 @@ export function assessPortfolioChartHealth({
   } else if (latestLiveMs != null && nowMs - latestLiveMs > staleLiveMs) {
     status = "stale";
     reason = "latest_live_snapshot_stale";
-  } else if (isFlat && holdingsCount > 0) {
-    status = "flat";
-    reason = "flat_chart_with_holdings";
   } else if (snapshotCount > 0 && snapshotCount < MIN_NON_MINIMAL_POINTS) {
     status = "sparse";
     reason = "too_few_snapshot_rows";
@@ -377,8 +375,7 @@ export function assessPortfolioChartHealth({
     syntheticPointCount === 0 &&
     status !== "missing" &&
     status !== "building" &&
-    status !== "broken" &&
-    status !== "flat";
+    status !== "broken";
   const displayState = chartDisplayState({ status, displayable, hasMeaningfulPortfolio });
 
   return {
@@ -396,7 +393,7 @@ export function assessPortfolioChartHealth({
     firstSnapshotAt: isoOrNull(firstKnownMs),
     latestInputCovered,
     isFlat,
-    repairNeeded: status !== "healthy",
+    repairNeeded: status === "broken" || status === "rebuild_needed" || (status !== "stale" && !displayable && hasMeaningfulPortfolio),
     displayable,
     displayState,
   };

@@ -10,6 +10,7 @@ export function DemoInfoBox({
   onBack,
   onNext,
   onMinimise,
+  placement = "floating",
 }: {
   step: DemoStep;
   stepIndex: number;
@@ -17,12 +18,19 @@ export function DemoInfoBox({
   onBack: () => void;
   onNext: () => void;
   onMinimise: () => void;
+  placement?: "floating" | "rail";
 }) {
   const isLast = stepIndex === totalSteps - 1;
+  const isRail = placement === "rail";
 
   return (
     <aside
-      className="demo-tour-box pointer-events-auto fixed inset-x-2 bottom-[calc(70px+env(safe-area-inset-bottom))] z-50 grid overflow-hidden rounded-[22px] border border-[#ddb159]/42 bg-[#04180f]/[0.98] p-2.5 text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.58)] backdrop-blur-xl sm:inset-x-4 sm:p-3 lg:inset-x-auto lg:bottom-5 lg:right-5 lg:w-[350px]"
+      className={[
+        "demo-tour-box pointer-events-auto grid overflow-y-auto overscroll-contain rounded-[22px] border border-[#ddb159]/42 bg-[#04180f]/[0.98] text-[#faf6f0] shadow-[0_24px_80px_rgba(0,0,0,0.58)] backdrop-blur-xl",
+        isRail
+          ? "max-h-[calc(100dvh-40px)] p-3"
+          : "fixed inset-x-2 bottom-[calc(70px+env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh-88px-env(safe-area-inset-bottom))] p-2.5 sm:inset-x-4 sm:p-3 xl:hidden",
+      ].join(" ")}
       aria-live="polite"
       aria-label={`Demo step ${stepIndex + 1} of ${totalSteps}`}
     >
@@ -48,7 +56,10 @@ export function DemoInfoBox({
 
       <ul className="mt-1.5 grid gap-1">
         {step.bullets.map((bullet) => (
-          <li key={bullet} className="flex gap-2 text-[10.5px] font-semibold leading-4 text-white/66 sm:text-[11px]">
+          <li
+            key={bullet}
+            className="flex gap-2 text-[10.5px] font-semibold leading-4 text-white/66 sm:text-[11px]"
+          >
             <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[#ddb159]" />
             <span>{bullet}</span>
           </li>
@@ -68,14 +79,24 @@ export function DemoInfoBox({
           <TrackedLink
             href="/signup?coupon=50PORTFOLIO2026&source=demo_stock_check"
             eventName="demo_cta_clicked"
-            eventProperties={{ destination: "signup", source: "demo_stock_check" }}
+            eventProperties={{
+              destination: "signup",
+              source: "demo_stock_check",
+            }}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/35 px-4 text-center text-[10.5px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/10"
           >
             Start with a StockGPT Check
           </TrackedLink>
         </div>
       ) : (
-        <div className={["mt-2 grid gap-1.5", stepIndex > 0 ? "grid-cols-[72px_minmax(0,1fr)_minmax(0,1.2fr)]" : "grid-cols-2"].join(" ")}>
+        <div
+          className={[
+            "mt-2 grid gap-1.5",
+            stepIndex > 0
+              ? "grid-cols-[72px_minmax(0,1fr)_minmax(0,1.2fr)]"
+              : "grid-cols-2",
+          ].join(" ")}
+        >
           {stepIndex > 0 && (
             <button
               type="button"
