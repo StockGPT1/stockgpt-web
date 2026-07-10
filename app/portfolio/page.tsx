@@ -43,6 +43,7 @@ import {
   type UsdFxRates,
 } from "@/lib/currency";
 import { getUsdFxRates } from "@/lib/fx-rates";
+import { buildPortfolioOpportunities } from "@/lib/dashboard-portfolio";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -855,6 +856,12 @@ export default async function PortfolioPage({
       ownerId: user.id,
       chartMeta: chartResult.meta,
     });
+    const portfolioOpportunities = await buildPortfolioOpportunities(
+      supabase,
+      activePortfolio,
+      canonicalEnriched,
+      canonicalSummary,
+    );
 
     timer.end({
       cacheMode: snapshotLookup.mode,
@@ -898,6 +905,7 @@ export default async function PortfolioPage({
               newsArticles={cachedPortfolioNews}
               chartData={displayChartData}
               chartMeta={chartResult.meta}
+              opportunities={portfolioOpportunities}
               displayCurrency={displayCurrency}
               usdToDisplayRate={usdToDisplayRate}
               portfolioMeta={{
@@ -977,6 +985,12 @@ export default async function PortfolioPage({
     displayCurrency,
     usdFxRates,
   });
+  const portfolioOpportunities = await buildPortfolioOpportunities(
+    supabase,
+    activePortfolio,
+    enriched,
+    summary,
+  );
 
   timer.mark("portfolio-chart");
 
@@ -1037,6 +1051,7 @@ export default async function PortfolioPage({
             newsArticles={portfolioNews}
             chartData={displayChartData}
             chartMeta={chartResult.meta}
+            opportunities={portfolioOpportunities}
             displayCurrency={displayCurrency}
             usdToDisplayRate={usdToDisplayRate}
             portfolioMeta={{

@@ -8,6 +8,12 @@ import {
   buildCurrentPortfolioSnapshotPoint,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
+import {
+  resolveTradeOrder,
+  roundTradeMoney,
+  roundTradeShares,
+  type TradeOrderInput,
+} from "@/lib/trade-calculator";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -154,8 +160,10 @@ type UpdatePortfolioPreferencesInput = {
 type LogExistingHoldingInput = {
   portfolioId?: string | null;
   ticker: string;
-  shares: number;
+  shares?: number | null;
   entryPrice?: number | null;
+  value?: number | null;
+  price?: number | null;
   purchaseDate?: string | null;
   notes?: string | null;
 };
@@ -163,8 +171,11 @@ type LogExistingHoldingInput = {
 type BuyHoldingWithCashInput = {
   portfolioId?: string | null;
   ticker: string;
-  dollarAmount: number;
+  dollarAmount?: number | null;
   entryPrice?: number | null;
+  value?: number | null;
+  price?: number | null;
+  shares?: number | null;
   purchaseDate?: string | null;
   notes?: string | null;
 };
@@ -181,7 +192,11 @@ type UpdateHoldingDetailsInput = {
 type TrimHoldingInput = {
   portfolioId: string;
   ticker: string;
-  percentage: number;
+  percentage?: number | null;
+  value?: number | null;
+  price?: number | null;
+  shares?: number | null;
+  notes?: string | null;
 };
 
 type RemoveHoldingInput = {
@@ -247,6 +262,24 @@ function roundMoney(value: number) {
 
 function roundShares(value: number) {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function resolvedTradeOrError(input: TradeOrderInput) {
+  const resolved = resolveTradeOrder(input);
+  if (resolved.error || resolved.value == null || resolved.price == null || resolved.shares == null) {
+    return { success: false as const, error: resolved.error ?? "Enter a valid value, price and shares combination." };
+  }
+
+  if (resolved.value <= 0 || resolved.price <= 0 || resolved.shares <= 0) {
+    return { success: false as const, error: "Value, price and shares must all be positive." };
+  }
+
+  return {
+    success: true as const,
+    value: roundTradeMoney(resolved.value),
+    price: resolved.price,
+    shares: roundTradeShares(resolved.shares),
+  };
 }
 
 function normaliseHeader(header: string) {
@@ -1904,10 +1937,6 @@ export async function logExistingHolding(
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
 
-  if (!Number.isFinite(input.shares) || input.shares <= 0) {
-    return { success: false, error: "Enter the number of shares you own." };
-  }
-
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
@@ -1930,21 +1959,28 @@ export async function logExistingHolding(
 
   if (!stock) return { success: false, error: "Stock not found in rankings." };
 
-  const finalEntryPrice =
-    input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
-      ? input.entryPrice
-      : moneyNumber(stock.price);
+  const preferredPrice =
+    input.price && Number.isFinite(input.price) && input.price > 0
+      ? input.price
+      : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
+        ? input.entryPrice
+        : moneyNumber(stock.price);
+  const trade = resolvedTradeOrError({
+    value: input.value,
+    price: preferredPrice,
+    shares: input.shares,
+  });
 
-  if (!Number.isFinite(finalEntryPrice) || finalEntryPrice <= 0) {
-    return { success: false, error: "Could not find a valid stock price." };
+  if (!trade.success) {
+    return { success: false, error: trade.error };
   }
 
   const merge = await mergeHoldingPosition(supabase, {
     portfolioId: portfolio.id,
     ticker: upperTicker,
-    incomingShares: input.shares,
-    incomingEntryPrice: finalEntryPrice,
-    incomingCost: finalEntryPrice * input.shares,
+    incomingShares: trade.shares,
+    incomingEntryPrice: trade.price,
+    incomingCost: trade.value,
     scoreAtEntry: stock.score,
     rankAtEntry: stock.rank,
     purchaseDate: input.purchaseDate ?? null,
@@ -1959,11 +1995,13 @@ export async function logExistingHolding(
     userId: user.id,
     ticker: upperTicker,
     type: "log_existing",
-    shares: roundShares(input.shares),
-    price: finalEntryPrice,
-    amount: finalEntryPrice * input.shares,
+    shares: trade.shares,
+    price: trade.price,
+    amount: trade.value,
     currency: portfolio.currency ?? "USD",
-    notes: input.notes ?? "Manual holding logged.",
+    notes:
+      input.notes ??
+      `External purchase added: ${trade.shares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)}.`,
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id, {
@@ -1987,10 +2025,6 @@ export async function buyHoldingWithCash(
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
 
-  if (!Number.isFinite(input.dollarAmount) || input.dollarAmount <= 0) {
-    return { success: false, error: "Enter a positive investment amount." };
-  }
-
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
@@ -2013,27 +2047,34 @@ export async function buyHoldingWithCash(
 
   if (!stock) return { success: false, error: "Stock not found in rankings." };
 
-  const finalEntryPrice =
-    input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
-      ? input.entryPrice
-      : moneyNumber(stock.price);
+  const preferredPrice =
+    input.price && Number.isFinite(input.price) && input.price > 0
+      ? input.price
+      : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
+        ? input.entryPrice
+        : moneyNumber(stock.price);
+  const trade = resolvedTradeOrError({
+    value: input.value ?? input.dollarAmount,
+    price: preferredPrice,
+    shares: input.shares,
+  });
 
-  if (!Number.isFinite(finalEntryPrice) || finalEntryPrice <= 0) {
-    return { success: false, error: "Could not find a valid stock price." };
+  if (!trade.success) {
+    return { success: false, error: trade.error };
   }
 
   const currentCash = moneyNumber(portfolio.cash_balance);
 
-  if (input.dollarAmount > currentCash + 0.001) {
+  if (trade.value > currentCash + 0.001) {
     return {
       success: false,
       error: `Not enough available cash. Add $${(
-        input.dollarAmount - currentCash
+        trade.value - currentCash
       ).toFixed(2)} cash or reduce the amount.`,
     };
   }
 
-  const boughtShares = roundShares(input.dollarAmount / finalEntryPrice);
+  const boughtShares = trade.shares;
 
   if (boughtShares <= 0) {
     return { success: false, error: "Investment amount is too small." };
@@ -2043,8 +2084,8 @@ export async function buyHoldingWithCash(
     portfolioId: portfolio.id,
     ticker: upperTicker,
     incomingShares: boughtShares,
-    incomingEntryPrice: finalEntryPrice,
-    incomingCost: input.dollarAmount,
+    incomingEntryPrice: trade.price,
+    incomingCost: trade.value,
     scoreAtEntry: stock.score,
     rankAtEntry: stock.rank,
     purchaseDate: input.purchaseDate ?? null,
@@ -2057,7 +2098,7 @@ export async function buyHoldingWithCash(
   const { error: cashError } = await supabase
     .from("user_portfolios")
     .update({
-      cash_balance: roundMoney(currentCash - input.dollarAmount),
+      cash_balance: roundMoney(currentCash - trade.value),
     })
     .eq("id", portfolio.id)
     .eq("user_id", user.id);
@@ -2070,10 +2111,12 @@ export async function buyHoldingWithCash(
     ticker: upperTicker,
     type: "buy",
     shares: boughtShares,
-    price: finalEntryPrice,
-    amount: input.dollarAmount,
+    price: trade.price,
+    amount: trade.value,
     currency: portfolio.currency ?? "USD",
-    notes: input.notes ?? "Bought using portfolio cash.",
+    notes:
+      input.notes ??
+      `Bought ${boughtShares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)} using portfolio cash.`,
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
@@ -2160,13 +2203,8 @@ export async function trimHolding(
   input: TrimHoldingInput,
 ): Promise<ActionResult> {
   const upperTicker = cleanTicker(input.ticker);
-  const percentage = Number(input.percentage);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
-
-  if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
-    return { success: false, error: "Trim percentage must be between 1 and 100." };
-  }
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
@@ -2191,18 +2229,42 @@ export async function trimHolding(
   const tradeHolding = holding as PortfolioHoldingTradeRow;
   const currentShares = moneyNumber(tradeHolding.shares);
   const entryPrice = moneyNumber(tradeHolding.entry_price);
-  const sellPrice = moneyNumber(stock?.price, entryPrice);
+  const fallbackPrice = moneyNumber(stock?.price, entryPrice);
 
-  if (currentShares <= 0 || sellPrice <= 0) {
+  if (currentShares <= 0 || fallbackPrice <= 0) {
     return { success: false, error: "Could not calculate sell value." };
   }
 
-  const sharesToSell =
-    percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100));
+  const percentage = Number(input.percentage);
+  const hasExplicitOrder = input.value != null || input.price != null || input.shares != null;
+  const resolvedOrder = hasExplicitOrder
+    ? resolvedTradeOrError({
+        value: input.value,
+        price: input.price ?? fallbackPrice,
+        shares: input.shares,
+      })
+    : Number.isFinite(percentage) && percentage > 0 && percentage <= 100
+      ? resolvedTradeOrError({
+          value: null,
+          price: fallbackPrice,
+          shares: percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100)),
+        })
+      : { success: false as const, error: "Enter any two of value, price and shares." };
+
+  if (!resolvedOrder.success) {
+    return { success: false, error: resolvedOrder.error };
+  }
+
+  const sharesToSell = resolvedOrder.shares;
+  const sellPrice = resolvedOrder.price;
 
   const remainingShares = roundShares(currentShares - sharesToSell);
-  const proceeds = roundMoney(sharesToSell * sellPrice);
+  const proceeds = roundMoney(resolvedOrder.value);
   const realisedPnl = roundMoney((sellPrice - entryPrice) * sharesToSell);
+
+  if (sharesToSell > currentShares + 0.000001) {
+    return { success: false, error: "You cannot sell more shares than this holding contains." };
+  }
 
   if (remainingShares <= 0.000001) {
     const { error: deleteError } = await supabase
@@ -2245,9 +2307,10 @@ export async function trimHolding(
     realisedPnl,
     currency: portfolio.currency ?? "USD",
     notes:
-      percentage >= 100
-        ? "Position sold/removed."
-        : `Trimmed ${percentage.toFixed(0)}% of the position.`,
+      input.notes ??
+      (remainingShares <= 0.000001
+        ? `Closed ${upperTicker}: sold ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`
+        : `Trimmed ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`),
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
