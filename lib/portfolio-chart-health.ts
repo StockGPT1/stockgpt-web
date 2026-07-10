@@ -1,6 +1,15 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
 export const PORTFOLIO_CHART_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+export const PORTFOLIO_CHART_MIN_REAL_POINTS: Record<TimeRange, number> = {
+  "1D": 6,
+  "1M": 4,
+  "6M": 8,
+  "1Y": 8,
+  "5D": 6,
+  "5Y": 8,
+  MAX: 4,
+};
 
 export type PortfolioChartHealthStatus =
   | "healthy"
@@ -16,9 +25,17 @@ export type PortfolioChartSource =
   | "snapshots"
   | "cached-good"
   | "timeline-rebuild"
-  | "minimal-current"
   | "building"
   | "empty";
+
+export type PortfolioChartDisplayState =
+  | "ready"
+  | "updating"
+  | "building"
+  | "repairing"
+  | "empty"
+  | "error_with_cache"
+  | "error_no_cache";
 
 export type PortfolioChartHealth = {
   status: PortfolioChartHealthStatus;
@@ -26,14 +43,18 @@ export type PortfolioChartHealth = {
   snapshotCount: number;
   liveCount: number;
   historicalCount: number;
+  realPointCount: number;
+  syntheticPointCount: number;
   rangesAvailable: TimeRange[];
   rangeCounts: Partial<Record<TimeRange, number>>;
+  rangeRealCounts: Partial<Record<TimeRange, number>>;
   latestSnapshotAt: string | null;
   firstSnapshotAt: string | null;
   latestInputCovered: boolean;
   isFlat: boolean;
   repairNeeded: boolean;
   displayable: boolean;
+  displayState: PortfolioChartDisplayState;
 };
 
 export type PortfolioChartMeta = {
@@ -99,8 +120,43 @@ function chartPoints(chartData: PortfolioChartData | null | undefined) {
   return PORTFOLIO_CHART_RANGES.flatMap((range) => chartData?.[range] ?? []);
 }
 
+export function realPortfolioChartPoints(points: ChartPoint[] | null | undefined) {
+  return (points ?? []).filter((point) => !point.synthetic);
+}
+
+export function isPortfolioChartRangeDisplayable(
+  range: TimeRange,
+  points: ChartPoint[] | null | undefined,
+) {
+  const realPoints = realPortfolioChartPoints(points).filter(
+    (point) => Number.isFinite(toNumber(point.close, Number.NaN)) && pointMs(point) != null,
+  );
+
+  return realPoints.length >= (PORTFOLIO_CHART_MIN_REAL_POINTS[range] ?? 4);
+}
+
+export function filterDisplayablePortfolioChartData(
+  chartData: PortfolioChartData | null | undefined,
+): PortfolioChartData {
+  return PORTFOLIO_CHART_RANGES.reduce<PortfolioChartData>((acc, range) => {
+    const realPoints = realPortfolioChartPoints(chartData?.[range]).sort(
+      (a, b) => (pointMs(a) ?? 0) - (pointMs(b) ?? 0),
+    );
+
+    if (isPortfolioChartRangeDisplayable(range, realPoints)) {
+      acc[range] = realPoints;
+    }
+
+    return acc;
+  }, {});
+}
+
+function realChartPoints(chartData: PortfolioChartData | null | undefined) {
+  return chartPoints(chartData).filter((point) => !point.synthetic);
+}
+
 function latestPointMs(chartData: PortfolioChartData | null | undefined) {
-  return chartPoints(chartData).reduce<number | null>((latest, point) => {
+  return realChartPoints(chartData).reduce<number | null>((latest, point) => {
     const ms = pointMs(point);
     if (ms == null) return latest;
     return latest == null || ms > latest ? ms : latest;
@@ -137,6 +193,7 @@ export function isMinimalCurrentChartData(chartData: PortfolioChartData | null |
 
   const points = chartData?.["1D"] ?? [];
   if (points.length !== 2) return false;
+  if (points.some((point) => point.synthetic)) return true;
 
   const firstMs = pointMs(points[0]);
   const secondMs = pointMs(points[1]);
@@ -154,16 +211,47 @@ function getRangeCounts(chartData: PortfolioChartData | null | undefined) {
   }, {});
 }
 
+function getRangeRealCounts(chartData: PortfolioChartData | null | undefined) {
+  return PORTFOLIO_CHART_RANGES.reduce<Partial<Record<TimeRange, number>>>((acc, range) => {
+    const count = realPortfolioChartPoints(chartData?.[range]).length;
+    if (count > 0) acc[range] = count;
+    return acc;
+  }, {});
+}
+
 function getRangesAvailable(chartData: PortfolioChartData | null | undefined) {
-  return PORTFOLIO_CHART_RANGES.filter((range) => (chartData?.[range]?.length ?? 0) > 1);
+  return PORTFOLIO_CHART_RANGES.filter((range) =>
+    isPortfolioChartRangeDisplayable(range, chartData?.[range]),
+  );
 }
 
 function isFlatChart(chartData: PortfolioChartData | null | undefined) {
-  const points = chartPoints(chartData);
+  const points = realChartPoints(chartData);
   if (points.length < MIN_NON_MINIMAL_POINTS) return isMinimalCurrentChartData(chartData);
   const distinct = new Set(points.map((point) => toNumber(point.close, Number.NaN).toFixed(2)));
   distinct.delete("NaN");
   return distinct.size <= 1;
+}
+
+function chartDisplayState({
+  status,
+  displayable,
+  hasMeaningfulPortfolio,
+}: {
+  status: PortfolioChartHealthStatus;
+  displayable: boolean;
+  hasMeaningfulPortfolio: boolean;
+}): PortfolioChartDisplayState {
+  if (!hasMeaningfulPortfolio) return "empty";
+  if (displayable && status === "healthy") return "ready";
+  if (displayable && (status === "stale" || status === "sparse" || status === "rebuild_needed")) {
+    return "updating";
+  }
+  if (status === "missing" || status === "building" || status === "sparse") return "building";
+  if (status === "broken" || status === "flat" || status === "rebuild_needed" || status === "stale") {
+    return "repairing";
+  }
+  return displayable ? "ready" : "building";
 }
 
 function hasInvalidRows(rows: PortfolioChartSnapshotHealthRow[]) {
@@ -236,6 +324,9 @@ export function assessPortfolioChartHealth({
   }, null);
   const rangesAvailable = getRangesAvailable(chartData);
   const rangeCounts = getRangeCounts(chartData);
+  const rangeRealCounts = getRangeRealCounts(chartData);
+  const realPointCount = realChartPoints(chartData).length;
+  const syntheticPointCount = chartPoints(chartData).length - realPointCount;
   const holdingsCount = Math.round(toNumber(summary?.holdingsCount, 0));
   const totalValue = toNumber(summary?.totalValue, 0);
   const hasMeaningfulPortfolio = holdingsCount > 0 || totalValue > 0.01;
@@ -254,9 +345,9 @@ export function assessPortfolioChartHealth({
   } else if (invalid) {
     status = "broken";
     reason = "invalid_snapshot_rows";
-  } else if (minimalCurrent) {
+  } else if (minimalCurrent || (syntheticPointCount > 0 && realPointCount < PORTFOLIO_CHART_MIN_REAL_POINTS["1D"])) {
     status = "building";
-    reason = "minimal_current_placeholder";
+    reason = minimalCurrent ? "minimal_current_placeholder" : "synthetic_points_without_real_coverage";
   } else if (snapshotCount === 0 && !hasDisplayPoints) {
     status = "missing";
     reason = "no_snapshot_history";
@@ -283,10 +374,12 @@ export function assessPortfolioChartHealth({
   const displayable =
     hasDisplayPoints &&
     !minimalCurrent &&
+    syntheticPointCount === 0 &&
     status !== "missing" &&
     status !== "building" &&
     status !== "broken" &&
     status !== "flat";
+  const displayState = chartDisplayState({ status, displayable, hasMeaningfulPortfolio });
 
   return {
     status,
@@ -294,14 +387,18 @@ export function assessPortfolioChartHealth({
     snapshotCount,
     liveCount,
     historicalCount,
+    realPointCount,
+    syntheticPointCount,
     rangesAvailable,
     rangeCounts,
+    rangeRealCounts,
     latestSnapshotAt: isoOrNull(latestKnownMs),
     firstSnapshotAt: isoOrNull(firstKnownMs),
     latestInputCovered,
     isFlat,
     repairNeeded: status !== "healthy",
     displayable,
+    displayState,
   };
 }
 
@@ -312,13 +409,17 @@ export function emptyPortfolioChartHealth(reason = "empty_or_cash_only_portfolio
     snapshotCount: 0,
     liveCount: 0,
     historicalCount: 0,
+    realPointCount: 0,
+    syntheticPointCount: 0,
     rangesAvailable: [],
     rangeCounts: {},
+    rangeRealCounts: {},
     latestSnapshotAt: null,
     firstSnapshotAt: null,
     latestInputCovered: true,
     isFlat: false,
     repairNeeded: false,
     displayable: false,
+    displayState: reason === "empty_or_cash_only_portfolio" ? "empty" : "building",
   };
 }

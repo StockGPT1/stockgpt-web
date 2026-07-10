@@ -183,7 +183,7 @@ export function StockGPTSelect({
               }
 
               .stockgpt-manage-holding-dialog button.mt-3.inline-flex::after {
-                content: "Trim and reinvest";
+                content: "Trim to cash";
                 font-size: 11px;
                 font-weight: 900;
                 letter-spacing: 0.1em;

@@ -301,16 +301,16 @@ export function buildPortfolioTrimRecommendation(
   });
   const estimatedValue = holding.currentValue * (pct / 100);
   const reinvestmentSummary = reinvestment
-    ? `StockGPT would reinvest the estimated ${estimatedValue.toLocaleString("en-US", {
+    ? `If you choose to reallocate later, StockGPT's strongest candidate for the estimated ${estimatedValue.toLocaleString("en-US", {
         style: "currency",
         currency: "USD",
         maximumFractionDigits: estimatedValue >= 1000 ? 0 : 2,
-      })} trimmed cash into ${reinvestment.ticker}${reinvestment.company ? ` (${reinvestment.company})` : ""}. ${reinvestment.rationale}`
+      })} trimmed cash is ${reinvestment.ticker}${reinvestment.company ? ` (${reinvestment.company})` : ""}. ${reinvestment.rationale}`
     : "StockGPT could not find a suitable reinvestment candidate from the current ranking universe, so the trimmed cash should remain as portfolio cash until a better candidate appears.";
 
   return {
     pct,
-    label: `Trim and reinvest: ${pct}%`,
+    label: `Trim holding: ${pct}%`,
     reason: `${reason} ${reinvestmentSummary}`,
     riskScore,
     estimatedValue,

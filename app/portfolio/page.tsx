@@ -62,6 +62,7 @@ type SearchParams = {
 type PortfolioRow = {
   id: string;
   name: string | null;
+  objective?: string | null;
   risk_tolerance: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
@@ -607,7 +608,7 @@ export default async function PortfolioPage({
     supabase
       .from("user_portfolios")
       .select(
-        "id, name, risk_tolerance, time_horizon, investment_amount, cash_balance, cash_deposited_total, currency, created_at",
+        "id, name, objective, risk_tolerance, time_horizon, investment_amount, cash_balance, cash_deposited_total, currency, created_at",
       )
       .eq("user_id", user.id)
       .is("archived_at", null)
@@ -902,6 +903,7 @@ export default async function PortfolioPage({
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
+                objective: activePortfolio.objective as string | null,
                 riskTolerance: activePortfolio.risk_tolerance as string | null,
                 timeHorizon: activePortfolio.time_horizon as string | null,
                 investmentAmount: displayNumber(activePortfolio.investment_amount, displayCurrency, usdFxRates),
@@ -1040,6 +1042,7 @@ export default async function PortfolioPage({
             portfolioMeta={{
               id: selectedPortfolioId,
               name: activePortfolio.name as string,
+              objective: activePortfolio.objective as string | null,
               riskTolerance: activePortfolio.risk_tolerance as string | null,
               timeHorizon: activePortfolio.time_horizon as string | null,
               investmentAmount: displayNumber(activePortfolio.investment_amount, displayCurrency, usdFxRates),

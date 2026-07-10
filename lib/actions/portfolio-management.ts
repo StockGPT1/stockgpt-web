@@ -6,7 +6,6 @@ import type { Portfolio } from "@/lib/portfolio";
 import { invalidatePortfolioPageSnapshot } from "@/lib/portfolio-speed-cache";
 import {
   buildCurrentPortfolioSnapshotPoint,
-  buildMinimalCurrentChartData,
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
 
@@ -21,6 +20,9 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type PortfolioRecord = {
   id: string;
   name?: string | null;
+  objective?: string | null;
+  risk_tolerance?: string | null;
+  time_horizon?: string | null;
   cash_balance?: number | null;
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
@@ -130,6 +132,23 @@ type AddCashInput = {
 type RenamePortfolioInput = {
   portfolioId: string;
   name: string;
+};
+
+type PortfolioObjective =
+  | "growth"
+  | "income"
+  | "balanced"
+  | "capital_preservation"
+  | "watchlist";
+
+type PortfolioRiskTolerance = "conservative" | "moderate" | "aggressive";
+type PortfolioTimeHorizon = "short" | "medium" | "long";
+
+type UpdatePortfolioPreferencesInput = {
+  portfolioId: string;
+  objective: PortfolioObjective;
+  riskTolerance: PortfolioRiskTolerance;
+  timeHorizon: PortfolioTimeHorizon;
 };
 
 type LogExistingHoldingInput = {
@@ -517,6 +536,7 @@ async function getOrCreatePortfolio(
     .insert({
       user_id: userId,
       name: "My Portfolio",
+      objective: "balanced",
       risk_tolerance: "moderate",
       time_horizon: "medium",
       investment_amount: 0,
@@ -606,6 +626,119 @@ async function recordTransaction(
   if (error) {
     console.error("Failed to record portfolio transaction:", error.message);
   }
+}
+
+type MergeHoldingPositionInput = {
+  portfolioId: string;
+  ticker: string;
+  incomingShares: number;
+  incomingEntryPrice: number;
+  incomingCost?: number | null;
+  scoreAtEntry?: number | null;
+  rankAtEntry?: number | null;
+  purchaseDate?: string | null;
+  source: string;
+  notes?: string | null;
+};
+
+function weightedAverageEntryPrice({
+  existingShares,
+  existingEntryPrice,
+  incomingShares,
+  incomingEntryPrice,
+  incomingCost,
+}: {
+  existingShares: number;
+  existingEntryPrice: number;
+  incomingShares: number;
+  incomingEntryPrice: number;
+  incomingCost?: number | null;
+}) {
+  const safeExistingShares = Math.max(0, moneyNumber(existingShares));
+  const safeIncomingShares = Math.max(0, moneyNumber(incomingShares));
+  const nextShares = roundShares(safeExistingShares + safeIncomingShares);
+  const safeIncomingCost = moneyNumber(
+    incomingCost,
+    safeIncomingShares * Math.max(0, moneyNumber(incomingEntryPrice)),
+  );
+  const existingCost = safeExistingShares * Math.max(0, moneyNumber(existingEntryPrice));
+
+  if (nextShares <= 0) return { shares: 0, entryPrice: 0 };
+
+  return {
+    shares: nextShares,
+    entryPrice: Math.round(((existingCost + safeIncomingCost) / nextShares) * 10_000) / 10_000,
+  };
+}
+
+async function mergeHoldingPosition(
+  supabase: SupabaseClient,
+  input: MergeHoldingPositionInput,
+): Promise<ActionResult<{ updatedExisting: boolean; shares: number; entryPrice: number }>> {
+  const ticker = cleanTicker(input.ticker);
+  const incomingShares = roundShares(input.incomingShares);
+  const incomingEntryPrice = moneyNumber(input.incomingEntryPrice);
+
+  if (!ticker) return { success: false, error: "Missing ticker." };
+  if (!Number.isFinite(incomingShares) || incomingShares <= 0) {
+    return { success: false, error: "Enter a positive share quantity." };
+  }
+  if (!Number.isFinite(incomingEntryPrice) || incomingEntryPrice <= 0) {
+    return { success: false, error: "Enter a valid average price." };
+  }
+
+  const { data: existingHolding, error: existingError } = await supabase
+    .from("portfolio_holdings")
+    .select("shares,entry_price,purchase_date,notes")
+    .eq("portfolio_id", input.portfolioId)
+    .eq("ticker", ticker)
+    .maybeSingle();
+
+  if (existingError) return { success: false, error: existingError.message };
+
+  const existingTrade = existingHolding as PortfolioHoldingTradeRow | null;
+  const next = weightedAverageEntryPrice({
+    existingShares: moneyNumber(existingTrade?.shares),
+    existingEntryPrice: moneyNumber(existingTrade?.entry_price),
+    incomingShares,
+    incomingEntryPrice,
+    incomingCost: input.incomingCost,
+  });
+  const now = new Date().toISOString();
+  const row = {
+    entry_price: next.entryPrice,
+    shares: next.shares,
+    allocation_pct: null,
+    score_at_entry: input.scoreAtEntry ?? null,
+    rank_at_entry: input.rankAtEntry ?? null,
+    last_reviewed_at: now,
+    purchase_date: existingTrade?.purchase_date ?? input.purchaseDate ?? null,
+    source: input.source,
+    notes: input.notes ?? existingTrade?.notes ?? null,
+  };
+
+  const result = existingTrade
+    ? await supabase
+        .from("portfolio_holdings")
+        .update(row)
+        .eq("portfolio_id", input.portfolioId)
+        .eq("ticker", ticker)
+    : await supabase.from("portfolio_holdings").insert({
+        portfolio_id: input.portfolioId,
+        ticker,
+        ...row,
+      });
+
+  if (result.error) return { success: false, error: result.error.message };
+
+  return {
+    success: true,
+    data: {
+      updatedExisting: Boolean(existingTrade),
+      shares: next.shares,
+      entryPrice: next.entryPrice,
+    },
+  };
 }
 
 async function recalculatePortfolioTotals(
@@ -730,7 +863,7 @@ async function markPortfolioChartInputsChanged({
       supabase,
       portfolioId,
       userId,
-      chartData: buildMinimalCurrentChartData(point),
+      chartData: { "1D": [point] },
       source: "page_current_value",
     });
   } catch (error) {
@@ -1057,6 +1190,7 @@ export async function createPortfolioFromTrading212Csv(
       .insert({
         user_id: user.id,
         name,
+        objective: "balanced",
         risk_tolerance: "moderate",
         time_horizon: "medium",
         investment_amount: prepared.importedValue,
@@ -1209,19 +1343,39 @@ export async function importTrading212Csv(
           error: deleteError.message,
         };
       }
-    }
 
-    const { error: upsertError } = await supabase
-      .from("portfolio_holdings")
-      .upsert(prepared.holdingsToInsert, {
-        onConflict: "portfolio_id,ticker",
-      });
+      const { error: insertError } = await supabase
+        .from("portfolio_holdings")
+        .insert(prepared.holdingsToInsert);
 
-    if (upsertError) {
-      return {
-        success: false,
-        error: upsertError.message,
-      };
+      if (insertError) {
+        return {
+          success: false,
+          error: insertError.message,
+        };
+      }
+    } else {
+      for (const holding of prepared.holdingsToInsert) {
+        const merge = await mergeHoldingPosition(supabase, {
+          portfolioId: portfolio.id,
+          ticker: holding.ticker,
+          incomingShares: holding.shares,
+          incomingEntryPrice: holding.entry_price,
+          incomingCost: holding.shares * holding.entry_price,
+          scoreAtEntry: holding.score_at_entry,
+          rankAtEntry: holding.rank_at_entry,
+          purchaseDate: holding.purchase_date,
+          source: "import",
+          notes: holding.notes,
+        });
+
+        if (!merge.success) {
+          return {
+            success: false,
+            error: merge.error ?? `Could not merge ${holding.ticker}.`,
+          };
+        }
+      }
     }
 
     await recordTransaction(supabase, {
@@ -1233,7 +1387,7 @@ export async function importTrading212Csv(
       notes: `Imported ${prepared.holdingsToInsert.length} holding${
         prepared.holdingsToInsert.length === 1 ? "" : "s"
       } from Trading 212 CSV${
-        options.replaceExisting ? " using replace mode" : ""
+        options.replaceExisting ? " using replace mode" : " using merge mode"
       }.`,
     });
 
@@ -1341,8 +1495,9 @@ export async function savePortfolio(
     const { error: updateError } = await supabase
       .from("user_portfolios")
       .update({
-        name: cleanName,
-        risk_tolerance: portfolio.riskTolerance,
+      name: cleanName,
+      objective: "balanced",
+      risk_tolerance: portfolio.riskTolerance,
         time_horizon: portfolio.timeHorizon,
         investment_amount: portfolio.totalInvested,
         cash_balance: 0,
@@ -1366,6 +1521,7 @@ export async function savePortfolio(
       .insert({
         user_id: user.id,
         name: cleanName,
+        objective: "balanced",
         risk_tolerance: portfolio.riskTolerance,
         time_horizon: portfolio.timeHorizon,
         investment_amount: portfolio.totalInvested,
@@ -1566,6 +1722,7 @@ export async function createManualPortfolio(
     .insert({
       user_id: user.id,
       name,
+      objective: input.goal === "long-term" ? "growth" : input.goal,
       risk_tolerance: goal.riskTolerance,
       time_horizon: goal.timeHorizon,
       investment_amount: roundMoney(costBasis),
@@ -1686,6 +1843,60 @@ export async function renamePortfolio(
   return { success: true };
 }
 
+export async function updatePortfolioPreferences(
+  input: UpdatePortfolioPreferencesInput,
+): Promise<ActionResult> {
+  const allowedObjectives = new Set<PortfolioObjective>([
+    "growth",
+    "income",
+    "balanced",
+    "capital_preservation",
+    "watchlist",
+  ]);
+  const allowedRisk = new Set<PortfolioRiskTolerance>([
+    "conservative",
+    "moderate",
+    "aggressive",
+  ]);
+  const allowedHorizon = new Set<PortfolioTimeHorizon>(["short", "medium", "long"]);
+
+  if (!allowedObjectives.has(input.objective)) {
+    return { success: false, error: "Choose a valid portfolio objective." };
+  }
+  if (!allowedRisk.has(input.riskTolerance)) {
+    return { success: false, error: "Choose a valid risk tolerance." };
+  }
+  if (!allowedHorizon.has(input.timeHorizon)) {
+    return { success: false, error: "Choose a valid time horizon." };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const { error } = await supabase
+    .from("user_portfolios")
+    .update({
+      objective: input.objective,
+      risk_tolerance: input.riskTolerance,
+      time_horizon: input.timeHorizon,
+    })
+    .eq("id", input.portfolioId)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: input.portfolioId,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
+  revalidatePortfolio(input.portfolioId);
+  return { success: true };
+}
+
 export async function logExistingHolding(
   input: LogExistingHoldingInput,
 ): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
@@ -1728,39 +1939,26 @@ export async function logExistingHolding(
     return { success: false, error: "Could not find a valid stock price." };
   }
 
-  const now = new Date().toISOString();
+  const merge = await mergeHoldingPosition(supabase, {
+    portfolioId: portfolio.id,
+    ticker: upperTicker,
+    incomingShares: input.shares,
+    incomingEntryPrice: finalEntryPrice,
+    incomingCost: finalEntryPrice * input.shares,
+    scoreAtEntry: stock.score,
+    rankAtEntry: stock.rank,
+    purchaseDate: input.purchaseDate ?? null,
+    source: "manual",
+    notes: input.notes ?? null,
+  });
 
-  const { data: existingHolding } = await supabase
-    .from("portfolio_holdings")
-    .select("ticker")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
-
-  const { error } = await supabase.from("portfolio_holdings").upsert(
-    {
-      portfolio_id: portfolio.id,
-      ticker: upperTicker,
-      entry_price: finalEntryPrice,
-      shares: roundShares(input.shares),
-      allocation_pct: null,
-      score_at_entry: stock.score,
-      rank_at_entry: stock.rank,
-      last_reviewed_at: now,
-      purchase_date: input.purchaseDate ?? null,
-      source: "manual",
-      notes: input.notes ?? null,
-    },
-    { onConflict: "portfolio_id,ticker" },
-  );
-
-  if (error) return { success: false, error: error.message };
+  if (!merge.success) return { success: false, error: merge.error };
 
   await recordTransaction(supabase, {
     portfolioId: portfolio.id,
     userId: user.id,
     ticker: upperTicker,
-    type: existingHolding ? "adjustment" : "log_existing",
+    type: "log_existing",
     shares: roundShares(input.shares),
     price: finalEntryPrice,
     amount: finalEntryPrice * input.shares,
@@ -1778,7 +1976,7 @@ export async function logExistingHolding(
 
   return {
     success: true,
-    data: { portfolioId: portfolio.id, updatedExisting: Boolean(existingHolding) },
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
   };
 }
 
@@ -1841,42 +2039,20 @@ export async function buyHoldingWithCash(
     return { success: false, error: "Investment amount is too small." };
   }
 
-  const { data: existingHolding } = await supabase
-    .from("portfolio_holdings")
-    .select("shares,entry_price,purchase_date,notes")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
+  const merge = await mergeHoldingPosition(supabase, {
+    portfolioId: portfolio.id,
+    ticker: upperTicker,
+    incomingShares: boughtShares,
+    incomingEntryPrice: finalEntryPrice,
+    incomingCost: input.dollarAmount,
+    scoreAtEntry: stock.score,
+    rankAtEntry: stock.rank,
+    purchaseDate: input.purchaseDate ?? null,
+    source: "cash",
+    notes: input.notes ?? null,
+  });
 
-  const existingTrade = existingHolding as PortfolioHoldingTradeRow | null;
-  const oldShares = moneyNumber(existingTrade?.shares);
-  const oldEntryPrice = moneyNumber(existingTrade?.entry_price);
-  const oldCost = oldShares * oldEntryPrice;
-  const newCost = input.dollarAmount;
-  const nextShares = roundShares(oldShares + boughtShares);
-  const nextEntryPrice = nextShares > 0 ? (oldCost + newCost) / nextShares : finalEntryPrice;
-
-  const now = new Date().toISOString();
-
-  const { error: upsertError } = await supabase.from("portfolio_holdings").upsert(
-    {
-      portfolio_id: portfolio.id,
-      ticker: upperTicker,
-      entry_price: Math.round(nextEntryPrice * 10_000) / 10_000,
-      shares: nextShares,
-      allocation_pct: null,
-      score_at_entry: stock.score,
-      rank_at_entry: stock.rank,
-      last_reviewed_at: now,
-      purchase_date:
-        existingTrade?.purchase_date ?? input.purchaseDate ?? null,
-      source: "cash",
-      notes: input.notes ?? existingTrade?.notes ?? null,
-    },
-    { onConflict: "portfolio_id,ticker" },
-  );
-
-  if (upsertError) return { success: false, error: upsertError.message };
+  if (!merge.success) return { success: false, error: merge.error };
 
   const { error: cashError } = await supabase
     .from("user_portfolios")
@@ -1908,7 +2084,7 @@ export async function buyHoldingWithCash(
 
   return {
     success: true,
-    data: { portfolioId: portfolio.id, updatedExisting: Boolean(existingHolding) },
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
   };
 }
 

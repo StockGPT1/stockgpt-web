@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildCurrentPortfolioSnapshotPoint,
-  buildMinimalCurrentChartData,
   getFirstLiveSnapshotMs,
   saveLatestPortfolioSnapshotFromChartData,
   savePortfolioSnapshotsFromChartData,
@@ -94,7 +93,7 @@ async function writeLiveSnapshot({
     supabase,
     portfolioId: portfolio.id,
     userId: portfolio.user_id,
-    chartData: buildMinimalCurrentChartData(point),
+    chartData: { "1D": [point] },
     source,
   });
 }

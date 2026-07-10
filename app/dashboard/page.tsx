@@ -16,7 +16,10 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import { getDashboardMainPortfolio } from "@/lib/dashboard-portfolio";
+import {
+  getDashboardMainPortfolio,
+  type DashboardPortfolioOpportunity,
+} from "@/lib/dashboard-portfolio";
 import { ActivationChecklist } from "@/components/ActivationChecklist";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 
@@ -59,15 +62,6 @@ function formatPrice(value: Ranking["price"] | number | null | undefined) {
 function formatScore(value: Ranking["score"] | null | undefined) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
-}
-
-function money(value: number, currency = "USD") {
-  const safe = Number.isFinite(value) ? value : 0;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: safe >= 1000 ? 0 : 2,
-  }).format(safe);
 }
 
 function pct(value: number, digits = 1) {
@@ -173,6 +167,8 @@ export default async function Home() {
   const portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> =
     dashboardPortfolio?.chartData ?? {};
   const portfolioTickers: string[] = dashboardPortfolio?.tickers ?? [];
+  const portfolioOpportunities: DashboardPortfolioOpportunity[] =
+    dashboardPortfolio?.opportunities ?? [];
 
   const dashboardTickerList = Array.from(
     new Set([
@@ -268,8 +264,9 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(188px,23dvh,220px)_clamp(206px,27dvh,252px)_minmax(300px,1fr)] lg:overflow-hidden">
+          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(172px,20dvh,216px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
             <PortfolioDashboardWidget summary={portfolioSummary} chartData={portfolioValueChart} />
+            <PortfolioOpportunitiesWidget opportunities={portfolioOpportunities} />
             <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
             <DashboardChangeModal items={whatChangedToday} />
           </aside>
@@ -499,8 +496,6 @@ function PortfolioDashboardWidget({
     );
   }
 
-  const isPositive = summary.totalPnl >= 0;
-
   return (
     <Link
       href="/portfolio"
@@ -539,6 +534,76 @@ function formatIndexValue(value: number | null) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function PortfolioOpportunitiesWidget({
+  opportunities,
+}: {
+  opportunities: DashboardPortfolioOpportunity[];
+}) {
+  return (
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/88 p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)] lg:min-h-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+            StockGPT opportunities
+          </p>
+          <h3 className="mt-0.5 truncate text-[17px] font-black leading-none tracking-[-0.04em]">
+            Portfolio-fit ideas
+          </h3>
+        </div>
+        <Link
+          href="/rankings"
+          className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+        >
+          Review
+        </Link>
+      </div>
+
+      {opportunities.length === 0 ? (
+        <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
+          <p className="text-[12px] font-black text-[#faf6f0]">No strong recommendations right now.</p>
+          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#faf6f0]/52">
+            StockGPT is not forcing a stock idea because current ranking, fit and concentration data do not show a strong enough setup.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-2 grid gap-2 lg:max-h-[158px] lg:overflow-y-auto lg:pr-1">
+          {opportunities.map((item) => (
+            <Link
+              key={item.ticker}
+              href={`/stock/${item.ticker}`}
+              className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0] px-2.5 py-2 text-[#072116] transition hover:border-[#ddb159]/55"
+            >
+              <StockLogo ticker={item.ticker} size={30} />
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-black leading-none">
+                  {item.ticker}
+                  <span className="ml-1 text-[10px] font-bold text-[#072116]/45">
+                    {item.company ?? item.category}
+                  </span>
+                </p>
+                <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8a641a]">
+                  {item.category}
+                </p>
+                <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-[#072116]/54">
+                  {item.reason}
+                </p>
+                <p className="mt-0.5 truncate text-[9px] font-bold text-[#072116]/40">
+                  {item.recentMovePct == null ? "Recent move unavailable" : `Recent move ${pct(item.recentMovePct)}`}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[11px] font-black text-[#8a641a]">{formatScore(item.score)}</p>
+                <p className="mt-0.5 text-[9px] font-bold text-[#072116]/45">#{item.rank ?? "—"}</p>
+                <p className="mt-1 text-[8px] font-bold text-[#072116]/40">Updated {formatUpdatedTime(item.updatedAt)}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MarketOverviewCard({
