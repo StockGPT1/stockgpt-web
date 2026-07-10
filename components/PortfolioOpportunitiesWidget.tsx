@@ -38,12 +38,19 @@ export function PortfolioOpportunitiesWidget({
   opportunities: DashboardPortfolioOpportunity[];
   variant?: "dashboard" | "portfolio";
 }) {
-  const visible = opportunities.slice(0, variant === "dashboard" ? 2 : 3);
+  const constrained = variant === "dashboard";
   const detailed = variant === "portfolio";
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/88 p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)]">
-      <div className="flex items-start justify-between gap-3">
+    <section
+      className={[
+        "min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/88 p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.16)]",
+        constrained
+          ? "grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]"
+          : "grid gap-2",
+      ].join(" ")}
+    >
+      <div className="flex min-w-0 shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
             StockGPT opportunities
@@ -60,59 +67,82 @@ export function PortfolioOpportunitiesWidget({
         </Link>
       </div>
 
-      {visible.length === 0 ? (
+      {opportunities.length === 0 ? (
         <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
           <p className="text-[12px] font-black text-[#faf6f0]">
             No strong portfolio-fit ideas right now.
           </p>
           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#faf6f0]/52">
-            StockGPT is not forcing a recommendation because current data does not show a strong enough setup.
+            StockGPT is not forcing a recommendation because current data does
+            not show a strong enough setup.
           </p>
         </div>
       ) : (
-        <div className="mt-2 grid min-w-0 gap-2">
-          {visible.map((item) => (
-            <Link
-              key={`${item.category}-${item.ticker}`}
-              href={`/stock/${item.ticker}`}
-              className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0] px-2.5 py-2 text-[#072116] transition hover:border-[#ddb159]/55 hover:brightness-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/50 sm:grid-cols-[34px_minmax(0,1fr)_auto]"
-            >
-              <StockLogo ticker={item.ticker} size={30} />
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
-                  <p className="truncate text-[12px] font-black leading-none">{item.ticker}</p>
-                  <p className="min-w-0 truncate text-[10px] font-bold text-[#072116]/45">
-                    {item.company ?? item.category}
+        <div
+          className={[
+            "mt-2 min-w-0",
+            constrained
+              ? "min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:rgba(221,177,89,0.45)_rgba(250,246,240,0.08)] [scrollbar-width:thin]"
+              : "overflow-visible",
+          ].join(" ")}
+          tabIndex={constrained ? 0 : undefined}
+          aria-label="Portfolio-fit opportunities list"
+        >
+          <div className="grid min-w-0 gap-2">
+            {opportunities.map((item) => (
+              <Link
+                key={`${item.category}-${item.ticker}`}
+                href={`/stock/${item.ticker}`}
+                className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0] px-2.5 py-2 text-[#072116] shadow-[0_8px_18px_rgba(0,0,0,0.10)] transition hover:-translate-y-px hover:border-[#ddb159]/55 hover:brightness-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/50 sm:grid-cols-[34px_minmax(0,1fr)_auto]"
+              >
+                <StockLogo ticker={item.ticker} size={30} />
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
+                    <p className="truncate text-[12px] font-black leading-none">
+                      {item.ticker}
+                    </p>
+                    <p className="min-w-0 truncate text-[10px] font-bold text-[#072116]/45">
+                      {item.company ?? item.category}
+                    </p>
+                  </div>
+                  <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8a641a]">
+                    {item.category}
                   </p>
-                </div>
-                <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8a641a]">
-                  {item.category}
-                </p>
-                <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-4 text-[#072116]/58">
-                  {item.reason}
-                </p>
-                {detailed && (
-                  <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-4 text-[#072116]/44">
-                    Risk: {item.risk}
+                  <p
+                    className={[
+                      "mt-1 text-[10px] font-semibold leading-4 text-[#072116]/58",
+                      constrained ? "line-clamp-1" : "line-clamp-2",
+                    ].join(" ")}
+                  >
+                    {item.reason}
                   </p>
-                )}
-                <div className="mt-1 flex min-w-0 flex-wrap gap-1">
-                  {item.recentMovePct != null && (
-                    <span className="rounded-full bg-[#072116]/6 px-2 py-0.5 text-[9px] font-bold text-[#072116]/55">
-                      Recent move {pct(item.recentMovePct)}
-                    </span>
+                  {detailed && (
+                    <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-4 text-[#072116]/44">
+                      Risk: {item.risk}
+                    </p>
                   )}
-                  <span className="rounded-full bg-[#ddb159]/14 px-2 py-0.5 text-[9px] font-bold text-[#8a641a]">
-                    {formatUpdatedLabel(item.updatedAt)}
-                  </span>
+                  <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+                    {item.recentMovePct != null && (
+                      <span className="rounded-full bg-[#072116]/6 px-2 py-0.5 text-[9px] font-bold text-[#072116]/55">
+                        Recent move {pct(item.recentMovePct)}
+                      </span>
+                    )}
+                    <span className="rounded-full bg-[#ddb159]/14 px-2 py-0.5 text-[9px] font-bold text-[#8a641a]">
+                      {formatUpdatedLabel(item.updatedAt)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="hidden shrink-0 text-right sm:block">
-                <p className="text-[11px] font-black text-[#8a641a]">{formatScore(item.score)}</p>
-                <p className="mt-0.5 text-[9px] font-bold text-[#072116]/45">#{item.rank ?? "—"}</p>
-              </div>
-            </Link>
-          ))}
+                <div className="hidden shrink-0 text-right sm:block">
+                  <p className="text-[11px] font-black text-[#8a641a]">
+                    {formatScore(item.score)}
+                  </p>
+                  <p className="mt-0.5 text-[9px] font-bold text-[#072116]/45">
+                    #{item.rank ?? "—"}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </section>

@@ -285,7 +285,7 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(172px,20dvh,216px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
+          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(188px,22dvh,240px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
             <PortfolioDashboardWidget
               summary={portfolioSummary}
               chartData={portfolioValueChart}
