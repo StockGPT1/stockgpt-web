@@ -378,7 +378,7 @@ export function LandingClient({ tickerTape, metrics, topRankings }: LandingClien
           --sg-soft: #fbfaf6;
           --sg-gold: #ddb159;
           --sg-muted: #66746b;
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           scroll-behavior: smooth;
           scrollbar-width: thin;
           scrollbar-color: #ddb159 #04180f;
@@ -410,9 +410,13 @@ export function LandingClient({ tickerTape, metrics, topRankings }: LandingClien
         }
 
         .sg-data {
-          font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+          font-family: var(--font-plex-mono), "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
           letter-spacing: -0.035em;
           font-variant-numeric: tabular-nums;
+          /* Plex Mono tops out at weight 700; synthesized 900 smears the
+             digit strokes into what looks like a strikethrough. */
+          font-synthesis: none;
+          font-weight: 700;
         }
 
         .sg-page-soft {
@@ -630,12 +634,18 @@ export function LandingClient({ tickerTape, metrics, topRankings }: LandingClien
               </SignupButton>
             </div>
 
-            <div className="sm:hidden">
+            <div className="flex items-center gap-2 sm:hidden">
               <Link
                 href="/login"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-[#ddb159] bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.16em] !text-[#061b12] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-white/25 px-4 text-[11px] font-black uppercase tracking-[0.14em] !text-white no-underline transition-colors hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
               >
                 Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-[#ddb159] bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.14em] !text-[#061b12] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#04180f]"
+              >
+                Join free
               </Link>
             </div>
           </div>
@@ -667,11 +677,11 @@ export function LandingClient({ tickerTape, metrics, topRankings }: LandingClien
                   to tickers and gives your portfolio a clearer research workflow.
                 </p>
 
-                <div className="mt-7 hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start">
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-start">
                   <SignupButton variant="green">Create free account</SignupButton>
                 </div>
 
-                <p className="mt-4 hidden max-w-lg text-xs leading-6 text-[#66746b] sm:block">
+                <p className="mt-4 max-w-lg text-xs leading-6 text-[#66746b]">
                   Create an account first. Explore the dashboard, then subscribe from
                   inside when you are ready. Informational research only.
                 </p>

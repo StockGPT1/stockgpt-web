@@ -173,7 +173,9 @@ function RealDashboardScreen({
   metrics: LandingVisualMetrics;
   rows?: DashboardRow[];
 }) {
-  const rankingRows = rows && rows.length > 0 ? rows : dashboardRows;
+  const live = Boolean(rows && rows.length > 0);
+  const rankingRows = live ? (rows as DashboardRow[]) : dashboardRows;
+  const hasMetrics = metrics.totalStocks > 0;
 
   return (
     <div className="h-[650px] w-[330px] overflow-hidden bg-[#072116] text-[#faf6f0]">
@@ -205,11 +207,15 @@ function RealDashboardScreen({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <DashboardMiniCard label="Top Ranked" main="Locked" sub="account unlock" />
+            <DashboardMiniCard
+              label="Top Ranked"
+              main={live ? rankingRows[0].ticker : "Locked"}
+              sub={live ? `score ${rankingRows[0].score}` : "account unlock"}
+            />
             <DashboardMiniCard
               label="Bullish %"
-              main={`${metrics.bullishPct}%`}
-              sub={metrics.sentiment}
+              main={hasMetrics ? `${metrics.bullishPct}%` : "—"}
+              sub={hasMetrics ? metrics.sentiment : "syncing live data"}
               tone="green"
             />
             <DashboardMiniCard
@@ -219,7 +225,11 @@ function RealDashboardScreen({
             />
             <DashboardMiniCard
               label="Updated"
-              main={metrics.lastUpdatedLabel.split(",")[0] ?? metrics.lastUpdatedLabel}
+              main={
+                hasMetrics
+                  ? metrics.lastUpdatedLabel.split(",")[0] ?? metrics.lastUpdatedLabel
+                  : "Live"
+              }
               sub="latest model run"
               tone="plain"
             />

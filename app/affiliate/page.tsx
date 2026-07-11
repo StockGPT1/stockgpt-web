@@ -77,8 +77,9 @@ export default async function AffiliatePage({
         }
 
         .affiliate-data {
-          font-family: "IBM Plex Mono", "Courier New", monospace;
+          font-family: var(--font-plex-mono), "IBM Plex Mono", "Courier New", monospace;
           letter-spacing: -0.035em;
+          font-synthesis: none;
         }
 
         .affiliate-card {

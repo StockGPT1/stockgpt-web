@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
@@ -17,6 +18,23 @@ import "./ask-stockgpt-mobile-hardening.css";
 import "./stock-action-buttons.css";
 import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
+
+// The design system references Inter and IBM Plex Mono throughout, but the
+// fonts were never loaded, so every visitor got Arial/system fallbacks.
+// next/font self-hosts them (no external requests at runtime, CSP-safe) and
+// exposes CSS variables consumed in globals.css and the landing styles.
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-plex-mono",
+});
 
 const iconVersion = "31";
 
@@ -97,7 +115,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${plexMono.variable}`}>
       <body>
         {children}
         <PortfolioHoldingClickPatch />
