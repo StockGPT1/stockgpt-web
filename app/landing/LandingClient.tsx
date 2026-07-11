@@ -11,6 +11,7 @@ import {
   RankingVisual,
   ResearchPlanVisual,
   TiltingIphoneDashboard,
+  type DashboardRow,
 } from "./LandingVisuals";
 
 export type LandingTicker = {
@@ -31,6 +32,7 @@ type LandingMetrics = {
 type LandingClientProps = {
   tickerTape: LandingTicker[];
   metrics: LandingMetrics;
+  topRankings?: DashboardRow[];
 };
 
 const navLinks = [
@@ -51,20 +53,10 @@ const pricingFeatures = [
   "Ask StockGPT research assistant",
 ];
 
-const socialLinks = [
-  {
-    label: "X",
-    href: "#",
-  },
-  {
-    label: "TikTok",
-    href: "#",
-  },
-  {
-    label: "Instagram",
-    href: "#",
-  },
-];
+// Social profiles: add entries here once the accounts exist.
+// Dead "#" links were removed — placeholder social buttons on a finance
+// product read as abandoned and hurt trust.
+const socialLinks: Array<{ label: string; href: string }> = [];
 
 function formatMoney(value: number | null) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -348,7 +340,7 @@ function MethodAndTrustSection() {
   );
 }
 
-export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
+export function LandingClient({ tickerTape, metrics, topRankings }: LandingClientProps) {
   const pageRef = useRef<HTMLElement | null>(null);
   const [navScrolled, setNavScrolled] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(true);
@@ -685,7 +677,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 </p>
               </div>
 
-              <TiltingIphoneDashboard metrics={metrics} />
+              <TiltingIphoneDashboard metrics={metrics} rows={topRankings} />
             </div>
           </div>
         </section>
@@ -700,7 +692,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
 
         <div className="sm:hidden">
           <MobileDemoGroup label="Rankings" title="Rank the market first.">
-            <RankingVisual />
+            <RankingVisual rows={topRankings} />
           </MobileDemoGroup>
 
           <MobileDemoGroup label="Research tools" title="Plan, question, then decide.">
@@ -728,7 +720,7 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
               </p>
             </div>
 
-            <RankingVisual />
+            <RankingVisual rows={topRankings} />
           </div>
         </section>
 
@@ -886,20 +878,22 @@ export function LandingClient({ tickerTape, metrics }: LandingClientProps) {
                 who want a clearer research process.
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                {socialLinks.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    target={link.href === "#" ? undefined : "_blank"}
-                    rel={link.href === "#" ? undefined : "noreferrer"}
-                    aria-label={link.label}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 !text-white/70 transition-colors hover:border-[#ddb159]/60 hover:!text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
-                  >
-                    <SocialIcon label={link.label} />
-                  </a>
-                ))}
-              </div>
+              {socialLinks.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={link.label}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 !text-white/70 transition-colors hover:border-[#ddb159]/60 hover:!text-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#061b12]"
+                    >
+                      <SocialIcon label={link.label} />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
