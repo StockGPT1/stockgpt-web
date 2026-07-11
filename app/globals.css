@@ -458,3 +458,70 @@ h2 {
     box-shadow: none;
   }
 }
+
+/* Landing sales optimisation pass: remove low-converting proof boxes, pull live tickers higher, and keep the hero product-first. */
+.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] {
+  display: none !important;
+}
+
+.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div {
+  margin-top: 1rem !important;
+}
+
+.sg-page-soft > section:first-of-type .max-w-2xl > p.mt-4 {
+  display: none !important;
+}
+
+.sg-page-soft > section:first-of-type h1 {
+  max-width: 11ch;
+  text-wrap: balance;
+}
+
+.sg-page-soft > section:first-of-type p {
+  text-wrap: pretty;
+}
+
+.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div > div {
+  position: relative;
+}
+
+.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div > div::before {
+  content: "Live ranked market watch";
+  display: inline-flex;
+  margin: 0 0 0.55rem;
+  border: 1px solid rgba(221, 177, 89, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.78);
+  padding: 0.4rem 0.75rem;
+  color: #8a6828;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div [class*="rounded-3xl"] {
+  border-color: rgba(221, 177, 89, 0.28) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 250, 246, 0.94)),
+    radial-gradient(circle at 12% 50%, rgba(221, 177, 89, 0.18), transparent 32%) !important;
+  box-shadow: 0 18px 56px rgba(7, 27, 17, 0.09) !important;
+}
+
+@media (max-width: 639px) {
+  .sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div {
+    display: block !important;
+    margin-top: 0.65rem !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div > div {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div > div::before {
+    margin-left: 0.1rem;
+  }
+}
