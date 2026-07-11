@@ -70,15 +70,16 @@ export function MarketNoiseScrolly() {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    const tickerSection = document.querySelector(
-      '.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div',
-    );
+    const anchor =
+      document.querySelector(
+        '.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div',
+      ) ?? document.querySelector(".sg-page-soft > section:first-of-type");
 
-    if (!tickerSection) return;
+    if (!anchor) return;
 
     const portalHost = document.createElement("div");
     portalHost.setAttribute("data-stockgpt-market-noise-scrolly", "true");
-    tickerSection.insertAdjacentElement("afterend", portalHost);
+    anchor.insertAdjacentElement("afterend", portalHost);
     setHost(portalHost);
 
     return () => {
@@ -144,7 +145,7 @@ export function MarketNoiseScrolly() {
           left: 8 + ((index * 19) % 86),
           top: 9 + ((index * 31) % 78),
           size: orbit === 0 ? "text-[13px]" : orbit === 1 ? "text-[11px]" : "text-[10px]",
-          opacity: 0.42 + (orbit * 0.14),
+          opacity: 0.42 + orbit * 0.14,
           rotation: -18 + ((index * 23) % 36),
           x: -44 + ((index * 29) % 88),
           y: -34 + ((index * 41) % 68),
@@ -153,17 +154,14 @@ export function MarketNoiseScrolly() {
     [],
   );
 
-  const lightRays = useMemo(
-    () => Array.from({ length: 18 }, (_, index) => index),
-    [],
-  );
+  const lightRays = useMemo(() => Array.from({ length: 18 }, (_, index) => index), []);
 
   if (!host) return null;
 
   return createPortal(
     <section
       data-market-noise-section
-      className="relative left-1/2 hidden w-screen -translate-x-1/2 sm:block"
+      className="relative left-1/2 block w-screen -translate-x-1/2"
       style={{ height: reducedMotion ? "auto" : "360vh" }}
       aria-label="From market noise to ranked stocks"
     >
@@ -214,7 +212,7 @@ export function MarketNoiseScrolly() {
           className="absolute inset-0 transition-transform duration-500"
           style={{ transform: `scale(${stormScale}) rotate(${progress * -2.8}deg)` }}
         >
-          {tickerLayout.map((item, index) => {
+          {tickerLayout.map((item) => {
             const convergeX = (50 - item.left) * signalProgress;
             const convergeY = (50 - item.top) * signalProgress;
             const releaseX = item.x * clarityProgress;
@@ -222,7 +220,10 @@ export function MarketNoiseScrolly() {
             return (
               <span
                 key={item.ticker}
-                className={["sg-data absolute font-black text-white/80 drop-shadow-[0_0_18px_rgba(221,177,89,0.22)]", item.size].join(" ")}
+                className={[
+                  "sg-data absolute font-black text-white/80 drop-shadow-[0_0_18px_rgba(221,177,89,0.22)]",
+                  item.size,
+                ].join(" ")}
                 style={{
                   left: `${item.left}%`,
                   top: `${item.top}%`,
@@ -236,7 +237,7 @@ export function MarketNoiseScrolly() {
           })}
         </div>
 
-        <div className="absolute left-1/2 top-1/2 h-[min(68vw,720px)] w-[min(68vw,720px)] -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute left-1/2 top-1/2 h-[min(86vw,720px)] w-[min(86vw,720px)] -translate-x-1/2 -translate-y-1/2 sm:h-[min(68vw,720px)] sm:w-[min(68vw,720px)]">
           <div
             className="absolute inset-0 rounded-full border border-[#ddb159]/20 bg-[radial-gradient(circle,rgba(221,177,89,0.22)_0%,rgba(16,185,129,0.09)_38%,transparent_68%)] blur-[0.5px] transition-all duration-500"
             style={{ opacity: 0.16 + signalProgress * 0.55, transform: `scale(${lensScale})` }}
@@ -254,10 +255,10 @@ export function MarketNoiseScrolly() {
               className="text-center transition-all duration-500"
               style={{ opacity: 0.34 + signalProgress * 0.66, transform: `translateY(${(1 - signalProgress) * 24}px) scale(${0.9 + signalProgress * 0.1})` }}
             >
-              <p className="sg-data text-[11px] font-black uppercase tracking-[0.32em] text-[#ddb159]">
+              <p className="sg-data text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159] sm:text-[11px] sm:tracking-[0.32em]">
                 StockGPT signal engine
               </p>
-              <p className="sg-heading mt-3 text-[46px] font-medium leading-none text-white sm:text-7xl lg:text-8xl">
+              <p className="sg-heading mt-3 text-[40px] font-medium leading-none text-white sm:text-7xl lg:text-8xl">
                 Rank the market
               </p>
             </div>
@@ -265,39 +266,39 @@ export function MarketNoiseScrolly() {
         </div>
 
         <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-8 pt-32 sm:px-6 lg:px-10">
-          <div className="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mx-auto flex max-w-7xl flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="inline-flex rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159] backdrop-blur-md">
                 {scenes[activeScene]?.eyebrow}
               </p>
-              <h2 className="sg-heading mt-5 text-[52px] font-medium leading-[0.9] tracking-[-0.055em] text-white sm:text-[82px] lg:text-[112px]">
+              <h2 className="sg-heading mt-5 text-[46px] font-medium leading-[0.9] tracking-[-0.055em] text-white sm:text-[82px] lg:text-[112px]">
                 From noise to ranked stocks.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-8 text-white/68 sm:text-lg">
+              <p className="mt-5 max-w-xl text-sm leading-7 text-white/68 sm:text-lg sm:leading-8">
                 {scenes[activeScene]?.copy}
               </p>
             </div>
 
             <div
-              className="relative min-h-[260px] w-full max-w-xl transition-all duration-500 lg:min-h-[360px]"
+              className="relative min-h-[220px] w-full max-w-xl transition-all duration-500 sm:min-h-[260px] lg:min-h-[360px]"
               style={{ opacity: 0.14 + clarityProgress * 0.86, transform: `translateY(${(1 - clarityProgress) * 46}px)` }}
             >
               {rankedIdeas.map((idea, index) => (
                 <div
                   key={idea.ticker}
-                  className="absolute left-0 right-0 rounded-[1.65rem] border border-[#ddb159]/20 bg-white/[0.075] px-5 py-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                  className="absolute left-0 right-0 rounded-[1.4rem] border border-[#ddb159]/20 bg-white/[0.075] px-4 py-3 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.65rem] sm:px-5 sm:py-4"
                   style={{
-                    top: `${index * 76}px`,
+                    top: `${index * 66}px`,
                     transform: `translateX(${(1 - clarityProgress) * (index % 2 === 0 ? 72 : -72)}px) rotate(${(1 - clarityProgress) * (index % 2 === 0 ? -4 : 4)}deg)`,
                     opacity: clarityProgress > index * 0.08 ? 1 : 0.14,
                   }}
                 >
-                  <div className="flex items-center justify-between gap-5">
+                  <div className="flex items-center justify-between gap-4 sm:gap-5">
                     <div>
-                      <p className="sg-data text-2xl font-black text-white">{idea.ticker}</p>
-                      <p className="mt-1 text-sm font-semibold text-white/56">{idea.thesis}</p>
+                      <p className="sg-data text-xl font-black text-white sm:text-2xl">{idea.ticker}</p>
+                      <p className="mt-1 text-xs font-semibold text-white/56 sm:text-sm">{idea.thesis}</p>
                     </div>
-                    <div className="sg-data rounded-full border border-emerald-300/24 bg-emerald-300/10 px-4 py-2 text-lg font-black text-emerald-200">
+                    <div className="sg-data rounded-full border border-emerald-300/24 bg-emerald-300/10 px-3 py-1.5 text-base font-black text-emerald-200 sm:px-4 sm:py-2 sm:text-lg">
                       {idea.score}
                     </div>
                   </div>
