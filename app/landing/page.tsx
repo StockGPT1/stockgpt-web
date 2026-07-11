@@ -14,10 +14,22 @@ export default async function LandingPage() {
   const { tickerTape, metrics, topRankings } = await getLandingData();
 
   return (
-    <LandingClient
-      tickerTape={tickerTape}
-      metrics={metrics}
-      topRankings={topRankings}
-    />
+    <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div > div::before {
+              content: none !important;
+              display: none !important;
+            }
+          `,
+        }}
+      />
+      <LandingClient
+        tickerTape={tickerTape}
+        metrics={metrics}
+        topRankings={topRankings}
+      />
+    </>
   );
 }
