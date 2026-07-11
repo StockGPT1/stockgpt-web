@@ -9,7 +9,7 @@ export type LandingVisualMetrics = {
   lastUpdatedLabel: string;
 };
 
-type DashboardRow = {
+export type DashboardRow = {
   rank: string;
   ticker: string;
   company: string;
@@ -166,7 +166,15 @@ function DashboardMiniCard({
   );
 }
 
-function RealDashboardScreen({ metrics }: { metrics: LandingVisualMetrics }) {
+function RealDashboardScreen({
+  metrics,
+  rows,
+}: {
+  metrics: LandingVisualMetrics;
+  rows?: DashboardRow[];
+}) {
+  const rankingRows = rows && rows.length > 0 ? rows : dashboardRows;
+
   return (
     <div className="h-[650px] w-[330px] overflow-hidden bg-[#072116] text-[#faf6f0]">
       <div className="flex h-[56px] items-center justify-between border-b border-[#ddb159]/18 bg-[#04180f] px-4">
@@ -240,7 +248,7 @@ function RealDashboardScreen({ metrics }: { metrics: LandingVisualMetrics }) {
             </div>
 
             <div className="divide-y divide-[#072116]/8">
-              {dashboardRows.slice(0, 5).map((stock) => (
+              {rankingRows.slice(0, 5).map((stock) => (
                 <div
                   key={stock.ticker}
                   className="grid min-h-[45px] grid-cols-[32px_minmax(0,1fr)_72px_62px] items-center gap-1 px-3 py-2 text-[11px]"
@@ -340,8 +348,10 @@ function RealDashboardScreen({ metrics }: { metrics: LandingVisualMetrics }) {
 
 export function TiltingIphoneDashboard({
   metrics,
+  rows,
 }: {
   metrics: LandingVisualMetrics;
+  rows?: DashboardRow[];
 }) {
   return (
     <div className="group relative mx-auto flex min-h-[520px] w-full items-center justify-center sm:min-h-[560px] lg:min-h-[650px]">
@@ -350,20 +360,23 @@ export function TiltingIphoneDashboard({
       <div className="relative scale-[0.86] rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.28)] transition duration-700 ease-out sm:scale-100 lg:[transform:perspective(1200px)_rotateY(-16deg)_rotateZ(-5deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
         <div className="absolute left-1/2 top-2 z-20 h-5 w-24 -translate-x-1/2 rounded-full bg-[#020806]" />
         <div className="overflow-hidden rounded-[2.35rem]">
-          <RealDashboardScreen metrics={metrics} />
+          <RealDashboardScreen metrics={metrics} rows={rows} />
         </div>
       </div>
     </div>
   );
 }
 
-export function RankingVisual() {
+export function RankingVisual({ rows }: { rows?: DashboardRow[] }) {
+  const live = Boolean(rows && rows.length > 0);
+  const rankingRows = live ? (rows as DashboardRow[]) : dashboardRows;
+
   return (
     <div className="h-full overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
       <div className="grid gap-5 border-b border-[#edf0ea] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8a6828]">
-            Rankings preview
+            {live ? "Live rankings" : "Rankings preview"}
           </p>
           <p className="sg-heading mt-1 text-3xl font-medium text-[#0a2d1d]">
             Top ranked stocks
@@ -382,7 +395,7 @@ export function RankingVisual() {
         <span className="text-right">Score</span>
       </div>
 
-      {dashboardRows.slice(0, 5).map((stock, index) => (
+      {rankingRows.slice(0, 5).map((stock, index) => (
         <div
           key={stock.ticker}
           className="sg-rank-row grid grid-cols-[38px_minmax(0,1fr)_72px] items-center border-b border-[#edf0ea] px-4 py-4 sm:grid-cols-[52px_90px_minmax(0,1fr)_78px_82px]"
