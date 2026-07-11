@@ -20,35 +20,43 @@ const noiseTickers = [
   "NFLX",
   "AMD",
   "CRM",
+  "ORCL",
+  "PLTR",
+  "ADBE",
+  "MA",
+  "XOM",
+  "WMT",
+  "NKE",
+  "BAC",
 ];
 
-const rankedStocks = [
-  { ticker: "NVDA", label: "AI infrastructure", score: 94, tone: "Strong" },
-  { ticker: "MSFT", label: "Quality compounder", score: 91, tone: "Strong" },
-  { ticker: "AVGO", label: "Semiconductor momentum", score: 88, tone: "Review" },
-  { ticker: "COST", label: "Defensive quality", score: 84, tone: "Watch" },
+const rankedIdeas = [
+  { ticker: "NVDA", thesis: "AI infrastructure strength", score: "94" },
+  { ticker: "MSFT", thesis: "Quality, cash flow, platform depth", score: "91" },
+  { ticker: "AVGO", thesis: "Momentum plus semiconductor demand", score: "88" },
+  { ticker: "COST", thesis: "Defensive growth profile", score: "84" },
 ];
 
-const steps = [
+const scenes = [
   {
     eyebrow: "Market noise",
-    title: "Start with the whole market shouting at once.",
-    copy: "Prices move, headlines compete for attention and every ticker looks urgent. StockGPT starts by gathering the noise into one research workflow.",
+    title: "Every ticker is shouting.",
+    copy: "StockGPT starts with the messy part: price moves, headlines, momentum, risk and fundamentals competing for attention.",
   },
   {
-    eyebrow: "Score the signals",
-    title: "Separate hype from research priority.",
-    copy: "Stocks are scored across quality, growth, value, momentum, income and risk signals before they reach the ranked view.",
+    eyebrow: "Signal scan",
+    title: "The noise gets pulled into one model.",
+    copy: "The system scores quality, growth, value, momentum, income and risk so the market starts to become readable.",
   },
   {
-    eyebrow: "Ranked stocks",
-    title: "The strongest ideas rise to the top.",
-    copy: "Instead of starting from scratch, users land on a ranked list that shows what looks stronger, weaker or worth researching next.",
+    eyebrow: "Ranked clarity",
+    title: "Stronger research ideas rise out of the chaos.",
+    copy: "Instead of opening ten tabs, users get a ranked starting point for what looks stronger, weaker or worth researching next.",
   },
   {
-    eyebrow: "Research workflow",
-    title: "Open a stock, read the context, then ask follow-ups.",
-    copy: "Rankings connect into stock pages, news context and Ask StockGPT so users can understand the reasoning before making their own decisions.",
+    eyebrow: "StockGPT workflow",
+    title: "Rank, research, ask follow-ups.",
+    copy: "The ranked list connects into stock pages, news context and Ask StockGPT so users can understand the reasoning before making their own decisions.",
   },
 ];
 
@@ -62,12 +70,11 @@ export function MarketNoiseScrolly() {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    const landingRoot = document.querySelector(".sg-page-soft");
     const tickerSection = document.querySelector(
       '.sg-page-soft > section:first-of-type + div[class*="sm:grid-cols-4"] + div',
     );
 
-    if (!landingRoot || !tickerSection) return;
+    if (!tickerSection) return;
 
     const portalHost = document.createElement("div");
     portalHost.setAttribute("data-stockgpt-market-noise-scrolly", "true");
@@ -121,21 +128,33 @@ export function MarketNoiseScrolly() {
     };
   }, [host, reducedMotion]);
 
-  const activeStep = reducedMotion ? 2 : Math.min(steps.length - 1, Math.floor(progress * steps.length));
-  const localProgress = reducedMotion ? 1 : clamp(progress * (steps.length - 1));
-  const chaosOpacity = reducedMotion ? 0.16 : clamp(1 - progress * 1.55, 0.08, 1);
-  const rankOpacity = reducedMotion ? 1 : clamp((progress - 0.28) / 0.42, 0, 1);
-  const beamScale = reducedMotion ? 1 : 0.2 + clamp(progress * 1.35, 0, 1) * 0.8;
+  const activeScene = reducedMotion ? 2 : Math.min(scenes.length - 1, Math.floor(progress * scenes.length));
+  const signalProgress = reducedMotion ? 1 : clamp((progress - 0.15) / 0.58);
+  const clarityProgress = reducedMotion ? 1 : clamp((progress - 0.42) / 0.44);
+  const chaosOpacity = reducedMotion ? 0.2 : clamp(1 - progress * 1.55, 0.08, 1);
+  const lensScale = 0.72 + signalProgress * 0.55;
+  const stormScale = reducedMotion ? 0.92 : 1 + progress * 0.58;
 
   const tickerLayout = useMemo(
     () =>
-      noiseTickers.map((ticker, index) => ({
-        ticker,
-        left: `${8 + ((index * 23) % 82)}%`,
-        top: `${10 + ((index * 37) % 76)}%`,
-        delay: `${index * 65}ms`,
-        lift: index % 2 === 0 ? -1 : 1,
-      })),
+      noiseTickers.map((ticker, index) => {
+        const orbit = index % 4;
+        return {
+          ticker,
+          left: 8 + ((index * 19) % 86),
+          top: 9 + ((index * 31) % 78),
+          size: orbit === 0 ? "text-[13px]" : orbit === 1 ? "text-[11px]" : "text-[10px]",
+          opacity: 0.42 + (orbit * 0.14),
+          rotation: -18 + ((index * 23) % 36),
+          x: -44 + ((index * 29) % 88),
+          y: -34 + ((index * 41) % 68),
+        };
+      }),
+    [],
+  );
+
+  const lightRays = useMemo(
+    () => Array.from({ length: 18 }, (_, index) => index),
     [],
   );
 
@@ -144,109 +163,151 @@ export function MarketNoiseScrolly() {
   return createPortal(
     <section
       data-market-noise-section
-      className="relative mx-auto hidden max-w-7xl px-4 py-6 sm:block sm:px-6 lg:px-8"
-      style={{ height: reducedMotion ? "auto" : "320vh" }}
+      className="relative left-1/2 hidden w-screen -translate-x-1/2 sm:block"
+      style={{ height: reducedMotion ? "auto" : "360vh" }}
       aria-label="From market noise to ranked stocks"
     >
-      <div className="sticky top-[96px] overflow-hidden rounded-[2.25rem] border border-[#dfe5dc] bg-[#061b12] p-6 text-white shadow-[0_28px_90px_rgba(7,27,17,0.16)] sm:p-8 lg:top-[112px] lg:grid lg:min-h-[calc(100vh-140px)] lg:grid-cols-[0.84fr_1.16fr] lg:items-center lg:gap-8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(221,177,89,0.18),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(15,159,93,0.16),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_46%)]" />
-        <div className="relative z-10">
-          <p className="inline-flex rounded-full border border-[#ddb159]/28 bg-[#ddb159]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#ddb159]">
-            {steps[activeStep]?.eyebrow}
-          </p>
-          <h2 className="sg-heading mt-5 max-w-xl text-[42px] font-medium leading-[0.98] text-white sm:text-6xl lg:text-7xl">
-            From market noise to ranked stocks.
-          </h2>
-          <p className="mt-5 max-w-xl text-base leading-8 text-white/68">
-            {steps[activeStep]?.copy}
-          </p>
+      <div className="sticky top-0 min-h-screen overflow-hidden bg-[#030d08] text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(221,177,89,0.20),transparent_22%),radial-gradient(circle_at_24%_24%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_82%_28%,rgba(221,177,89,0.14),transparent_30%),linear-gradient(180deg,#04180f_0%,#030d08_48%,#071b11_100%)]" />
+        <div className="absolute inset-0 opacity-55 [background-image:linear-gradient(rgba(221,177,89,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(221,177,89,0.045)_1px,transparent_1px)] [background-size:52px_52px]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(3,13,8,0.88)_0%,transparent_28%,transparent_72%,rgba(3,13,8,0.88)_100%)]" />
 
-          <div className="mt-7 grid gap-3">
-            {steps.map((step, index) => (
-              <div
-                key={step.eyebrow}
-                className="rounded-2xl border px-4 py-3 transition-all duration-300"
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-70"
+          viewBox="0 0 1440 900"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="marketBeam" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="rgba(221,177,89,0)" />
+              <stop offset="46%" stopColor="rgba(221,177,89,0.7)" />
+              <stop offset="100%" stopColor="rgba(16,185,129,0)" />
+            </linearGradient>
+            <filter id="softGlow">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {lightRays.map((ray) => {
+            const y = 110 + ray * 42;
+            const bend = ray % 2 === 0 ? 110 : -110;
+            return (
+              <path
+                key={ray}
+                d={`M ${-120 + ray * 9} ${y} C 360 ${y + bend}, 620 ${450 - bend * 0.22}, 720 450 S 1040 ${y - bend}, 1560 ${y + 60}`}
+                stroke="url(#marketBeam)"
+                strokeWidth={ray % 3 === 0 ? 2.2 : 1.1}
+                fill="none"
+                filter="url(#softGlow)"
+                opacity={0.06 + signalProgress * 0.34}
+                style={{ transform: `translateY(${(0.5 - progress) * (ray - 8) * 10}px)` }}
+              />
+            );
+          })}
+        </svg>
+
+        <div
+          className="absolute inset-0 transition-transform duration-500"
+          style={{ transform: `scale(${stormScale}) rotate(${progress * -2.8}deg)` }}
+        >
+          {tickerLayout.map((item, index) => {
+            const convergeX = (50 - item.left) * signalProgress;
+            const convergeY = (50 - item.top) * signalProgress;
+            const releaseX = item.x * clarityProgress;
+            const releaseY = item.y * clarityProgress;
+            return (
+              <span
+                key={item.ticker}
+                className={["sg-data absolute font-black text-white/80 drop-shadow-[0_0_18px_rgba(221,177,89,0.22)]", item.size].join(" ")}
                 style={{
-                  borderColor: index === activeStep ? "rgba(221,177,89,0.46)" : "rgba(255,255,255,0.08)",
-                  background: index === activeStep ? "rgba(221,177,89,0.10)" : "rgba(255,255,255,0.035)",
-                  opacity: index <= activeStep ? 1 : 0.42,
+                  left: `${item.left}%`,
+                  top: `${item.top}%`,
+                  opacity: Math.max(0.06, item.opacity * chaosOpacity),
+                  transform: `translate(${convergeX + releaseX}vw, ${convergeY + releaseY}vh) rotate(${item.rotation + progress * 36}deg) scale(${1 - signalProgress * 0.36})`,
                 }}
               >
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                  0{index + 1} / {step.eyebrow}
-                </p>
-                <p className="mt-1 text-sm font-black leading-6 text-white">{step.title}</p>
-              </div>
-            ))}
+                {item.ticker}
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="absolute left-1/2 top-1/2 h-[min(68vw,720px)] w-[min(68vw,720px)] -translate-x-1/2 -translate-y-1/2">
+          <div
+            className="absolute inset-0 rounded-full border border-[#ddb159]/20 bg-[radial-gradient(circle,rgba(221,177,89,0.22)_0%,rgba(16,185,129,0.09)_38%,transparent_68%)] blur-[0.5px] transition-all duration-500"
+            style={{ opacity: 0.16 + signalProgress * 0.55, transform: `scale(${lensScale})` }}
+          />
+          <div
+            className="absolute inset-[11%] rounded-full border border-white/10 bg-[conic-gradient(from_180deg,rgba(221,177,89,0.06),rgba(16,185,129,0.22),rgba(221,177,89,0.22),rgba(255,255,255,0.04),rgba(221,177,89,0.06))] shadow-[0_0_80px_rgba(221,177,89,0.18)] transition-all duration-500"
+            style={{ opacity: 0.3 + signalProgress * 0.48, transform: `rotate(${progress * 110}deg) scale(${0.78 + signalProgress * 0.2})` }}
+          />
+          <div
+            className="absolute inset-[25%] rounded-full border border-[#ddb159]/32 bg-[#061b12]/70 shadow-[0_0_90px_rgba(221,177,89,0.22),inset_0_0_56px_rgba(16,185,129,0.12)] backdrop-blur-md transition-all duration-500"
+            style={{ opacity: 0.48 + signalProgress * 0.42, transform: `scale(${0.72 + signalProgress * 0.3})` }}
+          />
+          <div className="absolute inset-0 grid place-items-center">
+            <div
+              className="text-center transition-all duration-500"
+              style={{ opacity: 0.34 + signalProgress * 0.66, transform: `translateY(${(1 - signalProgress) * 24}px) scale(${0.9 + signalProgress * 0.1})` }}
+            >
+              <p className="sg-data text-[11px] font-black uppercase tracking-[0.32em] text-[#ddb159]">
+                StockGPT signal engine
+              </p>
+              <p className="sg-heading mt-3 text-[46px] font-medium leading-none text-white sm:text-7xl lg:text-8xl">
+                Rank the market
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="relative z-10 mt-8 min-h-[520px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#03140d] p-4 lg:mt-0">
-          <div className="absolute inset-0 opacity-45 [background-image:linear-gradient(rgba(221,177,89,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(221,177,89,0.08)_1px,transparent_1px)] [background-size:42px_42px]" />
-
-          {tickerLayout.map((item, index) => (
-            <div
-              key={item.ticker}
-              className="absolute rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)] transition-all duration-500"
-              style={{
-                left: item.left,
-                top: item.top,
-                opacity: chaosOpacity,
-                transform: `translate(-50%, -50%) translateY(${item.lift * localProgress * 42}px) scale(${1 - localProgress * 0.18})`,
-                transitionDelay: item.delay,
-              }}
-            >
-              <span className="sg-data">{item.ticker}</span>
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-8 pt-32 sm:px-6 lg:px-10">
+          <div className="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="inline-flex rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159] backdrop-blur-md">
+                {scenes[activeScene]?.eyebrow}
+              </p>
+              <h2 className="sg-heading mt-5 text-[52px] font-medium leading-[0.9] tracking-[-0.055em] text-white sm:text-[82px] lg:text-[112px]">
+                From noise to ranked stocks.
+              </h2>
+              <p className="mt-5 max-w-xl text-base leading-8 text-white/68 sm:text-lg">
+                {scenes[activeScene]?.copy}
+              </p>
             </div>
-          ))}
 
-          <div
-            className="absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 blur-[1px] transition-all duration-500"
-            style={{
-              opacity: clamp(progress * 1.2, 0.08, 0.42),
-              transform: `translate(-50%, -50%) scale(${beamScale})`,
-            }}
-          />
-
-          <div
-            className="absolute inset-x-4 bottom-4 top-4 grid content-end gap-3 transition-all duration-500"
-            style={{ opacity: rankOpacity, transform: `translateY(${(1 - rankOpacity) * 28}px)` }}
-          >
-            <div className="rounded-[1.5rem] border border-[#ddb159]/24 bg-[#071f15]/92 p-4 shadow-[0_22px_54px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                    StockGPT ranked output
-                  </p>
-                  <p className="mt-1 text-xl font-black text-white">Research priorities</p>
-                </div>
-                <div className="rounded-full bg-emerald-500/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
-                  Sorted
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                {rankedStocks.map((stock, index) => (
-                  <div
-                    key={stock.ticker}
-                    className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.055] p-3"
-                    style={{ transform: `translateY(${Math.max(0, 1 - rankOpacity) * (18 + index * 8)}px)` }}
-                  >
-                    <div className="sg-data text-sm font-black text-[#ddb159]">#{index + 1}</div>
+            <div
+              className="relative min-h-[260px] w-full max-w-xl transition-all duration-500 lg:min-h-[360px]"
+              style={{ opacity: 0.14 + clarityProgress * 0.86, transform: `translateY(${(1 - clarityProgress) * 46}px)` }}
+            >
+              {rankedIdeas.map((idea, index) => (
+                <div
+                  key={idea.ticker}
+                  className="absolute left-0 right-0 rounded-[1.65rem] border border-[#ddb159]/20 bg-white/[0.075] px-5 py-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                  style={{
+                    top: `${index * 76}px`,
+                    transform: `translateX(${(1 - clarityProgress) * (index % 2 === 0 ? 72 : -72)}px) rotate(${(1 - clarityProgress) * (index % 2 === 0 ? -4 : 4)}deg)`,
+                    opacity: clarityProgress > index * 0.08 ? 1 : 0.14,
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-5">
                     <div>
-                      <p className="sg-data text-base font-black text-white">{stock.ticker}</p>
-                      <p className="text-xs font-semibold text-white/48">{stock.label}</p>
+                      <p className="sg-data text-2xl font-black text-white">{idea.ticker}</p>
+                      <p className="mt-1 text-sm font-semibold text-white/56">{idea.thesis}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="sg-data text-lg font-black text-emerald-300">{stock.score}</p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/42">{stock.tone}</p>
+                    <div className="sg-data rounded-full border border-emerald-300/24 bg-emerald-300/10 px-4 py-2 text-lg font-black text-emerald-200">
+                      {idea.score}
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-[#030d08] via-[#030d08]/68 to-transparent" />
       </div>
     </section>,
     host,
