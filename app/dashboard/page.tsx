@@ -136,6 +136,15 @@ export default async function DashboardPage({
   const valuationState = dashboardPortfolio?.valuationState ?? "empty";
   const missingPriceTickers = dashboardPortfolio?.missingPriceTickers ?? [];
   const portfolioChartMeta = dashboardPortfolio?.chartMeta ?? null;
+  const rawChartState = portfolioChartMeta?.health.displayState ?? null;
+  const mobileChartState =
+    rawChartState === "ready" ||
+    rawChartState === "error_with_cache" ||
+    rawChartState === "error_no_cache"
+      ? rawChartState
+      : rawChartState
+        ? "limited"
+        : null;
 
   const askContext = {
     contextType: "dashboard" as const,
@@ -158,7 +167,7 @@ export default async function DashboardPage({
           summary={portfolioSummary}
           portfolioChart={portfolioChart}
           portfolioChartState={{
-            displayState: portfolioChartMeta?.health.displayState ?? null,
+            displayState: mobileChartState,
             isFlat: portfolioChartMeta?.health.isFlat ?? false,
             latestSnapshotAt:
               portfolioChartMeta?.health.latestSnapshotAt ?? null,
