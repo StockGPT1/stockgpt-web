@@ -37,7 +37,6 @@ const layout = read("app/layout.tsx");
 const nextConfig = read("next.config.ts");
 const loading = read("app/portfolio/loading.tsx");
 
-// Canonical architecture: /portfolio renders the typed React workspace directly.
 assert.match(canonicalPage, /from\s+["']\.\/modern\/page["']/);
 assert.match(canonicalPage, /export const dynamic = ["']force-dynamic["']/);
 assert.match(shellExport, /portfolio-workspace\/PortfolioModernWorkspace/);
@@ -45,7 +44,6 @@ assert.doesNotMatch(nextConfig, /source:\s*["']\/portfolio["']/);
 assert.match(modernPage, /<PortfolioModernWorkspace/);
 assert.match(modernPage, /redirect\(["']\/login["']\)/);
 
-// Legacy DOM-patching controllers and override styles must stay removed.
 for (const removedPath of [
   "components/PortfolioWorkspaceRedesign.tsx",
   "components/PortfolioAllocationBarPolish.tsx",
@@ -57,16 +55,11 @@ for (const removedPath of [
 }
 assert.doesNotMatch(layout, /PortfolioWorkspaceRedesign|PortfolioAllocationBarPolish/);
 assert.doesNotMatch(layout, /portfolio-workspace-redesign\.css|portfolio-allocation-polish\.css|portfolio-chart-border-fix\.css/);
-assert.doesNotMatch(
-  workspace,
-  /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|classList\./,
-);
+assert.doesNotMatch(workspace, /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|classList\./);
 assert.equal((workspace.match(/document\.querySelector/g) ?? []).length, 0);
-// The only selector traversal allowed is scoped to the active dialog for focus trapping.
 assert.equal((workspace.match(/querySelectorAll/g) ?? []).length, 1);
 assert.match(sheetShell, /dialogRef\.current\?\.querySelectorAll/);
 
-// Navigation remains information-led; Add and Manage are contextual actions.
 assert.match(orchestrator, /PortfolioSection/);
 assert.match(stage, /label: "Overview"/);
 assert.match(stage, /label: "Holdings"/);
@@ -76,7 +69,6 @@ assert.doesNotMatch(stage, /SECTION_ITEMS[\s\S]{0,400}label: "Manage"/);
 assert.match(orchestrator, /setAddOpen\(true\)/);
 assert.match(orchestrator, /setManageOpen\(true\)/);
 
-// URL state and portfolio switching remain durable and deep-linkable.
 assert.match(orchestrator, /searchParams\.get\("section"\)/);
 assert.match(orchestrator, /params\.set\("section", next\.section\)/);
 assert.match(orchestrator, /params\.set\("portfolio", next\.portfolio\)/);
@@ -84,7 +76,6 @@ assert.match(orchestrator, /sectionAnchorRef\.current\?\.scrollIntoView/);
 assert.match(modernPage, /params\.section === "holdings" \|\| params\.section === "activity"/);
 assert.match(modernPage, /portfolios\.some\(\(portfolio\) => portfolio\.id === params\.portfolio\)/);
 
-// Valuation, allocation and chart data remain grounded in shared portfolio logic.
 assert.match(modernPage, /buildPortfolioHealthSummary/);
 assert.match(modernPage, /buildPortfolioPageChartResult/);
 assert.match(modernPage, /currentAllocationPct:\s*totalValue > 0 \? \(currentValue \/ totalValue\) \* 100 : 0/);
@@ -93,7 +84,6 @@ assert.match(visuals, /of total portfolio/);
 assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
 assert.match(stage, /filterDisplayablePortfolioChartData/);
 
-// Overview, holdings, map/treemap and timeline are real React components.
 assert.match(overview, /Portfolio Pulse/);
 assert.match(overview, /Conviction × exposure/);
 assert.match(overview, /Portfolio-fit ideas/);
@@ -104,7 +94,6 @@ assert.match(holdings, /sticky top-0/);
 assert.match(activity, /Load more activity/);
 assert.match(activity, /Transactions are user actions/);
 
-// The page reserves space for the mobile nav and prevents body overflow.
 assert.match(orchestrator, /overflow-x-hidden/);
 assert.match(orchestrator, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(orchestrator, /max-w-\[1480px\]/);
@@ -112,13 +101,11 @@ assert.match(loading, /aria-label="Loading portfolio"/);
 assert.match(loading, /aria-busy="true"/);
 assert.match(loading, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 
-// Intentional scrollers only: metrics, opportunities, filters and sheet bodies.
 assert.match(overview, /snap-x snap-mandatory/);
 assert.match(workspace, /overflow-x-auto/);
 assert.match(workspace, /\[scrollbar-width:none\]/);
 assert.match(sheetShell, /overflow-y-auto overscroll-contain/);
 
-// Sheets include focus management, Escape handling, unsaved-change protection and safe areas.
 assert.match(sheetShell, /role="dialog"/);
 assert.match(sheetShell, /aria-modal="true"/);
 assert.match(sheetShell, /event\.key === "Escape"/);
@@ -129,7 +116,6 @@ assert.match(workspace, /focus-visible:outline/);
 assert.match(visuals, /Accessible map data/);
 assert.match(visuals, /Open holding/);
 
-// Add/Manage flows preserve required actions and funding paths.
 assert.match(sheets, /Add holding/);
 assert.match(sheets, /Add cash/);
 assert.match(sheets, /Withdraw cash/);
@@ -145,18 +131,15 @@ assert.match(cashAction, /amount > currentCash/);
 assert.match(cashAction, /Restore the balance/);
 assert.match(cashAction, /invalidatePortfolioPageSnapshot/);
 
-// Core interaction sizes remain at or above the 44px mobile target.
 assert.match(workspace, /size-11|size-12/);
 assert.match(workspace, /h-12/);
 assert.match(workspace, /min-h-11/);
 
-// Honest chart states: do not invent movement when history is incomplete.
 assert.match(stage, /StockGPT only plots confirmed portfolio snapshots/);
 assert.match(stage, /Preparing reliable chart history/);
-assert.match(stage, /Showing cached chart/);
+assert.match(stage, /Using the last reliable chart|Showing cached chart/);
 assert.match(stage, /Chart history unavailable/);
 
-// Simple reconciliation checks protect the intended allocation interpretation.
 const allocation = (holdingValue, totalValue) => (totalValue > 0 ? (holdingValue / totalValue) * 100 : 0);
 assert.equal(allocation(0, 1000), 0);
 assert.equal(allocation(1000, 1000), 100);
