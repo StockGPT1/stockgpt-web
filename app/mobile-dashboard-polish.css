@@ -1,0 +1,99 @@
+/* Mobile dashboard finishing pass.
+   Scoped to the authenticated dashboard only. Desktop remains unchanged. */
+@media (max-width: 1023px) {
+  /* The carousel is keyboard accessible, but Safari/WebKit can paint its default
+     focus rectangle as an unexplained line across the top and down the right. */
+  .sg-dashboard-main [aria-label="Portfolio intelligence panels"] {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sg-dashboard-main [aria-label="Portfolio intelligence panels"]:focus-visible {
+    outline: 2px solid rgba(221, 177, 89, 0.42) !important;
+    outline-offset: 4px;
+    border-radius: 1.75rem;
+  }
+
+  /* Do not clip the track with a second rounded container. The individual cards
+     own their radius; double clipping was producing the sharp top-right corner. */
+  .sg-dashboard-main [aria-label="Dashboard intelligence"] > div:first-child {
+    overflow: visible !important;
+    border-radius: 0 !important;
+  }
+
+  .sg-dashboard-main [aria-label="Portfolio intelligence panels"] > article {
+    clip-path: none !important;
+    -webkit-mask-image: none !important;
+    border-radius: 1.65rem !important;
+    background-clip: padding-box !important;
+    transform: translateZ(0);
+    isolation: isolate;
+  }
+
+  /* Preserve a genuinely rounded portfolio card on iOS Safari, including the
+     glowing decorative layer in its top-right corner. */
+  .sg-dashboard-main [aria-label="1 of 3, Portfolio"] {
+    overflow: hidden !important;
+    border-top-right-radius: 1.65rem !important;
+  }
+
+  .sg-dashboard-main [aria-label="1 of 3, Portfolio"] > * {
+    max-width: 100%;
+  }
+
+  /* The opportunity header stays fixed while its contents scroll independently.
+     This prevents the second idea and freshness metadata being cut off. */
+  .sg-dashboard-main [aria-label="3 of 3, Opportunities"] {
+    display: flex !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .sg-dashboard-main [aria-label="3 of 3, Opportunities"] > div:last-child {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.85rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(221, 177, 89, 0.38) transparent;
+  }
+
+  .sg-dashboard-main [aria-label="3 of 3, Opportunities"] > div:last-child::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .sg-dashboard-main [aria-label="3 of 3, Opportunities"] > div:last-child::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(221, 177, 89, 0.38);
+  }
+
+  /* Three consistent, image-led news cards. Their dimensions stay stable across
+     narrow iPhones and wider Android phones without text or images spilling. */
+  .sg-dashboard-main section:has(> div a[href="/world-news"]) > div:last-child {
+    align-items: stretch;
+  }
+
+  .sg-dashboard-main section:has(> div a[href="/world-news"]) > div:last-child > a {
+    width: clamp(176px, 48vw, 196px) !important;
+    height: 246px !important;
+    border-radius: 1.25rem !important;
+    background-clip: padding-box;
+  }
+
+  .sg-dashboard-main section:has(> div a[href="/world-news"]) img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Keep the legal copy clearly separated from content while allowing the fixed
+     bottom navigation to float without trapping the final button underneath it. */
+  .sg-dashboard-main section:last-of-type {
+    padding-bottom: 1rem;
+  }
+}
