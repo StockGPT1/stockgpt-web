@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { DashboardPortfolioHoverWidget } from "@/components/DashboardPortfolioHoverWidget";
 import { PortfolioOpportunitiesWidget as SharedPortfolioOpportunitiesWidget } from "@/components/PortfolioOpportunitiesWidget";
+import { DesktopPortfolioOpportunitiesCarousel } from "@/components/DesktopPortfolioOpportunitiesCarousel";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
 import {
@@ -162,7 +163,8 @@ export default async function Home({
   const portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> =
     dashboardPortfolio?.chartData ?? {};
   const portfolioOpportunities: DashboardPortfolioOpportunity[] =
-    hasSubscription ? (dashboardPortfolio?.opportunities ?? []).slice(0, 2) : [];
+    hasSubscription ? (dashboardPortfolio?.opportunities ?? []).slice(0, 8) : [];
+  const mobilePortfolioOpportunities = portfolioOpportunities.slice(0, 2);
 
   const bullishPct =
     totalCount && totalCount > 0
@@ -200,14 +202,14 @@ export default async function Home({
             missingPriceTickers={dashboardPortfolio?.missingPriceTickers ?? []}
           />
           {!portfolioSummary && <ActivationChecklist planComplete={hasSubscription} portfolioComplete={false} />}
-          {hasSubscription ? <SharedPortfolioOpportunitiesWidget opportunities={portfolioOpportunities} /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Build or import a portfolio now; unlock StockGPT intelligence to see portfolio-fit research." tone="locked" />}
+          {hasSubscription ? <SharedPortfolioOpportunitiesWidget opportunities={mobilePortfolioOpportunities} /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Build or import a portfolio now; unlock StockGPT intelligence to see portfolio-fit research." tone="locked" />}
           <DashboardBriefing summary={portfolioSummary} topRanked={topRanked} canUsePremium={hasSubscription} valuationState={dashboardPortfolio?.valuationState ?? "empty"} />
           <RankingsPanel rankings={rankings} rankingsLocked={rankingsLocked} snapshotMap={snapshotMap} gridClass={dashboardRankingsGrid} />
           <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
         </div>
 
         <div className="hidden gap-3 lg:grid lg:min-h-[calc(100dvh-118px)] lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)]">
-          <section className="grid min-h-0 gap-3 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_minmax(420px,1fr)]">
+          <section className="grid min-h-0 gap-3 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_auto_minmax(420px,1fr)]">
             <WelcomeBanner name={firstName} />
             <div className="min-h-0 min-w-0">
               <ActivationChecklist
@@ -247,6 +249,19 @@ export default async function Home({
               />
             </div>
 
+            {hasSubscription ? (
+              <DesktopPortfolioOpportunitiesCarousel
+                opportunities={portfolioOpportunities}
+              />
+            ) : (
+              <ModuleState
+                eyebrow="Portfolio-fit opportunities"
+                title="Premium opportunities locked"
+                description="Unlock portfolio-fit research and health analysis."
+                tone="locked"
+              />
+            )}
+
             <RankingsPanel
               rankings={rankings}
               rankingsLocked={rankingsLocked}
@@ -266,7 +281,6 @@ export default async function Home({
               valuationState={dashboardPortfolio?.valuationState ?? "empty"}
               missingPriceTickers={dashboardPortfolio?.missingPriceTickers ?? []}
             />
-            {hasSubscription ? <SharedPortfolioOpportunitiesWidget opportunities={portfolioOpportunities} /> : <ModuleState title="Premium opportunities locked" description="Unlock portfolio-fit research and health analysis." tone="locked" />}
             <DashboardBriefing summary={portfolioSummary} topRanked={topRanked} canUsePremium={hasSubscription} valuationState={dashboardPortfolio?.valuationState ?? "empty"} />
             <MarketOverviewCard
               sp500Data={sp500Data}
