@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export function RankingsLock({
   isLocked,
@@ -10,17 +10,38 @@ export function RankingsLock({
   children: ReactNode;
   className?: string;
 }) {
+  const isMobileRankingsSurface = className.includes("lg:hidden");
+  const mobileSurfaceStyle: CSSProperties | undefined = isMobileRankingsSurface
+    ? {
+        backgroundColor: "transparent",
+        borderRadius: "1rem",
+        overflow: "hidden",
+        isolation: "isolate",
+      }
+    : undefined;
+
   if (!isLocked) {
-    return <div className={className}>{children}</div>;
+    return (
+      <div className={className} style={mobileSurfaceStyle}>
+        {children}
+      </div>
+    );
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className}`} style={mobileSurfaceStyle}>
       <div className="pointer-events-none h-full min-h-0 overflow-hidden select-none blur-[4px] opacity-50">
         {children}
       </div>
 
-      <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#faf6f0]/18 px-4 backdrop-blur-[1px]">
+      <div
+        className={[
+          "absolute inset-0 z-20 flex items-center justify-center px-4 backdrop-blur-[1px]",
+          isMobileRankingsSurface
+            ? "rounded-2xl bg-[#072116]/32"
+            : "bg-[#faf6f0]/18",
+        ].join(" ")}
+      >
         <div className="max-w-[320px] rounded-2xl border border-[#ddb159]/40 bg-[#072116]/92 px-5 py-4 text-center text-[#faf6f0] shadow-[0_18px_46px_rgba(0,0,0,0.38)]">
           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
             Core Rankings
