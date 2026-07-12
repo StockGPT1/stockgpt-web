@@ -1,11 +1,15 @@
 @media (max-width: 1023px) {
   .sg-mobile-app-header {
-    min-height: 56px;
-    padding-top: env(safe-area-inset-top);
+    min-height: calc(56px + env(safe-area-inset-top));
     height: calc(56px + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
   }
 
   .sg-mobile-app-header > p {
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding-inline: 8px;
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 21px !important;
     font-weight: 800 !important;
@@ -17,29 +21,24 @@
     text-overflow: ellipsis !important;
   }
 
+  /*
+   * The mobile app bar is the single page-title source of truth.
+   * Hide duplicate editorial h1s inside app content so titles do not appear
+   * twice, drift off-centre, or fall back to the global serif heading font.
+   */
   body[data-sg-path="rankings"] .sg-app-content h1,
   body[data-sg-path="watchlist"] .sg-app-content h1,
   body[data-sg-path="notifications"] .sg-app-content h1,
   body[data-sg-path="world-news"] .sg-app-content h1,
   body[data-sg-path="settings"] .sg-app-content h1,
   body[data-sg-path="compare"] .sg-app-content h1 {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 22px !important;
-    font-weight: 800 !important;
-    line-height: 1.15 !important;
-    letter-spacing: -0.025em !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    display: none !important;
   }
 
+  /* Keep the supporting copy balanced after the duplicate title is removed. */
   body[data-sg-path="rankings"] .sg-app-content main > section:first-child > div:first-child > div:first-child {
     width: 100%;
+    text-align: center;
   }
 
   body[data-sg-path="rankings"] .sg-app-content main > section:first-child > div:first-child > div:first-child > div:first-child {
@@ -47,8 +46,27 @@
     margin-right: auto;
   }
 
+  body[data-sg-path="rankings"] .sg-app-content main > section:first-child > div:first-child > div:first-child > p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Portfolio names are contextual content, not a competing page title. */
   body[data-sg-path="portfolio"] .portfolio-section-nav + .mobile-portfolio-chart-hero h1,
   body[data-sg-path="portfolio"] .mobile-portfolio-chart-hero h1 {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: clamp(20px, 5.5vw, 24px) !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.025em !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Stock detail titles stay contextual but use the same native type system. */
+  body[data-sg-path="stock"] .sg-app-content h1 {
     font-family: Arial, Helvetica, sans-serif !important;
     letter-spacing: -0.025em !important;
   }
