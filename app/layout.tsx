@@ -99,6 +99,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <style>{`
+          html:has(.legal-page),
+          html:has(.affiliate-page),
+          body:has(.legal-page),
+          body:has(.affiliate-page) {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+          }
+
+          .legal-page,
+          .affiliate-page,
+          #legal-scroll-root,
+          #affiliate-scroll-root {
+            min-height: 100vh !important;
+            min-height: 100dvh !important;
+            height: auto !important;
+            overflow-x: hidden !important;
+            overflow-y: visible !important;
+          }
+        `}</style>
         {children}
         <PortfolioHoldingClickPatch />
         <RankingsFinancialWhyPatch />
