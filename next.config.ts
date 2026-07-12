@@ -35,17 +35,6 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: "/portfolio",
-          destination: "/portfolio/modern",
-        },
-      ],
-    };
-  },
-
   async redirects() {
     return [
       { source: "/stocks/:ticker", destination: "/stock/:ticker", permanent: true },
