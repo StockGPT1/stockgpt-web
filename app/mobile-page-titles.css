@@ -1,0 +1,55 @@
+@media (max-width: 1023px) {
+  .sg-mobile-app-header {
+    min-height: 56px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(56px + env(safe-area-inset-top));
+  }
+
+  .sg-mobile-app-header > p {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 21px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: -0.025em !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body[data-sg-path="rankings"] .sg-app-content h1,
+  body[data-sg-path="watchlist"] .sg-app-content h1,
+  body[data-sg-path="notifications"] .sg-app-content h1,
+  body[data-sg-path="world-news"] .sg-app-content h1,
+  body[data-sg-path="settings"] .sg-app-content h1,
+  body[data-sg-path="compare"] .sg-app-content h1 {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.025em !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body[data-sg-path="rankings"] .sg-app-content main > section:first-child > div:first-child > div:first-child {
+    width: 100%;
+  }
+
+  body[data-sg-path="rankings"] .sg-app-content main > section:first-child > div:first-child > div:first-child > div:first-child {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-section-nav + .mobile-portfolio-chart-hero h1,
+  body[data-sg-path="portfolio"] .mobile-portfolio-chart-hero h1 {
+    font-family: Arial, Helvetica, sans-serif !important;
+    letter-spacing: -0.025em !important;
+  }
+}
