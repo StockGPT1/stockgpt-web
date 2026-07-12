@@ -13,6 +13,7 @@ import "./ask-stockgpt-mobile-hardening.css";
 import "./stock-action-buttons.css";
 import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
+import "./mobile-page-titles.css";
 
 const iconVersion = "31";
 
