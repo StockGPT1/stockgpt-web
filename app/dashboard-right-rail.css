@@ -1,17 +1,17 @@
-/* Desktop dashboard layout polish.
-   Keep the main column and right intelligence rail aligned to one shared vertical
-   frame. Every visible module uses consistent gaps, no removed feature reserves
-   space, no widget is clipped, and mobile is intentionally untouched. */
+/* Dashboard layout polish.
+   Desktop keeps the main column and right intelligence rail aligned to one shared
+   vertical frame. Mobile uses its own dimensional dashboard and relies on the app
+   shell for bottom-navigation clearance rather than stacking duplicate padding. */
+
+@media (max-width: 1023px) {
+  .sg-dashboard-main > div:first-child {
+    padding-bottom: 1rem !important;
+  }
+}
 
 @media (min-width: 1024px) {
   .sg-dashboard-main > div.hidden {
     align-items: stretch !important;
-  }
-
-  /* ActivationChecklist now renders null. Its legacy wrapper must not reserve a
-     grid row or create a false gap between the hero and dashboard content. */
-  .sg-dashboard-main > div.hidden > section > div:empty {
-    display: none !important;
   }
 
   /* The first three rows keep their intended intrinsic sizes. Rankings owns the
