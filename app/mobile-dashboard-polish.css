@@ -1,6 +1,21 @@
 /* Mobile dashboard finishing pass.
    Scoped to the authenticated dashboard only. Desktop remains unchanged. */
 @media (max-width: 1023px) {
+  /* The visible rectangular edge in the screenshot came from the first briefing
+     section itself: overflow-hidden clipped its decorative blur into a hard right
+     edge, while the full-width bottom border completed the apparent box. Keep the
+     briefing open on the page and remove that decorative layer entirely. */
+  .sg-dashboard-main > div > section:first-child {
+    overflow: visible !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+  }
+
+  .sg-dashboard-main > div > section:first-child > div:first-child {
+    display: none !important;
+  }
+
   /* The carousel itself must never paint a focus ring, border or clipping frame.
      Safari can retain focus after a swipe/tap and otherwise draw a line around
      the track that makes neighbouring content look abruptly cut off. */
@@ -26,9 +41,8 @@
     -webkit-mask-image: none !important;
   }
 
-  /* Each slide now occupies the full carousel viewport. This removes the thin
-     slivers of the previous/next bordered cards that were appearing around the
-     screen edge and looking like a cut-off box. */
+  /* Each slide occupies the full carousel viewport so no bordered fragments of
+     neighbouring slides appear as a false edge around the page. */
   .sg-dashboard-main [aria-label="Portfolio intelligence panels"] {
     gap: 0 !important;
     padding-inline: 0 !important;
