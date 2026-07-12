@@ -1,0 +1,82 @@
+@media (max-width: 1023px) {
+  body[data-sg-path="portfolio"] .portfolio-chart-hero {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border: 1px solid rgba(221, 177, 89, 0.24) !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 50% 8%, rgba(221, 177, 89, 0.13), transparent 34%),
+      linear-gradient(180deg, #092116 0%, #04140c 56%, #020805 100%) !important;
+    box-shadow:
+      0 16px 36px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:first-child {
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 6px;
+    padding-right: 6px;
+    overflow: hidden !important;
+    background: transparent !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) > .grid {
+    gap: 0 !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) > .grid > div[style] {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) > div:not(.grid) {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) > div:not(.grid) > div:last-child > div {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: rgba(4, 20, 12, 0.74) !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) > p {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(3) {
+    border-top: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-top: 6px !important;
+    padding-bottom: 12px !important;
+  }
+}
+
+@media (max-width: 359px) {
+  body[data-sg-path="portfolio"] .portfolio-chart-hero {
+    border-radius: 20px !important;
+  }
+
+  body[data-sg-path="portfolio"] .portfolio-chart-hero > div:nth-of-type(2) {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
