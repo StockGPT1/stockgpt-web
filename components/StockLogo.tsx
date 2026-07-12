@@ -35,6 +35,13 @@ function fallbackTextSize(size: number) {
   return 7;
 }
 
+const circularMaskStyle = {
+  borderRadius: "9999px",
+  clipPath: "circle(50% at 50% 50%)",
+  WebkitClipPath: "circle(50% at 50% 50%)",
+  overflow: "hidden",
+} as const;
+
 export function StockLogo({
   ticker,
   company,
@@ -50,10 +57,17 @@ export function StockLogo({
     return (
       <span
         className={[
-          "inline-flex shrink-0 items-center justify-center rounded-full border border-[#ddb159]/35 bg-[#072116] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+          "inline-flex shrink-0 items-center justify-center border border-[#ddb159]/35 bg-[#072116] font-black text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
           className,
         ].join(" ")}
-        style={{ width: size, height: size, fontSize: fallbackTextSize(size) }}
+        style={{
+          width: size,
+          height: size,
+          minWidth: size,
+          minHeight: size,
+          fontSize: fallbackTextSize(size),
+          ...circularMaskStyle,
+        }}
         aria-hidden="true"
       >
         {fallback}
@@ -64,24 +78,40 @@ export function StockLogo({
   return (
     <span
       className={[
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#072116]/12 bg-[#f7f2e8] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.72)]",
+        "relative inline-flex shrink-0 items-center justify-center border border-[#072116]/12 bg-[#f7f2e8] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.72)]",
         className,
       ].join(" ")}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        minHeight: size,
+        ...circularMaskStyle,
+      }}
       aria-hidden="true"
     >
       <span
-        className="absolute inset-0 grid place-items-center rounded-full bg-[#072116] font-black text-[#ddb159]"
-        style={{ fontSize: fallbackTextSize(size) }}
+        className="absolute inset-0 grid place-items-center bg-[#072116] font-black text-[#ddb159]"
+        style={{
+          fontSize: fallbackTextSize(size),
+          ...circularMaskStyle,
+        }}
       >
         {fallback}
       </span>
+
       <Image
         src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
         alt=""
         width={size}
         height={size}
-        className="relative z-10 h-full w-full bg-[#f7f2e8] object-contain p-[12%] drop-shadow-[0_1px_1px_rgba(7,33,22,0.28)]"
+        className="relative z-10 block h-full w-full object-contain drop-shadow-[0_1px_1px_rgba(7,33,22,0.18)]"
+        style={{
+          width: "100%",
+          height: "100%",
+          backgroundColor: "#f7f2e8",
+          ...circularMaskStyle,
+        }}
         onError={() => setFailedSymbol(symbol)}
         unoptimized
       />
