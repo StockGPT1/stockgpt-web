@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
 } from "react";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
@@ -26,6 +27,17 @@ export type MobileDashboardRanking = {
   score: number | string | null;
   price: number | string | null;
   updated_at: string | null;
+};
+
+export type MobileDashboardNewsArticle = {
+  id: string;
+  title: string;
+  summary: string | null;
+  source: string | null;
+  url: string | null;
+  imageUrl: string | null;
+  publishedAt: string | null;
+  affectedTickers: string[];
 };
 
 type PortfolioChartState = {
@@ -51,9 +63,15 @@ type Props = {
   marketChart: Partial<Record<TimeRange, ChartPoint[]>>;
   marketValue: number | null;
   marketChangePct: number | null;
+  news: MobileDashboardNewsArticle[];
+  newsStatus: "ok" | "error" | "locked";
 };
 
 const PANELS = ["Portfolio", "What changed", "Opportunities"] as const;
+const PANEL_CLIP_STYLE: CSSProperties = {
+  clipPath: "inset(0 round 1.65rem)",
+  WebkitMaskImage: "-webkit-radial-gradient(white, black)",
+};
 
 function money(value: number, currency = "USD") {
   const safe = Number.isFinite(value) ? value : 0;
@@ -89,7 +107,22 @@ function opportunityUpdated(value?: string | null) {
   if (Number.isNaN(date.getTime())) return "Update unavailable";
   const minutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60_000));
   if (minutes < 60) return `Updated ${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Updated ${hours}h ago`;
   return `Updated ${date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`;
+}
+
+function newsAge(value?: string | null) {
+  if (!value) return "Time unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
 }
 
 function localGreeting(name?: string) {
@@ -143,6 +176,8 @@ export function MobileDashboardExperience({
   marketChart,
   marketValue,
   marketChangePct,
+  news,
+  newsStatus,
 }: Props) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const scrollFrame = useRef<number | null>(null);
@@ -313,282 +348,289 @@ export function MobileDashboardExperience({
       </section>
 
       <section aria-label="Dashboard intelligence" className="mt-4 min-w-0">
-        <div
-          ref={carouselRef}
-          role="region"
-          aria-roledescription="carousel"
-          aria-label="Portfolio intelligence panels"
-          tabIndex={0}
-          onScroll={updateActivePanel}
-          onKeyDown={handleCarouselKey}
-          className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth pr-6 [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
-        >
-          <article
-            role="group"
-            aria-roledescription="slide"
-            aria-label="1 of 3, Portfolio"
-            className="relative h-[318px] w-[calc(100%-1.5rem)] shrink-0 snap-start overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
+        <div className="overflow-hidden rounded-[1.65rem]">
+          <div
+            ref={carouselRef}
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Portfolio intelligence panels"
+            tabIndex={0}
+            onScroll={updateActivePanel}
+            onKeyDown={handleCarouselKey}
+            className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
           >
-            <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
-            {summary ? (
-              <div className="relative flex h-full flex-col">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+            <article
+              role="group"
+              aria-roledescription="slide"
+              aria-label="1 of 3, Portfolio"
+              style={PANEL_CLIP_STYLE}
+              className="relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
+            >
+              <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
+              {summary ? (
+                <div className="relative flex h-full flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                        Your portfolio
+                      </p>
+                      <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
+                        {summary.name}
+                      </h2>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
+                      {canUsePremium
+                        ? `Health ${summary.score}/100`
+                        : "Health locked"}
+                    </span>
+                  </div>
+
+                  {portfolioId && (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <DashboardPortfolioSelector
+                        value={portfolioId}
+                        portfolios={portfolios}
+                      />
+                      <FreshnessLabel
+                        value={portfolioChartState.latestSnapshotAt}
+                        compact
+                      />
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">
+                        {valuationState === "unavailable"
+                          ? "Value unavailable"
+                          : money(summary.totalValue, summary.currency)}
+                      </p>
+                      {valuationState !== "unavailable" && (
+                        <p
+                          className={`mt-1.5 text-[13px] font-black tabular-nums ${
+                            summary.totalPnl >= 0
+                              ? "text-emerald-300"
+                              : "text-red-200"
+                          }`}
+                        >
+                          {money(summary.totalPnl, summary.currency)} ·{" "}
+                          {summary.totalPnl >= 0 ? "+" : ""}
+                          {summary.totalPnlPct.toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                    <Link
+                      href={portfolioHref}
+                      className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+                    >
+                      Open →
+                    </Link>
+                  </div>
+
+                  <div className="mt-3 min-h-[92px] flex-1 overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/42">
+                    {portfolioChartReady ? (
+                      <StockChart
+                        ticker="Portfolio"
+                        data={portfolioChart}
+                        initialRange="MAX"
+                        height={94}
+                        compact
+                      />
+                    ) : (
+                      <div className="relative flex h-[94px] items-center overflow-hidden px-4">
+                        <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#ddb159]/24" />
+                        <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
+                          <p className="text-[10px] font-black text-[#e7c56c]">
+                            {portfolioChartState.displayState === "error_no_cache"
+                              ? "Chart temporarily unavailable"
+                              : "Building reliable chart history"}
+                          </p>
+                          <p className="mt-0.5 text-[9px] font-semibold text-[#faf6f0]/45">
+                            Only confirmed snapshots will be shown.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/42">
+                    <span>
+                      {summary.holdingsCount} holdings · {summary.sectorCount} sectors
+                    </span>
+                    {portfolioChartState.displayState === "error_with_cache" ? (
+                      <span className="truncate text-[#e7c56c]">Last-known chart</span>
+                    ) : missingPriceTickers.length > 0 &&
+                      valuationState !== "unavailable" ? (
+                      <span className="truncate text-[#e7c56c]">Partial prices</span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative flex h-full flex-col justify-between">
+                  <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                       Your portfolio
                     </p>
-                    <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
-                      {summary.name}
+                    <h2 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em]">
+                      Build your first portfolio
                     </h2>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
-                    {canUsePremium
-                      ? `Health ${summary.score}/100`
-                      : "Health locked"}
-                  </span>
-                </div>
-
-                {portfolioId && (
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <DashboardPortfolioSelector
-                      value={portfolioId}
-                      portfolios={portfolios}
-                    />
-                    <FreshnessLabel
-                      value={portfolioChartState.latestSnapshotAt}
-                      compact
-                    />
-                  </div>
-                )}
-
-                <div className="mt-3 flex items-end justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">
-                      {valuationState === "unavailable"
-                        ? "Value unavailable"
-                        : money(summary.totalValue, summary.currency)}
+                    <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
+                      Add holdings or import a Trading 212 CSV to unlock personal value,
+                      risk and opportunity intelligence.
                     </p>
-                    {valuationState !== "unavailable" && (
-                      <p
-                        className={`mt-1.5 text-[13px] font-black tabular-nums ${
-                          summary.totalPnl >= 0
-                            ? "text-emerald-300"
-                            : "text-red-200"
-                        }`}
-                      >
-                        {money(summary.totalPnl, summary.currency)} ·{" "}
-                        {summary.totalPnl >= 0 ? "+" : ""}
-                        {summary.totalPnlPct.toFixed(1)}%
-                      </p>
-                    )}
                   </div>
                   <Link
-                    href={portfolioHref}
-                    className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+                    href="/portfolio?builder=1"
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black text-[#072116]"
                   >
-                    Open →
+                    Build portfolio
                   </Link>
                 </div>
+              )}
+            </article>
 
-                <div className="mt-3 min-h-[92px] flex-1 overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/42">
-                  {portfolioChartReady ? (
-                    <StockChart
-                      ticker="Portfolio"
-                      data={portfolioChart}
-                      initialRange="MAX"
-                      height={94}
-                      compact
-                    />
-                  ) : (
-                    <div className="relative flex h-[94px] items-center overflow-hidden px-4">
-                      <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#ddb159]/24" />
-                      <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
-                        <p className="text-[10px] font-black text-[#e7c56c]">
-                          {portfolioChartState.displayState === "error_no_cache"
-                            ? "Chart temporarily unavailable"
-                            : "Building reliable chart history"}
-                        </p>
-                        <p className="mt-0.5 text-[9px] font-semibold text-[#faf6f0]/45">
-                          Only confirmed snapshots will be shown.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/42">
-                  <span>
-                    {summary.holdingsCount} holdings · {summary.sectorCount} sectors
-                  </span>
-                  {portfolioChartState.displayState === "error_with_cache" ? (
-                    <span className="truncate text-[#e7c56c]">Last-known chart</span>
-                  ) : missingPriceTickers.length > 0 &&
-                    valuationState !== "unavailable" ? (
-                    <span className="truncate text-[#e7c56c]">Partial prices</span>
-                  ) : null}
-                </div>
-              </div>
-            ) : (
-              <div className="relative flex h-full flex-col justify-between">
+            <article
+              role="group"
+              aria-roledescription="slide"
+              aria-label="2 of 3, What changed"
+              style={PANEL_CLIP_STYLE}
+              className="isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(150deg,rgba(10,45,30,0.84),rgba(5,26,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
+            >
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                    Your portfolio
+                    Daily briefing
                   </p>
-                  <h2 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em]">
-                    Build your first portfolio
+                  <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
+                    What changed
                   </h2>
-                  <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
-                    Add holdings or import a Trading 212 CSV to unlock personal value,
-                    risk and opportunity intelligence.
+                </div>
+                <FreshnessLabel value={topRanked?.updated_at} compact />
+              </div>
+              <ul className="mt-3 divide-y divide-[#ddb159]/10">
+                {changedItems.slice(0, 4).map((item) => (
+                  <li
+                    key={item}
+                    className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/66"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/notifications"
+                className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+              >
+                Review alerts →
+              </Link>
+            </article>
+
+            <article
+              role="group"
+              aria-roledescription="slide"
+              aria-label="3 of 3, Opportunities"
+              style={PANEL_CLIP_STYLE}
+              className="isolate flex h-[318px] w-full shrink-0 snap-start snap-always flex-col overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(145deg,rgba(13,50,33,0.84),rgba(5,25,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
+            >
+              <div className="flex shrink-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                    Portfolio intelligence
                   </p>
+                  <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
+                    Ideas worth reviewing
+                  </h2>
                 </div>
                 <Link
-                  href="/portfolio?builder=1"
-                  className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black text-[#072116]"
+                  href="/rankings"
+                  className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
                 >
-                  Build portfolio
+                  Review all →
                 </Link>
               </div>
-            )}
-          </article>
 
-          <article
-            role="group"
-            aria-roledescription="slide"
-            aria-label="2 of 3, What changed"
-            className="h-[318px] w-[calc(100%-1.5rem)] shrink-0 snap-start overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(150deg,rgba(10,45,30,0.84),rgba(5,26,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                  Daily briefing
-                </p>
-                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
-                  What changed
-                </h2>
-              </div>
-              <FreshnessLabel value={topRanked?.updated_at} compact />
-            </div>
-            <ul className="mt-3 divide-y divide-[#ddb159]/10">
-              {changedItems.slice(0, 4).map((item) => (
-                <li
-                  key={item}
-                  className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/66"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/notifications"
-              className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
-            >
-              Review alerts →
-            </Link>
-          </article>
-
-          <article
-            role="group"
-            aria-roledescription="slide"
-            aria-label="3 of 3, Opportunities"
-            className="h-[318px] w-[calc(100%-1.5rem)] shrink-0 snap-start overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(145deg,rgba(13,50,33,0.84),rgba(5,25,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                  Portfolio intelligence
-                </p>
-                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
-                  Ideas worth reviewing
-                </h2>
-              </div>
-              <Link
-                href="/rankings"
-                className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
-              >
-                Review all →
-              </Link>
-            </div>
-
-            {!canUsePremium ? (
-              <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                <p className="text-[13px] font-black">Premium analysis locked</p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                  Unlock portfolio-fit research and health analysis.
-                </p>
-                <Link
-                  href="/subscription"
-                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
-                >
-                  View plans
-                </Link>
-              </div>
-            ) : !summary ? (
-              <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                <p className="text-[13px] font-black">Build a portfolio first</p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                  Portfolio-fit opportunities need your holdings and allocation context.
-                </p>
-                <Link
-                  href="/portfolio?builder=1"
-                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
-                >
-                  Build portfolio
-                </Link>
-              </div>
-            ) : opportunities.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                <p className="text-[13px] font-black">
-                  No strong opportunities right now
-                </p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                  StockGPT is not forcing an idea when the current setup is not strong
-                  enough.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-3 divide-y divide-[#ddb159]/10">
-                {opportunities.slice(0, 2).map((item) => (
-                  <Link
-                    key={`${item.category}-${item.ticker}`}
-                    href={`/stock/${item.ticker}`}
-                    className="grid grid-cols-[38px_minmax(0,1fr)] gap-3 py-3 first:pt-1"
-                  >
-                    <StockLogo
-                      ticker={item.ticker}
-                      company={item.company}
-                      size={36}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="truncate text-[14px] font-black">
-                          {item.ticker}{" "}
-                          <span className="text-[10px] text-[#faf6f0]/42">
-                            {item.company}
-                          </span>
-                        </p>
-                        <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">
-                          {score(item.score)}
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
-                        {item.category}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.4] text-[#faf6f0]/60">
-                        {item.reason}
-                      </p>
-                      <p
-                        suppressHydrationWarning
-                        className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38"
+              <div className="mt-3 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+                {!canUsePremium ? (
+                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                    <p className="text-[13px] font-black">Premium analysis locked</p>
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                      Unlock portfolio-fit research and health analysis.
+                    </p>
+                    <Link
+                      href="/subscription"
+                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                    >
+                      View plans
+                    </Link>
+                  </div>
+                ) : !summary ? (
+                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                    <p className="text-[13px] font-black">Build a portfolio first</p>
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                      Portfolio-fit opportunities need your holdings and allocation context.
+                    </p>
+                    <Link
+                      href="/portfolio?builder=1"
+                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                    >
+                      Build portfolio
+                    </Link>
+                  </div>
+                ) : opportunities.length === 0 ? (
+                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                    <p className="text-[13px] font-black">
+                      No strong opportunities right now
+                    </p>
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                      StockGPT is not forcing an idea when the current setup is not strong
+                      enough.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#ddb159]/10 pb-2">
+                    {opportunities.slice(0, 2).map((item) => (
+                      <Link
+                        key={`${item.category}-${item.ticker}`}
+                        href={`/stock/${item.ticker}`}
+                        className="grid grid-cols-[38px_minmax(0,1fr)] gap-3 py-3 first:pt-0"
                       >
-                        {opportunityUpdated(item.updatedAt)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                        <StockLogo
+                          ticker={item.ticker}
+                          company={item.company}
+                          size={36}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="truncate text-[14px] font-black">
+                              {item.ticker}{" "}
+                              <span className="text-[10px] text-[#faf6f0]/42">
+                                {item.company}
+                              </span>
+                            </p>
+                            <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">
+                              {score(item.score)}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                            {item.category}
+                          </p>
+                          <p className="mt-1 text-[10px] font-semibold leading-[1.45] text-[#faf6f0]/60">
+                            {item.reason}
+                          </p>
+                          <p
+                            suppressHydrationWarning
+                            className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38"
+                          >
+                            {opportunityUpdated(item.updatedAt)}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </article>
+            </article>
+          </div>
         </div>
 
         <div
@@ -726,6 +768,110 @@ export function MobileDashboardExperience({
             </div>
           )}
         </div>
+      </section>
+
+      <section className="mt-7 min-w-0">
+        <div className="flex items-end justify-between gap-3 px-1">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              World news
+            </p>
+            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+              Latest market stories
+            </h2>
+          </div>
+          <Link
+            href="/world-news"
+            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+          >
+            View all →
+          </Link>
+        </div>
+
+        {newsStatus === "locked" ? (
+          <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[#faf6f0]">
+            <p className="text-[12px] font-black">World news is a premium feature.</p>
+            <Link href="/subscription" className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+              View plans →
+            </Link>
+          </div>
+        ) : newsStatus === "error" || news.length === 0 ? (
+          <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
+            Latest world news is temporarily unavailable. The full news page will refresh automatically.
+          </div>
+        ) : (
+          <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pr-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {news.slice(0, 3).map((article) => (
+              <a
+                key={article.id}
+                href={article.url ?? "/world-news"}
+                target={article.url ? "_blank" : undefined}
+                rel={article.url ? "noopener noreferrer" : undefined}
+                className="group flex h-[244px] w-[184px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/62 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
+              >
+                <div className="h-[92px] shrink-0 overflow-hidden bg-[#061b12]">
+                  <img
+                    src={article.imageUrl || "/logo.png"}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = "/logo.png";
+                      event.currentTarget.className =
+                        "h-full w-full bg-[#061b12] object-contain p-5";
+                    }}
+                  />
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="min-w-0 truncate text-[8.5px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                      {article.source ?? "Market source"}
+                    </p>
+                    <span
+                      suppressHydrationWarning
+                      className="shrink-0 text-[8px] font-bold text-[#faf6f0]/38"
+                    >
+                      {newsAge(article.publishedAt)}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 line-clamp-3 text-[12px] font-black leading-[1.35] tracking-[-0.015em]">
+                    {article.title}
+                  </h3>
+                  {article.affectedTickers.length > 0 && (
+                    <div className="mt-auto flex gap-1 pt-2">
+                      {article.affectedTickers.slice(0, 2).map((ticker) => (
+                        <span
+                          key={ticker}
+                          className="rounded-full bg-[#ddb159]/12 px-2 py-0.5 text-[8px] font-black text-[#ddb159]"
+                        >
+                          {ticker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mx-1 mt-7 border-t border-[#ddb159]/14 pt-5 text-[#faf6f0]">
+        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+          Educational research only
+        </p>
+        <p className="mt-2 max-w-[34rem] text-[10px] font-semibold leading-[1.55] text-[#faf6f0]/48">
+          StockGPT uses AI models and third-party data to organise research. Rankings,
+          scores, portfolio views and news summaries are informational only, may be
+          delayed or inaccurate, and are not financial advice or broker instructions.
+        </p>
+        <Link
+          href="/legal#disclaimer"
+          className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#ddb159]/24 bg-[#0b2b1d]/52 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+        >
+          About &amp; disclaimer →
+        </Link>
       </section>
     </div>
   );
