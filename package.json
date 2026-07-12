@@ -7,7 +7,8 @@
     "build": "npm run test:portfolio && next build",
     "start": "next start",
     "lint": "eslint",
-    "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs",
+    "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
+    "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && npm run lint:portfolio",
     "types:gen": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > lib/database.types.ts",
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
