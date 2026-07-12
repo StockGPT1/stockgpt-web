@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test:portfolio && next build",
     "start": "next start",
     "lint": "eslint",
     "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs",
