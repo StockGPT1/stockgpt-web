@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { StockIcon } from "@/components/StockIcon";
 import { useAppChrome } from "@/components/AppChromeProvider";
@@ -19,6 +20,20 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/ask")) return "Ask StockGPT";
   return "";
+}
+
+function routeKey(pathname: string) {
+  if (pathname.startsWith("/stock/")) return "stock";
+  if (pathname.startsWith("/compare")) return "compare";
+  if (pathname.startsWith("/rankings")) return "rankings";
+  if (pathname.startsWith("/portfolio")) return "portfolio";
+  if (pathname.startsWith("/notifications")) return "notifications";
+  if (pathname.startsWith("/world-news")) return "world-news";
+  if (pathname.startsWith("/watchlist")) return "watchlist";
+  if (pathname.startsWith("/settings")) return "settings";
+  if (pathname.startsWith("/ask")) return "ask";
+  if (pathname.startsWith("/dashboard")) return "dashboard";
+  return "other";
 }
 
 function HeaderButton({
@@ -50,6 +65,13 @@ export function MobileAppHeader() {
   const isDashboard = pathname === "/dashboard";
   const isDetailPage = pathname.startsWith("/stock/") || pathname.startsWith("/compare");
   const isSettings = pathname.startsWith("/settings");
+
+  useEffect(() => {
+    document.body.dataset.sgPath = routeKey(pathname);
+    return () => {
+      delete document.body.dataset.sgPath;
+    };
+  }, [pathname]);
 
   if (isDashboard) {
     return (
@@ -96,7 +118,7 @@ export function MobileAppHeader() {
         <HeaderButton label="Search StockGPT" onClick={openSearch} icon="search" />
       )}
 
-      <p className="min-w-0 truncate px-2 text-center font-sans text-[20px] font-bold leading-none tracking-[-0.01em] text-[#faf6f0]">
+      <p className="min-w-0 truncate px-2 text-center font-sans text-[21px] font-extrabold leading-none tracking-[-0.025em] text-[#faf6f0]">
         {title}
       </p>
 
