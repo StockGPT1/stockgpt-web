@@ -93,7 +93,7 @@ export function PortfolioOpportunitiesWidget({
               <Link
                 key={`${item.category}-${item.ticker}`}
                 href={`/stock/${item.ticker}`}
-                className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0] px-2.5 py-2 text-[#072116] shadow-[0_8px_18px_rgba(0,0,0,0.10)] transition hover:-translate-y-px hover:border-[#ddb159]/55 hover:brightness-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/50 sm:grid-cols-[34px_minmax(0,1fr)_auto]"
+                className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d] px-2.5 py-2 text-[#faf6f0] shadow-[0_8px_18px_rgba(0,0,0,0.10)] transition hover:-translate-y-px hover:border-[#ddb159]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/50 sm:grid-cols-[34px_minmax(0,1fr)_auto] lg:bg-[#faf6f0] lg:text-[#072116] lg:hover:brightness-[0.98]"
               >
                 <StockLogo ticker={item.ticker} size={30} />
                 <div className="min-w-0">
@@ -101,7 +101,7 @@ export function PortfolioOpportunitiesWidget({
                     <p className="truncate text-[12px] font-black leading-none">
                       {item.ticker}
                     </p>
-                    <p className="min-w-0 truncate text-[10px] font-bold text-[#072116]/45">
+                    <p className="min-w-0 truncate text-[10px] font-bold text-[#faf6f0]/45 lg:text-[#072116]/45">
                       {item.company ?? item.category}
                     </p>
                   </div>
@@ -110,20 +110,20 @@ export function PortfolioOpportunitiesWidget({
                   </p>
                   <p
                     className={[
-                      "mt-1 text-[10px] font-semibold leading-4 text-[#072116]/58",
+                      "mt-1 text-[10px] font-semibold leading-4 text-[#faf6f0]/58 lg:text-[#072116]/58",
                       constrained ? "line-clamp-1" : "line-clamp-2",
                     ].join(" ")}
                   >
                     {item.reason}
                   </p>
                   {detailed && (
-                    <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-4 text-[#072116]/44">
+                    <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/44 lg:text-[#072116]/44">
                       Risk: {item.risk}
                     </p>
                   )}
                   <div className="mt-1 flex min-w-0 flex-wrap gap-1">
                     {item.recentMovePct != null && (
-                      <span className="rounded-full bg-[#072116]/6 px-2 py-0.5 text-[9px] font-bold text-[#072116]/55">
+                      <span className="rounded-full bg-[#faf6f0]/6 px-2 py-0.5 text-[9px] font-bold text-[#faf6f0]/55 lg:bg-[#072116]/6 lg:text-[#072116]/55">
                         Recent move {pct(item.recentMovePct)}
                       </span>
                     )}
@@ -136,7 +136,7 @@ export function PortfolioOpportunitiesWidget({
                   <p className="text-[11px] font-black text-[#8a641a]">
                     {formatScore(item.score)}
                   </p>
-                  <p className="mt-0.5 text-[9px] font-bold text-[#072116]/45">
+                  <p className="mt-0.5 text-[9px] font-bold text-[#faf6f0]/45 lg:text-[#072116]/45">
                     #{item.rank ?? "—"}
                   </p>
                 </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { normaliseAskContext, type AskContext } from "@/lib/ask-context";
 import { hasActiveSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -451,8 +452,19 @@ function buildPortfolioSummary(holdings: EnrichedHoldingContext[], portfolio: Po
   };
 }
 
-async function buildAppContext(supabase: ServerSupabaseClient, userId: string, question: string) {
-  const possibleTickers = extractPossibleTickers(question);
+async function buildAppContext(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  question: string,
+  requestedContext?: AskContext | null,
+) {
+  const possibleTickers = Array.from(
+    new Set([
+      ...extractPossibleTickers(question),
+      ...(requestedContext?.ticker ? [requestedContext.ticker] : []),
+      ...(requestedContext?.holdingTicker ? [requestedContext.holdingTicker] : []),
+    ]),
+  );
 
   const [{ data: topRankingsData }, { data: newsData }, { data: portfoliosData }] = await Promise.all([
     supabase
@@ -550,6 +562,17 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
   const mentionedRankings = suppliedRankings.filter((ranking) => possibleTickers.includes(ranking.ticker));
   const allHoldings = portfolioContexts.flatMap((portfolio) => portfolio.holdings.map((holding) => ({ ...holding, portfolio_name: portfolio.meta.name })));
   const mentionedHoldings = allHoldings.filter((holding) => possibleTickers.includes(cleanTicker(holding.ticker)));
+  const verifiedPortfolio = requestedContext?.portfolioId
+    ? portfolioContexts.find((portfolio) => portfolio.meta.id === requestedContext.portfolioId) ?? null
+    : null;
+  const requestedTicker = cleanTicker(
+    requestedContext?.holdingTicker ?? requestedContext?.ticker ?? "",
+  );
+  const verifiedHoldings = requestedTicker
+    ? (verifiedPortfolio ? verifiedPortfolio.holdings : allHoldings).filter(
+        (holding) => cleanTicker(holding.ticker) === requestedTicker,
+      )
+    : [];
   const relevantNews = news.filter((article) =>
     possibleTickers.length === 0 || article.affected_tickers.some((ticker) => possibleTickers.includes(cleanTicker(ticker))),
   );
@@ -567,6 +590,20 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
       membership_question: looksLikeMembershipQuestion(question),
       learning_question: looksLikeGeneralLearningQuestion(question),
     },
+    page_context: requestedContext
+      ? {
+          context_type: requestedContext.contextType,
+          requested_ticker: requestedTicker || null,
+          active_filters: requestedContext.activeFilters ?? null,
+          portfolio: verifiedPortfolio
+            ? { meta: verifiedPortfolio.meta, summary: verifiedPortfolio.summary }
+            : null,
+          holdings: verifiedHoldings.slice(0, 8),
+          owns_stock: verifiedHoldings.length > 0,
+          verification_note:
+            "Portfolio and holding details were reloaded from rows owned by the authenticated user. Client-supplied values were not trusted.",
+        }
+      : null,
     rankings_context: {
       top_rankings: suppliedRankings.slice(0, 40),
       mentioned_rankings: mentionedRankings,
@@ -913,6 +950,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const question = cleanQuestion(body?.question);
+    const requestedContext = normaliseAskContext(body?.context);
 
     if (!question) {
       return NextResponse.json(
@@ -935,7 +973,12 @@ export async function POST(req: NextRequest) {
 
     await storeChatMessage(supabase, access.userId, { role: "user", content: question });
 
-    const context = await buildAppContext(supabase, access.userId, question);
+    const context = await buildAppContext(
+      supabase,
+      access.userId,
+      question,
+      requestedContext,
+    );
     const messages: OpenRouterMessage[] = [
       { role: "system", content: systemPrompt },
       ...history

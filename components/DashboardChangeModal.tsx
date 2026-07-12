@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { StockLogo } from "@/components/StockLogo";
 
 type DailyChangeItem = {
   ticker: string;
@@ -26,17 +27,6 @@ type MoverMode = "gainers" | "losers";
 
 function cleanTicker(ticker?: string | null) {
   return (ticker ?? "").trim().toUpperCase().replace(".", "-");
-}
-
-function initialsFrom(ticker?: string | null, company?: string | null) {
-  const symbol = cleanTicker(ticker);
-  if (symbol) return symbol.slice(0, 4);
-  return (company ?? "?")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join("");
 }
 
 function parseMoveValue(label: string | undefined) {
@@ -70,19 +60,7 @@ function rankToneClass(tone: DailyChangeItem["rankTone"]) {
 }
 
 function MoverLogo({ ticker, company, compact = false }: { ticker: string; company: string; compact?: boolean }) {
-  const [failed, setFailed] = useState(false);
-  const symbol = cleanTicker(ticker);
-  const fallback = initialsFrom(ticker, company);
-
-  return (
-    <span className={["stockgpt-mover-logo grid shrink-0 place-items-center overflow-hidden rounded-full border border-[#ddb159]/18 bg-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.22)]", compact ? "size-10 p-2" : "size-10 p-2 sm:size-11"].join(" ")}>
-      {symbol && !failed ? (
-        <img src={`https://financialmodelingprep.com/image-stock/${symbol}.png`} alt="" aria-hidden="true" className="block h-full w-full object-contain" onError={() => setFailed(true)} />
-      ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0b2618] text-[9px] font-black text-[#ddb159]">{fallback}</span>
-      )}
-    </span>
-  );
+  return <StockLogo ticker={ticker} company={company} size={compact ? 40 : 44} className="stockgpt-mover-logo" />;
 }
 
 function MoverLogoTile({ item, onOpen }: { item: DailyChangeItem; onOpen: () => void }) {

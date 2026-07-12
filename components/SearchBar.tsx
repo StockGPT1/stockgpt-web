@@ -28,12 +28,17 @@ type SearchItem =
 
 type SearchBarProps = {
   showRankingData?: boolean;
+  autoFocus?: boolean;
+  presentation?: "inline" | "overlay";
+  onNavigate?: () => void;
+  placeholder?: string;
 };
 
 const RECENT_KEY = "stockgpt:recent-searches";
 const SEARCH_CACHE_KEY = "stockgpt:search-cache";
 const MAX_RECENT = 5;
 const MAX_CACHE_ITEMS = 50;
+const CACHE_TTL_MS = 2 * 60 * 1000;
 
 const FEATURE_RESULTS: FeatureSearchResult[] = [
   {
@@ -72,7 +77,7 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
     id: "ask",
     label: "Ask StockGPT",
     description: "Open the research assistant for stock and market questions.",
-    href: "/ask",
+    href: "/ask-stockgpt",
     icon: "ask",
     keywords: ["ask", "chat", "assistant", "stockgpt", "research assistant"],
   },
@@ -110,7 +115,9 @@ const FEATURE_RESULTS: FeatureSearchResult[] = [
   },
 ];
 
-const memorySearchCache = new Map<string, StockSearchResult[]>();
+type SearchCacheEntry = { cachedAt: number; value: StockSearchResult[] };
+
+const memorySearchCache = new Map<string, SearchCacheEntry>();
 
 function cleanResultForAccess(
   item: StockSearchResult,
@@ -130,7 +137,7 @@ function normalise(value: string) {
 }
 
 function getSearchCacheKey(query: string, showRankingData: boolean) {
-  return `${showRankingData ? "auth" : "public"}:${normalise(query)}`;
+  return `${showRankingData ? "premium" : "public"}:${normalise(query)}`;
 }
 
 function readSessionSearchCache(key: string) {
@@ -138,17 +145,19 @@ function readSessionSearchCache(key: string) {
     const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as Record<string, StockSearchResult[]>;
-    return parsed[key] ?? null;
+    const parsed = JSON.parse(raw) as Record<string, SearchCacheEntry>;
+    const entry = parsed[key];
+    if (!entry || Date.now() - Number(entry.cachedAt) > CACHE_TTL_MS) return null;
+    return entry;
   } catch {
     return null;
   }
 }
 
-function writeSessionSearchCache(key: string, value: StockSearchResult[]) {
+function writeSessionSearchCache(key: string, value: SearchCacheEntry) {
   try {
     const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Record<string, StockSearchResult[]>) : {};
+    const parsed = raw ? (JSON.parse(raw) as Record<string, SearchCacheEntry>) : {};
 
     parsed[key] = value;
 
@@ -180,7 +189,13 @@ function getFeatureMatches(query: string) {
   }).slice(0, 6);
 }
 
-export function SearchBar({ showRankingData = false }: SearchBarProps) {
+export function SearchBar({
+  showRankingData = false,
+  autoFocus = false,
+  presentation = "inline",
+  onNavigate,
+  placeholder = "Search stocks or features...",
+}: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StockSearchResult[]>([]);
@@ -188,8 +203,16 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const listboxId = "stockgpt-search-results";
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const timeout = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(timeout);
+  }, [autoFocus]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -239,6 +262,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
         setResults([]);
         setLoading(false);
         setActive(-1);
+        setError(null);
       }, 0);
       return () => window.clearTimeout(timeout);
     }
@@ -247,11 +271,12 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     const memoryHit = memorySearchCache.get(cacheKey);
     const sessionHit = readSessionSearchCache(cacheKey);
 
-    if (memoryHit) {
+    if (memoryHit && Date.now() - memoryHit.cachedAt <= CACHE_TTL_MS) {
       const timeout = window.setTimeout(() => {
-        setResults(memoryHit);
+        setResults(memoryHit.value);
         setLoading(false);
         setActive(-1);
+        setError(null);
       }, 0);
       return () => window.clearTimeout(timeout);
     }
@@ -259,9 +284,10 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     if (sessionHit) {
       memorySearchCache.set(cacheKey, sessionHit);
       const timeout = window.setTimeout(() => {
-        setResults(sessionHit);
+        setResults(sessionHit.value);
         setLoading(false);
         setActive(-1);
+        setError(null);
       }, 0);
       return () => window.clearTimeout(timeout);
     }
@@ -274,19 +300,30 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
           signal: controller.signal,
         });
 
-        const data: StockSearchResult[] = await res.json();
+        const data = (await res.json().catch(() => [])) as unknown;
+        if (!res.ok) throw new Error("Search is temporarily unavailable.");
 
-        const cleaned = data.map((item) =>
-          cleanResultForAccess(item, showRankingData),
-        );
+        const rows = Array.isArray(data) ? data : [];
+        const cleaned = rows
+          .filter((item): item is StockSearchResult & { type?: string } => {
+            if (!item || typeof item !== "object") return false;
+            const row = item as Record<string, unknown>;
+            return (row.type === undefined || row.type === "ticker") && typeof row.ticker === "string" && row.ticker.length > 0;
+          })
+          .map((item) => cleanResultForAccess(item, showRankingData));
 
-        memorySearchCache.set(cacheKey, cleaned);
-        writeSessionSearchCache(cacheKey, cleaned);
+        const entry = { cachedAt: Date.now(), value: cleaned };
+        memorySearchCache.set(cacheKey, entry);
+        writeSessionSearchCache(cacheKey, entry);
 
         setResults(cleaned);
         setActive(-1);
-      } catch {
-        if (!controller.signal.aborted) setResults([]);
+        setError(null);
+      } catch (caught) {
+        if (!controller.signal.aborted) {
+          setResults([]);
+          setError(caught instanceof Error ? caught.message : "Search is temporarily unavailable.");
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -309,7 +346,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
 
   const showDropdown =
     open &&
-    (stockList.length > 0 || featureList.length > 0 || loading || Boolean(trimmedQuery));
+    (stockList.length > 0 || featureList.length > 0 || loading || Boolean(trimmedQuery) || Boolean(error));
 
   function persistRecent(item: StockSearchResult) {
     const cleanedItem = cleanResultForAccess(item, showRankingData);
@@ -330,12 +367,14 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
     persistRecent(item);
     setOpen(false);
     setQuery("");
+    onNavigate?.();
     router.push(`/stock/${item.ticker}`);
   }
 
   function navigateToFeature(item: FeatureSearchResult) {
     setOpen(false);
     setQuery("");
+    onNavigate?.();
     router.push(item.href);
   }
 
@@ -366,11 +405,6 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
         navigateToStock(stockList[0]);
       } else if (featureList[0]) {
         navigateToFeature(featureList[0]);
-      } else if (trimmedQuery) {
-        navigateToStock({
-          ticker: trimmedQuery.toUpperCase(),
-          company: trimmedQuery.toUpperCase(),
-        });
       }
     } else if (e.key === "Escape") {
       setOpen(false);
@@ -379,8 +413,8 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
   }
 
   return (
-    <div ref={wrapRef} className="sg-search-root relative mx-auto w-full max-w-[560px]">
-      <div className="sg-search-shell flex h-10 items-center rounded-full border border-[#ddb159]/30 bg-[#072116] px-5">
+    <div ref={wrapRef} className={`sg-search-root relative mx-auto w-full ${presentation === "overlay" ? "max-w-none" : "max-w-[560px]"}`}>
+      <div className={`sg-search-shell flex items-center border border-[#ddb159]/30 bg-[#072116] ${presentation === "overlay" ? "h-14 rounded-2xl px-4" : "h-10 rounded-full px-5"}`}>
         <input
           ref={inputRef}
           value={query}
@@ -393,7 +427,12 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           type="text"
-          placeholder="Search stocks or features..."
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showDropdown}
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-activedescendant={active >= 0 ? `search-option-${active}` : undefined}
+          placeholder={placeholder}
           className="sg-search-input h-full flex-1 bg-transparent text-sm text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/50"
         />
 
@@ -406,6 +445,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
               setResults([]);
               setLoading(false);
               setActive(-1);
+              setError(null);
               inputRef.current?.focus();
             }}
             className="sg-search-clear ml-2 grid size-6 place-items-center rounded-full text-[#faf6f0]/40 transition hover:text-[#faf6f0]/70"
@@ -441,7 +481,7 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
       </div>
 
       {showDropdown && (
-        <div className="sg-search-dropdown absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-[#ddb159]/25 bg-[#04180f] shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
+        <div id={listboxId} role="listbox" aria-label="Search results" className={`sg-search-dropdown left-0 right-0 z-50 mt-2 overflow-y-auto rounded-2xl border border-[#ddb159]/25 bg-[#04180f] shadow-[0_16px_40px_rgba(0,0,0,0.4)] ${presentation === "overlay" ? "relative max-h-[calc(100dvh-190px)]" : "absolute top-full max-h-[70vh]"}`}>
           {!trimmedQuery && stockList.length > 0 && (
             <div className="px-4 pb-1 pt-3 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
               Recent tickers
@@ -461,7 +501,13 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             </div>
           )}
 
-          {!loading && stockList.length === 0 && trimmedQuery && (
+          {!loading && error && (
+            <div className="px-4 py-4 text-xs font-semibold leading-5 text-[#e7c56c]" role="status">
+              {error} Try again in a moment.
+            </div>
+          )}
+
+          {!loading && !error && stockList.length === 0 && trimmedQuery && (
             <div className="px-4 py-3 text-xs font-semibold text-[#faf6f0]/50">
               No ticker matches for &quot;{trimmedQuery}&quot;.
             </div>
@@ -471,7 +517,10 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             stockList.map((item, index) => {
               return (
                 <button
-                  key={`stock-${item.ticker}`}
+                 key={`stock-${item.ticker}`}
+                  id={`search-option-${index}`}
+                  role="option"
+                  aria-selected={index === active}
                   onMouseEnter={() => setActive(index)}
                   onClick={() => navigateToStock(item)}
                   className={[
@@ -524,6 +573,9 @@ export function SearchBar({ showRankingData = false }: SearchBarProps) {
             return (
               <button
                 key={`feature-${item.id}`}
+                id={`search-option-${index}`}
+                role="option"
+                aria-selected={index === active}
                 onMouseEnter={() => setActive(index)}
                 onClick={() => navigateToFeature(item)}
                 className={[

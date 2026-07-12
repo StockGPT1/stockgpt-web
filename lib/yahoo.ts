@@ -5,7 +5,7 @@ const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
 const YAHOO_FETCH_TIMEOUT_MS = Number(process.env.YAHOO_FETCH_TIMEOUT_MS ?? 1_800);
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
 const ONE_DAY_MOVE_TIMEOUT_MS = Number(process.env.ONE_DAY_MOVE_TIMEOUT_MS ?? 1_800);
-const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 8);
+const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 60);
 
 type RangeConfig = { range: string; interval: string };
 
@@ -190,10 +190,10 @@ function cleanTickerUniverse(tickers: string[], max = 500) {
 
 export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
   const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, LIVE_MOVE_FALLBACK_LIMIT));
-  const movers = await withTimeout(
-    Promise.all(tickersToCheck.map(getOneDayMover)),
-    ONE_DAY_MOVE_TIMEOUT_MS,
-    [],
+  const movers = await Promise.all(
+    tickersToCheck.map((ticker) =>
+      withTimeout(getOneDayMover(ticker), ONE_DAY_MOVE_TIMEOUT_MS, null),
+    ),
   );
   return new Map(movers.filter((mover): mover is Mover => mover !== null).map((mover) => [mover.ticker, mover]));
 }

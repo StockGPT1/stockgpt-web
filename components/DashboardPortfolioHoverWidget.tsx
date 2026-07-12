@@ -26,9 +26,11 @@ function validPoint(point: ChartPoint | null) {
 export function DashboardPortfolioHoverWidget({
   summary,
   chartData,
+  valuationState = "exact",
 }: {
   summary: PortfolioHealthSummary;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  valuationState?: "exact" | "partial" | "unavailable" | "empty";
 }) {
   const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
   const costBasis = useMemo(
@@ -42,6 +44,7 @@ export function DashboardPortfolioHoverWidget({
   const displayPnlPct =
     point?.pnlPct ?? (costBasis > 0 ? (displayPnl / costBasis) * 100 : summary.totalPnlPct);
   const isPositive = displayPnl >= 0;
+  const valueUnavailable = valuationState === "unavailable";
 
   return (
     <div
@@ -51,16 +54,18 @@ export function DashboardPortfolioHoverWidget({
       <div className="flex min-w-0 flex-col justify-between py-1">
         <div>
           <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
-            {money(displayValue, summary.currency)}
+            {valueUnavailable ? "Value unavailable" : money(displayValue, summary.currency)}
           </p>
-          <p
+          {!valueUnavailable && <p
             className={[
               "mt-1 truncate text-[12px] font-black tabular-nums",
               isPositive ? "text-emerald-300" : "text-red-200",
             ].join(" ")}
           >
             {money(displayPnl, summary.currency)} · {pct(displayPnlPct)}
-          </p>
+          </p>}
+          {valuationState === "partial" && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Estimated · latest price coverage is partial</p>}
+          {valueUnavailable && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Latest prices failed; zero is not being shown.</p>}
         </div>
         <span className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
           {summary.label}

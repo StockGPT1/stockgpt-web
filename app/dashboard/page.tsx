@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { DashboardChangeModal } from "@/components/DashboardChangeModal";
 import { DashboardPortfolioHoverWidget } from "@/components/DashboardPortfolioHoverWidget";
 import { PortfolioOpportunitiesWidget as SharedPortfolioOpportunitiesWidget } from "@/components/PortfolioOpportunitiesWidget";
 import { StockLogo } from "@/components/StockLogo";
@@ -16,7 +16,6 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import {
   getLatestPriceFromChart,
-  getOneDayMoveMap,
   getSP500Chart,
 } from "@/lib/yahoo";
 import {
@@ -31,6 +30,11 @@ import {
 } from "@/lib/dashboard-portfolio";
 import { ActivationChecklist } from "@/components/ActivationChecklist";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
+import { AskStockGPTButton } from "@/components/AskStockGPTButton";
+import { ModuleState } from "@/components/ModuleState";
+import { FreshnessLabel } from "@/components/FreshnessLabel";
+import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelector";
+import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -48,19 +52,6 @@ type Ranking = {
   score: number | string | null;
   price: number | string | null;
   updated_at: string | null;
-};
-
-type DailyChangeItem = {
-  ticker: string;
-  company: string;
-  sector: string;
-  price: string;
-  score: string;
-  rankLabel: string;
-  rankTone: "up" | "down" | "flat" | "none";
-  rankTitle: string;
-  dailyMoveLabel: string;
-  dailyMoveTone: "positive" | "negative" | "neutral";
 };
 
 function formatPrice(value: Ranking["price"] | number | null | undefined) {
@@ -111,32 +102,30 @@ function getFirstNameFromUserMetadata(user: {
   return fullName.split(/\s+/)[0];
 }
 
-function dailyMoveTone(
-  value: number | null | undefined,
-): DailyChangeItem["dailyMoveTone"] {
-  if (!Number.isFinite(value)) return "neutral";
-  if (Number(value) > 0) return "positive";
-  if (Number(value) < 0) return "negative";
-  return "neutral";
-}
-
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ portfolio?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/dashboard");
 
-  const firstName = user ? getFirstNameFromUserMetadata(user) : undefined;
+  const firstName = getFirstNameFromUserMetadata(user);
 
   // Run profile subscription check, all rankings queries, and portfolio fetch
   // concurrently — previously profile blocked rankings, and portfolio blocked sp500/snapshots.
   const [
     profileResult,
     { data: rankingsData },
-    { data: moverUniverseData },
     { count: totalCount },
     { count: bullishCount },
     dashboardPortfolio,
+    sp500Data,
+    snapshotMap,
   ] = await Promise.all([
     user
       ? supabase
@@ -150,17 +139,14 @@ export default async function Home() {
       .select("id,rank,ticker,company,sector,score,price,updated_at")
       .order("rank", { ascending: true })
       .limit(10),
-    supabase
-      .from("stock_rankings")
-      .select("id,rank,ticker,company,sector,score,price,updated_at")
-      .order("rank", { ascending: true })
-      .limit(500),
     supabase.from("stock_rankings").select("*", { count: "exact", head: true }),
     supabase
       .from("stock_rankings")
       .select("*", { count: "exact", head: true })
       .gte("score", 7000),
-    user ? getDashboardMainPortfolio(supabase, user.id) : Promise.resolve(null),
+    user ? getDashboardMainPortfolio(supabase, user.id, params.portfolio) : Promise.resolve(null),
+    getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
+    getRankSnapshotMapAround24hAgo(supabase),
   ]);
 
   const hasSubscription = hasActiveSubscription(
@@ -170,30 +156,13 @@ export default async function Home() {
   const rankingsLocked = !hasSubscription;
 
   const rankings = (rankingsData ?? []) as Ranking[];
-  const moverUniverse = (
-    (moverUniverseData ?? rankingsData ?? []) as Ranking[]
-  ).filter((stock) => stock.ticker);
   const topRanked = rankings[0];
   const portfolioSummary: PortfolioHealthSummary | null =
     dashboardPortfolio?.summary ?? null;
   const portfolioValueChart: Partial<Record<TimeRange, ChartPoint[]>> =
     dashboardPortfolio?.chartData ?? {};
-  const portfolioTickers: string[] = dashboardPortfolio?.tickers ?? [];
   const portfolioOpportunities: DashboardPortfolioOpportunity[] =
-    dashboardPortfolio?.opportunities ?? [];
-
-  const dashboardTickerList = Array.from(
-    new Set([
-      ...moverUniverse.map((r) => r.ticker).filter((t): t is string => !!t),
-      ...portfolioTickers,
-    ]),
-  );
-
-  const [sp500Data, snapshotMap, dailyMoveMap] = await Promise.all([
-    getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
-    getRankSnapshotMapAround24hAgo(supabase),
-    getOneDayMoveMap(dashboardTickerList),
-  ]);
+    hasSubscription ? (dashboardPortfolio?.opportunities ?? []).slice(0, 2) : [];
 
   const bullishPct =
     totalCount && totalCount > 0
@@ -209,40 +178,41 @@ export default async function Home() {
           : "Weak market";
   const sp500DailyChangePct = getChartChangePct(sp500Data, "1D");
 
-  const whatChangedToday: DailyChangeItem[] = moverUniverse.map((stock) => {
-    const ticker = stock.ticker ?? "";
-    const rankMove = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-    const dailyMove = dailyMoveMap.get(ticker)?.changePct;
-
-    return {
-      ticker: ticker || "—",
-      company: stock.company ?? "—",
-      sector: stock.sector ?? "—",
-      price: formatPrice(stock.price),
-      score: formatScore(stock.score),
-      rankLabel: rankMove.label,
-      rankTone: rankMove.tone,
-      rankTitle: rankMove.title,
-      dailyMoveLabel: Number.isFinite(dailyMove)
-        ? `${Number(dailyMove) >= 0 ? "+" : ""}${Number(dailyMove).toFixed(1)}%`
-        : "—",
-      dailyMoveTone: dailyMoveTone(dailyMove),
-    };
-  });
-
   const dashboardRankingsGrid =
     "grid-cols-[34px_minmax(76px,0.55fr)_minmax(120px,1.25fr)_58px_minmax(88px,0.85fr)_70px_70px]";
 
   return (
-    <AppShell activePath="/dashboard">
-      <main className="sg-dashboard-main min-h-full overflow-visible lg:h-full lg:min-h-0 lg:overflow-hidden">
-        <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)] lg:gap-3">
-          <section className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_minmax(0,1fr)] lg:overflow-hidden">
+    <AppShell activePath="/dashboard" askLabel="Ask StockGPT" askContext={{ contextType: "dashboard", ...(dashboardPortfolio?.portfolioId ? { portfolioId: dashboardPortfolio.portfolioId } : {}) }}>
+      <main className="sg-dashboard-main min-h-full overflow-visible">
+        <div className="grid gap-3 lg:hidden">
+          <WelcomeBanner name={firstName} />
+          <div className="flex justify-start">
+            <AskStockGPTButton canUseAskStockGPT={hasSubscription} isAuthenticated={!!user} label="Ask StockGPT" context={{ contextType: "dashboard", ...(dashboardPortfolio?.portfolioId ? { portfolioId: dashboardPortfolio.portfolioId } : {}) }} />
+          </div>
+          <PortfolioDashboardWidget
+            summary={portfolioSummary}
+            chartData={portfolioValueChart}
+            chartMeta={dashboardPortfolio?.chartMeta ?? null}
+            portfolioId={dashboardPortfolio?.portfolioId ?? null}
+            portfolios={dashboardPortfolio?.portfolios ?? []}
+            canUsePremium={hasSubscription}
+            valuationState={dashboardPortfolio?.valuationState ?? "empty"}
+            missingPriceTickers={dashboardPortfolio?.missingPriceTickers ?? []}
+          />
+          {!portfolioSummary && <ActivationChecklist planComplete={hasSubscription} portfolioComplete={false} />}
+          {hasSubscription ? <SharedPortfolioOpportunitiesWidget opportunities={portfolioOpportunities} /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Build or import a portfolio now; unlock StockGPT intelligence to see portfolio-fit research." tone="locked" />}
+          <DashboardBriefing summary={portfolioSummary} topRanked={topRanked} canUsePremium={hasSubscription} valuationState={dashboardPortfolio?.valuationState ?? "empty"} />
+          <RankingsPanel rankings={rankings} rankingsLocked={rankingsLocked} snapshotMap={snapshotMap} gridClass={dashboardRankingsGrid} />
+          <MarketOverviewCard sp500Data={sp500Data} changePct={sp500DailyChangePct} />
+        </div>
+
+        <div className="hidden gap-3 lg:grid lg:min-h-[calc(100dvh-118px)] lg:grid-cols-[minmax(0,1fr)_clamp(318px,29vw,430px)]">
+          <section className="grid min-h-0 gap-3 lg:grid-rows-[clamp(108px,15dvh,138px)_auto_clamp(54px,7dvh,62px)_minmax(420px,1fr)]">
             <WelcomeBanner name={firstName} />
             <div className="min-h-0 min-w-0">
               <ActivationChecklist
                 planComplete={hasSubscription}
-                portfolioComplete={Boolean(dashboardPortfolio)}
+                portfolioComplete={Boolean(portfolioSummary)}
               />
             </div>
 
@@ -285,19 +255,23 @@ export default async function Home() {
             />
           </section>
 
-          <aside className="grid content-stretch gap-3 lg:min-h-0 lg:grid-rows-[clamp(176px,21dvh,204px)_clamp(188px,22dvh,240px)_clamp(188px,23dvh,226px)_minmax(250px,1fr)] lg:overflow-hidden">
+          <aside className="grid content-start gap-3 lg:min-h-0">
             <PortfolioDashboardWidget
               summary={portfolioSummary}
               chartData={portfolioValueChart}
+              chartMeta={dashboardPortfolio?.chartMeta ?? null}
+              portfolioId={dashboardPortfolio?.portfolioId ?? null}
+              portfolios={dashboardPortfolio?.portfolios ?? []}
+              canUsePremium={hasSubscription}
+              valuationState={dashboardPortfolio?.valuationState ?? "empty"}
+              missingPriceTickers={dashboardPortfolio?.missingPriceTickers ?? []}
             />
-            <SharedPortfolioOpportunitiesWidget
-              opportunities={portfolioOpportunities}
-            />
+            {hasSubscription ? <SharedPortfolioOpportunitiesWidget opportunities={portfolioOpportunities} /> : <ModuleState title="Premium opportunities locked" description="Unlock portfolio-fit research and health analysis." tone="locked" />}
+            <DashboardBriefing summary={portfolioSummary} topRanked={topRanked} canUsePremium={hasSubscription} valuationState={dashboardPortfolio?.valuationState ?? "empty"} />
             <MarketOverviewCard
               sp500Data={sp500Data}
               changePct={sp500DailyChangePct}
             />
-            <DashboardChangeModal items={whatChangedToday} />
           </aside>
         </div>
       </main>
@@ -506,9 +480,21 @@ function StatBlock({
 function PortfolioDashboardWidget({
   summary,
   chartData,
+  chartMeta,
+  portfolioId,
+  portfolios,
+  canUsePremium,
+  valuationState,
+  missingPriceTickers,
 }: {
   summary: PortfolioHealthSummary | null;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  chartMeta: PortfolioChartMeta | null;
+  portfolioId: string | null;
+  portfolios: Array<{ id: string; name: string }>;
+  canUsePremium: boolean;
+  valuationState: "exact" | "partial" | "unavailable" | "empty";
+  missingPriceTickers: string[];
 }) {
   if (!summary) {
     return (
@@ -538,11 +524,12 @@ function PortfolioDashboardWidget({
     );
   }
 
+  const portfolioHref = portfolioId
+    ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}`
+    : "/portfolio";
+
   return (
-    <Link
-      href="/portfolio"
-      className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/55 lg:h-full lg:min-h-0"
-    >
+    <section className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-3 text-[#faf6f0] transition hover:border-[#ddb159]/55">
       <div className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-[#ddb159]/18 blur-3xl" />
       <div className="relative flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
@@ -554,19 +541,70 @@ function PortfolioDashboardWidget({
           </h2>
         </div>
         <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
-          Health {summary.score}/100
+          {canUsePremium ? `Health ${summary.score}/100` : "Health locked"}
         </span>
       </div>
 
-      <DashboardPortfolioHoverWidget summary={summary} chartData={chartData} />
+      {portfolioId && <div className="relative mt-2 flex items-center justify-between gap-2"><DashboardPortfolioSelector value={portfolioId} portfolios={portfolios} /><FreshnessLabel value={chartMeta?.health.latestSnapshotAt} compact /></div>}
+
+      <Link href={portfolioHref} className="relative block min-w-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]">
+        <DashboardPortfolioHoverWidget summary={summary} chartData={chartData} valuationState={valuationState} />
+      </Link>
+
+      {(chartMeta?.health.displayState !== "ready" || chartMeta?.health.isFlat) && <p className="relative mt-1 text-[10px] font-semibold text-[#e7c56c]">{chartMeta?.health.isFlat ? "Limited movement history; value is unchanged across confirmed snapshots." : chartMeta?.health.displayState === "error_with_cache" ? "Showing last-known chart while refresh is delayed." : chartMeta?.health.displayState === "error_no_cache" ? "Chart temporarily unavailable." : "Limited chart history; tracking is still building."}</p>}
+      {missingPriceTickers.length > 0 && valuationState !== "unavailable" && <p className="relative mt-1 truncate text-[9px] font-semibold text-[#e7c56c]">Latest prices missing: {missingPriceTickers.join(", ")}</p>}
 
       <div className="relative mt-2 flex shrink-0 items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/45 lg:mt-0">
         <span className="truncate">
           Since created · {summary.holdingsCount} holdings
         </span>
-        <span className="shrink-0 text-[#ddb159]">Open →</span>
+        <Link href={portfolioHref} className="shrink-0 text-[#ddb159]">Open →</Link>
       </div>
-    </Link>
+    </section>
+  );
+}
+
+function DashboardBriefing({
+  summary,
+  topRanked,
+  canUsePremium,
+  valuationState,
+}: {
+  summary: PortfolioHealthSummary | null;
+  topRanked?: Ranking;
+  canUsePremium: boolean;
+  valuationState: "exact" | "partial" | "unavailable" | "empty";
+}) {
+  const items = summary
+    ? [
+        valuationState === "unavailable"
+          ? "Portfolio value is temporarily unavailable because the latest prices could not be verified."
+          : valuationState === "partial"
+            ? "Portfolio value is estimated while StockGPT waits for missing prices."
+            : `Portfolio total return is ${summary.totalPnl >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
+        canUsePremium
+          ? summary.actionAlerts > 0
+            ? `${summary.actionAlerts} holding review${summary.actionAlerts === 1 ? " is" : "s are"} available; none is presented as urgent.`
+            : "No major portfolio review alerts are active right now."
+          : "Portfolio health and review priorities are available with an active subscription.",
+        `Your portfolio currently contains ${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
+        topRanked?.ticker ? `${topRanked.ticker} remains the highest-ranked stock in the current StockGPT table.` : "The latest rankings are not available yet.",
+      ]
+    : [
+        "Build or import your first portfolio to receive a personal daily briefing.",
+        topRanked?.ticker ? `${topRanked.ticker} is currently the leading StockGPT-ranked stock.` : "Rankings are still loading.",
+      ];
+
+  return (
+    <section className="rounded-2xl border border-[#ddb159]/18 bg-[#0a2a1d] p-4 text-[#faf6f0]">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Daily briefing</p><h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">What changed today</h2></div>
+        <FreshnessLabel value={topRanked?.updated_at} compact />
+      </div>
+      <ul className="mt-3 divide-y divide-[#ddb159]/10">
+        {items.slice(0, 4).map((item) => <li key={item} className="py-2.5 text-[12px] font-semibold leading-5 text-[#faf6f0]/68">{item}</li>)}
+      </ul>
+    </section>
   );
 }
 

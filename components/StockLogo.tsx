@@ -14,7 +14,7 @@ function cleanTicker(ticker?: string | null) {
   return (ticker ?? "")
     .trim()
     .toUpperCase()
-    .replace(".", "-");
+    .replaceAll(".", "-");
 }
 
 function initialsFrom(ticker?: string | null, company?: string | null) {
@@ -41,9 +41,10 @@ export function StockLogo({
   size = 24,
   className = "",
 }: StockLogoProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSymbol, setFailedSymbol] = useState<string | null>(null);
   const symbol = cleanTicker(ticker);
   const fallback = initialsFrom(ticker, company);
+  const failed = failedSymbol === symbol;
 
   if (!symbol || failed) {
     return (
@@ -80,8 +81,8 @@ export function StockLogo({
         alt=""
         width={size}
         height={size}
-        className="relative z-10 h-full w-full object-contain bg-[#f7f2e8] p-[3px] drop-shadow-[0_1px_1px_rgba(7,33,22,0.38)]"
-        onError={() => setFailed(true)}
+        className="relative z-10 h-full w-full bg-[#f7f2e8] object-contain p-[12%] drop-shadow-[0_1px_1px_rgba(7,33,22,0.28)]"
+        onError={() => setFailedSymbol(symbol)}
         unoptimized
       />
     </span>

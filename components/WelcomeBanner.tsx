@@ -2,32 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-const taglines = [
-  "Make smarter investment decisions.",
-  "500 stocks. Scored. Ranked.",
-  "Trade the signal, skip the noise.",
-  "AI conviction for every position.",
-  "Ranked by data, not by hype.",
-  "The model ran. Check the results.",
-  "Your edge isn't luck. It's data.",
-  "Rankings update as the market does.",
-  "Cut through the noise of 500 stocks.",
-];
-
-const sublines: Record<number, string> = {
-  0: "Markets are closed — use the quiet to review your watchlist.",
-  1: "New week, new rankings — see what the model thinks.",
-  2: "Tuesday — the quietest tape often has the loudest signal.",
-  3: "Midweek — time to re-check the top movers.",
-  4: "Thursday — earnings season favourite. Stay sharp.",
-  5: "Friday close incoming — review your positions.",
-  6: "Weekend mode — catch up on the latest research.",
-};
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function getMarketStatus(now: Date) {
   const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
   const day = et.getDay();
@@ -87,8 +61,8 @@ export function WelcomeBanner({
     const timeout = window.setTimeout(() => {
       setState({
         greeting: getGreeting(now, name),
-        tagline: pick(taglines),
-        subline: sublines[now.getDay()] ?? "",
+        tagline: "Today’s StockGPT briefing",
+        subline: "Portfolio intelligence, current rankings, and market context in one place.",
         market: getMarketStatus(now),
       });
     }, 0);
@@ -145,9 +119,6 @@ export function WelcomeBanner({
 
           <span className="flex items-center gap-1.5 rounded-full border border-[#ddb159]/20 bg-[#072116]/70 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             <span className="relative flex h-1.5 w-1.5">
-              {state.market.tone === "open" && (
-                <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dotColor} opacity-75`} />
-              )}
               <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${dotColor}`} />
             </span>
             <span className="text-[9px] font-bold text-[#faf6f0]/70">{state.market.label}</span>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { FreshnessLabel } from "@/components/FreshnessLabel";
+import { RankingsMobileBatchList } from "@/components/RankingsMobileBatchList";
 import { LazyWhyRankDetails } from "@/components/LazyWhyRankDetails";
 import { RankingsLock } from "@/components/RankingsLock";
 import { StockIcon } from "@/components/StockIcon";
@@ -25,6 +27,7 @@ import {
 } from "@/lib/stable-rankings";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export const metadata: Metadata = {
   title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
@@ -243,9 +246,10 @@ export default async function RankingsPage({
   const currentPage =
     rankingsLocked || !Number.isFinite(parsedPage) || parsedPage < 1
       ? 1
-      : Math.min(parsedPage, 10);
+      : parsedPage;
   const offset = (currentPage - 1) * perPage;
-  const rankingPage = await getStableRankingsPage(supabase, {
+  const rankingSource = rankingsLocked ? createAdminClient() : supabase;
+  const rankingPage = await getStableRankingsPage(rankingSource, {
     limit: perPage,
     offset,
     q,
@@ -290,10 +294,10 @@ export default async function RankingsPage({
     currentPage < totalPages &&
     offset + rawRankings.length < rankingPage.total;
 
-  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px]";
+  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px_86px]";
 
   return (
-    <AppShell activePath="/rankings">
+    <AppShell activePath="/rankings" askLabel="Ask about rankings" askContext={{ contextType: "rankings", activeFilters: { q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter } }}>
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -305,6 +309,7 @@ export default async function RankingsPage({
               <h1 className="text-[28px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[34px]">
                 Stock Rankings
               </h1>
+              <div className="mt-2"><FreshnessLabel value={rawRankings[0]?.updated_at} label={rawRankings[0]?.updated_at ? `Last model run ${new Date(rawRankings[0].updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "Model run time unavailable"} /></div>
               <p className="mt-2 max-w-[680px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[13px]">
                 {hasSubscription
                   ? `${rankings.length} stocks shown on page ${currentPage} of ${totalPages}. Rankings use the latest complete StockGPT snapshot.`
@@ -366,46 +371,13 @@ export default async function RankingsPage({
         <ScoreMethodCard />
 
         <RankingsLock isLocked={rankingsLocked} className="min-w-0 max-w-full overflow-hidden bg-[#faf6f0] lg:hidden">
-          {rankings.length > 0 ? (
-            rankings.map((stock) => {
-              const ticker = stock.ticker ?? "";
-              const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-              const dailyMove = dailyMoveMap.get(ticker)?.changePct;
-              const confidence = getModelConfidence(stock);
-
-              return (
-                <div key={stock.id} className="min-w-0 max-w-full overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] last:border-b-0">
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-2">
-                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159]">{stock.rank ?? "—"}</div>
-                      <StockLogo ticker={stock.ticker} company={stock.company} size={28} />
-                      <div className="min-w-0">
-                        <p className="text-[15px] font-black leading-tight">{stock.ticker ?? "—"}</p>
-                        <p className="mt-0.5 text-[11px] font-semibold leading-snug text-[#072116]/55">{stock.company ?? "—"}</p>
-                      </div>
-                    </Link>
-                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span>
-                  </div>
-
-                  <div className="mt-3 grid min-w-0 grid-cols-4 gap-1 text-center">
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Rank</p><span title={move.title} className={["mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">1D</p><DailyMovePill changePct={dailyMove} className="mt-1 block text-[10px]" /></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 truncate text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Conf.</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
-                  </div>
-                  <LazyWhyRankDetails stock={stock} dailyMove={dailyMove} light />
-                </div>
-              );
-            })
-          ) : (
-            <div className="rounded-2xl bg-[#faf6f0] px-4 py-10 text-center text-[13px] font-bold text-[#072116]/55">No stocks match those filters.</div>
-          )}
+          <RankingsMobileBatchList initialItems={rankings.map((stock) => ({ ...stock, dailyMove: dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? null }))} initialPage={currentPage} totalPages={totalPages} locked={rankingsLocked} filters={{ q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter }} />
         </RankingsLock>
 
         <RankingsLock isLocked={rankingsLocked} className="relative hidden min-w-0 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
           <div className="min-w-0">
             <div className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}>
-              {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score"].map((header) => (
+              {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score", "Why"].map((header) => (
                 <div key={header} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">{header}</div>
               ))}
             </div>
@@ -428,8 +400,8 @@ export default async function RankingsPage({
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
+                        <div className="px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
                       </div>
-                      <LazyWhyRankDetails stock={stock} dailyMove={dailyMove} />
                     </div>
                   );
                 })
@@ -443,7 +415,7 @@ export default async function RankingsPage({
         {!rankingsLocked && (
           <nav
             aria-label="Rankings pages"
-            className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/72 p-2"
+            className="hidden min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/72 p-2 lg:grid"
           >
             {hasPreviousPage ? (
               <Link

@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { FreshnessLabel } from "@/components/FreshnessLabel";
+import { ModuleState } from "@/components/ModuleState";
+import { StockLogo } from "@/components/StockLogo";
+import { useFocusedFlow } from "@/components/AppChromeProvider";
 import type {
   AffectedStockInsight,
   EnrichedNewsArticle,
@@ -24,6 +28,9 @@ type Props = {
   latestPublishedAt: string | null;
   sourceArticleCount: number;
   stockUniverseCount: number;
+  holdingTickers: string[];
+  watchlistTickers: string[];
+  feedStatus: "ok" | "error" | "locked";
   locked?: boolean;
 };
 
@@ -35,15 +42,8 @@ type EnrichedArticleView = WorldNewsArticle & {
   highestImpactRating: number;
 };
 
-const CATEGORY_CHIPS = [
-  "All",
-  "Macro",
-  "Stocks",
-  "Tech / AI",
-  "Energy",
-  "Banks",
-  "Semis",
-] as const;
+const NEWS_SCOPES = ["My holdings", "Watchlist", "Market", "Companies", "Macro"] as const;
+type NewsScope = (typeof NEWS_SCOPES)[number];
 
 function inferCountry(article: WorldNewsArticle) {
   const text = articleText(article);
@@ -267,7 +267,7 @@ function ArticleCard({
           </span>
           {topStock ? (
             <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
-              {topStock.ticker} · {topStock.impactRating}/10
+              StockGPT relevance: {topStock.impactRating >= 8 ? "High" : topStock.impactRating >= 5 ? "Medium" : "Context"}
             </span>
           ) : null}
         </div>
@@ -309,10 +309,15 @@ function AffectedStockRow({ stock }: { stock: AffectedStockInsight }) {
       prefetch={false}
       className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-[#ddb159]/12 bg-[#071f15] px-3 py-2 transition hover:border-[#ddb159]/42 hover:bg-[#0b2b1d]"
     >
-      <div className="min-w-0">
+      <StockLogo ticker={stock.ticker} company={stock.company} size={32} />
+      <div className="min-w-0 flex-1">
         <p className="truncate text-[12px] font-black text-[#ddb159]">{stock.ticker}</p>
         <p className="truncate text-[10px] font-semibold text-[#faf6f0]/48">
           {stock.company ?? stock.sector ?? "Stock context"}
+        </p>
+        <p className="mt-0.5 text-[9px] font-bold text-[#faf6f0]/34">
+          {stock.rank ? `Rank #${stock.rank}` : "Rank unavailable"}
+          {Number.isFinite(Number(stock.score)) ? ` · Score ${Number(stock.score).toLocaleString()}` : ""}
         </p>
       </div>
       <span className="shrink-0 rounded-full bg-[#ddb159] px-2 py-1 text-[9px] font-black text-[#061b12]">
@@ -346,14 +351,18 @@ function LockedBriefing() {
   );
 }
 
-function EmptyBriefing({ onReset }: { onReset: () => void }) {
+function EmptyBriefing({ onReset, scope }: { onReset: () => void; scope: NewsScope }) {
   return (
     <div className="rounded-[24px] border border-[#ddb159]/18 bg-[#061b12]/76 px-5 py-12 text-center shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
         No matching briefings
       </p>
       <p className="mx-auto mt-2 max-w-md text-[13px] font-semibold leading-6 text-[#faf6f0]/56">
-        No articles match the current search and filter combination. Reset filters or check back after the next news refresh.
+        {scope === "My holdings"
+          ? "No holding-specific news found. Market news is still available."
+          : scope === "Watchlist"
+            ? "No watchlist-specific news found. Market news is still available."
+            : "No articles match the current search and filter combination. Reset filters or check back after the next news refresh."}
       </p>
       <button
         type="button"
@@ -368,10 +377,12 @@ function EmptyBriefing({ onReset }: { onReset: () => void }) {
 
 export function WorldNewsClient({
   articles,
-  fetchedAt,
   latestPublishedAt,
   sourceArticleCount,
   stockUniverseCount,
+  holdingTickers,
+  watchlistTickers,
+  feedStatus,
   locked = false,
 }: Props) {
   const [selectedArticle, setSelectedArticle] = useState<EnrichedArticleView | null>(null);
@@ -380,9 +391,12 @@ export function WorldNewsClient({
   const [industryFilter, setIndustryFilter] = useState("All industries");
   const [countryFilter, setCountryFilter] = useState("All countries");
   const [topicFilter, setTopicFilter] = useState("All topics");
-  const [category, setCategory] = useState<(typeof CATEGORY_CHIPS)[number]>("All");
+  const [scope, setScope] = useState<NewsScope>(holdingTickers.length > 0 ? "My holdings" : "Market");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
+  useFocusedFlow("news-article", Boolean(selectedArticle));
+  const holdingTickerSet = useMemo(() => new Set(holdingTickers), [holdingTickers]);
+  const watchlistTickerSet = useMemo(() => new Set(watchlistTickers), [watchlistTickers]);
 
   const enrichedArticles = useMemo<EnrichedArticleView[]>(
     () =>
@@ -450,18 +464,24 @@ export function WorldNewsClient({
         .toLowerCase();
 
       const matchesSearch = !cleanSearch || text.includes(cleanSearch);
-      const matchesCategory = category === "All" || article.category === category;
+      const articleTickers = article.affectedStocks.map((stock) => stock.ticker.toUpperCase());
+      const matchesScope =
+        scope === "Market" ||
+        (scope === "My holdings" && articleTickers.some((ticker) => holdingTickerSet.has(ticker))) ||
+        (scope === "Watchlist" && articleTickers.some((ticker) => watchlistTickerSet.has(ticker))) ||
+        (scope === "Companies" && article.affectedStocks.length > 0) ||
+        (scope === "Macro" && article.category === "Macro");
       const matchesImpact = impactFilter === "All impacts" || inferImpact(article) === impactFilter.toLowerCase();
       const matchesIndustry = industryFilter === "All industries" || article.industries.includes(industryFilter);
       const matchesCountry = countryFilter === "All countries" || article.country === countryFilter;
       const matchesTopic = topicFilter === "All topics" || article.topic === topicFilter;
 
-      return matchesSearch && matchesCategory && matchesImpact && matchesIndustry && matchesCountry && matchesTopic;
+      return matchesSearch && matchesScope && matchesImpact && matchesIndustry && matchesCountry && matchesTopic;
     });
-  }, [category, countryFilter, enrichedArticles, impactFilter, industryFilter, search, topicFilter]);
+  }, [countryFilter, enrichedArticles, holdingTickerSet, impactFilter, industryFilter, scope, search, topicFilter, watchlistTickerSet]);
 
-  const visibleArticles = filteredArticles.slice(0, visibleCount);
-  const topStory = filteredArticles[0] ?? enrichedArticles[0] ?? null;
+  const topStory = filteredArticles[0] ?? null;
+  const visibleArticles = filteredArticles.slice(topStory ? 1 : 0, visibleCount + (topStory ? 1 : 0));
   const topAffectedStocks = useMemo(() => {
     const map = new Map<string, AffectedStockInsight & { appearances: number; totalImpact: number }>();
 
@@ -491,11 +511,24 @@ export function WorldNewsClient({
     setIndustryFilter("All industries");
     setCountryFilter("All countries");
     setTopicFilter("All topics");
-    setCategory("All");
+    setScope(holdingTickers.length > 0 ? "My holdings" : "Market");
     setVisibleCount(20);
   }
 
   if (locked) return <LockedBriefing />;
+  if (feedStatus === "error") {
+    return (
+      <main className="h-full min-h-0 overflow-y-auto pb-8">
+        <ModuleState
+          eyebrow="News"
+          title="Market news is temporarily unavailable"
+          description="StockGPT could not refresh the briefing. No stale or empty feed is being presented as current. Try again shortly."
+          tone="error"
+          action={<button type="button" onClick={() => window.location.reload()} className="min-h-10 rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#07170f]">Try again</button>}
+        />
+      </main>
+    );
+  }
 
   const FilterControls = (
     <div className="grid gap-2 lg:grid-cols-4">
@@ -556,22 +589,20 @@ export function WorldNewsClient({
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 lg:w-[430px]">
-                <BriefingStat label="Updated" value={relativeTime(fetchedAt)} tone="gold" />
+              <div className="hidden grid-cols-3 gap-2 lg:grid lg:w-[430px]">
+                <BriefingStat label="Latest story" value={relativeTime(latestPublishedAt)} tone="gold" />
                 <BriefingStat label="Articles" value={filteredArticles.length} />
                 <BriefingStat label="Stocks" value={stockUniverseCount || "-"} />
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_320px]">
+            <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-[1fr_320px]">
               <div className="rounded-[24px] border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                     Today&apos;s tone
                   </p>
-                  <p className="text-[10px] font-bold text-[#faf6f0]/42">
-                    Latest source: {relativeTime(latestPublishedAt)}
-                  </p>
+                  <FreshnessLabel value={latestPublishedAt} staleAfterMinutes={360} compact />
                 </div>
                 <ImpactMeter positive={counts.positive} neutral={counts.neutral} negative={counts.negative} />
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -597,8 +628,8 @@ export function WorldNewsClient({
               {topStory ? <ArticleCard article={topStory} onOpen={setSelectedArticle} featured /> : null}
 
               <div className="sticky top-0 z-10 rounded-[24px] border border-[#ddb159]/16 bg-[#061b12]/92 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
-                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                  <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] px-3 transition focus-within:border-[#ddb159]/50">
+                <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                  <label className="col-span-2 flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] px-3 transition focus-within:border-[#ddb159]/50 sm:col-span-1">
                     <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[#ddb159]">
                       <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <circle cx="11" cy="11" r="7" />
@@ -634,15 +665,15 @@ export function WorldNewsClient({
                 </div>
 
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                  {CATEGORY_CHIPS.map((chip) => (
+                  {NEWS_SCOPES.map((chip) => (
                     <button
                       key={chip}
                       type="button"
                       onClick={() => {
-                        setCategory(chip);
+                        setScope(chip);
                         setVisibleCount(20);
                       }}
-                      data-active={category === chip ? "true" : "false"}
+                      data-active={scope === chip ? "true" : "false"}
                       className="shrink-0 rounded-full border border-[#ddb159]/16 px-3 py-2 text-[11px] font-black text-[#faf6f0]/62 transition hover:border-[#ddb159]/45 hover:text-[#faf6f0] data-[active=true]:border-[#ddb159] data-[active=true]:bg-[#ddb159] data-[active=true]:text-[#061b12]"
                     >
                       {chip}
@@ -659,7 +690,7 @@ export function WorldNewsClient({
                     <ArticleCard key={article.id} article={article} onOpen={setSelectedArticle} />
                   ))
                 ) : (
-                  <EmptyBriefing onReset={resetFilters} />
+                  <EmptyBriefing onReset={resetFilters} scope={scope} />
                 )}
               </div>
 
@@ -783,7 +814,7 @@ export function WorldNewsClient({
             className="absolute inset-0 bg-black/62 backdrop-blur-md"
             onClick={() => setSelectedArticle(null)}
           />
-          <div className="absolute inset-x-2 bottom-[calc(88px+env(safe-area-inset-bottom))] top-4 mx-auto flex max-w-[1120px] overflow-hidden rounded-[28px] border border-[#ddb159]/28 bg-[#061b12] shadow-[0_30px_100px_rgba(0,0,0,0.72)] sm:inset-x-5 sm:bottom-5 lg:grid lg:grid-cols-[0.72fr_1.28fr]">
+          <div role="dialog" aria-modal="true" aria-label="News briefing" className="absolute inset-x-2 bottom-4 top-4 mx-auto flex max-w-[1120px] overflow-hidden rounded-[28px] border border-[#ddb159]/28 bg-[#061b12] shadow-[0_30px_100px_rgba(0,0,0,0.72)] sm:inset-x-5 sm:bottom-5 lg:grid lg:grid-cols-[0.72fr_1.28fr]">
             <div className="hidden min-h-0 overflow-hidden bg-[#0b2b1d] lg:block">
               {selectedArticle.image_url ? (
                 <img src={selectedArticle.image_url} alt="" className="h-full w-full object-cover" />

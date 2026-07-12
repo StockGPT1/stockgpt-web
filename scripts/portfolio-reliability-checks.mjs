@@ -411,7 +411,11 @@ assert.match(commandCentreSource, /action\.plainEnglishReason/);
 const dashboardSource = readSource("app/dashboard/page.tsx");
 assert.match(dashboardSource, /SharedPortfolioOpportunitiesWidget/);
 assert.doesNotMatch(dashboardSource, /function PortfolioOpportunitiesWidget/);
-assert.match(dashboardSource, /clamp\(188px,22dvh,240px\)/);
+assert.match(dashboardSource, /portfolioOpportunities.*slice\(0, 2\)/s);
+assert.match(
+  dashboardSource,
+  /<PortfolioDashboardWidget[\s\S]*<SharedPortfolioOpportunitiesWidget[\s\S]*<DashboardBriefing[\s\S]*<RankingsPanel/,
+);
 
 const sharedWidgetSource = readSource(
   "components/PortfolioOpportunitiesWidget.tsx",

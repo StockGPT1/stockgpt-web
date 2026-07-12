@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { AskContext } from "@/lib/ask-context";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -54,6 +55,7 @@ type RankingsResponse = {
 type AskStockGPTWorkspaceProps = {
   canUseAskStockGPT: boolean;
   isAuthenticated: boolean;
+  initialContext?: AskContext | null;
 };
 
 const welcomeMessage: ChatMessage = {
@@ -486,13 +488,15 @@ function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding
   );
 }
 
-export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: AskStockGPTWorkspaceProps) {
+export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initialContext = null }: AskStockGPTWorkspaceProps) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [activeMode, setActiveMode] = useState<Mode>("portfolio");
+  const [activeMode, setActiveMode] = useState<Mode>(
+    initialContext?.contextType === "rankings" ? "rankings" : "portfolio",
+  );
   const [holdingOptions, setHoldingOptions] = useState<HoldingOption[]>([]);
   const [holdingLoading, setHoldingLoading] = useState(false);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
@@ -646,6 +650,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
         body: JSON.stringify({
           question: text,
           mode: activeMode,
+          context: initialContext,
           messages: nextMessages.slice(-14),
           stream: true,
         }),
@@ -764,7 +769,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
       <header className="shrink-0 border-b border-[#ddb159]/16 bg-[#04140c] px-3 py-2 sm:px-5 sm:py-3">
         <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-3">
           <BackButton />
-          <div className="min-w-0 text-center"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-0.5 hidden text-[12px] font-semibold text-[#fbf4e5]/42 sm:block">Chat and portfolio intelligence</p></div>
+          <div className="min-w-0 text-center"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-0.5 hidden text-[12px] font-semibold text-[#fbf4e5]/42 sm:block">{initialContext?.contextType === "stock" && initialContext.ticker ? `Research context: ${initialContext.ticker}` : initialContext?.contextType === "holding" && initialContext.holdingTicker ? `Holding context: ${initialContext.holdingTicker}` : initialContext?.contextType === "portfolio" ? "Selected portfolio context" : initialContext?.contextType === "rankings" ? "Current rankings context" : "Chat and portfolio intelligence"}</p></div>
           <button type="button" onClick={() => void clearHistory()} className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#fbf4e5]/[0.04] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:px-4 sm:text-[12px] sm:tracking-[0.14em]">Clear</button>
         </div>
       </header>

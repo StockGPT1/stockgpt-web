@@ -669,7 +669,7 @@ export function PortfolioBuilder({
         </div>
 
         <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">
-          ⚠️ AI-generated portfolios are based on quantitative factors and
+          AI-generated portfolios are based on quantitative factors and
           ranking data. They are research tools, not financial advice.
         </p>
       </div>

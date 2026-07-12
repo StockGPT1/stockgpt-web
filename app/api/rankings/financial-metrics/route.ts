@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getFinancialMetricMap } from "@/lib/yahoo-financials";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
+import { hasActiveSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,6 +65,20 @@ async function getRankingRow(ticker: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const authClient = await createServerSupabaseClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+  const { data: profile } = await authClient
+    .from("profiles")
+    .select("subscription_status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!hasActiveSubscription(profile?.subscription_status)) {
+    return NextResponse.json({ error: "Active subscription required." }, { status: 403 });
+  }
+
   const ticker = cleanTicker(req.nextUrl.searchParams.get("ticker"));
   if (!ticker) {
     return NextResponse.json({ metrics: null, diagnostics: null, ranking: null, reason: "Missing ticker." }, { status: 400 });

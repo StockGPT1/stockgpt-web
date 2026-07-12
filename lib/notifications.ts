@@ -17,7 +17,7 @@ export type Notification = {
   title: string;
   message: string;
   recommendation: string;
-  createdAt: string;
+  createdAt: string | null;
   portfolioId: string;
   portfolioName: string;
 };
@@ -105,7 +105,8 @@ function buildLegacyLevelKey(ticker: string, type: string, level: number): strin
 }
 
 function stripInternal(notification: BuiltNotification): Notification {
-  const { dismissalKeys: _dismissalKeys, ...clean } = notification;
+  const { dismissalKeys, ...clean } = notification;
+  void dismissalKeys;
   return clean;
 }
 
@@ -143,7 +144,7 @@ function buildTrimNotification({
     title: alert.title,
     message: alert.message,
     recommendation: alert.recommendation,
-    createdAt: today,
+    createdAt: alert.dataUpdatedAt ?? alert.triggeredAt ?? alert.generatedAt ?? null,
   };
 }
 
@@ -155,7 +156,6 @@ function buildStoredTradeLevelNotifications({
   currentPrice,
   riskLevelAtEntry,
   targetLevelAtEntry,
-  today,
 }: {
   portfolioId: string;
   portfolioName: string;
@@ -164,7 +164,6 @@ function buildStoredTradeLevelNotifications({
   currentPrice: number;
   riskLevelAtEntry: number | null;
   targetLevelAtEntry: number | null;
-  today: string;
 }): BuiltNotification[] {
   if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
     return [];
@@ -206,7 +205,7 @@ function buildStoredTradeLevelNotifications({
       )}.`,
       recommendation:
         "Review the position against the risk level saved when the holding was bought.",
-      createdAt: today,
+      createdAt: null,
     });
   }
 
@@ -244,7 +243,7 @@ function buildStoredTradeLevelNotifications({
       )}.`,
       recommendation:
         "Review whether the target saved when the holding was bought has now been met.",
-      createdAt: today,
+      createdAt: null,
     });
   }
 
@@ -259,6 +258,7 @@ export async function getUserNotifications({
   unread: Notification[];
   read: Notification[];
   unreadCount: number;
+  status: "ok" | "error" | "unauthenticated";
 }> {
   const supabase = await createClient();
 
@@ -266,36 +266,44 @@ export async function getUserNotifications({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { unread: [], read: [], unreadCount: 0 };
+  if (!user) return { unread: [], read: [], unreadCount: 0, status: "unauthenticated" };
 
-  const { data: portfoliosData } = await supabase
+  const { data: portfoliosData, error: portfoliosError } = await supabase
     .from("user_portfolios")
     .select("id, name, risk_tolerance")
     .eq("user_id", user.id)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
+  if (portfoliosError) {
+    console.error("[notifications] portfolio read failed", portfoliosError);
+    return { unread: [], read: [], unreadCount: 0, status: "error" };
+  }
   const portfolios = (portfoliosData ?? []) as PortfolioRow[];
 
   if (portfolios.length === 0) {
     await saveUnreadNotificationSummary(user.id, 0);
-    return { unread: [], read: [], unreadCount: 0 };
+    return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
-  const { data: holdingsData } = await supabase
+  const { data: holdingsData, error: holdingsError } = await supabase
     .from("portfolio_holdings")
     .select(
       "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
     )
     .in("portfolio_id", portfolioIds);
 
+  if (holdingsError) {
+    console.error("[notifications] holdings read failed", holdingsError);
+    return { unread: [], read: [], unreadCount: 0, status: "error" };
+  }
   const holdings = (holdingsData ?? []) as HoldingRow[];
 
   if (holdings.length === 0) {
     await saveUnreadNotificationSummary(user.id, 0);
-    return { unread: [], read: [], unreadCount: 0 };
+    return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
   const { data: dismissalsData } = await supabase
@@ -378,7 +386,6 @@ export async function getUserNotifications({
             currentPrice: holding.currentPrice,
             riskLevelAtEntry: storedLevels.riskLevelAtEntry,
             targetLevelAtEntry: storedLevels.targetLevelAtEntry,
-            today,
           }),
         );
       });
@@ -417,6 +424,7 @@ export async function getUserNotifications({
     unread: unread.map(stripInternal),
     read: read.map(stripInternal),
     unreadCount: unread.length,
+    status: "ok",
   };
 }
 

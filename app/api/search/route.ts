@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { getStableRankings } from "@/lib/stable-rankings";
+import { hasActiveSubscription } from "@/lib/subscription";
 import {
   checkRateLimit,
   getClientIp,
@@ -13,18 +13,11 @@ const SEARCH_HEADERS = {
   "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
 };
 
-type FeatureResult = {
-  type: "feature";
-  title: string;
-  description: string;
-  href: string;
-};
-
 type PublicTickerResult = {
   type: "ticker";
-  ticker: string | null;
-  company: string | null;
-  sector: string | null;
+  ticker: string;
+  company: string;
+  sector?: string;
 };
 
 type SubscriberTickerResult = PublicTickerResult & {
@@ -32,83 +25,12 @@ type SubscriberTickerResult = PublicTickerResult & {
   score: number | string | null;
 };
 
-const FEATURE_RESULTS: FeatureResult[] = [
-  {
-    type: "feature",
-    title: "Dashboard",
-    description: "Portfolio snapshot, market overview and StockGPT insights",
-    href: "/dashboard",
-  },
-  {
-    type: "feature",
-    title: "Rankings",
-    description: "AI-ranked S&P 500 table",
-    href: "/rankings",
-  },
-  {
-    type: "feature",
-    title: "Portfolio",
-    description: "Build and track your holdings",
-    href: "/portfolio",
-  },
-  {
-    type: "feature",
-    title: "Watchlist",
-    description: "Track stocks you care about",
-    href: "/watchlist",
-  },
-  {
-    type: "feature",
-    title: "Alerts",
-    description: "Action and event alerts",
-    href: "/notifications",
-  },
-  {
-    type: "feature",
-    title: "World News",
-    description: "Market-moving news and affected tickers",
-    href: "/world-news",
-  },
-  {
-    type: "feature",
-    title: "Settings",
-    description: "Account, subscription and preferences",
-    href: "/settings",
-  },
-];
-
 function cleanSearchQuery(value: string) {
-  return value.replace(/[%,()]/g, "").trim().slice(0, 60);
+  return value.replace(/[^a-zA-Z0-9.'& -]/g, "").trim().slice(0, 60);
 }
 
 function json(data: unknown) {
   return NextResponse.json(data, { headers: SEARCH_HEADERS });
-}
-
-function matchingFeatures(q: string) {
-  const lower = q.toLowerCase();
-
-  return FEATURE_RESULTS.filter((feature) => {
-    return (
-      feature.title.toLowerCase().includes(lower) ||
-      feature.description.toLowerCase().includes(lower)
-    );
-  }).slice(0, 6);
-}
-
-function isActiveSubscription(status: string | null | undefined) {
-  const activeStatuses = new Set([
-    "basic",
-    "core",
-    "premium",
-    "executive",
-    "max",
-    "alpha",
-    "trialing",
-    "active",
-  ]);
-
-  return activeStatuses.has(String(status ?? "").toLowerCase());
 }
 
 export async function GET(req: NextRequest) {
@@ -126,93 +48,69 @@ export async function GET(req: NextRequest) {
   const q = cleanSearchQuery(req.nextUrl.searchParams.get("q") ?? "");
   if (!q) return json([]);
 
-  const features = matchingFeatures(q);
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    const admin = createAdminClient();
-
-    const { data, error } = await admin
-      .from("stock_rankings")
-      .select("ticker, company, sector")
-      .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
-      .order("ticker", { ascending: true, nullsFirst: false })
-      .limit(6);
-
-    if (error) {
-      console.error("[/api/search]", error);
-      return json(features);
-    }
-
-    const tickers: PublicTickerResult[] = (data ?? []).map((row) => ({
-      type: "ticker",
-      ticker: row.ticker,
-      company: row.company,
-      sector: row.sector,
-    }));
-
-    return json([...features, ...tickers]);
+  let hasAccess = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    hasAccess = hasActiveSubscription(profile?.subscription_status);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("subscription_status")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const hasAccess = isActiveSubscription(profile?.subscription_status);
-
-  if (hasAccess) {
-    try {
-      const lower = q.toLowerCase();
-      const data = (await getStableRankings(supabase))
-        .filter((row) => {
-          const ticker = String(row.ticker ?? "").toLowerCase();
-          const company = String(row.company ?? "").toLowerCase();
-          return ticker.startsWith(lower) || company.includes(lower);
-        })
-        .slice(0, 8);
-
-      const tickers: SubscriberTickerResult[] = data.map((row) => ({
-        type: "ticker",
-        ticker: row.ticker,
-        company: row.company,
-        sector: row.sector,
-        rank: row.rank,
-        score: row.score,
-      }));
-
-      return json([...features, ...tickers]);
-    } catch (error) {
-      console.error("[/api/search] stable rankings", error);
-      return json(features);
-    }
-  }
-
-  const admin = createAdminClient();
-
-  const { data, error } = await admin
-    .from("stock_rankings")
-    .select("ticker, company, sector")
-    .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
-    .order("ticker", { ascending: true, nullsFirst: false })
-    .limit(8);
+  const result = hasAccess
+    ? await supabase
+        .from("stock_rankings")
+        .select("ticker, company, sector, rank, score")
+        .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
+        .order("ticker", { ascending: true, nullsFirst: false })
+        .limit(8)
+    : await createAdminClient()
+        .from("stock_rankings")
+        .select("ticker, company, sector")
+        .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
+        .order("ticker", { ascending: true, nullsFirst: false })
+        .limit(8);
+  const { data, error } = result;
 
   if (error) {
     console.error("[/api/search]", error);
-    return json(features);
+    return NextResponse.json(
+      { error: "Search is temporarily unavailable." },
+      { status: 503, headers: SEARCH_HEADERS },
+    );
   }
 
-  const tickers: PublicTickerResult[] = (data ?? []).map((row) => ({
-    type: "ticker",
-    ticker: row.ticker,
-    company: row.company,
-    sector: row.sector,
-  }));
+  const rows = (data ?? []) as Array<{
+    ticker: string | null;
+    company: string | null;
+    sector: string | null;
+    rank?: number | null;
+    score?: number | string | null;
+  }>;
+  const tickers: Array<PublicTickerResult | SubscriberTickerResult> = rows
+    .filter((row) => typeof row.ticker === "string" && row.ticker.length > 0)
+    .map((row) => ({
+      type: "ticker" as const,
+      ticker: String(row.ticker),
+      company: String(row.company ?? row.ticker),
+      ...(row.sector ? { sector: String(row.sector) } : {}),
+      ...(hasAccess
+        ? {
+            rank: typeof row.rank === "number" ? row.rank : null,
+            score:
+              typeof row.score === "number" || typeof row.score === "string"
+                ? row.score
+                : null,
+          }
+        : {}),
+    }));
 
-  return json([...features, ...tickers]);
+  return json(tickers);
 }

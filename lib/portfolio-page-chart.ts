@@ -106,12 +106,14 @@ export async function buildPortfolioPageChart({
   transactions,
   summary,
   ownerId,
+  allowCurrentSnapshot,
 }: {
   portfolio: PortfolioLike;
   enriched: EnrichedHolding[];
   transactions: TransactionLike[];
   summary: PortfolioHealthSummary;
   ownerId?: string | null;
+  allowCurrentSnapshot?: boolean;
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   return (
     await buildPortfolioPageChartResult({
@@ -120,6 +122,7 @@ export async function buildPortfolioPageChart({
       transactions,
       summary,
       ownerId,
+      allowCurrentSnapshot,
     })
   ).chartData;
 }
@@ -130,12 +133,14 @@ export async function buildPortfolioPageChartResult({
   transactions,
   summary,
   ownerId,
+  allowCurrentSnapshot = true,
 }: {
   portfolio: PortfolioLike;
   enriched: EnrichedHolding[];
   transactions: TransactionLike[];
   summary: PortfolioHealthSummary;
   ownerId?: string | null;
+  allowCurrentSnapshot?: boolean;
 }): Promise<PortfolioPageChartResult> {
   const nowMs = Date.now();
 
@@ -173,7 +178,7 @@ export async function buildPortfolioPageChartResult({
     Record<TimeRange, ChartPoint[]>
   >;
   const saveCurrentSnapshot = () => {
-    if (!resolvedOwnerId) return;
+    if (!resolvedOwnerId || !allowCurrentSnapshot) return;
     void saveLatestPortfolioSnapshotFromChartData({
       supabase,
       portfolioId: portfolio.id,
@@ -200,11 +205,12 @@ export async function buildPortfolioPageChartResult({
 
     if (snapshotChart?.health.displayable) {
       const needsCurrentPoint =
-        snapshotChart.health.status === "stale" ||
-        !isPortfolioChartLatestPointFresh({
-          chartData: snapshotChart.chartData,
-          nowMs,
-        });
+        allowCurrentSnapshot &&
+        (snapshotChart.health.status === "stale" ||
+          !isPortfolioChartLatestPointFresh({
+            chartData: snapshotChart.chartData,
+            nowMs,
+          }));
       const chartData = filterDisplayablePortfolioChartData(
         needsCurrentPoint
           ? appendCurrentPointToPortfolioChartData({
@@ -245,12 +251,16 @@ export async function buildPortfolioPageChartResult({
     }
 
     if (snapshotChart) {
-      const chartData = filterDisplayablePortfolioChartData(appendCurrentPointToPortfolioChartData({
-        chartData: snapshotChart.chartData,
-        currentPoint,
-        portfolioCreatedAt: portfolio.created_at ?? null,
-        nowMs,
-      }));
+      const chartData = filterDisplayablePortfolioChartData(
+        allowCurrentSnapshot
+          ? appendCurrentPointToPortfolioChartData({
+              chartData: snapshotChart.chartData,
+              currentPoint,
+              portfolioCreatedAt: portfolio.created_at ?? null,
+              nowMs,
+            })
+          : snapshotChart.chartData,
+      );
       const health = assessPortfolioChartHealth({
         portfolioCreatedAt: portfolio.created_at ?? null,
         latestInputMs,
@@ -278,7 +288,7 @@ export async function buildPortfolioPageChartResult({
     };
   }
 
-  saveCurrentSnapshot();
+  if (allowCurrentSnapshot) saveCurrentSnapshot();
   const health = assessPortfolioChartHealth({
     portfolioCreatedAt: portfolio.created_at ?? null,
     latestInputMs,

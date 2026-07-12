@@ -46,6 +46,11 @@ import {
 } from "@/lib/portfolio-action-engine";
 import { resolveTradeOrder } from "@/lib/trade-calculator";
 import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
+import { ManageHoldingDrawer } from "@/components/ManageHoldingDrawer";
+import { StockGPTView } from "@/components/StockGPTView";
+import { AskStockGPTButton } from "@/components/AskStockGPTButton";
+import { FreshnessLabel } from "@/components/FreshnessLabel";
+import { ModuleState } from "@/components/ModuleState";
 
 type StockOption = {
   ticker: string;
@@ -83,6 +88,12 @@ export type ExtendedHolding = EnrichedHolding & {
   notes?: string | null;
 };
 
+export type PortfolioValuationState = {
+  status: "exact" | "partial" | "last-known" | "unavailable" | "empty";
+  missingTickers?: string[];
+  updatedAt?: string | null;
+};
+
 type Props = {
   portfolioId: string;
   portfolios: PortfolioOption[];
@@ -108,6 +119,8 @@ type Props = {
   compactImportWidget?: ReactNode;
   displayCurrency?: string;
   usdToDisplayRate?: number;
+  valuationState?: PortfolioValuationState;
+  canUsePremium?: boolean;
 };
 
 type Section = "overview" | "holdings" | "add" | "activity" | "manage";
@@ -255,6 +268,9 @@ function chartStatusCopy(
   meta: PortfolioChartMeta | undefined,
   hasData: boolean,
 ) {
+  if (hasData && meta?.health.isFlat) {
+    return "Limited movement history · value unchanged across confirmed snapshots";
+  }
   const displayState = meta?.health.displayState;
   if (displayState === "ready") return null;
   if (
@@ -310,13 +326,12 @@ function chartStateDetail(meta: PortfolioChartMeta | undefined) {
 
   const realPointCount = meta.health.realPointCount ?? 0;
   const snapshotCount = meta.health.snapshotCount ?? 0;
-  const reason = meta.health.reason ? ` ${meta.health.reason}` : "";
 
   if (meta.health.displayState === "empty") {
     return "Add cash or holdings, then the chart will start from stored portfolio snapshots.";
   }
 
-  return `Waiting for enough real stored points to draw a reliable chart. ${realPointCount} real chart points from ${snapshotCount} snapshots are available.${reason}`;
+  return `Waiting for enough real stored points to draw a reliable chart. ${realPointCount} real chart points from ${snapshotCount} snapshots are available.`;
 }
 
 function GhostPortfolioChart({ meta }: { meta?: PortfolioChartMeta }) {
@@ -412,13 +427,14 @@ function SectionButton({
       title={label}
       onClick={() => setSection(section)}
       className={[
-        "grid h-11 min-w-0 flex-1 place-items-center rounded-full transition sm:size-10 sm:flex-none",
+        "flex h-11 min-w-0 w-full items-center justify-center gap-1 rounded-full px-1 transition",
         active === section
           ? "sg-metal-gold-fill"
           : "bg-[#faf6f0]/[0.055] text-[#faf6f0]/56 hover:bg-[#ddb159]/10 hover:text-[#faf6f0]",
       ].join(" ")}
     >
       <SectionIcon section={section} />
+      <span className="text-[10px] font-black">{label}</span>
     </button>
   );
 }
@@ -510,6 +526,8 @@ function PortfolioChartHero({
   chartMeta,
   createdAt,
   cashBalance,
+  valuationState,
+  canUsePremium,
 }: {
   portfolioId: string;
   portfolios: PortfolioOption[];
@@ -520,6 +538,8 @@ function PortfolioChartHero({
   chartMeta?: PortfolioChartMeta;
   createdAt?: string | null;
   cashBalance: number;
+  valuationState: PortfolioValuationState;
+  canUsePremium: boolean;
 }) {
   const router = useRouter();
   const rangeData = useMemo(() => buildRangeData(chartData), [chartData]);
@@ -543,6 +563,7 @@ function PortfolioChartHero({
     hasChartPoints(rangeData, itemRange),
   );
   const chartStatus = chartStatusCopy(chartMeta, activeRangeHasData);
+  const flatChart = Boolean(chartMeta?.health.isFlat && activeRangeHasData);
   const activeRangeSignature = useMemo(
     () =>
       activeRangePoints
@@ -593,6 +614,15 @@ function PortfolioChartHero({
       ? (displayedReturn / returnBasis) * 100
       : summary.totalPnlPct;
   const isPositive = displayedReturn >= 0;
+  const valueUnavailable = valuationState.status === "unavailable";
+  const valuationCopy =
+    valuationState.status === "partial"
+      ? `${valuationState.missingTickers?.length ?? 0} holding${(valuationState.missingTickers?.length ?? 0) === 1 ? "" : "s"} missing latest prices · estimated value`
+      : valuationState.status === "last-known"
+        ? "Latest prices unavailable · showing last-known value"
+        : valuationState.status === "unavailable"
+          ? "Latest prices are unavailable. StockGPT has not replaced them with zero."
+          : null;
   const portfolioOptions = portfolios.map((portfolio) => ({
     value: portfolio.id,
     label: portfolio.name,
@@ -601,7 +631,7 @@ function PortfolioChartHero({
       : (portfolio.currency ?? "USD"),
   }));
   return (
-    <section className="portfolio-chart-hero relative overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[radial-gradient(circle_at_50%_8%,rgba(221,177,89,0.13),transparent_34%),linear-gradient(180deg,#092116_0%,#04140c_56%,#020805_100%)] text-[#faf6f0] shadow-[0_18px_48px_rgba(0,0,0,0.30)] sm:rounded-[32px]">
+    <section className="portfolio-chart-hero relative -mx-3 overflow-hidden border-y border-[#ddb159]/18 bg-[radial-gradient(circle_at_50%_8%,rgba(221,177,89,0.13),transparent_34%),linear-gradient(180deg,#092116_0%,#04140c_56%,#020805_100%)] text-[#faf6f0] sm:mx-0 sm:rounded-[32px] sm:border">
       <div className="relative px-5 pb-3 pt-5 text-center sm:px-6 sm:pt-6 lg:text-left">
         <div className="flex flex-col items-center gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
@@ -626,10 +656,10 @@ function PortfolioChartHero({
                 {portfolioName}
               </p>
             )}
-            <h1 className="mt-3 text-[42px] font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]">
-              {money(displayedValue, currency)}
+            <h1 className={`${valueUnavailable ? "text-[30px]" : "text-[42px]"} mt-3 font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]`}>
+              {valueUnavailable ? "Value unavailable" : money(displayedValue, currency)}
             </h1>
-            <p
+            {!valueUnavailable && <p
               className={[
                 "mt-2 text-[14px] font-black tabular-nums sm:text-[16px]",
                 isPositive ? "text-emerald-300" : "text-red-200",
@@ -637,18 +667,23 @@ function PortfolioChartHero({
             >
               {money(displayedReturn, currency)} total return ·{" "}
               {pct(displayedReturnPct)}
-            </p>
+            </p>}
+            {valuationCopy && <p className="mx-auto mt-2 max-w-md text-[11px] font-semibold leading-5 text-[#e7c56c] lg:mx-0">{valuationCopy}</p>}
+            <div className="mt-3 flex items-center justify-center gap-2 sm:hidden">
+              <span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[10px] font-black text-[#072116]">{canUsePremium ? `Health ${summary.score}/100` : "Health locked"}</span>
+              <FreshnessLabel value={chartMeta?.health.latestSnapshotAt} compact />
+            </div>
           </div>
           <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex">
             <span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[11px] font-black text-[#072116]">
-              Health {summary.score}/100
+              {canUsePremium ? `Health ${summary.score}/100` : "Health locked"}
             </span>
             <span className="hidden text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159] sm:inline">
               {summary.label}
             </span>
           </div>
         </div>
-        <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+        <div className="mt-4 hidden flex-col items-center gap-3 sm:flex sm:flex-row sm:justify-between">
           <p className="hidden text-[11px] font-semibold text-[#faf6f0]/46 sm:block">
             Since {formatDate(createdAt)} · contribution-adjusted portfolio
             performance{chartStatus ? ` · ${chartStatus}` : ""}
@@ -661,7 +696,7 @@ function PortfolioChartHero({
                   type="button"
                   onClick={() => setRange(itemRange)}
                   className={[
-                    "h-8 rounded-full px-3 text-[10px] font-black transition",
+                    "h-11 min-w-11 rounded-full px-3 text-[10px] font-black transition",
                     activeRange === itemRange
                       ? "bg-[#faf6f0] text-[#072116]"
                       : "text-[#faf6f0]/52 hover:text-[#faf6f0]",
@@ -679,6 +714,11 @@ function PortfolioChartHero({
         </div>
       </div>
       <div className="relative -mx-5 sm:mx-0">
+        {flatChart ? (
+          <p className="absolute inset-x-5 top-3 z-10 rounded-full border border-[#ddb159]/18 bg-[#04140c]/86 px-3 py-2 text-center text-[10px] font-bold text-[#e7c56c] backdrop-blur sm:left-5 sm:right-auto">
+            Limited movement history · value unchanged across confirmed snapshots
+          </p>
+        ) : null}
         {activeRangeHasData ? (
           <StockChart
             key={`${portfolioId}-${activeRange}-ready`}
@@ -694,6 +734,11 @@ function PortfolioChartHero({
         ) : (
           <GhostPortfolioChart meta={chartMeta} />
         )}
+      </div>
+      <div className="flex items-center justify-center gap-1 border-t border-[#ddb159]/10 px-3 py-3 sm:hidden">
+        {availableRanges.length > 0 ? availableRanges.map(({ range: itemRange, label }) => (
+          <button key={itemRange} type="button" onClick={() => setRange(itemRange)} className={`h-11 min-w-11 rounded-full px-3 text-[10px] font-black ${activeRange === itemRange ? "bg-[#faf6f0] text-[#072116]" : "text-[#faf6f0]/55"}`}>{label}</button>
+        )) : <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/48">Building chart history</span>}
       </div>
       <div className="relative hidden grid-cols-3 gap-px border-t border-white/8 bg-white/5 text-center sm:grid sm:text-left">
         <div className="px-4 py-3">
@@ -1004,6 +1049,7 @@ function MiniMetric({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained as a desktop fallback while the focused drawer is rolled out
 function ManageHoldingModal({
   portfolioId,
   holding,
@@ -1643,6 +1689,7 @@ function HoldingsRow({
   cashBalance,
   stockOptions,
   heldTickers,
+  usdToDisplayRate,
 }: {
   portfolioId: string;
   holding: ExtendedHolding;
@@ -1653,6 +1700,7 @@ function HoldingsRow({
   cashBalance: number;
   stockOptions: StockOption[];
   heldTickers: Set<string>;
+  usdToDisplayRate: number;
 }) {
   const [open, setOpen] = useState(false);
   const isPositive = holding.totalPnLDollars >= 0;
@@ -1677,63 +1725,55 @@ function HoldingsRow({
       }),
     [holding, riskTolerance, objective, timeHorizon, cashBalance],
   );
+  const target = holding.targetAllocationPct;
+  const allocationStatus = target == null
+    ? "Target unavailable"
+    : holding.currentAllocationPct > target + 1
+      ? "Above target"
+      : holding.currentAllocationPct < target - 1
+        ? "Below target"
+        : "In range";
+  const targetMarker = target == null ? null : Math.max(0, Math.min(100, target));
   return (
-    <div className="group relative overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] text-[#072116] transition hover:bg-[#faf6f0] lg:rounded-2xl lg:border lg:shadow-[0_8px_22px_rgba(0,0,0,0.10)] lg:hover:border-[#ddb159]/45">
-      <div
-        className="absolute inset-y-0 left-0 hidden bg-[#ddb159]/10 transition group-hover:bg-[#ddb159]/16 lg:block"
-        style={{ width: `${widthPct}%` }}
-      />
-      <div className="relative grid gap-2 px-3 py-2.5 lg:grid-cols-[minmax(190px,1.35fr)_minmax(96px,0.75fr)_minmax(108px,0.85fr)_minmax(76px,0.55fr)_minmax(92px,0.7fr)_minmax(112px,auto)] lg:items-center lg:px-4 lg:py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <StockLogo ticker={holding.ticker} size={34} />
-          <div className="min-w-0">
-            <p className="truncate text-[14px] font-black leading-none">
-              {holding.ticker}
-            </p>
-            <p className="mt-1 truncate text-[11px] font-semibold text-[#072116]/45">
-              {holding.company ?? "Holding"}
-            </p>
-          </div>
-        </div>
-        <HoldingCell
-          label="Value"
-          value={money(holding.currentValue, currency)}
-          sub={`${num(holding.shares, 4)} sh`}
-        />
-        <HoldingCell
-          label="Net P/L"
-          value={money(holding.totalPnLDollars, currency)}
-          sub={pct(holding.pnlPercent)}
-          tone={isPositive ? "positive" : "negative"}
-        />
-        <HoldingCell
-          label="%"
-          value={`${holding.currentAllocationPct.toFixed(1)}%`}
-          sub={`target ${holding.targetAllocationPct?.toFixed(1) ?? "-"}%`}
-        />
-        <HoldingCell
-          label="AI"
-          value={num(holding.score, 0)}
-          sub={`#${holding.rank ?? "-"}`}
-          tone="gold"
-        />
-        <div className="flex min-w-0 justify-start lg:justify-end">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="h-9 w-full rounded-full bg-[#072116] px-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:brightness-110 sm:w-auto lg:min-w-[104px]"
-          >
-            Manage
-          </button>
-        </div>
-      </div>
+    <div data-stockgpt-holding-row className="group relative overflow-hidden rounded-[20px] border border-[#ddb159]/16 bg-[#0a2a1d] text-[#faf6f0] transition hover:border-[#ddb159]/38 lg:bg-[#faf6f0] lg:text-[#072116]">
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Manage ${holding.ticker} holding`} className="relative block w-full p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159] lg:grid lg:grid-cols-[minmax(190px,1.35fr)_minmax(96px,0.75fr)_minmax(108px,0.85fr)_minmax(94px,0.65fr)_minmax(104px,0.7fr)_minmax(98px,auto)] lg:items-center lg:gap-2 lg:px-4 lg:py-3">
+        <span className="flex min-w-0 items-center gap-3">
+          <StockLogo ticker={holding.ticker} company={holding.company} size={40} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-black leading-none">{holding.company ?? holding.ticker}</span>
+            <span className="mt-1 block truncate text-[11px] font-semibold text-[#faf6f0]/46 lg:text-[#072116]/45">{holding.ticker} · {num(holding.shares, 4)} shares</span>
+          </span>
+          <span className="text-right lg:hidden">
+            <span className="block text-[14px] font-black tabular-nums">{money(holding.currentValue, currency)}</span>
+            <span className={`mt-1 block text-[11px] font-black ${isPositive ? "text-[#61d7ab]" : "text-[#f1908d]"}`}>{money(holding.totalPnLDollars, currency)} · {pct(holding.pnlPercent)}</span>
+          </span>
+        </span>
+
+        <span className="mt-3 flex items-center justify-between gap-2 lg:hidden">
+          <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/9 px-2 py-1 text-[9px] font-black text-[#ddb159]">AI #{holding.rank ?? "—"} · {num(holding.score, 0)}</span>
+          <span className="text-[10px] font-black text-[#e7c56c]">{allocationStatus}</span>
+        </span>
+        <span className="relative mt-2 block h-1.5 overflow-visible rounded-full bg-[#faf6f0]/10 lg:hidden">
+          <span className="absolute inset-y-0 left-0 rounded-full bg-[#ddb159]/78" style={{ width: `${widthPct}%` }} />
+          {targetMarker != null && <span className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-[#faf6f0]" style={{ left: `${targetMarker}%` }} />}
+        </span>
+        <span className="mt-1 flex justify-between text-[9px] font-semibold text-[#faf6f0]/42 lg:hidden"><span>{holding.currentAllocationPct.toFixed(1)}%</span><span>target {target?.toFixed(1) ?? "—"}%</span></span>
+
+        <span className="hidden lg:block"><HoldingCell label="Value" value={money(holding.currentValue, currency)} sub={`${num(holding.shares, 4)} sh`} /></span>
+        <span className="hidden lg:block"><HoldingCell label="Net P/L" value={money(holding.totalPnLDollars, currency)} sub={pct(holding.pnlPercent)} tone={isPositive ? "positive" : "negative"} /></span>
+        <span className="hidden lg:block"><HoldingCell label="Allocation" value={`${holding.currentAllocationPct.toFixed(1)}%`} sub={`${allocationStatus} · target ${target?.toFixed(1) ?? "—"}%`} /></span>
+        <span className="hidden lg:block"><HoldingCell label="AI" value={num(holding.score, 0)} sub={`#${holding.rank ?? "—"}`} tone="gold" /></span>
+        <span className="hidden justify-end lg:flex"><span className="inline-flex h-9 items-center rounded-full bg-[#072116] px-3 text-[10px] font-black text-[#ddb159]">Manage</span></span>
+      </button>
       {open && (
-        <ManageHoldingModal
+        <ManageHoldingDrawer
           portfolioId={portfolioId}
           holding={holding}
           recommendation={trimRecommendation}
           action={action}
           cashBalance={cashBalance}
+          displayCurrency={currency}
+          usdToDisplayRate={usdToDisplayRate}
           onClose={() => setOpen(false)}
         />
       )}
@@ -1750,6 +1790,7 @@ function HoldingsPanel({
   timeHorizon,
   cashBalance,
   stockOptions,
+  usdToDisplayRate,
   preview = false,
 }: {
   portfolioId: string;
@@ -1760,9 +1801,11 @@ function HoldingsPanel({
   timeHorizon?: string | null;
   cashBalance: number;
   stockOptions: StockOption[];
+  usdToDisplayRate: number;
   preview?: boolean;
 }) {
   const [sort, setSort] = useState<HoldingSort>("value");
+  const [query, setQuery] = useState("");
   const heldTickers = useMemo(
     () => new Set(holdings.map((holding) => holding.ticker.toUpperCase())),
     [holdings],
@@ -1776,7 +1819,8 @@ function HoldingsPanel({
     { value: "ticker", label: "Ticker A-Z" },
   ];
   const sortedHoldings = useMemo(() => {
-    const next = [...holdings];
+    const normalisedQuery = query.trim().toLowerCase();
+    const next = holdings.filter((holding) => !normalisedQuery || holding.ticker.toLowerCase().includes(normalisedQuery) || String(holding.company ?? "").toLowerCase().includes(normalisedQuery));
     next.sort((a, b) => {
       if (sort === "urgent")
         return holdingUrgencyScore(b) - holdingUrgencyScore(a);
@@ -1787,7 +1831,7 @@ function HoldingsPanel({
       return a.ticker.localeCompare(b.ticker);
     });
     return next;
-  }, [holdings, sort]);
+  }, [holdings, query, sort]);
   return (
     <section className="grid gap-3">
       <div className="grid gap-3 rounded-2xl border border-white/8 bg-white/[0.045] p-3 text-[#faf6f0] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -1800,7 +1844,8 @@ function HoldingsPanel({
           </p>
         </div>
         {!preview && (
-          <div className="grid gap-2 sm:flex sm:justify-end">
+          <div className="grid min-w-0 gap-2 sm:flex sm:justify-end">
+            <label className="min-w-0 sm:w-[220px]"><span className="sr-only">Search holdings</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search holdings" className="h-10 w-full rounded-full border border-[#ddb159]/18 bg-[#061b12] px-4 text-[13px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/38 focus:border-[#ddb159]" /></label>
             <StockGPTSelect
               value={sort}
               options={sortOptions}
@@ -1834,7 +1879,7 @@ function HoldingsPanel({
               <span className="text-right">Action</span>
             </div>
           )}
-          {sortedHoldings.map((holding) => (
+          {sortedHoldings.length === 0 && query.trim() ? <div className="rounded-2xl border border-dashed border-[#ddb159]/18 p-5 text-center text-[12px] font-semibold text-[#faf6f0]/52">No holdings match “{query.trim()}”. Clear the search to see all holdings.</div> : sortedHoldings.map((holding) => (
             <HoldingsRow
               key={holding.ticker}
               portfolioId={portfolioId}
@@ -1846,6 +1891,7 @@ function HoldingsPanel({
               cashBalance={cashBalance}
               stockOptions={stockOptions}
               heldTickers={heldTickers}
+              usdToDisplayRate={usdToDisplayRate}
             />
           ))}
         </div>
@@ -2143,6 +2189,8 @@ export function PortfolioCommandCentreRevolut({
   opportunities = [],
   displayCurrency,
   usdToDisplayRate = 1,
+  valuationState = { status: holdings.length === 0 && portfolioMeta.cashBalance <= 0 ? "empty" : "exact" },
+  canUsePremium = true,
 }: Props) {
   const [section, setSection] = useState<Section>("overview");
   const currency = displayCurrency ?? portfolioMeta.currency ?? "USD";
@@ -2207,9 +2255,11 @@ export function PortfolioCommandCentreRevolut({
           chartMeta={chartMeta}
           createdAt={portfolioMeta.createdAt}
           cashBalance={portfolioMeta.cashBalance}
+          valuationState={valuationState}
+          canUsePremium={canUsePremium}
         />
       )}
-      <div className="portfolio-section-nav flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-black/18 p-1.5 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="portfolio-section-nav grid min-w-0 grid-cols-5 gap-1 rounded-2xl border border-white/8 bg-black/18 p-1.5 lg:hidden">
         <SectionButton
           section="overview"
           active={section}
@@ -2226,7 +2276,7 @@ export function PortfolioCommandCentreRevolut({
           section="add"
           active={section}
           setSection={setSection}
-          label="Add / Import"
+          label="Add"
         />
         <SectionButton
           section="activity"
@@ -2242,57 +2292,36 @@ export function PortfolioCommandCentreRevolut({
         />
       </div>
       {section === "overview" && (
-        <section className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
-          <HoldingsPanel
-            portfolioId={portfolioId}
-            holdings={topHoldings}
-            currency={currency}
-            riskTolerance={portfolioMeta.riskTolerance}
-            objective={portfolioMeta.objective}
-            timeHorizon={portfolioMeta.timeHorizon}
-            cashBalance={portfolioMeta.cashBalance}
-            stockOptions={stockOptions}
-            preview
+        <section className="grid gap-3">
+          <StockGPTView
+            status={canUsePremium ? `${summary.label} · Health ${summary.score}/100` : "Premium intelligence"}
+            judgement={summary.explanation}
+            evidence={[`${summary.holdingsCount} holdings across ${summary.sectorCount} sectors`, `Weighted AI score ${summary.weightedAvgScore ?? "unavailable"}`, `${summary.cashDrag.toFixed(1)}% portfolio cash`]}
+            risks={[...(summary.actionAlerts > 0 ? [`${summary.actionAlerts} holding reviews are available`] : []), ...(summary.largestPositionPct > 30 ? [`Largest position is ${summary.largestPositionPct.toFixed(1)}%`] : [])]}
+            updatedAt={chartMeta?.health.latestSnapshotAt}
+            locked={!canUsePremium}
+            action={<AskStockGPTButton canUseAskStockGPT={canUsePremium} isAuthenticated compact label="Ask about this portfolio" context={{ contextType: "portfolio", portfolioId }} />}
           />
-          <div className="grid content-start gap-3">
-            <PortfolioOpportunitiesWidget
-              opportunities={opportunities}
-              variant="portfolio"
-            />
-            <div className="rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                Health drivers
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <MiniMetric
-                  label="Holdings"
-                  value={String(summary.holdingsCount)}
-                  sub={`${summary.sectorCount} sectors`}
-                />
-                <MiniMetric
-                  label="Cash"
-                  value={money(portfolioMeta.cashBalance, currency)}
-                  sub={`${summary.cashDrag.toFixed(1)}% drag`}
-                />
-                <MiniMetric
-                  label="Alerts"
-                  value={String(summary.actionAlerts)}
-                  sub={`${summary.eventAlerts} events`}
-                  tone={summary.actionAlerts > 0 ? "negative" : "positive"}
-                />
-                <MiniMetric
-                  label="Largest"
-                  value={`${summary.largestPositionPct.toFixed(1)}%`}
-                  sub="position"
-                  tone={
-                    summary.largestPositionPct > 30 ? "negative" : "positive"
-                  }
-                />
+          <div className="grid grid-cols-2 gap-2 lg:hidden">
+            <button type="button" onClick={() => setSection("add")} className="h-11 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.04] text-[10px] font-black text-[#ddb159]">Add cash</button>
+            <button type="button" onClick={() => setSection("add")} className="h-11 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.04] text-[10px] font-black text-[#ddb159]">Add holding</button>
+            <button type="button" onClick={() => setSection("add")} className="h-11 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.04] text-[10px] font-black text-[#ddb159]">Import</button>
+            <button type="button" onClick={() => setSection("manage")} className="h-11 rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.04] text-[10px] font-black text-[#ddb159]">Preferences</button>
+          </div>
+          {canUsePremium ? <PortfolioOpportunitiesWidget opportunities={opportunities.slice(0, 2)} variant="portfolio" /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Unlock StockGPT intelligence to compare portfolio fit, concentration, and current model signals." tone="locked" />}
+          <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
+            <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} riskTolerance={portfolioMeta.riskTolerance} objective={portfolioMeta.objective} timeHorizon={portfolioMeta.timeHorizon} cashBalance={portfolioMeta.cashBalance} stockOptions={stockOptions} usdToDisplayRate={usdToDisplayRate} preview />
+            {canUsePremium ? (
+              <div className="grid content-start gap-3 rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Health drivers</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <MiniMetric label="Holdings" value={String(summary.holdingsCount)} sub={`${summary.sectorCount} sectors`} />
+                  <MiniMetric label="Cash" value={money(portfolioMeta.cashBalance, currency)} sub={`${summary.cashDrag.toFixed(1)}% drag`} />
+                  <MiniMetric label="Alerts" value={String(summary.actionAlerts)} sub={`${summary.eventAlerts} events`} tone={summary.actionAlerts > 0 ? "gold" : "positive"} />
+                  <MiniMetric label="Largest" value={`${summary.largestPositionPct.toFixed(1)}%`} sub="position" tone={summary.largestPositionPct > 30 ? "gold" : "positive"} />
+                </div>
               </div>
-            </div>
-            <p className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/72 p-4 text-[12px] font-semibold leading-5 text-[#faf6f0]/52">
-              {summary.explanation}
-            </p>
+            ) : <ModuleState title="Health analysis locked" description="Basic holdings remain available. Portfolio health drivers require an active subscription." tone="locked" />}
           </div>
         </section>
       )}
@@ -2306,6 +2335,7 @@ export function PortfolioCommandCentreRevolut({
           timeHorizon={portfolioMeta.timeHorizon}
           cashBalance={portfolioMeta.cashBalance}
           stockOptions={stockOptions}
+          usdToDisplayRate={usdToDisplayRate}
         />
       )}
       {section === "add" && (
@@ -2336,7 +2366,7 @@ export function PortfolioCommandCentreRevolut({
         />
       )}
       <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">
-        ⚠️ StockGPT portfolio alerts and health scores are generated from
+        StockGPT portfolio alerts and health scores are generated from
         rankings, diagnostics, portfolio data, price action and recent news.
         They are research tools, not financial advice.
       </p>

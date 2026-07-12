@@ -777,7 +777,7 @@ export function TradeSetupCard({
       </div>
 
       <p className="relative mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/45">
-        ⚠️ AI-generated trade plan based on quantitative factors. Not financial
+        AI-generated trade plan based on quantitative factors. Not financial
         advice. Past performance does not guarantee future results.
       </p>
 

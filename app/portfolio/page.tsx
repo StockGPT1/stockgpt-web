@@ -7,6 +7,7 @@ import {
   PortfolioCommandCentreRevolut,
   type ExtendedHolding,
   type PortfolioTransaction,
+  type PortfolioValuationState,
 } from "@/components/PortfolioCommandCentreRevolut";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { PortfolioCreationSuccess } from "@/components/PortfolioCreationSuccess";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/currency";
 import { getUsdFxRates } from "@/lib/fx-rates";
 import { buildPortfolioOpportunities } from "@/lib/dashboard-portfolio";
+import { hasActiveSubscription } from "@/lib/subscription";
 
 export const metadata: Metadata = {
   title: "Portfolio Tracker | StockGPT AI Alerts",
@@ -120,7 +122,28 @@ type TransactionRow = {
 
 type ProfileCurrencyRow = {
   preferred_currency?: string | null;
+  subscription_status?: string | null;
 };
+
+function holdingValuationComplete(holdings: ExtendedHolding[]) {
+  return holdings.every(
+    (holding) => toNumber(holding.shares, 0) <= 0 || toNumber(holding.currentPrice, 0) > 0,
+  );
+}
+
+function missingLatestPriceTickers(
+  holdings: RawHoldingInput[],
+  stocks: StockUniverseRow[],
+) {
+  const priceByTicker = new Map(
+    stocks
+      .filter((stock) => stock.ticker)
+      .map((stock) => [String(stock.ticker).toUpperCase(), toNumber(stock.price, 0)]),
+  );
+  return holdings
+    .filter((holding) => toNumber(holding.shares, 0) > 0 && (priceByTicker.get(holding.ticker) ?? 0) <= 0)
+    .map((holding) => holding.ticker);
+}
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -478,6 +501,7 @@ async function buildPortfolioSnapshotPayload({
     cashBalance: toNumber(activePortfolio.cash_balance, 0),
     cashDepositedTotal,
   });
+  const valuationComplete = holdingValuationComplete(enriched);
   const chartResult = await buildPortfolioPageChartResult({
     portfolio: {
       id: activePortfolio.id,
@@ -494,9 +518,17 @@ async function buildPortfolioSnapshotPayload({
     transactions,
     summary,
     ownerId,
+    allowCurrentSnapshot: valuationComplete,
   });
 
-  return { enriched, summary, chartData: chartResult.chartData, chartMeta: chartResult.meta, portfolioNews };
+  return {
+    enriched,
+    summary,
+    chartData: chartResult.chartData,
+    chartMeta: chartResult.meta,
+    portfolioNews,
+    valuationComplete,
+  };
 }
 
 async function schedulePortfolioSnapshotRefresh({
@@ -537,6 +569,12 @@ async function schedulePortfolioSnapshotRefresh({
         ownerId,
         useAdminEnrichment: true,
       });
+      if (!snapshot.valuationComplete) {
+        console.warn(
+          `[portfolio-page-refresh] skipped incomplete valuation portfolioId=${portfolioId}`,
+        );
+        return;
+      }
       await savePortfolioPageSnapshot({
         portfolioId,
         ownerId,
@@ -616,7 +654,7 @@ export default async function PortfolioPage({
       .order("created_at", { ascending: true }),
     supabase
       .from("profiles")
-      .select("preferred_currency")
+      .select("preferred_currency,subscription_status")
       .eq("id", user.id)
       .maybeSingle(),
     getUsdFxRates(),
@@ -629,6 +667,9 @@ export default async function PortfolioPage({
     (profileCurrencyData as ProfileCurrencyRow | null)?.preferred_currency,
   );
   const usdToDisplayRate = rateForCurrency(displayCurrency, usdFxRates);
+  const canUsePremium = hasActiveSubscription(
+    (profileCurrencyData as ProfileCurrencyRow | null)?.subscription_status,
+  );
 
   const stockUniverse: StockLike[] = stockRows
     .filter((stock) => stock.ticker)
@@ -800,6 +841,21 @@ export default async function PortfolioPage({
 
   if (cachedEnriched && cachedPortfolioNews) {
     const canonicalEnriched = repriceCachedHoldings({ holdings: cachedEnriched, stockRows });
+    const missingTickers = missingLatestPriceTickers(rawHoldings, stockRows);
+    const cachedFallbackAvailable = canonicalEnriched.every(
+      (holding) => toNumber(holding.shares, 0) <= 0 || toNumber(holding.currentPrice, 0) > 0,
+    );
+    const valuationState: PortfolioValuationState =
+      rawHoldings.length === 0 && toNumber(activePortfolio.cash_balance, 0) <= 0
+        ? { status: "empty" }
+        : missingTickers.length === 0
+          ? { status: "exact" }
+          : missingTickers.length === rawHoldings.length
+            ? {
+                status: cachedFallbackAvailable ? "last-known" : "unavailable",
+                missingTickers,
+              }
+            : { status: "partial", missingTickers };
     const canonicalSummary = buildPortfolioHealthSummary({
       id: selectedPortfolioId,
       name: activePortfolio.name as string,
@@ -845,6 +901,7 @@ export default async function PortfolioPage({
       transactions,
       summary: canonicalSummary,
       ownerId: user.id,
+      allowCurrentSnapshot: missingTickers.length === 0,
     });
     const displayChartData = displayChartForCurrency({
       chartData: chartResult.chartData,
@@ -856,12 +913,14 @@ export default async function PortfolioPage({
       ownerId: user.id,
       chartMeta: chartResult.meta,
     });
-    const portfolioOpportunities = await buildPortfolioOpportunities(
-      supabase,
-      activePortfolio,
-      canonicalEnriched,
-      canonicalSummary,
-    );
+    const portfolioOpportunities = canUsePremium
+      ? await buildPortfolioOpportunities(
+          supabase,
+          activePortfolio,
+          canonicalEnriched,
+          canonicalSummary,
+        )
+      : [];
 
     timer.end({
       cacheMode: snapshotLookup.mode,
@@ -872,7 +931,7 @@ export default async function PortfolioPage({
       selectedPortfolioId,
     });
     return (
-      <AppShell activePath="/portfolio">
+      <AppShell activePath="/portfolio" askLabel="Ask about this portfolio" askContext={{ contextType: "portfolio", portfolioId: selectedPortfolioId }}>
         <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
           <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
             {params.created === "manual" && (
@@ -908,6 +967,8 @@ export default async function PortfolioPage({
               opportunities={portfolioOpportunities}
               displayCurrency={displayCurrency}
               usdToDisplayRate={usdToDisplayRate}
+              valuationState={valuationState}
+              canUsePremium={canUsePremium}
               portfolioMeta={{
                 id: selectedPortfolioId,
                 name: activePortfolio.name as string,
@@ -940,6 +1001,21 @@ export default async function PortfolioPage({
 
   const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
+  const missingTickers = enriched
+    .filter(
+      (holding) =>
+        toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0,
+    )
+    .map((holding) => holding.ticker);
+  const valuationComplete = missingTickers.length === 0;
+  const valuationState: PortfolioValuationState =
+    rawHoldings.length === 0 && toNumber(activePortfolio.cash_balance, 0) <= 0
+      ? { status: "empty" }
+      : valuationComplete
+        ? { status: "exact" }
+        : missingTickers.length === rawHoldings.length
+          ? { status: "unavailable", missingTickers }
+          : { status: "partial", missingTickers };
 
   timer.mark("enrich-holdings");
 
@@ -969,6 +1045,7 @@ export default async function PortfolioPage({
     transactions,
     summary,
     ownerId: user.id,
+    allowCurrentSnapshot: valuationComplete,
   });
   const chartRepairScheduled = schedulePortfolioChartRepair({
     portfolioId: selectedPortfolioId,
@@ -985,29 +1062,33 @@ export default async function PortfolioPage({
     displayCurrency,
     usdFxRates,
   });
-  const portfolioOpportunities = await buildPortfolioOpportunities(
-    supabase,
-    activePortfolio,
-    enriched,
-    summary,
-  );
+  const portfolioOpportunities = canUsePremium
+    ? await buildPortfolioOpportunities(
+        supabase,
+        activePortfolio,
+        enriched,
+        summary,
+      )
+    : [];
 
   timer.mark("portfolio-chart");
 
-  after(() =>
-    savePortfolioPageSnapshot({
-      portfolioId: selectedPortfolioId,
-      ownerId: user.id,
-      inputHash,
-      snapshot: {
-        enriched,
-        summary,
-        chartData: chartResult.chartData,
-        chartMeta: chartResult.meta,
-        portfolioNews,
-      },
-    }),
-  );
+  if (valuationComplete) {
+    after(() =>
+      savePortfolioPageSnapshot({
+        portfolioId: selectedPortfolioId,
+        ownerId: user.id,
+        inputHash,
+        snapshot: {
+          enriched,
+          summary,
+          chartData: chartResult.chartData,
+          chartMeta: chartResult.meta,
+          portfolioNews,
+        },
+      }),
+    );
+  }
 
   timer.end({
     cacheMode: "miss",
@@ -1018,7 +1099,7 @@ export default async function PortfolioPage({
   });
 
   return (
-    <AppShell activePath="/portfolio">
+    <AppShell activePath="/portfolio" askLabel="Ask about this portfolio" askContext={{ contextType: "portfolio", portfolioId: selectedPortfolioId }}>
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-visible pr-0 sm:overflow-x-hidden sm:pr-1">
         <div className="grid min-w-0 max-w-full gap-3 overflow-visible sm:overflow-x-hidden">
           {params.created === "manual" && (
@@ -1054,6 +1135,8 @@ export default async function PortfolioPage({
             opportunities={portfolioOpportunities}
             displayCurrency={displayCurrency}
             usdToDisplayRate={usdToDisplayRate}
+            valuationState={valuationState}
+            canUsePremium={canUsePremium}
             portfolioMeta={{
               id: selectedPortfolioId,
               name: activePortfolio.name as string,

@@ -45,7 +45,7 @@ export function StockIcon({
     return <svg {...common}><path d="M5 20V11h4v9M10 20V5h4v15M15 20v-7h4v7M3 20h18" /></svg>;
   }
   if (name === "portfolio") {
-    return <svg {...common}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" /></svg>;
+    return <svg {...common}><path d="M12 3a9 9 0 1 0 9 9h-9V3Z" /><path d="M15 3.6A9 9 0 0 1 20.4 9H15V3.6Z" /></svg>;
   }
   if (name === "watchlist") {
     return <svg {...common}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" /></svg>;

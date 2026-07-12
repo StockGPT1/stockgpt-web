@@ -10,6 +10,7 @@ import {
   type RiskTolerance,
 } from "@/lib/portfolio-alerts";
 import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
+import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import { derivePortfolioHoldingAction } from "@/lib/portfolio-action-engine";
 import { getOneDayMoveMap } from "@/lib/yahoo";
 
@@ -99,10 +100,15 @@ export type DashboardPortfolioOpportunity = {
 };
 
 export type DashboardMainPortfolioResult = {
+  portfolioId: string | null;
+  portfolios: Array<{ id: string; name: string }>;
   summary: PortfolioHealthSummary | null;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  chartMeta: PortfolioChartMeta | null;
   tickers: string[];
   opportunities: DashboardPortfolioOpportunity[];
+  valuationState: "exact" | "partial" | "unavailable" | "empty";
+  missingPriceTickers: string[];
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -324,6 +330,7 @@ function normaliseHolding(holding: HoldingRow): RawHolding | null {
 export async function getDashboardMainPortfolio(
   supabase: SupabaseClient,
   userId: string,
+  requestedPortfolioId?: string | null,
 ): Promise<DashboardMainPortfolioResult> {
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
@@ -347,10 +354,12 @@ export async function getDashboardMainPortfolio(
   }));
 
   if (portfolios.length === 0) {
-    return { summary: null, chartData: {}, tickers: [], opportunities: [] };
+    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
   }
 
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
+  const selectedPortfolio =
+    portfolios.find((portfolio) => portfolio.id === requestedPortfolioId) ?? portfolios[0];
+  const portfolioIds = [selectedPortfolio.id];
 
   const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
     supabase
@@ -387,7 +396,7 @@ export async function getDashboardMainPortfolio(
 
   const candidates: PortfolioCandidate[] = [];
 
-  for (const portfolio of portfolios) {
+  for (const portfolio of [selectedPortfolio]) {
     const rawHoldings = holdingsByPortfolio.get(portfolio.id) ?? [];
     const transactions = transactionsByPortfolio.get(portfolio.id) ?? [];
     const enriched = await enrichHoldings(
@@ -413,7 +422,19 @@ export async function getDashboardMainPortfolio(
   }
 
   const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { summary: null, chartData: {}, tickers: [], opportunities: [] };
+  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
+
+  const missingPriceTickers = mainPortfolio.enriched
+    .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
+    .map((holding) => holding.ticker);
+  const valuationState =
+    mainPortfolio.enriched.length === 0 && toNumber(mainPortfolio.portfolio.cash_balance, 0) <= 0
+      ? "empty"
+      : missingPriceTickers.length === 0
+        ? "exact"
+        : missingPriceTickers.length === mainPortfolio.enriched.length
+          ? "unavailable"
+          : "partial";
 
   const chartResult = await buildPortfolioPageChartResult({
     portfolio: {
@@ -433,11 +454,15 @@ export async function getDashboardMainPortfolio(
     transactions: mainPortfolio.transactions,
     summary: mainPortfolio.summary,
     ownerId: userId,
+    allowCurrentSnapshot: missingPriceTickers.length === 0,
   });
 
   return {
+    portfolioId: mainPortfolio.portfolio.id,
+    portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
     summary: mainPortfolio.summary,
     chartData: chartResult.chartData,
+    chartMeta: chartResult.meta,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
     opportunities: await buildPortfolioOpportunities(
       supabase,
@@ -445,5 +470,7 @@ export async function getDashboardMainPortfolio(
       mainPortfolio.enriched,
       mainPortfolio.summary,
     ),
+    valuationState,
+    missingPriceTickers,
   };
 }

@@ -1057,13 +1057,13 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
       title: `Trim signal: ${ctx.ticker} is too large in the portfolio`,
       message: `${ctx.ticker} is ${ctx.currentAllocationPct.toFixed(
         1,
-      )}% of the portfolio, above the ${maxConcentration}% risk threshold for this profile.`,
+      )}% of invested holdings, above the ${maxConcentration}% risk threshold for this profile.`,
       recommendation: `Trim the position back toward ${Math.max(
         5,
         maxConcentration - 5,
       )}–${maxConcentration}%.`,
       evidence: [
-        `Current allocation: ${ctx.currentAllocationPct.toFixed(1)}%`,
+        `Current invested allocation: ${ctx.currentAllocationPct.toFixed(1)}%`,
         `Risk threshold: ${maxConcentration}%`,
         ...(ctx.targetAllocationPct !== null
           ? [`Target allocation: ${ctx.targetAllocationPct.toFixed(1)}%`]
