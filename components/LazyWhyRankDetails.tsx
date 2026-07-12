@@ -191,7 +191,7 @@ export function LazyWhyRankDetails({
           onClick={toggleDetails}
           aria-expanded={open}
           aria-controls={detailId}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#ddb159]/[0.055] px-3 text-[10px] font-black text-[#ddb159] transition hover:border-[#ddb159]/50 hover:bg-[#ddb159]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/26 bg-[#04180f]/34 px-3 text-[10px] font-black text-[#ddb159] transition hover:border-[#ddb159]/52 hover:bg-[#ddb159]/9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
         >
           {open ? "Hide explanation" : "Why this rank →"}
         </button>
@@ -199,7 +199,7 @@ export function LazyWhyRankDetails({
         {open && (
           <div
             id={detailId}
-            className="col-span-2 mt-1 overflow-hidden rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/72 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] motion-reduce:transition-none"
+            className="col-span-2 -mx-3 -mb-3 mt-2 overflow-hidden border-t border-[#ddb159]/12 bg-[linear-gradient(180deg,rgba(221,177,89,0.035),rgba(3,24,15,0.3))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] motion-reduce:transition-none"
             style={{ animation: "rankWhyReveal 160ms ease-out" }}
           >
             <WhyContent stock={stock} data={data} loading={loading} error={error} compact />
