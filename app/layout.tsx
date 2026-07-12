@@ -6,6 +6,7 @@ import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
 import "./dashboard-right-rail.css";
+import "./mobile-dashboard-polish.css";
 import "./landing-mobile-fixes.css";
 import "./ask-stockgpt-polish.css";
 import "./ask-stockgpt-mobile-hardening.css";
