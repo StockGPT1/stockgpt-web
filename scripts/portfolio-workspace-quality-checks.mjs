@@ -59,9 +59,12 @@ assert.doesNotMatch(layout, /PortfolioWorkspaceRedesign|PortfolioAllocationBarPo
 assert.doesNotMatch(layout, /portfolio-workspace-redesign\.css|portfolio-allocation-polish\.css|portfolio-chart-border-fix\.css/);
 assert.doesNotMatch(
   workspace,
-  /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|querySelectorAll|classList\./,
+  /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|classList\./,
 );
 assert.equal((workspace.match(/document\.querySelector/g) ?? []).length, 0);
+// The only selector traversal allowed is scoped to the active dialog for focus trapping.
+assert.equal((workspace.match(/querySelectorAll/g) ?? []).length, 1);
+assert.match(sheetShell, /dialogRef\.current\?\.querySelectorAll/);
 
 // Navigation remains information-led; Add and Manage are contextual actions.
 assert.match(orchestrator, /PortfolioSection/);
@@ -90,7 +93,7 @@ assert.match(visuals, /of total portfolio/);
 assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
 assert.match(stage, /filterDisplayablePortfolioChartData/);
 
-// Overview, holdings, map/treemap and timeline are all represented as real components.
+// Overview, holdings, map/treemap and timeline are real React components.
 assert.match(overview, /Portfolio Pulse/);
 assert.match(overview, /Conviction × exposure/);
 assert.match(overview, /Portfolio-fit ideas/);
@@ -126,7 +129,7 @@ assert.match(workspace, /focus-visible:outline/);
 assert.match(visuals, /Accessible map data/);
 assert.match(visuals, /Open holding/);
 
-// Add/Manage flows preserve all required actions and funding paths.
+// Add/Manage flows preserve required actions and funding paths.
 assert.match(sheets, /Add holding/);
 assert.match(sheets, /Add cash/);
 assert.match(sheets, /Withdraw cash/);
