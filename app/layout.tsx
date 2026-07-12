@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import { PortfolioAllocationBarPolish } from "@/components/PortfolioAllocationBarPolish";
+import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import "./globals.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
@@ -17,6 +18,7 @@ import "./top-movers-drawer.css";
 import "./mobile-page-titles.css";
 import "./portfolio-chart-border-fix.css";
 import "./portfolio-allocation-polish.css";
+import "./stock-ask-action.css";
 
 const iconVersion = "31";
 
@@ -101,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <PortfolioAllocationBarPolish />
+        <StockAskActionPolish />
         <Analytics />
         <SpeedInsights />
         <Script id="stockgpt-structured-data" type="application/ld+json">
