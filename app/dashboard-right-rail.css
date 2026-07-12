@@ -1,56 +1,58 @@
 /* Desktop dashboard layout polish.
-   Keep the main column and right intelligence rail independent, compact and aligned.
-   Mobile is intentionally untouched. */
+   Keep the main column and right intelligence rail in natural document flow.
+   Every visible module should follow the same gap, with no reserved empty rows,
+   stretched cards or clipped content. Mobile is intentionally untouched. */
 
 @media (min-width: 1024px) {
-  /* The setup checklist has been removed, so the desktop main column now has
-     exactly four visible rows: briefing hero, stats, opportunities and rankings. */
+  .sg-dashboard-main > div.hidden {
+    align-items: start !important;
+  }
+
+  /* ActivationChecklist now renders null. Its legacy wrapper must not reserve a
+     grid row, otherwise the opportunities section inherits the rankings row's
+     large minimum height and creates a false blank gap. */
+  .sg-dashboard-main > div.hidden > section > div:empty {
+    display: none !important;
+  }
+
   .sg-dashboard-main > div.hidden > section {
     grid-template-rows:
       clamp(108px, 15dvh, 138px)
       clamp(54px, 7dvh, 62px)
       auto
-      minmax(420px, 1fr) !important;
+      auto !important;
+    grid-auto-rows: auto !important;
     align-content: start !important;
+    align-items: start !important;
     min-width: 0 !important;
   }
 
-  /* The right rail must size to its own content rather than stretching cards to
-     match the taller rankings column. This prevents the market card and chart
-     from becoming oversized or leaving blurred empty space. */
+  .sg-dashboard-main > div.hidden > section > * {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* The right rail must use the intrinsic height of each module. Fixed viewport
+     rows previously cut off the portfolio footer and stretched the market card. */
   .sg-dashboard-main > div.hidden > aside {
-    grid-template-rows:
-      clamp(218px, 26dvh, 252px)
-      auto
-      clamp(205px, 23dvh, 235px) !important;
+    grid-template-rows: none !important;
     grid-auto-rows: auto !important;
     align-content: start !important;
+    align-items: start !important;
     align-self: start !important;
     min-width: 0 !important;
-    height: max-content !important;
+    height: auto !important;
   }
 
   .sg-dashboard-main > div.hidden > aside > * {
     min-width: 0 !important;
     min-height: 0 !important;
-    height: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .sg-dashboard-main > div.hidden > aside > :nth-child(2) {
+    width: 100% !important;
     height: auto !important;
+    max-width: 100% !important;
   }
 
   .sg-dashboard-main > div.hidden > aside > :last-child {
     overflow: hidden !important;
-  }
-}
-
-@media (min-width: 1440px) {
-  .sg-dashboard-main > div.hidden > aside {
-    grid-template-rows:
-      clamp(230px, 27dvh, 266px)
-      auto
-      clamp(215px, 24dvh, 245px) !important;
   }
 }
