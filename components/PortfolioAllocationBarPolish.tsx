@@ -38,7 +38,7 @@ function findMobileAllocationParts(row: HTMLElement) {
   if (!button) return null;
 
   const marker = Array.from(button.querySelectorAll<HTMLElement>("span[style]"))
-    .find((node) => node.style.left && node.style.height);
+    .find((node) => Boolean(node.style.left));
   const existingTrack = button.querySelector<HTMLElement>("[data-sg-allocation-track]");
   const track = existingTrack ?? marker?.parentElement ?? null;
   if (!track) return null;
