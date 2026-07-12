@@ -1,0 +1,21 @@
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] span.h-1\.5 {
+  overflow: hidden !important;
+  background: rgba(250, 246, 240, 0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] span.h-1\.5 > span:first-child,
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] [data-sg-allocation-fill] {
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, #9b7228 0%, #d6ae4d 48%, #f3d98b 100%) !important;
+  box-shadow: none !important;
+}
+
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] span.h-1\.5 > span[style*="left:"],
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] [data-sg-allocation-marker] {
+  display: none !important;
+}
+
+body[data-sg-path="portfolio"] [data-stockgpt-holding-row] [data-sg-allocation-state="unavailable"] [data-sg-allocation-fill] {
+  width: 0 !important;
+}
