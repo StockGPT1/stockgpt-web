@@ -78,7 +78,7 @@ export function StockAskActionPolish() {
         );
         const chartSection = chartLabel?.closest<HTMLElement>("section") ?? null;
 
-        if (mobileAsk && chartSection) {
+        if (mobileAsk && chartSection && secondaryActions) {
           prepareAskLink(mobileAsk, ticker, "mobile");
 
           let mobileWrapper = root.querySelector<HTMLElement>(
