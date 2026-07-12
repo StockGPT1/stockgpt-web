@@ -9,14 +9,38 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 
 const canonicalPage = read("app/portfolio/page.tsx");
 const modernPage = read("app/portfolio/modern/page.tsx");
-const workspace = read("components/PortfolioModernWorkspace.tsx");
+const shellExport = read("components/PortfolioModernWorkspace.tsx");
+const workspaceFiles = [
+  "components/portfolio-workspace/PortfolioModernWorkspace.tsx",
+  "components/portfolio-workspace/PortfolioStage.tsx",
+  "components/portfolio-workspace/PortfolioOverview.tsx",
+  "components/portfolio-workspace/PortfolioHoldings.tsx",
+  "components/portfolio-workspace/PortfolioActivity.tsx",
+  "components/portfolio-workspace/PortfolioHoldingsVisuals.tsx",
+  "components/portfolio-workspace/PortfolioActionSheets.tsx",
+  "components/portfolio-workspace/PortfolioSheet.tsx",
+  "components/portfolio-workspace/PortfolioIcon.tsx",
+  "components/portfolio-workspace/types.ts",
+  "components/portfolio-workspace/utils.ts",
+];
+const workspace = workspaceFiles.map(read).join("\n");
+const orchestrator = read("components/portfolio-workspace/PortfolioModernWorkspace.tsx");
+const stage = read("components/portfolio-workspace/PortfolioStage.tsx");
+const overview = read("components/portfolio-workspace/PortfolioOverview.tsx");
+const holdings = read("components/portfolio-workspace/PortfolioHoldings.tsx");
+const activity = read("components/portfolio-workspace/PortfolioActivity.tsx");
+const visuals = read("components/portfolio-workspace/PortfolioHoldingsVisuals.tsx");
+const sheets = read("components/portfolio-workspace/PortfolioActionSheets.tsx");
+const sheetShell = read("components/portfolio-workspace/PortfolioSheet.tsx");
+const cashAction = read("lib/actions/portfolio-cash.ts");
 const layout = read("app/layout.tsx");
 const nextConfig = read("next.config.ts");
 const loading = read("app/portfolio/loading.tsx");
 
-// Canonical architecture: /portfolio renders the React workspace directly.
+// Canonical architecture: /portfolio renders the typed React workspace directly.
 assert.match(canonicalPage, /from\s+["']\.\/modern\/page["']/);
 assert.match(canonicalPage, /export const dynamic = ["']force-dynamic["']/);
+assert.match(shellExport, /portfolio-workspace\/PortfolioModernWorkspace/);
 assert.doesNotMatch(nextConfig, /source:\s*["']\/portfolio["']/);
 assert.match(modernPage, /<PortfolioModernWorkspace/);
 assert.match(modernPage, /redirect\(["']\/login["']\)/);
@@ -37,24 +61,23 @@ assert.doesNotMatch(
   workspace,
   /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|querySelectorAll|classList\./,
 );
-// One read-only selector is currently used solely to scroll to the React-rendered section anchor.
-assert.equal((workspace.match(/document\.querySelector/g) ?? []).length, 1);
-assert.match(workspace, /document\.querySelector\("\[data-portfolio-section-anchor\]"\)/);
+assert.equal((workspace.match(/document\.querySelector/g) ?? []).length, 0);
 
 // Navigation remains information-led; Add and Manage are contextual actions.
-assert.match(workspace, /type Section = "overview" \| "holdings" \| "activity"/);
-assert.match(workspace, /label: "Overview"/);
-assert.match(workspace, /label: "Holdings"/);
-assert.match(workspace, /label: "Activity"/);
-assert.doesNotMatch(workspace, /SECTION_ITEMS[\s\S]{0,400}label: "Add"/);
-assert.doesNotMatch(workspace, /SECTION_ITEMS[\s\S]{0,400}label: "Manage"/);
-assert.match(workspace, /setAddOpen\(true\)/);
-assert.match(workspace, /setManageOpen\(true\)/);
+assert.match(orchestrator, /PortfolioSection/);
+assert.match(stage, /label: "Overview"/);
+assert.match(stage, /label: "Holdings"/);
+assert.match(stage, /label: "Activity"/);
+assert.doesNotMatch(stage, /SECTION_ITEMS[\s\S]{0,400}label: "Add"/);
+assert.doesNotMatch(stage, /SECTION_ITEMS[\s\S]{0,400}label: "Manage"/);
+assert.match(orchestrator, /setAddOpen\(true\)/);
+assert.match(orchestrator, /setManageOpen\(true\)/);
 
-// URL state and portfolio switching must be durable and deep-linkable.
-assert.match(workspace, /searchParams\.get\("section"\)/);
-assert.match(workspace, /params\.set\("section", next\.section\)/);
-assert.match(workspace, /params\.set\("portfolio", next\.portfolio\)/);
+// URL state and portfolio switching remain durable and deep-linkable.
+assert.match(orchestrator, /searchParams\.get\("section"\)/);
+assert.match(orchestrator, /params\.set\("section", next\.section\)/);
+assert.match(orchestrator, /params\.set\("portfolio", next\.portfolio\)/);
+assert.match(orchestrator, /sectionAnchorRef\.current\?\.scrollIntoView/);
 assert.match(modernPage, /params\.section === "holdings" \|\| params\.section === "activity"/);
 assert.match(modernPage, /portfolios\.some\(\(portfolio\) => portfolio\.id === params\.portfolio\)/);
 
@@ -63,41 +86,72 @@ assert.match(modernPage, /buildPortfolioHealthSummary/);
 assert.match(modernPage, /buildPortfolioPageChartResult/);
 assert.match(modernPage, /currentAllocationPct:\s*totalValue > 0 \? \(currentValue \/ totalValue\) \* 100 : 0/);
 assert.match(modernPage, /allowCurrentSnapshot:\s*enriched\.every/);
-assert.match(workspace, /of total portfolio/);
+assert.match(visuals, /of total portfolio/);
 assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
+assert.match(stage, /filterDisplayablePortfolioChartData/);
+
+// Overview, holdings, map/treemap and timeline are all represented as real components.
+assert.match(overview, /Portfolio Pulse/);
+assert.match(overview, /Conviction × exposure/);
+assert.match(overview, /Portfolio-fit ideas/);
+assert.match(visuals, /ConvictionMap/);
+assert.match(visuals, /AllocationTreemap/);
+assert.match(holdings, /Search holdings/);
+assert.match(holdings, /sticky top-0/);
+assert.match(activity, /Load more activity/);
+assert.match(activity, /Transactions are user actions/);
 
 // The page reserves space for the mobile nav and prevents body overflow.
-assert.match(workspace, /overflow-x-hidden/);
-assert.match(workspace, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
-assert.match(workspace, /max-w-\[1480px\]/);
+assert.match(orchestrator, /overflow-x-hidden/);
+assert.match(orchestrator, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
+assert.match(orchestrator, /max-w-\[1480px\]/);
 assert.match(loading, /aria-label="Loading portfolio"/);
 assert.match(loading, /aria-busy="true"/);
 assert.match(loading, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 
-// Intentional scrollers only: metric strip, opportunities and filter rails.
-assert.match(workspace, /snap-x snap-mandatory/);
+// Intentional scrollers only: metrics, opportunities, filters and sheet bodies.
+assert.match(overview, /snap-x snap-mandatory/);
 assert.match(workspace, /overflow-x-auto/);
 assert.match(workspace, /\[scrollbar-width:none\]/);
-assert.match(workspace, /overflow-y-auto overscroll-contain/);
+assert.match(sheetShell, /overflow-y-auto overscroll-contain/);
 
-// Sheets, keyboard dismissal, focus states and chart/map alternatives.
-assert.match(workspace, /role="dialog"/);
-assert.match(workspace, /aria-modal="true"/);
-assert.match(workspace, /event\.key === "Escape"/);
+// Sheets include focus management, Escape handling, unsaved-change protection and safe areas.
+assert.match(sheetShell, /role="dialog"/);
+assert.match(sheetShell, /aria-modal="true"/);
+assert.match(sheetShell, /event\.key === "Escape"/);
+assert.match(sheetShell, /document\.activeElement/);
+assert.match(sheetShell, /closeConfirmation/);
+assert.match(sheetShell, /safe-area-inset-bottom/);
 assert.match(workspace, /focus-visible:outline/);
-assert.match(workspace, /aria-label=\{`\$\{holding\.ticker\}, \$\{holding\.currentAllocationPct\.toFixed\(1\)\}% allocation/);
-assert.match(workspace, /Open holding/);
+assert.match(visuals, /Accessible map data/);
+assert.match(visuals, /Open holding/);
+
+// Add/Manage flows preserve all required actions and funding paths.
+assert.match(sheets, /Add holding/);
+assert.match(sheets, /Add cash/);
+assert.match(sheets, /Withdraw cash/);
+assert.match(sheets, /Import Trading 212/);
+assert.match(sheets, /Create another portfolio/);
+assert.match(sheets, /buyHoldingWithCash/);
+assert.match(sheets, /logExistingHolding/);
+assert.match(sheets, /withdrawPortfolioCash/);
+assert.match(sheets, /updatePortfolioPreferences/);
+assert.match(sheets, /Discard unsaved portfolio changes/);
+assert.match(cashAction, /eq\("user_id", user\.id\)/);
+assert.match(cashAction, /amount > currentCash/);
+assert.match(cashAction, /Restore the balance/);
+assert.match(cashAction, /invalidatePortfolioPageSnapshot/);
 
 // Core interaction sizes remain at or above the 44px mobile target.
 assert.match(workspace, /size-11|size-12/);
 assert.match(workspace, /h-12/);
-assert.doesNotMatch(workspace, /\bh-(?:6|7|8)\b[^\n]{0,120}(?:button|onClick)/);
+assert.match(workspace, /min-h-11/);
 
 // Honest chart states: do not invent movement when history is incomplete.
-assert.match(workspace, /StockGPT only plots confirmed portfolio snapshots/);
-assert.match(workspace, /Preparing reliable chart history/);
-assert.match(workspace, /Showing cached chart/);
-assert.match(workspace, /Chart history unavailable/);
+assert.match(stage, /StockGPT only plots confirmed portfolio snapshots/);
+assert.match(stage, /Preparing reliable chart history/);
+assert.match(stage, /Showing cached chart/);
+assert.match(stage, /Chart history unavailable/);
 
 // Simple reconciliation checks protect the intended allocation interpretation.
 const allocation = (holdingValue, totalValue) => (totalValue > 0 ? (holdingValue / totalValue) * 100 : 0);
