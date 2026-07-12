@@ -9,6 +9,7 @@ import {
   MobileDashboardExperience,
   type MobileDashboardNewsArticle,
 } from "@/components/MobileDashboardExperience";
+import { MobileMarketMoversPortal } from "@/components/MobileMarketMovers";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import {
@@ -233,6 +234,7 @@ export default async function DashboardPage({
           news={dashboardNews}
           newsStatus={newsStatus}
         />
+        <MobileMarketMoversPortal canUsePremium={hasSubscription} />
 
         <DesktopDashboardExperience
           firstName={firstName}
