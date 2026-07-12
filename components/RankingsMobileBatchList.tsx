@@ -47,6 +47,9 @@ function dailyMove(value: number | null) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
+const glassShellClass =
+  "relative isolate overflow-hidden rounded-[22px] border border-[#ddb159]/22 bg-[linear-gradient(145deg,rgba(250,246,240,0.058)_0%,rgba(11,43,29,0.64)_34%,rgba(3,24,15,0.82)_100%)] shadow-[0_16px_38px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-xl";
+
 export function RankingsMobileBatchList({
   initialItems,
   initialPage,
@@ -114,14 +117,16 @@ export function RankingsMobileBatchList({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#ddb159]/14 bg-[#0a2a1d] px-4 py-10 text-center text-[13px] font-bold text-[#faf6f0]/55">
-        No stocks match these filters in the current batch. Reset filters or load the next batch.
+      <div className={`${glassShellClass} px-4 py-10 text-center`}>
+        <p className="text-[13px] font-bold leading-5 text-[#faf6f0]/58">
+          No stocks match these filters in the current batch. Reset filters or load the next batch.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#ddb159]/14 bg-[#0a2a1d]">
+    <div className={glassShellClass}>
       {items.map((stock) => {
         const confidence = getModelConfidence(stock);
         const rowKey = String(stock.id ?? stock.ticker ?? stock.rank ?? "ranking-row");
@@ -130,10 +135,11 @@ export function RankingsMobileBatchList({
         return (
           <article
             key={rowKey}
-            className="border-b border-[#ddb159]/10 px-3 py-3 last:border-b-0"
+            data-expanded={isWhyOpen ? "true" : "false"}
+            className="relative border-b border-[#ddb159]/12 bg-transparent px-3 py-3 transition-colors duration-150 last:border-b-0 hover:bg-[#ddb159]/[0.035] active:bg-[#ddb159]/[0.055] data-[expanded=true]:bg-[#ddb159]/[0.028]"
           >
             <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#ddb159] text-[11px] font-black tabular-nums text-[#061b12]">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#ddb159] text-[11px] font-black tabular-nums text-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
                 {stock.rank ?? "—"}
               </span>
 
@@ -146,27 +152,27 @@ export function RankingsMobileBatchList({
                   <span className="block truncate text-[14px] font-black leading-5 text-[#faf6f0]">
                     {stock.ticker}
                   </span>
-                  <span className="block truncate text-[10px] font-semibold leading-4 text-[#faf6f0]/46">
+                  <span className="block truncate text-[10px] font-semibold leading-4 text-[#faf6f0]/48">
                     {stock.company}
                   </span>
                 </span>
               </Link>
 
-              <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black tabular-nums text-[#061b12]">
+              <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black tabular-nums text-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
                 {score(stock.score)}
               </span>
             </div>
 
-            <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[#faf6f0]/54">
+            <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[#faf6f0]/56">
               <span className="shrink-0 tabular-nums">{dailyMove(stock.dailyMove)}</span>
-              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/24">·</span>
+              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/22">·</span>
               <span className="shrink-0 tabular-nums">{price(stock.price)}</span>
-              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/24">·</span>
+              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/22">·</span>
               <span className="min-w-0 truncate">{confidence.label} confidence</span>
             </div>
 
             <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-              <span className="min-w-0 truncate text-[10px] font-semibold text-[#faf6f0]/42">
+              <span className="min-w-0 truncate text-[10px] font-semibold text-[#faf6f0]/44">
                 {stock.sector || "Sector unavailable"}
               </span>
               <LazyWhyRankDetails
@@ -182,12 +188,12 @@ export function RankingsMobileBatchList({
       })}
 
       {!locked && page < totalPages && (
-        <div className="p-3">
+        <div className="border-t border-[#ddb159]/12 bg-[#02150d]/24 p-3 backdrop-blur-sm">
           <button
             type="button"
             onClick={loadNext}
             disabled={isPending}
-            className="h-12 w-full rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#061b12] disabled:opacity-50"
+            className="h-12 w-full rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)] transition hover:brightness-105 disabled:opacity-50"
           >
             {isPending ? "Loading next 50…" : "Load next 50"}
           </button>
