@@ -102,6 +102,14 @@
     width: 100%;
     text-align: center;
   }
+
+  /* The Add and Manage tabs are the single entry points for these actions. */
+  body[data-sg-path="portfolio"]
+    .portfolio-section-nav
+    + section.grid.gap-3
+    > div.grid.grid-cols-2.gap-2 {
+    display: none !important;
+  }
 }
 
 @media (max-width: 359px) {
