@@ -5,7 +5,10 @@ import {
   DesktopDashboardExperience,
   type DashboardRanking,
 } from "@/components/DesktopDashboardExperience";
-import { MobileDashboardExperience } from "@/components/MobileDashboardExperience";
+import {
+  MobileDashboardExperience,
+  type MobileDashboardNewsArticle,
+} from "@/components/MobileDashboardExperience";
 import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import {
@@ -19,6 +22,7 @@ import {
   type DashboardPortfolioOpportunity,
 } from "@/lib/dashboard-portfolio";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
+import { getCachedWorldNewsFeed } from "@/lib/world-news-feed";
 
 export const metadata: Metadata = {
   title: "Dashboard | StockGPT Portfolio Intelligence",
@@ -57,6 +61,21 @@ function getFirstNameFromUserMetadata(user: {
   return fullName.split(/\s+/)[0];
 }
 
+async function getDashboardWorldNewsSafe() {
+  try {
+    return await getCachedWorldNewsFeed();
+  } catch (error) {
+    console.error("[dashboard] world news feed read failed", error);
+    return null;
+  }
+}
+
+function toPublishedMs(value: string | null | undefined) {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -80,6 +99,7 @@ export default async function DashboardPage({
     dashboardPortfolio,
     sp500Data,
     snapshotMap,
+    worldNewsFeed,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -99,6 +119,7 @@ export default async function DashboardPage({
     getDashboardMainPortfolio(supabase, user.id, params.portfolio),
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
     getRankSnapshotMapAround24hAgo(supabase),
+    getDashboardWorldNewsSafe(),
   ]);
 
   const hasSubscription = hasActiveSubscription(
@@ -146,6 +167,35 @@ export default async function DashboardPage({
         ? "limited"
         : null;
 
+  const dashboardNews: MobileDashboardNewsArticle[] = hasSubscription
+    ? [...(worldNewsFeed?.articles ?? [])]
+        .filter((article) => Boolean(article.title && article.url))
+        .sort(
+          (a, b) =>
+            toPublishedMs(b.published_at) - toPublishedMs(a.published_at),
+        )
+        .slice(0, 3)
+        .map((article) => ({
+          id: String(article.id),
+          title: String(article.title),
+          summary: article.summary,
+          source: article.source,
+          url: article.url,
+          imageUrl: article.image_url,
+          publishedAt: article.published_at,
+          affectedTickers: article.affectedStocks
+            .slice(0, 3)
+            .map((stock) => stock.ticker)
+            .filter(Boolean),
+        }))
+    : [];
+
+  const newsStatus: "ok" | "error" | "locked" = !hasSubscription
+    ? "locked"
+    : worldNewsFeed
+      ? "ok"
+      : "error";
+
   const askContext = {
     contextType: "dashboard" as const,
     ...(portfolioId ? { portfolioId } : {}),
@@ -180,6 +230,8 @@ export default async function DashboardPage({
           marketChart={sp500Data}
           marketValue={marketValue}
           marketChangePct={marketChangePct}
+          news={dashboardNews}
+          newsStatus={newsStatus}
         />
 
         <DesktopDashboardExperience
