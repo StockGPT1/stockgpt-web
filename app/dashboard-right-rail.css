@@ -1,60 +1,56 @@
-/* Dashboard right rail preview polish
-   Keeps the Portfolio tile value block above a dominant, contribution-adjusted chart area. */
+/* Desktop dashboard layout polish.
+   Keep the main column and right intelligence rail independent, compact and aligned.
+   Mobile is intentionally untouched. */
 
 @media (min-width: 1024px) {
-  .sg-dashboard-main aside {
-    grid-template-rows: clamp(248px, 31dvh, 306px) clamp(190px, 24dvh, 236px) minmax(270px, 1fr) !important;
+  /* The setup checklist has been removed, so the desktop main column now has
+     exactly four visible rows: briefing hero, stats, opportunities and rankings. */
+  .sg-dashboard-main > div.hidden > section {
+    grid-template-rows:
+      clamp(108px, 15dvh, 138px)
+      clamp(54px, 7dvh, 62px)
+      auto
+      minmax(420px, 1fr) !important;
+    align-content: start !important;
+    min-width: 0 !important;
   }
 
-  .sg-dashboard-main aside > a[href="/portfolio"] {
-    display: flex !important;
-    flex-direction: column !important;
+  /* The right rail must size to its own content rather than stretching cards to
+     match the taller rankings column. This prevents the market card and chart
+     from becoming oversized or leaving blurred empty space. */
+  .sg-dashboard-main > div.hidden > aside {
+    grid-template-rows:
+      clamp(218px, 26dvh, 252px)
+      auto
+      clamp(205px, 23dvh, 235px) !important;
+    grid-auto-rows: auto !important;
+    align-content: start !important;
+    align-self: start !important;
+    min-width: 0 !important;
+    height: max-content !important;
   }
 
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid {
-    display: flex !important;
-    flex: 1 1 auto !important;
-    flex-direction: column !important;
-    gap: 0.55rem !important;
+  .sg-dashboard-main > div.hidden > aside > * {
+    min-width: 0 !important;
     min-height: 0 !important;
-  }
-
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:first-child {
-    display: grid !important;
-    flex: 0 0 auto !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    align-items: end !important;
-    gap: 0.75rem !important;
-    padding: 0 !important;
-  }
-
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:first-child > span {
-    justify-self: end !important;
-    margin-top: 0 !important;
-    text-align: right !important;
-  }
-
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) {
-    flex: 1 1 auto !important;
-    min-height: 132px !important;
-    width: 100% !important;
-  }
-
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div {
     height: 100% !important;
-    min-height: 132px !important;
+    max-width: 100% !important;
   }
 
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div > div[style] {
-    height: 100% !important;
-    min-height: 132px !important;
+  .sg-dashboard-main > div.hidden > aside > :nth-child(2) {
+    height: auto !important;
+  }
+
+  .sg-dashboard-main > div.hidden > aside > :last-child {
+    overflow: hidden !important;
   }
 }
 
-@media (min-width: 1280px) {
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2),
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div,
-  .sg-dashboard-main aside > a[href="/portfolio"] > div.relative.mt-2.grid > div:nth-child(2) > div > div[style] {
-    min-height: 154px !important;
+@media (min-width: 1440px) {
+  .sg-dashboard-main > div.hidden > aside {
+    grid-template-rows:
+      clamp(230px, 27dvh, 266px)
+      auto
+      clamp(215px, 24dvh, 245px) !important;
   }
 }
