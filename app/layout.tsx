@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import { PortfolioAllocationBarPolish } from "@/components/PortfolioAllocationBarPolish";
+import { PortfolioWorkspaceRedesign } from "@/components/PortfolioWorkspaceRedesign";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import "./globals.css";
 import "./mobile-overflow.css";
@@ -19,6 +20,7 @@ import "./mobile-page-titles.css";
 import "./portfolio-chart-border-fix.css";
 import "./portfolio-allocation-polish.css";
 import "./stock-ask-action.css";
+import "./portfolio-workspace-redesign.css";
 
 const iconVersion = "31";
 
@@ -103,6 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <PortfolioAllocationBarPolish />
+        <PortfolioWorkspaceRedesign />
         <StockAskActionPolish />
         <Analytics />
         <SpeedInsights />
