@@ -94,16 +94,29 @@ function opportunityUpdated(value?: string | null) {
 
 function localGreeting(name?: string) {
   const hour = new Date().getHours();
-  const base = hour < 5 ? "Late session" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : hour < 22 ? "Good evening" : "Late session";
+  const base =
+    hour < 5
+      ? "Late session"
+      : hour < 12
+        ? "Good morning"
+        : hour < 17
+          ? "Good afternoon"
+          : hour < 22
+            ? "Good evening"
+            : "Late session";
   return name ? `${base}, ${name}` : base;
 }
 
 function marketStatus() {
   const now = new Date();
-  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const et = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
   const day = et.getDay();
   const mins = et.getHours() * 60 + et.getMinutes();
-  if (day === 0 || day === 6 || mins < 4 * 60 || mins >= 20 * 60) return "Markets closed";
+  if (day === 0 || day === 6 || mins < 4 * 60 || mins >= 20 * 60) {
+    return "Markets closed";
+  }
   if (mins < 9 * 60 + 30) return "Pre-market";
   if (mins < 16 * 60) return "Markets open";
   return "After hours";
@@ -141,12 +154,16 @@ export function MobileDashboardExperience({
     setGreeting(localGreeting(firstName));
     setMarket(marketStatus());
     return () => {
-      if (scrollFrame.current != null) window.cancelAnimationFrame(scrollFrame.current);
+      if (scrollFrame.current != null) {
+        window.cancelAnimationFrame(scrollFrame.current);
+      }
     };
   }, [firstName]);
 
   const topRanked = rankings[0];
-  const portfolioHref = portfolioId ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}` : "/portfolio";
+  const portfolioHref = portfolioId
+    ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}`
+    : "/portfolio";
   const askContext = {
     contextType: "dashboard" as const,
     ...(portfolioId ? { portfolioId } : {}),
@@ -164,12 +181,15 @@ export function MobileDashboardExperience({
     if (valuationState === "partial") {
       return `Portfolio value is estimated${topRanked?.ticker ? ` · ${topRanked.ticker} remains #1` : ""}`;
     }
-    const health = canUsePremium ? `${summary.label.toLowerCase()} portfolio` : "portfolio connected";
-    const review = canUsePremium && summary.actionAlerts > 0
-      ? `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"} worth checking`
-      : topRanked?.ticker
-        ? `${topRanked.ticker} remains #1`
-        : "rankings ready";
+    const health = canUsePremium
+      ? `${summary.label.toLowerCase()} portfolio`
+      : "portfolio connected";
+    const review =
+      canUsePremium && summary.actionAlerts > 0
+        ? `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"} worth checking`
+        : topRanked?.ticker
+          ? `${topRanked.ticker} remains #1`
+          : "rankings ready";
     return `${health} · ${review}`;
   }, [canUsePremium, summary, topRanked?.ticker, valuationState]);
 
@@ -204,7 +224,9 @@ export function MobileDashboardExperience({
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
     if (!track) return;
-    if (scrollFrame.current != null) window.cancelAnimationFrame(scrollFrame.current);
+    if (scrollFrame.current != null) {
+      window.cancelAnimationFrame(scrollFrame.current);
+    }
     scrollFrame.current = window.requestAnimationFrame(() => {
       const children = Array.from(track.children) as HTMLElement[];
       if (!children.length) return;
@@ -227,19 +249,33 @@ export function MobileDashboardExperience({
     const track = carouselRef.current;
     const child = track?.children[index] as HTMLElement | undefined;
     if (!track || !child) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    track.scrollTo({ left: child.offsetLeft, behavior: reducedMotion ? "auto" : "smooth" });
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    track.scrollTo({
+      left: child.offsetLeft,
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
     setActivePanel(index);
   }, []);
 
   function handleCarouselKey(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    showPanel(Math.max(0, Math.min(PANELS.length - 1, activePanel + (event.key === "ArrowRight" ? 1 : -1))));
+    showPanel(
+      Math.max(
+        0,
+        Math.min(
+          PANELS.length - 1,
+          activePanel + (event.key === "ArrowRight" ? 1 : -1),
+        ),
+      ),
+    );
   }
 
   const portfolioChartReady =
-    portfolioChartState.displayState === "ready" &&
+    (portfolioChartState.displayState === "ready" ||
+      portfolioChartState.displayState === "error_with_cache") &&
     !portfolioChartState.isFlat &&
     chartHasData(portfolioChart);
 
@@ -247,10 +283,12 @@ export function MobileDashboardExperience({
     <div className="min-w-0 pb-[calc(8rem+env(safe-area-inset-bottom))] lg:hidden">
       <section className="relative overflow-hidden border-b border-[#ddb159]/15 px-1 pb-4 pt-1">
         <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-[#ddb159]/10 blur-3xl" />
-        <div className="relative flex items-start justify-between gap-3">
+        <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-luxury text-[12px] font-semibold text-[#ddb159]">{greeting}</p>
+              <p className="font-luxury text-[12px] font-semibold text-[#ddb159]">
+                {greeting}
+              </p>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/18 bg-[#072116]/55 px-2 py-1 text-[9px] font-bold text-[#faf6f0]/62">
                 <span className="size-1.5 rounded-full bg-[#faf6f0]/38" />
                 {market}
@@ -269,7 +307,7 @@ export function MobileDashboardExperience({
             label="Ask StockGPT"
             context={askContext}
             compact
-            className="mt-0.5 h-10 px-3 text-[10px] hover:!translate-y-0"
+            className="mt-0.5 h-10 px-3 text-[10px] hover:!translate-y-0 max-[350px]:px-2 max-[350px]:text-[9px]"
           />
         </div>
       </section>
@@ -296,66 +334,120 @@ export function MobileDashboardExperience({
               <div className="relative flex h-full flex-col">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p>
-                    <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">{summary.name}</h2>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                      Your portfolio
+                    </p>
+                    <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
+                      {summary.name}
+                    </h2>
                   </div>
                   <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
-                    {canUsePremium ? `Health ${summary.score}/100` : "Health locked"}
+                    {canUsePremium
+                      ? `Health ${summary.score}/100`
+                      : "Health locked"}
                   </span>
                 </div>
 
                 {portfolioId && (
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <DashboardPortfolioSelector value={portfolioId} portfolios={portfolios} />
-                    <FreshnessLabel value={portfolioChartState.latestSnapshotAt} compact />
+                    <DashboardPortfolioSelector
+                      value={portfolioId}
+                      portfolios={portfolios}
+                    />
+                    <FreshnessLabel
+                      value={portfolioChartState.latestSnapshotAt}
+                      compact
+                    />
                   </div>
                 )}
 
                 <div className="mt-3 flex items-end justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">
-                      {valuationState === "unavailable" ? "Value unavailable" : money(summary.totalValue, summary.currency)}
+                      {valuationState === "unavailable"
+                        ? "Value unavailable"
+                        : money(summary.totalValue, summary.currency)}
                     </p>
                     {valuationState !== "unavailable" && (
-                      <p className={`mt-1.5 text-[13px] font-black tabular-nums ${summary.totalPnl >= 0 ? "text-emerald-300" : "text-red-200"}`}>
-                        {money(summary.totalPnl, summary.currency)} · {summary.totalPnl >= 0 ? "+" : ""}{summary.totalPnlPct.toFixed(1)}%
+                      <p
+                        className={`mt-1.5 text-[13px] font-black tabular-nums ${
+                          summary.totalPnl >= 0
+                            ? "text-emerald-300"
+                            : "text-red-200"
+                        }`}
+                      >
+                        {money(summary.totalPnl, summary.currency)} ·{" "}
+                        {summary.totalPnl >= 0 ? "+" : ""}
+                        {summary.totalPnlPct.toFixed(1)}%
                       </p>
                     )}
                   </div>
-                  <Link href={portfolioHref} className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]">
+                  <Link
+                    href={portfolioHref}
+                    className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+                  >
                     Open →
                   </Link>
                 </div>
 
                 <div className="mt-3 min-h-[92px] flex-1 overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/42">
                   {portfolioChartReady ? (
-                    <StockChart ticker="Portfolio" data={portfolioChart} initialRange="MAX" height={94} compact />
+                    <StockChart
+                      ticker="Portfolio"
+                      data={portfolioChart}
+                      initialRange="MAX"
+                      height={94}
+                      compact
+                    />
                   ) : (
                     <div className="relative flex h-[94px] items-center overflow-hidden px-4">
                       <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#ddb159]/24" />
                       <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
                         <p className="text-[10px] font-black text-[#e7c56c]">
-                          {portfolioChartState.displayState === "error_no_cache" ? "Chart temporarily unavailable" : "Building reliable chart history"}
+                          {portfolioChartState.displayState === "error_no_cache"
+                            ? "Chart temporarily unavailable"
+                            : "Building reliable chart history"}
                         </p>
-                        <p className="mt-0.5 text-[9px] font-semibold text-[#faf6f0]/45">Only confirmed snapshots will be shown.</p>
+                        <p className="mt-0.5 text-[9px] font-semibold text-[#faf6f0]/45">
+                          Only confirmed snapshots will be shown.
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/42">
-                  <span>{summary.holdingsCount} holdings · {summary.sectorCount} sectors</span>
-                  {missingPriceTickers.length > 0 && valuationState !== "unavailable" && <span className="truncate text-[#e7c56c]">Partial prices</span>}
+                  <span>
+                    {summary.holdingsCount} holdings · {summary.sectorCount} sectors
+                  </span>
+                  {portfolioChartState.displayState === "error_with_cache" ? (
+                    <span className="truncate text-[#e7c56c]">Last-known chart</span>
+                  ) : missingPriceTickers.length > 0 &&
+                    valuationState !== "unavailable" ? (
+                    <span className="truncate text-[#e7c56c]">Partial prices</span>
+                  ) : null}
                 </div>
               </div>
             ) : (
               <div className="relative flex h-full flex-col justify-between">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p>
-                  <h2 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em]">Build your first portfolio</h2>
-                  <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">Add holdings or import a Trading 212 CSV to unlock personal value, risk and opportunity intelligence.</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                    Your portfolio
+                  </p>
+                  <h2 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em]">
+                    Build your first portfolio
+                  </h2>
+                  <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
+                    Add holdings or import a Trading 212 CSV to unlock personal value,
+                    risk and opportunity intelligence.
+                  </p>
                 </div>
-                <Link href="/portfolio?builder=1" className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black text-[#072116]">Build portfolio</Link>
+                <Link
+                  href="/portfolio?builder=1"
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black text-[#072116]"
+                >
+                  Build portfolio
+                </Link>
               </div>
             )}
           </article>
@@ -368,17 +460,31 @@ export function MobileDashboardExperience({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Daily briefing</p>
-                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">What changed</h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  Daily briefing
+                </p>
+                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
+                  What changed
+                </h2>
               </div>
               <FreshnessLabel value={topRanked?.updated_at} compact />
             </div>
             <ul className="mt-3 divide-y divide-[#ddb159]/10">
               {changedItems.slice(0, 4).map((item) => (
-                <li key={item} className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/66">{item}</li>
+                <li
+                  key={item}
+                  className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/66"
+                >
+                  {item}
+                </li>
               ))}
             </ul>
-            <Link href="/alerts" className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]">Review alerts →</Link>
+            <Link
+              href="/notifications"
+              className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+            >
+              Review alerts →
+            </Link>
           </article>
 
           <article
@@ -389,36 +495,94 @@ export function MobileDashboardExperience({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio intelligence</p>
-                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">Ideas worth reviewing</h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  Portfolio intelligence
+                </p>
+                <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
+                  Ideas worth reviewing
+                </h2>
               </div>
-              <Link href="/rankings" className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]">Review all →</Link>
+              <Link
+                href="/rankings"
+                className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+              >
+                Review all →
+              </Link>
             </div>
 
             {!canUsePremium ? (
               <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
                 <p className="text-[13px] font-black">Premium analysis locked</p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">Unlock portfolio-fit research and health analysis.</p>
-                <Link href="/subscription" className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]">View plans</Link>
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                  Unlock portfolio-fit research and health analysis.
+                </p>
+                <Link
+                  href="/subscription"
+                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                >
+                  View plans
+                </Link>
+              </div>
+            ) : !summary ? (
+              <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                <p className="text-[13px] font-black">Build a portfolio first</p>
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                  Portfolio-fit opportunities need your holdings and allocation context.
+                </p>
+                <Link
+                  href="/portfolio?builder=1"
+                  className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                >
+                  Build portfolio
+                </Link>
               </div>
             ) : opportunities.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                <p className="text-[13px] font-black">No strong opportunities right now</p>
-                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">StockGPT is not forcing an idea when the current setup is not strong enough.</p>
+                <p className="text-[13px] font-black">
+                  No strong opportunities right now
+                </p>
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                  StockGPT is not forcing an idea when the current setup is not strong
+                  enough.
+                </p>
               </div>
             ) : (
               <div className="mt-3 divide-y divide-[#ddb159]/10">
                 {opportunities.slice(0, 2).map((item) => (
-                  <Link key={`${item.category}-${item.ticker}`} href={`/stock/${item.ticker}`} className="grid grid-cols-[38px_minmax(0,1fr)] gap-3 py-3 first:pt-1">
-                    <StockLogo ticker={item.ticker} company={item.company} size={36} />
+                  <Link
+                    key={`${item.category}-${item.ticker}`}
+                    href={`/stock/${item.ticker}`}
+                    className="grid grid-cols-[38px_minmax(0,1fr)] gap-3 py-3 first:pt-1"
+                  >
+                    <StockLogo
+                      ticker={item.ticker}
+                      company={item.company}
+                      size={36}
+                    />
                     <div className="min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
-                        <p className="truncate text-[14px] font-black">{item.ticker} <span className="text-[10px] text-[#faf6f0]/42">{item.company}</span></p>
-                        <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">{score(item.score)}</span>
+                        <p className="truncate text-[14px] font-black">
+                          {item.ticker}{" "}
+                          <span className="text-[10px] text-[#faf6f0]/42">
+                            {item.company}
+                          </span>
+                        </p>
+                        <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">
+                          {score(item.score)}
+                        </span>
                       </div>
-                      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">{item.category}</p>
-                      <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.4] text-[#faf6f0]/60">{item.reason}</p>
-                      <p className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38">{opportunityUpdated(item.updatedAt)}</p>
+                      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                        {item.category}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.4] text-[#faf6f0]/60">
+                        {item.reason}
+                      </p>
+                      <p
+                        suppressHydrationWarning
+                        className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38"
+                      >
+                        {opportunityUpdated(item.updatedAt)}
+                      </p>
                     </div>
                   </Link>
                 ))}
@@ -427,7 +591,10 @@ export function MobileDashboardExperience({
           </article>
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-2" aria-label={`Panel ${activePanel + 1} of ${PANELS.length}`}>
+        <div
+          className="mt-3 flex items-center justify-center gap-2"
+          aria-label={`Panel ${activePanel + 1} of ${PANELS.length}`}
+        >
           {PANELS.map((panel, index) => (
             <button
               key={panel}
@@ -435,43 +602,83 @@ export function MobileDashboardExperience({
               aria-label={`Show ${panel}`}
               aria-current={activePanel === index ? "true" : undefined}
               onClick={() => showPanel(index)}
-              className={`h-2 rounded-full transition-[width,background-color] duration-200 ${activePanel === index ? "w-6 bg-[#ddb159]" : "w-2 bg-[#faf6f0]/20"}`}
+              className={`h-2 rounded-full transition-[width,background-color] duration-200 ${
+                activePanel === index
+                  ? "w-6 bg-[#ddb159]"
+                  : "w-2 bg-[#faf6f0]/20"
+              }`}
             />
           ))}
         </div>
-        <p className="sr-only" aria-live="polite">Showing {PANELS[activePanel]}</p>
+        <p className="sr-only" aria-live="polite">
+          Showing {PANELS[activePanel]}
+        </p>
       </section>
 
       <section className="mt-6 min-w-0">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p>
-            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">Top ranked today</h2>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              AI rankings
+            </p>
+            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+              Top ranked today
+            </h2>
           </div>
-          <Link href={rankingsLocked ? "/pricing?feature=rankings" : "/rankings"} className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">{rankingsLocked ? "Unlock →" : "View all →"}</Link>
+          <Link
+            href={rankingsLocked ? "/pricing?feature=rankings" : "/rankings"}
+            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+          >
+            {rankingsLocked ? "Unlock →" : "View all →"}
+          </Link>
         </div>
         <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pr-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {rankings.length > 0 ? rankings.slice(0, 6).map((item) => (
-            <Link
-              key={item.id}
-              href={rankingsLocked ? "/pricing?feature=rankings" : `/stock/${item.ticker}`}
-              className="w-[164px] shrink-0 snap-start rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/62 p-3 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="grid size-8 place-items-center rounded-full bg-[#ddb159] text-[12px] font-black text-[#072116]">{item.rank ?? "—"}</span>
-                <span className="rounded-full bg-[#ddb159]/14 px-2 py-1 text-[9px] font-black tabular-nums text-[#ddb159]">{rankingsLocked ? "Locked" : score(item.score)}</span>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <StockLogo ticker={item.ticker} company={item.company} size={28} />
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-black">{item.ticker ?? "—"}</p>
-                  <p className="truncate text-[9px] font-semibold text-[#faf6f0]/42">{item.company ?? "—"}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-[10px] font-bold tabular-nums text-[#faf6f0]/62">{price(item.price)}</p>
-            </Link>
-          )) : (
-            <div className="w-full rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">Rankings are not available yet.</div>
+          {rankings.length > 0 ? (
+            rankings.slice(0, 6).map((item) => {
+              const destination = rankingsLocked
+                ? "/pricing?feature=rankings"
+                : item.ticker
+                  ? `/stock/${item.ticker}`
+                  : "/rankings";
+              return (
+                <Link
+                  key={item.id}
+                  href={destination}
+                  className="w-[164px] shrink-0 snap-start rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/62 p-3 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="grid size-8 place-items-center rounded-full bg-[#ddb159] text-[12px] font-black text-[#072116]">
+                      {item.rank ?? "—"}
+                    </span>
+                    <span className="rounded-full bg-[#ddb159]/14 px-2 py-1 text-[9px] font-black tabular-nums text-[#ddb159]">
+                      {rankingsLocked ? "Locked" : score(item.score)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <StockLogo
+                      ticker={item.ticker}
+                      company={item.company}
+                      size={28}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-black">
+                        {item.ticker ?? "—"}
+                      </p>
+                      <p className="truncate text-[9px] font-semibold text-[#faf6f0]/42">
+                        {item.company ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[10px] font-bold tabular-nums text-[#faf6f0]/62">
+                    {price(item.price)}
+                  </p>
+                </Link>
+              );
+            })
+          ) : (
+            <div className="w-full rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
+              Rankings are not available yet.
+            </div>
           )}
         </div>
       </section>
@@ -479,23 +686,44 @@ export function MobileDashboardExperience({
       <section className="mt-6 min-w-0">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Market snapshot</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+              Market snapshot
+            </p>
             <div className="mt-1 flex items-end gap-2">
-              <h2 className="text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">S&amp;P 500</h2>
-              <span className="pb-0.5 text-[11px] font-black tabular-nums text-[#faf6f0]/52">{indexValue(marketValue)}</span>
+              <h2 className="text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+                S&amp;P 500
+              </h2>
+              <span className="pb-0.5 text-[11px] font-black tabular-nums text-[#faf6f0]/52">
+                {indexValue(marketValue)}
+              </span>
             </div>
           </div>
           {marketChangePct != null && (
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black tabular-nums ${marketChangePct >= 0 ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-red-400/25 bg-red-500/10 text-red-200"}`}>
-              {marketChangePct >= 0 ? "+" : ""}{marketChangePct.toFixed(2)}%
+            <span
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-black tabular-nums ${
+                marketChangePct >= 0
+                  ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300"
+                  : "border-red-400/25 bg-red-500/10 text-red-200"
+              }`}
+            >
+              {marketChangePct >= 0 ? "+" : ""}
+              {marketChangePct.toFixed(2)}%
             </span>
           )}
         </div>
         <div className="mt-3 overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#071d14]/55 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
           {chartHasData(marketChart) ? (
-            <StockChart ticker="S&P 500" data={marketChart} initialRange="1D" height={122} compact />
+            <StockChart
+              ticker="S&P 500"
+              data={marketChart}
+              initialRange="1D"
+              height={122}
+              compact
+            />
           ) : (
-            <div className="flex h-[122px] items-center justify-center text-[11px] font-semibold text-[#faf6f0]/45">Market chart temporarily unavailable</div>
+            <div className="flex h-[122px] items-center justify-center text-[11px] font-semibold text-[#faf6f0]/45">
+              Market chart temporarily unavailable
+            </div>
           )}
         </div>
       </section>
