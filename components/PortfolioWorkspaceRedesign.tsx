@@ -19,7 +19,7 @@ function findByText<T extends HTMLElement>(
   );
 }
 
-function closestPanel(node: HTMLElement | null) {
+function closestPanel(node: HTMLElement | null | undefined) {
   return node?.closest<HTMLElement>("section, [role='region'], div.grid") ?? null;
 }
 
@@ -157,8 +157,8 @@ function applyPortfolioWorkspace(): Cleanup {
     actions.dataset.sgPortfolioActions = "true";
     actions.className = "sg-portfolio-actions";
     actions.innerHTML = `
-      <button type="button" data-action="add" aria-label="Add to portfolio"><span>＋</span><b>Add</b></button>
-      <button type="button" data-action="manage" aria-label="Manage portfolio"><span>⚙</span><b>Manage</b></button>`;
+      <button type="button" data-action="add" aria-label="Add to portfolio"><span aria-hidden="true">+</span><b>Add</b></button>
+      <button type="button" data-action="manage" aria-label="Manage portfolio"><span aria-hidden="true">•••</span><b>Manage</b></button>`;
     actions.querySelector<HTMLButtonElement>("[data-action='add']")?.addEventListener("click", () => addButton?.click());
     actions.querySelector<HTMLButtonElement>("[data-action='manage']")?.addEventListener("click", () => manageButton?.click());
     visibleNav.insertAdjacentElement("afterend", actions);
@@ -187,10 +187,10 @@ function applyPortfolioWorkspace(): Cleanup {
     if (panel) panel.dataset.sgHoldingsLedger = "true";
   });
 
-  const activityRows = Array.from(root.querySelectorAll<HTMLElement>("div.rounded-2xl.bg-\[\#faf6f0\]"));
+  const activityRows = Array.from(root.querySelectorAll<HTMLElement>("div"));
   activityRows.forEach((row) => {
     const copy = text(row.textContent).toLowerCase();
-    if (["cash deposit", "cash withdrawal", "bought", "sold", "import", "logged holding"].some((item) => copy.includes(item))) {
+    if (["cash deposit", "cash withdrawal", "bought", "sold", "import", "logged holding"].some((item) => copy.startsWith(item))) {
       row.dataset.sgActivityEvent = "true";
     }
   });
