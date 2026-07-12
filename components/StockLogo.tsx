@@ -51,7 +51,7 @@ function fallbackTextSize(size: number) {
 }
 
 function imagePadding(size: number, symbol: string) {
-  const ratio = WIDE_OR_WORDMARK_LOGOS.has(symbol) ? 0.19 : 0.14;
+  const ratio = WIDE_OR_WORDMARK_LOGOS.has(symbol) ? 0.18 : 0.12;
   return Math.max(2, Math.round(size * ratio));
 }
 
@@ -108,31 +108,24 @@ export function StockLogo({
   return (
     <span
       className={[
-        "relative inline-flex shrink-0 items-center justify-center border border-[#ddb159]/20 bg-[#efe9dc] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_1px_2px_rgba(2,12,8,0.18)]",
+        "relative inline-flex shrink-0 items-center justify-center border border-[#ddb159]/22 bg-[#f7f2e8] shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_1px_2px_rgba(2,12,8,0.18)]",
         className,
       ].join(" ")}
       style={shellStyle(size)}
       aria-hidden="true"
       data-stock-logo={symbol}
     >
-      <span className="absolute inset-px overflow-hidden rounded-full bg-[#efe9dc]">
-        <span
-          className="absolute inset-0 grid place-items-center rounded-full bg-[#072116] font-black text-[#ddb159]"
-          style={{ fontSize: fallbackTextSize(size) }}
-        >
-          {fallback}
-        </span>
+      <span className="absolute inset-px overflow-hidden rounded-full bg-[#f7f2e8]">
         <Image
           key={symbol}
           src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
           alt=""
           fill
           sizes={`${size}px`}
-          className="relative z-10 object-contain"
+          className="object-contain"
           style={{
             padding,
-            backgroundColor: "#efe9dc",
-            mixBlendMode: "multiply",
+            backgroundColor: "#f7f2e8",
           }}
           onError={() => setFailedSymbol(symbol)}
           unoptimized
