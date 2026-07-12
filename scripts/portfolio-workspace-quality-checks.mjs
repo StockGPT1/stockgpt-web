@@ -16,11 +16,12 @@ const loading = read("app/portfolio/loading.tsx");
 
 // Canonical architecture: /portfolio renders the React workspace directly.
 assert.match(canonicalPage, /from\s+["']\.\/modern\/page["']/);
+assert.match(canonicalPage, /export const dynamic = ["']force-dynamic["']/);
 assert.doesNotMatch(nextConfig, /source:\s*["']\/portfolio["']/);
 assert.match(modernPage, /<PortfolioModernWorkspace/);
 assert.match(modernPage, /redirect\(["']\/login["']\)/);
 
-// Legacy DOM-patching controllers and styles must stay removed.
+// Legacy DOM-patching controllers and override styles must stay removed.
 for (const removedPath of [
   "components/PortfolioWorkspaceRedesign.tsx",
   "components/PortfolioAllocationBarPolish.tsx",
@@ -32,7 +33,13 @@ for (const removedPath of [
 }
 assert.doesNotMatch(layout, /PortfolioWorkspaceRedesign|PortfolioAllocationBarPolish/);
 assert.doesNotMatch(layout, /portfolio-workspace-redesign\.css|portfolio-allocation-polish\.css|portfolio-chart-border-fix\.css/);
-assert.doesNotMatch(workspace, /MutationObserver|innerHTML\s*=|document\.querySelector/);
+assert.doesNotMatch(
+  workspace,
+  /MutationObserver|innerHTML\s*=|document\.createElement|insertAdjacentElement|querySelectorAll|classList\./,
+);
+// One read-only selector is currently used solely to scroll to the React-rendered section anchor.
+assert.equal((workspace.match(/document\.querySelector/g) ?? []).length, 1);
+assert.match(workspace, /document\.querySelector\("\[data-portfolio-section-anchor\]"\)/);
 
 // Navigation remains information-led; Add and Manage are contextual actions.
 assert.match(workspace, /type Section = "overview" \| "holdings" \| "activity"/);
@@ -64,11 +71,14 @@ assert.match(workspace, /overflow-x-hidden/);
 assert.match(workspace, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(workspace, /max-w-\[1480px\]/);
 assert.match(loading, /aria-label="Loading portfolio"/);
+assert.match(loading, /aria-busy="true"/);
+assert.match(loading, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 
 // Intentional scrollers only: metric strip, opportunities and filter rails.
 assert.match(workspace, /snap-x snap-mandatory/);
 assert.match(workspace, /overflow-x-auto/);
 assert.match(workspace, /\[scrollbar-width:none\]/);
+assert.match(workspace, /overflow-y-auto overscroll-contain/);
 
 // Sheets, keyboard dismissal, focus states and chart/map alternatives.
 assert.match(workspace, /role="dialog"/);
@@ -81,6 +91,7 @@ assert.match(workspace, /Open holding/);
 // Core interaction sizes remain at or above the 44px mobile target.
 assert.match(workspace, /size-11|size-12/);
 assert.match(workspace, /h-12/);
+assert.doesNotMatch(workspace, /\bh-(?:6|7|8)\b[^\n]{0,120}(?:button|onClick)/);
 
 // Honest chart states: do not invent movement when history is incomplete.
 assert.match(workspace, /StockGPT only plots confirmed portfolio snapshots/);
