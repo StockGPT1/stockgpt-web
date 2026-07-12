@@ -14,6 +14,7 @@ import "./stock-action-buttons.css";
 import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
 import "./mobile-page-titles.css";
+import "./portfolio-chart-border-fix.css";
 
 const iconVersion = "31";
 
