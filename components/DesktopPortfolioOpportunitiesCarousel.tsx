@@ -60,26 +60,26 @@ export function DesktopPortfolioOpportunitiesCarousel({
       aria-labelledby="desktop-portfolio-opportunities-title"
       className="hidden min-w-0 lg:block"
     >
-      <div className="mb-2 flex min-w-0 items-end justify-between gap-4 px-1">
+      <div className="mb-2.5 flex min-w-0 items-center justify-between gap-4 px-1">
         <div className="min-w-0">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-[#ddb159]">
-            StockGPT opportunities
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159]">
+            Portfolio intelligence
           </p>
           <h2
             id="desktop-portfolio-opportunities-title"
-            className="mt-0.5 truncate text-[19px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]"
+            className="mt-0.5 text-[20px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] xl:text-[21px]"
           >
-            Portfolio-fit ideas
+            Opportunities for your portfolio
           </h2>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {opportunities.length > 1 && (
-            <div className="flex items-center gap-1" aria-label="Scroll portfolio-fit ideas">
+            <div className="flex items-center gap-1" aria-label="Scroll portfolio opportunities">
               <button
                 type="button"
                 onClick={() => scrollTrack(-1)}
-                aria-label="Show previous portfolio-fit ideas"
+                aria-label="Show previous portfolio opportunities"
                 className="inline-flex size-8 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#0a281b]/72 text-[15px] font-black text-[#ddb159] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/55"
               >
                 ←
@@ -87,7 +87,7 @@ export function DesktopPortfolioOpportunitiesCarousel({
               <button
                 type="button"
                 onClick={() => scrollTrack(1)}
-                aria-label="Show next portfolio-fit ideas"
+                aria-label="Show next portfolio opportunities"
                 className="inline-flex size-8 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#0a281b]/72 text-[15px] font-black text-[#ddb159] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/55"
               >
                 →
@@ -117,7 +117,7 @@ export function DesktopPortfolioOpportunitiesCarousel({
         <div
           ref={trackRef}
           tabIndex={0}
-          aria-label="Portfolio-fit ideas carousel"
+          aria-label="Portfolio opportunities carousel"
           className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 pr-[clamp(24px,5vw,72px)] scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {opportunities.map((item) => {
@@ -127,7 +127,7 @@ export function DesktopPortfolioOpportunitiesCarousel({
               <Link
                 key={`${item.category}-${item.ticker}`}
                 href={`/stock/${item.ticker}`}
-                className="group relative grid min-h-[154px] w-[clamp(285px,31vw,360px)] shrink-0 snap-start grid-cols-[42px_minmax(0,1fr)_auto] gap-x-3 overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,rgba(14,52,34,0.82),rgba(7,31,21,0.72))] p-4 text-[#faf6f0] shadow-[0_12px_28px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[#ddb159]/55 hover:shadow-[0_16px_34px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/55"
+                className="group relative grid min-h-[154px] w-[clamp(285px,31vw,360px)] shrink-0 snap-start grid-cols-[42px_minmax(0,1fr)_auto] gap-x-3 overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,rgba(14,52,34,0.82),rgba(7,31,21,0.72))] p-4 text-[#faf6f0] shadow-[0_12px_28px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition-[border-color,box-shadow,background-color] duration-200 hover:border-[#ddb159]/55 hover:shadow-[0_16px_34px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/55"
               >
                 <div className="pointer-events-none absolute -right-12 -top-14 size-28 rounded-full bg-[#ddb159]/10 blur-3xl" />
 
