@@ -5,7 +5,6 @@ import {
   useEffect,
   useId,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -31,7 +30,6 @@ export function PortfolioSheet({
   closeConfirmation?: string | null;
   widthClass?: string;
 }) {
-  const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const subtitleId = useId();
@@ -40,8 +38,6 @@ export function PortfolioSheet({
     if (closeConfirmation && !window.confirm(closeConfirmation)) return;
     onClose();
   }, [closeConfirmation, onClose]);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +73,10 @@ export function PortfolioSheet({
     }
 
     document.addEventListener("keydown", onKeyDown);
-    const timer = window.setTimeout(() => focusable()[0]?.focus({ preventScroll: true }), 0);
+    const timer = window.setTimeout(
+      () => focusable()[0]?.focus({ preventScroll: true }),
+      0,
+    );
 
     return () => {
       window.clearTimeout(timer);
@@ -88,7 +87,7 @@ export function PortfolioSheet({
     };
   }, [open, requestClose]);
 
-  if (!mounted || !open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-[2px] lg:items-stretch lg:justify-end">
