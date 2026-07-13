@@ -5,7 +5,7 @@ function Pulse({ className }: { className: string }) {
 export default function PortfolioLoading() {
   return (
     <main
-      className="h-full min-h-0 overflow-y-auto overflow-x-hidden bg-[#061b12] pb-[calc(120px+env(safe-area-inset-bottom))] text-[#faf6f0] lg:pb-12"
+      className="min-h-full overflow-x-hidden bg-[#061b12] pb-[calc(120px+env(safe-area-inset-bottom))] text-[#faf6f0] lg:pb-12"
       aria-label="Loading portfolio"
       aria-busy="true"
     >
