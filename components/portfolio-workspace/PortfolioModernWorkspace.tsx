@@ -9,10 +9,8 @@ import { PortfolioStage } from "@/components/portfolio-workspace/PortfolioStage"
 import { PortfolioOverview } from "@/components/portfolio-workspace/PortfolioOverview";
 import { PortfolioHoldings } from "@/components/portfolio-workspace/PortfolioHoldings";
 import { PortfolioActivity } from "@/components/portfolio-workspace/PortfolioActivity";
-import {
-  AddPortfolioSheet,
-  PortfolioAnalysisSheet,
-} from "@/components/portfolio-workspace/PortfolioActionSheets";
+import { PortfolioAddSheet } from "@/components/portfolio-workspace/PortfolioAddSheet";
+import { PortfolioAnalysisSheet } from "@/components/portfolio-workspace/PortfolioAnalysisSheet";
 import { PortfolioManageSheet } from "@/components/portfolio-workspace/PortfolioManageSheet";
 import type {
   PortfolioSection,
@@ -181,7 +179,7 @@ export function PortfolioModernWorkspace({
         </div>
       </div>
 
-      <AddPortfolioSheet
+      <PortfolioAddSheet
         key={`add-${portfolioId}`}
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -207,6 +205,7 @@ export function PortfolioModernWorkspace({
         onClose={() => setAnalysisOpen(false)}
         summary={summary}
         portfolioId={portfolioId}
+        canUsePremium={canUsePremium}
       />
 
       {selectedHolding && selectedRecommendation && selectedAction && (
