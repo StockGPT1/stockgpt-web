@@ -17,7 +17,10 @@ const workspaceFiles = [
   "components/portfolio-workspace/PortfolioHoldings.tsx",
   "components/portfolio-workspace/PortfolioActivity.tsx",
   "components/portfolio-workspace/PortfolioHoldingsVisuals.tsx",
-  "components/portfolio-workspace/PortfolioActionSheets.tsx",
+  "components/portfolio-workspace/PortfolioAddSheet.tsx",
+  "components/portfolio-workspace/PortfolioAnalysisSheet.tsx",
+  "components/portfolio-workspace/PortfolioManageSheet.tsx",
+  "components/portfolio-workspace/PortfolioExportLink.tsx",
   "components/portfolio-workspace/PortfolioSheet.tsx",
   "components/portfolio-workspace/PortfolioIcon.tsx",
   "components/portfolio-workspace/types.ts",
@@ -30,7 +33,10 @@ const overview = read("components/portfolio-workspace/PortfolioOverview.tsx");
 const holdings = read("components/portfolio-workspace/PortfolioHoldings.tsx");
 const activity = read("components/portfolio-workspace/PortfolioActivity.tsx");
 const visuals = read("components/portfolio-workspace/PortfolioHoldingsVisuals.tsx");
-const sheets = read("components/portfolio-workspace/PortfolioActionSheets.tsx");
+const addSheet = read("components/portfolio-workspace/PortfolioAddSheet.tsx");
+const analysisSheet = read("components/portfolio-workspace/PortfolioAnalysisSheet.tsx");
+const manageSheet = read("components/portfolio-workspace/PortfolioManageSheet.tsx");
+const exportLink = read("components/portfolio-workspace/PortfolioExportLink.tsx");
 const sheetShell = read("components/portfolio-workspace/PortfolioSheet.tsx");
 const cashAction = read("lib/actions/portfolio-cash.ts");
 const layout = read("app/layout.tsx");
@@ -47,6 +53,7 @@ assert.match(modernPage, /redirect\(["']\/login["']\)/);
 for (const removedPath of [
   "components/PortfolioWorkspaceRedesign.tsx",
   "components/PortfolioAllocationBarPolish.tsx",
+  "components/portfolio-workspace/PortfolioActionSheets.tsx",
   "app/portfolio-workspace-redesign.css",
   "app/portfolio-allocation-polish.css",
   "app/portfolio-chart-border-fix.css",
@@ -95,10 +102,12 @@ assert.match(activity, /Load more activity/);
 assert.match(activity, /Transactions are user actions/);
 
 assert.match(orchestrator, /overflow-x-hidden/);
+assert.doesNotMatch(orchestrator, /overflow-y-auto/);
 assert.match(orchestrator, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(orchestrator, /max-w-\[1480px\]/);
 assert.match(loading, /aria-label="Loading portfolio"/);
 assert.match(loading, /aria-busy="true"/);
+assert.doesNotMatch(loading, /overflow-y-auto/);
 assert.match(loading, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 
 assert.match(overview, /snap-x snap-mandatory/);
@@ -116,19 +125,32 @@ assert.match(workspace, /focus-visible:outline/);
 assert.match(visuals, /Accessible map data/);
 assert.match(visuals, /Open holding/);
 
-assert.match(sheets, /Add holding/);
-assert.match(sheets, /Add cash/);
-assert.match(sheets, /Withdraw cash/);
-assert.match(sheets, /Import Trading 212/);
-assert.match(sheets, /Create another portfolio/);
-assert.match(sheets, /buyHoldingWithCash/);
-assert.match(sheets, /logExistingHolding/);
-assert.match(sheets, /withdrawPortfolioCash/);
-assert.match(sheets, /updatePortfolioPreferences/);
-assert.match(sheets, /Discard unsaved portfolio changes/);
+assert.match(addSheet, /Add holding/);
+assert.match(addSheet, /Add cash/);
+assert.match(addSheet, /Withdraw cash/);
+assert.match(addSheet, /Import Trading 212/);
+assert.match(addSheet, /Create another portfolio/);
+assert.match(addSheet, /resolveTradeOrder/);
+assert.match(addSheet, /Enter any two fields/);
+assert.match(addSheet, /Review holding/);
+assert.match(addSheet, /Confirm purchase/);
+assert.match(addSheet, /buyHoldingWithCash/);
+assert.match(addSheet, /logExistingHolding/);
+assert.match(addSheet, /withdrawPortfolioCash/);
+
+assert.match(manageSheet, /updatePortfolioPreferences/);
+assert.match(manageSheet, /Discard unsaved portfolio changes/);
+assert.match(manageSheet, /Export portfolio CSV/);
+assert.match(manageSheet, /highest-value active portfolio/);
+assert.match(exportLink, /data:text\/csv/);
+assert.match(exportLink, /download=\{exportData\.filename\}/);
+assert.match(exportLink, /record_type/);
+assert.match(analysisSheet, /canUseAskStockGPT=\{canUsePremium\}/);
+
 assert.match(cashAction, /eq\("user_id", user\.id\)/);
 assert.match(cashAction, /amount > currentCash/);
-assert.match(cashAction, /Restore the balance/);
+assert.match(cashAction, /eq\("cash_balance", portfolio\.cash_balance/);
+assert.match(cashAction, /Restore the balance only when/);
 assert.match(cashAction, /invalidatePortfolioPageSnapshot/);
 
 assert.match(workspace, /size-11|size-12/);
@@ -140,14 +162,17 @@ assert.match(stage, /Preparing reliable chart history/);
 assert.match(stage, /Using the last reliable chart|Showing cached chart/);
 assert.match(stage, /Chart history unavailable/);
 
-const allocation = (holdingValue, totalValue) => (totalValue > 0 ? (holdingValue / totalValue) * 100 : 0);
+const allocation = (holdingValue, totalValue) =>
+  totalValue > 0 ? (holdingValue / totalValue) * 100 : 0;
 assert.equal(allocation(0, 1000), 0);
 assert.equal(allocation(1000, 1000), 100);
 assert.ok(Math.abs(allocation(1237, 5634) - 21.956) < 0.01);
 const values = [1237, 889.24, 864.96, 829.49, 538.2];
 const cash = 1275.11;
-const total = values.reduce((sum, value) => sum + value, 0) + cash;
-const reconciled = values.reduce((sum, value) => sum + allocation(value, total), 0) + allocation(cash, total);
+const total = values.reduce((sum, item) => sum + item, 0) + cash;
+const reconciled =
+  values.reduce((sum, item) => sum + allocation(item, total), 0) +
+  allocation(cash, total);
 assert.ok(Math.abs(reconciled - 100) < 0.000001);
 
 console.log("Portfolio workspace quality checks passed.");
