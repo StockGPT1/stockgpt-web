@@ -11,9 +11,9 @@ import { PortfolioHoldings } from "@/components/portfolio-workspace/PortfolioHol
 import { PortfolioActivity } from "@/components/portfolio-workspace/PortfolioActivity";
 import {
   AddPortfolioSheet,
-  ManagePortfolioSheet,
   PortfolioAnalysisSheet,
 } from "@/components/portfolio-workspace/PortfolioActionSheets";
+import { PortfolioManageSheet } from "@/components/portfolio-workspace/PortfolioManageSheet";
 import type {
   PortfolioSection,
   PortfolioWorkspaceProps,
@@ -192,12 +192,14 @@ export function PortfolioModernWorkspace({
         summary={summary}
         usdToDisplayRate={usdToDisplayRate}
       />
-      <ManagePortfolioSheet
+      <PortfolioManageSheet
         key={`manage-${portfolioId}`}
         open={manageOpen}
         onClose={() => setManageOpen(false)}
         portfolioId={portfolioId}
         meta={portfolioMeta}
+        holdings={holdings}
+        transactions={transactions}
       />
       <PortfolioAnalysisSheet
         key={`analysis-${portfolioId}`}
