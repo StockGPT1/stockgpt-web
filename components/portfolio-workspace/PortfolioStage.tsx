@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useMemo,
   useState,
   type RefObject,
@@ -89,22 +88,14 @@ export function PortfolioStage({
     () => RANGE_ITEMS.filter(({ range }) => (displayable[range]?.length ?? 0) > 1),
     [displayable],
   );
-  const [activeRange, setActiveRange] = useState<TimeRange>(
-    availableRanges.some(({ range }) => range === "1M")
-      ? "1M"
-      : availableRanges[0]?.range ?? "1M",
-  );
+  const preferredRange = availableRanges.some(({ range }) => range === "1M")
+    ? "1M"
+    : availableRanges[0]?.range ?? "1M";
+  const [requestedRange, setRequestedRange] = useState<TimeRange>(preferredRange);
+  const activeRange = availableRanges.some(({ range }) => range === requestedRange)
+    ? requestedRange
+    : preferredRange;
   const [scrubPoint, setScrubPoint] = useState<ChartPoint | null>(null);
-
-  useEffect(() => {
-    if (availableRanges.some(({ range }) => range === activeRange)) return;
-    setActiveRange(
-      availableRanges.some(({ range }) => range === "1M")
-        ? "1M"
-        : availableRanges[0]?.range ?? "1M",
-    );
-    setScrubPoint(null);
-  }, [activeRange, availableRanges]);
 
   const currentValue = scrubPoint?.close ?? summary.totalValue;
   const currentPnl = scrubPoint?.pnl ?? summary.totalPnl;
@@ -244,7 +235,7 @@ export function PortfolioStage({
                   disabled={!available}
                   aria-pressed={active}
                   onClick={() => {
-                    setActiveRange(range);
+                    setRequestedRange(range);
                     setScrubPoint(null);
                   }}
                   className={`mx-auto grid min-h-11 min-w-11 place-items-center rounded-full px-3 text-[12px] font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] ${
