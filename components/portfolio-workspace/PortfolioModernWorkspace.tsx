@@ -182,6 +182,7 @@ export function PortfolioModernWorkspace({
       </div>
 
       <AddPortfolioSheet
+        key={`add-${portfolioId}`}
         open={addOpen}
         onClose={() => setAddOpen(false)}
         portfolioId={portfolioId}
@@ -192,12 +193,14 @@ export function PortfolioModernWorkspace({
         usdToDisplayRate={usdToDisplayRate}
       />
       <ManagePortfolioSheet
+        key={`manage-${portfolioId}`}
         open={manageOpen}
         onClose={() => setManageOpen(false)}
         portfolioId={portfolioId}
         meta={portfolioMeta}
       />
       <PortfolioAnalysisSheet
+        key={`analysis-${portfolioId}`}
         open={analysisOpen}
         onClose={() => setAnalysisOpen(false)}
         summary={summary}
@@ -206,6 +209,7 @@ export function PortfolioModernWorkspace({
 
       {selectedHolding && selectedRecommendation && selectedAction && (
         <ManageHoldingDrawer
+          key={`${portfolioId}-${selectedHolding.ticker}`}
           portfolioId={portfolioId}
           holding={selectedHolding}
           recommendation={selectedRecommendation}
