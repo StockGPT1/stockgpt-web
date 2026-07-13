@@ -39,17 +39,16 @@ export function PortfolioModernWorkspace({
   const searchParams = useSearchParams();
   const stageRef = useRef<HTMLElement>(null);
   const sectionAnchorRef = useRef<HTMLDivElement>(null);
-  const [section, setSection] = useState<PortfolioSection>(initialSection);
+  const requestedSection = searchParams.get("section");
+  const section: PortfolioSection =
+    requestedSection === "holdings" || requestedSection === "activity"
+      ? requestedSection
+      : initialSection;
   const [stageVisible, setStageVisible] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-
-  useEffect(() => {
-    const current = searchParams.get("section");
-    setSection(current === "holdings" || current === "activity" ? current : "overview");
-  }, [searchParams]);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -60,13 +59,15 @@ export function PortfolioModernWorkspace({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [portfolioId]);
 
   const holdingMap = useMemo(
     () => new Map(holdings.map((holding) => [holding.ticker.toUpperCase(), holding])),
     [holdings],
   );
-  const selectedHolding = selectedTicker ? holdingMap.get(selectedTicker.toUpperCase()) ?? null : null;
+  const selectedHolding = selectedTicker
+    ? holdingMap.get(selectedTicker.toUpperCase()) ?? null
+    : null;
   const heldTickers = useMemo(
     () => new Set(holdings.map((holding) => holding.ticker.toUpperCase())),
     [holdings],
@@ -97,9 +98,11 @@ export function PortfolioModernWorkspace({
           .filter((value): value is string => Boolean(value)),
       ),
     ];
-    return values
-      .filter((value) => Number.isFinite(new Date(value).getTime()))
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+    return (
+      values
+        .filter((value) => Number.isFinite(new Date(value).getTime()))
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
+    );
   }, [holdings, transactions]);
 
   function updateUrl(next: { section?: PortfolioSection; portfolio?: string }) {
@@ -110,7 +113,6 @@ export function PortfolioModernWorkspace({
   }
 
   function chooseSection(next: PortfolioSection) {
-    setSection(next);
     updateUrl({ section: next });
     window.requestAnimationFrame(() => {
       sectionAnchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -121,6 +123,7 @@ export function PortfolioModernWorkspace({
     <main className="h-full min-h-0 overflow-y-auto overflow-x-hidden bg-[#061b12] pb-[calc(120px+env(safe-area-inset-bottom))] text-[#faf6f0] lg:pb-12">
       <div className="mx-auto w-full max-w-[1480px] lg:px-6 xl:px-8 2xl:px-10">
         <PortfolioStage
+          key={portfolioId}
           portfolioId={portfolioId}
           portfolios={portfolios}
           meta={portfolioMeta}
