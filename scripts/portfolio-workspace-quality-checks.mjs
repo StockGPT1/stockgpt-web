@@ -140,8 +140,9 @@ assert.match(addSheet, /withdrawPortfolioCash/);
 
 assert.match(manageSheet, /updatePortfolioPreferences/);
 assert.match(manageSheet, /Discard unsaved portfolio changes/);
-assert.match(manageSheet, /Export portfolio CSV/);
+assert.match(manageSheet, /PortfolioExportLink/);
 assert.match(manageSheet, /highest-value active portfolio/);
+assert.match(exportLink, /Export portfolio CSV/);
 assert.match(exportLink, /data:text\/csv/);
 assert.match(exportLink, /download=\{exportData\.filename\}/);
 assert.match(exportLink, /record_type/);
