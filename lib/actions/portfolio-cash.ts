@@ -44,7 +44,10 @@ export async function withdrawPortfolioCash({
   const currentCash = Number(portfolio.cash_balance ?? 0);
   const currentDeposited = Number(portfolio.cash_deposited_total ?? 0);
   if (!Number.isFinite(currentCash) || currentCash < 0) {
-    return { success: false, error: "Cash balance is unavailable. Refresh and try again." };
+    return {
+      success: false,
+      error: "Cash balance is unavailable. Refresh and try again.",
+    };
   }
   if (amount > currentCash + 0.001) {
     return {
@@ -55,16 +58,25 @@ export async function withdrawPortfolioCash({
 
   const nextCash = roundMoney(Math.max(0, currentCash - amount));
   const nextDeposited = roundMoney(Math.max(0, currentDeposited - amount));
-  const { error: updateError } = await supabase
+  const { data: updatedPortfolio, error: updateError } = await supabase
     .from("user_portfolios")
     .update({
       cash_balance: nextCash,
       cash_deposited_total: nextDeposited,
     })
     .eq("id", portfolioId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("cash_balance", portfolio.cash_balance ?? 0)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) return { success: false, error: updateError.message };
+  if (!updatedPortfolio) {
+    return {
+      success: false,
+      error: "The cash balance changed while this withdrawal was being saved. Refresh and try again.",
+    };
+  }
 
   const { error: transactionError } = await supabase
     .from("portfolio_transactions")
@@ -82,15 +94,27 @@ export async function withdrawPortfolioCash({
     });
 
   if (transactionError) {
-    // Restore the balance if the immutable activity record cannot be written.
-    await supabase
+    // Restore only when the balance still matches this action's write. This avoids
+    // overwriting a newer legitimate cash change if another action completed first.
+    const { data: restoredPortfolio, error: rollbackError } = await supabase
       .from("user_portfolios")
       .update({
         cash_balance: roundMoney(currentCash),
         cash_deposited_total: roundMoney(currentDeposited),
       })
       .eq("id", portfolioId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("cash_balance", nextCash)
+      .select("id")
+      .maybeSingle();
+
+    if (rollbackError || !restoredPortfolio) {
+      return {
+        success: false,
+        error:
+          "The withdrawal record could not be completed and the balance requires review. Refresh the portfolio before making another cash change.",
+      };
+    }
     return { success: false, error: transactionError.message };
   }
 
