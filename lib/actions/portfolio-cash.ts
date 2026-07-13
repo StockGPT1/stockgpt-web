@@ -94,8 +94,8 @@ export async function withdrawPortfolioCash({
     });
 
   if (transactionError) {
-    // Restore only when the balance still matches this action's write. This avoids
-    // overwriting a newer legitimate cash change if another action completed first.
+    // Restore the balance only when it still matches this action's write. This
+    // avoids overwriting a newer legitimate cash change from another action.
     const { data: restoredPortfolio, error: rollbackError } = await supabase
       .from("user_portfolios")
       .update({
