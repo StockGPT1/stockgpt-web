@@ -120,7 +120,7 @@ export function PortfolioModernWorkspace({
   }
 
   return (
-    <main className="h-full min-h-0 overflow-y-auto overflow-x-hidden bg-[#061b12] pb-[calc(120px+env(safe-area-inset-bottom))] text-[#faf6f0] lg:pb-12">
+    <main className="min-h-full overflow-x-hidden bg-[#061b12] pb-[calc(120px+env(safe-area-inset-bottom))] text-[#faf6f0] lg:pb-12">
       <div className="mx-auto w-full max-w-[1480px] lg:px-6 xl:px-8 2xl:px-10">
         <PortfolioStage
           key={portfolioId}
