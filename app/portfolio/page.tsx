@@ -1,3 +1,4 @@
+import "./portfolio-mobile-alignment.css";
 import ModernPortfolioPage from "./modern/page";
 
 export const dynamic = "force-dynamic";
