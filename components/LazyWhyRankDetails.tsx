@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { MobileSheet } from "@/components/MobileSheet";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
 import { StockLogo } from "@/components/StockLogo";
+import { useIsDesktop } from "@/components/useIsDesktop";
 import { buildAskHref } from "@/lib/ask-context";
 import type { StableRankingRow } from "@/lib/stable-rankings";
 
@@ -27,8 +29,51 @@ type LazyWhyRankDetailsProps = {
   onExpandedChange?: (expanded: boolean) => void;
 };
 
+/* Same humanisation as lib/portfolio-alerts' formatFactorName (kept
+   local — that module is server-side): "PE_rel" → "PE Relative". */
+function formatFactorName(factor: string) {
+  return factor
+    .replace(/_/g, " ")
+    .replace(/\brel\b/gi, "relative")
+    .replace(/\bz\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/* Factor entries arrive in several shapes ("PE_rel", { factor, change },
+   { name, contribution }, …). Render a readable label for each instead
+   of the stringified object. */
+function factorLabel(item: unknown): string | null {
+  if (typeof item === "string") return formatFactorName(item) || null;
+  if (typeof item === "number") return String(item);
+  if (item && typeof item === "object") {
+    const record = item as Record<string, unknown>;
+    const name = [record.factor, record.name, record.label, record.key, record.id].find(
+      (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
+    );
+    const magnitude = [record.change, record.delta, record.contribution, record.value, record.weight].find(
+      (candidate): candidate is number => typeof candidate === "number" && Number.isFinite(candidate),
+    );
+    if (name && magnitude !== undefined) {
+      return `${formatFactorName(name)} (${magnitude >= 0 ? "+" : ""}${magnitude.toFixed(3)})`;
+    }
+    if (name) return formatFactorName(name);
+    const firstString = Object.values(record).find(
+      (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
+    );
+    return firstString ? formatFactorName(firstString) : null;
+  }
+  return null;
+}
+
 function strings(value: unknown) {
-  if (Array.isArray(value)) return value.map(String).filter(Boolean).slice(0, 3);
+  if (Array.isArray(value)) {
+    return value
+      .map(factorLabel)
+      .filter((item): item is string => Boolean(item))
+      .slice(0, 3);
+  }
   if (value && typeof value === "object") return Object.keys(value as object).slice(0, 3);
   if (typeof value === "string") {
     return value
@@ -140,12 +185,23 @@ export function LazyWhyRankDetails({
   const [data, setData] = useState<DiagnosticsPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isDesktop = useIsDesktop();
   const isInline = variant === "inline";
   const open = isInline ? expanded : sheetOpen;
   const ticker = stock.ticker ?? "stock";
   const detailId = `ranking-why-${ticker.replace(/[^a-z0-9_-]/gi, "-")}`;
 
   useFocusedFlow(`ranking-why-${stock.ticker}`, !isInline && sheetOpen);
+
+  /* Escape closes the desktop drawer (the mobile sheet handles its own) */
+  useEffect(() => {
+    if (!isDesktop || !sheetOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isDesktop, sheetOpen]);
 
   async function loadDetails() {
     if (data || loading) return;
@@ -220,46 +276,54 @@ export function LazyWhyRankDetails({
       >
         Why?
       </button>
-      <MobileSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={`Why ${stock.ticker} ranks #${stock.rank ?? "—"}`}
-        eyebrow="Ranking intelligence"
-      >
-        {content}
-      </MobileSheet>
-      {sheetOpen && (
-        <div
-          className="fixed inset-0 z-[2147483000] hidden bg-[#020805]/72 lg:flex lg:justify-end"
-          role="presentation"
+      {!isDesktop && (
+        <MobileSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          title={`Why ${stock.ticker} ranks #${stock.rank ?? "—"}`}
+          eyebrow="Ranking intelligence"
         >
-          <button
-            type="button"
-            onClick={() => setSheetOpen(false)}
-            aria-label="Close ranking detail"
-            className="absolute inset-0"
-          />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Why ${stock.ticker} ranks here`}
-            className="relative z-10 h-[100dvh] w-full max-w-[520px] overflow-y-auto border-l border-[#ddb159]/22 bg-[#061b12] p-6 pt-16"
+          {content}
+        </MobileSheet>
+      )}
+      {isDesktop &&
+        sheetOpen &&
+        createPortal(
+          /* portaled to <body>: a transformed ancestor inside the app
+             shell would otherwise trap this fixed overlay under the
+             header and swallow its clicks */
+          <div
+            className="fixed inset-0 z-[2147483000] flex justify-end bg-[#020805]/72"
+            role="presentation"
           >
             <button
               type="button"
               onClick={() => setSheetOpen(false)}
-              className="absolute right-5 top-5 grid size-11 place-items-center rounded-full border border-[#ddb159]/22 text-xl text-[#ddb159]"
-              aria-label="Close"
+              aria-label="Close ranking detail"
+              className="absolute inset-0 cursor-default"
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Why ${stock.ticker} ranks here`}
+              className="relative z-10 h-[100dvh] w-full max-w-[520px] overflow-y-auto border-l border-[#ddb159]/22 bg-[#061b12] p-6 pt-16"
             >
-              &times;
-            </button>
-            <p className="mb-5 text-[10px] font-black uppercase tracking-[0.17em] text-[#ddb159]">
-              Why {stock.ticker} ranks #{stock.rank ?? "—"}
-            </p>
-            {content}
-          </aside>
-        </div>
-      )}
+              <button
+                type="button"
+                onClick={() => setSheetOpen(false)}
+                className="absolute right-5 top-5 grid size-11 place-items-center rounded-full border border-[#ddb159]/22 text-xl text-[#ddb159]"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <p className="mb-5 text-[10px] font-black uppercase tracking-[0.17em] text-[#ddb159]">
+                Why {stock.ticker} ranks #{stock.rank ?? "—"}
+              </p>
+              {content}
+            </aside>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

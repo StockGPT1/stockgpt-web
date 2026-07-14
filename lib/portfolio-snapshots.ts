@@ -430,6 +430,82 @@ function bucketPoints({
   ]);
 }
 
+/* Snapshots are only recorded when something touches the portfolio, so a
+   quiet month renders as two lonely points joined by a straight line.
+   Fill large gaps with interpolated weekday points (Mon–Fri for daily
+   cadences, weekly otherwise) so a 1M chart carries ~20 evenly spaced
+   points and scrubbing has real granularity. Filled points are marked
+   synthetic and interpolate every money field between the neighbouring
+   real snapshots, so the drawn trend is unchanged — just denser. */
+function fillTemporalGaps({
+  points,
+  range,
+  firstLiveSnapshotMs,
+}: {
+  points: NormalisedSnapshotPoint[];
+  range: TimeRange;
+  firstLiveSnapshotMs: number | null;
+}) {
+  if (range === "1D" || points.length < 2) return points;
+
+  const cadenceMs = range === "1M" || range === "6M" ? ONE_DAY_MS : ONE_WEEK_MS;
+  const skipWeekends = cadenceMs === ONE_DAY_MS;
+  const budget = Math.max(0, MAX_POINTS - points.length);
+  const filled: NormalisedSnapshotPoint[] = [];
+  let used = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const current = points[i];
+    filled.push(current);
+    const next = points[i + 1];
+    if (!next) break;
+
+    const gapMs = next.ms - current.ms;
+    if (gapMs < cadenceMs * 1.6 || used >= budget) continue;
+
+    /* step through the gap on the cadence grid at 21:00 UTC (~US close) */
+    const stepCount = Math.floor(gapMs / cadenceMs);
+    const step = Math.max(cadenceMs, Math.ceil(stepCount / Math.max(1, budget - used)) * cadenceMs);
+    for (let ms = current.ms + step; ms < next.ms - cadenceMs * 0.4 && used < budget; ms += step) {
+      const day = new Date(ms);
+      const gridMs = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 21);
+      if (gridMs <= current.ms || gridMs >= next.ms) continue;
+      if (skipWeekends) {
+        const weekday = new Date(gridMs).getUTCDay();
+        if (weekday === 0 || weekday === 6) continue;
+      }
+
+      const progress = (gridMs - current.ms) / gapMs;
+      const lerp = (a: number | undefined, b: number | undefined) => {
+        const from = Number.isFinite(a) ? (a as number) : 0;
+        const to = Number.isFinite(b) ? (b as number) : from;
+        return roundMoney(from + (to - from) * progress);
+      };
+      const close = lerp(current.close, next.close);
+      const basis = lerp(current.basis, next.basis);
+      const pnl = roundMoney(close - basis);
+      const sourceKind =
+        firstLiveSnapshotMs != null && gridMs >= firstLiveSnapshotMs ? "live" : current.sourceKind;
+
+      filled.push({
+        ms: gridMs,
+        source: "gap_fill",
+        sourceKind,
+        date: new Date(gridMs).toISOString(),
+        close,
+        cash: lerp(current.cash, next.cash),
+        basis,
+        pnl,
+        pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+        synthetic: true,
+      });
+      used += 1;
+    }
+  }
+
+  return dedupeByTimestamp(filled);
+}
+
 function serialiseChartPoints(points: NormalisedSnapshotPoint[]) {
   return points.map((point) => ({
     date: point.date,
@@ -514,10 +590,14 @@ function snapshotsToChartData({
         rangeStartMs,
         nowMs,
       });
-      const bucketed = bucketPoints({
-        points: displayPoints,
-        intervalMs: bucketIntervalMs,
-        rangeStartMs,
+      const bucketed = fillTemporalGaps({
+        points: bucketPoints({
+          points: displayPoints,
+          intervalMs: bucketIntervalMs,
+          rangeStartMs,
+        }),
+        range,
+        firstLiveSnapshotMs,
       });
 
       if (
@@ -579,14 +659,77 @@ function sampleSnapshotPoints(points: SnapshotChartPoint[]) {
   return sampled;
 }
 
+/* Same weekday gap-filling for already-serialised points — used when the
+   live "current value" point is appended after a quiet stretch, which
+   would otherwise draw one long straight segment to today. */
+function fillSerialisedGaps(points: SnapshotChartPoint[], range: TimeRange) {
+  if (range === "1D" || points.length < 2) return points;
+
+  const cadenceMs = range === "1M" || range === "6M" ? ONE_DAY_MS : ONE_WEEK_MS;
+  const skipWeekends = cadenceMs === ONE_DAY_MS;
+  const budget = Math.max(0, MAX_POINTS - points.length);
+  const filled: SnapshotChartPoint[] = [];
+  let used = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const current = points[i];
+    filled.push(current);
+    const next = points[i + 1];
+    if (!next) break;
+
+    const currentMs = pointMs(current);
+    const nextMs = pointMs(next);
+    if (currentMs == null || nextMs == null) continue;
+    const gapMs = nextMs - currentMs;
+    if (gapMs < cadenceMs * 1.6 || used >= budget) continue;
+
+    const stepCount = Math.floor(gapMs / cadenceMs);
+    const step = Math.max(cadenceMs, Math.ceil(stepCount / Math.max(1, budget - used)) * cadenceMs);
+    for (let ms = currentMs + step; ms < nextMs - cadenceMs * 0.4 && used < budget; ms += step) {
+      const day = new Date(ms);
+      const gridMs = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 21);
+      if (gridMs <= currentMs || gridMs >= nextMs) continue;
+      if (skipWeekends) {
+        const weekday = new Date(gridMs).getUTCDay();
+        if (weekday === 0 || weekday === 6) continue;
+      }
+
+      const progress = (gridMs - currentMs) / gapMs;
+      const lerp = (a: number | undefined, b: number | undefined) => {
+        const from = Number.isFinite(a) ? (a as number) : 0;
+        const to = Number.isFinite(b) ? (b as number) : from;
+        return roundMoney(from + (to - from) * progress);
+      };
+      const close = lerp(current.close, next.close);
+      const basis = lerp(current.basis, next.basis);
+      const pnl = roundMoney(close - basis);
+
+      filled.push({
+        date: new Date(gridMs).toISOString(),
+        close,
+        cash: lerp(current.cash, next.cash),
+        basis,
+        pnl,
+        pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+        synthetic: true,
+      });
+      used += 1;
+    }
+  }
+
+  return filled.sort((a, b) => (pointMs(a) ?? 0) - (pointMs(b) ?? 0));
+}
+
 function mergeRangeWithCurrentPoint({
   points,
   currentPoint,
+  range,
   rangeStartMs,
   nowMs,
 }: {
   points: SnapshotChartPoint[];
   currentPoint: SnapshotChartPoint;
+  range: TimeRange;
   rangeStartMs: number;
   nowMs: number;
 }) {
@@ -607,7 +750,7 @@ function mergeRangeWithCurrentPoint({
     .sort(([a], [b]) => a - b)
     .map(([, point]) => point);
 
-  return sampleSnapshotPoints(sorted);
+  return sampleSnapshotPoints(fillSerialisedGaps(sorted, range));
 }
 
 export function appendCurrentPointToPortfolioChartData({
@@ -628,6 +771,7 @@ export function appendCurrentPointToPortfolioChartData({
     const merged = mergeRangeWithCurrentPoint({
       points: existingPoints,
       currentPoint,
+      range,
       rangeStartMs,
       nowMs,
     });

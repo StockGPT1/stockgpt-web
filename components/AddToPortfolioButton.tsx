@@ -7,6 +7,7 @@ import { ManualPortfolioEntry } from "@/components/ManualPortfolioEntry";
 import { MobileSheet } from "@/components/MobileSheet";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
 import { StockIcon } from "@/components/StockIcon";
+import { useIsDesktop } from "@/components/useIsDesktop";
 
 type PortfolioOption = {
   id: string;
@@ -36,6 +37,7 @@ export function AddToPortfolioButton({
   initialInWatchlist?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const isDesktop = useIsDesktop();
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const upperTicker = ticker.toUpperCase();
   const titleId = `add-${upperTicker.toLowerCase()}-to-portfolio`;
@@ -192,8 +194,11 @@ export function AddToPortfolioButton({
 
       {open && (
         <>
-          {createPortal(
-            <div className="fixed inset-0 z-[2147483647] hidden overflow-x-hidden bg-[#020805]/88 text-[#faf6f0] backdrop-blur-md lg:block">
+          {/* only one surface may mount: the hidden MobileSheet would
+             otherwise inert the page and kill the desktop modal's clicks */}
+          {isDesktop &&
+            createPortal(
+            <div className="fixed inset-0 z-[2147483647] overflow-x-hidden bg-[#020805]/88 text-[#faf6f0] backdrop-blur-md">
               <button
                 type="button"
                 aria-label="Close add to portfolio modal"
@@ -240,17 +245,19 @@ export function AddToPortfolioButton({
             document.body,
           )}
 
-          <MobileSheet
-            open={open}
-            variant="full"
-            title={`Add ${upperTicker} to portfolio`}
-            eyebrow="Portfolio workflow"
-            description="Track this stock alongside your holdings. Educational only; not a buy or sell instruction."
-            onClose={close}
-            labelledById={`${titleId}-mobile`}
-          >
-            {renderBody()}
-          </MobileSheet>
+          {!isDesktop && (
+            <MobileSheet
+              open={open}
+              variant="full"
+              title={`Add ${upperTicker} to portfolio`}
+              eyebrow="Portfolio workflow"
+              description="Track this stock alongside your holdings. Educational only; not a buy or sell instruction."
+              onClose={close}
+              labelledById={`${titleId}-mobile`}
+            >
+              {renderBody()}
+            </MobileSheet>
+          )}
         </>
       )}
     </>

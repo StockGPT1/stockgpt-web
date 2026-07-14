@@ -207,15 +207,13 @@ function ConvictionMap({
       >
         <div className="absolute inset-x-[8%] top-1/2 h-px bg-[#faf6f0]/7" />
         <div className="absolute inset-y-[10%] left-1/2 w-px bg-[#faf6f0]/7" />
-        <span className="absolute left-3 top-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/32">
-          Higher conviction
+        {/* exactly two axis labels — one per axis, no corner clutter */}
+        <span className="absolute left-3 top-1/2 origin-center -translate-y-1/2 -rotate-90 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">
+          Model conviction ↑
         </span>
-        <span className="absolute bottom-3 right-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/32">
-          Larger allocation →
+        <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">
+          Allocation size →
         </span>
-        <span className="absolute right-4 top-4 text-[9px] font-black text-[#61d7ab]/44">Core conviction</span>
-        <span className="absolute bottom-4 right-4 text-[9px] font-black text-[#e8bd61]/42">Concentration watch</span>
-        <span className="absolute bottom-4 left-4 text-[9px] font-black text-[#faf6f0]/25">Smaller / weaker</span>
 
         {points.map(({ holding, x, y, size }) => {
           const status = statusForHolding(holding, riskTolerance);
