@@ -45,6 +45,31 @@ const SCENES: { a: number; b: number; final?: boolean; handoff?: boolean }[] = [
   { a: 0.9, b: 1.0, final: true },
 ];
 
+const MORPH_ACTORS = [
+  { key: "app-header", arcX: -92, arcY: -74, rotation: -2.4, lag: 0 },
+  { key: "briefing", arcX: 118, arcY: -54, rotation: 3.2, lag: 0.025 },
+  { key: "portfolio", arcX: -146, arcY: 76, rotation: -3.8, lag: 0.01 },
+  { key: "rankings-title", arcX: 124, arcY: 44, rotation: 2.6, lag: 0.045 },
+  { key: "rank-row-0", arcX: -108, arcY: 108, rotation: -4.5, lag: 0.06 },
+  { key: "rank-row-1", arcX: 14, arcY: 132, rotation: 1.8, lag: 0.085 },
+  { key: "rank-row-2", arcX: 112, arcY: 96, rotation: 4.2, lag: 0.11 },
+  { key: "nav", arcX: -162, arcY: 8, rotation: -3.4, lag: 0.035 },
+] as const;
+
+type MorphActor = {
+  source: HTMLElement;
+  target: HTMLElement;
+  clone: HTMLElement;
+  sourceRect: DOMRect;
+  targetRect: DOMRect;
+  sourceRadius: number;
+  targetRadius: number;
+  arcX: number;
+  arcY: number;
+  rotation: number;
+  lag: number;
+};
+
 /* Progress targets for the side-rail dots. */
 const DOT_STOPS = [
   { label: "Intro", p: 0 },
@@ -185,31 +210,32 @@ function PanelFrame({ children }: { children: ReactNode }) {
       className="relative"
       style={{ width: "min(1120px, 91vw, 98vh)" }}
     >
+      <div className="pointer-events-none absolute inset-[1.1%_-0.55%_-1.2%_0.55%] rounded-[20px] border border-white/[0.035] bg-[#070a09] shadow-[18px_28px_70px_rgba(0,0,0,.62)]" />
       <div
         data-sl-monitor-bezel
-        className="relative rounded-[22px] border border-white/20 bg-[linear-gradient(145deg,#777c78_0%,#272c2a_8%,#0d1110_48%,#3b403d_88%,#111514_100%)] p-[10px] pb-[20px]"
+        className="relative overflow-hidden rounded-[19px] border border-white/20 bg-[linear-gradient(135deg,#777d79_0%,#343937_3%,#111514_11%,#080b0a_52%,#282d2a_91%,#5f6561_98%,#171a19_100%)] p-[7px] pb-[12px]"
         style={{
           boxShadow:
-            "0 0 0 1px rgba(0,0,0,.85),0 52px 120px rgba(0,0,0,.78),0 14px 38px rgba(0,0,0,.62),0 0 110px rgba(221,177,89,.08),inset 0 1px 0 rgba(255,255,255,.25)",
+            "0 0 0 1px rgba(0,0,0,.9),0 46px 110px rgba(0,0,0,.74),0 12px 34px rgba(0,0,0,.58),0 0 90px rgba(221,177,89,.065),inset 0 1px 0 rgba(255,255,255,.3),inset 1px 0 0 rgba(255,255,255,.08)",
         }}
       >
-        <div className="absolute left-1/2 top-[4px] z-20 flex -translate-x-1/2 items-center gap-1.5">
-          <i className="size-[5px] rounded-full bg-[#040706] shadow-[inset_0_0_0_1px_rgba(255,255,255,.12)]" />
-          <i className="size-[3px] rounded-full bg-emerald-400/55 shadow-[0_0_7px_rgba(52,211,153,.45)]" />
+        <div className="pointer-events-none absolute inset-[2px] rounded-[16px] border border-black/75" />
+        <div className="absolute left-1/2 top-[2px] z-20 flex h-[5px] -translate-x-1/2 items-center gap-1.5">
+          <i className="size-[4px] rounded-full border border-white/10 bg-[#010302] shadow-[inset_0_0_2px_rgba(49,117,87,.65)]" />
+          <i className="size-[2px] rounded-full bg-white/20" />
         </div>
-        <div className="relative overflow-hidden rounded-[13px] border border-black/85 bg-[#04120b]" style={{ aspectRatio: "1280 / 756" }}>
+        <div className="relative overflow-hidden rounded-[12px] border border-black bg-[#04120b] shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]" style={{ aspectRatio: "1280 / 756" }}>
           {children}
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(112deg,rgba(255,255,255,.08)_0%,rgba(255,255,255,.018)_17%,transparent_34%,transparent_76%,rgba(255,255,255,.022)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_22px_rgba(0,0,0,.62)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(112deg,rgba(255,255,255,.075)_0%,rgba(255,255,255,.016)_16%,transparent_33%,transparent_77%,rgba(255,255,255,.018)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_18px_rgba(0,0,0,.58)]" />
         </div>
-        <div className="absolute bottom-[7px] left-1/2 h-[2px] w-16 -translate-x-1/2 rounded-full bg-white/12" />
-        <i className="absolute bottom-[7px] right-4 size-[4px] rounded-full bg-emerald-400 shadow-[0_0_9px_rgba(52,211,153,.75)]" />
+        <div className="absolute bottom-[4px] left-1/2 h-[2px] w-20 -translate-x-1/2 rounded-full opacity-45 [background:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_1px,transparent_1px_4px)]" />
+        <span className="absolute bottom-[3px] left-4 text-[5px] font-black uppercase tracking-[0.28em] text-white/15">StockGPT</span>
+        <i className="absolute bottom-[4px] right-4 size-[3px] rounded-full bg-emerald-400/90 shadow-[0_0_7px_rgba(52,211,153,.7)]" />
+        <i className="absolute right-0 top-[18%] h-[16%] w-px bg-white/10" />
+        <i className="absolute right-0 top-[38%] h-[8%] w-px bg-black" />
       </div>
-      <div data-sl-monitor-stand className="relative mx-auto h-[62px] w-[42%]">
-        <div className="absolute left-1/2 top-0 h-[45px] w-[22%] -translate-x-1/2 bg-[linear-gradient(90deg,#141817,#686d69_45%,#292e2c_72%,#111513)] shadow-[0_14px_24px_rgba(0,0,0,.5)] [clip-path:polygon(22%_0,78%_0,100%_100%,0_100%)]" />
-        <div className="absolute bottom-0 left-1/2 h-[15px] w-full -translate-x-1/2 rounded-[50%] border border-white/14 bg-[linear-gradient(180deg,#5d625e,#161a19_70%)] shadow-[0_20px_34px_rgba(0,0,0,.68),inset_0_1px_0_rgba(255,255,255,.18)]" />
-      </div>
-      <div className="pointer-events-none absolute -bottom-4 left-1/2 h-8 w-[76%] -translate-x-1/2 rounded-[50%] bg-black/70 blur-xl" />
+      <div className="pointer-events-none absolute -bottom-6 left-1/2 h-9 w-[88%] -translate-x-1/2 rounded-[50%] bg-black/65 blur-2xl" />
     </div>
   );
 }
@@ -249,7 +275,7 @@ function CinematicPhone() {
 
       {/* screen — inset tuned so its aspect matches the 393×852 design
           canvas and the cover-fit never crops the header edges */}
-      <div className="absolute inset-[2.05%_3.55%] overflow-hidden rounded-[14.1%_/_6.6%] bg-[#04120b]">
+      <div data-sl-phone-hardware className="absolute inset-[2.05%_3.55%] overflow-hidden rounded-[14.1%_/_6.6%] bg-[#04120b]">
         <FixedScale w={393} h={852} mode="cover">
           <PhoneDashboardScreen />
         </FixedScale>
@@ -418,6 +444,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
+  const morphLayerRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
@@ -442,10 +469,114 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     let running = true;
 
     let phoneScroll: HTMLElement | null = null;
+    let morphActors: MorphActor[] = [];
 
     const findPhoneScroll = () => {
       const phone = phoneRef.current;
       phoneScroll = phone?.querySelector<HTMLElement>("[data-sl-phone-scroll]") ?? null;
+    };
+
+    const clearMorphActors = () => {
+      morphActors.forEach(({ source, target }) => {
+        source.style.removeProperty("visibility");
+        target.style.removeProperty("--sl-target-reveal");
+      });
+      morphActors = [];
+      morphLayerRef.current?.replaceChildren();
+    };
+
+    const buildMorphActors = () => {
+      const phone = phoneRef.current;
+      const tilt = tiltRef.current;
+      const layer = morphLayerRef.current;
+      const rankingsScene = sceneRefs.current[0];
+      if (!phone || !tilt || !layer || !rankingsScene || !phoneScroll) return;
+
+      clearMorphActors();
+
+      /* Measure both interfaces in their exact handoff geometry. This keeps
+         the clone paths accurate even when the stage or FixedScale changes. */
+      const phoneCss = phone.style.cssText;
+      const tiltCss = tilt.style.cssText;
+      const scrollCss = phoneScroll.style.cssText;
+      const sceneCss = rankingsScene.style.cssText;
+      phone.style.transform = "translate3d(0,0,0) scale(1)";
+      phone.style.visibility = "visible";
+      phone.style.setProperty("--phone-break", "0");
+      tilt.style.transform = "perspective(1500px) rotateX(0deg) rotateY(0deg) rotateZ(0deg)";
+      phoneScroll.style.transform = `translate3d(0, ${-PHONE_SCROLL_SHIFT}px, 0)`;
+      rankingsScene.style.transform = "none";
+      rankingsScene.style.setProperty("--k", "1");
+      rankingsScene.style.setProperty("--out", "0");
+
+      const layerRect = layer.getBoundingClientRect();
+      const nextActors: MorphActor[] = [];
+
+      MORPH_ACTORS.forEach((definition, index) => {
+        const source = phone.querySelector<HTMLElement>(`[data-sl-morph-source="${definition.key}"]`);
+        const targetNode = rankingsScene.querySelector<HTMLElement>(`[data-sl-morph-target="${definition.key}"]`);
+        if (!source || !targetNode) return;
+
+        const sourceViewportRect = source.getBoundingClientRect();
+        const targetViewportRect = targetNode.getBoundingClientRect();
+        const sourceRect = new DOMRect(
+          sourceViewportRect.left - layerRect.left,
+          sourceViewportRect.top - layerRect.top,
+          sourceViewportRect.width,
+          sourceViewportRect.height,
+        );
+        const targetRect = new DOMRect(
+          targetViewportRect.left - layerRect.left,
+          targetViewportRect.top - layerRect.top,
+          targetViewportRect.width,
+          targetViewportRect.height,
+        );
+        if (sourceRect.width < 1 || sourceRect.height < 1 || targetRect.width < 1 || targetRect.height < 1) return;
+
+        const clone = source.cloneNode(true) as HTMLElement;
+        clone.removeAttribute("data-sl-phone-piece");
+        clone.removeAttribute("data-sl-morph-source");
+        clone.querySelectorAll<HTMLElement>("[data-sl-phone-piece], [data-sl-morph-source]").forEach((node) => {
+          node.removeAttribute("data-sl-phone-piece");
+          node.removeAttribute("data-sl-morph-source");
+        });
+        clone.setAttribute("data-sl-morph-actor", definition.key);
+        clone.setAttribute("aria-hidden", "true");
+        clone.style.position = "absolute";
+        clone.style.inset = "auto";
+        clone.style.left = "0";
+        clone.style.top = "0";
+        clone.style.width = `${sourceRect.width}px`;
+        clone.style.height = `${sourceRect.height}px`;
+        clone.style.margin = "0";
+        clone.style.opacity = "1";
+        clone.style.visibility = "hidden";
+        clone.style.pointerEvents = "none";
+        clone.style.transformOrigin = "top left";
+        clone.style.zIndex = String(20 + index);
+        clone.style.willChange = "transform, clip-path, border-radius";
+        layer.appendChild(clone);
+
+        nextActors.push({
+          source,
+          target: targetNode,
+          clone,
+          sourceRect,
+          targetRect,
+          sourceRadius: parseFloat(getComputedStyle(source).borderTopLeftRadius) || 0,
+          targetRadius: parseFloat(getComputedStyle(targetNode).borderTopLeftRadius) || 0,
+          arcX: definition.arcX,
+          arcY: definition.arcY,
+          rotation: definition.rotation,
+          lag: definition.lag,
+        });
+      });
+
+      morphActors = nextActors;
+      phone.style.cssText = phoneCss;
+      tilt.style.cssText = tiltCss;
+      phoneScroll.style.cssText = scrollCss;
+      rankingsScene.style.cssText = sceneCss;
     };
 
     const readTarget = () => {
@@ -456,6 +587,8 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     const onResize = () => {
       readTarget();
       findPhoneScroll();
+      buildMorphActors();
+      lastApplied = -1;
     };
 
     const apply = (p: number) => {
@@ -467,6 +600,31 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       if (phoneScroll) {
         phoneScroll.style.transform = "translate3d(0, " + (-PHONE_SCROLL_SHIFT * t1) + "px, 0)";
       }
+
+      morphActors.forEach((actor, index) => {
+        const travel = easeInOut(seg(tM, actor.lag, 0.91));
+        const arc = Math.sin(Math.PI * travel);
+        const resize = easeInOut(seg(travel, 0.22, 0.72));
+        const targetScaleX = Math.min(1.58, Math.max(0.68, actor.targetRect.width / actor.sourceRect.width));
+        const targetScaleY = Math.min(1.5, Math.max(0.68, actor.targetRect.height / actor.sourceRect.height));
+        const scaleX = 1 + (targetScaleX - 1) * resize;
+        const scaleY = 1 + (targetScaleY - 1) * resize;
+        const destinationX = actor.targetRect.x + (actor.targetRect.width - actor.sourceRect.width * scaleX) / 2;
+        const destinationY = actor.targetRect.y + (actor.targetRect.height - actor.sourceRect.height * scaleY) / 2;
+        const x = actor.sourceRect.x + (destinationX - actor.sourceRect.x) * travel + actor.arcX * arc;
+        const y = actor.sourceRect.y + (destinationY - actor.sourceRect.y) * travel + actor.arcY * arc;
+        const radius = actor.sourceRadius + (actor.targetRadius - actor.sourceRadius) * travel;
+        const handoff = easeInOut(seg(travel, 0.48, 0.82));
+        const reveal = easeOut(seg(travel, 0.42 + index * 0.006, 0.84));
+
+        actor.source.style.visibility = tM > 0.004 ? "hidden" : "visible";
+        actor.target.style.setProperty("--sl-target-reveal", reveal.toFixed(4));
+        actor.clone.style.visibility = tM > 0.004 && tM < 0.995 ? "visible" : "hidden";
+        actor.clone.style.transform = `translate3d(${x}px,${y}px,0) rotate(${actor.rotation * arc}deg) scale(${scaleX},${scaleY})`;
+        actor.clone.style.borderRadius = `${radius}px`;
+        actor.clone.style.clipPath = `inset(0 0 ${handoff * 100}% 0 round ${Math.max(0, radius)}px)`;
+        actor.clone.style.boxShadow = `0 ${12 + arc * 20}px ${28 + arc * 34}px rgba(0,0,0,${0.28 + arc * 0.28})`;
+      });
       /* hero text */
       const heroOut = seg(p, 0.03, 0.1);
       const title = heroTitleRef.current;
@@ -488,10 +646,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const tilt = tiltRef.current;
       if (phone && tilt) {
         const lift = easeInOut(seg(p, 0.14, 0.31));
-        phone.style.transform = `translate(${lift * -24}px, ${(1 - t1) * 26 + lift * -34}px) scale(${0.96 + 0.04 * t1 + lift * 0.12})`;
-        const o = 1 - easeInOut(seg(p, 0.285, 0.35));
-        phone.style.opacity = String(o);
-        phone.style.visibility = o <= 0 ? "hidden" : "visible";
+        phone.style.transform = `translate(${lift * -24}px, ${(1 - t1) * 26 + lift * -34}px) scale(${0.96 + 0.04 * t1 - lift * 0.1})`;
+        phone.style.opacity = "1";
+        phone.style.visibility = tM >= 0.995 ? "hidden" : "visible";
         phone.style.setProperty("--phone-break", tM.toFixed(4));
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
       }
@@ -500,33 +657,33 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       SCENES.forEach((w, i) => {
         const el = sceneRefs.current[i];
         if (!el) return;
-        const t = seg(p, w.a, w.b);
-        const outRaw = w.final ? 0 : seg(t, 0.82, 1);
-        const tout = outRaw * outRaw;
+        const tout = w.final ? 0 : easeInOut(seg(p, w.b - 0.045, w.b - 0.008));
 
         if (w.handoff) {
           /* No intermediate table: the real monitor, shell, controls and
              rows collect directly as the phone pieces move apart. */
           const build = easeOut(seg(p, 0.155, 0.35));
-          const o = easeOut(seg(p, 0.145, 0.225)) * (1 - tout);
-          el.style.opacity = String(o);
-          el.style.visibility = o < 0.003 ? "hidden" : "visible";
+          const copyBuild = easeOut(seg(p, 0.22, 0.35));
+          el.style.opacity = "1";
+          el.style.visibility = p >= 0.135 && p <= w.b ? "visible" : "hidden";
           el.style.transform = "none";
           el.style.filter = "none";
           el.style.setProperty("--k", build.toFixed(4));
+          el.style.setProperty("--copy-k", copyBuild.toFixed(4));
           el.style.setProperty("--out", tout.toFixed(4));
           return;
         }
 
-        const tin = easeOut(seg(t, 0, w.final ? 0.5 : 0.24));
-        const o = tin * (1 - tout);
-        el.style.opacity = String(o);
-        el.style.visibility = o < 0.003 ? "hidden" : "visible";
-        el.style.transform = `translateY(${(1 - tin) * 12}px) scale(${0.99 + tin * 0.01})`;
+        const enterStart = w.a - 0.015;
+        const tin = easeOut(seg(p, enterStart, w.a + 0.035));
+        el.style.opacity = "1";
+        el.style.visibility = p >= enterStart && (w.final || p <= w.b) ? "visible" : "hidden";
+        el.style.transform = "none";
         el.style.filter = "none";
         el.style.setProperty("--k", tin.toFixed(4));
+        el.style.setProperty("--copy-k", tin.toFixed(4));
         el.style.setProperty("--out", tout.toFixed(4));
-        if (w.final) el.style.pointerEvents = o > 0.5 ? "auto" : "none";
+        if (w.final) el.style.pointerEvents = tin > 0.5 ? "auto" : "none";
       });
 
       /* dots rail */
@@ -556,11 +713,13 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     window.addEventListener("resize", onResize);
     readTarget();
     findPhoneScroll();
+    buildMorphActors();
     tick();
     /* FixedScale commits its cover-fit scale after this effect. Re-find
        the internal scroll surface once that render has flushed. */
     const remeasure = () => {
       findPhoneScroll();
+      buildMorphActors();
       lastApplied = -1;
     };
     const rafRemeasure = requestAnimationFrame(() => requestAnimationFrame(remeasure));
@@ -573,6 +732,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       window.clearTimeout(lateRemeasure);
       scroller.removeEventListener("scroll", readTarget);
       window.removeEventListener("resize", onResize);
+      clearMorphActors();
     };
   }, [staticMode]);
 
@@ -623,19 +783,27 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       background: radial-gradient(ellipse 78% 68% at 50% 46%, transparent 58%, rgba(0,0,0,0.62) 100%);
     }
 
-    /* staggered children inside a scene, driven by the scene's --k */
-    .sl-scene .sl-e0, .sl-scene .sl-e1, .sl-scene .sl-e2, .sl-scene .sl-e3 { will-change: transform, opacity; }
-    .sl-scene .sl-e0 { opacity: calc(var(--k, 1) * 1.9); transform: translateY(calc(clamp(0, 1 - var(--k, 1) * 1.9, 1) * 26px)); }
-    .sl-scene .sl-e1 { opacity: calc(var(--k, 1) * 1.9 - 0.22); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.22), 1) * 34px)); }
-    .sl-scene .sl-e2 { opacity: calc(var(--k, 1) * 1.9 - 0.44); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.44), 1) * 40px)); }
-    .sl-scene .sl-e3 { opacity: calc(var(--k, 1) * 1.9 - 0.62); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.62), 1) * 46px)); }
+    /* Scene copy is uncovered in crisp staggered cuts instead of fading. */
+    .sl-scene .sl-e0 { --sl-copy: clamp(0, var(--copy-k, var(--k, 1)) * 1.9, 1); }
+    .sl-scene .sl-e1 { --sl-copy: clamp(0, var(--copy-k, var(--k, 1)) * 1.9 - .22, 1); }
+    .sl-scene .sl-e2 { --sl-copy: clamp(0, var(--copy-k, var(--k, 1)) * 1.9 - .44, 1); }
+    .sl-scene .sl-e3 { --sl-copy: clamp(0, var(--copy-k, var(--k, 1)) * 1.9 - .62, 1); }
+    .sl-scene .sl-e0, .sl-scene .sl-e1, .sl-scene .sl-e2, .sl-scene .sl-e3 {
+      --sl-copy-hidden: clamp(0, 1 - var(--sl-copy) + var(--out, 0), 1);
+      opacity: 1;
+      clip-path: inset(calc(var(--sl-copy-hidden) * 50.1%) 0);
+      transform: translate3d(0, calc(var(--sl-copy-hidden) * 30px), 0) scaleX(calc(.96 + (1 - var(--sl-copy-hidden)) * .04));
+      will-change: transform, clip-path;
+    }
 
     /* Product screens do not slide as single screenshots. Their chrome,
        controls, cards and data regions assemble independently, then
        disperse in different directions before the next workspace forms. */
     .sl-scene [data-sl-fragment] {
       --sl-build: clamp(0, (var(--k, 1) - var(--sl-delay, 0)) * 2.8, 1);
-      opacity: calc(var(--sl-build) * (1 - var(--out, 0)));
+      --sl-hidden: clamp(0, 1 - var(--sl-build) + var(--out, 0), 1);
+      opacity: 1;
+      clip-path: inset(calc(var(--sl-hidden) * 50.1%) calc(var(--sl-hidden) * 4%) round calc(4px + var(--sl-hidden) * 12px));
       transform:
         translate3d(
           calc((1 - var(--sl-build)) * var(--sl-in-x, 0px) + var(--out, 0) * var(--sl-out-x, 0px)),
@@ -643,14 +811,15 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           0
         )
         rotate(calc((1 - var(--sl-build) + var(--out, 0)) * var(--sl-rot, 0deg)))
-        scale(calc(.965 + var(--sl-build) * .035 - var(--out, 0) * .015));
-      filter: blur(calc((1 - var(--sl-build) + var(--out, 0)) * 7px));
+        scale(calc(.94 + var(--sl-build) * .06 - var(--out, 0) * .025));
       transform-origin: center;
-      will-change: transform, opacity, filter;
+      will-change: transform, clip-path;
     }
     .sl-scene [data-sl-monitor] {
       --sl-monitor-build: clamp(0, (var(--k, 1) - .04) * 1.55, 1);
-      opacity: calc(var(--sl-monitor-build) * (1 - var(--out, 0)));
+      --sl-monitor-hidden: clamp(0, 1 - var(--sl-monitor-build) + var(--out, 0), 1);
+      opacity: 1;
+      clip-path: inset(calc(var(--sl-monitor-hidden) * 50.1%) calc(var(--sl-monitor-hidden) * 2.5%) round calc(18px + var(--sl-monitor-hidden) * 20px));
       transform:
         perspective(1500px)
         translate3d(
@@ -660,37 +829,47 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         )
         rotateX(calc((1 - var(--sl-monitor-build)) * 8deg + var(--out, 0) * -3deg))
         rotateY(calc((1 - var(--sl-monitor-build)) * -4deg + var(--out, 0) * 2deg))
-        scale(calc(.88 + var(--sl-monitor-build) * .12 - var(--out, 0) * .025));
-      filter: blur(calc((1 - var(--sl-monitor-build) + var(--out, 0)) * 4px));
+        scale(calc(.9 + var(--sl-monitor-build) * .1 - var(--out, 0) * .035));
       transform-origin: center 70%;
-      will-change: transform, opacity, filter;
+      will-change: transform, clip-path;
     }
     .sl-scene [data-sl-monitor-bezel] {
-      transform: translateY(calc((1 - var(--sl-monitor-build)) * -18px));
+      transform: translateY(calc((1 - var(--sl-monitor-build)) * -12px));
       transition: box-shadow 180ms linear;
     }
-    .sl-scene [data-sl-monitor-stand] {
-      opacity: clamp(0, (var(--sl-monitor-build) - .28) * 2.2, 1);
-      transform:
-        translateY(calc((1 - var(--sl-monitor-build)) * 42px))
-        scaleY(clamp(.08, var(--sl-monitor-build), 1));
-      transform-origin: top center;
+    .sl-scene [data-sl-morph-target] {
+      --sl-target-hidden: clamp(0, 1 - var(--sl-target-reveal, 0) + var(--out, 0), 1);
+      opacity: 1 !important;
+      clip-path: inset(0 calc(var(--sl-target-hidden) * 100%) 0 0 round 10px) !important;
+      transform: translate3d(calc(var(--sl-target-hidden) * 20px), 0, 0) !important;
+      filter: none !important;
     }
     [data-sl-phone-piece] {
-      opacity: calc(1 - var(--phone-break, 0) * .94);
+      opacity: 1;
+      clip-path: inset(calc(var(--phone-break, 0) * 50.1%) calc(var(--phone-break, 0) * 3%) round calc(8px + var(--phone-break, 0) * 16px));
       transform:
         translate3d(
           calc(var(--phone-break, 0) * var(--phone-x, 0px)),
           calc(var(--phone-break, 0) * var(--phone-y, 0px)),
           0
         )
-        rotate(calc(var(--phone-break, 0) * var(--phone-r, 0deg)));
-      filter: blur(calc(var(--phone-break, 0) * 4px));
-      will-change: transform, opacity, filter;
+        rotate(calc(var(--phone-break, 0) * var(--phone-r, 0deg)))
+        scale(calc(1 - var(--phone-break, 0) * .035));
+      will-change: transform, clip-path;
     }
     [data-sl-phone-hardware] {
-      opacity: calc(1 - var(--phone-break, 0) * .7);
-      filter: blur(calc(var(--phone-break, 0) * 2px));
+      opacity: 1;
+      clip-path: inset(calc(var(--phone-break, 0) * 50.1%) calc(var(--phone-break, 0) * 2%) round calc(var(--phone-break, 0) * 22px));
+      transform:
+        perspective(900px)
+        rotateY(calc(var(--phone-break, 0) * 22deg))
+        scale(calc(1 - var(--phone-break, 0) * .58));
+      transform-origin: center;
+      will-change: transform, clip-path;
+    }
+    [data-sl-morph-actor] {
+      backface-visibility: hidden;
+      contain: layout paint style;
     }
 
     .sl-dot {
@@ -723,10 +902,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     @media (prefers-reduced-motion: reduce) {
       .sl-cue-anim, .sl-caret, .sl-pulse { animation: none !important; }
       .sl-scene [data-sl-fragment], .sl-scene [data-sl-monitor], .sl-scene [data-sl-monitor-bezel],
-      .sl-scene [data-sl-monitor-stand], [data-sl-phone-piece], [data-sl-phone-hardware] {
+      [data-sl-phone-piece], [data-sl-phone-hardware] {
         opacity: 1 !important;
         transform: none !important;
         filter: none !important;
+        clip-path: none !important;
       }
     }
   `;
@@ -789,6 +969,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
               </div>
             </div>
           </div>
+
+          {/* Detached interface modules travel above both devices during
+              the mobile-to-desktop handoff. The layer is populated from
+              live DOM so it stays exact at every responsive breakpoint. */}
+          <div ref={morphLayerRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[28] overflow-visible" />
 
           {/* hero title */}
           <div

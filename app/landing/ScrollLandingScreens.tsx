@@ -180,7 +180,7 @@ const NAV = [
 function DemoAppShell({ active, children }: { active: string; children: ReactNode }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
-      <header data-sl-fragment style={fragmentStyle(0)} className="flex h-16 shrink-0 items-center gap-3 border-b border-[#ddb159]/20 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,.24)]">
+      <header data-sl-fragment data-sl-morph-target={active === "rankings" ? "app-header" : undefined} style={fragmentStyle(0)} className="flex h-16 shrink-0 items-center gap-3 border-b border-[#ddb159]/20 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,.24)]">
         <div className="relative h-12 w-[192px] shrink-0">
           <Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="192px" />
         </div>
@@ -206,7 +206,7 @@ function DemoAppShell({ active, children }: { active: string; children: ReactNod
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <aside data-sl-fragment style={fragmentStyle(2)} className="w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4">
+        <aside data-sl-fragment data-sl-morph-target={active === "rankings" ? "nav" : undefined} style={fragmentStyle(2)} className="w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4">
           <nav className="space-y-2">
             {NAV.map(([key, label]) => {
               const selected = active === key;
@@ -250,7 +250,7 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
   return (
     <DemoAppShell active="rankings">
       <main className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden">
-        <section data-sl-fragment style={fragmentStyle(3)} className="shrink-0 rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,.07),rgba(250,246,240,.022)_46%,rgba(221,177,89,.06))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.18)]">
+        <section data-sl-fragment data-sl-morph-target="briefing" style={fragmentStyle(3)} className="shrink-0 rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,.07),rgba(250,246,240,.022)_46%,rgba(221,177,89,.06))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.18)]">
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
@@ -275,7 +275,7 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
           </div>
         </section>
 
-        <section data-sl-fragment style={fragmentStyle(4)} className="flex h-12 shrink-0 items-center justify-between rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/72 px-4">
+        <section data-sl-fragment data-sl-morph-target="rankings-title" style={fragmentStyle(4)} className="flex h-12 shrink-0 items-center justify-between rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/72 px-4">
           <div>
             <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">How scores work</p>
             <p className="mt-0.5 text-[10px] font-semibold text-[#faf6f0]/48">Six factor families, refreshed from the latest complete market snapshot.</p>
@@ -285,12 +285,12 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
           </div>
         </section>
 
-        <section data-sl-fragment style={fragmentStyle(5)} className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,.2)]">
+        <section data-sl-fragment data-sl-morph-target="portfolio" style={fragmentStyle(5)} className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,.2)]">
           <div className="grid h-9 grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center bg-[#072116] px-2 text-[9px] font-bold uppercase tracking-wide text-[#faf6f0]">
             {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score", "Why"].map((h) => <span key={h} className="px-2">{h}</span>)}
           </div>
-          {DEMO_ROWS.map((row) => (
-            <div key={row.ticker} className="grid h-[42px] grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center border-b border-[#072116]/8 px-2 text-[10px] text-[#072116]">
+          {DEMO_ROWS.map((row, index) => (
+            <div data-sl-morph-target={index < 3 ? `rank-row-${index}` : undefined} key={row.ticker} className="grid h-[42px] grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center border-b border-[#072116]/8 px-2 text-[10px] text-[#072116]">
               <span className="px-2 font-bold text-[#072116]/60">{row.rank}</span>
               <span className={"mx-1 inline-flex h-6 items-center justify-center rounded-full border text-[8px] font-black " + (row.rankMove.includes("▲") ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700" : row.rankMove.includes("▼") ? "border-red-500/20 bg-red-500/10 text-red-700" : "border-[#072116]/10 text-[#072116]/45")}>{row.rankMove}</span>
               <span className="flex items-center gap-2 px-2 font-black"><StockMark ticker={row.ticker} dark />{row.ticker}</span>
@@ -545,6 +545,7 @@ function PhoneRankingCard({ row, index }: { row: DashboardRow; index: number }) 
   return (
     <article
       data-sl-phone-piece
+      data-sl-morph-source={`rank-row-${index}`}
       style={phonePiece(42 + index * 18, 46 + index * 10, 1.5 + index)}
       className="h-[132px] w-[164px] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]"
     >
@@ -574,7 +575,7 @@ export function PhoneDashboardScreen() {
         <span>9:41</span>
         <span className="flex items-center gap-1.5 text-[9px]">● ◒ ▰</span>
       </div>
-      <header data-sl-phone-piece style={phonePiece(28, -28, 2)} className="flex h-[56px] items-center gap-2 border-b border-[#ddb159]/14 bg-[#04180f] px-3">
+      <header data-sl-phone-piece data-sl-morph-source="app-header" style={phonePiece(28, -28, 2)} className="flex h-[56px] items-center gap-2 border-b border-[#ddb159]/14 bg-[#04180f] px-3">
         <div className="relative h-10 w-[118px] shrink-0"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="118px" /></div>
         <span className="min-w-0 flex-1" />
         <span className="grid size-11 place-items-center rounded-full text-[#ddb159]"><AppIcon kind="search" className="size-5" /></span>
@@ -583,7 +584,7 @@ export function PhoneDashboardScreen() {
 
       <div className="absolute inset-x-0 bottom-[88px] top-[86px] overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)]">
         <div data-sl-phone-scroll className="px-3 pb-10 pt-1 [will-change:transform]">
-          <section data-sl-phone-piece style={phonePiece(-52, 22, -2)} className="relative overflow-hidden border-b border-[#ddb159]/15 px-1 pb-4 pt-1">
+          <section data-sl-phone-piece data-sl-morph-source="briefing" style={phonePiece(-52, 22, -2)} className="relative overflow-hidden border-b border-[#ddb159]/15 px-1 pb-4 pt-1">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
               <div className="min-w-0 pt-0.5">
                 <div className="flex flex-wrap items-center gap-2"><p className="text-[12px] font-semibold text-[#ddb159]">Good evening, Alex</p><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/18 bg-[#072116]/55 px-2 py-1 text-[9px] font-bold text-white/62"><i className="size-1.5 rounded-full bg-white/38" />Markets closed</span></div>
@@ -594,7 +595,7 @@ export function PhoneDashboardScreen() {
             </div>
           </section>
 
-          <section data-sl-phone-piece style={phonePiece(62, 36, 3)} className="relative mt-4 h-[310px] overflow-hidden rounded-[26px] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,.9),rgba(6,28,19,.94))] p-4 shadow-[0_18px_38px_rgba(0,0,0,.2)]">
+          <section data-sl-phone-piece data-sl-morph-source="portfolio" style={phonePiece(62, 36, 3)} className="relative mt-4 h-[310px] overflow-hidden rounded-[26px] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,.9),rgba(6,28,19,.94))] p-4 shadow-[0_18px_38px_rgba(0,0,0,.2)]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p><h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">Core Growth</h2></div>
               <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">Health 82/100</span>
@@ -606,7 +607,7 @@ export function PhoneDashboardScreen() {
           </section>
           <div data-sl-phone-piece style={phonePiece(-18, 42, -1)} className="mt-3 flex justify-center gap-2"><i className="h-2 w-6 rounded-full bg-[#ddb159]" /><i className="size-2 rounded-full bg-white/20" /><i className="size-2 rounded-full bg-white/20" /></div>
 
-          <div data-sl-phone-piece style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">Top ranked today</h2></div><span className="min-h-10 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">View all →</span></div>
+          <div data-sl-phone-piece data-sl-morph-source="rankings-title" style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">Top ranked today</h2></div><span className="min-h-10 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">View all →</span></div>
           <div data-sl-phone-rankings className="flex gap-3 overflow-hidden pr-7">
             {DEMO_ROWS.slice(0, 3).map((row, index) => <PhoneRankingCard key={row.ticker} row={row} index={index} />)}
           </div>
@@ -618,7 +619,7 @@ export function PhoneDashboardScreen() {
         </div>
       </div>
 
-      <nav data-sl-phone-piece style={phonePiece(0, 48, 0)} aria-label="Primary mobile navigation" className="absolute bottom-[10px] left-[18px] right-[18px] flex h-[68px] items-center justify-between gap-1 rounded-[26px] border border-[#ddb159]/28 bg-[#04180f]/96 px-2 shadow-[0_16px_45px_rgba(0,0,0,.5)]">
+      <nav data-sl-phone-piece data-sl-morph-source="nav" style={phonePiece(0, 48, 0)} aria-label="Primary mobile navigation" className="absolute bottom-[10px] left-[18px] right-[18px] flex h-[68px] items-center justify-between gap-1 rounded-[26px] border border-[#ddb159]/28 bg-[#04180f]/96 px-2 shadow-[0_16px_45px_rgba(0,0,0,.5)]">
         {[{ key: "dashboard", label: "Home" }, { key: "rankings", label: "Rankings" }, { key: "portfolio", label: "Portfolio" }, { key: "alerts", label: "Alerts" }, { key: "news", label: "News" }].map((item, index) => <span key={item.key} className={index === 0 ? "flex h-12 w-[104px] items-center justify-center gap-1.5 rounded-full bg-[#ddb159] px-3 text-[#061b12]" : "grid size-11 place-items-center rounded-full text-white/62"}><AppIcon kind={item.key} className="size-[19px]" />{index === 0 && <b className="text-[11px] font-black">{item.label}</b>}</span>)}
       </nav>
     </div>
