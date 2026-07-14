@@ -285,7 +285,7 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
           </div>
         </section>
 
-        <section data-sl-fragment data-sl-morph-target="portfolio" style={fragmentStyle(5)} className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,.2)]">
+        <section data-sl-fragment data-sl-morph-target="rankings" style={fragmentStyle(5)} className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,.2)]">
           <div className="grid h-9 grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center bg-[#072116] px-2 text-[9px] font-bold uppercase tracking-wide text-[#faf6f0]">
             {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score", "Why"].map((h) => <span key={h} className="px-2">{h}</span>)}
           </div>
@@ -608,7 +608,7 @@ export function PhoneDashboardScreen() {
           <div data-sl-phone-piece style={phonePiece(-18, 42, -1)} className="mt-3 flex justify-center gap-2"><i className="h-2 w-6 rounded-full bg-[#ddb159]" /><i className="size-2 rounded-full bg-white/20" /><i className="size-2 rounded-full bg-white/20" /></div>
 
           <div data-sl-phone-piece data-sl-morph-source="rankings-title" style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">Top ranked today</h2></div><span className="min-h-10 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">View all →</span></div>
-          <div data-sl-phone-rankings className="flex gap-3 overflow-hidden pr-7">
+          <div data-sl-phone-rankings data-sl-morph-source="rankings" className="flex gap-3 overflow-hidden pr-7">
             {DEMO_ROWS.slice(0, 3).map((row, index) => <PhoneRankingCard key={row.ticker} row={row} index={index} />)}
           </div>
 
