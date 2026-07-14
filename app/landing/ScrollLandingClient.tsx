@@ -30,19 +30,19 @@ import {
 /*    0.270 – 0.400  keep pulling back: the letter shrinks until it   */
 /*                   is the "R" of "Ranked." in the next headline     */
 /*    0.290 – 0.460  scene 1 · Rankings                               */
-/*    0.460 – 0.620  scene 2 · Portfolio Builder                      */
+/*    0.460 – 0.620  scene 2 · Portfolio                              */
 /*    0.620 – 0.780  scene 3 · World News                             */
 /*    0.780 – 0.900  scene 4 · Ask StockGPT                           */
 /*    0.900 – 1.000  finale · CTA                                     */
 /* ================================================================== */
 
 const STRAIGHTEN = { a: 0.03, b: 0.14 };
-/* the invisible cut: the phone's "Top ranked" card undocks and flies
-   to its slide-2 slot (MORPH) while its own layout unfolds from the
-   compact mobile card into the desktop table (UNFOLD). The card is the
-   same component in both worlds, so no surface ever swaps on screen. */
+/* The real mobile rankings module undocks from the dashboard, unfolds
+   while it travels, then disperses as the complete logged-in rankings
+   workspace assembles around it. */
 const MORPH = { a: 0.14, b: 0.33 };
 const UNFOLD = { a: 0.17, b: 0.33 };
+const PHONE_SCROLL_SHIFT = 318;
 
 const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
   /* scene 1 fades in around the landing dot-letter — no slide, no
@@ -58,7 +58,7 @@ const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
 const DOT_STOPS = [
   { label: "Intro", p: 0 },
   { label: "Rankings", p: 0.37 },
-  { label: "Portfolio Builder", p: 0.54 },
+  { label: "Portfolio", p: 0.54 },
   { label: "World News", p: 0.7 },
   { label: "Ask StockGPT", p: 0.84 },
   { label: "Get started", p: 0.985 },
@@ -97,15 +97,15 @@ const SCENE_COPY: SceneCopyDef[] = [
   },
   {
     index: "02",
-    eyebrow: "Portfolio Builder",
+    eyebrow: "Portfolio",
     title: (
       <>
-        Tell it your risk. <em className="sl-gold not-italic">Watch it build.</em>
+        See the whole picture. <em className="sl-gold not-italic">Act with context.</em>
       </>
     ),
     body:
-      "Set your risk appetite, horizon and sector tilt — the Portfolio Builder drafts a fully-weighted allocation from the live rankings in seconds. Import your real positions and it keeps watching exposure, concentration and weak-ranked holdings for you.",
-    chips: ["Risk-based generation", "Trading 212 CSV import", "Exposure monitoring"],
+      "Track value, return, health, concentration and model conviction in the same portfolio workspace you use after signing in. Import real positions and StockGPT keeps the context current.",
+    chips: ["Portfolio health", "Reliable performance history", "Exposure monitoring"],
   },
   {
     index: "03",
@@ -217,32 +217,38 @@ function CinematicPhone({
   dimRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div className="relative" style={{ width: "min(296px, 58vw, 29vh)", aspectRatio: "320 / 655" }}>
+    <div className="relative" style={{ width: "min(310px, 62vw, 31vh)", aspectRatio: "393 / 852" }}>
       {/* titanium rail */}
       <div
         ref={frameRef}
-        className="absolute inset-0 rounded-[17.5%_/_8.6%]"
+        data-sl-phone-hardware
+        className="absolute inset-0 rounded-[16.8%_/_7.8%]"
         style={{
           background:
-            "linear-gradient(148deg, #585e58 0%, #23292a 16%, #14181a 38%, #454b46 52%, #171b1d 68%, #3c423d 88%, #101413 100%)",
+            "linear-gradient(145deg,#787d79 0%,#343938 8%,#151918 24%,#555a56 42%,#1a1e1d 62%,#666b66 80%,#171b1a 100%)",
           boxShadow:
-            "0 60px 130px rgba(0,0,0,0.85), 0 24px 55px rgba(0,0,0,0.6), 0 0 90px rgba(221,177,89,0.10)",
+            "0 70px 150px rgba(0,0,0,.88),0 26px 58px rgba(0,0,0,.68),0 0 90px rgba(221,177,89,.1),inset 0 0 0 1px rgba(255,255,255,.24)",
         }}
       >
         {/* side buttons */}
-        <div className="absolute -left-[1.2%] top-[21%] h-[4.5%] w-[1.4%] rounded-l-md bg-[linear-gradient(90deg,#4c524d,#181c1d)]" />
-        <div className="absolute -left-[1.2%] top-[28%] h-[8%] w-[1.4%] rounded-l-md bg-[linear-gradient(90deg,#4c524d,#181c1d)]" />
-        <div className="absolute -left-[1.2%] top-[38%] h-[8%] w-[1.4%] rounded-l-md bg-[linear-gradient(90deg,#4c524d,#181c1d)]" />
-        <div className="absolute -right-[1.2%] top-[30%] h-[11%] w-[1.4%] rounded-r-md bg-[linear-gradient(270deg,#4c524d,#181c1d)]" />
+        <div className="absolute inset-[.75%] rounded-[16.2%_/_7.45%] border border-white/10" />
+        <div className="absolute -left-[1.15%] top-[18%] h-[4.6%] w-[1.35%] rounded-l-md bg-[linear-gradient(90deg,#777c77,#202423)] shadow-[-1px_0_1px_rgba(255,255,255,.18)]" />
+        <div className="absolute -left-[1.15%] top-[26.5%] h-[8.2%] w-[1.35%] rounded-l-md bg-[linear-gradient(90deg,#777c77,#202423)]" />
+        <div className="absolute -left-[1.15%] top-[37%] h-[8.2%] w-[1.35%] rounded-l-md bg-[linear-gradient(90deg,#777c77,#202423)]" />
+        <div className="absolute -right-[1.15%] top-[29%] h-[12%] w-[1.35%] rounded-r-md bg-[linear-gradient(270deg,#777c77,#202423)]" />
+        <div className="absolute left-[9%] top-0 h-[.7%] w-[14%] bg-black/45" />
+        <div className="absolute right-[9%] top-0 h-[.7%] w-[14%] bg-black/45" />
+        <div className="absolute bottom-0 left-[10%] h-[.7%] w-[13%] bg-black/45" />
+        <div className="absolute bottom-0 right-[10%] h-[.7%] w-[13%] bg-black/45" />
       </div>
 
       {/* black bezel */}
-      <div className="absolute inset-[1.6%_3.2%] rounded-[15.5%_/_7.4%] bg-black" />
+      <div data-sl-phone-hardware className="absolute inset-[1.25%_2.65%] rounded-[15.7%_/_7.35%] bg-[#020303] shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]" />
 
-      {/* screen — inset tuned so its aspect matches the 330×700 design
+      {/* screen — inset tuned so its aspect matches the 393×852 design
           canvas and the cover-fit never crops the header edges */}
-      <div className="absolute inset-[2.6%_4.3%] overflow-hidden rounded-[13%_/_6.2%] bg-[#04120b]">
-        <FixedScale w={330} h={700} mode="cover">
+      <div className="absolute inset-[2.05%_3.55%] overflow-hidden rounded-[14.1%_/_6.6%] bg-[#04120b]">
+        <FixedScale w={393} h={852} mode="cover">
           <PhoneDashboardScreen metrics={metrics} />
         </FixedScale>
 
@@ -262,15 +268,17 @@ function CinematicPhone({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(112deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.045) 18%, transparent 30%, transparent 68%, rgba(255,255,255,0.03) 86%)",
+              "linear-gradient(112deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.045) 17%,transparent 29%,transparent 68%,rgba(255,255,255,.035) 88%)",
           }}
         />
       </div>
 
       {/* dynamic island */}
-      <div className="absolute left-1/2 top-[4.2%] z-10 h-[3.4%] w-[27%] -translate-x-1/2 rounded-full bg-black">
-        <div className="absolute right-[12%] top-1/2 h-[42%] w-[13%] -translate-y-1/2 rounded-full bg-[#0d1420]" />
+      <div data-sl-phone-hardware className="absolute left-1/2 top-[3.35%] z-10 h-[3.35%] w-[30%] -translate-x-1/2 rounded-full bg-black shadow-[0_1px_2px_rgba(255,255,255,.07)]">
+        <div className="absolute right-[10%] top-1/2 aspect-square h-[43%] -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_35%_35%,#1c2940,#06090d_60%)]" />
+        <div className="absolute left-[17%] top-1/2 h-[12%] w-[34%] -translate-y-1/2 rounded-full bg-[#161a19]" />
       </div>
+      <div data-sl-phone-hardware className="absolute bottom-[3.15%] left-1/2 z-10 h-[.55%] w-[32%] -translate-x-1/2 rounded-full bg-white/82" />
     </div>
   );
 }
@@ -459,6 +467,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     let slot = { x: 0, y: 0, w: 900, cx: 0 };
     let phoneC = { x: 0, y: 0 };
     let cardHole: HTMLElement | null = null;
+    let phoneScroll: HTMLElement | null = null;
 
     const measureGeometry = () => {
       const phone = phoneRef.current;
@@ -466,13 +475,23 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const scene0 = sceneRefs.current[0];
       const slotEl = slotRef.current;
       cardHole = phone?.querySelector<HTMLElement>("[data-sl-zoom]") ?? null;
-      if (!phone || !tilt || !scene0 || !slotEl || !cardHole) return;
+      phoneScroll = phone?.querySelector<HTMLElement>("[data-sl-phone-scroll]") ?? null;
+      if (!phone || !tilt || !scene0 || !slotEl || !cardHole || !phoneScroll) return;
       /* neutralise the scrub transforms; no paint can happen inside
          this synchronous block, so nothing flashes */
-      const saved = [phone.style.transform, tilt.style.transform, scene0.style.transform];
+      const saved = [
+        phone.style.transform,
+        tilt.style.transform,
+        scene0.style.transform,
+        phoneScroll.style.transform,
+      ];
       phone.style.transform = "none";
       tilt.style.transform = "none";
       scene0.style.transform = "none";
+      /* The hero begins at the top of the real mobile dashboard. By the
+         time the rankings module undocks, the dashboard has naturally
+         scrolled down to that section. Measure that settled position. */
+      phoneScroll.style.transform = "translate3d(0, -" + PHONE_SCROLL_SHIFT + "px, 0)";
       const cr = cardHole.getBoundingClientRect();
       const sr = slotEl.getBoundingClientRect();
       const pr = phone.getBoundingClientRect();
@@ -489,6 +508,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       phone.style.transform = saved[0];
       tilt.style.transform = saved[1];
       scene0.style.transform = saved[2];
+      phoneScroll.style.transform = saved[3];
     };
 
     const readTarget = () => {
@@ -506,6 +526,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       /* card flight (rect) and card unfold (internal layout) */
       const tM = easeInOut(seg(p, MORPH.a, MORPH.b));
       const tC = easeInOut(seg(p, UNFOLD.a, UNFOLD.b));
+      if (phoneScroll) {
+        phoneScroll.style.transform = "translate3d(0, " + (-PHONE_SCROLL_SHIFT * t1) + "px, 0)";
+      }
       /* scene-0 exit drives the landed card out with its copy */
       const t0 = seg(p, SCENES[0].a, SCENES[0].b);
       const out0 = seg(t0, 0.82, 1);
@@ -536,12 +559,13 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const y = c0.y + (slot.y - c0.y) * tM;
       const ov = overlayRef.current;
       if (ov) {
-        const on = p >= MORPH.a && p < 0.475;
+        const retire = easeInOut(seg(p, 0.305, 0.365));
+        const on = p >= MORPH.a && p < 0.37;
         ov.style.visibility = on ? "visible" : "hidden";
-        ov.style.opacity = String(1 - tout0);
+        ov.style.opacity = String((1 - retire) * (1 - tout0));
         ov.style.setProperty("--t", tC.toFixed(4));
-        ov.style.transform = `translate(${cx - W / 2}px, ${y}px) scale(${k * (1 + tout0 * 0.1)})`;
-        ov.style.filter = tout0 > 0.01 ? `blur(${tout0 * 6}px)` : "none";
+        ov.style.transform = `translate(${cx - W / 2 + retire * 76}px, ${y - retire * 58}px) rotate(${retire * 2.4}deg) scale(${k * (1 + retire * 0.08)})`;
+        ov.style.filter = retire > 0.01 ? `blur(${retire * 7}px)` : "none";
       }
       /* the in-phone copy of the card hides the instant the flying one
          covers it — identical pixels, so the swap cannot be seen */
@@ -553,7 +577,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const phone = phoneRef.current;
       const tilt = tiltRef.current;
       if (phone && tilt) {
-        const F = 1 + ((slot.w / Math.max(1, c0.w)) * 1.22 - 1) * tM;
+        const F = 1 + ((slot.w / Math.max(1, c0.w)) * 1.08 - 1) * tM;
         /* glue the hidden card's TOP edge to the flying card's top so
            the dashboard above stays visually attached to it */
         const tx = tM > 0 ? cx - phoneC.x - (c0.cx - phoneC.x) * F : 0;
@@ -562,6 +586,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const o = 1 - seg(p, 0.27, 0.315);
         phone.style.opacity = String(o);
         phone.style.visibility = o <= 0 ? "hidden" : "visible";
+        phone.style.setProperty("--phone-break", tM.toFixed(4));
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
       }
 
@@ -574,16 +599,17 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const tout = outRaw * outRaw;
 
         if (w.pixel) {
-          /* the card is already on screen carrying the transition; the
-             copy above it rises in around the landed card. The scene
-             root must not move while entering, or the slot would slide
-             out from under the card. */
+          /* The complete rankings workspace assembles in fragments
+             around the landing module, which disperses once the shell
+             and real table are readable. */
+          const build = easeOut(seg(p, 0.285, 0.37));
           const o = seg(p, 0.27, 0.31) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
-          el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
-          el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
-          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.38)).toFixed(4));
+          el.style.transform = "none";
+          el.style.filter = "none";
+          el.style.setProperty("--k", build.toFixed(4));
+          el.style.setProperty("--out", tout.toFixed(4));
           return;
         }
 
@@ -591,9 +617,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const o = tin * (1 - tout);
         el.style.opacity = String(o);
         el.style.visibility = o < 0.003 ? "hidden" : "visible";
-        el.style.transform = `translateY(${(1 - tin) * 90}px) scale(${0.95 + tin * 0.05 + tout * 0.13})`;
-        el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
+        el.style.transform = `translateY(${(1 - tin) * 12}px) scale(${0.99 + tin * 0.01})`;
+        el.style.filter = "none";
         el.style.setProperty("--k", tin.toFixed(4));
+        el.style.setProperty("--out", tout.toFixed(4));
         if (w.final) el.style.pointerEvents = o > 0.5 ? "auto" : "none";
       });
 
@@ -700,6 +727,41 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-scene .sl-e2 { opacity: calc(var(--k, 1) * 1.9 - 0.44); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.44), 1) * 40px)); }
     .sl-scene .sl-e3 { opacity: calc(var(--k, 1) * 1.9 - 0.62); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.62), 1) * 46px)); }
 
+    /* Product screens do not slide as single screenshots. Their chrome,
+       controls, cards and data regions assemble independently, then
+       disperse in different directions before the next workspace forms. */
+    .sl-scene [data-sl-fragment] {
+      --sl-build: clamp(0, (var(--k, 1) - var(--sl-delay, 0)) * 2.8, 1);
+      opacity: calc(var(--sl-build) * (1 - var(--out, 0)));
+      transform:
+        translate3d(
+          calc((1 - var(--sl-build)) * var(--sl-in-x, 0px) + var(--out, 0) * var(--sl-out-x, 0px)),
+          calc((1 - var(--sl-build)) * var(--sl-in-y, 0px) + var(--out, 0) * var(--sl-out-y, 0px)),
+          0
+        )
+        rotate(calc((1 - var(--sl-build) + var(--out, 0)) * var(--sl-rot, 0deg)))
+        scale(calc(.965 + var(--sl-build) * .035 - var(--out, 0) * .015));
+      filter: blur(calc((1 - var(--sl-build) + var(--out, 0)) * 7px));
+      transform-origin: center;
+      will-change: transform, opacity, filter;
+    }
+    [data-sl-phone-piece] {
+      opacity: calc(1 - var(--phone-break, 0) * .94);
+      transform:
+        translate3d(
+          calc(var(--phone-break, 0) * var(--phone-x, 0px)),
+          calc(var(--phone-break, 0) * var(--phone-y, 0px)),
+          0
+        )
+        rotate(calc(var(--phone-break, 0) * var(--phone-r, 0deg)));
+      filter: blur(calc(var(--phone-break, 0) * 4px));
+      will-change: transform, opacity, filter;
+    }
+    [data-sl-phone-hardware] {
+      opacity: calc(1 - var(--phone-break, 0) * .7);
+      filter: blur(calc(var(--phone-break, 0) * 2px));
+    }
+
     .sl-dot {
       display: block; height: 8px; width: 8px; border-radius: 999px;
       background: rgba(255,255,255,0.22);
@@ -729,6 +791,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-pulse { animation: slPulse 1.6s ease-in-out infinite; }
     @media (prefers-reduced-motion: reduce) {
       .sl-cue-anim, .sl-caret, .sl-pulse { animation: none !important; }
+      .sl-scene [data-sl-fragment], [data-sl-phone-piece], [data-sl-phone-hardware] {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+      }
     }
   `;
 
@@ -744,7 +811,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const hiddenScene: CSSProperties = {
     opacity: 0,
     visibility: "hidden",
-    transform: "translateY(90px) scale(0.95)",
+    transform: "none",
   };
 
   const screens = [
@@ -842,21 +909,24 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
               style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
             >
               <SceneCopy copy={copy} />
-              {i === 0 ? (
-                /* slide 2's panel is the flying card itself — this slot
-                   only reserves its landing rect in the layout */
-                <div
-                  ref={slotRef}
-                  aria-hidden
-                  style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
-                />
-              ) : (
+              <div className="relative">
                 <PanelFrame>
                   <FixedScale w={1280} h={756}>
                     {screens[i]}
                   </FixedScale>
                 </PanelFrame>
-              )}
+                {i === 0 && (
+                  /* The mobile rankings module lands over the centre of
+                     the product view, then disperses while the authentic
+                     shell, controls and full table assemble beneath it. */
+                  <div
+                    ref={slotRef}
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 top-[31%] -translate-x-1/2"
+                    style={{ width: "min(900px, 80%)", aspectRatio: "900 / 430" }}
+                  />
+                )}
+              </div>
             </div>
           ))}
 

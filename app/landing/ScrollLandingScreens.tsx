@@ -3,16 +3,17 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
-/* Self-contained types so the scroll landing doesn't depend on the
-   classic landing's visuals module, which changes between redesigns. */
 export type DashboardRow = {
   rank: string;
   ticker: string;
   company: string;
+  sector: string;
   price: string;
   score: string;
   move: string;
   moveUp: boolean;
+  rankMove: string;
+  confidence: "High" | "Medium";
 };
 
 export type LandingMetrics = {
@@ -22,80 +23,45 @@ export type LandingMetrics = {
   lastUpdatedLabel: string;
 };
 
-/* ------------------------------------------------------------------ */
-/*  Shared design tokens (cinematic dark app theme)                    */
-/* ------------------------------------------------------------------ */
-
 const T = {
-  bg: "#050f0a",
-  panel: "#0a1811",
-  panelSoft: "#0d1d14",
-  line: "rgba(255,255,255,0.08)",
-  lineSoft: "rgba(255,255,255,0.05)",
-  text: "#f4f1e8",
-  sub: "rgba(244,241,232,0.55)",
-  faint: "rgba(244,241,232,0.34)",
+  shell: "#072116",
+  shellDeep: "#04180f",
+  panel: "#0a2a1d",
+  panelDeep: "#061b12",
+  cream: "#faf6f0",
+  creamWarm: "#fbf4e5",
+  ink: "#072116",
   gold: "#ddb159",
-  goldDeep: "#b88a32",
-  green: "#34d399",
-  red: "#f87171",
+  goldLight: "#f2d27a",
+  green: "#61d7ab",
+  red: "#f1908d",
 };
 
-/* Deliberately arbitrary demo stocks — NOT the product's live rankings.
-   The marketing page must never look like it is publishing real model
-   output, so the visuals use a random, varied set with made-up scores. */
+/* One coherent, fictional account powers every landing demo. */
 const DEMO_ROWS: DashboardRow[] = [
-  { rank: "1", ticker: "DECK", company: "Deckers Outdoor", price: "$612.40", score: "9,032", move: "+1.4%", moveUp: true },
-  { rank: "2", ticker: "ANET", company: "Arista Networks", price: "$128.77", score: "8,858", move: "+2.1%", moveUp: true },
-  { rank: "3", ticker: "ORLY", company: "O'Reilly Automotive", price: "$1,284.15", score: "8,610", move: "+0.6%", moveUp: true },
-  { rank: "4", ticker: "KLAC", company: "KLA Corp", price: "$842.03", score: "8,377", move: "-0.8%", moveUp: false },
-  { rank: "5", ticker: "CMG", company: "Chipotle Mexican Grill", price: "$58.92", score: "8,145", move: "+0.3%", moveUp: true },
-  { rank: "6", ticker: "ODFL", company: "Old Dominion Freight", price: "$172.64", score: "7,902", move: "-0.4%", moveUp: false },
-  { rank: "7", ticker: "PH", company: "Parker Hannifin", price: "$706.51", score: "7,688", move: "+0.9%", moveUp: true },
-  { rank: "8", ticker: "TSCO", company: "Tractor Supply", price: "$54.18", score: "7,431", move: "+0.2%", moveUp: true },
+  { rank: "1", ticker: "VRT", company: "Vertiv Holdings", sector: "Industrials", price: "$154.32", score: "9,284", move: "+2.6%", moveUp: true, rankMove: "▲ 4", confidence: "High" },
+  { rank: "2", ticker: "ANET", company: "Arista Networks", sector: "Technology", price: "$128.77", score: "9,106", move: "+1.9%", moveUp: true, rankMove: "▲ 1", confidence: "High" },
+  { rank: "3", ticker: "NVDA", company: "NVIDIA", sector: "Technology", price: "$182.46", score: "8,972", move: "+1.4%", moveUp: true, rankMove: "—", confidence: "High" },
+  { rank: "4", ticker: "AVGO", company: "Broadcom", sector: "Technology", price: "$312.18", score: "8,744", move: "-0.5%", moveUp: false, rankMove: "▼ 2", confidence: "High" },
+  { rank: "5", ticker: "GOOGL", company: "Alphabet", sector: "Communication", price: "$207.63", score: "8,506", move: "+0.8%", moveUp: true, rankMove: "▲ 3", confidence: "Medium" },
+  { rank: "6", ticker: "MSFT", company: "Microsoft", sector: "Technology", price: "$496.21", score: "8,331", move: "+0.4%", moveUp: true, rankMove: "—", confidence: "High" },
+  { rank: "7", ticker: "JPM", company: "JPMorgan Chase", sector: "Financials", price: "$286.92", score: "8,118", move: "-0.3%", moveUp: false, rankMove: "▼ 1", confidence: "Medium" },
+  { rank: "8", ticker: "COST", company: "Costco Wholesale", sector: "Consumer", price: "$1,012.40", score: "7,946", move: "+0.6%", moveUp: true, rankMove: "▲ 2", confidence: "Medium" },
 ];
 
-const SECTOR_BY_TICKER: Record<string, string> = {
-  DECK: "Footwear",
-  ANET: "Networking",
-  ORLY: "Auto Parts",
-  KLAC: "Semiconductors",
-  CMG: "Restaurants",
-  ODFL: "Freight",
-  PH: "Industrials",
-  TSCO: "Retail",
-};
-
-function sectorFor(ticker: string) {
-  return SECTOR_BY_TICKER[ticker] ?? "Technology";
-}
-
-/**
- * Marketing-safe metric labels: when live Supabase data is unavailable the
- * raw metrics come back zeroed ("0% bullish", "Awaiting live update"), which
- * reads as broken on a landing page. Real values always win when present.
- */
 export function displayMetrics(metrics: LandingMetrics) {
   const live = metrics.totalStocks > 0;
   return {
-    total: live ? metrics.totalStocks.toLocaleString("en-GB") : "500+",
-    bullishPct: live ? metrics.bullishPct : 38,
-    sentiment: live ? metrics.sentiment : "Healthy market",
-    updated:
-      live && !metrics.lastUpdatedLabel.startsWith("Awaiting")
-        ? metrics.lastUpdatedLabel
-        : "today, 06:00",
+    total: live ? metrics.totalStocks.toLocaleString("en-GB") : "503",
+    bullishPct: live ? metrics.bullishPct : 42,
+    sentiment: live ? metrics.sentiment : "Cautiously bullish",
+    updated: live && !metrics.lastUpdatedLabel.startsWith("Awaiting") ? metrics.lastUpdatedLabel : "today, 20:31",
   };
 }
 
-export function buildRankingRows(): DashboardRow[] {
+export function buildRankingRows() {
   return DEMO_ROWS;
 }
-
-/* ------------------------------------------------------------------ */
-/*  FixedScale — render a fixed-size design surface scaled to fit.     */
-/*  Keeps every screen pixel-perfect at any viewport / zoom level.     */
-/* ------------------------------------------------------------------ */
 
 export function FixedScale({
   w,
@@ -114,23 +80,17 @@ export function FixedScale({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const measure = () => {
-      /* clientWidth/Height are layout dims, immune to the ancestor scroll
-         transforms (getBoundingClientRect would measure the tilted/scaled
-         bounding box and mis-scale the surface) */
       const cw = el.clientWidth;
       const ch = el.clientHeight;
-      if (cw === 0 || ch === 0) return;
-      const s = mode === "cover" ? Math.max(cw / w, ch / h) : Math.min(cw / w, ch / h);
-      setScale(s);
+      if (!cw || !ch) return;
+      setScale(mode === "cover" ? Math.max(cw / w, ch / h) : Math.min(cw / w, ch / h));
     };
-
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
     measure();
-    return () => ro.disconnect();
-  }, [w, h, mode]);
+    return () => observer.disconnect();
+  }, [h, mode, w]);
 
   return (
     <div ref={ref} className="relative h-full w-full overflow-hidden">
@@ -140,8 +100,8 @@ export function FixedScale({
         style={{
           width: w,
           height: h,
-          transform: `translate(-50%, -50%) scale(${scale || 1})`,
           opacity: scale ? 1 : 0,
+          transform: "translate(-50%, -50%) scale(" + (scale || 1) + ")",
         }}
       >
         {children}
@@ -150,1041 +110,512 @@ export function FixedScale({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Small shared pieces                                                */
-/* ------------------------------------------------------------------ */
+const ENTRY_VECTORS = [
+  [-88, 46, 112, -54],
+  [72, -58, -96, 64],
+  [-54, 82, 76, -92],
+  [92, 34, -118, -32],
+  [-70, -42, 108, 76],
+  [56, 76, -72, -96],
+  [-94, 12, 124, 24],
+  [76, -76, -88, 102],
+] as const;
 
-function MoveChip({ move, up, size = 11 }: { move: string; up: boolean; size?: number }) {
-  return (
-    <span
-      className="sl-mono inline-flex items-center justify-center rounded-full border px-2 py-0.5 font-black"
-      style={{
-        fontSize: size,
-        color: up ? T.green : T.red,
-        borderColor: up ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)",
-        background: up ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
-      }}
-    >
-      {move}
-    </span>
-  );
+export function fragmentStyle(index: number): CSSProperties {
+  const vector = ENTRY_VECTORS[index % ENTRY_VECTORS.length];
+  return {
+    "--sl-delay": Math.min(index * 0.055, 0.38),
+    "--sl-in-x": vector[0] + "px",
+    "--sl-in-y": vector[1] + "px",
+    "--sl-out-x": vector[2] + "px",
+    "--sl-out-y": vector[3] + "px",
+    "--sl-rot": (index % 2 === 0 ? -1 : 1) * (2.2 + (index % 3)) + "deg",
+  } as CSSProperties;
 }
 
-function ScorePill({ score, hot = false }: { score: string; hot?: boolean }) {
+function AppIcon({ kind, className = "size-4" }: { kind: string; className?: string }) {
+  const paths: Record<string, ReactNode> = {
+    dashboard: <><rect x="3" y="3" width="7" height="8" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="15" width="7" height="6" rx="1.5" /></>,
+    rankings: <><path d="M4 20V11M10 20V5M16 20v-7M22 20H2" /></>,
+    portfolio: <><circle cx="12" cy="12" r="9" /><path d="M12 3v9l6 4" /></>,
+    watchlist: <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" />,
+    alerts: <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10 21h4" /></>,
+    news: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></>,
+    search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></>,
+    chat: <path d="M21 12a8 8 0 0 1-8 8H4l2.5-3A8 8 0 1 1 21 12Z" />,
+  };
   return (
-    <span
-      className="sl-mono inline-flex min-w-[64px] items-center justify-center rounded-full px-2.5 py-1 text-[12px] font-black"
-      style={{
-        color: "#071b11",
-        background: hot
-          ? "linear-gradient(135deg, #f4d78a 0%, #ddb159 55%, #c99a3e 100%)"
-          : "rgba(221,177,89,0.88)",
-        boxShadow: hot ? "0 0 22px rgba(221,177,89,0.45)" : "none",
-      }}
-    >
-      {score}
-    </span>
-  );
-}
-
-function Sparkline({ up, seed }: { up: boolean; seed: number }) {
-  const paths = [
-    "M0 20 C10 18 16 21 24 16 C34 10 42 14 52 9 C62 4 72 8 84 3",
-    "M0 17 C12 19 20 12 30 14 C40 16 48 8 58 10 C68 12 76 5 84 6",
-    "M0 21 C10 15 18 18 28 12 C38 6 48 12 58 7 C68 2 76 6 84 2",
-    "M0 14 C10 18 20 20 30 17 C40 14 50 18 60 13 C70 8 78 10 84 5",
-  ];
-  const downPaths = [
-    "M0 5 C10 8 18 4 28 9 C38 14 48 10 58 15 C68 20 76 17 84 21",
-    "M0 8 C12 5 22 12 32 10 C42 8 52 16 62 14 C72 12 78 18 84 19",
-  ];
-  const d = up ? paths[seed % paths.length] : downPaths[seed % downPaths.length];
-  return (
-    <svg width="84" height="24" viewBox="0 0 84 24" aria-hidden="true">
-      <path
-        d={d}
-        fill="none"
-        stroke={up ? T.green : T.red}
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity="0.85"
-      />
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[kind] ?? paths.dashboard}
     </svg>
   );
 }
 
-function NavIcon({ kind }: { kind: string }) {
-  const common = {
-    width: 15,
-    height: 15,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  switch (kind) {
-    case "dashboard":
-      return (
-        <svg {...common}>
-          <rect x="3" y="3" width="7" height="9" rx="1.5" />
-          <rect x="14" y="3" width="7" height="5" rx="1.5" />
-          <rect x="14" y="12" width="7" height="9" rx="1.5" />
-          <rect x="3" y="16" width="7" height="5" rx="1.5" />
-        </svg>
-      );
-    case "rankings":
-      return (
-        <svg {...common}>
-          <path d="M4 20V10" />
-          <path d="M10 20V4" />
-          <path d="M16 20v-7" />
-          <path d="M22 20H2" />
-        </svg>
-      );
-    case "portfolio":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 3v9l6.5 4" />
-        </svg>
-      );
-    case "news":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18" />
-          <path d="M12 3c3 3.5 3 14.5 0 18" />
-          <path d="M12 3c-3 3.5-3 14.5 0 18" />
-        </svg>
-      );
-    case "chat":
-      return (
-        <svg {...common}>
-          <path d="M21 12a8 8 0 0 1-8 8H4l2.5-3A8 8 0 1 1 21 12Z" />
-          <path d="M9 11h6" />
-        </svg>
-      );
-    case "watchlist":
-      return (
-        <svg {...common}>
-          <path d="M12 3.5 14.7 9l6 .8-4.4 4.2 1.1 6-5.4-2.9L6.6 20l1.1-6L3.3 9.8l6-.8L12 3.5Z" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-function ScreenTopBar({
-  title,
-  sub,
-  right,
-}: {
-  title: string;
-  sub: string;
-  right?: ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between border-b px-7 py-5" style={{ borderColor: T.line }}>
-      <div>
-        <h3 className="text-[22px] font-black tracking-[-0.03em]" style={{ color: T.text }}>
-          {title}
-        </h3>
-        <p className="mt-1 text-[11.5px] font-bold" style={{ color: T.sub }}>
-          {sub}
-        </p>
-      </div>
-      <div className="flex items-center gap-2.5">{right}</div>
-    </div>
-  );
-}
-
-function GhostChip({ children, active = false }: { children: ReactNode; active?: boolean }) {
+function StockMark({ ticker, dark = false }: { ticker: string; dark?: boolean }) {
   return (
     <span
-      className="inline-flex items-center rounded-full border px-3.5 py-1.5 text-[11px] font-black"
+      className="grid size-7 shrink-0 place-items-center rounded-full border text-[8px] font-black"
       style={{
-        color: active ? "#071b11" : T.sub,
-        background: active ? T.gold : "rgba(255,255,255,0.03)",
-        borderColor: active ? T.gold : T.line,
+        color: dark ? T.ink : T.goldLight,
+        borderColor: dark ? "rgba(7,33,22,.14)" : "rgba(221,177,89,.25)",
+        background: dark ? "rgba(7,33,22,.06)" : "rgba(221,177,89,.1)",
       }}
     >
-      {children}
+      {ticker.slice(0, 2)}
     </span>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  SCREEN 1 — Rankings  (design canvas 1280 × 756)                    */
-/* ------------------------------------------------------------------ */
+const NAV = [
+  ["dashboard", "Dashboard"],
+  ["rankings", "Rankings"],
+  ["portfolio", "Portfolio"],
+  ["watchlist", "Watchlist"],
+  ["alerts", "Alerts"],
+  ["news", "World News"],
+  ["settings", "Settings"],
+] as const;
+
+function DemoAppShell({ active, children }: { active: string; children: ReactNode }) {
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
+      <header data-sl-fragment style={fragmentStyle(0)} className="flex h-16 shrink-0 items-center gap-3 border-b border-[#ddb159]/20 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,.24)]">
+        <div className="relative h-12 w-[192px] shrink-0">
+          <Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="192px" />
+        </div>
+        <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-[#ddb159]/20 bg-[#faf6f0]/[0.045] px-4 text-[11px] font-semibold text-[#faf6f0]/36">
+          <AppIcon kind="search" />
+          Search stocks, tickers or companies
+          <span className="ml-auto rounded-md border border-white/10 px-2 py-0.5 text-[8px]">⌘ K</span>
+        </div>
+        <div className="flex h-10 items-center gap-2 rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]">
+          <AppIcon kind="chat" /> Ask StockGPT
+        </div>
+        <span className="grid size-10 place-items-center rounded-full border border-[#ddb159]/70 text-[#ddb159]"><AppIcon kind="alerts" /></span>
+        <span className="grid size-10 place-items-center rounded-full border border-[#ddb159]/70 text-[10px] font-black text-[#ddb159]">AM</span>
+      </header>
+
+      <div data-sl-fragment style={fragmentStyle(1)} className="flex h-8 shrink-0 items-center gap-7 overflow-hidden border-b border-[#ddb159]/10 bg-[#061b12] px-5 text-[9px] font-black uppercase tracking-[0.08em] text-[#faf6f0]/58">
+        <span className="text-[#ddb159]">Markets</span>
+        <span>S&amp;P 500 <b className="ml-1 text-emerald-300">+0.42%</b></span>
+        <span>NASDAQ <b className="ml-1 text-emerald-300">+0.67%</b></span>
+        <span>DOW <b className="ml-1 text-red-300">-0.11%</b></span>
+        <span>VIX <b className="ml-1 text-emerald-300">16.84</b></span>
+        <span className="ml-auto flex items-center gap-1.5 text-emerald-300"><i className="size-1.5 rounded-full bg-emerald-400" /> Live</span>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <aside data-sl-fragment style={fragmentStyle(2)} className="w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4">
+          <nav className="space-y-2">
+            {NAV.map(([key, label]) => {
+              const selected = active === key;
+              return (
+                <div
+                  key={key}
+                  className={"relative flex h-10 items-center gap-2.5 rounded-xl border px-3 text-[12px] font-bold " + (selected ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0]" : "border-transparent text-[#faf6f0]/70")}
+                >
+                  {selected && <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[#ddb159]" />}
+                  <span className="text-[#ddb159]"><AppIcon kind={key} className="size-[18px]" /></span>
+                  {label}
+                </div>
+              );
+            })}
+          </nav>
+          <div className="mt-8 rounded-2xl border border-[#ddb159]/16 bg-[#0a2a1d]/55 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Demo account</p>
+            <p className="mt-2 text-[11px] font-black">Alex Morgan</p>
+            <p className="mt-1 text-[9px] font-semibold text-[#faf6f0]/42">Core member</p>
+          </div>
+        </aside>
+        <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_4%,rgba(221,177,89,.055),transparent_30%)]" />
+          <div className="relative h-full min-h-0">{children}</div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ChangePill({ row }: { row: DashboardRow }) {
+  return (
+    <span className={"inline-flex min-w-[52px] justify-center rounded-full border px-2 py-1 text-[9px] font-black tabular-nums " + (row.moveUp ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-500" : "border-red-400/25 bg-red-400/10 text-red-500")}>
+      {row.move}
+    </span>
+  );
+}
 
 export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
-  const data = buildRankingRows();
-  const { total, updated } = displayMetrics(metrics);
-
+  const info = displayMetrics(metrics);
   return (
-    <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ScreenTopBar
-          title="Stock Rankings"
-          sub={`${total} US stocks scored across six factors · Updated ${updated}`}
-          right={
-            <>
-              <GhostChip active>Daily run</GhostChip>
-              <GhostChip>Export</GhostChip>
-            </>
-          }
-        />
-
-        <div className="flex items-center gap-2 px-7 py-4">
-          {["All sectors", "Momentum", "Quality", "Value", "Growth", "Risk", "Income"].map((f, i) => (
-            <GhostChip key={f} active={i === 0}>
-              {f}
-            </GhostChip>
-          ))}
-          <span className="sl-mono ml-auto text-[11px] font-black" style={{ color: T.faint }}>
-            RANKED 1 – 8 OF {total.toUpperCase()}
-          </span>
-        </div>
-
-        <div className="mx-7 mb-6 flex-1 overflow-hidden rounded-2xl border" style={{ borderColor: T.line, background: T.panel }}>
-          <div
-            className="grid grid-cols-[64px_1.35fr_130px_110px_90px_110px_100px] items-center border-b px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
-            style={{ borderColor: T.line, color: T.faint }}
-          >
-            <span>Rank</span>
-            <span>Company</span>
-            <span>Sector</span>
-            <span className="text-right">Price</span>
-            <span className="text-right">1D</span>
-            <span className="text-center">Trend</span>
-            <span className="text-right">Score</span>
+    <DemoAppShell active="rankings">
+      <main className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden">
+        <section data-sl-fragment style={fragmentStyle(3)} className="shrink-0 rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,.07),rgba(250,246,240,.022)_46%,rgba(221,177,89,.06))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.18)]">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                <span className="size-1.5 rounded-full bg-[#ddb159]" /> AI Ranking Engine
+              </div>
+              <h1 className="mt-2 text-[30px] font-black leading-none tracking-[-0.055em]">Stock Rankings</h1>
+              <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-[#faf6f0]/46">
+                <span className="size-1.5 rounded-full bg-emerald-400" />
+                Last model run {info.updated}
+              </div>
+            </div>
+            <p className="max-w-[470px] text-right text-[11px] font-semibold leading-5 text-[#faf6f0]/52">
+              {info.total} stocks scored across value, quality, momentum, growth, risk and income.
+            </p>
           </div>
+          <div className="mt-3 grid grid-cols-[minmax(260px,1fr)_120px_120px] gap-2 rounded-[20px] border border-[#ddb159]/16 bg-[#02150d]/62 p-2.5">
+            <div className="flex h-10 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[11px] font-semibold text-[#faf6f0]/34">
+              <AppIcon kind="search" /> Search ticker or company
+            </div>
+            <div className="grid h-10 place-items-center rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#072116]">Apply</div>
+            <div className="grid h-10 place-items-center rounded-2xl border border-white/10 text-[11px] font-black text-white/60">Filters</div>
+          </div>
+        </section>
 
-          {data.map((row, i) => (
-            <div
-              key={row.ticker}
-              className="grid grid-cols-[64px_1.35fr_130px_110px_90px_110px_100px] items-center border-b px-5 py-[13px]"
-              style={{
-                borderColor: T.lineSoft,
-                background: i === 0 ? "rgba(221,177,89,0.06)" : "transparent",
-              }}
-            >
-              <span className="sl-mono flex items-center gap-2 text-[13px] font-black" style={{ color: i < 3 ? T.gold : T.faint }}>
-                {String(i + 1).padStart(2, "0")}
-                {i === 0 && (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[8.5px] font-black uppercase tracking-[0.12em]"
-                    style={{ background: "rgba(221,177,89,0.16)", color: T.gold, border: "1px solid rgba(221,177,89,0.3)" }}
-                  >
-                    Top
-                  </span>
-                )}
-              </span>
-              <span className="flex min-w-0 items-center gap-3">
-                <span
-                  className="sl-mono flex h-8 w-12 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
-                  style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${T.line}`, color: T.text }}
-                >
-                  {row.ticker}
-                </span>
-                <span className="truncate text-[13px] font-bold" style={{ color: T.sub }}>
-                  {row.company}
-                </span>
-              </span>
-              <span className="text-[11px] font-bold" style={{ color: T.faint }}>
-                {sectorFor(row.ticker)}
-              </span>
-              <span className="sl-mono text-right text-[13px] font-black">{row.price}</span>
-              <span className="text-right">
-                <MoveChip move={row.move} up={row.moveUp} size={10.5} />
-              </span>
-              <span className="flex justify-center">
-                <Sparkline up={row.moveUp} seed={i} />
-              </span>
-              <span className="flex justify-end">
-                <ScorePill score={row.score} hot={i === 0} />
-              </span>
+        <section data-sl-fragment style={fragmentStyle(4)} className="flex h-12 shrink-0 items-center justify-between rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/72 px-4">
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">How scores work</p>
+            <p className="mt-0.5 text-[10px] font-semibold text-[#faf6f0]/48">Six factor families, refreshed from the latest complete market snapshot.</p>
+          </div>
+          <div className="flex gap-1.5">
+            {["Value", "Quality", "Momentum", "Growth", "Risk", "Income"].map((item) => <span key={item} className="rounded-full border border-[#ddb159]/14 px-2.5 py-1 text-[8px] font-black text-[#faf6f0]/52">{item}</span>)}
+          </div>
+        </section>
+
+        <section data-sl-fragment style={fragmentStyle(5)} className="min-h-0 flex-1 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,.2)]">
+          <div className="grid h-9 grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center bg-[#072116] px-2 text-[9px] font-bold uppercase tracking-wide text-[#faf6f0]">
+            {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score", "Why"].map((h) => <span key={h} className="px-2">{h}</span>)}
+          </div>
+          {DEMO_ROWS.map((row) => (
+            <div key={row.ticker} className="grid h-[42px] grid-cols-[48px_62px_90px_minmax(0,1fr)_92px_82px_82px_68px] items-center border-b border-[#072116]/8 px-2 text-[10px] text-[#072116]">
+              <span className="px-2 font-bold text-[#072116]/60">{row.rank}</span>
+              <span className={"mx-1 inline-flex h-6 items-center justify-center rounded-full border text-[8px] font-black " + (row.rankMove.includes("▲") ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700" : row.rankMove.includes("▼") ? "border-red-500/20 bg-red-500/10 text-red-700" : "border-[#072116]/10 text-[#072116]/45")}>{row.rankMove}</span>
+              <span className="flex items-center gap-2 px-2 font-black"><StockMark ticker={row.ticker} dark />{row.ticker}</span>
+              <span className="flex min-w-0 items-center justify-between gap-2 px-2"><b className="truncate">{row.company}</b><ChangePill row={row} /></span>
+              <span className="px-2"><i className="rounded-full border border-[#072116]/12 bg-[#072116]/5 px-2 py-1 text-[8px] font-black not-italic">{row.confidence}</i></span>
+              <span className="px-2 font-bold tabular-nums">{row.price}</span>
+              <span className="mx-2 rounded-full bg-[#ddb159] px-2 py-1 text-center text-[9px] font-black">{row.score}</span>
+              <span className="mx-2 grid size-7 place-items-center rounded-full border border-[#072116]/12 text-[9px] font-black">Why</span>
             </div>
           ))}
-        </div>
-      </div>
-    </div>
+        </section>
+      </main>
+    </DemoAppShell>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  SCREEN 2 — Portfolio Builder  (1280 × 756)                         */
-/* ------------------------------------------------------------------ */
-
-const DONUT = [
-  { label: "Semiconductors", pct: 26, color: "#ddb159" },
-  { label: "Software", pct: 22, color: "#34d399" },
-  { label: "Financials", pct: 18, color: "#7dd3fc" },
-  { label: "Healthcare", pct: 14, color: "#a78bfa" },
-  { label: "Consumer", pct: 12, color: "#f9a8d4" },
-  { label: "Energy", pct: 8, color: "#fbbf24" },
-];
-
-const DONUT_OFFSETS = DONUT.map((_, i) =>
-  DONUT.slice(0, i).reduce((sum, seg) => sum - seg.pct, 25),
-);
-
-function Donut() {
-  const r = 15.9155; // circumference = 100
+function PortfolioChart() {
   return (
-    <svg viewBox="0 0 42 42" className="h-[190px] w-[190px]">
-      <circle cx="21" cy="21" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5.5" />
-      {DONUT.map((seg, i) => (
-        <circle
-          key={seg.label}
-          cx="21"
-          cy="21"
-          r={r}
-          fill="none"
-          stroke={seg.color}
-          strokeWidth="5.5"
-          strokeDasharray={`${seg.pct - 1.4} ${100 - seg.pct + 1.4}`}
-          strokeDashoffset={DONUT_OFFSETS[i]}
-          strokeLinecap="round"
-        />
-      ))}
-      <text
-        x="21"
-        y="20"
-        textAnchor="middle"
-        fontSize="7"
-        fontWeight="900"
-        fill={T.text}
-        style={{ fontFamily: "inherit" }}
-      >
-        12
-      </text>
-      <text x="21" y="26" textAnchor="middle" fontSize="2.6" fontWeight="700" fill="rgba(244,241,232,0.5)">
-        HOLDINGS
-      </text>
+    <svg viewBox="0 0 900 250" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ddb159" stopOpacity=".24" />
+          <stop offset="100%" stopColor="#ddb159" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[45, 95, 145, 195].map((y) => <path key={y} d={"M0 " + y + "H900"} stroke="rgba(250,246,240,.07)" strokeDasharray="5 8" />)}
+      <path d="M0 216 C55 205 80 212 128 190 C170 171 205 184 252 148 C304 110 340 126 386 116 C430 105 463 136 512 105 C562 73 605 92 648 62 C700 25 742 51 782 39 C824 28 858 44 900 10 L900 250 L0 250Z" fill="url(#portfolioFill)" />
+      <path d="M0 216 C55 205 80 212 128 190 C170 171 205 184 252 148 C304 110 340 126 386 116 C430 105 463 136 512 105 C562 73 605 92 648 62 C700 25 742 51 782 39 C824 28 858 44 900 10" fill="none" stroke="#ddb159" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="900" cy="10" r="7" fill="#ddb159" stroke="#061b12" strokeWidth="4" />
     </svg>
   );
 }
-
-const HOLDINGS = [
-  { ticker: "DECK", name: "Deckers Outdoor", pct: 14 },
-  { ticker: "ANET", name: "Arista Networks", pct: 12 },
-  { ticker: "ORLY", name: "O'Reilly Automotive", pct: 10 },
-  { ticker: "PH", name: "Parker Hannifin", pct: 9 },
-  { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8 },
-];
 
 export function PortfolioScreen() {
   return (
-    <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ScreenTopBar
-          title="Portfolio Builder"
-          sub="Describe your strategy — StockGPT drafts a weighted allocation from the live rankings"
-          right={<GhostChip>Import Trading 212 CSV</GhostChip>}
-        />
-
-        <div className="flex min-h-0 flex-1 gap-5 px-7 pb-6 pt-5">
-          {/* Builder controls */}
-          <div className="flex w-[340px] shrink-0 flex-col rounded-2xl border p-5" style={{ borderColor: T.line, background: T.panel }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: T.gold }}>
-              Step 1 · Your profile
-            </p>
-
-            <p className="mt-4 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-              Risk appetite
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-1.5 rounded-xl border p-1.5" style={{ borderColor: T.line }}>
-              {["Cautious", "Balanced", "Aggressive"].map((r) => (
-                <span
-                  key={r}
-                  className="rounded-lg py-2 text-center text-[10.5px] font-black"
-                  style={
-                    r === "Balanced"
-                      ? { background: T.gold, color: "#071b11" }
-                      : { color: T.sub }
-                  }
-                >
-                  {r}
-                </span>
-              ))}
+    <DemoAppShell active="portfolio">
+      <main className="h-full overflow-hidden">
+        <section className="relative isolate flex h-full flex-col overflow-hidden rounded-[28px] border border-[#ddb159]/18 px-7 pb-3 pt-5">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(221,177,89,.12),transparent_34%),linear-gradient(180deg,#0a2a1d_0%,#061b12_74%)]" />
+          <div data-sl-fragment style={fragmentStyle(3)} className="flex items-start justify-between gap-3">
+            <div className="relative flex h-11 w-[300px] items-center rounded-full border border-[#ddb159]/26 bg-[#04140c]/62 px-4 text-[12px] font-black">
+              Core Growth <span className="ml-auto text-[#ddb159]">⌄</span>
             </div>
-
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-              Horizon
-            </p>
-            <div className="mt-2 flex gap-1.5">
-              {["1–2 yrs", "3–5 yrs", "5+ yrs"].map((h, i) => (
-                <GhostChip key={h} active={i === 2}>
-                  {h}
-                </GhostChip>
-              ))}
-            </div>
-
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-              Sector tilt
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {[
-                ["Technology", true],
-                ["Healthcare", true],
-                ["Financials", true],
-                ["Energy", false],
-                ["Utilities", false],
-              ].map(([s, on]) => (
-                <GhostChip key={s as string} active={on as boolean}>
-                  {s as string}
-                </GhostChip>
-              ))}
-            </div>
-
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-              Amount
-            </p>
-            <div
-              className="sl-mono mt-2 rounded-xl border px-4 py-3 text-[16px] font-black"
-              style={{ borderColor: T.line, background: "rgba(255,255,255,0.03)" }}
-            >
-              £10,000
-            </div>
-
-            <div
-              className="mt-auto flex items-center justify-center gap-2 rounded-xl py-3.5 text-[12px] font-black uppercase tracking-[0.14em]"
-              style={{
-                background: "linear-gradient(135deg, #f4d78a 0%, #ddb159 55%, #c99a3e 100%)",
-                color: "#071b11",
-                boxShadow: "0 8px 30px rgba(221,177,89,0.35)",
-              }}
-            >
-              Generate portfolio
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+            <div className="flex gap-2">
+              <span className="grid size-11 place-items-center rounded-full bg-[#ddb159] text-[20px] font-black text-[#061b12]">+</span>
+              <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/24 text-[#ddb159]"><AppIcon kind="settings" /></span>
             </div>
           </div>
 
-          {/* Generated allocation */}
-          <div className="flex min-w-0 flex-1 flex-col rounded-2xl border p-5" style={{ borderColor: T.line, background: T.panel }}>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: T.gold }}>
-                Step 2 · Generated allocation
-              </p>
-              <span
-                className="rounded-full border px-3 py-1 text-[10px] font-black"
-                style={{ borderColor: "rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: T.green }}
-              >
-                Balanced · 12 holdings · drafted in 4s
+          <div className="mt-4 flex items-end justify-between gap-8">
+            <div data-sl-fragment style={fragmentStyle(4)}>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#faf6f0]/42">Current portfolio value</p>
+              <h1 className="mt-2 text-[52px] font-black leading-none tracking-[-0.065em] tabular-nums">£48,372.60</h1>
+              <p className="mt-2 text-[14px] font-black tabular-nums text-emerald-300">+£6,842.15 · +16.5%</p>
+            </div>
+            <div data-sl-fragment style={fragmentStyle(5)} className="flex flex-col items-end gap-1.5">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 px-3 py-1.5">
+                <i className="size-2 rounded-full bg-emerald-400" />
+                <b className="text-[12px] text-[#ddb159]">Health 82/100</b>
+                <span className="text-[10px] font-black text-[#faf6f0]/72">Strong</span>
               </span>
-            </div>
-
-            <div className="mt-4 flex min-h-0 flex-1 gap-6">
-              <div className="flex flex-col items-center justify-center">
-                <Donut />
-                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
-                  {DONUT.map((seg) => (
-                    <div key={seg.label} className="flex items-center gap-2 text-[10px] font-bold" style={{ color: T.sub }}>
-                      <span className="h-2 w-2 rounded-full" style={{ background: seg.color }} />
-                      {seg.label}
-                      <span className="sl-mono ml-auto font-black" style={{ color: T.text }}>
-                        {seg.pct}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col">
-                <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-                  Top weights
-                </p>
-                <div className="mt-2 space-y-2">
-                  {HOLDINGS.map((h) => (
-                    <div key={h.ticker} className="flex items-center gap-3">
-                      <span
-                        className="sl-mono flex h-7 w-12 shrink-0 items-center justify-center rounded-lg text-[10px] font-black"
-                        style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${T.line}` }}
-                      >
-                        {h.ticker}
-                      </span>
-                      <span className="w-[112px] truncate text-[11px] font-bold" style={{ color: T.sub }}>
-                        {h.name}
-                      </span>
-                      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${h.pct * 6}%`,
-                            background: "linear-gradient(90deg, #b88a32, #ddb159)",
-                          }}
-                        />
-                      </div>
-                      <span className="sl-mono w-9 text-right text-[11px] font-black">{h.pct}%</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-auto grid grid-cols-3 gap-2.5 pt-4">
-                  {[
-                    ["Expected volatility", "Moderate", T.text],
-                    ["Dividend yield", "1.8%", T.green],
-                    ["Tech exposure", "46% · watch", T.gold],
-                  ].map(([label, value, color]) => (
-                    <div key={label as string} className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-                        {label as string}
-                      </p>
-                      <p className="sl-mono mt-1 text-[14px] font-black" style={{ color: color as string }}>
-                        {value as string}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <p className="text-[9px] font-semibold text-[#faf6f0]/42">Updated 8 minutes ago</p>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+
+          <div data-sl-fragment style={fragmentStyle(6)} className="mt-1 min-h-0 flex-1">
+            <PortfolioChart />
+          </div>
+
+          <div data-sl-fragment style={fragmentStyle(7)} className="grid h-10 shrink-0 grid-cols-5 items-center border-b border-[#ddb159]/14">
+            {["1D", "1M", "6M", "1Y", "All"].map((range, index) => <span key={range} className={"mx-auto grid min-h-9 min-w-9 place-items-center rounded-full px-3 text-[10px] font-black " + (index === 1 ? "bg-[#faf6f0] text-[#061b12]" : "text-[#faf6f0]/45")}>{range}</span>)}
+          </div>
+
+          <div data-sl-fragment style={fragmentStyle(8)} className="grid h-11 shrink-0 grid-cols-[1fr_auto] items-stretch">
+            <nav className="grid grid-cols-3">
+              {["Overview", "Holdings", "Activity"].map((item, index) => <span key={item} className={"relative grid place-items-center text-[11px] font-black " + (index === 0 ? "text-white" : "text-white/40")}>{item}{index === 0 && <i className="absolute inset-x-6 bottom-0 h-0.5 rounded-full bg-[#ddb159]" />}</span>)}
+            </nav>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[#ddb159] px-4 py-2 text-[10px] font-black text-[#061b12]">+ Add</span>
+              <span className="rounded-full border border-[#ddb159]/24 px-4 py-2 text-[10px] font-black text-[#ddb159]">Manage</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </DemoAppShell>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  SCREEN 3 — World News  (1280 × 756)                                */
-/* ------------------------------------------------------------------ */
-
-const NEWS = [
-  {
-    lead: true,
-    hue: "linear-gradient(135deg, rgba(221,177,89,0.28), rgba(221,177,89,0.06) 60%)",
-    edge: "rgba(221,177,89,0.35)",
-    category: "Semiconductors",
-    title: "AI chip demand outruns supply again — foundries book out through 2027",
-    summary: "Data-centre capex guidance keeps climbing across hyperscalers, tightening advanced-node capacity.",
-    tickers: [
-      { t: "NVDA", m: "+2.6%", up: true },
-      { t: "AMD", m: "+1.9%", up: true },
-      { t: "TSM", m: "+1.2%", up: true },
-    ],
-    tag: "High impact",
-  },
-  {
-    hue: "linear-gradient(135deg, rgba(125,211,252,0.22), rgba(125,211,252,0.05) 60%)",
-    edge: "rgba(125,211,252,0.3)",
-    category: "Rates",
-    title: "Fed minutes tilt dovish; banks reprice the curve",
-    summary: "Futures now imply two cuts by year-end.",
-    tickers: [
-      { t: "JPM", m: "+1.1%", up: true },
-      { t: "GS", m: "+0.8%", up: true },
-    ],
-    tag: "Medium impact",
-  },
-  {
-    hue: "linear-gradient(135deg, rgba(52,211,153,0.2), rgba(52,211,153,0.05) 60%)",
-    edge: "rgba(52,211,153,0.3)",
-    category: "Cloud",
-    title: "Enterprise cloud spend stays resilient into Q3",
-    summary: "Migration budgets hold despite macro caution.",
-    tickers: [
-      { t: "MSFT", m: "+0.4%", up: true },
-      { t: "AMZN", m: "-0.2%", up: false },
-    ],
-    tag: "High impact",
-  },
-  {
-    hue: "linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.05) 60%)",
-    edge: "rgba(167,139,250,0.3)",
-    category: "Energy",
-    title: "Crude slips as OPEC+ signals supply discipline easing",
-    summary: "Refiners diverge from producers on the move.",
-    tickers: [
-      { t: "XOM", m: "-1.4%", up: false },
-      { t: "CVX", m: "-0.9%", up: false },
-    ],
-    tag: "Medium impact",
-  },
-  {
-    hue: "linear-gradient(135deg, rgba(249,168,212,0.18), rgba(249,168,212,0.04) 60%)",
-    edge: "rgba(249,168,212,0.28)",
-    category: "Consumer",
-    title: "Holiday guidance beats across big-box retail",
-    summary: "Inventory discipline is protecting margins.",
-    tickers: [
-      { t: "WMT", m: "+1.7%", up: true },
-      { t: "COST", m: "+0.6%", up: true },
-    ],
-    tag: "Low impact",
-  },
+const NEWS_ITEMS = [
+  { direction: "Positive", source: "Reuters", age: "18m ago", title: "Data-centre investment accelerates as cloud groups lift 2027 spending plans", summary: "Fresh capex guidance supports networking, cooling and semiconductor demand.", tickers: ["VRT", "ANET", "NVDA"] },
+  { direction: "Negative", source: "Financial Times", age: "42m ago", title: "Oil retreats as supply expectations outpace summer demand", summary: "Energy producers weaken while transport-sensitive industries gain.", tickers: ["XOM", "CVX"] },
+  { direction: "Neutral", source: "Bloomberg", age: "1h ago", title: "Fed officials keep rates steady and leave September options open", summary: "Treasury yields move only modestly after balanced policy language.", tickers: ["JPM", "GS"] },
 ];
+
+function NewsCard({ item, featured = false }: { item: (typeof NEWS_ITEMS)[number]; featured?: boolean }) {
+  return (
+    <article className={"rounded-[22px] border border-[#ddb159]/16 bg-[#061b12]/78 p-4 shadow-[0_14px_34px_rgba(0,0,0,.18)] " + (featured ? "min-h-[184px]" : "")}>
+      <div className="flex items-center justify-between">
+        <span className={"rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.12em] " + (item.direction === "Positive" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300" : item.direction === "Negative" ? "border-red-400/25 bg-red-400/10 text-red-300" : "border-white/10 bg-white/5 text-white/55")}>{item.direction}</span>
+        <span className="text-[9px] font-bold text-white/35">{item.source} · {item.age}</span>
+      </div>
+      <h3 className={(featured ? "mt-4 text-[19px]" : "mt-3 text-[14px]") + " font-black leading-snug tracking-[-0.025em]"}>{item.title}</h3>
+      <p className="mt-2 text-[10px] font-semibold leading-5 text-white/50">{item.summary}</p>
+      <div className="mt-3 flex gap-1.5">{item.tickers.map((ticker) => <span key={ticker} className="rounded-full border border-[#ddb159]/15 bg-[#ddb159]/6 px-2 py-1 text-[8px] font-black text-[#ddb159]">{ticker}</span>)}</div>
+    </article>
+  );
+}
 
 export function NewsScreen() {
   return (
-    <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ScreenTopBar
-          title="World News"
-          sub="Global headlines mapped to the tickers and sectors they actually move"
-          right={
-            <>
-              {["Global", "US", "Europe", "Asia"].map((r, i) => (
-                <GhostChip key={r} active={i === 0}>
-                  {r}
-                </GhostChip>
-              ))}
-              <span className="ml-2 flex items-center gap-1.5 text-[10.5px] font-black" style={{ color: T.green }}>
-                <span className="sl-pulse h-2 w-2 rounded-full" style={{ background: T.green }} />
-                LIVE
-              </span>
-            </>
-          }
-        />
+    <DemoAppShell active="news">
+      <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+        <section data-sl-fragment style={fragmentStyle(3)} className="shrink-0 rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,#061b12,#0b2b1d_58%,#061b12)] p-4 shadow-[0_22px_70px_rgba(0,0,0,.24)]">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159]">StockGPT Market Briefing</p>
+              <h1 className="mt-1 text-[34px] font-black leading-none tracking-[-0.05em]">World News</h1>
+              <p className="mt-2 max-w-[580px] text-[10px] font-semibold leading-5 text-white/52">AI-linked market stories, affected stocks and plain-English context. Educational research only.</p>
+            </div>
+            <div className="grid w-[390px] grid-cols-3 gap-2">
+              {[["Latest story", "18m"], ["Articles", "36"], ["Stocks", "128"]].map(([label, value], index) => <div key={label} className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/72 px-3 py-3"><p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/35">{label}</p><p className={"mt-1 text-[18px] font-black " + (index === 0 ? "text-[#ddb159]" : "")}>{value}</p></div>)}
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-[1fr_300px] gap-3">
+            <div className="rounded-[20px] border border-[#ddb159]/14 bg-[#04180f]/60 p-3">
+              <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]"><span>Today&apos;s tone</span><span className="text-white/36">Fresh · 18m ago</span></div>
+              <div className="mt-2 flex h-1.5 overflow-hidden rounded-full"><i className="w-[56%] bg-emerald-400" /><i className="w-[27%] bg-white/30" /><i className="w-[17%] bg-red-400" /></div>
+              <div className="mt-2 flex justify-between text-[9px] font-black"><span className="text-emerald-300">20 positive</span><span className="text-white/50">10 neutral</span><span className="text-red-300">6 negative</span></div>
+            </div>
+            <div className="rounded-[20px] border border-[#ddb159]/14 bg-[#04180f]/60 p-3"><p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Feed scope</p><p className="mt-2 text-[9px] font-semibold leading-4 text-white/48">36 curated briefings from 84 recent source articles.</p></div>
+          </div>
+        </section>
 
-        <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-4 px-7 pb-6 pt-5">
-          {NEWS.map((item) => (
-            <article
-              key={item.title}
-              className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border ${item.lead ? "col-span-2" : ""}`}
-              style={{ borderColor: T.line, background: T.panel }}
-            >
-              <div
-                className="flex items-start justify-between border-b px-4 pb-3 pt-3.5"
-                style={{ background: item.hue, borderColor: T.lineSoft }}
-              >
-                <span
-                  className="rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em]"
-                  style={{ borderColor: item.edge, color: T.text, background: "rgba(0,0,0,0.25)" }}
-                >
-                  {item.category}
-                </span>
-                <span
-                  className="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.1em]"
-                  style={{
-                    background: item.tag === "High impact" ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.06)",
-                    color: item.tag === "High impact" ? T.green : T.sub,
-                  }}
-                >
-                  {item.tag}
-                </span>
+        <section className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] gap-3">
+          <div className="grid min-h-0 grid-rows-[auto_52px_1fr] gap-2">
+            <div data-sl-fragment style={fragmentStyle(4)}><NewsCard item={NEWS_ITEMS[0]} featured /></div>
+            <div data-sl-fragment style={fragmentStyle(5)} className="grid grid-cols-[1fr_repeat(4,118px)_82px] items-center gap-2 rounded-[20px] border border-[#ddb159]/16 bg-[#061b12]/92 p-2">
+              <span className="flex h-9 items-center gap-2 rounded-xl border border-[#ddb159]/14 bg-white/[0.04] px-3 text-[9px] font-semibold text-white/34"><AppIcon kind="search" /> Search ticker or theme</span>
+              {["Impact: All", "Industry: All", "Country: All", "Topic: All"].map((item) => <span key={item} className="grid h-9 place-items-center rounded-xl border border-[#ddb159]/14 text-[8px] font-black text-white/55">{item}</span>)}
+              <span className="grid h-9 place-items-center rounded-xl bg-[#ddb159] text-[8px] font-black text-[#061b12]">Reset</span>
+            </div>
+            <div data-sl-fragment style={fragmentStyle(6)} className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden">
+              <NewsCard item={NEWS_ITEMS[1]} />
+              <NewsCard item={NEWS_ITEMS[2]} />
+            </div>
+          </div>
+          <aside className="grid min-h-0 grid-rows-2 gap-3">
+            <section data-sl-fragment style={fragmentStyle(7)} className="rounded-[22px] border border-[#ddb159]/16 bg-[#061b12]/78 p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Top affected stocks</p>
+              <div className="mt-3 grid gap-2">
+                {DEMO_ROWS.slice(0, 4).map((row) => <div key={row.ticker} className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] p-2"><StockMark ticker={row.ticker} /><div><p className="text-[10px] font-black">{row.ticker}</p><p className="text-[8px] text-white/38">{row.company}</p></div><span className="ml-auto text-[9px] font-black text-emerald-300">{row.move}</span></div>)}
               </div>
-
-              <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
-                <h4
-                  className={`font-black leading-snug tracking-[-0.02em] ${item.lead ? "text-[19px]" : "text-[13.5px]"}`}
-                  style={{ color: T.text }}
-                >
-                  {item.title}
-                </h4>
-                <p className="mt-1.5 line-clamp-2 text-[11px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-                  {item.summary}
-                </p>
-                <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
-                  {item.tickers.map((tk) => (
-                    <span
-                      key={tk.t}
-                      className="sl-mono inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black"
-                      style={{ borderColor: T.line, background: "rgba(255,255,255,0.03)" }}
-                    >
-                      {tk.t}
-                      <span style={{ color: tk.up ? T.green : T.red }}>{tk.m}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </div>
+            </section>
+            <section data-sl-fragment style={fragmentStyle(8)} className="rounded-[22px] border border-[#ddb159]/16 bg-[#061b12]/78 p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Biggest moves</p>
+              <div className="mt-3 rounded-2xl border border-emerald-400/18 bg-emerald-400/8 p-3"><span className="text-[8px] font-black uppercase text-emerald-300">Positive</span><p className="mt-2 text-[11px] font-black leading-5">Cloud capex lifts the AI infrastructure chain.</p></div>
+              <div className="mt-2 rounded-2xl border border-red-400/18 bg-red-400/8 p-3"><span className="text-[8px] font-black uppercase text-red-300">Negative</span><p className="mt-2 text-[11px] font-black leading-5">Oil producers soften on supply outlook.</p></div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </DemoAppShell>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  SCREEN 4 — Ask StockGPT  (1280 × 756)                              */
-/* ------------------------------------------------------------------ */
+function ChatPrompt({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
+  return <div className="rounded-2xl border border-[#ddb159]/16 bg-white/[0.035] px-3 py-2.5"><p className="text-[7px] font-black uppercase tracking-[0.13em] text-[#ddb159]/72">{eyebrow}</p><p className="mt-1 text-[10px] font-bold leading-snug text-white/75">{children}</p></div>;
+}
 
 export function ChatScreen() {
   return (
-    <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ScreenTopBar
-          title="Ask StockGPT"
-          sub="A research assistant grounded in the same engine that builds the rankings"
-          right={
-            <>
-              <GhostChip>ANET context loaded</GhostChip>
-              <GhostChip active>New chat</GhostChip>
-            </>
-          }
-        />
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#020805] text-[#fbf4e5]">
+      <header data-sl-fragment style={fragmentStyle(0)} className="flex h-16 shrink-0 items-center justify-between border-b border-[#ddb159]/16 bg-[#04140c] px-5">
+        <span className="rounded-full border border-[#ddb159]/24 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">← Back</span>
+        <div className="text-center"><p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-1 text-[10px] font-semibold text-white/40">Chat and portfolio intelligence</p></div>
+        <span className="rounded-full border border-[#ddb159]/24 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Clear</span>
+      </header>
+      <main className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)_320px] gap-3 overflow-hidden p-3">
+        <aside data-sl-fragment style={fragmentStyle(2)} className="min-h-0 overflow-hidden rounded-[26px] border border-[#ddb159]/18 bg-[#06140d] p-3">
+          <div className="flex items-center gap-3 border-b border-[#ddb159]/12 px-1 pb-3"><span className="grid size-9 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#092418] text-[12px] font-black text-[#ddb159]">SG</span><div><p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#ddb159]">Research modes</p><p className="mt-1 text-[9px] text-white/38">Choose a workspace</p></div></div>
+          <div className="mt-3 grid gap-1.5">
+            {["Portfolio", "Rankings", "Learn", "Account"].map((mode, index) => <div key={mode} className={"rounded-2xl border px-3 py-2.5 " + (index === 0 ? "border-[#ddb159] bg-[#ddb159]/10" : "border-transparent")}><p className="text-[10px] font-black">{mode}</p><p className="mt-0.5 text-[8px] text-white/36">{["Holdings, alerts, P&L", "Scores, sectors, leaders", "Trading concepts", "Membership and billing"][index]}</p></div>)}
+          </div>
+          <p className="mt-4 text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Suggested</p>
+          <div className="mt-2 grid gap-2"><ChatPrompt eyebrow="Portfolio coach">Find my weakest holding</ChatPrompt><ChatPrompt eyebrow="Action plan">Trim, hold, sell or buy more</ChatPrompt><ChatPrompt eyebrow="Risk control">Check stop-loss levels</ChatPrompt></div>
+        </aside>
 
-        <div className="mx-auto flex min-h-0 w-full max-w-[820px] flex-1 flex-col px-7 pb-6 pt-5">
-          <div className="min-h-0 flex-1 space-y-4 overflow-hidden">
-            {/* user */}
-            <div className="flex justify-end">
-              <div
-                className="max-w-[72%] rounded-2xl rounded-br-md border px-4 py-3 text-[13px] font-semibold leading-relaxed"
-                style={{ borderColor: T.line, background: "rgba(255,255,255,0.05)" }}
-              >
-                Compare ANET and KLAC for a 5-year hold. Which score holds up better?
-              </div>
-            </div>
-
-            {/* assistant */}
-            <div className="flex gap-3">
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black"
-                style={{ background: "rgba(221,177,89,0.16)", color: T.gold, border: "1px solid rgba(221,177,89,0.35)" }}
-              >
-                SG
-              </div>
-              <div
-                className="max-w-[86%] rounded-2xl rounded-tl-md border px-4 py-3.5"
-                style={{ borderColor: "rgba(221,177,89,0.2)", background: T.panel }}
-              >
-                <p className="text-[13px] font-semibold leading-relaxed" style={{ color: "rgba(244,241,232,0.82)" }}>
-                  On today&apos;s model run, ANET holds the stronger long-horizon profile — but the gap
-                  is narrower than the headline scores suggest:
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2.5">
-                  <div className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
-                    <div className="flex items-center justify-between">
-                      <span className="sl-mono text-[11px] font-black">ANET</span>
-                      <ScorePill score="8,858" hot />
-                    </div>
-                    <p className="mt-2 text-[10.5px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-                      Leads on momentum, earnings-revision strength and margin durability. Valuation is the drag.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
-                    <div className="flex items-center justify-between">
-                      <span className="sl-mono text-[11px] font-black">KLAC</span>
-                      <ScorePill score="8,377" />
-                    </div>
-                    <p className="mt-2 text-[10.5px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-                      Better value entry, weaker momentum. Score is more sensitive to equipment-cycle swings.
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-[11px] font-semibold leading-relaxed" style={{ color: T.faint }}>
-                  Research context only — not a recommendation. Check both research pages before acting.
-                </p>
-              </div>
-            </div>
-
-            {/* user */}
-            <div className="flex justify-end">
-              <div
-                className="max-w-[72%] rounded-2xl rounded-br-md border px-4 py-3 text-[13px] font-semibold leading-relaxed"
-                style={{ borderColor: T.line, background: "rgba(255,255,255,0.05)" }}
-              >
-                What would break the ANET thesis?
-              </div>
-            </div>
-
-            {/* assistant typing */}
-            <div className="flex gap-3">
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black"
-                style={{ background: "rgba(221,177,89,0.16)", color: T.gold, border: "1px solid rgba(221,177,89,0.35)" }}
-              >
-                SG
-              </div>
-              <div
-                className="max-w-[86%] rounded-2xl rounded-tl-md border px-4 py-3.5 text-[13px] font-semibold leading-relaxed"
-                style={{ borderColor: "rgba(221,177,89,0.2)", background: T.panel, color: "rgba(244,241,232,0.82)" }}
-              >
-                Three things the model watches: cloud networking capex rolling over, ethernet share
-                losses to rivals, and a momentum break below the 8,500 score band
-                <span className="sl-caret sl-mono" style={{ color: T.gold }}>
-                  ▍
-                </span>
-              </div>
+        <section data-sl-fragment style={fragmentStyle(3)} className="grid min-h-0 min-w-0 grid-rows-[112px_minmax(0,1fr)_110px] overflow-hidden rounded-[28px] border border-[#ddb159]/18 bg-[#06140d]">
+          <header className="border-b border-[#ddb159]/14 px-5 py-4">
+            <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-2xl border border-[#ddb159]/35 bg-[#092418] text-[11px] font-black text-[#ddb159]">SG</span><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Portfolio intelligence</p><h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em]">Ask StockGPT</h1></div></div>
+            <p className="mt-3 text-[11px] font-medium text-white/48">Ask naturally. Portfolio and ranking tools load only when needed.</p>
+          </header>
+          <div className="min-h-0 overflow-hidden px-5 py-4">
+            <div className="mx-auto grid max-w-[650px] gap-3">
+              <div className="flex justify-start"><div className="max-w-[82%] rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-4 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,.18)]"><p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#07170f]/42">StockGPT Coach</p><p className="mt-2 text-[11px] font-semibold leading-5">Your Core Growth portfolio is healthy overall. The main watch item is concentration: NVDA and ANET now make up 27.8% together.</p></div></div>
+              <div className="flex justify-end"><div className="max-w-[76%] rounded-[22px] rounded-br-md bg-[#ddb159] px-4 py-3 text-[11px] font-bold leading-5 text-[#07170f]">Which holding should I review first, and why?</div></div>
+              <div className="flex justify-start"><div className="max-w-[82%] rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-4 py-3 text-[#07170f]"><p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#07170f]/42">StockGPT Coach</p><p className="mt-2 text-[11px] font-semibold leading-5"><b>Review AVGO first.</b> Its rank slipped two places, momentum weakened, and the position is 11.2% of the portfolio. The long-term quality signal remains strong, so this is a review—not an automatic sell.</p></div></div>
             </div>
           </div>
+          <form className="border-t border-[#ddb159]/14 bg-[#04140c]/95 p-4">
+            <div className="mx-auto max-w-[680px] rounded-[24px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[0_18px_55px_rgba(0,0,0,.3)]">
+              <p className="px-3 py-2 text-[11px] font-medium text-white/32">Ask naturally. Imperfect grammar is fine...</p>
+              <div className="flex justify-end gap-2"><span className="rounded-full border border-[#ddb159]/20 px-4 py-2 text-[8px] font-black uppercase tracking-[0.12em] text-[#ddb159]/75">Holdings</span><span className="rounded-full bg-[#ddb159] px-5 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-[#07170f]">Send</span></div>
+            </div>
+          </form>
+        </section>
 
-          <div className="mt-4 flex items-center gap-2">
-            {["Why did ORLY jump 3 ranks?", "Stress-test my portfolio", "Explain the risk factor"].map((s) => (
-              <span
-                key={s}
-                className="rounded-full border px-3 py-1.5 text-[10.5px] font-bold"
-                style={{ borderColor: T.line, color: T.sub, background: "rgba(255,255,255,0.02)" }}
-              >
-                {s}
-              </span>
-            ))}
+        <aside data-sl-fragment style={fragmentStyle(4)} className="min-h-0 overflow-hidden rounded-[26px] border border-[#ddb159]/18 bg-[#06140d] p-4">
+          <p className="text-[8px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Portfolio context</p>
+          <h2 className="mt-2 text-[20px] font-black tracking-[-0.04em]">Core Growth</h2>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-[#ddb159]/12 bg-white/[0.03] p-3"><p className="text-[7px] uppercase text-white/35">Value</p><p className="mt-1 text-[14px] font-black">£48,373</p></div>
+            <div className="rounded-2xl border border-[#ddb159]/12 bg-white/[0.03] p-3"><p className="text-[7px] uppercase text-white/35">Health</p><p className="mt-1 text-[14px] font-black text-[#ddb159]">82/100</p></div>
           </div>
-
-          <div
-            className="mt-2.5 flex items-center gap-3 rounded-full border py-2 pl-5 pr-2"
-            style={{ borderColor: "rgba(221,177,89,0.3)", background: T.panel }}
-          >
-            <span className="flex-1 text-[13px] font-semibold" style={{ color: T.faint }}>
-              Ask anything about 500+ ranked stocks…
-            </span>
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full"
-              style={{ background: T.gold, color: "#071b11" }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <path d="M12 19V5M6 11l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
+          <p className="mt-4 text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Largest holdings</p>
+          <div className="mt-2 grid gap-2">
+            {[
+              ["NVDA", "14.8%", "£7,158"],
+              ["ANET", "13.0%", "£6,288"],
+              ["MSFT", "11.7%", "£5,659"],
+              ["AVGO", "11.2%", "£5,417"],
+            ].map(([ticker, weight, value]) => <div key={ticker} className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.025] p-2.5"><StockMark ticker={ticker} /><b className="text-[10px]">{ticker}</b><span className="ml-auto text-right"><b className="block text-[9px] text-[#ddb159]">{weight}</b><small className="text-[8px] text-white/35">{value}</small></span></div>)}
           </div>
-        </div>
-      </div>
+          <div className="mt-4 rounded-2xl border border-[#ddb159]/16 bg-[#ddb159]/6 p-3"><p className="text-[8px] font-black uppercase tracking-[0.13em] text-[#ddb159]">Active context</p><p className="mt-2 text-[10px] font-semibold leading-5 text-white/55">Portfolio holdings, latest rankings and recent alerts are available to the conversation.</p></div>
+        </aside>
+      </main>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  RankCard — ONE living surface shared by the phone dashboard and    */
-/*  slide 2. Everything is driven by the CSS var --t (0 → 1):          */
-/*    t = 0  compact mobile card, 298px design width, 4 rows           */
-/*    t = 1  desktop table, 900px design width, 8 rows, sector +       */
-/*           price columns and a subtitle unfolded                     */
-/*  Because both ends are the same DOM, the scroll morph between the   */
-/*  phone and the slide never swaps surfaces — it just reflows.        */
-/* ------------------------------------------------------------------ */
-
-export const RANK_CARD_W0 = 298;
+export const RANK_CARD_W0 = 351;
 export const RANK_CARD_W1 = 900;
 
 export function RankCard({ metrics }: { metrics: LandingMetrics }) {
-  const rows = buildRankingRows();
-  const { total, updated } = displayMetrics(metrics);
-  const reveal = (i: number) => `clamp(0, var(--t, 0) * 3 - ${(0.9 + (i - 4) * 0.35).toFixed(2)}, 1)`;
-
+  const info = displayMetrics(metrics);
+  const reveal = (index: number) => "clamp(0, var(--t, 0) * 3 - " + (0.9 + (index - 4) * 0.35).toFixed(2) + ", 1)";
+  const ink = "rgb(calc(250 - var(--t, 0) * 243) calc(246 - var(--t, 0) * 213) calc(240 - var(--t, 0) * 218))";
+  const surface = "rgb(calc(11 + var(--t, 0) * 239) calc(43 + var(--t, 0) * 203) calc(29 + var(--t, 0) * 211))";
   return (
-    <div
-      className="overflow-hidden rounded-2xl border"
-      style={{
-        width: `calc(${RANK_CARD_W0}px + var(--t, 0) * ${RANK_CARD_W1 - RANK_CARD_W0}px)`,
-        borderColor: T.line,
-        background: T.panel,
-      }}
-    >
-      <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: T.line }}>
-        <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.text }}>
-            Top ranked
-          </p>
-          <p
-            className="truncate text-[10px] font-semibold"
-            style={{
-              color: T.sub,
-              height: "calc(var(--t, 0) * 16px)",
-              opacity: "calc(var(--t, 0) * 2 - 1)",
-              overflow: "hidden",
-            }}
-          >
-            {total} US stocks scored across six factors · updated {updated}
-          </p>
+    <div className="overflow-hidden rounded-[22px] border shadow-[0_18px_44px_rgba(0,0,0,.28)]" style={{ width: "calc(" + RANK_CARD_W0 + "px + var(--t, 0) * " + (RANK_CARD_W1 - RANK_CARD_W0) + "px)", color: ink, background: surface, borderColor: "rgba(221,177,89,.22)" }}>
+      <div className="flex items-center justify-between border-b border-[#ddb159]/14 px-4 py-3">
+        <div>
+          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p>
+          <p className="mt-1 text-[15px] font-black tracking-[-0.035em]">Top ranked today</p>
+          <p className="overflow-hidden text-[9px] font-semibold opacity-[calc(var(--t,0)*2-1)]" style={{ height: "calc(var(--t, 0) * 14px)" }}>{info.total} stocks · model run {info.updated}</p>
         </div>
-        <span
-          className="shrink-0 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.1em]"
-          style={{ background: T.gold, color: "#071b11" }}
-        >
-          Live
-        </span>
+        <span className="rounded-full bg-[#ddb159] px-2.5 py-1 text-[8px] font-black text-[#072116]">View all →</span>
       </div>
-
-      {rows.map((row, i) => (
-        <div
-          key={row.ticker}
-          className="flex items-center gap-2.5 border-b px-4 last:border-b-0"
-          style={{
-            borderColor: T.lineSoft,
-            height: i < 4 ? 45 : `calc(${reveal(i)} * 45px)`,
-            opacity: i < 4 ? 1 : `calc(${reveal(i)})`,
-            overflow: "hidden",
-          }}
-        >
-          <span className="sl-mono w-4 shrink-0 text-[11px] font-black" style={{ color: i === 0 ? T.gold : T.faint }}>
-            {i + 1}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="sl-mono text-[12px] font-black" style={{ color: T.text }}>
-              {row.ticker}
-            </p>
-            <p className="truncate text-[9px] font-semibold" style={{ color: T.faint }}>
-              {row.company}
-            </p>
-          </div>
-          {/* desktop-only columns unfold as the card widens */}
-          <span
-            className="shrink-0 whitespace-nowrap text-[10px] font-bold"
-            style={{
-              color: T.faint,
-              maxWidth: "calc(var(--t, 0) * 130px)",
-              opacity: "calc(var(--t, 0) * 2.5 - 1.4)",
-              overflow: "hidden",
-            }}
-          >
-            {sectorFor(row.ticker)}
-          </span>
-          <span
-            className="sl-mono shrink-0 whitespace-nowrap text-right text-[11px] font-black"
-            style={{
-              color: T.text,
-              maxWidth: "calc(var(--t, 0) * 76px)",
-              opacity: "calc(var(--t, 0) * 2.5 - 1.4)",
-              overflow: "hidden",
-            }}
-          >
-            {row.price}
-          </span>
-          <MoveChip move={row.move} up={row.moveUp} size={9} />
-          <ScorePill score={row.score} hot={i === 0} />
+      {DEMO_ROWS.map((row, index) => (
+        <div key={row.ticker} className="flex items-center gap-2.5 border-b border-[#ddb159]/10 px-4 last:border-0" style={{ height: index < 4 ? 44 : "calc(" + reveal(index) + " * 44px)", opacity: index < 4 ? 1 : "calc(" + reveal(index) + ")", overflow: "hidden" }}>
+          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159] text-[9px] font-black text-[#072116]">{row.rank}</span>
+          <StockMark ticker={row.ticker} />
+          <div className="min-w-0 flex-1"><p className="text-[11px] font-black">{row.ticker}</p><p className="truncate text-[8px] font-semibold opacity-45">{row.company}</p></div>
+          <span className="max-w-[calc(var(--t,0)*120px)] overflow-hidden whitespace-nowrap text-[9px] font-bold opacity-[calc(var(--t,0)*2.5-1.4)]">{row.sector}</span>
+          <span className="max-w-[calc(var(--t,0)*72px)] overflow-hidden whitespace-nowrap text-[10px] font-black opacity-[calc(var(--t,0)*2.5-1.4)]">{row.price}</span>
+          <ChangePill row={row} />
+          <span className="min-w-[58px] rounded-full bg-[#ddb159] px-2 py-1 text-center text-[9px] font-black text-[#072116]">{row.score}</span>
         </div>
       ))}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  PHONE — dashboard screen  (design canvas 330 × 700)                */
-/* ------------------------------------------------------------------ */
-
-function PhoneChart() {
+function MiniPortfolioChart() {
   return (
-    <svg viewBox="0 0 288 84" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="slPhoneArea" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M0 66 C22 62 34 66 52 56 C72 45 86 50 104 40 C122 30 138 36 156 26 C174 17 190 24 208 14 C228 4 250 12 288 4 L288 84 L0 84 Z"
-        fill="url(#slPhoneArea)"
-      />
-      <path
-        d="M0 66 C22 62 34 66 52 56 C72 45 86 50 104 40 C122 30 138 36 156 26 C174 17 190 24 208 14 C228 4 250 12 288 4"
-        fill="none"
-        stroke="#34d399"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
+    <svg viewBox="0 0 330 88" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="phonePortfolioFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#ddb159" stopOpacity=".28" /><stop offset="100%" stopColor="#ddb159" stopOpacity="0" /></linearGradient></defs>
+      <path d="M0 76 C30 73 45 80 66 61 C88 43 108 59 132 42 C156 24 178 37 204 25 C232 12 258 22 282 10 C301 1 316 8 330 3 L330 88 L0 88Z" fill="url(#phonePortfolioFill)" />
+      <path d="M0 76 C30 73 45 80 66 61 C88 43 108 59 132 42 C156 24 178 37 204 25 C232 12 258 22 282 10 C301 1 316 8 330 3" fill="none" stroke="#ddb159" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }
 
+const phonePiece = (x: number, y: number, r: number): CSSProperties => ({
+  "--phone-x": x + "px",
+  "--phone-y": y + "px",
+  "--phone-r": r + "deg",
+} as CSSProperties);
+
 export function PhoneDashboardScreen({ metrics }: { metrics: LandingMetrics }) {
-  const data = buildRankingRows().slice(0, 4);
-  const { total, bullishPct, sentiment, updated } = displayMetrics(metrics);
-
+  const info = displayMetrics(metrics);
   return (
-    <div className="flex h-full w-full flex-col" style={{ background: "#04120b", color: T.text }}>
-      {/* status bar */}
-      <div className="flex items-center justify-between px-7 pb-1 pt-4">
-        <span className="sl-mono text-[12px] font-black">9:41</span>
-        <span className="flex items-center gap-1.5">
-          <svg width="15" height="10" viewBox="0 0 16 11" fill={T.text} aria-hidden="true">
-            <rect x="0" y="7" width="3" height="4" rx="0.8" />
-            <rect x="4.3" y="5" width="3" height="6" rx="0.8" />
-            <rect x="8.6" y="2.5" width="3" height="8.5" rx="0.8" />
-            <rect x="12.9" y="0" width="3" height="11" rx="0.8" />
-          </svg>
-          <svg width="22" height="11" viewBox="0 0 25 12" fill="none" aria-hidden="true">
-            <rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke={T.text} strokeOpacity="0.5" />
-            <rect x="2" y="2" width="15" height="8" rx="1.6" fill={T.text} />
-            <path d="M23.5 4v4a2 2 0 0 0 0-4Z" fill={T.text} fillOpacity="0.5" />
-          </svg>
-        </span>
+    <div className="relative h-full w-full overflow-hidden bg-[#072116] text-[#faf6f0]">
+      <div data-sl-phone-piece style={phonePiece(-24, -38, -3)} className="flex h-[30px] items-center justify-between px-7 pt-2 text-[12px] font-black">
+        <span>9:41</span>
+        <span className="flex items-center gap-2 text-[10px]">● ● ▰</span>
       </div>
+      <header data-sl-phone-piece style={phonePiece(28, -28, 2)} className="flex h-[54px] items-center justify-between border-b border-[#ddb159]/14 bg-[#04180f] px-4">
+        <span className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 text-[#ddb159]">☰</span>
+        <div className="relative h-9 w-[145px]"><Image src="/logo.png" alt="StockGPT" fill className="object-contain" sizes="145px" /></div>
+        <span className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 text-[10px] font-black text-[#ddb159]">AM</span>
+      </header>
 
-      {/* app header */}
-      <div className="flex items-center justify-between px-5 pb-2 pt-2">
-        <div className="relative h-8 w-[112px]">
-          <Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="112px" />
-        </div>
-        <div
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[9.5px] font-black uppercase tracking-[0.06em]"
-          style={{
-            background: "linear-gradient(135deg, #f4d78a 0%, #ddb159 55%, #c99a3e 100%)",
-            color: "#071b11",
-            boxShadow: "0 4px 16px rgba(221,177,89,0.35)",
-          }}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden="true">
-            <path
-              d="M21 12a8 8 0 0 1-8 8H4l2.5-3A8 8 0 1 1 21 12Z"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Ask StockGPT
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-2.5 px-4 pb-4">
-        {/* greeting */}
-        <div className="rounded-2xl border p-4" style={{ borderColor: "rgba(221,177,89,0.2)", background: T.panel }}>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: T.gold }}>
-            Dashboard
-          </p>
-          <h2 className="mt-1.5 text-[22px] font-black tracking-[-0.04em]">Welcome back.</h2>
-          <p className="mt-1 text-[11px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-            {total} stocks ranked · {bullishPct}% bullish · {sentiment.toLowerCase()}
-          </p>
-        </div>
-
-        {/* metric tiles */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {[
-            ["Top ranked", data[0]?.ticker ?? "DECK", T.gold],
-            ["Bullish", `${bullishPct}%`, T.green],
-            ["Universe", total, T.text],
-            ["Updated", updated.split(",")[0] ?? "today", T.text],
-          ].map(([label, value, color]) => (
-            <div key={label as string} className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panel }}>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: T.faint }}>
-                {label as string}
-              </p>
-              <p className="sl-mono mt-1 truncate text-[16px] font-black" style={{ color: color as string }}>
-                {value as string}
-              </p>
+      <div className="absolute inset-x-0 bottom-[64px] top-[84px] overflow-hidden">
+        <div data-sl-phone-scroll className="px-4 pb-8 pt-4 [will-change:transform]">
+          <section data-sl-phone-piece style={phonePiece(-52, 22, -2)}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2"><p className="text-[11px] font-semibold text-[#ddb159]">Good evening, Alex</p><span className="rounded-full border border-[#ddb159]/16 px-2 py-1 text-[8px] font-bold text-white/45">Markets closed</span></div>
+                <h1 className="mt-2 text-[25px] font-black leading-none tracking-[-0.045em]">Today at a glance</h1>
+                <p className="mt-2 text-[10px] font-semibold leading-4 text-white/50">Core Growth is healthy · VRT leads today&apos;s ranking</p>
+              </div>
+              <span className="rounded-full bg-[#ddb159] px-3 py-2 text-[8px] font-black text-[#072116]">Ask StockGPT</span>
             </div>
-          ))}
-        </div>
+          </section>
 
-        {/* rankings card — the exact same component the scroll morph
-            flies out of the phone and unfolds into slide 2's panel */}
-        <div data-sl-zoom style={{ "--t": 0 } as CSSProperties}>
-          <RankCard metrics={metrics} />
-        </div>
-
-        {/* market chart */}
-        <div className="rounded-2xl border p-3.5" style={{ borderColor: T.line, background: T.panel }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: T.faint }}>
-                Market overview
-              </p>
-              <p className="mt-0.5 text-[13px] font-black">S&amp;P 500</p>
+          <section data-sl-phone-piece style={phonePiece(62, 36, 3)} className="relative mt-4 h-[260px] overflow-hidden rounded-[28px] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,.9),rgba(6,28,19,.94))] p-4 shadow-[0_18px_38px_rgba(0,0,0,.2)]">
+            <div className="flex items-start justify-between">
+              <div><p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p><h2 className="mt-1 text-[17px] font-black">Core Growth</h2></div>
+              <span className="rounded-full bg-[#ddb159] px-2.5 py-1 text-[9px] font-black text-[#072116]">Health 82/100</span>
             </div>
-            <MoveChip move="+0.32%" up size={9.5} />
-          </div>
-          <div className="mt-2 h-[76px]">
-            <PhoneChart />
-          </div>
+            <div className="mt-3 flex items-end justify-between"><div><p className="text-[31px] font-black leading-none tracking-[-0.06em]">£48,373</p><p className="mt-1.5 text-[11px] font-black text-emerald-300">+£6,842 · +16.5%</p></div><span className="rounded-full border border-[#ddb159]/22 px-3 py-2 text-[8px] font-black text-[#ddb159]">Open →</span></div>
+            <div className="mt-3 h-[96px] overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/45"><MiniPortfolioChart /></div>
+            <div className="mt-2 flex justify-between text-[8px] font-black uppercase tracking-[0.1em] text-white/35"><span>8 holdings · 5 sectors</span><span>Updated 8m ago</span></div>
+          </section>
+          <div className="mt-3 flex justify-center gap-2"><i className="h-2 w-6 rounded-full bg-[#ddb159]" /><i className="size-2 rounded-full bg-white/20" /><i className="size-2 rounded-full bg-white/20" /></div>
+          <div data-sl-phone-piece style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between"><div><p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black">Top ranked today</h2></div><span className="text-[9px] font-black text-[#ddb159]">View all →</span></div>
+          <div data-sl-zoom style={{ "--t": 0, width: RANK_CARD_W0 } as CSSProperties}><RankCard metrics={metrics} /></div>
+          <div className="mt-4 text-[9px] font-semibold text-white/35">{info.total} stocks · {info.bullishPct}% bullish · {info.sentiment.toLowerCase()}</div>
         </div>
       </div>
 
-      {/* bottom tab bar */}
-      <div
-        className="flex items-center justify-around border-t px-3 pb-5 pt-2.5"
-        style={{ borderColor: T.line, background: "#030d08" }}
-      >
-        {["dashboard", "rankings", "portfolio", "news", "chat"].map((k, i) => (
-          <span key={k} style={{ color: i === 0 ? T.gold : T.faint }}>
-            <NavIcon kind={k} />
-          </span>
-        ))}
-      </div>
+      <nav data-sl-phone-piece style={phonePiece(0, 48, 0)} className="absolute inset-x-0 bottom-0 flex h-16 items-center justify-around border-t border-[#ddb159]/14 bg-[#04180f] pb-2">
+        {["dashboard", "rankings", "portfolio", "news", "chat"].map((key, index) => <span key={key} className={index === 0 ? "text-[#ddb159]" : "text-white/30"}><AppIcon kind={key} className="size-[19px]" /></span>)}
+      </nav>
     </div>
   );
 }
