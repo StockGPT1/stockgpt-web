@@ -374,9 +374,20 @@ export function MobileDashboardExperience({
                       <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                         Your portfolio
                       </p>
-                      <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
-                        {summary.name}
-                      </h2>
+                      {/* the selector already names the portfolio — no
+                         duplicate heading when it is shown */}
+                      {portfolioId && portfolios.length > 1 ? (
+                        <div className="mt-1.5">
+                          <DashboardPortfolioSelector
+                            value={portfolioId}
+                            portfolios={portfolios}
+                          />
+                        </div>
+                      ) : (
+                        <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
+                          {summary.name}
+                        </h2>
+                      )}
                     </div>
                     <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
                       {canUsePremium
@@ -386,11 +397,7 @@ export function MobileDashboardExperience({
                   </div>
 
                   {portfolioId && (
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <DashboardPortfolioSelector
-                        value={portfolioId}
-                        portfolios={portfolios}
-                      />
+                    <div className="mt-1.5 flex items-center justify-end">
                       <FreshnessLabel
                         value={portfolioChartState.latestSnapshotAt}
                         compact

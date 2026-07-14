@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { MobileSheet } from "@/components/MobileSheet";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
 import { StockLogo } from "@/components/StockLogo";
+import { useIsDesktop } from "@/components/useIsDesktop";
 import { buildAskHref } from "@/lib/ask-context";
+import { factorDescription, sentenceCaseFactor } from "@/lib/factor-labels";
 import type { StableRankingRow } from "@/lib/stable-rankings";
 
 type DiagnosticsPayload = {
   diagnostics?: {
     diagnosis?: string | null;
+    factor_contributions?: unknown;
     top_positive_factors?: unknown;
     top_negative_factors?: unknown;
     updated_at?: string | null;
@@ -27,17 +31,117 @@ type LazyWhyRankDetailsProps = {
   onExpandedChange?: (expanded: boolean) => void;
 };
 
-function strings(value: unknown) {
-  if (Array.isArray(value)) return value.map(String).filter(Boolean).slice(0, 3);
-  if (value && typeof value === "object") return Object.keys(value as object).slice(0, 3);
-  if (typeof value === "string") {
-    return value
-      .split(/[;,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 3);
+const NOISE_THRESHOLD = 0.0005;
+
+/* Primary source: factor_contributions — how much each factor is
+   actually adding to or subtracting from this stock's rank right now.
+   The top_positive/negative_factors lists are day-over-day CHANGES and
+   are usually ±0.000 noise, so they are only a fallback and near-zero
+   entries are dropped rather than shown as meaningless "(+0.000)". */
+function contributionEntries(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .map(([factor, raw]) => ({ factor, value: Number(raw) }))
+    .filter((entry) => Number.isFinite(entry.value) && Math.abs(entry.value) > NOISE_THRESHOLD);
+}
+
+function changeEntryItem(item: unknown): { code: string; label: string } | null {
+  if (typeof item === "string" && item.trim()) {
+    return { code: item, label: sentenceCaseFactor(item) };
   }
-  return [];
+  if (!item || typeof item !== "object") return null;
+  const record = item as Record<string, unknown>;
+  const name = [record.factor, record.name, record.label, record.key].find(
+    (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
+  );
+  if (!name) return null;
+  const magnitude = [record.change, record.delta, record.current, record.contribution, record.value].find(
+    (candidate): candidate is number => typeof candidate === "number" && Number.isFinite(candidate),
+  );
+  /* near-zero day-over-day changes carry no information — skip them */
+  if (magnitude !== undefined && Math.abs(magnitude) <= NOISE_THRESHOLD) return null;
+  return { code: name, label: sentenceCaseFactor(name) };
+}
+
+type FactorItem = { code: string; label: string };
+
+function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
+  const contributions = contributionEntries(diagnostics?.factor_contributions);
+
+  const describe = (entry: { factor: string; value: number }): FactorItem => ({
+    code: entry.factor,
+    label: `${sentenceCaseFactor(entry.factor)} (${entry.value >= 0 ? "+" : ""}${entry.value.toFixed(3)})`,
+  });
+
+  let drivers = contributions
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map(describe);
+  let risks = contributions
+    .filter((entry) => entry.value < 0)
+    .sort((a, b) => a.value - b.value)
+    .slice(0, 3)
+    .map(describe);
+
+  const fallback = (value: unknown) =>
+    Array.isArray(value)
+      ? value.map(changeEntryItem).filter((item): item is FactorItem => Boolean(item)).slice(0, 3)
+      : [];
+
+  if (drivers.length === 0) drivers = fallback(diagnostics?.top_positive_factors);
+  if (risks.length === 0) risks = fallback(diagnostics?.top_negative_factors);
+
+  return { drivers, risks };
+}
+
+/* Each listed factor is tappable: a tap unfolds a one-line plain-English
+   description of what that indicator measures. */
+function FactorColumn({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: FactorItem[];
+  emptyLabel: string;
+}) {
+  const [openCode, setOpenCode] = useState<string | null>(null);
+
+  return (
+    <div className="min-w-0">
+      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">{title}</p>
+      <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
+        {items.length === 0 && <li className="min-w-0">— {emptyLabel}</li>}
+        {items.map((item) => {
+          const open = openCode === item.code;
+          return (
+            <li key={item.code} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setOpenCode(open ? null : item.code)}
+                aria-expanded={open}
+                className="flex w-full items-baseline gap-1.5 text-left text-[10px] font-semibold leading-4 text-[#faf6f0]/62 transition hover:text-[#faf6f0]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+              >
+                <span className="min-w-0">— {item.label}</span>
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 text-[8px] text-[#ddb159]/75 transition-transform ${open ? "rotate-180" : ""}`}
+                >
+                  ▾
+                </span>
+              </button>
+              {open && (
+                <p className="mt-1 rounded-lg border border-[#ddb159]/16 bg-[#ddb159]/[0.06] px-2 py-1.5 text-[9.5px] font-medium leading-4 text-[#faf6f0]/72">
+                  {factorDescription(item.code)}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function WhyContent({
@@ -53,8 +157,7 @@ function WhyContent({
   error: string | null;
   compact?: boolean;
 }) {
-  const drivers = strings(data?.diagnostics?.top_positive_factors);
-  const risks = strings(data?.diagnostics?.top_negative_factors);
+  const { drivers, risks } = factorLists(data?.diagnostics);
 
   return (
     <div className={compact ? "grid gap-3 text-[#faf6f0]" : "grid gap-4 text-[#faf6f0]"}>
@@ -84,31 +187,18 @@ function WhyContent({
       )}
 
       {!loading && !error && (
-        <>
-          <p className={compact ? "text-[11px] font-semibold leading-5 text-[#faf6f0]/68" : "text-[13px] font-semibold leading-6 text-[#faf6f0]/68"}>
-            {data?.diagnostics?.diagnosis ??
-              "The latest factor explanation is not available. The rank remains visible, but StockGPT will not invent drivers."}
-          </p>
-
-          <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
-            <div className="min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Main drivers</p>
-              <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
-                {(drivers.length ? drivers : ["Factor detail unavailable"]).slice(0, compact ? 2 : 3).map((item) => (
-                  <li key={item} className="min-w-0">— {item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Risks</p>
-              <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
-                {(risks.length ? risks : ["Review company and market risk before acting"]).slice(0, compact ? 2 : 3).map((item) => (
-                  <li key={item} className="min-w-0">— {item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </>
+        <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
+          <FactorColumn
+            title="Main drivers"
+            items={drivers.slice(0, compact ? 2 : 3)}
+            emptyLabel="Factor detail unavailable"
+          />
+          <FactorColumn
+            title="Risks"
+            items={risks.slice(0, compact ? 2 : 3)}
+            emptyLabel="Review company and market risk before acting"
+          />
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-2">
@@ -140,12 +230,23 @@ export function LazyWhyRankDetails({
   const [data, setData] = useState<DiagnosticsPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isDesktop = useIsDesktop();
   const isInline = variant === "inline";
   const open = isInline ? expanded : sheetOpen;
   const ticker = stock.ticker ?? "stock";
   const detailId = `ranking-why-${ticker.replace(/[^a-z0-9_-]/gi, "-")}`;
 
   useFocusedFlow(`ranking-why-${stock.ticker}`, !isInline && sheetOpen);
+
+  /* Escape closes the desktop drawer (the mobile sheet handles its own) */
+  useEffect(() => {
+    if (!isDesktop || !sheetOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isDesktop, sheetOpen]);
 
   async function loadDetails() {
     if (data || loading) return;
@@ -220,46 +321,54 @@ export function LazyWhyRankDetails({
       >
         Why?
       </button>
-      <MobileSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={`Why ${stock.ticker} ranks #${stock.rank ?? "—"}`}
-        eyebrow="Ranking intelligence"
-      >
-        {content}
-      </MobileSheet>
-      {sheetOpen && (
-        <div
-          className="fixed inset-0 z-[2147483000] hidden bg-[#020805]/72 lg:flex lg:justify-end"
-          role="presentation"
+      {!isDesktop && (
+        <MobileSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          title={`Why ${stock.ticker} ranks #${stock.rank ?? "—"}`}
+          eyebrow="Ranking intelligence"
         >
-          <button
-            type="button"
-            onClick={() => setSheetOpen(false)}
-            aria-label="Close ranking detail"
-            className="absolute inset-0"
-          />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Why ${stock.ticker} ranks here`}
-            className="relative z-10 h-[100dvh] w-full max-w-[520px] overflow-y-auto border-l border-[#ddb159]/22 bg-[#061b12] p-6 pt-16"
+          {content}
+        </MobileSheet>
+      )}
+      {isDesktop &&
+        sheetOpen &&
+        createPortal(
+          /* portaled to <body>: a transformed ancestor inside the app
+             shell would otherwise trap this fixed overlay under the
+             header and swallow its clicks */
+          <div
+            className="fixed inset-0 z-[2147483000] flex justify-end bg-[#020805]/72"
+            role="presentation"
           >
             <button
               type="button"
               onClick={() => setSheetOpen(false)}
-              className="absolute right-5 top-5 grid size-11 place-items-center rounded-full border border-[#ddb159]/22 text-xl text-[#ddb159]"
-              aria-label="Close"
+              aria-label="Close ranking detail"
+              className="absolute inset-0 cursor-default"
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Why ${stock.ticker} ranks here`}
+              className="relative z-10 h-[100dvh] w-full max-w-[520px] overflow-y-auto border-l border-[#ddb159]/22 bg-[#061b12] p-6 pt-16"
             >
-              &times;
-            </button>
-            <p className="mb-5 text-[10px] font-black uppercase tracking-[0.17em] text-[#ddb159]">
-              Why {stock.ticker} ranks #{stock.rank ?? "—"}
-            </p>
-            {content}
-          </aside>
-        </div>
-      )}
+              <button
+                type="button"
+                onClick={() => setSheetOpen(false)}
+                className="absolute right-5 top-5 grid size-11 place-items-center rounded-full border border-[#ddb159]/22 text-xl text-[#ddb159]"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <p className="mb-5 text-[10px] font-black uppercase tracking-[0.17em] text-[#ddb159]">
+                Why {stock.ticker} ranks #{stock.rank ?? "—"}
+              </p>
+              {content}
+            </aside>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
