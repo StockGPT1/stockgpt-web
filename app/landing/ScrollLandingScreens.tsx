@@ -521,39 +521,6 @@ export function ChatScreen() {
   );
 }
 
-export const RANK_CARD_W0 = 351;
-export const RANK_CARD_W1 = 900;
-
-export function RankCard({ metrics }: { metrics: LandingMetrics }) {
-  const info = displayMetrics(metrics);
-  const reveal = (index: number) => "clamp(0, var(--t, 0) * 3 - " + (0.9 + (index - 4) * 0.35).toFixed(2) + ", 1)";
-  const ink = "rgb(calc(250 - var(--t, 0) * 243) calc(246 - var(--t, 0) * 213) calc(240 - var(--t, 0) * 218))";
-  const surface = "rgb(calc(11 + var(--t, 0) * 239) calc(43 + var(--t, 0) * 203) calc(29 + var(--t, 0) * 211))";
-  return (
-    <div className="overflow-hidden rounded-[22px] border shadow-[0_18px_44px_rgba(0,0,0,.28)]" style={{ width: "calc(" + RANK_CARD_W0 + "px + var(--t, 0) * " + (RANK_CARD_W1 - RANK_CARD_W0) + "px)", color: ink, background: surface, borderColor: "rgba(221,177,89,.22)" }}>
-      <div className="flex items-center justify-between border-b border-[#ddb159]/14 px-4 py-3">
-        <div>
-          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p>
-          <p className="mt-1 text-[15px] font-black tracking-[-0.035em]">Top ranked today</p>
-          <p className="overflow-hidden text-[9px] font-semibold opacity-[calc(var(--t,0)*2-1)]" style={{ height: "calc(var(--t, 0) * 14px)" }}>{info.total} stocks · model run {info.updated}</p>
-        </div>
-        <span className="rounded-full bg-[#ddb159] px-2.5 py-1 text-[8px] font-black text-[#072116]">View all →</span>
-      </div>
-      {DEMO_ROWS.map((row, index) => (
-        <div key={row.ticker} className="flex items-center gap-2.5 border-b border-[#ddb159]/10 px-4 last:border-0" style={{ height: index < 4 ? 44 : "calc(" + reveal(index) + " * 44px)", opacity: index < 4 ? 1 : "calc(" + reveal(index) + ")", overflow: "hidden" }}>
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159] text-[9px] font-black text-[#072116]">{row.rank}</span>
-          <StockMark ticker={row.ticker} />
-          <div className="min-w-0 flex-1"><p className="text-[11px] font-black">{row.ticker}</p><p className="truncate text-[8px] font-semibold opacity-45">{row.company}</p></div>
-          <span className="max-w-[calc(var(--t,0)*120px)] overflow-hidden whitespace-nowrap text-[9px] font-bold opacity-[calc(var(--t,0)*2.5-1.4)]">{row.sector}</span>
-          <span className="max-w-[calc(var(--t,0)*72px)] overflow-hidden whitespace-nowrap text-[10px] font-black opacity-[calc(var(--t,0)*2.5-1.4)]">{row.price}</span>
-          <ChangePill row={row} />
-          <span className="min-w-[58px] rounded-full bg-[#ddb159] px-2 py-1 text-center text-[9px] font-black text-[#072116]">{row.score}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function MiniPortfolioChart() {
   return (
     <svg viewBox="0 0 330 88" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
@@ -564,57 +531,95 @@ function MiniPortfolioChart() {
   );
 }
 
+function MiniMarketChart() {
+  return (
+    <svg viewBox="0 0 330 78" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="phoneMarketFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#61d7ab" stopOpacity=".2" /><stop offset="100%" stopColor="#61d7ab" stopOpacity="0" /></linearGradient></defs>
+      <path d="M0 62 C34 55 49 64 74 48 C101 31 121 45 148 34 C176 23 198 35 226 20 C258 3 284 19 330 6 L330 78 L0 78Z" fill="url(#phoneMarketFill)" />
+      <path d="M0 62 C34 55 49 64 74 48 C101 31 121 45 148 34 C176 23 198 35 226 20 C258 3 284 19 330 6" fill="none" stroke="#61d7ab" strokeWidth="2.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PhoneRankingCard({ row, index }: { row: DashboardRow; index: number }) {
+  return (
+    <article
+      data-sl-phone-piece
+      style={phonePiece(42 + index * 18, 46 + index * 10, 1.5 + index)}
+      className="h-[132px] w-[164px] shrink-0 rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid size-8 place-items-center rounded-full bg-[#ddb159] text-[12px] font-black text-[#072116]">{row.rank}</span>
+        <span className="rounded-full bg-[#ddb159]/14 px-2 py-1 text-[9px] font-black tabular-nums text-[#ddb159]">{row.score}</span>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <StockMark ticker={row.ticker} />
+        <div className="min-w-0"><p className="truncate text-[13px] font-black">{row.ticker}</p><p className="truncate text-[9px] font-semibold text-white/42">{row.company}</p></div>
+      </div>
+      <p className="mt-3 text-[10px] font-bold tabular-nums text-white/62">{row.price}</p>
+    </article>
+  );
+}
+
 const phonePiece = (x: number, y: number, r: number): CSSProperties => ({
   "--phone-x": x + "px",
   "--phone-y": y + "px",
   "--phone-r": r + "deg",
 } as CSSProperties);
 
-export function PhoneDashboardScreen({ metrics }: { metrics: LandingMetrics }) {
-  const info = displayMetrics(metrics);
+export function PhoneDashboardScreen() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#072116] text-[#faf6f0]">
-      <div data-sl-phone-piece style={phonePiece(-24, -38, -3)} className="flex h-[30px] items-center justify-between px-7 pt-2 text-[12px] font-black">
+      <div data-sl-phone-piece style={phonePiece(-24, -38, -3)} className="flex h-[30px] items-center justify-between bg-[#04180f] px-7 pt-2 text-[12px] font-black">
         <span>9:41</span>
-        <span className="flex items-center gap-2 text-[10px]">● ● ▰</span>
+        <span className="flex items-center gap-1.5 text-[9px]">● ◒ ▰</span>
       </div>
-      <header data-sl-phone-piece style={phonePiece(28, -28, 2)} className="flex h-[54px] items-center justify-between border-b border-[#ddb159]/14 bg-[#04180f] px-4">
-        <span className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 text-[#ddb159]">☰</span>
-        <div className="relative h-9 w-[145px]"><Image src="/logo.png" alt="StockGPT" fill className="object-contain" sizes="145px" /></div>
-        <span className="grid size-9 place-items-center rounded-full border border-[#ddb159]/25 text-[10px] font-black text-[#ddb159]">AM</span>
+      <header data-sl-phone-piece style={phonePiece(28, -28, 2)} className="flex h-[56px] items-center gap-2 border-b border-[#ddb159]/14 bg-[#04180f] px-3">
+        <div className="relative h-10 w-[118px] shrink-0"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="118px" /></div>
+        <span className="min-w-0 flex-1" />
+        <span className="grid size-11 place-items-center rounded-full text-[#ddb159]"><AppIcon kind="search" className="size-5" /></span>
+        <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/28 text-[#ddb159]"><AppIcon kind="settings" className="size-5" /></span>
       </header>
 
-      <div className="absolute inset-x-0 bottom-[64px] top-[84px] overflow-hidden">
-        <div data-sl-phone-scroll className="px-4 pb-8 pt-4 [will-change:transform]">
-          <section data-sl-phone-piece style={phonePiece(-52, 22, -2)}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2"><p className="text-[11px] font-semibold text-[#ddb159]">Good evening, Alex</p><span className="rounded-full border border-[#ddb159]/16 px-2 py-1 text-[8px] font-bold text-white/45">Markets closed</span></div>
-                <h1 className="mt-2 text-[25px] font-black leading-none tracking-[-0.045em]">Today at a glance</h1>
-                <p className="mt-2 text-[10px] font-semibold leading-4 text-white/50">Core Growth is healthy · VRT leads today&apos;s ranking</p>
+      <div className="absolute inset-x-0 bottom-[88px] top-[86px] overflow-hidden bg-[linear-gradient(180deg,#072116,#051a11)]">
+        <div data-sl-phone-scroll className="px-3 pb-10 pt-1 [will-change:transform]">
+          <section data-sl-phone-piece style={phonePiece(-52, 22, -2)} className="relative overflow-hidden border-b border-[#ddb159]/15 px-1 pb-4 pt-1">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+              <div className="min-w-0 pt-0.5">
+                <div className="flex flex-wrap items-center gap-2"><p className="text-[12px] font-semibold text-[#ddb159]">Good evening, Alex</p><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/18 bg-[#072116]/55 px-2 py-1 text-[9px] font-bold text-white/62"><i className="size-1.5 rounded-full bg-white/38" />Markets closed</span></div>
+                <h1 className="mt-2 text-[24px] font-black leading-[1.02] tracking-[-0.045em]">Today at a glance</h1>
+                <p className="mt-1.5 text-[11px] font-semibold leading-[1.45] text-white/56">Healthy portfolio · VRT remains #1</p>
               </div>
-              <span className="rounded-full bg-[#ddb159] px-3 py-2 text-[8px] font-black text-[#072116]">Ask StockGPT</span>
+              <span className="mt-0.5 grid h-10 place-items-center rounded-full bg-[#ddb159] px-3 text-[9px] font-black text-[#072116]">Ask StockGPT</span>
             </div>
           </section>
 
-          <section data-sl-phone-piece style={phonePiece(62, 36, 3)} className="relative mt-4 h-[260px] overflow-hidden rounded-[28px] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,.9),rgba(6,28,19,.94))] p-4 shadow-[0_18px_38px_rgba(0,0,0,.2)]">
-            <div className="flex items-start justify-between">
-              <div><p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p><h2 className="mt-1 text-[17px] font-black">Core Growth</h2></div>
-              <span className="rounded-full bg-[#ddb159] px-2.5 py-1 text-[9px] font-black text-[#072116]">Health 82/100</span>
+          <section data-sl-phone-piece style={phonePiece(62, 36, 3)} className="relative mt-4 h-[310px] overflow-hidden rounded-[26px] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,.9),rgba(6,28,19,.94))] p-4 shadow-[0_18px_38px_rgba(0,0,0,.2)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Your portfolio</p><h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">Core Growth</h2></div>
+              <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">Health 82/100</span>
             </div>
-            <div className="mt-3 flex items-end justify-between"><div><p className="text-[31px] font-black leading-none tracking-[-0.06em]">£48,373</p><p className="mt-1.5 text-[11px] font-black text-emerald-300">+£6,842 · +16.5%</p></div><span className="rounded-full border border-[#ddb159]/22 px-3 py-2 text-[8px] font-black text-[#ddb159]">Open →</span></div>
-            <div className="mt-3 h-[96px] overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/45"><MiniPortfolioChart /></div>
-            <div className="mt-2 flex justify-between text-[8px] font-black uppercase tracking-[0.1em] text-white/35"><span>8 holdings · 5 sectors</span><span>Updated 8m ago</span></div>
+            <div className="mt-1.5 flex justify-end"><span className="text-[8px] font-black uppercase tracking-[0.08em] text-white/38">Updated 8m ago</span></div>
+            <div className="mt-3 flex items-end justify-between gap-3"><div className="min-w-0"><p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">£48,373</p><p className="mt-1.5 text-[13px] font-black text-emerald-300">+£6,842 · +16.5%</p></div><span className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]">Open →</span></div>
+            <div className="mt-3 h-[94px] overflow-hidden rounded-2xl border border-white/6 bg-[#04180f]/42"><MiniPortfolioChart /></div>
+            <div className="mt-2 flex justify-between text-[9px] font-black uppercase tracking-[0.1em] text-white/42"><span>8 holdings · 5 sectors</span><span>Cached history</span></div>
           </section>
-          <div className="mt-3 flex justify-center gap-2"><i className="h-2 w-6 rounded-full bg-[#ddb159]" /><i className="size-2 rounded-full bg-white/20" /><i className="size-2 rounded-full bg-white/20" /></div>
-          <div data-sl-phone-piece style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between"><div><p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black">Top ranked today</h2></div><span className="text-[9px] font-black text-[#ddb159]">View all →</span></div>
-          <div data-sl-zoom style={{ "--t": 0, width: RANK_CARD_W0 } as CSSProperties}><RankCard metrics={metrics} /></div>
-          <div className="mt-4 text-[9px] font-semibold text-white/35">{info.total} stocks · {info.bullishPct}% bullish · {info.sentiment.toLowerCase()}</div>
+          <div data-sl-phone-piece style={phonePiece(-18, 42, -1)} className="mt-3 flex justify-center gap-2"><i className="h-2 w-6 rounded-full bg-[#ddb159]" /><i className="size-2 rounded-full bg-white/20" /><i className="size-2 rounded-full bg-white/20" /></div>
+
+          <div data-sl-phone-piece style={phonePiece(-44, 54, -2)} className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">AI rankings</p><h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">Top ranked today</h2></div><span className="min-h-10 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">View all →</span></div>
+          <div data-sl-phone-rankings className="flex gap-3 overflow-hidden pr-7">
+            {DEMO_ROWS.slice(0, 3).map((row, index) => <PhoneRankingCard key={row.ticker} row={row} index={index} />)}
+          </div>
+
+          <section data-sl-phone-piece style={phonePiece(52, 72, 2)} className="mt-6 px-1">
+            <div className="flex items-end justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Market snapshot</p><div className="mt-1 flex items-end gap-2"><h2 className="text-[20px] font-black tracking-[-0.04em]">S&amp;P 500</h2><span className="pb-0.5 text-[11px] font-black text-white/52">6,284.41</span></div></div><span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-300">+0.42%</span></div>
+            <div className="mt-3 h-[102px] overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#071d14]/55 p-2"><MiniMarketChart /></div>
+          </section>
         </div>
       </div>
 
-      <nav data-sl-phone-piece style={phonePiece(0, 48, 0)} className="absolute inset-x-0 bottom-0 flex h-16 items-center justify-around border-t border-[#ddb159]/14 bg-[#04180f] pb-2">
-        {["dashboard", "rankings", "portfolio", "news", "chat"].map((key, index) => <span key={key} className={index === 0 ? "text-[#ddb159]" : "text-white/30"}><AppIcon kind={key} className="size-[19px]" /></span>)}
+      <nav data-sl-phone-piece style={phonePiece(0, 48, 0)} aria-label="Primary mobile navigation" className="absolute bottom-[10px] left-[18px] right-[18px] flex h-[68px] items-center justify-between gap-1 rounded-[26px] border border-[#ddb159]/28 bg-[#04180f]/96 px-2 shadow-[0_16px_45px_rgba(0,0,0,.5)]">
+        {[{ key: "dashboard", label: "Home" }, { key: "rankings", label: "Rankings" }, { key: "portfolio", label: "Portfolio" }, { key: "alerts", label: "Alerts" }, { key: "news", label: "News" }].map((item, index) => <span key={item.key} className={index === 0 ? "flex h-12 w-[104px] items-center justify-center gap-1.5 rounded-full bg-[#ddb159] px-3 text-[#061b12]" : "grid size-11 place-items-center rounded-full text-white/62"}><AppIcon kind={item.key} className="size-[19px]" />{index === 0 && <b className="text-[11px] font-black">{item.label}</b>}</span>)}
       </nav>
     </div>
   );

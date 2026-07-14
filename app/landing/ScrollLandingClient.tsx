@@ -10,9 +10,6 @@ import {
   NewsScreen,
   PhoneDashboardScreen,
   PortfolioScreen,
-  RankCard,
-  RANK_CARD_W0,
-  RANK_CARD_W1,
   RankingsScreen,
 } from "./ScrollLandingScreens";
 
@@ -21,14 +18,12 @@ import {
 /*                                                                    */
 /*  One viewport-height sticky stage inside a 700vh track. Scroll     */
 /*  position is mapped to progress p ∈ [0,1] and every layer is       */
-/*  scrubbed from it — the page never visually scrolls, it animates.  */
+/*  scrubbed from it — the page never visually scrolls, it transforms.*/
 /*                                                                    */
 /*    0.000 – 0.100  hero: diagonal phone under a spotlight           */
 /*    0.030 – 0.140  phone straightens to vertical                    */
-/*    0.140 – 0.270  camera pulls back — the phone screen turns out   */
-/*                   to be one pixel of a giant dot-matrix letter     */
-/*    0.270 – 0.400  keep pulling back: the letter shrinks until it   */
-/*                   is the "R" of "Ranked." in the next headline     */
+/*    0.140 – 0.340  phone modules disperse while the rankings        */
+/*                   monitor, chrome, controls and rows assemble      */
 /*    0.290 – 0.460  scene 1 · Rankings                               */
 /*    0.460 – 0.620  scene 2 · Portfolio                              */
 /*    0.620 – 0.780  scene 3 · World News                             */
@@ -37,17 +32,13 @@ import {
 /* ================================================================== */
 
 const STRAIGHTEN = { a: 0.03, b: 0.14 };
-/* The real mobile rankings module undocks from the dashboard, unfolds
-   while it travels, then disperses as the complete logged-in rankings
-   workspace assembles around it. */
-const MORPH = { a: 0.14, b: 0.33 };
-const UNFOLD = { a: 0.17, b: 0.33 };
-const PHONE_SCROLL_SHIFT = 318;
+/* The real mobile dashboard reaches its rankings rail, then its modules
+   disperse while the complete logged-in desktop workspace assembles. */
+const MORPH = { a: 0.14, b: 0.34 };
+const PHONE_SCROLL_SHIFT = 252;
 
-const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
-  /* scene 1 fades in around the landing dot-letter — no slide, no
-     scale, so the measured letter target stays put */
-  { a: 0.29, b: 0.46, pixel: true },
+const SCENES: { a: number; b: number; final?: boolean; handoff?: boolean }[] = [
+  { a: 0.29, b: 0.46, handoff: true },
   { a: 0.46, b: 0.62 },
   { a: 0.62, b: 0.78 },
   { a: 0.78, b: 0.9 },
@@ -190,15 +181,35 @@ function SceneCopy({ copy }: { copy: SceneCopyDef }) {
 function PanelFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="overflow-hidden rounded-3xl border border-white/12 bg-[#04120b]"
-      style={{
-        width: "min(1220px, 94vw, 112vh)",
-        aspectRatio: "1280 / 756",
-        boxShadow:
-          "0 0 0 1px rgba(0,0,0,0.6), 0 60px 140px rgba(0,0,0,0.72), 0 0 120px rgba(221,177,89,0.07)",
-      }}
+      data-sl-monitor
+      className="relative"
+      style={{ width: "min(1120px, 91vw, 98vh)" }}
     >
-      {children}
+      <div
+        data-sl-monitor-bezel
+        className="relative rounded-[22px] border border-white/20 bg-[linear-gradient(145deg,#777c78_0%,#272c2a_8%,#0d1110_48%,#3b403d_88%,#111514_100%)] p-[10px] pb-[20px]"
+        style={{
+          boxShadow:
+            "0 0 0 1px rgba(0,0,0,.85),0 52px 120px rgba(0,0,0,.78),0 14px 38px rgba(0,0,0,.62),0 0 110px rgba(221,177,89,.08),inset 0 1px 0 rgba(255,255,255,.25)",
+        }}
+      >
+        <div className="absolute left-1/2 top-[4px] z-20 flex -translate-x-1/2 items-center gap-1.5">
+          <i className="size-[5px] rounded-full bg-[#040706] shadow-[inset_0_0_0_1px_rgba(255,255,255,.12)]" />
+          <i className="size-[3px] rounded-full bg-emerald-400/55 shadow-[0_0_7px_rgba(52,211,153,.45)]" />
+        </div>
+        <div className="relative overflow-hidden rounded-[13px] border border-black/85 bg-[#04120b]" style={{ aspectRatio: "1280 / 756" }}>
+          {children}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(112deg,rgba(255,255,255,.08)_0%,rgba(255,255,255,.018)_17%,transparent_34%,transparent_76%,rgba(255,255,255,.022)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_22px_rgba(0,0,0,.62)]" />
+        </div>
+        <div className="absolute bottom-[7px] left-1/2 h-[2px] w-16 -translate-x-1/2 rounded-full bg-white/12" />
+        <i className="absolute bottom-[7px] right-4 size-[4px] rounded-full bg-emerald-400 shadow-[0_0_9px_rgba(52,211,153,.75)]" />
+      </div>
+      <div data-sl-monitor-stand className="relative mx-auto h-[62px] w-[42%]">
+        <div className="absolute left-1/2 top-0 h-[45px] w-[22%] -translate-x-1/2 bg-[linear-gradient(90deg,#141817,#686d69_45%,#292e2c_72%,#111513)] shadow-[0_14px_24px_rgba(0,0,0,.5)] [clip-path:polygon(22%_0,78%_0,100%_100%,0_100%)]" />
+        <div className="absolute bottom-0 left-1/2 h-[15px] w-full -translate-x-1/2 rounded-[50%] border border-white/14 bg-[linear-gradient(180deg,#5d625e,#161a19_70%)] shadow-[0_20px_34px_rgba(0,0,0,.68),inset_0_1px_0_rgba(255,255,255,.18)]" />
+      </div>
+      <div className="pointer-events-none absolute -bottom-4 left-1/2 h-8 w-[76%] -translate-x-1/2 rounded-[50%] bg-black/70 blur-xl" />
     </div>
   );
 }
@@ -207,20 +218,11 @@ function PanelFrame({ children }: { children: ReactNode }) {
 /*  High-definition iPhone                                            */
 /* ------------------------------------------------------------------ */
 
-function CinematicPhone({
-  metrics,
-  frameRef,
-  dimRef,
-}: {
-  metrics: LandingMetrics;
-  frameRef: React.RefObject<HTMLDivElement | null>;
-  dimRef: React.RefObject<HTMLDivElement | null>;
-}) {
+function CinematicPhone() {
   return (
     <div className="relative" style={{ width: "min(310px, 62vw, 31vh)", aspectRatio: "393 / 852" }}>
       {/* titanium rail */}
       <div
-        ref={frameRef}
         data-sl-phone-hardware
         className="absolute inset-0 rounded-[16.8%_/_7.8%]"
         style={{
@@ -249,19 +251,8 @@ function CinematicPhone({
           canvas and the cover-fit never crops the header edges */}
       <div className="absolute inset-[2.05%_3.55%] overflow-hidden rounded-[14.1%_/_6.6%] bg-[#04120b]">
         <FixedScale w={393} h={852} mode="cover">
-          <PhoneDashboardScreen metrics={metrics} />
+          <PhoneDashboardScreen />
         </FixedScale>
-
-        {/* pixel glow: the screen turns solid gold as it shrinks into a
-            single dot of the letter grid */}
-        <div
-          ref={dimRef}
-          className="pointer-events-none absolute inset-0"
-          style={{
-            opacity: 0,
-            background: "linear-gradient(135deg, #f4d78a 0%, #ddb159 55%, #c99a3e 100%)",
-          }}
-        />
 
         {/* glass glare */}
         <div
@@ -331,8 +322,6 @@ function TopNav() {
 /* ------------------------------------------------------------------ */
 
 function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
-  const frameRef = useRef<HTMLDivElement | null>(null);
-  const dimRef = useRef<HTMLDivElement | null>(null);
   const screens = [
     <RankingsScreen key="r" metrics={metrics} />,
     <PortfolioScreen key="p" />,
@@ -351,7 +340,7 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
           AI-driven market insights
         </p>
         <div className="mt-12">
-          <CinematicPhone metrics={metrics} frameRef={frameRef} dimRef={dimRef} />
+          <CinematicPhone />
         </div>
       </section>
 
@@ -429,10 +418,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
-  const frameRef = useRef<HTMLDivElement | null>(null);
-  const dimRef = useRef<HTMLDivElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
@@ -456,59 +441,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     let raf = 0;
     let running = true;
 
-    /* ------------------------------------------------------------ */
-    /*  Geometry for the invisible cut. All rects are measured with   */
-    /*  transforms neutralised, so they are exact at any viewport:    */
-    /*    c0    the card's resting rect inside the straightened phone */
-    /*    slot  the card's destination rect in slide 2                */
-    /*    phoneC the phone's layout centre (for slaving its zoom)     */
-    /* ------------------------------------------------------------ */
-    let c0 = { x: 0, y: 0, w: 216, h: 200, cx: 0, cy: 0 };
-    let slot = { x: 0, y: 0, w: 900, cx: 0 };
-    let phoneC = { x: 0, y: 0 };
-    let cardHole: HTMLElement | null = null;
     let phoneScroll: HTMLElement | null = null;
 
-    const measureGeometry = () => {
+    const findPhoneScroll = () => {
       const phone = phoneRef.current;
-      const tilt = tiltRef.current;
-      const scene0 = sceneRefs.current[0];
-      const slotEl = slotRef.current;
-      cardHole = phone?.querySelector<HTMLElement>("[data-sl-zoom]") ?? null;
       phoneScroll = phone?.querySelector<HTMLElement>("[data-sl-phone-scroll]") ?? null;
-      if (!phone || !tilt || !scene0 || !slotEl || !cardHole || !phoneScroll) return;
-      /* neutralise the scrub transforms; no paint can happen inside
-         this synchronous block, so nothing flashes */
-      const saved = [
-        phone.style.transform,
-        tilt.style.transform,
-        scene0.style.transform,
-        phoneScroll.style.transform,
-      ];
-      phone.style.transform = "none";
-      tilt.style.transform = "none";
-      scene0.style.transform = "none";
-      /* The hero begins at the top of the real mobile dashboard. By the
-         time the rankings module undocks, the dashboard has naturally
-         scrolled down to that section. Measure that settled position. */
-      phoneScroll.style.transform = "translate3d(0, -" + PHONE_SCROLL_SHIFT + "px, 0)";
-      const cr = cardHole.getBoundingClientRect();
-      const sr = slotEl.getBoundingClientRect();
-      const pr = phone.getBoundingClientRect();
-      c0 = {
-        x: cr.left,
-        y: cr.top,
-        w: cr.width,
-        h: cr.height,
-        cx: cr.left + cr.width / 2,
-        cy: cr.top + cr.height / 2,
-      };
-      slot = { x: sr.left, y: sr.top, w: sr.width, cx: sr.left + sr.width / 2 };
-      phoneC = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
-      phone.style.transform = saved[0];
-      tilt.style.transform = saved[1];
-      scene0.style.transform = saved[2];
-      phoneScroll.style.transform = saved[3];
     };
 
     const readTarget = () => {
@@ -518,22 +455,18 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
 
     const onResize = () => {
       readTarget();
-      measureGeometry();
+      findPhoneScroll();
     };
 
     const apply = (p: number) => {
       const t1 = easeInOut(seg(p, STRAIGHTEN.a, STRAIGHTEN.b));
-      /* card flight (rect) and card unfold (internal layout) */
+      /* The latest mobile dashboard scrolls naturally until its
+         horizontal ranking cards are centred, then every phone module
+         disperses while the desktop monitor assembles in parallel. */
       const tM = easeInOut(seg(p, MORPH.a, MORPH.b));
-      const tC = easeInOut(seg(p, UNFOLD.a, UNFOLD.b));
       if (phoneScroll) {
         phoneScroll.style.transform = "translate3d(0, " + (-PHONE_SCROLL_SHIFT * t1) + "px, 0)";
       }
-      /* scene-0 exit drives the landed card out with its copy */
-      const t0 = seg(p, SCENES[0].a, SCENES[0].b);
-      const out0 = seg(t0, 0.82, 1);
-      const tout0 = out0 * out0;
-
       /* hero text */
       const heroOut = seg(p, 0.03, 0.1);
       const title = heroTitleRef.current;
@@ -545,45 +478,18 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const cue = cueRef.current;
       if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
 
-      /* spotlight recedes as the card takes over the frame */
+      /* spotlight recedes as the desktop workspace takes over */
       const glow = glowRef.current;
       if (glow) glow.style.opacity = String(1 - 0.65 * tM);
 
-      /* the flying card: same component as in the phone, taking off
-         from the exact pixels of the in-phone card and landing on the
-         slide-2 slot while its layout unfolds to the desktop table */
-      const W = c0.w + (slot.w - c0.w) * tM;
-      const designW = RANK_CARD_W0 + (RANK_CARD_W1 - RANK_CARD_W0) * tC;
-      const k = W / designW;
-      const cx = c0.cx + (slot.cx - c0.cx) * tM;
-      const y = c0.y + (slot.y - c0.y) * tM;
-      const ov = overlayRef.current;
-      if (ov) {
-        const retire = easeInOut(seg(p, 0.305, 0.365));
-        const on = p >= MORPH.a && p < 0.37;
-        ov.style.visibility = on ? "visible" : "hidden";
-        ov.style.opacity = String((1 - retire) * (1 - tout0));
-        ov.style.setProperty("--t", tC.toFixed(4));
-        ov.style.transform = `translate(${cx - W / 2 + retire * 76}px, ${y - retire * 58}px) rotate(${retire * 2.4}deg) scale(${k * (1 + retire * 0.08)})`;
-        ov.style.filter = retire > 0.01 ? `blur(${retire * 7}px)` : "none";
-      }
-      /* the in-phone copy of the card hides the instant the flying one
-         covers it — identical pixels, so the swap cannot be seen */
-      if (cardHole) cardHole.style.visibility = p >= MORPH.a ? "hidden" : "visible";
-
-      /* phone: straighten, then slaved to the flying card — it scales
-         slightly faster so its edges exit the viewport, and only fades
-         once what remains on screen is featureless dark background */
+      /* Phone hardware recedes more slowly than the interface pieces,
+         so the transformation reads as a real device coming apart. */
       const phone = phoneRef.current;
       const tilt = tiltRef.current;
       if (phone && tilt) {
-        const F = 1 + ((slot.w / Math.max(1, c0.w)) * 1.08 - 1) * tM;
-        /* glue the hidden card's TOP edge to the flying card's top so
-           the dashboard above stays visually attached to it */
-        const tx = tM > 0 ? cx - phoneC.x - (c0.cx - phoneC.x) * F : 0;
-        const ty = (tM > 0 ? y - phoneC.y - (c0.y - phoneC.y) * F : 0) + (1 - t1) * 26;
-        phone.style.transform = `translate(${tx}px, ${ty}px) scale(${(0.96 + 0.04 * t1) * F})`;
-        const o = 1 - seg(p, 0.27, 0.315);
+        const lift = easeInOut(seg(p, 0.14, 0.31));
+        phone.style.transform = `translate(${lift * -24}px, ${(1 - t1) * 26 + lift * -34}px) scale(${0.96 + 0.04 * t1 + lift * 0.12})`;
+        const o = 1 - easeInOut(seg(p, 0.285, 0.35));
         phone.style.opacity = String(o);
         phone.style.visibility = o <= 0 ? "hidden" : "visible";
         phone.style.setProperty("--phone-break", tM.toFixed(4));
@@ -598,12 +504,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const outRaw = w.final ? 0 : seg(t, 0.82, 1);
         const tout = outRaw * outRaw;
 
-        if (w.pixel) {
-          /* The complete rankings workspace assembles in fragments
-             around the landing module, which disperses once the shell
-             and real table are readable. */
-          const build = easeOut(seg(p, 0.285, 0.37));
-          const o = seg(p, 0.27, 0.31) * (1 - tout);
+        if (w.handoff) {
+          /* No intermediate table: the real monitor, shell, controls and
+             rows collect directly as the phone pieces move apart. */
+          const build = easeOut(seg(p, 0.155, 0.35));
+          const o = easeOut(seg(p, 0.145, 0.225)) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
           el.style.transform = "none";
@@ -650,14 +555,12 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     scroller.addEventListener("scroll", readTarget, { passive: true });
     window.addEventListener("resize", onResize);
     readTarget();
-    measureGeometry();
+    findPhoneScroll();
     tick();
-    /* FixedScale commits its cover-fit scale in a state update that
-       lands after this effect, so the first measurement sees the phone
-       screen unscaled — re-measure once that render has flushed, and
-       once more after fonts/layout settle */
+    /* FixedScale commits its cover-fit scale after this effect. Re-find
+       the internal scroll surface once that render has flushed. */
     const remeasure = () => {
-      measureGeometry();
+      findPhoneScroll();
       lastApplied = -1;
     };
     const rafRemeasure = requestAnimationFrame(() => requestAnimationFrame(remeasure));
@@ -745,6 +648,34 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       transform-origin: center;
       will-change: transform, opacity, filter;
     }
+    .sl-scene [data-sl-monitor] {
+      --sl-monitor-build: clamp(0, (var(--k, 1) - .04) * 1.55, 1);
+      opacity: calc(var(--sl-monitor-build) * (1 - var(--out, 0)));
+      transform:
+        perspective(1500px)
+        translate3d(
+          calc((1 - var(--sl-monitor-build)) * 26px + var(--out, 0) * -34px),
+          calc((1 - var(--sl-monitor-build)) * 72px + var(--out, 0) * -28px),
+          0
+        )
+        rotateX(calc((1 - var(--sl-monitor-build)) * 8deg + var(--out, 0) * -3deg))
+        rotateY(calc((1 - var(--sl-monitor-build)) * -4deg + var(--out, 0) * 2deg))
+        scale(calc(.88 + var(--sl-monitor-build) * .12 - var(--out, 0) * .025));
+      filter: blur(calc((1 - var(--sl-monitor-build) + var(--out, 0)) * 4px));
+      transform-origin: center 70%;
+      will-change: transform, opacity, filter;
+    }
+    .sl-scene [data-sl-monitor-bezel] {
+      transform: translateY(calc((1 - var(--sl-monitor-build)) * -18px));
+      transition: box-shadow 180ms linear;
+    }
+    .sl-scene [data-sl-monitor-stand] {
+      opacity: clamp(0, (var(--sl-monitor-build) - .28) * 2.2, 1);
+      transform:
+        translateY(calc((1 - var(--sl-monitor-build)) * 42px))
+        scaleY(clamp(.08, var(--sl-monitor-build), 1));
+      transform-origin: top center;
+    }
     [data-sl-phone-piece] {
       opacity: calc(1 - var(--phone-break, 0) * .94);
       transform:
@@ -791,7 +722,8 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-pulse { animation: slPulse 1.6s ease-in-out infinite; }
     @media (prefers-reduced-motion: reduce) {
       .sl-cue-anim, .sl-caret, .sl-pulse { animation: none !important; }
-      .sl-scene [data-sl-fragment], [data-sl-phone-piece], [data-sl-phone-hardware] {
+      .sl-scene [data-sl-fragment], .sl-scene [data-sl-monitor], .sl-scene [data-sl-monitor-bezel],
+      .sl-scene [data-sl-monitor-stand], [data-sl-phone-piece], [data-sl-phone-hardware] {
         opacity: 1 !important;
         transform: none !important;
         filter: none !important;
@@ -842,17 +774,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           <div className="sl-grain pointer-events-none absolute inset-0" />
           <div className="sl-vignette pointer-events-none absolute inset-0" />
 
-          {/* the flying rankings card: identical component to the one
-              inside the phone; it takes over at the exact same pixels,
-              flies to the slide-2 slot and unfolds mid-flight */}
-          <div
-            ref={overlayRef}
-            className="pointer-events-none absolute left-0 top-0 z-[27] origin-top-left"
-            style={{ visibility: "hidden", opacity: 0 }}
-          >
-            <RankCard metrics={metrics} />
-          </div>
-
           {/* hero phone — pointer-events-none is load-bearing: this
               full-viewport container sits above the scenes (z-26 > z-20)
               and would otherwise swallow every tap on their buttons */}
@@ -864,7 +785,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
                   transform: "perspective(1500px) rotateX(6deg) rotateY(-24deg) rotateZ(-8deg)",
                 }}
               >
-                <CinematicPhone metrics={metrics} frameRef={frameRef} dimRef={dimRef} />
+                <CinematicPhone />
               </div>
             </div>
           </div>
@@ -905,28 +826,15 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
               ref={(el) => {
                 sceneRefs.current[i] = el;
               }}
-              className="sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
+            className="sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[2.2vh] pb-[1vh] pt-[8.5vh]"
               style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
             >
               <SceneCopy copy={copy} />
-              <div className="relative">
-                <PanelFrame>
-                  <FixedScale w={1280} h={756}>
-                    {screens[i]}
-                  </FixedScale>
-                </PanelFrame>
-                {i === 0 && (
-                  /* The mobile rankings module lands over the centre of
-                     the product view, then disperses while the authentic
-                     shell, controls and full table assemble beneath it. */
-                  <div
-                    ref={slotRef}
-                    aria-hidden
-                    className="pointer-events-none absolute left-1/2 top-[31%] -translate-x-1/2"
-                    style={{ width: "min(900px, 80%)", aspectRatio: "900 / 430" }}
-                  />
-                )}
-              </div>
+              <PanelFrame>
+                <FixedScale w={1280} h={756}>
+                  {screens[i]}
+                </FixedScale>
+              </PanelFrame>
             </div>
           ))}
 
