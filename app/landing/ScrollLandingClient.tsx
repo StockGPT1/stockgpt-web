@@ -34,8 +34,13 @@ import {
 /* ================================================================== */
 
 const STRAIGHTEN = { a: 0.03, b: 0.14 };
-const SHRINK = { a: 0.14, b: 0.27 };
-const LETTER = { a: 0.27, b: 0.4 };
+/* one continuous exponential zoom-out: the phone screen is a single
+   native pixel of the headline's "R"; the camera pulls back ~7000×
+   until the glyph sits at its real size in the scene-1 headline */
+const PIXEL_ZOOM = { a: 0.14, b: 0.4 };
+/* native pixel rows of the R bitmap — hundreds of thousands of
+   individually-shaded pixels, rendered on canvas so density is free */
+const GLYPH_ROWS = 768;
 
 const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
   /* scene 1 fades in around the landing dot-letter — no slide, no
@@ -57,34 +62,6 @@ const DOT_STOPS = [
   { label: "Get started", p: 0.985 },
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Dot-matrix "R" — the letter the phone pixel belongs to.           */
-/*  PHONE_CELL is the grid cell the shrinking phone becomes.          */
-/* ------------------------------------------------------------------ */
-
-const R_BITMAP = [
-  "XXXXXX.",
-  "X.....X",
-  "X.....X",
-  "XXXXXX.",
-  "X..X...",
-  "X...X..",
-  "X....X.",
-  "X.....X",
-];
-const R_COLS = 7;
-const R_ROWS = R_BITMAP.length;
-const PHONE_CELL = { row: 3, col: 3 };
-
-const R_CELLS = R_BITMAP.flatMap((line, row) =>
-  line.split("").flatMap((ch, col) => {
-    if (ch !== "X") return [];
-    if (row === PHONE_CELL.row && col === PHONE_CELL.col) return [];
-    /* ripple delay: cells light up spreading outward from the phone pixel */
-    const dist = Math.hypot(row - PHONE_CELL.row, col - PHONE_CELL.col);
-    return [{ row, col, delay: (dist / 7.6) * 0.72 }];
-  }),
-);
 
 function clamp01(v: number) {
   return v < 0 ? 0 : v > 1 ? 1 : v;
@@ -478,9 +455,7 @@ export function ScrollLandingClient({
   const tiltRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dimRef = useRef<HTMLDivElement | null>(null);
-  const pixelLayerRef = useRef<HTMLDivElement | null>(null);
-  const letterGridRef = useRef<HTMLDivElement | null>(null);
-  const pixelCellRef = useRef<HTMLDivElement | null>(null);
+  const pixelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
@@ -504,42 +479,123 @@ export function ScrollLandingClient({
     let raf = 0;
     let running = true;
 
-    /* Geometry for the pixel zoom-out, all from layout offsets (immune
-       to the scrub transforms): where the phone must shrink to (its grid
-       cell in the dot-letter), and where the dot-letter must land (the
-       "R" of "Ranked." in the scene-1 headline). */
-    let cellPx = 60;
-    let cellCx = 0;
-    let cellCy = 0;
-    let rTarget = { cx: 0, cy: 0, h: 40 };
-    const measureGeometry = () => {
-      const vw = scroller.clientWidth;
-      const vh = scroller.clientHeight;
+    /* ------------------------------------------------------------ */
+    /*  Deep-zoom world model. "World" = scene-1's final layout in    */
+    /*  viewport px. The headline's R glyph, magnified, is a bitmap   */
+    /*  of GLYPH_ROWS×~GLYPH_ROWS×0.75 native pixels; the phone       */
+    /*  screen IS one of those pixels. A single exponential camera    */
+    /*  Z: Z0 → 1 drives phone, pixel canvas and scene together.      */
+    /*  All geometry comes from layout offsets + canvas font metrics, */
+    /*  so the glyph lands on the real letter at any viewport.        */
+    /* ------------------------------------------------------------ */
+    let bmp: HTMLCanvasElement | null = null;
+    let bmpCols = 1;
+    let pixelRow = 0;
+    let pixelCol = 0;
+    let glyph = { x: 0, y: 0, w: 40, h: 40 }; // world rect of the R glyph
+    let u = 0.1; // world size of one native pixel
+    let P = { x: 0, y: 0 }; // world position of the phone's pixel
+    let Z0 = 4000; // camera scale at which that pixel is phone-sized
+    const fontFamily = getComputedStyle(scroller).fontFamily;
 
-      const grid = letterGridRef.current;
-      if (grid) {
-        cellPx = grid.offsetWidth / R_COLS;
-        /* the letter layer is flex-centred in the viewport */
-        cellCx = vw / 2 + (PHONE_CELL.col + 0.5 - R_COLS / 2) * cellPx;
-        cellCy = vh / 2 + (PHONE_CELL.row + 0.5 - R_ROWS / 2) * cellPx;
+    const buildBitmap = () => {
+      const c = document.createElement("canvas");
+      const mctx = c.getContext("2d", { willReadFrequently: true });
+      if (!mctx) return;
+      const probe = 100;
+      mctx.font = `900 ${probe}px ${fontFamily}`;
+      const m = mctx.measureText("R");
+      const tightW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      const tightH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      if (tightW <= 0 || tightH <= 0) return;
+      bmpCols = Math.max(8, Math.round((GLYPH_ROWS * tightW) / tightH));
+      c.width = bmpCols;
+      c.height = GLYPH_ROWS;
+      const fs = probe * (GLYPH_ROWS / tightH);
+      mctx.font = `900 ${fs}px ${fontFamily}`;
+      const m2 = mctx.measureText("R");
+      const grad = mctx.createLinearGradient(0, 0, bmpCols, GLYPH_ROWS);
+      grad.addColorStop(0, "#f4d78a");
+      grad.addColorStop(0.55, "#ddb159");
+      grad.addColorStop(1, "#c08f2f");
+      mctx.fillStyle = grad;
+      mctx.fillText("R", m2.actualBoundingBoxLeft, m2.actualBoundingBoxAscent);
+      /* per-pixel brightness noise: at depth every native pixel reads
+         as an individual tile; zoomed out it fuses into solid gold */
+      const img = mctx.getImageData(0, 0, bmpCols, GLYPH_ROWS);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 10) {
+          const f = 0.84 + Math.random() * 0.3;
+          d[i] = Math.min(255, d[i] * f);
+          d[i + 1] = Math.min(255, d[i + 1] * f);
+          d[i + 2] = Math.min(255, d[i + 2] * f);
+          d[i + 3] = 255;
+        } else {
+          d[i + 3] = 0;
+        }
       }
+      mctx.putImageData(img, 0, 0);
+      /* the phone's pixel: middle of the left stem, mid-height */
+      pixelRow = Math.round(GLYPH_ROWS * 0.56);
+      let runStart = -1;
+      let runEnd = -1;
+      for (let cx = 0; cx < bmpCols; cx++) {
+        const filled = img.data[(pixelRow * bmpCols + cx) * 4 + 3] > 128;
+        if (filled && runStart < 0) runStart = cx;
+        if (!filled && runStart >= 0) {
+          runEnd = cx;
+          break;
+        }
+      }
+      if (runEnd < 0) runEnd = runStart + 1;
+      pixelCol = runStart >= 0 ? Math.floor((runStart + runEnd) / 2) : Math.floor(bmpCols / 4);
+      bmp = c;
+    };
 
+    const measureGeometry = () => {
       const sceneRoot = sceneRefs.current[0];
       const rEl = sceneRoot?.querySelector<HTMLElement>("[data-sl-rtarget]");
-      if (sceneRoot && rEl) {
-        let x = 0;
-        let y = 0;
-        let el: Element | null = rEl;
-        while (el instanceof HTMLElement && el !== sceneRoot) {
-          x += el.offsetLeft;
-          y += el.offsetTop;
-          el = el.offsetParent;
-        }
-        rTarget = {
-          cx: x + rEl.offsetWidth / 2,
-          cy: y + rEl.offsetHeight / 2,
-          h: rEl.offsetHeight,
-        };
+      const mctx = document.createElement("canvas").getContext("2d");
+      if (!sceneRoot || !rEl || !mctx) return;
+      let x = 0;
+      let y = 0;
+      let el: Element | null = rEl;
+      while (el instanceof HTMLElement && el !== sceneRoot) {
+        x += el.offsetLeft;
+        y += el.offsetTop;
+        el = el.offsetParent;
+      }
+      /* tight glyph box inside the span's line box, via font metrics
+         (the headline uses leading-[1.02], so font-size = height/1.02) */
+      const lineH = rEl.offsetHeight;
+      const fs = lineH / 1.02;
+      mctx.font = `900 ${fs}px ${fontFamily}`;
+      const m = mctx.measureText("R");
+      const fba = m.fontBoundingBoxAscent || fs * 0.78;
+      const fbd = m.fontBoundingBoxDescent || fs * 0.22;
+      const halfLeading = (lineH - (fba + fbd)) / 2;
+      const gh = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      const gw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      glyph = {
+        x: x - m.actualBoundingBoxLeft,
+        y: y + halfLeading + fba - m.actualBoundingBoxAscent,
+        w: gw > 0 ? gw : rEl.offsetWidth,
+        h: gh > 0 ? gh : lineH * 0.72,
+      };
+      u = glyph.h / GLYPH_ROWS;
+      P = {
+        x: glyph.x + ((pixelCol + 0.5) * glyph.w) / bmpCols,
+        y: glyph.y + (pixelRow + 0.5) * u,
+      };
+      const phoneH = frameRef.current?.offsetHeight || 534;
+      Z0 = phoneH / u;
+      /* pixel canvas backing store follows the viewport */
+      const cv = pixelCanvasRef.current;
+      if (cv) {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = Math.round(scroller.clientWidth * dpr);
+        cv.height = Math.round(scroller.clientHeight * dpr);
       }
     };
 
@@ -553,12 +609,76 @@ export function ScrollLandingClient({
       measureGeometry();
     };
 
+    const drawPixels = (Z: number, Sx: number, Sy: number, alpha: number) => {
+      const cv = pixelCanvasRef.current;
+      const ctx = cv?.getContext("2d");
+      if (!cv || !ctx || !bmp) return;
+      const vw = scroller.clientWidth;
+      const vh = scroller.clientHeight;
+      const dpr = cv.width / Math.max(1, vw);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, vw, vh);
+      if (alpha <= 0) return;
+      ctx.globalAlpha = alpha;
+      /* apparent size of one native pixel, and the glyph's screen rect */
+      const ps = u * Z;
+      const gx = (glyph.x - P.x) * Z + Sx;
+      const gy = (glyph.y - P.y) * Z + Sy;
+      /* crop to the visible part of the bitmap so cost is constant */
+      const psx = (glyph.w / bmpCols) * Z;
+      const sx0 = Math.max(0, Math.floor((0 - gx) / psx));
+      const sx1 = Math.min(bmpCols, Math.ceil((vw - gx) / psx));
+      const sy0 = Math.max(0, Math.floor((0 - gy) / ps));
+      const sy1 = Math.min(GLYPH_ROWS, Math.ceil((vh - gy) / ps));
+      if (sx1 <= sx0 || sy1 <= sy0) return;
+      ctx.imageSmoothingEnabled = ps < 2;
+      ctx.drawImage(
+        bmp,
+        sx0,
+        sy0,
+        sx1 - sx0,
+        sy1 - sy0,
+        gx + sx0 * psx,
+        gy + sy0 * ps,
+        (sx1 - sx0) * psx,
+        (sy1 - sy0) * ps,
+      );
+      /* pixel-grid seams, fading out as the pixels fuse into the glyph */
+      if (ps > 6) {
+        ctx.globalAlpha = alpha * Math.min(1, (ps - 6) / 12) * 0.55;
+        ctx.strokeStyle = "#020806";
+        ctx.lineWidth = Math.min(3, ps * 0.06);
+        ctx.beginPath();
+        for (let cx = sx0; cx <= sx1; cx++) {
+          const lx = gx + cx * psx;
+          ctx.moveTo(lx, Math.max(0, gy + sy0 * ps));
+          ctx.lineTo(lx, Math.min(vh, gy + sy1 * ps));
+        }
+        for (let cy = sy0; cy <= sy1; cy++) {
+          const ly = gy + cy * ps;
+          ctx.moveTo(Math.max(0, gx + sx0 * psx), ly);
+          ctx.lineTo(Math.min(vw, gx + sx1 * psx), ly);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    };
+
     const apply = (p: number) => {
       const vw = scroller.clientWidth;
       const vh = scroller.clientHeight;
       const t1 = easeInOut(seg(p, STRAIGHTEN.a, STRAIGHTEN.b));
-      const t2 = easeInOut(seg(p, SHRINK.a, SHRINK.b));
-      const t3 = easeInOut(seg(p, LETTER.a, LETTER.b));
+
+      /* the camera: exponential zoom-out Z0 → 1, panning its focus from
+         the phone's resting point to the pixel's true place in the text */
+      const tz = easeInOut(seg(p, PIXEL_ZOOM.a, PIXEL_ZOOM.b));
+      const Z = Math.exp(Math.log(Math.max(2, Z0)) * (1 - tz));
+      const tp = easeInOut(seg(p, PIXEL_ZOOM.a, 0.36));
+      const phoneCy = 0.62 * vh; /* phone rest centre (pt-24vh container) */
+      const Sx = vw / 2 + (P.x - vw / 2) * tp;
+      const Sy = phoneCy + (P.y - phoneCy) * tp;
+      /* apparent size of the phone's pixel right now */
+      const ap = u * Z;
 
       /* hero text */
       const heroOut = seg(p, 0.03, 0.1);
@@ -573,50 +693,36 @@ export function ScrollLandingClient({
 
       /* spotlight recedes as the camera pulls back */
       const glow = glowRef.current;
-      if (glow) glow.style.opacity = String(1 - 0.65 * t2);
+      if (glow) glow.style.opacity = String(1 - 0.65 * tz);
 
-      /* phone: straighten, then shrink until its screen is one pixel of
-         the dot-matrix letter */
+      /* phone: straighten, then ride the camera down to one pixel */
       const phone = phoneRef.current;
       const tilt = tiltRef.current;
       const frame = frameRef.current;
       if (phone && tilt && frame) {
         const phoneH = frame.offsetHeight || 1;
-        /* the phone sits 12vh below centre (pt-24vh container) */
-        const phoneCy = 0.62 * vh;
-        /* scale by height so the phone lands exactly one cell tall */
-        const endScale = (cellPx * 0.84) / phoneH;
-        const sh = 1 - t2 * (1 - endScale);
-        const tx = t2 * (cellCx - vw / 2);
-        const ty = t2 * (cellCy - phoneCy) + (1 - t1) * 26;
+        const sh = (0.96 + 0.04 * t1) * Math.min(1, ap / phoneH);
+        const tx = Sx - vw / 2;
+        const ty = Sy - phoneCy + (1 - t1) * 26;
         phone.style.transform = `translate(${tx}px, ${ty}px) scale(${sh})`;
-        phone.style.opacity = String(1 - seg(p, 0.252, 0.266));
-        phone.style.visibility = p > 0.27 ? "hidden" : "visible";
+        /* dissolve into the pixel field once it's down to a dot */
+        const o = clamp01((ap - 40) / 50);
+        phone.style.opacity = String(o);
+        phone.style.visibility = o <= 0 ? "hidden" : "visible";
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
-        /* bezel melts away so only the glowing screen-pixel remains */
-        frame.style.opacity = String(1 - seg(p, 0.18, 0.235));
+        /* bezel melts away, screen floods gold — a lone lit pixel */
+        frame.style.opacity = String(clamp01((ap - phoneH * 0.45) / (phoneH * 0.35)));
+        const dim = dimRef.current;
+        if (dim) dim.style.opacity = String(1 - clamp01((ap - phoneH * 0.3) / (phoneH * 0.45)));
       }
-      /* screen turns solid gold on the way down to pixel size */
-      const dim = dimRef.current;
-      if (dim) dim.style.opacity = String(seg(p, 0.17, 0.235));
 
-      /* dot-matrix letter: cells ripple in around the shrinking phone,
-         its own cell ignites as the phone lands, then the whole letter
-         pulls back onto the headline's "R" */
-      const lyr = pixelLayerRef.current;
-      const grid = letterGridRef.current;
-      if (lyr && grid) {
-        const on = p > 0.165 && p < 0.42;
-        lyr.style.visibility = on ? "visible" : "hidden";
-        lyr.style.opacity = String(1 - seg(p, 0.385, 0.41));
-        grid.style.setProperty("--m", seg(p, 0.185, 0.265).toFixed(4));
-        const s3 = Math.max(0.02, (rTarget.h * 0.82) / (grid.offsetHeight || 1));
-        const gx = t3 * (rTarget.cx - vw / 2);
-        const gy = t3 * (rTarget.cy - vh / 2);
-        grid.style.transform = `translate(${gx}px, ${gy}px) scale(${1 - t3 * (1 - s3)})`;
+      /* the pixel field itself */
+      const cv = pixelCanvasRef.current;
+      if (cv) {
+        const on = p > PIXEL_ZOOM.a - 0.01 && p < 0.42;
+        cv.style.visibility = on ? "visible" : "hidden";
+        if (on) drawPixels(Z, Sx, Sy, seg(p, 0.145, 0.19) * (1 - seg(p, 0.385, 0.41)));
       }
-      const pixelCell = pixelCellRef.current;
-      if (pixelCell) pixelCell.style.opacity = String(seg(p, 0.248, 0.262));
 
       /* feature scenes + finale */
       SCENES.forEach((w, i) => {
@@ -627,15 +733,22 @@ export function ScrollLandingClient({
         const tout = outRaw * outRaw;
 
         if (w.pixel) {
-          /* the dot-letter lands on this scene's headline, so the scene
-             must not move while it fades in — opacity only, and the
-             children stagger settles before the letter touches down */
-          const o = seg(t, 0, 0.22) * (1 - tout);
+          /* this scene rides the same camera as the pixel field: it
+             fades in while still ~9× oversized — as if the page were
+             laid out for a vastly bigger screen — and shrinks into
+             place anchored on the R the pixels are becoming */
+          const o = seg(Z, 14, 6) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
-          el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
+          if (tout > 0) {
+            el.style.transformOrigin = "50% 50%";
+            el.style.transform = `scale(${1 + tout * 0.13})`;
+          } else {
+            el.style.transformOrigin = `${P.x}px ${P.y}px`;
+            el.style.transform = `translate(${Sx - P.x}px, ${Sy - P.y}px) scale(${Math.min(Z, 9.5)})`;
+          }
           el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
-          el.style.setProperty("--k", easeOut(seg(t, 0, 0.4)).toFixed(4));
+          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.36)).toFixed(4));
           return;
         }
 
@@ -675,6 +788,7 @@ export function ScrollLandingClient({
     scroller.addEventListener("scroll", readTarget, { passive: true });
     window.addEventListener("resize", onResize);
     readTarget();
+    buildBitmap();
     measureGeometry();
     tick();
 
@@ -739,17 +853,6 @@ export function ScrollLandingClient({
     .sl-scene .sl-e1 { opacity: calc(var(--k, 1) * 1.9 - 0.22); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.22), 1) * 34px)); }
     .sl-scene .sl-e2 { opacity: calc(var(--k, 1) * 1.9 - 0.44); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.44), 1) * 40px)); }
     .sl-scene .sl-e3 { opacity: calc(var(--k, 1) * 1.9 - 0.62); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.62), 1) * 46px)); }
-
-    /* one dot of the pixel-letter; --m is the letter's ripple progress,
-       --d the cell's outward delay from the phone pixel */
-    .sl-cell-dot {
-      width: 84%; height: 84%; margin: 8%;
-      border-radius: 24%;
-      background: linear-gradient(135deg, #f4d78a 0%, #ddb159 55%, #c99a3e 100%);
-      box-shadow: 0 0 calc(var(--cellpx, 60px) * 0.4) rgba(221,177,89,0.38);
-      opacity: calc((var(--m, 0) - var(--d, 0)) * 4);
-      transform: scale(clamp(0.2, calc((var(--m, 0) - var(--d, 0)) * 4), 1));
-    }
 
     .sl-dot {
       display: block; height: 8px; width: 8px; border-radius: 999px;
@@ -826,55 +929,15 @@ export function ScrollLandingClient({
           <div className="sl-grain pointer-events-none absolute inset-0" />
           <div className="sl-vignette pointer-events-none absolute inset-0" />
 
-          {/* dot-matrix letter behind the shrinking phone */}
-          <div
-            ref={pixelLayerRef}
-            className="pointer-events-none absolute inset-0 z-[25] flex items-center justify-center"
-            style={{ opacity: 1, visibility: "hidden" }}
-          >
-            <div
-              ref={letterGridRef}
-              className="grid"
-              style={
-                {
-                  "--cellpx": "min(8.5vh, 10vw)",
-                  "--m": 0,
-                  width: `calc(var(--cellpx) * ${R_COLS})`,
-                  height: `calc(var(--cellpx) * ${R_ROWS})`,
-                  gridTemplateColumns: `repeat(${R_COLS}, 1fr)`,
-                  gridTemplateRows: `repeat(${R_ROWS}, 1fr)`,
-                } as CSSProperties
-              }
-            >
-              {R_CELLS.map((cell) => (
-                <div
-                  key={`${cell.row}-${cell.col}`}
-                  style={
-                    {
-                      gridColumn: cell.col + 1,
-                      gridRow: cell.row + 1,
-                      "--d": cell.delay,
-                    } as CSSProperties
-                  }
-                >
-                  <div className="sl-cell-dot" />
-                </div>
-              ))}
-              {/* the cell the phone becomes — ignites as the phone lands */}
-              <div
-                ref={pixelCellRef}
-                style={{
-                  gridColumn: PHONE_CELL.col + 1,
-                  gridRow: PHONE_CELL.row + 1,
-                  opacity: 0,
-                }}
-              >
-                <div className="sl-cell-dot" style={{ opacity: 1, transform: "none" }} />
-              </div>
-            </div>
-          </div>
+          {/* the pixel field: a canvas deep-zoom of the headline's R,
+              ~200k native pixels, seamless from phone-pixel to glyph */}
+          <canvas
+            ref={pixelCanvasRef}
+            className="pointer-events-none absolute inset-0 z-[25] h-full w-full"
+            style={{ visibility: "hidden" }}
+          />
 
-          {/* hero phone — above the letter grid so it shrinks into it */}
+          {/* hero phone — above the pixel field it dissolves into */}
           <div className="absolute inset-0 z-[26] flex items-center justify-center pt-[24vh]">
             <div ref={phoneRef} style={{ transform: "translateY(26px) scale(0.96)" }}>
               <div
