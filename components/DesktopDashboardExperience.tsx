@@ -302,14 +302,21 @@ function PortfolioDashboardWidget({
       <div className="relative flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Portfolio</p>
-          <h2 className="mt-1 truncate text-[16px] font-black leading-none tracking-[-0.05em] xl:text-[18px]">{summary.name}</h2>
+          {/* the selector already names the portfolio, so no duplicate
+             heading — with a single portfolio the name shows instead */}
+          {portfolioId && portfolios.length > 1 ? (
+            <div className="mt-1.5">
+              <DashboardPortfolioSelector value={portfolioId} portfolios={portfolios} />
+            </div>
+          ) : (
+            <h2 className="mt-1 truncate text-[16px] font-black leading-none tracking-[-0.05em] xl:text-[18px]">{summary.name}</h2>
+          )}
         </div>
         <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">{canUsePremium ? `Health ${summary.score}/100` : "Health locked"}</span>
       </div>
 
       {portfolioId && (
-        <div className="relative mt-2 flex items-center justify-between gap-2">
-          <DashboardPortfolioSelector value={portfolioId} portfolios={portfolios} />
+        <div className="relative mt-1.5 flex items-center justify-end">
           <FreshnessLabel value={chartMeta?.health.latestSnapshotAt} compact />
         </div>
       )}

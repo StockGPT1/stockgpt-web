@@ -208,8 +208,9 @@ function ConvictionMap({
         <div className="absolute inset-x-[8%] top-1/2 h-px bg-[#faf6f0]/7" />
         <div className="absolute inset-y-[10%] left-1/2 w-px bg-[#faf6f0]/7" />
         {/* exactly two axis labels — one per axis, no corner clutter */}
+        {/* label is rotated -90°, so a "→" glyph ends up pointing up */}
         <span className="absolute left-3 top-1/2 origin-center -translate-y-1/2 -rotate-90 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">
-          Model conviction ↑
+          Model conviction →
         </span>
         <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">
           Allocation size →

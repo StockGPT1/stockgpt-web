@@ -167,29 +167,34 @@ export function PortfolioStage({
                 </p>
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-4 lg:mt-0 lg:justify-end">
-                <div
-                  className="grid size-16 shrink-0 place-items-center rounded-full border border-[#ddb159]/34 bg-[#ddb159]/8 text-center"
+              <div className="mt-5 flex flex-col items-center gap-1.5 lg:mt-0 lg:items-end">
+                <span
                   aria-label={`Portfolio health ${summary.score} out of 100, ${summary.label}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 py-1.5 pl-3 pr-3.5"
                 >
-                  <span className="block text-[20px] font-black leading-none text-[#ddb159]">
-                    {summary.score}
+                  <span
+                    aria-hidden="true"
+                    className={`size-2 shrink-0 rounded-full ${
+                      summary.score >= 67
+                        ? "bg-emerald-400"
+                        : summary.score >= 40
+                          ? "bg-[#ddb159]"
+                          : "bg-red-400"
+                    }`}
+                  />
+                  <span className="text-[13px] font-black tabular-nums text-[#ddb159]">
+                    Health {summary.score}/100
                   </span>
-                  <span className="mt-0.5 block text-[8px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/45">
-                    Health
-                  </span>
-                </div>
-                <div className="text-left">
-                  <p className="text-[12px] font-black text-[#faf6f0]">{summary.label}</p>
-                  <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/42">
-                    {freshnessCopy(chartMeta)}
+                  <span className="text-[11px] font-black text-[#faf6f0]/72">{summary.label}</span>
+                </span>
+                <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                  {freshnessCopy(chartMeta)}
+                </p>
+                {scrubPoint && (
+                  <p className="text-[10px] font-semibold text-[#ddb159]">
+                    {formatDate(scrubPoint.date, true)}
                   </p>
-                  {scrubPoint && (
-                    <p className="mt-1 text-[10px] font-semibold text-[#ddb159]">
-                      {formatDate(scrubPoint.date, true)}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>

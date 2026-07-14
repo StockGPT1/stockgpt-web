@@ -8,11 +8,13 @@ import { useFocusedFlow } from "@/components/AppChromeProvider";
 import { StockLogo } from "@/components/StockLogo";
 import { useIsDesktop } from "@/components/useIsDesktop";
 import { buildAskHref } from "@/lib/ask-context";
+import { sentenceCaseFactor } from "@/lib/factor-labels";
 import type { StableRankingRow } from "@/lib/stable-rankings";
 
 type DiagnosticsPayload = {
   diagnostics?: {
     diagnosis?: string | null;
+    factor_contributions?: unknown;
     top_positive_factors?: unknown;
     top_negative_factors?: unknown;
     updated_at?: string | null;
@@ -29,60 +31,62 @@ type LazyWhyRankDetailsProps = {
   onExpandedChange?: (expanded: boolean) => void;
 };
 
-/* Same humanisation as lib/portfolio-alerts' formatFactorName (kept
-   local — that module is server-side): "PE_rel" → "PE Relative". */
-function formatFactorName(factor: string) {
-  return factor
-    .replace(/_/g, " ")
-    .replace(/\brel\b/gi, "relative")
-    .replace(/\bz\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+const NOISE_THRESHOLD = 0.0005;
+
+/* Primary source: factor_contributions — how much each factor is
+   actually adding to or subtracting from this stock's rank right now.
+   The top_positive/negative_factors lists are day-over-day CHANGES and
+   are usually ±0.000 noise, so they are only a fallback and near-zero
+   entries are dropped rather than shown as meaningless "(+0.000)". */
+function contributionEntries(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .map(([factor, raw]) => ({ factor, value: Number(raw) }))
+    .filter((entry) => Number.isFinite(entry.value) && Math.abs(entry.value) > NOISE_THRESHOLD);
 }
 
-/* Factor entries arrive in several shapes ("PE_rel", { factor, change },
-   { name, contribution }, …). Render a readable label for each instead
-   of the stringified object. */
-function factorLabel(item: unknown): string | null {
-  if (typeof item === "string") return formatFactorName(item) || null;
-  if (typeof item === "number") return String(item);
-  if (item && typeof item === "object") {
-    const record = item as Record<string, unknown>;
-    const name = [record.factor, record.name, record.label, record.key, record.id].find(
-      (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
-    );
-    const magnitude = [record.change, record.delta, record.contribution, record.value, record.weight].find(
-      (candidate): candidate is number => typeof candidate === "number" && Number.isFinite(candidate),
-    );
-    if (name && magnitude !== undefined) {
-      return `${formatFactorName(name)} (${magnitude >= 0 ? "+" : ""}${magnitude.toFixed(3)})`;
-    }
-    if (name) return formatFactorName(name);
-    const firstString = Object.values(record).find(
-      (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
-    );
-    return firstString ? formatFactorName(firstString) : null;
-  }
-  return null;
+function changeEntryLabel(item: unknown): string | null {
+  if (typeof item === "string" && item.trim()) return sentenceCaseFactor(item);
+  if (!item || typeof item !== "object") return null;
+  const record = item as Record<string, unknown>;
+  const name = [record.factor, record.name, record.label, record.key].find(
+    (candidate): candidate is string => typeof candidate === "string" && candidate.trim() !== "",
+  );
+  if (!name) return null;
+  const magnitude = [record.change, record.delta, record.current, record.contribution, record.value].find(
+    (candidate): candidate is number => typeof candidate === "number" && Number.isFinite(candidate),
+  );
+  /* near-zero day-over-day changes carry no information — skip them */
+  if (magnitude !== undefined && Math.abs(magnitude) <= NOISE_THRESHOLD) return null;
+  return sentenceCaseFactor(name);
 }
 
-function strings(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .map(factorLabel)
-      .filter((item): item is string => Boolean(item))
-      .slice(0, 3);
-  }
-  if (value && typeof value === "object") return Object.keys(value as object).slice(0, 3);
-  if (typeof value === "string") {
-    return value
-      .split(/[;,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-  }
-  return [];
+function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
+  const contributions = contributionEntries(diagnostics?.factor_contributions);
+
+  const describe = (entry: { factor: string; value: number }) =>
+    `${sentenceCaseFactor(entry.factor)} (${entry.value >= 0 ? "+" : ""}${entry.value.toFixed(3)})`;
+
+  let drivers = contributions
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map(describe);
+  let risks = contributions
+    .filter((entry) => entry.value < 0)
+    .sort((a, b) => a.value - b.value)
+    .slice(0, 3)
+    .map(describe);
+
+  const fallback = (value: unknown) =>
+    Array.isArray(value)
+      ? value.map(changeEntryLabel).filter((item): item is string => Boolean(item)).slice(0, 3)
+      : [];
+
+  if (drivers.length === 0) drivers = fallback(diagnostics?.top_positive_factors);
+  if (risks.length === 0) risks = fallback(diagnostics?.top_negative_factors);
+
+  return { drivers, risks };
 }
 
 function WhyContent({
@@ -98,8 +102,7 @@ function WhyContent({
   error: string | null;
   compact?: boolean;
 }) {
-  const drivers = strings(data?.diagnostics?.top_positive_factors);
-  const risks = strings(data?.diagnostics?.top_negative_factors);
+  const { drivers, risks } = factorLists(data?.diagnostics);
 
   return (
     <div className={compact ? "grid gap-3 text-[#faf6f0]" : "grid gap-4 text-[#faf6f0]"}>
