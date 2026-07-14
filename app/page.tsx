@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LandingPage() {
-  const { metrics, topRankings } = await getScrollLandingData();
+  const { metrics } = await getScrollLandingData();
 
-  return <ScrollLandingClient metrics={metrics} topRankings={topRankings} />;
+  return <ScrollLandingClient metrics={metrics} />;
 }

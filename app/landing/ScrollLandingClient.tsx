@@ -3,9 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import type { DashboardRow, LandingMetrics } from "./ScrollLandingScreens";
+import type { LandingMetrics } from "./ScrollLandingScreens";
 import {
-  buildRankingRows,
   ChatScreen,
   FixedScale,
   NewsScreen,
@@ -188,33 +187,18 @@ function SceneCopy({ copy }: { copy: SceneCopyDef }) {
   );
 }
 
-function BrowserFrame({ url, children }: { url: string; children: ReactNode }) {
+function PanelFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#04120b]"
+      className="overflow-hidden rounded-3xl border border-white/12 bg-[#04120b]"
       style={{
-        width: "min(1220px, 94vw, 118vh)",
-        aspectRatio: "1280 / 800",
+        width: "min(1220px, 94vw, 112vh)",
+        aspectRatio: "1280 / 756",
         boxShadow:
           "0 0 0 1px rgba(0,0,0,0.6), 0 60px 140px rgba(0,0,0,0.72), 0 0 120px rgba(221,177,89,0.07)",
       }}
     >
-      <div className="flex h-[5.5%] min-h-[30px] shrink-0 items-center gap-3 border-b border-white/8 bg-[#0a150f] px-4">
-        <span className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-        </span>
-        <span className="sl-mono mx-auto flex items-center gap-2 rounded-full border border-white/8 bg-black/30 px-4 py-1 text-[10px] font-bold text-white/45">
-          <svg width="9" height="10" viewBox="0 0 10 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-            <rect x="1" y="5" width="8" height="6" rx="1.5" />
-            <path d="M3 5V3.5a2 2 0 0 1 4 0V5" />
-          </svg>
-          {url}
-        </span>
-        <span className="w-[52px]" />
-      </div>
-      <div className="relative min-h-0 flex-1">{children}</div>
+      {children}
     </div>
   );
 }
@@ -225,12 +209,10 @@ function BrowserFrame({ url, children }: { url: string; children: ReactNode }) {
 
 function CinematicPhone({
   metrics,
-  rows,
   frameRef,
   dimRef,
 }: {
   metrics: LandingMetrics;
-  rows?: DashboardRow[];
   frameRef: React.RefObject<HTMLDivElement | null>;
   dimRef: React.RefObject<HTMLDivElement | null>;
 }) {
@@ -261,7 +243,7 @@ function CinematicPhone({
           canvas and the cover-fit never crops the header edges */}
       <div className="absolute inset-[2.6%_4.3%] overflow-hidden rounded-[13%_/_6.2%] bg-[#04120b]">
         <FixedScale w={330} h={700} mode="cover">
-          <PhoneDashboardScreen metrics={metrics} rows={rows} />
+          <PhoneDashboardScreen metrics={metrics} />
         </FixedScale>
 
         {/* pixel glow: the screen turns solid gold as it shrinks into a
@@ -338,20 +320,14 @@ function TopNav() {
 /*  Reduced-motion fallback: plain stacked page, zero scroll tricks    */
 /* ------------------------------------------------------------------ */
 
-function StaticLanding({
-  metrics,
-  topRankings,
-}: {
-  metrics: LandingMetrics;
-  topRankings?: DashboardRow[];
-}) {
+function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dimRef = useRef<HTMLDivElement | null>(null);
   const screens = [
-    { url: "stockgpt.pro/rankings", node: <RankingsScreen rows={topRankings} metrics={metrics} /> },
-    { url: "stockgpt.pro/portfolio", node: <PortfolioScreen /> },
-    { url: "stockgpt.pro/world-news", node: <NewsScreen /> },
-    { url: "stockgpt.pro/ask-stockgpt", node: <ChatScreen /> },
+    <RankingsScreen key="r" metrics={metrics} />,
+    <PortfolioScreen key="p" />,
+    <NewsScreen key="n" />,
+    <ChatScreen key="c" />,
   ];
 
   return (
@@ -365,18 +341,18 @@ function StaticLanding({
           AI-driven market insights
         </p>
         <div className="mt-12">
-          <CinematicPhone metrics={metrics} rows={topRankings} frameRef={frameRef} dimRef={dimRef} />
+          <CinematicPhone metrics={metrics} frameRef={frameRef} dimRef={dimRef} />
         </div>
       </section>
 
       {SCENE_COPY.map((copy, i) => (
         <section key={copy.index} className="flex flex-col items-center gap-8 px-4 py-16">
           <SceneCopy copy={copy} />
-          <BrowserFrame url={screens[i].url}>
+          <PanelFrame>
             <FixedScale w={1280} h={756}>
-              {screens[i].node}
+              {screens[i]}
             </FixedScale>
-          </BrowserFrame>
+          </PanelFrame>
         </section>
       ))}
 
@@ -436,13 +412,7 @@ function FinaleContent() {
 /*  Main component                                                    */
 /* ================================================================== */
 
-export function ScrollLandingClient({
-  metrics,
-  topRankings,
-}: {
-  metrics: LandingMetrics;
-  topRankings?: DashboardRow[];
-}) {
+export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const scrollerRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLDivElement | null>(null);
   const cueRef = useRef<HTMLDivElement | null>(null);
@@ -764,7 +734,7 @@ export function ScrollLandingClient({
     return (
       <main className="sl-root">
         <style>{css}</style>
-        <StaticLanding metrics={metrics} topRankings={topRankings} />
+        <StaticLanding metrics={metrics} />
       </main>
     );
   }
@@ -776,10 +746,10 @@ export function ScrollLandingClient({
   };
 
   const screens = [
-    { url: "stockgpt.pro/rankings", node: <RankingsScreen rows={topRankings} metrics={metrics} /> },
-    { url: "stockgpt.pro/portfolio", node: <PortfolioScreen /> },
-    { url: "stockgpt.pro/world-news", node: <NewsScreen /> },
-    { url: "stockgpt.pro/ask-stockgpt", node: <ChatScreen /> },
+    <RankingsScreen key="r" metrics={metrics} />,
+    <PortfolioScreen key="p" />,
+    <NewsScreen key="n" />,
+    <ChatScreen key="c" />,
   ];
 
   return (
@@ -811,7 +781,7 @@ export function ScrollLandingClient({
             className="pointer-events-none absolute left-0 top-0 z-[27] origin-top-left"
             style={{ visibility: "hidden", opacity: 0 }}
           >
-            <RankCard rows={buildRankingRows(topRankings)} metrics={metrics} />
+            <RankCard metrics={metrics} />
           </div>
 
           {/* hero phone */}
@@ -823,12 +793,7 @@ export function ScrollLandingClient({
                   transform: "perspective(1500px) rotateX(6deg) rotateY(-24deg) rotateZ(-8deg)",
                 }}
               >
-                <CinematicPhone
-                  metrics={metrics}
-                  rows={topRankings}
-                  frameRef={frameRef}
-                  dimRef={dimRef}
-                />
+                <CinematicPhone metrics={metrics} frameRef={frameRef} dimRef={dimRef} />
               </div>
             </div>
           </div>
@@ -882,11 +847,11 @@ export function ScrollLandingClient({
                   style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
                 />
               ) : (
-                <BrowserFrame url={screens[i].url}>
+                <PanelFrame>
                   <FixedScale w={1280} h={756}>
-                    {screens[i].node}
+                    {screens[i]}
                   </FixedScale>
-                </BrowserFrame>
+                </PanelFrame>
               )}
             </div>
           ))}

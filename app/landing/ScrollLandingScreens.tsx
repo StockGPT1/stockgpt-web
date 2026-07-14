@@ -41,31 +41,29 @@ const T = {
   red: "#f87171",
 };
 
-const FALLBACK_ROWS: DashboardRow[] = [
-  { rank: "1", ticker: "NVDA", company: "NVIDIA Corp", price: "$224.38", score: "9,214", move: "+2.6%", moveUp: true },
-  { rank: "2", ticker: "MSFT", company: "Microsoft Corp", price: "$460.52", score: "8,906", move: "+0.4%", moveUp: true },
-  { rank: "3", ticker: "JPM", company: "JPMorgan Chase", price: "$296.58", score: "8,641", move: "+1.1%", moveUp: true },
-  { rank: "4", ticker: "AMZN", company: "Amazon.com Inc", price: "$182.15", score: "8,402", move: "-0.2%", moveUp: false },
-  { rank: "5", ticker: "AAPL", company: "Apple Inc", price: "$306.31", score: "8,188", move: "+0.8%", moveUp: true },
-];
-
-const EXTRA_ROWS: DashboardRow[] = [
-  { rank: "6", ticker: "GOOGL", company: "Alphabet Inc", price: "$376.33", score: "7,954", move: "+0.1%", moveUp: true },
-  { rank: "7", ticker: "META", company: "Meta Platforms", price: "$618.40", score: "7,742", move: "-1.3%", moveUp: false },
-  { rank: "8", ticker: "V", company: "Visa Inc", price: "$322.09", score: "7,510", move: "+0.6%", moveUp: true },
+/* Deliberately arbitrary demo stocks — NOT the product's live rankings.
+   The marketing page must never look like it is publishing real model
+   output, so the visuals use a random, varied set with made-up scores. */
+const DEMO_ROWS: DashboardRow[] = [
+  { rank: "1", ticker: "DECK", company: "Deckers Outdoor", price: "$612.40", score: "9,032", move: "+1.4%", moveUp: true },
+  { rank: "2", ticker: "ANET", company: "Arista Networks", price: "$128.77", score: "8,858", move: "+2.1%", moveUp: true },
+  { rank: "3", ticker: "ORLY", company: "O'Reilly Automotive", price: "$1,284.15", score: "8,610", move: "+0.6%", moveUp: true },
+  { rank: "4", ticker: "KLAC", company: "KLA Corp", price: "$842.03", score: "8,377", move: "-0.8%", moveUp: false },
+  { rank: "5", ticker: "CMG", company: "Chipotle Mexican Grill", price: "$58.92", score: "8,145", move: "+0.3%", moveUp: true },
+  { rank: "6", ticker: "ODFL", company: "Old Dominion Freight", price: "$172.64", score: "7,902", move: "-0.4%", moveUp: false },
+  { rank: "7", ticker: "PH", company: "Parker Hannifin", price: "$706.51", score: "7,688", move: "+0.9%", moveUp: true },
+  { rank: "8", ticker: "TSCO", company: "Tractor Supply", price: "$54.18", score: "7,431", move: "+0.2%", moveUp: true },
 ];
 
 const SECTOR_BY_TICKER: Record<string, string> = {
-  NVDA: "Semiconductors",
-  MSFT: "Software",
-  JPM: "Banking",
-  AMZN: "E-Commerce",
-  AAPL: "Hardware",
-  GOOGL: "Internet",
-  META: "Internet",
-  V: "Payments",
-  MA: "Payments",
-  TSLA: "Automotive",
+  DECK: "Footwear",
+  ANET: "Networking",
+  ORLY: "Auto Parts",
+  KLAC: "Semiconductors",
+  CMG: "Restaurants",
+  ODFL: "Freight",
+  PH: "Industrials",
+  TSCO: "Retail",
 };
 
 function sectorFor(ticker: string) {
@@ -90,14 +88,8 @@ export function displayMetrics(metrics: LandingMetrics) {
   };
 }
 
-export function buildRankingRows(rows?: DashboardRow[]): DashboardRow[] {
-  const base = rows && rows.length > 0 ? rows : FALLBACK_ROWS;
-  const seen = new Set(base.map((r) => r.ticker));
-  const extras = EXTRA_ROWS.filter((r) => !seen.has(r.ticker));
-  return [...base, ...extras].slice(0, 8).map((row, i) => ({
-    ...row,
-    rank: String(i + 1),
-  }));
+export function buildRankingRows(): DashboardRow[] {
+  return DEMO_ROWS;
 }
 
 /* ------------------------------------------------------------------ */
@@ -285,68 +277,6 @@ function NavIcon({ kind }: { kind: string }) {
   }
 }
 
-/* Shared app shell sidebar so every screen reads as the same product. */
-function Sidebar({ active }: { active: string }) {
-  const items = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "rankings", label: "Rankings" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "news", label: "World News" },
-    { id: "chat", label: "Ask StockGPT" },
-    { id: "watchlist", label: "Watchlist" },
-  ];
-
-  return (
-    <div
-      className="flex h-full w-[216px] shrink-0 flex-col border-r px-4 py-5"
-      style={{ borderColor: T.line, background: "#04120b" }}
-    >
-      <div className="relative h-9 w-[132px]">
-        <Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" sizes="132px" />
-      </div>
-
-      <div className="mt-6 space-y-1">
-        {items.map((item) => {
-          const isActive = item.id === active;
-          return (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[12.5px] font-bold"
-              style={{
-                color: isActive ? T.gold : T.sub,
-                background: isActive ? "rgba(221,177,89,0.10)" : "transparent",
-                border: `1px solid ${isActive ? "rgba(221,177,89,0.28)" : "transparent"}`,
-              }}
-            >
-              <NavIcon kind={item.id} />
-              {item.label}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-auto rounded-xl border p-3" style={{ borderColor: T.line, background: T.panel }}>
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black"
-            style={{ background: "rgba(221,177,89,0.16)", color: T.gold, border: "1px solid rgba(221,177,89,0.3)" }}
-          >
-            IV
-          </div>
-          <div>
-            <p className="text-[11px] font-black" style={{ color: T.text }}>
-              Investor
-            </p>
-            <p className="text-[9.5px] font-bold" style={{ color: T.faint }}>
-              Core access
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ScreenTopBar({
   title,
   sub,
@@ -390,20 +320,12 @@ function GhostChip({ children, active = false }: { children: ReactNode; active?:
 /*  SCREEN 1 — Rankings  (design canvas 1280 × 756)                    */
 /* ------------------------------------------------------------------ */
 
-export function RankingsScreen({
-  rows,
-  metrics,
-}: {
-  rows?: DashboardRow[];
-  metrics: LandingMetrics;
-}) {
-  const data = buildRankingRows(rows);
+export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
+  const data = buildRankingRows();
   const { total, updated } = displayMetrics(metrics);
 
   return (
     <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <Sidebar active="rankings" />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="Stock Rankings"
@@ -548,18 +470,16 @@ function Donut() {
 }
 
 const HOLDINGS = [
-  { ticker: "NVDA", name: "NVIDIA Corp", pct: 14 },
-  { ticker: "MSFT", name: "Microsoft Corp", pct: 12 },
-  { ticker: "JPM", name: "JPMorgan Chase", pct: 10 },
-  { ticker: "UNH", name: "UnitedHealth", pct: 9 },
-  { ticker: "AAPL", name: "Apple Inc", pct: 8 },
+  { ticker: "DECK", name: "Deckers Outdoor", pct: 14 },
+  { ticker: "ANET", name: "Arista Networks", pct: 12 },
+  { ticker: "ORLY", name: "O'Reilly Automotive", pct: 10 },
+  { ticker: "PH", name: "Parker Hannifin", pct: 9 },
+  { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8 },
 ];
 
 export function PortfolioScreen() {
   return (
     <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <Sidebar active="portfolio" />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="Portfolio Builder"
@@ -803,8 +723,6 @@ const NEWS = [
 export function NewsScreen() {
   return (
     <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <Sidebar active="news" />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="World News"
@@ -890,15 +808,13 @@ export function NewsScreen() {
 export function ChatScreen() {
   return (
     <div className="flex h-full w-full" style={{ background: T.bg, color: T.text }}>
-      <Sidebar active="chat" />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="Ask StockGPT"
           sub="A research assistant grounded in the same engine that builds the rankings"
           right={
             <>
-              <GhostChip>NVDA context loaded</GhostChip>
+              <GhostChip>ANET context loaded</GhostChip>
               <GhostChip active>New chat</GhostChip>
             </>
           }
@@ -912,7 +828,7 @@ export function ChatScreen() {
                 className="max-w-[72%] rounded-2xl rounded-br-md border px-4 py-3 text-[13px] font-semibold leading-relaxed"
                 style={{ borderColor: T.line, background: "rgba(255,255,255,0.05)" }}
               >
-                Compare NVDA and AMD for a 5-year hold. Which score holds up better?
+                Compare ANET and KLAC for a 5-year hold. Which score holds up better?
               </div>
             </div>
 
@@ -929,26 +845,26 @@ export function ChatScreen() {
                 style={{ borderColor: "rgba(221,177,89,0.2)", background: T.panel }}
               >
                 <p className="text-[13px] font-semibold leading-relaxed" style={{ color: "rgba(244,241,232,0.82)" }}>
-                  On today&apos;s model run, NVDA holds the stronger long-horizon profile — but the gap
+                  On today&apos;s model run, ANET holds the stronger long-horizon profile — but the gap
                   is narrower than the headline scores suggest:
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2.5">
                   <div className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
                     <div className="flex items-center justify-between">
-                      <span className="sl-mono text-[11px] font-black">NVDA</span>
-                      <ScorePill score="9,214" hot />
+                      <span className="sl-mono text-[11px] font-black">ANET</span>
+                      <ScorePill score="8,858" hot />
                     </div>
                     <p className="mt-2 text-[10.5px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-                      Leads on momentum, earnings-revision strength and sector leadership. Valuation is the drag.
+                      Leads on momentum, earnings-revision strength and margin durability. Valuation is the drag.
                     </p>
                   </div>
                   <div className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
                     <div className="flex items-center justify-between">
-                      <span className="sl-mono text-[11px] font-black">AMD</span>
-                      <ScorePill score="7,466" />
+                      <span className="sl-mono text-[11px] font-black">KLAC</span>
+                      <ScorePill score="8,377" />
                     </div>
                     <p className="mt-2 text-[10.5px] font-semibold leading-relaxed" style={{ color: T.sub }}>
-                      Better value entry, weaker momentum. Score is more sensitive to data-centre share shifts.
+                      Better value entry, weaker momentum. Score is more sensitive to equipment-cycle swings.
                     </p>
                   </div>
                 </div>
@@ -964,7 +880,7 @@ export function ChatScreen() {
                 className="max-w-[72%] rounded-2xl rounded-br-md border px-4 py-3 text-[13px] font-semibold leading-relaxed"
                 style={{ borderColor: T.line, background: "rgba(255,255,255,0.05)" }}
               >
-                What would break the NVDA thesis?
+                What would break the ANET thesis?
               </div>
             </div>
 
@@ -980,8 +896,8 @@ export function ChatScreen() {
                 className="max-w-[86%] rounded-2xl rounded-tl-md border px-4 py-3.5 text-[13px] font-semibold leading-relaxed"
                 style={{ borderColor: "rgba(221,177,89,0.2)", background: T.panel, color: "rgba(244,241,232,0.82)" }}
               >
-                Three things the model watches: hyperscaler capex guidance rolling over, gross-margin
-                compression from custom silicon, and a momentum break below the 9,000 score band
+                Three things the model watches: cloud networking capex rolling over, ethernet share
+                losses to rivals, and a momentum break below the 8,500 score band
                 <span className="sl-caret sl-mono" style={{ color: T.gold }}>
                   ▍
                 </span>
@@ -990,7 +906,7 @@ export function ChatScreen() {
           </div>
 
           <div className="mt-4 flex items-center gap-2">
-            {["Why did JPM jump 3 ranks?", "Stress-test my portfolio", "Explain the risk factor"].map((s) => (
+            {["Why did ORLY jump 3 ranks?", "Stress-test my portfolio", "Explain the risk factor"].map((s) => (
               <span
                 key={s}
                 className="rounded-full border px-3 py-1.5 text-[10.5px] font-bold"
@@ -1036,7 +952,8 @@ export function ChatScreen() {
 export const RANK_CARD_W0 = 298;
 export const RANK_CARD_W1 = 900;
 
-export function RankCard({ rows, metrics }: { rows: DashboardRow[]; metrics: LandingMetrics }) {
+export function RankCard({ metrics }: { metrics: LandingMetrics }) {
+  const rows = buildRankingRows();
   const { total, updated } = displayMetrics(metrics);
   const reveal = (i: number) => `clamp(0, var(--t, 0) * 3 - ${(0.9 + (i - 4) * 0.35).toFixed(2)}, 1)`;
 
@@ -1155,14 +1072,8 @@ function PhoneChart() {
   );
 }
 
-export function PhoneDashboardScreen({
-  metrics,
-  rows,
-}: {
-  metrics: LandingMetrics;
-  rows?: DashboardRow[];
-}) {
-  const data = buildRankingRows(rows).slice(0, 4);
+export function PhoneDashboardScreen({ metrics }: { metrics: LandingMetrics }) {
+  const data = buildRankingRows().slice(0, 4);
   const { total, bullishPct, sentiment, updated } = displayMetrics(metrics);
 
   return (
@@ -1224,7 +1135,7 @@ export function PhoneDashboardScreen({
         {/* metric tiles */}
         <div className="grid grid-cols-2 gap-2.5">
           {[
-            ["Top ranked", data[0]?.ticker ?? "NVDA", T.gold],
+            ["Top ranked", data[0]?.ticker ?? "DECK", T.gold],
             ["Bullish", `${bullishPct}%`, T.green],
             ["Universe", total, T.text],
             ["Updated", updated.split(",")[0] ?? "today", T.text],
@@ -1243,7 +1154,7 @@ export function PhoneDashboardScreen({
         {/* rankings card — the exact same component the scroll morph
             flies out of the phone and unfolds into slide 2's panel */}
         <div data-sl-zoom style={{ "--t": 0 } as CSSProperties}>
-          <RankCard rows={buildRankingRows(rows)} metrics={metrics} />
+          <RankCard metrics={metrics} />
         </div>
 
         {/* market chart */}

@@ -1,10 +1,8 @@
 import { createAdminClient } from "@/utils/supabase/admin";
-import { getOneDayMoveMap } from "@/lib/yahoo";
-import type { DashboardRow, LandingMetrics } from "@/app/landing/ScrollLandingScreens";
+import type { LandingMetrics } from "@/app/landing/ScrollLandingScreens";
 
 export type ScrollLandingData = {
   metrics: LandingMetrics;
-  topRankings: DashboardRow[];
 };
 
 function formatUpdatedAt(value: string | null | undefined) {
@@ -26,42 +24,25 @@ function getSentiment(bullishPct: number) {
   return "Weak market";
 }
 
-function formatRowPrice(value: number | string | null) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? `$${n.toFixed(2)}` : "—";
-}
-
-function formatRowScore(value: number | string | null) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.round(n).toLocaleString("en-US") : "—";
-}
-
-type TopRankingRow = {
-  rank: number | null;
-  ticker: string | null;
-  company: string | null;
-  price: number | string | null;
-  score: number | string | null;
-};
-
 /**
- * Metrics and the 5-row rankings teaser for the marketing landing page.
+ * Aggregate metrics for the marketing landing page (stock counts,
+ * bullish percentage, last model run). The rankings shown in the
+ * landing visuals are deliberately demo data, never live output.
  *
- * stock_rankings is RLS-locked to active subscribers, so these reads run
- * server-side with the service-role client (read-only, capped at 5 teaser
- * rows). Every failure path degrades to zeroed metrics / empty rows — the
+ * stock_rankings is RLS-locked to active subscribers, so these reads
+ * run server-side with the service-role client (read-only, aggregate
+ * counts only). Every failure path degrades to zeroed metrics — the
  * landing visuals substitute demo values so the page never looks broken.
  */
 export async function getScrollLandingData(): Promise<ScrollLandingData> {
   let totalStocks = 0;
   let bullishPct = 0;
   let latestUpdate: string | null = null;
-  let topRankings: DashboardRow[] = [];
 
   try {
     const admin = createAdminClient();
 
-    const [{ count: totalCount }, { count: bullishCount }, { data: latestRows }, { data: topRows }] =
+    const [{ count: totalCount }, { count: bullishCount }, { data: latestRows }] =
       await Promise.all([
         admin.from("stock_rankings").select("*", { count: "exact", head: true }),
         admin
@@ -73,39 +54,12 @@ export async function getScrollLandingData(): Promise<ScrollLandingData> {
           .select("updated_at")
           .order("updated_at", { ascending: false })
           .limit(1),
-        admin
-          .from("stock_rankings")
-          .select("rank,ticker,company,price,score")
-          .order("rank", { ascending: true })
-          .limit(5),
       ]);
 
     totalStocks = totalCount ?? 0;
     bullishPct =
       totalStocks > 0 ? Math.round(((bullishCount ?? 0) / totalStocks) * 100) : 0;
     latestUpdate = latestRows?.[0]?.updated_at ?? null;
-
-    const rows = ((topRows ?? []) as TopRankingRow[]).filter((row) => row.ticker);
-    const moveMap = await getOneDayMoveMap(
-      rows.map((row) => row.ticker as string),
-    ).catch(() => new Map());
-
-    topRankings = rows.map((row, index) => {
-      const changePct = moveMap.get(row.ticker as string)?.changePct;
-      const hasMove = Number.isFinite(changePct);
-
-      return {
-        rank: String(row.rank ?? index + 1),
-        ticker: row.ticker as string,
-        company: row.company ?? "—",
-        price: formatRowPrice(row.price),
-        score: formatRowScore(row.score),
-        move: hasMove
-          ? `${Number(changePct) >= 0 ? "+" : ""}${Number(changePct).toFixed(1)}%`
-          : "—",
-        moveUp: hasMove ? Number(changePct) >= 0 : true,
-      };
-    });
   } catch (error) {
     console.error("[scroll-landing-data] falling back to static content", error);
   }
@@ -117,6 +71,5 @@ export async function getScrollLandingData(): Promise<ScrollLandingData> {
       sentiment: getSentiment(bullishPct),
       lastUpdatedLabel: formatUpdatedAt(latestUpdate),
     },
-    topRankings,
   };
 }
