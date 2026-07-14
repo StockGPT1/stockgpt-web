@@ -298,15 +298,17 @@ function TopNav() {
           />
         </Link>
         <div className="flex items-center gap-2.5">
+          {/* on mobile the single top-right button is Log in (gold);
+             desktop shows the ghost Log in + gold Create account pair */}
           <Link
             href="/login"
-            className="hidden h-11 items-center rounded-full border border-white/20 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-white no-underline backdrop-blur-md transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159] sm:inline-flex"
+            className="inline-flex h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:border-white/20 sm:bg-black/30 sm:!text-white sm:backdrop-blur-md sm:hover:bg-white/10"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="inline-flex h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black"
+            className="hidden h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:inline-flex"
           >
             Create account
           </Link>
@@ -784,8 +786,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             <RankCard metrics={metrics} />
           </div>
 
-          {/* hero phone */}
-          <div className="absolute inset-0 z-[26] flex items-center justify-center pt-[24vh]">
+          {/* hero phone — pointer-events-none is load-bearing: this
+              full-viewport container sits above the scenes (z-26 > z-20)
+              and would otherwise swallow every tap on their buttons */}
+          <div className="pointer-events-none absolute inset-0 z-[26] flex items-center justify-center pt-[24vh]">
             <div ref={phoneRef} style={{ transform: "translateY(26px) scale(0.96)" }}>
               <div
                 ref={tiltRef}
