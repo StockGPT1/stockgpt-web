@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /* Self-contained types so the scroll landing doesn't depend on the
    classic landing's visuals module, which changes between redesigns. */
@@ -1024,6 +1024,110 @@ export function ChatScreen() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  RankCard — ONE living surface shared by the phone dashboard and    */
+/*  slide 2. Everything is driven by the CSS var --t (0 → 1):          */
+/*    t = 0  compact mobile card, 298px design width, 4 rows           */
+/*    t = 1  desktop table, 900px design width, 8 rows, sector +       */
+/*           price columns and a subtitle unfolded                     */
+/*  Because both ends are the same DOM, the scroll morph between the   */
+/*  phone and the slide never swaps surfaces — it just reflows.        */
+/* ------------------------------------------------------------------ */
+
+export const RANK_CARD_W0 = 298;
+export const RANK_CARD_W1 = 900;
+
+export function RankCard({ rows, metrics }: { rows: DashboardRow[]; metrics: LandingMetrics }) {
+  const { total, updated } = displayMetrics(metrics);
+  const reveal = (i: number) => `clamp(0, var(--t, 0) * 3 - ${(0.9 + (i - 4) * 0.35).toFixed(2)}, 1)`;
+
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        width: `calc(${RANK_CARD_W0}px + var(--t, 0) * ${RANK_CARD_W1 - RANK_CARD_W0}px)`,
+        borderColor: T.line,
+        background: T.panel,
+      }}
+    >
+      <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: T.line }}>
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.text }}>
+            Top ranked
+          </p>
+          <p
+            className="truncate text-[10px] font-semibold"
+            style={{
+              color: T.sub,
+              height: "calc(var(--t, 0) * 16px)",
+              opacity: "calc(var(--t, 0) * 2 - 1)",
+              overflow: "hidden",
+            }}
+          >
+            {total} US stocks scored across six factors · updated {updated}
+          </p>
+        </div>
+        <span
+          className="shrink-0 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.1em]"
+          style={{ background: T.gold, color: "#071b11" }}
+        >
+          Live
+        </span>
+      </div>
+
+      {rows.map((row, i) => (
+        <div
+          key={row.ticker}
+          className="flex items-center gap-2.5 border-b px-4 last:border-b-0"
+          style={{
+            borderColor: T.lineSoft,
+            height: i < 4 ? 45 : `calc(${reveal(i)} * 45px)`,
+            opacity: i < 4 ? 1 : `calc(${reveal(i)})`,
+            overflow: "hidden",
+          }}
+        >
+          <span className="sl-mono w-4 shrink-0 text-[11px] font-black" style={{ color: i === 0 ? T.gold : T.faint }}>
+            {i + 1}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="sl-mono text-[12px] font-black" style={{ color: T.text }}>
+              {row.ticker}
+            </p>
+            <p className="truncate text-[9px] font-semibold" style={{ color: T.faint }}>
+              {row.company}
+            </p>
+          </div>
+          {/* desktop-only columns unfold as the card widens */}
+          <span
+            className="shrink-0 whitespace-nowrap text-[10px] font-bold"
+            style={{
+              color: T.faint,
+              maxWidth: "calc(var(--t, 0) * 130px)",
+              opacity: "calc(var(--t, 0) * 2.5 - 1.4)",
+              overflow: "hidden",
+            }}
+          >
+            {sectorFor(row.ticker)}
+          </span>
+          <span
+            className="sl-mono shrink-0 whitespace-nowrap text-right text-[11px] font-black"
+            style={{
+              color: T.text,
+              maxWidth: "calc(var(--t, 0) * 76px)",
+              opacity: "calc(var(--t, 0) * 2.5 - 1.4)",
+              overflow: "hidden",
+            }}
+          >
+            {row.price}
+          </span>
+          <MoveChip move={row.move} up={row.moveUp} size={9} />
+          <ScorePill score={row.score} hot={i === 0} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  PHONE — dashboard screen  (design canvas 330 × 700)                */
 /* ------------------------------------------------------------------ */
 
@@ -1136,38 +1240,10 @@ export function PhoneDashboardScreen({
           ))}
         </div>
 
-        {/* rankings table — the scroll zoom dives into this card */}
-        <div data-sl-zoom className="overflow-hidden rounded-2xl border" style={{ borderColor: T.line, background: T.panel }}>
-          <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: T.line }}>
-            <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.text }}>
-              Top ranked
-            </p>
-            <span
-              className="rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.1em]"
-              style={{ background: T.gold, color: "#071b11" }}
-            >
-              Live
-            </span>
-          </div>
-          {data.map((row, i) => (
-            <div
-              key={row.ticker}
-              className="flex items-center gap-2.5 border-b px-4 py-[9px] last:border-b-0"
-              style={{ borderColor: T.lineSoft }}
-            >
-              <span className="sl-mono w-4 text-[11px] font-black" style={{ color: i === 0 ? T.gold : T.faint }}>
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="sl-mono text-[12px] font-black">{row.ticker}</p>
-                <p className="truncate text-[9px] font-semibold" style={{ color: T.faint }}>
-                  {row.company}
-                </p>
-              </div>
-              <MoveChip move={row.move} up={row.moveUp} size={9} />
-              <ScorePill score={row.score} hot={i === 0} />
-            </div>
-          ))}
+        {/* rankings card — the exact same component the scroll morph
+            flies out of the phone and unfolds into slide 2's panel */}
+        <div data-sl-zoom style={{ "--t": 0 } as CSSProperties}>
+          <RankCard rows={buildRankingRows(rows)} metrics={metrics} />
         </div>
 
         {/* market chart */}

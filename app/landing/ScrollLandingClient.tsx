@@ -5,11 +5,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { DashboardRow, LandingMetrics } from "./ScrollLandingScreens";
 import {
+  buildRankingRows,
   ChatScreen,
   FixedScale,
   NewsScreen,
   PhoneDashboardScreen,
   PortfolioScreen,
+  RankCard,
+  RANK_CARD_W0,
+  RANK_CARD_W1,
   RankingsScreen,
 } from "./ScrollLandingScreens";
 
@@ -34,18 +38,12 @@ import {
 /* ================================================================== */
 
 const STRAIGHTEN = { a: 0.03, b: 0.14 };
-/* one continuous exponential zoom-out: the hero phone turns out to be
-   one of an endless plane of glowing phones — every investor's screen —
-   which recedes into the background while scene 1 shrinks into place */
-const PIXEL_ZOOM = { a: 0.14, b: 0.4 };
-/* phone-tile bitmap resolution and world geometry: each tile is
-   TILE_WORLD viewport-px at camera 1×, so by the end the field is
-   hundreds of thousands of phones fading into the page background */
-const TILE_W = 225;
-const TILE_H = 384;
-const PHONE_FRAC = 307 / TILE_H; /* phone height inside a tile */
-const TILE_WORLD = 1.8;
-const FIELD_MIPS = 4;
+/* the invisible cut: the phone's "Top ranked" card undocks and flies
+   to its slide-2 slot (MORPH) while its own layout unfolds from the
+   compact mobile card into the desktop table (UNFOLD). The card is the
+   same component in both worlds, so no surface ever swaps on screen. */
+const MORPH = { a: 0.14, b: 0.33 };
+const UNFOLD = { a: 0.17, b: 0.33 };
 
 const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
   /* scene 1 fades in around the landing dot-letter — no slide, no
@@ -91,14 +89,7 @@ const SCENE_COPY: SceneCopyDef[] = [
     eyebrow: "Rankings",
     title: (
       <>
-        Every stock. Scored.{" "}
-        <em className="whitespace-nowrap not-italic">
-          {/* the dot-matrix letter from the pixel zoom-out lands on this R */}
-          <span data-sl-rtarget className="sl-gold inline-block">
-            R
-          </span>
-          <span className="sl-gold">anked.</span>
-        </em>
+        Every stock. Scored. <em className="sl-gold not-italic">Ranked.</em>
       </>
     ),
     body:
@@ -460,7 +451,8 @@ export function ScrollLandingClient({
   const tiltRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dimRef = useRef<HTMLDivElement | null>(null);
-  const pixelCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
@@ -485,168 +477,46 @@ export function ScrollLandingClient({
     let running = true;
 
     /* ------------------------------------------------------------ */
-    /*  Deep-zoom world model. "World" = scene-1's final layout in    */
-    /*  viewport px. An infinite plane of phone tiles is glued to an  */
-    /*  exponential camera Z: Z0 → 1; the hero phone sits exactly on  */
-    /*  one tile, so pulling back reveals it as one glowing phone     */
-    /*  among hundreds of thousands, dissolving into the background   */
-    /*  while the scene shrinks into place around the camera anchor.  */
+    /*  Geometry for the invisible cut. All rects are measured with   */
+    /*  transforms neutralised, so they are exact at any viewport:    */
+    /*    c0    the card's resting rect inside the straightened phone */
+    /*    slot  the card's destination rect in slide 2                */
+    /*    phoneC the phone's layout centre (for slaving its zoom)     */
     /* ------------------------------------------------------------ */
-    let mips: HTMLCanvasElement[] = [];
-    let patterns: (CanvasPattern | null)[] = [];
-    let P = { x: 0, y: 0 }; // world anchor: centre of the headline's R
-    let Z0 = 400; // camera scale at which one tile's phone is phone-sized
-
-    const rr = (
-      c: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      r: number,
-      fill: string,
-      stroke?: string,
-    ) => {
-      c.beginPath();
-      c.roundRect(x, y, w, h, r);
-      c.fillStyle = fill;
-      c.fill();
-      if (stroke) {
-        c.strokeStyle = stroke;
-        c.lineWidth = 1;
-        c.stroke();
-      }
-    };
-
-    /* one phone tile — a faithful miniature of the hero phone, so the
-       reveal reads as "the phone was one of millions of phones" */
-    const buildTiles = () => {
-      const c = document.createElement("canvas");
-      c.width = TILE_W;
-      c.height = TILE_H;
-      const g = c.getContext("2d");
-      if (!g) return;
-      const px = (TILE_W - 150) / 2;
-      const py = (TILE_H - 307) / 2;
-      /* ambient screen glow */
-      const halo = g.createRadialGradient(
-        TILE_W / 2,
-        TILE_H / 2,
-        20,
-        TILE_W / 2,
-        TILE_H / 2,
-        TILE_W * 0.72,
-      );
-      halo.addColorStop(0, "rgba(221,177,89,0.14)");
-      halo.addColorStop(1, "rgba(221,177,89,0)");
-      g.fillStyle = halo;
-      g.fillRect(0, 0, TILE_W, TILE_H);
-      /* body + screen */
-      rr(g, px, py, 150, 307, 24, "#161b18", "rgba(255,255,255,0.14)");
-      rr(g, px + 6, py + 8, 138, 291, 17, "#04120b");
-      const s = (x: number, y: number) => [px + 6 + x, py + 8 + y] as const;
-      /* dynamic island */
-      rr(g, s(52, 5)[0], s(52, 5)[1], 34, 8, 4, "#000");
-      /* header: logo + gold pill */
-      g.font = "900 11px Inter, ui-sans-serif, system-ui, sans-serif";
-      g.fillStyle = "#f4f1e8";
-      g.fillText("Stock", s(8, 27)[0], s(8, 27)[1]);
-      g.fillStyle = "#ddb159";
-      g.fillText("GPT", s(37, 27)[0], s(37, 27)[1]);
-      rr(g, s(84, 18)[0], s(84, 18)[1], 46, 12, 6, "#ddb159");
-      /* welcome card */
-      rr(g, s(6, 38)[0], s(6, 38)[1], 126, 44, 7, "#0a1811", "rgba(221,177,89,0.28)");
-      rr(g, s(13, 45)[0], s(13, 45)[1], 26, 3, 1.5, "#ddb159");
-      g.fillStyle = "#f4f1e8";
-      g.font = "900 10px Inter, ui-sans-serif, system-ui, sans-serif";
-      g.fillText("Welcome back.", s(13, 63)[0], s(13, 63)[1]);
-      rr(g, s(13, 70)[0], s(13, 70)[1], 96, 3, 1.5, "rgba(244,241,232,0.34)");
-      /* 2×2 metric tiles */
-      const vals: [string, string][] = [
-        ["NVDA", "#ddb159"],
-        ["38%", "#34d399"],
-        ["500+", "#f4f1e8"],
-        ["today", "#f4f1e8"],
-      ];
-      vals.forEach(([txt, color], i) => {
-        const tx = 6 + (i % 2) * 65;
-        const ty = 88 + Math.floor(i / 2) * 29;
-        rr(g, s(tx, ty)[0], s(tx, ty)[1], 61, 25, 6, "#0a1811", "rgba(255,255,255,0.08)");
-        rr(g, s(tx + 7, ty + 5)[0], s(tx + 7, ty + 5)[1], 18, 2, 1, "rgba(244,241,232,0.3)");
-        g.fillStyle = color;
-        g.font = "900 9px Inter, ui-sans-serif, system-ui, sans-serif";
-        g.fillText(txt, s(tx + 7, ty + 19)[0], s(tx + 7, ty + 19)[1]);
-      });
-      /* rankings card */
-      rr(g, s(6, 150)[0], s(6, 150)[1], 126, 102, 7, "#0a1811", "rgba(255,255,255,0.08)");
-      g.fillStyle = "rgba(244,241,232,0.75)";
-      g.font = "900 7px Inter, ui-sans-serif, system-ui, sans-serif";
-      g.fillText("TOP RANKED", s(13, 162)[0], s(13, 162)[1]);
-      rr(g, s(104, 155)[0], s(104, 155)[1], 21, 9, 4.5, "#ddb159");
-      for (let i = 0; i < 4; i++) {
-        const ry = 170 + i * 20;
-        g.fillStyle = i === 0 ? "#ddb159" : "rgba(244,241,232,0.35)";
-        g.font = "900 8px Inter, ui-sans-serif, system-ui, sans-serif";
-        g.fillText(String(i + 1), s(13, ry + 10)[0], s(13, ry + 10)[1]);
-        rr(g, s(22, ry + 3)[0], s(22, ry + 3)[1], 22, 3.5, 1.5, "rgba(244,241,232,0.85)");
-        rr(g, s(22, ry + 10)[0], s(22, ry + 10)[1], 32, 2.5, 1, "rgba(244,241,232,0.3)");
-        rr(g, s(72, ry + 3)[0], s(72, ry + 3)[1], 16, 8, 4, "rgba(52,211,153,0.25)");
-        rr(g, s(96, ry + 2)[0], s(96, ry + 2)[1], 28, 10, 5, i === 0 ? "#f0cf7a" : "#c9a24f");
-      }
-      /* chart card */
-      rr(g, s(6, 258)[0], s(6, 258)[1], 126, 24, 7, "#0a1811", "rgba(255,255,255,0.08)");
-      g.strokeStyle = "#34d399";
-      g.lineWidth = 1.6;
-      g.beginPath();
-      g.moveTo(s(12, 276)[0], s(12, 276)[1]);
-      g.bezierCurveTo(
-        s(40, 272)[0],
-        s(40, 272)[1],
-        s(64, 266)[0],
-        s(64, 266)[1],
-        s(126, 262)[0],
-        s(126, 262)[1],
-      );
-      g.stroke();
-      /* mip chain: pre-shrunk copies so a sea of tiny phones stays clean */
-      mips = [c];
-      patterns = [];
-      for (let m = 1; m < FIELD_MIPS; m++) {
-        const prev = mips[m - 1];
-        const next = document.createElement("canvas");
-        next.width = Math.max(2, Math.round(prev.width / 3));
-        next.height = Math.max(2, Math.round(prev.height / 3));
-        const ng = next.getContext("2d");
-        if (!ng) break;
-        ng.imageSmoothingEnabled = true;
-        ng.imageSmoothingQuality = "high";
-        ng.drawImage(prev, 0, 0, next.width, next.height);
-        mips.push(next);
-      }
-    };
+    let c0 = { x: 0, y: 0, w: 216, h: 200, cx: 0, cy: 0 };
+    let slot = { x: 0, y: 0, w: 900, cx: 0 };
+    let phoneC = { x: 0, y: 0 };
+    let cardHole: HTMLElement | null = null;
 
     const measureGeometry = () => {
-      const sceneRoot = sceneRefs.current[0];
-      const rEl = sceneRoot?.querySelector<HTMLElement>("[data-sl-rtarget]");
-      if (!sceneRoot || !rEl) return;
-      let x = 0;
-      let y = 0;
-      let el: Element | null = rEl;
-      while (el instanceof HTMLElement && el !== sceneRoot) {
-        x += el.offsetLeft;
-        y += el.offsetTop;
-        el = el.offsetParent;
-      }
-      P = { x: x + rEl.offsetWidth / 2, y: y + rEl.offsetHeight / 2 };
-      const phoneH = frameRef.current?.offsetHeight || 534;
-      Z0 = phoneH / (TILE_WORLD * PHONE_FRAC);
-      /* pixel canvas backing store follows the viewport */
-      const cv = pixelCanvasRef.current;
-      if (cv) {
-        const dpr = Math.min(2, window.devicePixelRatio || 1);
-        cv.width = Math.round(scroller.clientWidth * dpr);
-        cv.height = Math.round(scroller.clientHeight * dpr);
-      }
+      const phone = phoneRef.current;
+      const tilt = tiltRef.current;
+      const scene0 = sceneRefs.current[0];
+      const slotEl = slotRef.current;
+      cardHole = phone?.querySelector<HTMLElement>("[data-sl-zoom]") ?? null;
+      if (!phone || !tilt || !scene0 || !slotEl || !cardHole) return;
+      /* neutralise the scrub transforms; no paint can happen inside
+         this synchronous block, so nothing flashes */
+      const saved = [phone.style.transform, tilt.style.transform, scene0.style.transform];
+      phone.style.transform = "none";
+      tilt.style.transform = "none";
+      scene0.style.transform = "none";
+      const cr = cardHole.getBoundingClientRect();
+      const sr = slotEl.getBoundingClientRect();
+      const pr = phone.getBoundingClientRect();
+      c0 = {
+        x: cr.left,
+        y: cr.top,
+        w: cr.width,
+        h: cr.height,
+        cx: cr.left + cr.width / 2,
+        cy: cr.top + cr.height / 2,
+      };
+      slot = { x: sr.left, y: sr.top, w: sr.width, cx: sr.left + sr.width / 2 };
+      phoneC = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
+      phone.style.transform = saved[0];
+      tilt.style.transform = saved[1];
+      scene0.style.transform = saved[2];
     };
 
     const readTarget = () => {
@@ -659,53 +529,15 @@ export function ScrollLandingClient({
       measureGeometry();
     };
 
-    const drawField = (Z: number, Sx: number, Sy: number, alpha: number) => {
-      const cv = pixelCanvasRef.current;
-      const ctx = cv?.getContext("2d");
-      if (!cv || !ctx || mips.length === 0) return;
-      const vw = scroller.clientWidth;
-      const vh = scroller.clientHeight;
-      const dpr = cv.width / Math.max(1, vw);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, vw, vh);
-      if (alpha <= 0) return;
-      /* pick the mip whose resolution best matches the on-screen tile
-         size, so the endless field never shimmers */
-      const tileScreenH = TILE_WORLD * Z;
-      let m = 0;
-      while (m < mips.length - 1 && tileScreenH / mips[m].height < 0.5) m++;
-      const tile = mips[m];
-      if (!patterns[m]) patterns[m] = ctx.createPattern(tile, "repeat");
-      const pat = patterns[m];
-      if (!pat) return;
-      const k = tileScreenH / tile.height;
-      /* the hero tile's centre rides the camera focus (Sx, Sy) */
-      const ox = Sx - (tile.width / 2) * k;
-      const oy = Sy - (tile.height / 2) * k;
-      ctx.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
-      ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = pat;
-      ctx.fillRect(-ox / k, -oy / k, vw / k, vh / k);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.globalAlpha = 1;
-    };
-
     const apply = (p: number) => {
-      const vw = scroller.clientWidth;
-      const vh = scroller.clientHeight;
       const t1 = easeInOut(seg(p, STRAIGHTEN.a, STRAIGHTEN.b));
-
-      /* the camera: exponential zoom-out Z0 → 1, panning its focus from
-         the phone's resting point to the pixel's true place in the text */
-      const tz = easeInOut(seg(p, PIXEL_ZOOM.a, PIXEL_ZOOM.b));
-      const Z = Math.exp(Math.log(Math.max(2, Z0)) * (1 - tz));
-      const tp = easeInOut(seg(p, PIXEL_ZOOM.a, 0.36));
-      const phoneCy = 0.62 * vh; /* phone rest centre (pt-24vh container) */
-      const Sx = vw / 2 + (P.x - vw / 2) * tp;
-      const Sy = phoneCy + (P.y - phoneCy) * tp;
-      /* apparent height of one field-phone right now */
-      const ap = TILE_WORLD * PHONE_FRAC * Z;
+      /* card flight (rect) and card unfold (internal layout) */
+      const tM = easeInOut(seg(p, MORPH.a, MORPH.b));
+      const tC = easeInOut(seg(p, UNFOLD.a, UNFOLD.b));
+      /* scene-0 exit drives the landed card out with its copy */
+      const t0 = seg(p, SCENES[0].a, SCENES[0].b);
+      const out0 = seg(t0, 0.82, 1);
+      const tout0 = out0 * out0;
 
       /* hero text */
       const heroOut = seg(p, 0.03, 0.1);
@@ -718,41 +550,47 @@ export function ScrollLandingClient({
       const cue = cueRef.current;
       if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
 
-      /* spotlight recedes as the camera pulls back */
+      /* spotlight recedes as the card takes over the frame */
       const glow = glowRef.current;
-      if (glow) glow.style.opacity = String(1 - 0.65 * tz);
+      if (glow) glow.style.opacity = String(1 - 0.65 * tM);
 
-      /* phone: straighten, then ride the camera down into the field —
-         it stays a real phone until it's too small to tell apart from
-         the canvas replica sitting exactly beneath it */
+      /* the flying card: same component as in the phone, taking off
+         from the exact pixels of the in-phone card and landing on the
+         slide-2 slot while its layout unfolds to the desktop table */
+      const W = c0.w + (slot.w - c0.w) * tM;
+      const designW = RANK_CARD_W0 + (RANK_CARD_W1 - RANK_CARD_W0) * tC;
+      const k = W / designW;
+      const cx = c0.cx + (slot.cx - c0.cx) * tM;
+      const y = c0.y + (slot.y - c0.y) * tM;
+      const ov = overlayRef.current;
+      if (ov) {
+        const on = p >= MORPH.a && p < 0.475;
+        ov.style.visibility = on ? "visible" : "hidden";
+        ov.style.opacity = String(1 - tout0);
+        ov.style.setProperty("--t", tC.toFixed(4));
+        ov.style.transform = `translate(${cx - W / 2}px, ${y}px) scale(${k * (1 + tout0 * 0.1)})`;
+        ov.style.filter = tout0 > 0.01 ? `blur(${tout0 * 6}px)` : "none";
+      }
+      /* the in-phone copy of the card hides the instant the flying one
+         covers it — identical pixels, so the swap cannot be seen */
+      if (cardHole) cardHole.style.visibility = p >= MORPH.a ? "hidden" : "visible";
+
+      /* phone: straighten, then slaved to the flying card — it scales
+         slightly faster so its edges exit the viewport, and only fades
+         once what remains on screen is featureless dark background */
       const phone = phoneRef.current;
       const tilt = tiltRef.current;
-      const frame = frameRef.current;
-      if (phone && tilt && frame) {
-        const phoneH = frame.offsetHeight || 1;
-        const sh = (0.96 + 0.04 * t1) * Math.min(1, ap / phoneH);
-        const tx = Sx - vw / 2;
-        const ty = Sy - phoneCy + (1 - t1) * 26;
-        phone.style.transform = `translate(${tx}px, ${ty}px) scale(${sh})`;
-        const o = clamp01((ap - 60) / 60);
+      if (phone && tilt) {
+        const F = 1 + ((slot.w / Math.max(1, c0.w)) * 1.22 - 1) * tM;
+        /* glue the hidden card's TOP edge to the flying card's top so
+           the dashboard above stays visually attached to it */
+        const tx = tM > 0 ? cx - phoneC.x - (c0.cx - phoneC.x) * F : 0;
+        const ty = (tM > 0 ? y - phoneC.y - (c0.y - phoneC.y) * F : 0) + (1 - t1) * 26;
+        phone.style.transform = `translate(${tx}px, ${ty}px) scale(${(0.96 + 0.04 * t1) * F})`;
+        const o = 1 - seg(p, 0.27, 0.315);
         phone.style.opacity = String(o);
         phone.style.visibility = o <= 0 ? "hidden" : "visible";
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
-        frame.style.opacity = "1";
-        const dim = dimRef.current;
-        if (dim) dim.style.opacity = "0";
-      }
-
-      /* the field of phones: fades in as siblings appear beside the
-         hero, recedes into the page background as the tiles shrink */
-      const cv = pixelCanvasRef.current;
-      if (cv) {
-        const on = p > PIXEL_ZOOM.a - 0.01 && p < 0.42;
-        cv.style.visibility = on ? "visible" : "hidden";
-        if (on) {
-          const sizeFade = clamp01((TILE_WORLD * Z - 3) / 4);
-          drawField(Z, Sx, Sy, seg(p, 0.145, 0.19) * sizeFade * (1 - seg(p, 0.38, 0.41)));
-        }
       }
 
       /* feature scenes + finale */
@@ -764,22 +602,16 @@ export function ScrollLandingClient({
         const tout = outRaw * outRaw;
 
         if (w.pixel) {
-          /* this scene rides the same camera as the phone field: it
-             fades in while still ~10× oversized — as if the page were
-             laid out for a vastly bigger screen — and shrinks into
-             place while the field recedes into its background */
-          const o = seg(Z, 14, 6) * (1 - tout);
+          /* the card is already on screen carrying the transition; the
+             copy above it rises in around the landed card. The scene
+             root must not move while entering, or the slot would slide
+             out from under the card. */
+          const o = seg(p, 0.27, 0.31) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
-          if (tout > 0) {
-            el.style.transformOrigin = "50% 50%";
-            el.style.transform = `scale(${1 + tout * 0.13})`;
-          } else {
-            el.style.transformOrigin = `${P.x}px ${P.y}px`;
-            el.style.transform = `translate(${Sx - P.x}px, ${Sy - P.y}px) scale(${Math.min(Z, 9.5)})`;
-          }
+          el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
           el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
-          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.36)).toFixed(4));
+          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.38)).toFixed(4));
           return;
         }
 
@@ -819,13 +651,24 @@ export function ScrollLandingClient({
     scroller.addEventListener("scroll", readTarget, { passive: true });
     window.addEventListener("resize", onResize);
     readTarget();
-    buildTiles();
     measureGeometry();
     tick();
+    /* FixedScale commits its cover-fit scale in a state update that
+       lands after this effect, so the first measurement sees the phone
+       screen unscaled — re-measure once that render has flushed, and
+       once more after fonts/layout settle */
+    const remeasure = () => {
+      measureGeometry();
+      lastApplied = -1;
+    };
+    const rafRemeasure = requestAnimationFrame(() => requestAnimationFrame(remeasure));
+    const lateRemeasure = window.setTimeout(remeasure, 450);
 
     return () => {
       running = false;
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(rafRemeasure);
+      window.clearTimeout(lateRemeasure);
       scroller.removeEventListener("scroll", readTarget);
       window.removeEventListener("resize", onResize);
     };
@@ -960,15 +803,18 @@ export function ScrollLandingClient({
           <div className="sl-grain pointer-events-none absolute inset-0" />
           <div className="sl-vignette pointer-events-none absolute inset-0" />
 
-          {/* the pixel field: a canvas deep-zoom of the headline's R,
-              ~200k native pixels, seamless from phone-pixel to glyph */}
-          <canvas
-            ref={pixelCanvasRef}
-            className="pointer-events-none absolute inset-0 z-[25] h-full w-full"
-            style={{ visibility: "hidden" }}
-          />
+          {/* the flying rankings card: identical component to the one
+              inside the phone; it takes over at the exact same pixels,
+              flies to the slide-2 slot and unfolds mid-flight */}
+          <div
+            ref={overlayRef}
+            className="pointer-events-none absolute left-0 top-0 z-[27] origin-top-left"
+            style={{ visibility: "hidden", opacity: 0 }}
+          >
+            <RankCard rows={buildRankingRows(topRankings)} metrics={metrics} />
+          </div>
 
-          {/* hero phone — above the pixel field it dissolves into */}
+          {/* hero phone */}
           <div className="absolute inset-0 z-[26] flex items-center justify-center pt-[24vh]">
             <div ref={phoneRef} style={{ transform: "translateY(26px) scale(0.96)" }}>
               <div
@@ -1024,14 +870,24 @@ export function ScrollLandingClient({
                 sceneRefs.current[i] = el;
               }}
               className="sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
-              style={hiddenScene}
+              style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
             >
               <SceneCopy copy={copy} />
-              <BrowserFrame url={screens[i].url}>
-                <FixedScale w={1280} h={756}>
-                  {screens[i].node}
-                </FixedScale>
-              </BrowserFrame>
+              {i === 0 ? (
+                /* slide 2's panel is the flying card itself — this slot
+                   only reserves its landing rect in the layout */
+                <div
+                  ref={slotRef}
+                  aria-hidden
+                  style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
+                />
+              ) : (
+                <BrowserFrame url={screens[i].url}>
+                  <FixedScale w={1280} h={756}>
+                    {screens[i].node}
+                  </FixedScale>
+                </BrowserFrame>
+              )}
             </div>
           ))}
 
