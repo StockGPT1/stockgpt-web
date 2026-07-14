@@ -8,7 +8,7 @@ import { useFocusedFlow } from "@/components/AppChromeProvider";
 import { StockLogo } from "@/components/StockLogo";
 import { useIsDesktop } from "@/components/useIsDesktop";
 import { buildAskHref } from "@/lib/ask-context";
-import { sentenceCaseFactor } from "@/lib/factor-labels";
+import { factorDescription, sentenceCaseFactor } from "@/lib/factor-labels";
 import type { StableRankingRow } from "@/lib/stable-rankings";
 
 type DiagnosticsPayload = {
@@ -45,8 +45,10 @@ function contributionEntries(value: unknown) {
     .filter((entry) => Number.isFinite(entry.value) && Math.abs(entry.value) > NOISE_THRESHOLD);
 }
 
-function changeEntryLabel(item: unknown): string | null {
-  if (typeof item === "string" && item.trim()) return sentenceCaseFactor(item);
+function changeEntryItem(item: unknown): { code: string; label: string } | null {
+  if (typeof item === "string" && item.trim()) {
+    return { code: item, label: sentenceCaseFactor(item) };
+  }
   if (!item || typeof item !== "object") return null;
   const record = item as Record<string, unknown>;
   const name = [record.factor, record.name, record.label, record.key].find(
@@ -58,14 +60,18 @@ function changeEntryLabel(item: unknown): string | null {
   );
   /* near-zero day-over-day changes carry no information — skip them */
   if (magnitude !== undefined && Math.abs(magnitude) <= NOISE_THRESHOLD) return null;
-  return sentenceCaseFactor(name);
+  return { code: name, label: sentenceCaseFactor(name) };
 }
+
+type FactorItem = { code: string; label: string };
 
 function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
   const contributions = contributionEntries(diagnostics?.factor_contributions);
 
-  const describe = (entry: { factor: string; value: number }) =>
-    `${sentenceCaseFactor(entry.factor)} (${entry.value >= 0 ? "+" : ""}${entry.value.toFixed(3)})`;
+  const describe = (entry: { factor: string; value: number }): FactorItem => ({
+    code: entry.factor,
+    label: `${sentenceCaseFactor(entry.factor)} (${entry.value >= 0 ? "+" : ""}${entry.value.toFixed(3)})`,
+  });
 
   let drivers = contributions
     .filter((entry) => entry.value > 0)
@@ -80,13 +86,62 @@ function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
 
   const fallback = (value: unknown) =>
     Array.isArray(value)
-      ? value.map(changeEntryLabel).filter((item): item is string => Boolean(item)).slice(0, 3)
+      ? value.map(changeEntryItem).filter((item): item is FactorItem => Boolean(item)).slice(0, 3)
       : [];
 
   if (drivers.length === 0) drivers = fallback(diagnostics?.top_positive_factors);
   if (risks.length === 0) risks = fallback(diagnostics?.top_negative_factors);
 
   return { drivers, risks };
+}
+
+/* Each listed factor is tappable: a tap unfolds a one-line plain-English
+   description of what that indicator measures. */
+function FactorColumn({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: FactorItem[];
+  emptyLabel: string;
+}) {
+  const [openCode, setOpenCode] = useState<string | null>(null);
+
+  return (
+    <div className="min-w-0">
+      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">{title}</p>
+      <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
+        {items.length === 0 && <li className="min-w-0">— {emptyLabel}</li>}
+        {items.map((item) => {
+          const open = openCode === item.code;
+          return (
+            <li key={item.code} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setOpenCode(open ? null : item.code)}
+                aria-expanded={open}
+                className="flex w-full items-baseline gap-1.5 text-left text-[10px] font-semibold leading-4 text-[#faf6f0]/62 transition hover:text-[#faf6f0]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+              >
+                <span className="min-w-0">— {item.label}</span>
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 text-[8px] text-[#ddb159]/75 transition-transform ${open ? "rotate-180" : ""}`}
+                >
+                  ▾
+                </span>
+              </button>
+              {open && (
+                <p className="mt-1 rounded-lg border border-[#ddb159]/16 bg-[#ddb159]/[0.06] px-2 py-1.5 text-[9.5px] font-medium leading-4 text-[#faf6f0]/72">
+                  {factorDescription(item.code)}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function WhyContent({
@@ -132,31 +187,18 @@ function WhyContent({
       )}
 
       {!loading && !error && (
-        <>
-          <p className={compact ? "text-[11px] font-semibold leading-5 text-[#faf6f0]/68" : "text-[13px] font-semibold leading-6 text-[#faf6f0]/68"}>
-            {data?.diagnostics?.diagnosis ??
-              "The latest factor explanation is not available. The rank remains visible, but StockGPT will not invent drivers."}
-          </p>
-
-          <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
-            <div className="min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Main drivers</p>
-              <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
-                {(drivers.length ? drivers : ["Factor detail unavailable"]).slice(0, compact ? 2 : 3).map((item) => (
-                  <li key={item} className="min-w-0">— {item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Risks</p>
-              <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
-                {(risks.length ? risks : ["Review company and market risk before acting"]).slice(0, compact ? 2 : 3).map((item) => (
-                  <li key={item} className="min-w-0">— {item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </>
+        <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
+          <FactorColumn
+            title="Main drivers"
+            items={drivers.slice(0, compact ? 2 : 3)}
+            emptyLabel="Factor detail unavailable"
+          />
+          <FactorColumn
+            title="Risks"
+            items={risks.slice(0, compact ? 2 : 3)}
+            emptyLabel="Review company and market risk before acting"
+          />
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-2">

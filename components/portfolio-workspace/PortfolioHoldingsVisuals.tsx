@@ -268,6 +268,69 @@ function ConvictionMap({
   );
 }
 
+type TreemapRect = { x: number; y: number; w: number; h: number };
+
+/* Squarified treemap (Bruls et al.): lays each value out so tile AREA is
+   exactly proportional to it, keeping tiles as close to square as the
+   packing allows. Values must be normalised so their sum equals the
+   rect's area; `out` is filled by original index. */
+function squarify(
+  values: Array<{ index: number; area: number }>,
+  rect: TreemapRect,
+  out: TreemapRect[],
+) {
+  if (values.length === 0) return;
+  if (values.length === 1) {
+    out[values[0].index] = rect;
+    return;
+  }
+
+  const horizontal = rect.w >= rect.h;
+  const side = horizontal ? rect.h : rect.w;
+  let bestCount = 1;
+  let bestWorst = Infinity;
+  let sum = 0;
+
+  for (let count = 1; count <= values.length; count++) {
+    sum += values[count - 1].area;
+    const thickness = sum / side;
+    if (thickness <= 0) break;
+    let worst = 0;
+    for (let i = 0; i < count; i++) {
+      const length = values[i].area / thickness;
+      worst = Math.max(worst, Math.max(thickness / length, length / thickness));
+    }
+    if (worst <= bestWorst) {
+      bestWorst = worst;
+      bestCount = count;
+    } else {
+      break;
+    }
+  }
+
+  const rowSum = values.slice(0, bestCount).reduce((total, value) => total + value.area, 0);
+  const thickness = rowSum / side;
+  let offset = 0;
+  for (let i = 0; i < bestCount; i++) {
+    const length = values[i].area / thickness;
+    out[values[i].index] = horizontal
+      ? { x: rect.x, y: rect.y + offset, w: thickness, h: length }
+      : { x: rect.x + offset, y: rect.y, w: length, h: thickness };
+    offset += length;
+  }
+
+  squarify(
+    values.slice(bestCount),
+    horizontal
+      ? { x: rect.x + thickness, y: rect.y, w: rect.w - thickness, h: rect.h }
+      : { x: rect.x, y: rect.y + thickness, w: rect.w, h: rect.h - thickness },
+    out,
+  );
+}
+
+const TREEMAP_W = 100;
+const TREEMAP_H = 62;
+
 function AllocationTreemap({
   holdings,
   currency,
@@ -277,31 +340,80 @@ function AllocationTreemap({
   currency: string;
   onSelect: (holding: ExtendedHolding) => void;
 }) {
-  const sorted = holdings.slice().sort((a, b) => b.currentAllocationPct - a.currentAllocationPct);
+  const sorted = holdings
+    .slice()
+    .sort((a, b) => Math.max(b.currentValue, 0) - Math.max(a.currentValue, 0));
+  const weights = sorted.map((holding) =>
+    holding.currentValue > 0
+      ? holding.currentValue
+      : Math.max(holding.currentAllocationPct, 0.01),
+  );
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+  const rects: TreemapRect[] = new Array(sorted.length);
+  squarify(
+    weights.map((weight, index) => ({
+      index,
+      area: (weight / totalWeight) * TREEMAP_W * TREEMAP_H,
+    })),
+    { x: 0, y: 0, w: TREEMAP_W, h: TREEMAP_H },
+    rects,
+  );
+
   return (
-    <div className="flex min-h-[350px] flex-wrap content-stretch gap-2 border-y border-[#faf6f0]/8 py-2 lg:min-h-[470px] lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:p-2">
-      {sorted.map((holding) => {
-        const basis = clamp(holding.currentAllocationPct, 4, 40);
+    <div
+      className="relative h-[380px] border-y border-[#faf6f0]/8 lg:h-[510px] lg:rounded-[20px] lg:border lg:border-[#ddb159]/14"
+      role="group"
+      aria-label="Holdings sized by market value"
+    >
+      {sorted.map((holding, index) => {
+        const rect = rects[index];
+        if (!rect) return null;
+        /* tile area in layout units decides how much text fits */
+        const tileArea = rect.w * rect.h;
+        const showCompany = tileArea > 340 && rect.w > 16;
+        const showFooter = tileArea > 170 && rect.w > 10;
+        const showTicker = tileArea > 28;
         return (
           <button
             key={holding.ticker}
             type="button"
             onClick={() => onSelect(holding)}
-            style={{ flexGrow: Math.max(1, holding.currentAllocationPct), flexBasis: `${basis * 2.2}px` }}
-            aria-label={`${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% of portfolio`}
-            className="group relative min-h-[104px] min-w-[112px] overflow-hidden rounded-[16px] border border-[#ddb159]/14 bg-[#0a2a1d] p-4 text-left transition hover:border-[#ddb159]/38 hover:bg-[#0c3021] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+            aria-label={`${holding.ticker}, ${money(holding.currentValue, currency)}, ${holding.currentAllocationPct.toFixed(1)}% of portfolio`}
+            style={{
+              left: `${(rect.x / TREEMAP_W) * 100}%`,
+              top: `${(rect.y / TREEMAP_H) * 100}%`,
+              width: `${(rect.w / TREEMAP_W) * 100}%`,
+              height: `${(rect.h / TREEMAP_H) * 100}%`,
+            }}
+            className="group absolute overflow-hidden p-[3px] text-left focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
           >
-            <span className="block text-[15px] font-black text-[#faf6f0]">{holding.ticker}</span>
-            <span className="mt-1 block truncate text-[10px] font-semibold text-[#faf6f0]/38">
-              {holding.company}
+            <span className="relative flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-[#ddb159]/14 bg-[#0a2a1d] p-2.5 transition group-hover:border-[#ddb159]/38 group-hover:bg-[#0c3021] sm:p-3">
+              {showTicker && (
+                <span className="block truncate text-[13px] font-black text-[#faf6f0] sm:text-[15px]">
+                  {holding.ticker}
+                </span>
+              )}
+              {showCompany && (
+                <span className="mt-0.5 block truncate text-[10px] font-semibold text-[#faf6f0]/38">
+                  {holding.company}
+                </span>
+              )}
+              {showFooter && (
+                <span className="mt-auto flex items-end justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-black tabular-nums text-[#ddb159] sm:text-[16px]">
+                      {money(holding.currentValue, currency)}
+                    </span>
+                    <span className="block text-[9px] font-black tabular-nums text-[#faf6f0]/45">
+                      {holding.currentAllocationPct.toFixed(1)}%
+                    </span>
+                  </span>
+                  <span className={`shrink-0 text-[10px] font-black ${toneClass(holding.totalPnLDollars)}`}>
+                    {signedPct(holding.pnlPercent)}
+                  </span>
+                </span>
+              )}
             </span>
-            <span className="absolute bottom-4 left-4 text-[18px] font-black tabular-nums text-[#ddb159]">
-              {holding.currentAllocationPct.toFixed(1)}%
-            </span>
-            <span className={`absolute bottom-4 right-4 text-[10px] font-black ${toneClass(holding.totalPnLDollars)}`}>
-              {signedPct(holding.pnlPercent)}
-            </span>
-            <span className="sr-only">Value {money(holding.currentValue, currency)}</span>
           </button>
         );
       })}
