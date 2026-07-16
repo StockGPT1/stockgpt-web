@@ -9,6 +9,7 @@ import {
   AuthMessage,
   AuthScaffold,
   authGhostButtonClass,
+  authInlineLinkClass,
   authInputClass,
   authLabelClass,
   authPrimaryButtonClass,
@@ -243,7 +244,7 @@ export default function SignupPage() {
         !sent && (
           <p className="text-center text-[13px] font-semibold text-white/60">
             Already have an account?{" "}
-            <Link href="/login" className="font-black text-[#ddb159] transition hover:brightness-110">
+            <Link href="/login" className={authInlineLinkClass}>
               Log in
             </Link>
           </p>
@@ -384,8 +385,8 @@ export default function SignupPage() {
 
             <ConsentCheckbox id="terms-accepted" checked={termsAccepted} onChange={setTermsAccepted} required>
               Terms and conditions — I confirm I am 18 or over and agree to the{" "}
-              <Link href="/legal#terms" className="font-black text-[#ddb159] underline-offset-4 hover:underline">Terms</Link>,{" "}
-              <Link href="/legal#privacy" className="font-black text-[#ddb159] underline-offset-4 hover:underline">Privacy Policy</Link>{" "}
+              <Link href="/legal#terms" className="font-black !text-[#ddb159] !underline !decoration-[#ddb159]/45 underline-offset-2 hover:!decoration-[#ddb159]">Terms</Link>,{" "}
+              <Link href="/legal#privacy" className="font-black !text-[#ddb159] !underline !decoration-[#ddb159]/45 underline-offset-2 hover:!decoration-[#ddb159]">Privacy Policy</Link>{" "}
               and research-only disclaimer.
             </ConsentCheckbox>
 

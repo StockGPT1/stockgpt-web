@@ -7,6 +7,7 @@ import {
   AuthDivider,
   AuthMessage,
   AuthScaffold,
+  authInlineLinkClass,
   authInputClass,
   authLabelClass,
   authPrimaryButtonClass,
@@ -57,13 +58,15 @@ export default function LoginPage() {
       title="Welcome back."
       subtitle="Log in to your rankings, portfolio tools, watchlist and research."
       footer={
-        <div className="grid gap-2 text-center text-[13px] font-semibold text-white/60">
-          <Link href="/forgot-password" className="transition hover:text-[#ddb159]">
-            Forgotten password?
-          </Link>
+        <div className="grid gap-2.5 text-center text-[13px] font-semibold text-white/60">
+          <p>
+            <Link href="/forgot-password" className={authInlineLinkClass}>
+              Forgotten password?
+            </Link>
+          </p>
           <p>
             New to StockGPT?{" "}
-            <Link href="/signup" className="font-black text-[#ddb159] transition hover:brightness-110">
+            <Link href="/signup" className={authInlineLinkClass}>
               Create an account
             </Link>
           </p>

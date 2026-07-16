@@ -141,6 +141,14 @@ export const authPrimaryButtonClass =
 export const authGhostButtonClass =
   "h-11 rounded-full border border-white/14 bg-white/[0.03] px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/8 disabled:opacity-55";
 
+/* Inline text links (e.g. "Create an account", "Log in") — gold with a
+   visible underline so the clickable part is unmistakable. The !
+   modifiers are required: globals.css styles `a` outside any layer
+   (color: inherit; text-decoration: none), and unlayered CSS beats
+   Tailwind's layered utilities. */
+export const authInlineLinkClass =
+  "font-black !text-[#ddb159] !underline !decoration-[#ddb159]/55 !decoration-2 underline-offset-4 transition hover:!decoration-[#ddb159] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ddb159]";
+
 export function AuthDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 py-1 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/30">
