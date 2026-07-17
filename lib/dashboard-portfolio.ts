@@ -436,26 +436,36 @@ export async function getDashboardMainPortfolio(
           ? "unavailable"
           : "partial";
 
-  const chartResult = await buildPortfolioPageChartResult({
-    portfolio: {
-      id: mainPortfolio.portfolio.id,
-      name: mainPortfolio.portfolio.name,
-      objective: mainPortfolio.portfolio.objective ?? null,
-      risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
-      time_horizon: mainPortfolio.portfolio.time_horizon,
-      investment_amount: mainPortfolio.portfolio.investment_amount,
-      cash_balance: mainPortfolio.portfolio.cash_balance,
-      cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
-      currency: mainPortfolio.portfolio.currency ?? null,
-      created_at: mainPortfolio.portfolio.created_at ?? null,
-      user_id: userId,
-    },
-    enriched: mainPortfolio.enriched,
-    transactions: mainPortfolio.transactions,
-    summary: mainPortfolio.summary,
-    ownerId: userId,
-    allowCurrentSnapshot: missingPriceTickers.length === 0,
-  });
+  /* chart build and opportunity scan are independent — running them
+     sequentially was a large chunk of dashboard TTFB */
+  const [chartResult, opportunities] = await Promise.all([
+    buildPortfolioPageChartResult({
+      portfolio: {
+        id: mainPortfolio.portfolio.id,
+        name: mainPortfolio.portfolio.name,
+        objective: mainPortfolio.portfolio.objective ?? null,
+        risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
+        time_horizon: mainPortfolio.portfolio.time_horizon,
+        investment_amount: mainPortfolio.portfolio.investment_amount,
+        cash_balance: mainPortfolio.portfolio.cash_balance,
+        cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
+        currency: mainPortfolio.portfolio.currency ?? null,
+        created_at: mainPortfolio.portfolio.created_at ?? null,
+        user_id: userId,
+      },
+      enriched: mainPortfolio.enriched,
+      transactions: mainPortfolio.transactions,
+      summary: mainPortfolio.summary,
+      ownerId: userId,
+      allowCurrentSnapshot: missingPriceTickers.length === 0,
+    }),
+    buildPortfolioOpportunities(
+      supabase,
+      mainPortfolio.portfolio,
+      mainPortfolio.enriched,
+      mainPortfolio.summary,
+    ),
+  ]);
 
   return {
     portfolioId: mainPortfolio.portfolio.id,
@@ -464,12 +474,7 @@ export async function getDashboardMainPortfolio(
     chartData: chartResult.chartData,
     chartMeta: chartResult.meta,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
-    opportunities: await buildPortfolioOpportunities(
-      supabase,
-      mainPortfolio.portfolio,
-      mainPortfolio.enriched,
-      mainPortfolio.summary,
-    ),
+    opportunities,
     valuationState,
     missingPriceTickers,
   };

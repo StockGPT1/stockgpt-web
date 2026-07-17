@@ -397,9 +397,6 @@ function FinaleContent() {
         <Link href="/legal" className="!text-white/40 no-underline hover:!text-[#ddb159]">
           Legal
         </Link>
-        <Link href="/landing" className="!text-white/40 no-underline hover:!text-[#ddb159]">
-          Classic landing
-        </Link>
       </div>
       <p className="sl-e3 mt-6 max-w-2xl text-[10px] leading-5 text-white/30">
         StockGPT is a research and ranking tool. All content is for informational and educational

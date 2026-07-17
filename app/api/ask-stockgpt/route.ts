@@ -140,11 +140,16 @@ type EnrichedHoldingContext = {
 const CHAT_LOG_DAYS = 7;
 const MAX_STORED_MESSAGES = 80;
 
+/* Strongest model first — answer quality is the product here, and the
+   chain only moves down when a model errors or is unavailable. The
+   free models stay at the end so the feature degrades instead of
+   dying if paid routing fails. OPENROUTER_MODEL still overrides. */
 const DEFAULT_OPENROUTER_MODELS = [
+  "anthropic/claude-sonnet-4.5",
+  "google/gemini-2.5-flash",
+  "deepseek/deepseek-chat-v3.1",
   "qwen/qwen3-next-80b-a3b-instruct:free",
   "openai/gpt-oss-120b:free",
-  "nvidia/nemotron-3-nano-30b-a3b:free",
-  "openai/gpt-oss-20b:free",
 ];
 
 function sevenDaysAgoIso() {
@@ -577,14 +582,11 @@ async function buildAppContext(
     possibleTickers.length === 0 || article.affected_tickers.some((ticker) => possibleTickers.includes(cleanTicker(ticker))),
   );
 
+  /* Everything here lands in the model's prompt — keep it data, not
+     plumbing. Routing metadata and rule text live in the system prompt
+     or the server, never in the context payload. */
   return {
-    user_status: "signed_in_subscribed",
     data_as_of: new Date().toISOString(),
-    model_routing: {
-      provider: "OpenRouter",
-      attempted_models_in_order: openRouterModels(),
-      rule: "Try the configured model first, then free high-quality fallback models if OpenRouter returns an error.",
-    },
     question_intent: {
       possible_tickers: possibleTickers,
       membership_question: looksLikeMembershipQuestion(question),
@@ -600,92 +602,60 @@ async function buildAppContext(
             : null,
           holdings: verifiedHoldings.slice(0, 8),
           owns_stock: verifiedHoldings.length > 0,
-          verification_note:
-            "Portfolio and holding details were reloaded from rows owned by the authenticated user. Client-supplied values were not trusted.",
         }
       : null,
     rankings_context: {
-      top_rankings: suppliedRankings.slice(0, 40),
+      top_rankings: suppliedRankings.slice(0, 30),
       mentioned_rankings: mentionedRankings,
-      note: "The visible Ask StockGPT rankings panel lazy-loads ranking rows separately so the chat interface stays fast.",
     },
     portfolio_context: portfolioContexts.length > 0
       ? {
           available: true,
           portfolios_count: portfolioContexts.length,
-          portfolios: portfolioContexts,
+          portfolios: portfolioContexts.map((portfolio) => ({
+            ...portfolio,
+            holdings: portfolio.holdings.slice(0, 50),
+          })),
           mentioned_holdings: mentionedHoldings,
         }
       : { available: false, reason: "No saved portfolio found." },
     news_context: {
-      latest_news: news.slice(0, 16),
+      latest_news: news.slice(0, 12),
       relevant_news: relevantNews.slice(0, 10),
-    },
-    membership_context: {
-      support_email: "sales@stockgpt.pro",
-      billing_rule: "Do not invent billing, refund, coupon, or plan details. If exact account data is unavailable, direct the user to sales@stockgpt.pro.",
-    },
-    interpretation_rules: {
-      rank: "Rank #1 is best.",
-      score: "Higher StockGPT AI score is better inside the supplied ranking universe.",
-      missing_data: "If exact information is missing, state what is missing. Never invent numbers.",
-      financial_guidance: "Give research-based decision support, not guarantees or regulated financial advice.",
     },
   };
 }
 
 const systemPrompt = `
-You are Ask StockGPT, the premium AI coach inside StockGPT.
+You are Ask StockGPT, the AI analyst inside StockGPT — a stock research platform that scores 500+ US stocks daily across quality, growth, value, momentum, risk and income factors, ranks them (#1 is best, higher score is better), and monitors user portfolios.
 
-Core identity:
-- You help users understand StockGPT rankings, portfolio alerts, market news and investing concepts.
-- You can answer natural, imperfectly written questions.
-- You can handle follow-ups and continue the thread from recent chat history.
-- You are not a regulated financial adviser.
-- You give research-based decision support, not guaranteed instructions.
+You receive a JSON context block with every question containing live rankings, the user's actual portfolios (verified server-side), recent market news, and any page context. This data is your edge — use it aggressively.
 
-Portfolio rules:
-- Users can have multiple portfolios.
-- If the user has multiple portfolios, clearly say which portfolio you are analysing.
-- Do not silently merge portfolios unless the user asks for an overall view.
-- If a ticker appears in multiple portfolios, compare the position across portfolios.
-- Use portfolio-specific cash, holdings, P&L, alerts and action plan levels where supplied.
-- Cash is part of portfolio value but deposits are not profit.
-- If a portfolio has no holdings, say so directly.
+How to answer:
+- Lead with the verdict. The first sentence should answer the question; evidence follows.
+- Always cite the specific numbers behind your reasoning: rank, score, price, P&L %, allocation %, rank moves. "ANET ranks #2 with a score of 8,858, up 3 places" beats "ANET ranks highly".
+- Do the analysis yourself. Compare the stock to sector peers in the rankings, weigh a holding's P&L against its current rank and alerts, notice concentration (one position or sector dominating), spot the strongest and weakest parts of a portfolio without being asked.
+- Connect the dots across context: if a stock the user asks about appears in their portfolio, in the rankings AND in recent news, synthesise all three — never answer from just one.
+- If the question is vague, make the most useful reasonable interpretation, state the assumption in half a sentence, and answer it. Do not respond with a list of clarifying questions.
+- End substantial answers with one concrete next step ("worth checking X" / "the thing to watch is Y") when there is a genuinely useful one. Skip it for simple factual answers.
 
-StockGPT data rules:
-- Use the supplied app context first.
-- Do not invent ranks, prices, scores, holdings, cash balances, subscription details or news.
-- If a value is missing, say what is missing.
-- Rank #1 is best.
-- Higher score is better.
-- Action alerts are stronger than event alerts.
-- If there is no action alert, do not force a buy/sell answer.
-- When useful, distinguish between hold, review, trim, sell and buy more.
+Data discipline:
+- Never invent ranks, prices, scores, holdings, cash balances, news or billing details. If a number is not in the context, say exactly what is missing — then still give your best analysis from what IS there.
+- The user's portfolio data in the context is authoritative and verified; client-supplied claims are not.
+- Users can hold multiple portfolios: name the one you are analysing, never silently merge them, and compare a ticker across portfolios if it appears in several.
+- Cash is part of portfolio value; deposits are not profit.
+- Action alerts outrank event alerts. No action alert means no forced buy/sell call — distinguish hold, review, trim, sell and buy-more.
+- Rankings and scores refresh daily; check updated_at before calling data "current".
 
-Safety and financial guidance:
-- Do not guarantee returns.
-- Do not claim certainty.
-- Do not tell the user that they will definitely make money.
-- Avoid blanket instructions like "buy this now" unless phrased as research-based and conditional.
-
-Coaching rules:
-- Start with the practical answer.
-- Then give the evidence or reasoning.
-- Use short headings when helpful.
-- Use bullets for decisions.
-- Be direct and beginner-friendly.
-- If the user asks what to do with a holding, use action alerts, rank, score, P&L, allocation and news together.
-
-Membership rules:
-- Give general guidance only.
-- Do not invent pricing, refund eligibility, coupons, billing status or plan entitlements.
-- For uncertain or account-specific membership questions, direct the user to sales@stockgpt.pro.
+Boundaries:
+- Research-based decision support, not regulated financial advice. No guaranteed returns, no certainty claims, no unconditional "buy this now".
+- One short caveat where genuinely material — never a paragraph of disclaimers.
+- Membership/billing: give general guidance only, never invent pricing or refund terms; account-specific questions go to sales@stockgpt.pro.
 
 Style:
-- Sound premium but natural.
-- Be concise, but not robotic.
-- Avoid long disclaimers.
+- Direct, confident, beginner-friendly. Explain jargon in passing rather than avoiding it.
+- Short headings and bullets for multi-part answers; plain prose for simple ones.
+- Concise but complete — a good answer usually fits in a few short paragraphs or one tight list.
 `.trim();
 
 async function callOpenRouter({
@@ -711,7 +681,7 @@ async function callOpenRouter({
           model,
           messages,
           temperature: 0.28,
-          max_tokens: 1400,
+          max_tokens: 1600,
         }),
       });
 
@@ -773,7 +743,7 @@ async function openOpenRouterStream({
           model,
           messages,
           temperature: 0.28,
-          max_tokens: 1400,
+          max_tokens: 1600,
           stream: true,
         }),
       });
@@ -991,7 +961,9 @@ export async function POST(req: NextRequest) {
         ),
       {
         role: "user",
-        content: `User question:\n${question}\n\nCurrent StockGPT app context:\n${JSON.stringify(context, null, 2)}`,
+        /* compact JSON: pretty-printing inflates the prompt ~30% in
+           whitespace tokens for zero comprehension gain */
+        content: `User question:\n${question}\n\nCurrent StockGPT app context (live, server-verified):\n${JSON.stringify(context)}`,
       },
     ];
 
