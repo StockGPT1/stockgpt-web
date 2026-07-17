@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StockLogo } from "@/components/StockLogo";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import type { ExposureView } from "@/components/portfolio-workspace/types";
@@ -329,7 +329,6 @@ function squarify(
 }
 
 const TREEMAP_W = 100;
-const TREEMAP_H = 62;
 
 function AllocationTreemap({
   holdings,
@@ -340,6 +339,28 @@ function AllocationTreemap({
   currency: string;
   onSelect: (holding: ExtendedHolding) => void;
 }) {
+  /* The squarify row/column decisions depend on the canvas shape, so the
+     layout must run in the container's REAL aspect ratio. A fixed wide
+     canvas stretched into the near-square mobile container produced
+     distorted strips whose areas no longer read as proportional. */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth > 0 && clientHeight > 0) setSize({ w: clientWidth, h: clientHeight });
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
+
+  const aspect = size ? size.w / size.h : 100 / 62;
+  const treemapH = TREEMAP_W / aspect;
   const sorted = holdings
     .slice()
     .sort((a, b) => Math.max(b.currentValue, 0) - Math.max(a.currentValue, 0));
@@ -353,14 +374,15 @@ function AllocationTreemap({
   squarify(
     weights.map((weight, index) => ({
       index,
-      area: (weight / totalWeight) * TREEMAP_W * TREEMAP_H,
+      area: (weight / totalWeight) * TREEMAP_W * treemapH,
     })),
-    { x: 0, y: 0, w: TREEMAP_W, h: TREEMAP_H },
+    { x: 0, y: 0, w: TREEMAP_W, h: treemapH },
     rects,
   );
 
   return (
     <div
+      ref={containerRef}
       className="relative h-[380px] border-y border-[#faf6f0]/8 lg:h-[510px] lg:rounded-[20px] lg:border lg:border-[#ddb159]/14"
       role="group"
       aria-label="Holdings sized by market value"
@@ -368,11 +390,13 @@ function AllocationTreemap({
       {sorted.map((holding, index) => {
         const rect = rects[index];
         if (!rect) return null;
-        /* tile area in layout units decides how much text fits */
-        const tileArea = rect.w * rect.h;
-        const showCompany = tileArea > 340 && rect.w > 16;
-        const showFooter = tileArea > 170 && rect.w > 10;
-        const showTicker = tileArea > 28;
+        /* real pixel dimensions decide how much text fits — fractions
+           mean different physical sizes at different aspect ratios */
+        const pxW = size ? (rect.w / TREEMAP_W) * size.w : 0;
+        const pxH = size ? (rect.h / treemapH) * size.h : 0;
+        const showCompany = pxW > 120 && pxH > 96;
+        const showFooter = pxW > 104 && pxH > 84;
+        const showTicker = pxW > 40 && pxH > 26;
         return (
           <button
             key={holding.ticker}
@@ -381,9 +405,9 @@ function AllocationTreemap({
             aria-label={`${holding.ticker}, ${money(holding.currentValue, currency)}, ${holding.currentAllocationPct.toFixed(1)}% of portfolio`}
             style={{
               left: `${(rect.x / TREEMAP_W) * 100}%`,
-              top: `${(rect.y / TREEMAP_H) * 100}%`,
+              top: `${(rect.y / treemapH) * 100}%`,
               width: `${(rect.w / TREEMAP_W) * 100}%`,
-              height: `${(rect.h / TREEMAP_H) * 100}%`,
+              height: `${(rect.h / treemapH) * 100}%`,
             }}
             className="group absolute overflow-hidden p-[3px] text-left focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
           >
