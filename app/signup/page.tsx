@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 import { trackClientEvent } from "@/lib/analytics/client-events";
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 import {
@@ -161,6 +160,8 @@ export default function SignupPage() {
     setMessageTone("info");
 
     try {
+      /* supabase-js loads on demand so it stays out of the first paint */
+      const { createClient } = await import("@/utils/supabase/client");
       const { error } = await createClient().auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: code,
@@ -199,6 +200,7 @@ export default function SignupPage() {
     setMessageTone("info");
 
     try {
+      const { createClient } = await import("@/utils/supabase/client");
       const { error } = await createClient().auth.resend({
         type: "signup",
         email: normalizedEmail,

@@ -432,10 +432,10 @@ const DONUT_OFFSETS = DONUT.map((_, i) =>
   DONUT.slice(0, i).reduce((sum, seg) => sum - seg.pct, 25),
 );
 
-function Donut() {
+function Donut({ size = 150 }: { size?: number }) {
   const r = 15.9155; // circumference = 100
   return (
-    <svg viewBox="0 0 42 42" className="h-[190px] w-[190px]">
+    <svg viewBox="0 0 42 42" style={{ width: size, height: size }}>
       <circle cx="21" cy="21" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5.5" />
       {DONUT.map((seg, i) => (
         <circle
@@ -470,12 +470,58 @@ function Donut() {
 }
 
 const HOLDINGS = [
-  { ticker: "DECK", name: "Deckers Outdoor", pct: 14 },
-  { ticker: "ANET", name: "Arista Networks", pct: 12 },
-  { ticker: "ORLY", name: "O'Reilly Automotive", pct: 10 },
-  { ticker: "PH", name: "Parker Hannifin", pct: 9 },
-  { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8 },
+  { ticker: "DECK", name: "Deckers Outdoor", pct: 14, score: "9,032", move: "+1.4%", up: true },
+  { ticker: "ANET", name: "Arista Networks", pct: 12, score: "8,858", move: "+2.1%", up: true },
+  { ticker: "ORLY", name: "O'Reilly Automotive", pct: 10, score: "8,610", move: "+0.6%", up: true },
+  { ticker: "PH", name: "Parker Hannifin", pct: 9, score: "7,688", move: "+0.9%", up: true },
+  { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8, score: "8,145", move: "-0.3%", up: false },
 ];
+
+/* Backtest equity curve — the hero of the portfolio scene. Fixed-pixel
+   SVG: the design canvas is a constant 1280×756, so the inner chart
+   area is deterministic (824 wide) and paths can be hand-tuned. */
+function BacktestChart() {
+  const W = 784;
+  const H = 178;
+  // grid rows top→bottom: +150%, +100%, +50%, 0%
+  const GRID = [
+    { y: 22, label: "+150%" },
+    { y: 71, label: "+100%" },
+    { y: 120, label: "+50%" },
+    { y: 169, label: "0%" },
+  ];
+  const portfolio =
+    "M0 169 C28 163 46 166 70 156 C98 144 118 150 146 136 C174 122 192 130 220 114 " +
+    "C248 98 268 108 296 96 C324 84 340 96 368 88 C396 80 416 62 444 56 " +
+    "C472 50 492 62 520 52 C548 42 568 30 596 28 C624 26 644 36 672 28 " +
+    "C696 21 724 18 740 14";
+  const spx =
+    "M0 169 C40 165 80 162 130 156 C190 149 240 150 300 142 C360 134 410 134 470 126 " +
+    "C530 118 580 116 640 110 C690 105 724 102 740 100";
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" className="block">
+      <defs>
+        <linearGradient id="sl-bt-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(221,177,89,0.30)" />
+          <stop offset="100%" stopColor="rgba(221,177,89,0)" />
+        </linearGradient>
+      </defs>
+      {GRID.map((g) => (
+        <g key={g.label}>
+          <line x1="0" y1={g.y} x2={W - 44} y2={g.y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          <text x={W} y={g.y + 3} textAnchor="end" fontSize="9" fontWeight="800" fill="rgba(244,241,232,0.3)">
+            {g.label}
+          </text>
+        </g>
+      ))}
+      <path d={`${portfolio} L740 ${H} L0 ${H} Z`} fill="url(#sl-bt-fill)" />
+      <path d={spx} fill="none" stroke="rgba(244,241,232,0.28)" strokeWidth="2" strokeLinecap="round" strokeDasharray="1 6" />
+      <path d={portfolio} fill="none" stroke={T.gold} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="740" cy="14" r="8" fill="rgba(221,177,89,0.25)" />
+      <circle cx="740" cy="14" r="4" fill={T.gold} />
+    </svg>
+  );
+}
 
 export function PortfolioScreen() {
   return (
@@ -491,8 +537,19 @@ export function PortfolioScreen() {
           {/* Builder controls */}
           <div className="flex w-[340px] shrink-0 flex-col rounded-2xl border p-5" style={{ borderColor: T.line, background: T.panel }}>
             <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: T.gold }}>
-              Step 1 · Your profile
+              Step 1 · Your strategy
             </p>
+
+            <div
+              className="mt-3 rounded-xl border px-3.5 py-3 text-[11.5px] font-bold leading-relaxed"
+              style={{ borderColor: "rgba(221,177,89,0.28)", background: "rgba(221,177,89,0.05)", color: T.sub }}
+            >
+              &ldquo;Quality growth, cap any stock at 15%, avoid oil &amp; airlines.&rdquo;
+              <span
+                className="ml-0.5 inline-block h-[13px] w-[2px] translate-y-[2px] animate-pulse"
+                style={{ background: T.gold }}
+              />
+            </div>
 
             <p className="mt-4 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
               Risk appetite
@@ -513,7 +570,7 @@ export function PortfolioScreen() {
               ))}
             </div>
 
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
+            <p className="mt-4 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
               Horizon
             </p>
             <div className="mt-2 flex gap-1.5">
@@ -524,7 +581,7 @@ export function PortfolioScreen() {
               ))}
             </div>
 
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
+            <p className="mt-4 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
               Sector tilt
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -541,7 +598,7 @@ export function PortfolioScreen() {
               ))}
             </div>
 
-            <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
+            <p className="mt-4 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
               Amount
             </p>
             <div
@@ -580,12 +637,36 @@ export function PortfolioScreen() {
               </span>
             </div>
 
-            <div className="mt-4 flex min-h-0 flex-1 gap-6">
-              <div className="flex flex-col items-center justify-center">
+            {/* Hero: backtested equity curve vs the index */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
+                  5-year backtest
+                </p>
+                <div className="flex items-center gap-4 text-[10px] font-black">
+                  <span className="flex items-center gap-1.5" style={{ color: T.gold }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: T.gold }} />
+                    This portfolio
+                    <span className="sl-mono">+160%</span>
+                  </span>
+                  <span className="flex items-center gap-1.5" style={{ color: T.sub }}>
+                    <span className="h-[2px] w-3.5 rounded-full" style={{ background: "rgba(244,241,232,0.35)" }} />
+                    S&amp;P 500
+                    <span className="sl-mono">+71%</span>
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2">
+                <BacktestChart />
+              </div>
+            </div>
+
+            <div className="mt-3 flex min-h-0 flex-1 gap-6">
+              <div className="flex shrink-0 items-center gap-4">
                 <Donut />
-                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                <div className="grid gap-y-1.5">
                   {DONUT.map((seg) => (
-                    <div key={seg.label} className="flex items-center gap-2 text-[10px] font-bold" style={{ color: T.sub }}>
+                    <div key={seg.label} className="flex w-[168px] items-center gap-2 text-[10px] font-bold" style={{ color: T.sub }}>
                       <span className="h-2 w-2 rounded-full" style={{ background: seg.color }} />
                       {seg.label}
                       <span className="sl-mono ml-auto font-black" style={{ color: T.text }}>
@@ -600,7 +681,7 @@ export function PortfolioScreen() {
                 <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
                   Top weights
                 </p>
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-1.5">
                   {HOLDINGS.map((h) => (
                     <div key={h.ticker} className="flex items-center gap-3">
                       <span
@@ -609,40 +690,39 @@ export function PortfolioScreen() {
                       >
                         {h.ticker}
                       </span>
-                      <span className="w-[112px] truncate text-[11px] font-bold" style={{ color: T.sub }}>
+                      <span className="min-w-0 flex-1 truncate text-[11px] font-bold" style={{ color: T.sub }}>
                         {h.name}
                       </span>
-                      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${h.pct * 6}%`,
-                            background: "linear-gradient(90deg, #b88a32, #ddb159)",
-                          }}
-                        />
-                      </div>
-                      <span className="sl-mono w-9 text-right text-[11px] font-black">{h.pct}%</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-auto grid grid-cols-3 gap-2.5 pt-4">
-                  {[
-                    ["Expected volatility", "Moderate", T.text],
-                    ["Dividend yield", "1.8%", T.green],
-                    ["Tech exposure", "46% · watch", T.gold],
-                  ].map(([label, value, color]) => (
-                    <div key={label as string} className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-                        {label as string}
-                      </p>
-                      <p className="sl-mono mt-1 text-[14px] font-black" style={{ color: color as string }}>
-                        {value as string}
-                      </p>
+                      <MoveChip move={h.move} up={h.up} size={10} />
+                      <span
+                        className="sl-mono w-14 shrink-0 rounded-full py-0.5 text-center text-[10px] font-black"
+                        style={{ color: "#071b11", background: "rgba(221,177,89,0.88)" }}
+                      >
+                        {h.score}
+                      </span>
+                      <span className="sl-mono w-9 shrink-0 text-right text-[11px] font-black">{h.pct}%</span>
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div className="mt-auto grid grid-cols-4 gap-2.5 pt-3">
+              {[
+                ["Backtested CAGR", "21.0%", T.gold],
+                ["Sharpe ratio", "1.31", T.text],
+                ["Max drawdown", "-9.8%", T.text],
+                ["Dividend yield", "1.8%", T.green],
+              ].map(([label, value, color]) => (
+                <div key={label as string} className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
+                    {label as string}
+                  </p>
+                  <p className="sl-mono mt-1 text-[14px] font-black" style={{ color: color as string }}>
+                    {value as string}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
