@@ -514,3 +514,106 @@ h2 {
     box-shadow: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  fx-* motion toolkit — shared micro-interactions for the whole app  */
+/*  (matches the landing/loader vibe: gold, cinematic, understated)    */
+/* ------------------------------------------------------------------ */
+
+/* Staggered entrance: opacity + rise. Set --fx-delay per element. */
+.fx-rise {
+  animation: fx-rise 0.6s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+  animation-delay: var(--fx-delay, 0s);
+}
+
+@keyframes fx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Gold sheen that sweeps across a button on hover/focus. The host
+   keeps its own background; this only paints a moving highlight. */
+.fx-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.fx-sheen::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto;
+  left: -70%;
+  width: 45%;
+  transform: skewX(-22deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.42),
+    transparent
+  );
+  opacity: 0;
+  transition: none;
+  pointer-events: none;
+}
+
+.fx-sheen:hover::after,
+.fx-sheen:focus-visible::after {
+  animation: fx-sheen-sweep 0.7s ease forwards;
+}
+
+@keyframes fx-sheen-sweep {
+  from {
+    left: -70%;
+    opacity: 1;
+  }
+  to {
+    left: 130%;
+    opacity: 1;
+  }
+}
+
+/* Recording-style live indicator: solid dot + expanding ring. */
+.fx-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.fx-live-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: fx-live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes fx-live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-rise {
+    animation: none;
+  }
+  .fx-sheen:hover::after,
+  .fx-sheen:focus-visible::after {
+    animation: none;
+  }
+  .fx-live-dot::before {
+    animation: none;
+  }
+}

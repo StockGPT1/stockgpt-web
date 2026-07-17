@@ -30,7 +30,11 @@ export function FreshnessLabel({ value, label, staleAfterMinutes = 180, compact 
 
   return (
     <span className={`inline-flex shrink-0 items-center gap-1.5 font-bold ${compact ? "text-[9px]" : "text-[10px]"} ${stale ? "text-[#d5a951]" : "text-[#faf6f0]/42"}`}>
-      <span className={`size-1.5 rounded-full ${stale ? "bg-[#d5a951]" : "bg-[#61d7ab]"}`} aria-hidden="true" />
+      {/* fresh data pulses like a live feed; stale data sits still */}
+      <span
+        className={`${stale ? "" : "fx-live-dot"} size-1.5 rounded-full ${stale ? "bg-[#d5a951]" : "bg-[#61d7ab] text-[#61d7ab]"}`}
+        aria-hidden="true"
+      />
       {copy}
     </span>
   );

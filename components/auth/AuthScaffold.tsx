@@ -53,7 +53,7 @@ export function AuthScaffold({
             </p>
 
             {/* desktop-only hero copy + live-look demo card */}
-            <div className="hidden min-w-0 lg:block">
+            <div className="fx-rise hidden min-w-0 lg:block" style={{ ["--fx-delay" as string]: "0.1s" }}>
               <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#ddb159]">
                 {eyebrow}
               </p>
@@ -73,14 +73,16 @@ export function AuthScaffold({
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#f4f1e8]">
                     Top ranked
                   </span>
-                  <span className="rounded-full bg-[#ddb159] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#071b11]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ddb159] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#071b11]">
+                    <span className="fx-live-dot !h-[5px] !w-[5px]" />
                     Live
                   </span>
                 </div>
-                {DEMO_ROWS.map((row) => (
+                {DEMO_ROWS.map((row, i) => (
                   <div
                     key={row.ticker}
-                    className="flex items-center gap-3 border-b border-white/[0.04] px-4 py-2 last:border-b-0"
+                    className="fx-rise flex items-center gap-3 border-b border-white/[0.04] px-4 py-2 last:border-b-0"
+                    style={{ ["--fx-delay" as string]: `${0.3 + i * 0.08}s` }}
                   >
                     <span className="w-5 text-[10px] font-black text-[#ddb159]/80">{row.rank}</span>
                     <span className="flex-1 text-[12px] font-black text-[#f4f1e8]">{row.ticker}</span>
@@ -102,22 +104,34 @@ export function AuthScaffold({
           </div>
         </aside>
 
-        {/* form column */}
+        {/* form column — staggered entrance, top to bottom */}
         <section className="relative flex min-h-full items-start justify-center px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-8 sm:items-center sm:px-8 lg:py-12">
           <div className="w-full max-w-[430px]">
-            <p className="hidden text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159] sm:block">
+            <p className="fx-rise hidden text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159] sm:block">
               {eyebrow}
             </p>
-            <h1 className="mt-2 text-[32px] font-black leading-none tracking-[-0.045em] sm:text-[38px]">
+            <h1
+              className="fx-rise mt-2 text-[32px] font-black leading-none tracking-[-0.045em] sm:text-[38px]"
+              style={{ ["--fx-delay" as string]: "0.06s" }}
+            >
               {title}
             </h1>
-            <p className="mt-3 text-[13px] font-medium leading-relaxed text-white/55">
+            <p
+              className="fx-rise mt-3 text-[13px] font-medium leading-relaxed text-white/55"
+              style={{ ["--fx-delay" as string]: "0.12s" }}
+            >
               {subtitle}
             </p>
 
-            <div className="mt-7">{children}</div>
+            <div className="fx-rise mt-7" style={{ ["--fx-delay" as string]: "0.18s" }}>
+              {children}
+            </div>
 
-            {footer && <div className="mt-8">{footer}</div>}
+            {footer && (
+              <div className="fx-rise mt-8" style={{ ["--fx-delay" as string]: "0.26s" }}>
+                {footer}
+              </div>
+            )}
 
             <p className="mt-8 text-center text-[10px] font-semibold leading-5 text-white/30 lg:hidden">
               Research and ranking tool. Informational only — not financial advice.
@@ -136,7 +150,7 @@ export const authLabelClass =
   "mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]/85";
 
 export const authPrimaryButtonClass =
-  "h-12 w-full rounded-full border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] px-4 text-[13px] font-black uppercase tracking-[0.12em] text-[#071b11] shadow-[0_14px_40px_rgba(221,177,89,0.25)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
+  "fx-sheen h-12 w-full rounded-full border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] px-4 text-[13px] font-black uppercase tracking-[0.12em] text-[#071b11] shadow-[0_14px_40px_rgba(221,177,89,0.25)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
 
 export const authGhostButtonClass =
   "h-11 rounded-full border border-white/14 bg-white/[0.03] px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/8 disabled:opacity-55";
