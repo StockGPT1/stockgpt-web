@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AuthProviderButtons } from "@/components/AuthProviderButtons";
 import {
   AuthDivider,
@@ -15,10 +16,17 @@ import {
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    /* Warm the dashboard shell while the user types so the post-login
+       navigation only has to stream the data, not the whole route. */
+    router.prefetch("/dashboard");
+  }, [router]);
 
   async function login() {
     if (loading) return;
@@ -29,6 +37,8 @@ export default function LoginPage() {
 
     setLoading(true);
     setErrorMessage("");
+
+    let redirecting = false;
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -46,9 +56,14 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = data?.redirectTo ?? "/dashboard";
+      /* Client-side navigation streams the dashboard behind its loading
+         skeleton immediately — a full window.location reload re-parses
+         the entire app before anything paints. */
+      redirecting = true;
+      router.push(data?.redirectTo ?? "/dashboard");
     } finally {
-      setLoading(false);
+      /* keep the button in its "Logging in..." state while navigating */
+      if (!redirecting) setLoading(false);
     }
   }
 
