@@ -149,6 +149,7 @@ const DEFAULT_OPENROUTER_MODELS = [
   "google/gemini-2.5-flash",
   "deepseek/deepseek-chat-v3.1",
   "qwen/qwen3-next-80b-a3b-instruct:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
   "openai/gpt-oss-120b:free",
 ];
 
@@ -682,6 +683,12 @@ async function callOpenRouter({
           messages,
           temperature: 0.28,
           max_tokens: 1600,
+          /* reasoning models (gpt-oss etc.) think in a separate channel
+             that some providers merge into the visible content — the
+             user then sees raw chain-of-thought instead of an answer.
+             exclude keeps reasoning out of the response; non-reasoning
+             models ignore the field. */
+          reasoning: { exclude: true },
         }),
       });
 
@@ -745,6 +752,8 @@ async function openOpenRouterStream({
           temperature: 0.28,
           max_tokens: 1600,
           stream: true,
+          /* same chain-of-thought guard as the non-streaming call */
+          reasoning: { exclude: true },
         }),
       });
 
