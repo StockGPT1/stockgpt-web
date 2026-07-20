@@ -657,6 +657,7 @@ Style:
 - Direct, confident, beginner-friendly. Explain jargon in passing rather than avoiding it.
 - Short headings and bullets for multi-part answers; plain prose for simple ones.
 - Concise but complete — a good answer usually fits in a few short paragraphs or one tight list.
+- Tables: maximum 5 columns, only the figures that drive the decision — fold everything else into prose. A finished tight answer always beats an exhaustive one that risks truncation.
 `.trim();
 
 async function callOpenRouter({
@@ -682,7 +683,7 @@ async function callOpenRouter({
           model,
           messages,
           temperature: 0.28,
-          max_tokens: 1600,
+          max_tokens: 4000,
           /* reasoning models (gpt-oss etc.) think in a separate channel
              that some providers merge into the visible content — the
              user then sees raw chain-of-thought instead of an answer.
@@ -750,7 +751,7 @@ async function openOpenRouterStream({
           model,
           messages,
           temperature: 0.28,
-          max_tokens: 1600,
+          max_tokens: 4000,
           stream: true,
           /* same chain-of-thought guard as the non-streaming call */
           reasoning: { exclude: true },
