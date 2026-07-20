@@ -488,6 +488,49 @@ function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding
   );
 }
 
+/* Chooses which single portfolio the chat is focused on. Hidden when
+   the user has fewer than two portfolios — there is nothing to choose. */
+function PortfolioFocusPicker({
+  portfolios,
+  selectedId,
+  onSelect,
+  className = "",
+}: {
+  portfolios: Array<{ id: string; name: string }>;
+  selectedId: string | null;
+  onSelect: (portfolioId: string) => void;
+  className?: string;
+}) {
+  if (portfolios.length < 2) return null;
+
+  return (
+    <label className={`relative inline-flex min-w-0 items-center ${className}`}>
+      <span className="sr-only">Focused portfolio</span>
+      <select
+        value={selectedId ?? portfolios[0].id}
+        onChange={(event) => onSelect(event.target.value)}
+        className="h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-full border border-[#ddb159]/26 bg-[#071b12] pl-4 pr-9 text-[11px] font-black text-[#ddb159] outline-none transition hover:border-[#ddb159]/50 focus:border-[#ddb159]"
+      >
+        {portfolios.map((portfolio) => (
+          <option key={portfolio.id} value={portfolio.id}>
+            {portfolio.name}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute right-3.5 size-3 text-[#ddb159]/70"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+      >
+        <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </label>
+  );
+}
+
 export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initialContext = null }: AskStockGPTWorkspaceProps) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
@@ -500,6 +543,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   const [holdingOptions, setHoldingOptions] = useState<HoldingOption[]>([]);
   const [holdingLoading, setHoldingLoading] = useState(false);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
+  const [portfolioOptions, setPortfolioOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(
+    initialContext?.portfolioId ?? null,
+  );
 
   const mobileBottomRef = useRef<HTMLDivElement>(null);
   const desktopBottomRef = useRef<HTMLDivElement>(null);
@@ -617,11 +664,13 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     };
   }, [locked, updateAutoScrollPreference]);
 
+  /* Load on mount (not just when the Portfolio panel opens): the chat's
+     portfolio focus picker needs the directory of portfolios up front. */
   useEffect(() => {
-    if (locked || activeMode !== "portfolio" || holdingsLoaded || holdingLoading) return;
+    if (locked || holdingsLoaded || holdingLoading) return;
     void loadHoldings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked, activeMode, holdingsLoaded, holdingLoading]);
+  }, [locked, holdingsLoaded, holdingLoading]);
 
   async function clearHistory() {
     setMessages([welcomeMessage]);
@@ -650,7 +699,11 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
         body: JSON.stringify({
           question: text,
           mode: activeMode,
-          context: initialContext,
+          /* the picker's selection travels with every question so the
+             server builds context for exactly that portfolio */
+          context: selectedPortfolioId
+            ? { ...(initialContext ?? { contextType: "portfolio" }), portfolioId: selectedPortfolioId }
+            : initialContext,
           messages: nextMessages.slice(-14),
           stream: true,
         }),
@@ -725,13 +778,23 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     }
   }
 
-  async function loadHoldings() {
+  async function loadHoldings(portfolioId?: string | null) {
     if (holdingLoading) return;
     setHoldingLoading(true);
     try {
-      const response = await fetch("/api/ask-stockgpt/portfolio-holdings", { headers: { Accept: "application/json" } });
-      const data = (await response.json().catch(() => null)) as { holdings?: HoldingOption[] } | null;
+      const requested = portfolioId ?? selectedPortfolioId;
+      const query = requested ? `?portfolioId=${encodeURIComponent(requested)}` : "";
+      const response = await fetch(`/api/ask-stockgpt/portfolio-holdings${query}`, { headers: { Accept: "application/json" } });
+      const data = (await response.json().catch(() => null)) as {
+        holdings?: HoldingOption[];
+        portfolios?: Array<{ id: string; name: string }>;
+        portfolioId?: string | null;
+      } | null;
       setHoldingOptions(Array.isArray(data?.holdings) ? data.holdings : []);
+      setPortfolioOptions(Array.isArray(data?.portfolios) ? data.portfolios : []);
+      /* server echoes back the portfolio it actually resolved (ownership
+         verified) — keep the picker in sync with that */
+      if (typeof data?.portfolioId === "string") setSelectedPortfolioId(data.portfolioId);
       setHoldingsLoaded(true);
     } catch {
       setHoldingOptions([]);
@@ -739,6 +802,13 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     } finally {
       setHoldingLoading(false);
     }
+  }
+
+  function switchPortfolio(portfolioId: string) {
+    if (portfolioId === selectedPortfolioId) return;
+    setSelectedPortfolioId(portfolioId);
+    setHoldingOptions([]);
+    void loadHoldings(portfolioId);
   }
 
   function askAboutHolding(holding: HoldingOption) {
@@ -778,6 +848,22 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
         <>
           <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
 
+          {portfolioOptions.length > 1 && (
+            <div className="shrink-0 border-b border-[#ddb159]/12 bg-[#04140c] px-3 py-2 lg:hidden">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.16em] text-[#fbf4e5]/42">
+                  Focused on
+                </span>
+                <PortfolioFocusPicker
+                  portfolios={portfolioOptions}
+                  selectedId={selectedPortfolioId}
+                  onSelect={switchPortfolio}
+                  className="min-w-0 flex-1"
+                />
+              </div>
+            </div>
+          )}
+
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
             <div className="sg-ask-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
               <div className="grid gap-3 pb-3">
@@ -809,6 +895,12 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
               <header className="relative shrink-0 border-b border-[#ddb159]/14 px-5 py-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3"><PremiumOrb small /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Portfolio intelligence</p><h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[34px]">Ask StockGPT</h1></div></div>
+                  <PortfolioFocusPicker
+                    portfolios={portfolioOptions}
+                    selectedId={selectedPortfolioId}
+                    onSelect={switchPortfolio}
+                    className="mt-1 max-w-[240px] shrink-0"
+                  />
                 </div>
                 <p className="mt-3 max-w-full text-[13px] font-medium leading-5 text-[#fbf4e5]/52">Ask naturally. Portfolio and ranking tools load only when needed.</p>
               </header>

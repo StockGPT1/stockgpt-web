@@ -27,28 +27,39 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ holdings: [] }, { status: 401 });
+    return NextResponse.json({ portfolios: [], portfolioId: null, holdings: [] }, { status: 401 });
   }
 
-  const { data: portfolio } = await supabase
+  /* All the user's portfolios feed the workspace's focus picker; the
+     requested one (validated against ownership by the user_id filter)
+     decides which holdings load. */
+  const { data: portfoliosData } = await supabase
     .from("user_portfolios")
-    .select("id")
+    .select("id,name")
     .eq("user_id", user.id)
     .is("archived_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
-  if (!portfolio?.id) {
-    return NextResponse.json({ holdings: [] });
+  const portfolios = ((portfoliosData ?? []) as Array<{ id: string; name: string | null }>).map(
+    (portfolio, index) => ({
+      id: portfolio.id,
+      name: String(portfolio.name ?? "").trim() || `Portfolio ${index + 1}`,
+    }),
+  );
+
+  if (portfolios.length === 0) {
+    return NextResponse.json({ portfolios: [], portfolioId: null, holdings: [] });
   }
+
+  const requestedId = new URL(request.url).searchParams.get("portfolioId")?.trim() ?? "";
+  const portfolio = portfolios.find((item) => item.id === requestedId) ?? portfolios[0];
 
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")
@@ -65,7 +76,7 @@ export async function GET() {
     .filter((holding) => holding.ticker && holding.shares > 0);
 
   if (holdings.length === 0) {
-    return NextResponse.json({ holdings: [] });
+    return NextResponse.json({ portfolios, portfolioId: portfolio.id, holdings: [] });
   }
 
   const { data: rankingData } = await supabase
@@ -80,6 +91,8 @@ export async function GET() {
   );
 
   return NextResponse.json({
+    portfolios,
+    portfolioId: portfolio.id,
     holdings: holdings.map((holding) => {
       const ranking = rankingMap.get(holding.ticker);
       const price = toNumber(ranking?.price, holding.entryPrice);

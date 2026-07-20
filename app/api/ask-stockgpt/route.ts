@@ -513,71 +513,74 @@ async function buildAppContext(
     investment_amount: finiteNumber(portfolio.investment_amount, 0),
   }));
 
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
-  const { data: holdingsData } = portfolioIds.length > 0
-      ? await supabase
+  /* The chat focuses on exactly ONE portfolio at a time — the one the
+     user picked in the workspace's portfolio selector (falling back to
+     their first portfolio). Only that portfolio is loaded in full; the
+     rest are listed by name so the model can point the user at the
+     picker instead of guessing about unloaded holdings. */
+  const focusedPortfolio =
+    (requestedContext?.portfolioId
+      ? portfolios.find((portfolio) => portfolio.id === requestedContext.portfolioId)
+      : null) ?? portfolios[0] ?? null;
+
+  const { data: holdingsData } = focusedPortfolio
+    ? await supabase
         .from("portfolio_holdings")
         .select("portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes")
-        .in("portfolio_id", portfolioIds)
+        .eq("portfolio_id", focusedPortfolio.id)
         .order("added_at", { ascending: false })
     : { data: [] };
 
-  const allRawHoldings = (holdingsData ?? []) as PortfolioHoldingRow[];
+  const focusedContext = focusedPortfolio
+    ? await (async () => {
+        const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
+          .filter((holding) => holding.ticker)
+          .map((holding) => ({
+            ticker: cleanTicker(holding.ticker),
+            entry_price: holding.entry_price,
+            score_at_entry: holding.score_at_entry,
+            rank_at_entry: holding.rank_at_entry,
+            shares: holding.shares,
+            allocation_pct: holding.allocation_pct,
+            added_at: holding.added_at ?? new Date().toISOString(),
+            last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
+            purchase_date: holding.purchase_date ?? null,
+            source: holding.source ?? null,
+            notes: holding.notes ?? null,
+          }));
 
-  const portfolioContexts = await Promise.all(
-    portfolios.map(async (portfolio, index) => {
-      const rawHoldings = allRawHoldings
-        .filter((holding) => holding.portfolio_id === portfolio.id && holding.ticker)
-        .map((holding) => ({
-          ticker: cleanTicker(holding.ticker),
-          entry_price: holding.entry_price,
-          score_at_entry: holding.score_at_entry,
-          rank_at_entry: holding.rank_at_entry,
-          shares: holding.shares,
-          allocation_pct: holding.allocation_pct,
-          added_at: holding.added_at ?? new Date().toISOString(),
-          last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
-          purchase_date: holding.purchase_date ?? null,
-          source: holding.source ?? null,
-          notes: holding.notes ?? null,
-        }));
+        const enriched = await enrichHoldings(rawHoldings, (focusedPortfolio.risk_tolerance as RiskTolerance) ?? null);
 
-      const enriched = await enrichHoldings(rawHoldings, (portfolio.risk_tolerance as RiskTolerance) ?? null);
-      const compactHoldings = enriched.map(compactHolding);
-
-      return {
-        meta: {
-          id: portfolio.id,
-          name: cleanPortfolioName(portfolio.name, index),
-          risk_tolerance: portfolio.risk_tolerance,
-          time_horizon: portfolio.time_horizon,
-          investment_amount: safeNumber(portfolio.investment_amount),
-          cash_balance: safeNumber(portfolio.cash_balance),
-          cash_deposited_total: safeNumber(portfolio.cash_deposited_total),
-          currency: portfolio.currency ?? "USD",
-          created_at: portfolio.created_at,
-        },
-        summary: buildPortfolioSummary(enriched, portfolio),
-        holdings: compactHoldings.slice(0, 80),
-      };
-    }),
-  );
+        return {
+          meta: {
+            id: focusedPortfolio.id,
+            name: cleanPortfolioName(focusedPortfolio.name, portfolios.indexOf(focusedPortfolio)),
+            risk_tolerance: focusedPortfolio.risk_tolerance,
+            time_horizon: focusedPortfolio.time_horizon,
+            investment_amount: safeNumber(focusedPortfolio.investment_amount),
+            cash_balance: safeNumber(focusedPortfolio.cash_balance),
+            cash_deposited_total: safeNumber(focusedPortfolio.cash_deposited_total),
+            currency: focusedPortfolio.currency ?? "USD",
+            created_at: focusedPortfolio.created_at,
+          },
+          summary: buildPortfolioSummary(enriched, focusedPortfolio),
+          holdings: enriched.map(compactHolding).slice(0, 60),
+        };
+      })()
+    : null;
 
   const suppliedRankings = [...rankingMap.values()].map(compactRanking);
   const news = ((newsData ?? []) as NewsRow[]).map(compactNews);
   const mentionedRankings = suppliedRankings.filter((ranking) => possibleTickers.includes(ranking.ticker));
-  const allHoldings = portfolioContexts.flatMap((portfolio) => portfolio.holdings.map((holding) => ({ ...holding, portfolio_name: portfolio.meta.name })));
-  const mentionedHoldings = allHoldings.filter((holding) => possibleTickers.includes(cleanTicker(holding.ticker)));
-  const verifiedPortfolio = requestedContext?.portfolioId
-    ? portfolioContexts.find((portfolio) => portfolio.meta.id === requestedContext.portfolioId) ?? null
-    : null;
+  const focusedHoldings = focusedContext
+    ? focusedContext.holdings.map((holding) => ({ ...holding, portfolio_name: focusedContext.meta.name }))
+    : [];
+  const mentionedHoldings = focusedHoldings.filter((holding) => possibleTickers.includes(cleanTicker(holding.ticker)));
   const requestedTicker = cleanTicker(
     requestedContext?.holdingTicker ?? requestedContext?.ticker ?? "",
   );
   const verifiedHoldings = requestedTicker
-    ? (verifiedPortfolio ? verifiedPortfolio.holdings : allHoldings).filter(
-        (holding) => cleanTicker(holding.ticker) === requestedTicker,
-      )
+    ? focusedHoldings.filter((holding) => cleanTicker(holding.ticker) === requestedTicker)
     : [];
   const relevantNews = news.filter((article) =>
     possibleTickers.length === 0 || article.affected_tickers.some((ticker) => possibleTickers.includes(cleanTicker(ticker))),
@@ -598,9 +601,6 @@ async function buildAppContext(
           context_type: requestedContext.contextType,
           requested_ticker: requestedTicker || null,
           active_filters: requestedContext.activeFilters ?? null,
-          portfolio: verifiedPortfolio
-            ? { meta: verifiedPortfolio.meta, summary: verifiedPortfolio.summary }
-            : null,
           holdings: verifiedHoldings.slice(0, 8),
           owns_stock: verifiedHoldings.length > 0,
         }
@@ -609,14 +609,13 @@ async function buildAppContext(
       top_rankings: suppliedRankings.slice(0, 30),
       mentioned_rankings: mentionedRankings,
     },
-    portfolio_context: portfolioContexts.length > 0
+    portfolio_context: focusedContext
       ? {
           available: true,
-          portfolios_count: portfolioContexts.length,
-          portfolios: portfolioContexts.map((portfolio) => ({
-            ...portfolio,
-            holdings: portfolio.holdings.slice(0, 50),
-          })),
+          focused_portfolio: focusedContext,
+          other_portfolios: portfolios
+            .filter((portfolio) => portfolio.id !== focusedContext.meta.id)
+            .map((portfolio, index) => ({ name: cleanPortfolioName(portfolio.name, index) })),
           mentioned_holdings: mentionedHoldings,
         }
       : { available: false, reason: "No saved portfolio found." },
@@ -643,7 +642,7 @@ How to answer:
 Data discipline:
 - Never invent ranks, prices, scores, holdings, cash balances, news or billing details. If a number is not in the context, say exactly what is missing — then still give your best analysis from what IS there.
 - The user's portfolio data in the context is authoritative and verified; client-supplied claims are not.
-- Users can hold multiple portfolios: name the one you are analysing, never silently merge them, and compare a ticker across portfolios if it appears in several.
+- The context loads exactly ONE portfolio in full — focused_portfolio, chosen by the user with the portfolio picker above the chat. Analyse that portfolio only, and name it once early in the answer. Other portfolios appear as names only in other_portfolios: you know nothing about their contents, so if the question is about one of them, say so and tell the user to switch to it with the portfolio picker — never guess what an unloaded portfolio holds.
 - Cash is part of portfolio value; deposits are not profit.
 - Action alerts outrank event alerts. No action alert means no forced buy/sell call — distinguish hold, review, trim, sell and buy-more.
 - Rankings and scores refresh daily; check updated_at before calling data "current".
