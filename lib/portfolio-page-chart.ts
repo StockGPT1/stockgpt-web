@@ -234,10 +234,14 @@ export async function buildPortfolioPageChartResult({
       if (needsCurrentPoint) saveCurrentSnapshot();
 
       if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
-        await saveLatestPortfolioChart({
+        /* cache write must not sit on the render path — the reader
+           tolerates a missing/stale cache and rebuilds from snapshots */
+        void saveLatestPortfolioChart({
           portfolioId: portfolio.id,
           summary,
           chartData,
+        }).catch((error) => {
+          console.warn("[portfolio-page-chart] chart cache write failed", error);
         });
       }
 

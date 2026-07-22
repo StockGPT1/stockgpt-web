@@ -1,16 +1,14 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 import { trackClientEvent } from "@/lib/analytics/client-events";
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 import {
   AuthMessage,
   AuthScaffold,
   authGhostButtonClass,
+  authInlineLinkClass,
   authInputClass,
   authLabelClass,
   authPrimaryButtonClass,
@@ -162,6 +160,8 @@ export default function SignupPage() {
     setMessageTone("info");
 
     try {
+      /* supabase-js loads on demand so it stays out of the first paint */
+      const { createClient } = await import("@/utils/supabase/client");
       const { error } = await createClient().auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: code,
@@ -200,6 +200,7 @@ export default function SignupPage() {
     setMessageTone("info");
 
     try {
+      const { createClient } = await import("@/utils/supabase/client");
       const { error } = await createClient().auth.resend({
         type: "signup",
         email: normalizedEmail,
@@ -245,7 +246,7 @@ export default function SignupPage() {
         !sent && (
           <p className="text-center text-[13px] font-semibold text-white/60">
             Already have an account?{" "}
-            <Link href="/login" className="font-black text-[#ddb159] transition hover:brightness-110">
+            <Link href="/login" className={authInlineLinkClass}>
               Log in
             </Link>
           </p>
@@ -386,8 +387,8 @@ export default function SignupPage() {
 
             <ConsentCheckbox id="terms-accepted" checked={termsAccepted} onChange={setTermsAccepted} required>
               Terms and conditions — I confirm I am 18 or over and agree to the{" "}
-              <Link href="/legal#terms" className="font-black text-[#ddb159] underline-offset-4 hover:underline">Terms</Link>,{" "}
-              <Link href="/legal#privacy" className="font-black text-[#ddb159] underline-offset-4 hover:underline">Privacy Policy</Link>{" "}
+              <Link href="/legal#terms" className="font-black !text-[#ddb159] !underline !decoration-[#ddb159]/45 underline-offset-2 hover:!decoration-[#ddb159]">Terms</Link>,{" "}
+              <Link href="/legal#privacy" className="font-black !text-[#ddb159] !underline !decoration-[#ddb159]/45 underline-offset-2 hover:!decoration-[#ddb159]">Privacy Policy</Link>{" "}
               and research-only disclaimer.
             </ConsentCheckbox>
 

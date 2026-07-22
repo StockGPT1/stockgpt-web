@@ -1,5 +1,5 @@
 import { BrandLoaderPage } from "@/components/BrandLoader";
 
 export default function Loading() {
-  return <BrandLoaderPage label="Scanning the globe" background="#072116" />;
+  return <BrandLoaderPage label="Securing your account" background="#020806" />;
 }

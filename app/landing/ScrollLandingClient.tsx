@@ -150,7 +150,7 @@ function GoldButton({
     <Link
       href={href}
       className={[
-        "inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
+        "fx-sheen inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
         ghost
           ? "border border-white/25 bg-white/[0.04] !text-white hover:bg-white/[0.09]"
           : "border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] !text-[#071b11] shadow-[0_10px_40px_rgba(221,177,89,0.35)]",
@@ -308,7 +308,7 @@ function TopNav() {
           </Link>
           <Link
             href="/signup"
-            className="hidden h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:inline-flex"
+            className="fx-sheen hidden h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:inline-flex"
           >
             Create account
           </Link>
@@ -396,9 +396,6 @@ function FinaleContent() {
         </Link>
         <Link href="/legal" className="!text-white/40 no-underline hover:!text-[#ddb159]">
           Legal
-        </Link>
-        <Link href="/landing" className="!text-white/40 no-underline hover:!text-[#ddb159]">
-          Classic landing
         </Link>
       </div>
       <p className="sl-e3 mt-6 max-w-2xl text-[10px] leading-5 text-white/30">

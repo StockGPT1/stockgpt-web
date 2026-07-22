@@ -45,9 +45,9 @@ function contributionEntries(value: unknown) {
     .filter((entry) => Number.isFinite(entry.value) && Math.abs(entry.value) > NOISE_THRESHOLD);
 }
 
-function changeEntryItem(item: unknown): { code: string; label: string } | null {
+function changeEntryItem(item: unknown): FactorItem | null {
   if (typeof item === "string" && item.trim()) {
-    return { code: item, label: sentenceCaseFactor(item) };
+    return { code: item, label: sentenceCaseFactor(item), share: null };
   }
   if (!item || typeof item !== "object") return null;
   const record = item as Record<string, unknown>;
@@ -60,29 +60,29 @@ function changeEntryItem(item: unknown): { code: string; label: string } | null 
   );
   /* near-zero day-over-day changes carry no information — skip them */
   if (magnitude !== undefined && Math.abs(magnitude) <= NOISE_THRESHOLD) return null;
-  return { code: name, label: sentenceCaseFactor(name) };
+  return { code: name, label: sentenceCaseFactor(name), share: null };
 }
 
-type FactorItem = { code: string; label: string };
+/* share: this factor's pull relative to the strongest factor shown
+   (0..1), used for the strength bar; null when the source data has no
+   usable magnitude (fallback lists). */
+type FactorItem = { code: string; label: string; share: number | null };
 
 function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
   const contributions = contributionEntries(diagnostics?.factor_contributions);
 
+  const positives = contributions.filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value).slice(0, 3);
+  const negatives = contributions.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value).slice(0, 3);
+  const maxAbs = Math.max(...[...positives, ...negatives].map((entry) => Math.abs(entry.value)), 0);
+
   const describe = (entry: { factor: string; value: number }): FactorItem => ({
     code: entry.factor,
-    label: `${sentenceCaseFactor(entry.factor)} (${entry.value >= 0 ? "+" : ""}${entry.value.toFixed(3)})`,
+    label: sentenceCaseFactor(entry.factor),
+    share: maxAbs > 0 ? Math.abs(entry.value) / maxAbs : null,
   });
 
-  let drivers = contributions
-    .filter((entry) => entry.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 3)
-    .map(describe);
-  let risks = contributions
-    .filter((entry) => entry.value < 0)
-    .sort((a, b) => a.value - b.value)
-    .slice(0, 3)
-    .map(describe);
+  let drivers = positives.map(describe);
+  let risks = negatives.map(describe);
 
   const fallback = (value: unknown) =>
     Array.isArray(value)
@@ -95,24 +95,62 @@ function factorLists(diagnostics: DiagnosticsPayload["diagnostics"]) {
   return { drivers, risks };
 }
 
-/* Each listed factor is tappable: a tap unfolds a one-line plain-English
-   description of what that indicator measures. */
+function strengthWord(share: number) {
+  if (share >= 0.72) return "Strong";
+  if (share >= 0.38) return "Moderate";
+  return "Mild";
+}
+
+/* One readable sentence a non-quant can act on, built from the factor
+   names themselves. */
+function verdictSentence(
+  stock: StableRankingRow,
+  drivers: FactorItem[],
+  risks: FactorItem[],
+) {
+  if (drivers.length === 0 && risks.length === 0) return null;
+  const ticker = stock.ticker ?? "This stock";
+  /* lowercase only a sentence-case initial — "Sector-adjusted P/E" must
+     not become "sector-adjusted p/e", and acronym starts stay intact */
+  const inSentence = (label: string) =>
+    label.length > 1 && label[1] === label[1].toLowerCase()
+      ? label[0].toLowerCase() + label.slice(1)
+      : label;
+  const names = (items: FactorItem[]) => items.slice(0, 2).map((item) => inSentence(item.label)).join(" and ");
+  if (drivers.length > 0 && risks.length > 0) {
+    return `${ticker} earns its rank mainly through ${names(drivers)} — the main thing working against it is ${names(risks.slice(0, 1))}.`;
+  }
+  if (drivers.length > 0) {
+    return `${ticker} earns its rank mainly through ${names(drivers)}, with no factor meaningfully working against it right now.`;
+  }
+  return `${ticker} is being held back by ${names(risks)} — no factor is adding meaningful support right now.`;
+}
+
+/* Each factor row: name + strength bar + word. Tapping unfolds a
+   plain-English description of what the indicator measures. */
 function FactorColumn({
   title,
+  tone,
   items,
   emptyLabel,
 }: {
   title: string;
+  tone: "up" | "down";
   items: FactorItem[];
   emptyLabel: string;
 }) {
   const [openCode, setOpenCode] = useState<string | null>(null);
+  const barColor = tone === "up" ? "#61d7ab" : "#f1908d";
 
   return (
     <div className="min-w-0">
-      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#ddb159]">{title}</p>
-      <ul className="mt-1.5 grid gap-1.5 text-[10px] font-semibold leading-4 text-[#faf6f0]/62">
-        {items.length === 0 && <li className="min-w-0">— {emptyLabel}</li>}
+      <p className={`text-[8px] font-black uppercase tracking-[0.15em] ${tone === "up" ? "text-[#61d7ab]" : "text-[#f1908d]"}`}>
+        {title}
+      </p>
+      <ul className="mt-1.5 grid gap-2">
+        {items.length === 0 && (
+          <li className="text-[10px] font-semibold leading-4 text-[#faf6f0]/45">{emptyLabel}</li>
+        )}
         {items.map((item) => {
           const open = openCode === item.code;
           return (
@@ -121,18 +159,37 @@ function FactorColumn({
                 type="button"
                 onClick={() => setOpenCode(open ? null : item.code)}
                 aria-expanded={open}
-                className="flex w-full items-baseline gap-1.5 text-left text-[10px] font-semibold leading-4 text-[#faf6f0]/62 transition hover:text-[#faf6f0]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+                className="block w-full rounded-lg text-left transition hover:bg-[#faf6f0]/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
               >
-                <span className="min-w-0">— {item.label}</span>
-                <span
-                  aria-hidden="true"
-                  className={`shrink-0 text-[8px] text-[#ddb159]/75 transition-transform ${open ? "rotate-180" : ""}`}
-                >
-                  ▾
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate text-[10.5px] font-bold text-[#faf6f0]/78">
+                    {item.label}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 text-[8.5px] font-black text-[#faf6f0]/40">
+                    {item.share !== null && strengthWord(item.share)}
+                    <span
+                      aria-hidden="true"
+                      className={`text-[8px] text-[#ddb159]/75 transition-transform ${open ? "rotate-180" : ""}`}
+                    >
+                      ▾
+                    </span>
+                  </span>
                 </span>
+                {item.share !== null && (
+                  <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-[#faf6f0]/8">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{
+                        width: `${Math.max(item.share * 100, 8)}%`,
+                        background: barColor,
+                        opacity: 0.85,
+                      }}
+                    />
+                  </span>
+                )}
               </button>
               {open && (
-                <p className="mt-1 rounded-lg border border-[#ddb159]/16 bg-[#ddb159]/[0.06] px-2 py-1.5 text-[9.5px] font-medium leading-4 text-[#faf6f0]/72">
+                <p className="mt-1.5 rounded-lg border border-[#ddb159]/16 bg-[#ddb159]/[0.06] px-2 py-1.5 text-[9.5px] font-medium leading-4 text-[#faf6f0]/72">
                   {factorDescription(item.code)}
                 </p>
               )}
@@ -141,6 +198,33 @@ function FactorColumn({
         })}
       </ul>
     </div>
+  );
+}
+
+/* Provenance footer: how much data sits behind this rank and how fresh
+   it is — the trust signals users asked "why" for in the first place. */
+function WhyMetaFooter({ data }: { data: DiagnosticsPayload | null }) {
+  const coverage = data?.ranking?.factor_coverage;
+  const confidence = data?.ranking?.data_confidence;
+  const updatedAt = data?.diagnostics?.updated_at;
+
+  const parts: string[] = [];
+  if (typeof coverage === "number" && coverage > 0) {
+    parts.push(coverage <= 1 ? `${Math.round(coverage * 100)}% factor coverage` : `${Math.round(coverage)} factors tracked`);
+  }
+  if (typeof confidence === "string" && confidence.trim()) {
+    parts.push(`${confidence.trim().replace(/^\w/, (c) => c.toUpperCase())} data confidence`);
+  }
+  if (typeof updatedAt === "string" && updatedAt) {
+    const date = new Date(updatedAt);
+    if (Number.isFinite(date.getTime())) {
+      parts.push(`Updated ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`);
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return (
+    <p className="text-[9px] font-bold text-[#faf6f0]/34">{parts.join(" · ")}</p>
   );
 }
 
@@ -158,6 +242,7 @@ function WhyContent({
   compact?: boolean;
 }) {
   const { drivers, risks } = factorLists(data?.diagnostics);
+  const verdict = verdictSentence(stock, drivers, risks);
 
   return (
     <div className={compact ? "grid gap-3 text-[#faf6f0]" : "grid gap-4 text-[#faf6f0]"}>
@@ -187,18 +272,35 @@ function WhyContent({
       )}
 
       {!loading && !error && (
-        <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
-          <FactorColumn
-            title="Main drivers"
-            items={drivers.slice(0, compact ? 2 : 3)}
-            emptyLabel="Factor detail unavailable"
-          />
-          <FactorColumn
-            title="Risks"
-            items={risks.slice(0, compact ? 2 : 3)}
-            emptyLabel="Review company and market risk before acting"
-          />
-        </div>
+        <>
+          {verdict && (
+            <p className="rounded-xl border border-[#ddb159]/14 bg-[#ddb159]/[0.05] px-3 py-2.5 text-[11px] font-semibold leading-5 text-[#f4f1e8]/85">
+              {verdict}
+            </p>
+          )}
+
+          <div className={compact ? "grid grid-cols-2 gap-3" : "grid gap-4 sm:grid-cols-2"}>
+            <FactorColumn
+              title="Pushing it up"
+              tone="up"
+              items={drivers.slice(0, compact ? 2 : 3)}
+              emptyLabel="No factor is adding meaningful support right now."
+            />
+            <FactorColumn
+              title="Holding it back"
+              tone="down"
+              items={risks.slice(0, compact ? 2 : 3)}
+              emptyLabel="No factor is meaningfully dragging on the rank."
+            />
+          </div>
+
+          <p className="text-[9px] font-semibold leading-4 text-[#faf6f0]/38">
+            Tap a factor to see what it measures. Bar length = how hard that
+            factor is pulling relative to the others.
+          </p>
+
+          <WhyMetaFooter data={data} />
+        </>
       )}
 
       <div className="grid grid-cols-2 gap-2">
