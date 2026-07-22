@@ -456,7 +456,11 @@ function LandingCursor() {
 
   if (!enabled) return null;
 
-  return <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} data-hover="0" />;
+  return (
+    <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} data-hover="0">
+      <span className="sl-cur-dot-core" />
+    </div>
+  );
 }
 
 function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean }) {
@@ -811,7 +815,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const heroTitleRef = useRef<HTMLDivElement | null>(null);
   const heroOutlineRef = useRef<HTMLDivElement | null>(null);
   const cueRef = useRef<HTMLDivElement | null>(null);
-  const progressRef = useRef<HTMLDivElement | null>(null);
   const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
@@ -917,15 +920,13 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const cue = cueRef.current;
       if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.025));
 
-      /* hero backdrop type leaves with the title; progress bar tracks p */
+      /* hero backdrop type leaves with the title */
       const heroOutline = heroOutlineRef.current;
       if (heroOutline) {
         const o = (1 - seg(p, 0.008, 0.055)) * 0.85;
         heroOutline.style.opacity = String(o);
         heroOutline.style.visibility = o <= 0 ? "hidden" : "visible";
       }
-      const prog = progressRef.current;
-      if (prog) prog.style.transform = `scaleX(${p})`;
 
       /* finale stats count up as the CTA arrives */
       const ft = easeOut(seg(p, 0.795, 0.865));
@@ -1235,13 +1236,20 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     /* custom cursor: a single gold dot that grows over interactives
        (fine pointers; class applied only when active) */
     .sl-cursor-on .sl-root, .sl-cursor-on .sl-root * { cursor: none !important; }
+    /* the outer element only translates; the inner core scales. Mixing
+       the standalone scale property with the transform translate would
+       multiply the translation and teleport the dot on hover. */
     .sl-cur-dot {
-      position: fixed; left: -4px; top: -4px; width: 9px; height: 9px;
-      border-radius: 999px; background: #f4d78a; z-index: 120;
-      pointer-events: none; box-shadow: 0 0 16px rgba(221, 177, 89, 0.9);
-      transition: opacity 200ms ease, scale 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      position: fixed; left: -4px; top: -4px; z-index: 120;
+      pointer-events: none;
+      transition: opacity 200ms ease;
     }
-    .sl-cur-dot[data-hover="1"] { scale: 2.6; }
+    .sl-cur-dot-core {
+      display: block; width: 9px; height: 9px; border-radius: 999px;
+      background: #f4d78a; box-shadow: 0 0 16px rgba(221, 177, 89, 0.9);
+      transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .sl-cur-dot[data-hover="1"] .sl-cur-dot-core { transform: scale(2.6); }
 
     @media (prefers-reduced-motion: reduce) {
       .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora, .sl-dust { animation: none !important; }
@@ -1285,12 +1293,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       <style>{css}</style>
       <Preloader />
       <LandingCursor />
-      {/* scroll progress — hairline gold bar pinned to the very top */}
-      <div
-        ref={progressRef}
-        className="fixed inset-x-0 top-0 z-[60] h-[2.5px] origin-left bg-[linear-gradient(90deg,#f4d78a,#ddb159_60%,#c08f2f)] shadow-[0_0_12px_rgba(221,177,89,0.55)]"
-        style={{ transform: "scaleX(0)" }}
-      />
       <TopNav />
 
       {/* scroll track — the stage stays pinned while this scrolls */}
