@@ -1018,7 +1018,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       if (!running) return;
       if (current < 0) current = target;
       const diff = target - current;
-      current = Math.abs(diff) < 0.00035 ? target : current + diff * 0.15;
+      /* 0.24/frame: catches the wheel quickly while still smoothing
+         out discrete scroll steps (0.15 felt a beat behind the hand) */
+      current = Math.abs(diff) < 0.00035 ? target : current + diff * 0.24;
       if (current !== lastApplied) {
         apply(current);
         lastApplied = current;
