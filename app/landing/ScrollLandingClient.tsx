@@ -10,7 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import type { TickerTapeItem } from "@/lib/yahoo";
 import type { LandingMetrics } from "./ScrollLandingScreens";
 import {
   ChatScreen,
@@ -82,12 +81,18 @@ function seg(p: number, a: number, b: number) {
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
+type SceneLayout = "center" | "left" | "right";
+
 type SceneCopyDef = {
   index: string;
   eyebrow: string;
   title: ReactNode;
   body: string;
   chips: string[];
+  /* giant outlined verb scrubbed behind the scene */
+  word: string;
+  /* lg+ composition: centered stack, or copy beside the panel */
+  layout: SceneLayout;
 };
 
 const SCENE_COPY: SceneCopyDef[] = [
@@ -102,6 +107,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "StockGPT scans 500+ US stocks every single day and distils quality, growth, value, momentum, risk and income into one score — so your research starts at the top of a ranked list, not in a hundred open tabs.",
     chips: ["Daily model runs", "Six-factor scoring", "Rank movement tracking"],
+    word: "RANKED",
+    layout: "center",
   },
   {
     index: "02",
@@ -114,6 +121,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "Set your risk appetite, horizon and sector tilt — the Portfolio Builder drafts a fully-weighted allocation from the live rankings in seconds. Import your real positions and it keeps watching exposure, concentration and weak-ranked holdings for you.",
     chips: ["Risk-based generation", "Trading 212 CSV import", "Exposure monitoring"],
+    word: "BUILT",
+    layout: "left",
   },
   {
     index: "03",
@@ -126,6 +135,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "World News connects global headlines to the tickers they actually touch — scored for impact, mapped to sectors, and written in plain English. You know why the market moved before you have to ask.",
     chips: ["Ticker mapping", "Impact scoring", "Sector context"],
+    word: "MAPPED",
+    layout: "right",
   },
   {
     index: "04",
@@ -138,7 +149,16 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "Ask StockGPT sits on top of the entire ranking engine. Question a score, stress-test a thesis, compare two tickers side by side — and get answers grounded in the same data that builds the rankings, not vibes.",
     chips: ["Grounded in live rankings", "Thesis stress-tests", "Plain-English answers"],
+    word: "ANSWERED",
+    layout: "center",
   },
+];
+
+/* count-up stats revealed in the finale, scrubbed by scroll progress */
+const FINALE_STATS: { value: number; suffix: string; label: string }[] = [
+  { value: 500, suffix: "+", label: "US stocks scored" },
+  { value: 6, suffix: "", label: "model factors" },
+  { value: 365, suffix: "", label: "runs a year" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -264,102 +284,188 @@ function SocialRail() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Marquee tape — live market data with brand-copy fallback          */
+/*  Kinetic outlined typography                                        */
 /* ------------------------------------------------------------------ */
 
-const BRAND_TAPE = [
-  "AI-driven market insights",
-  "500+ US stocks scored daily",
-  "Six-factor model",
-  "Rankings · Portfolio · News · Ask",
-  "Built for clearer research",
-];
-
-function TapeRun({ tape }: { tape: TickerTapeItem[] }) {
-  if (tape.length === 0) {
-    return (
-      <>
-        {BRAND_TAPE.map((item) => (
-          <span key={item} className="flex items-center gap-6">
-            <span className="sl-mono text-[11px] font-black uppercase tracking-[0.26em] text-white/50">
-              {item}
-            </span>
-            <span className="text-[9px] text-[#ddb159]/70">◆</span>
-          </span>
-        ))}
-      </>
-    );
-  }
-
+/* An endless row of giant stroke-outlined words drifting sideways.
+   `size` tunes the type scale, `speed` the loop duration, `reverse`
+   the direction — the same primitive dresses the hero, the finale and
+   anything in between. */
+function OutlineRow({
+  word,
+  size = "lg",
+  speed = 60,
+  reverse = false,
+  solid = false,
+  className = "",
+}: {
+  word: string;
+  size?: "sm" | "md" | "lg";
+  speed?: number;
+  reverse?: boolean;
+  solid?: boolean;
+  className?: string;
+}) {
+  const run = (half: string) =>
+    Array.from({ length: 6 }, (_, i) => (
+      <span
+        key={`${half}${i}`}
+        className={`${solid ? "sl-outline-solid" : "sl-outline"} sl-outline-${size} px-[0.35em]`}
+      >
+        {word}
+      </span>
+    ));
   return (
-    <>
-      {tape.map((item) => (
-        <span key={item.yahooSymbol} className="flex items-center gap-6">
-          <span className="flex items-baseline gap-2.5">
-            <span className="sl-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/60">
-              {item.symbol}
-            </span>
-            <span className="sl-mono text-[11px] font-bold text-white/85">
-              {item.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span
-              className="sl-mono text-[10.5px] font-black"
-              style={{ color: item.changePct >= 0 ? "#34d399" : "#f87171" }}
-            >
-              {item.changePct >= 0 ? "▲" : "▼"} {Math.abs(item.changePct).toFixed(2)}%
-            </span>
-          </span>
-          <span className="text-[9px] text-[#ddb159]/70">◆</span>
-        </span>
-      ))}
-    </>
+    <div
+      aria-hidden="true"
+      className={`sl-tape-track flex w-max ${reverse ? "sl-tape-rev" : ""} ${className}`}
+      style={{ animationDuration: `${speed}s` }}
+    >
+      {run("a")}
+      {run("b")}
+    </div>
   );
 }
 
-function MarqueeTape({
-  tape,
-  tapeRef,
-}: {
-  tape: TickerTapeItem[];
-  tapeRef?: React.RefObject<HTMLDivElement | null>;
-}) {
-  /* the run is rendered twice; the track animates -50% for a seamless loop */
+/* Finale backdrop: three storeys of drifting outlined STOCKGPT. */
+function OutlineMarquee() {
   return (
     <div
-      ref={tapeRef}
-      className="sl-tape pointer-events-none absolute inset-x-0 bottom-0 z-[12] border-t border-white/8 bg-black/25 py-2.5 backdrop-blur-[2px]"
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0 flex flex-col justify-center gap-3 overflow-hidden opacity-70"
     >
-      <div className="sl-tape-track flex w-max items-center gap-6 pl-6">
-        <TapeRun tape={tape} />
-        <TapeRun tape={tape} />
-        <TapeRun tape={tape} />
+      <OutlineRow word="STOCKGPT" size="lg" speed={64} />
+      <OutlineRow word="SCORED ◆ RANKED ◆" size="md" speed={46} reverse />
+      <OutlineRow word="STOCKGPT" size="lg" speed={78} />
+    </div>
+  );
+}
+
+/* Per-scene kinetic backdrop: a giant outlined verb plus a ghost index
+   numeral. Horizontal drift is scrubbed straight off the scene's --k,
+   so the word slides in sync with the scroll — not on a clock. */
+function SceneBackdrop({ word, index }: { word: string; index: string }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        className="sl-backdrop-word absolute top-[8%] flex w-max items-baseline gap-[0.4em] whitespace-nowrap"
+      >
+        <span className="sl-outline sl-outline-xl">{word}</span>
+        <span className="sl-outline sl-outline-xl opacity-60">{word}</span>
+      </div>
+      <span className="sl-ghost-index absolute -bottom-[4%] right-[2%] leading-none">
+        {index}
+      </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Gold dust — slow particles rising through the stage                */
+/* ------------------------------------------------------------------ */
+
+function GoldDust() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+      {Array.from({ length: 14 }, (_, i) => (
+        <span key={i} className="sl-dust" />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Preloader — count-up + letter scramble, once per session           */
+/* ------------------------------------------------------------------ */
+
+const SCRAMBLE_CHARS = "◆▲$%#01STOCKGPT";
+
+function Preloader() {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const pctRef = useRef<HTMLSpanElement | null>(null);
+  const wordRef = useRef<HTMLSpanElement | null>(null);
+  const [mounted, setMounted] = useState(true);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    if (window.sessionStorage.getItem("sl-preloaded") === "1") {
+      /* repeat visit this session: hide instantly, unmount next tick */
+      root.style.display = "none";
+      const skip = window.setTimeout(() => setMounted(false), 0);
+      return () => window.clearTimeout(skip);
+    }
+
+    const started = performance.now();
+    const DURATION = 1400;
+    const FINAL = "STOCKGPT";
+    let raf = 0;
+    let hideTimer = 0;
+
+    const frame = (now: number) => {
+      const t = clamp01((now - started) / DURATION);
+      const pct = pctRef.current;
+      const word = wordRef.current;
+      if (pct) pct.textContent = String(Math.round(t * 100)).padStart(3, "0");
+      if (word) {
+        /* letters lock in left-to-right as the counter climbs */
+        const settled = Math.floor(t * (FINAL.length + 2));
+        word.textContent = FINAL.split("")
+          .map((letter, i) =>
+            i < settled
+              ? letter
+              : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)],
+          )
+          .join("");
+      }
+      if (t < 1) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      window.sessionStorage.setItem("sl-preloaded", "1");
+      root.classList.add("sl-preloader-out");
+      hideTimer = window.setTimeout(() => setMounted(false), 700);
+    };
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <div
+      ref={rootRef}
+      className="sl-preloader fixed inset-0 z-[140] flex flex-col items-center justify-center bg-[#020806]"
+      aria-hidden="true"
+    >
+      <span
+        ref={wordRef}
+        className="sl-mono text-[clamp(28px,6vw,64px)] font-black tracking-[0.18em] text-white"
+      >
+        ◆◆◆◆◆◆◆◆
+      </span>
+      <div className="mt-6 flex items-center gap-4">
+        <span className="h-px w-16 bg-[#ddb159]/40" />
+        <span ref={pctRef} className="sl-mono text-[13px] font-black tracking-[0.3em] text-[#ddb159]">
+          000
+        </span>
+        <span className="h-px w-16 bg-[#ddb159]/40" />
       </div>
     </div>
   );
 }
 
-/* Giant outlined headline drifting behind the finale — pure texture. */
-function OutlineMarquee() {
-  const row = Array.from({ length: 4 }, (_, i) => (
-    <span key={i} className="sl-outline px-8">
-      STOCKGPT
-    </span>
-  ));
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 flex flex-col justify-center overflow-hidden opacity-60">
-      <div className="sl-tape-track sl-tape-slow flex w-max">{row}{row}</div>
-      <div className="sl-tape-track sl-tape-slow sl-tape-rev mt-2 flex w-max">{row}{row}</div>
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/*  Custom cursor — gold dot + trailing ring (fine pointers only)     */
+/*  Custom cursor — a single gold dot (fine pointers only)             */
 /* ------------------------------------------------------------------ */
 
 function LandingCursor() {
   const dotRef = useRef<HTMLDivElement | null>(null);
-  const ringRef = useRef<HTMLDivElement | null>(null);
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
@@ -373,50 +479,29 @@ function LandingCursor() {
   useEffect(() => {
     if (!enabled) return;
     const dot = dotRef.current;
-    const ring = ringRef.current;
-    if (!dot || !ring) return;
+    if (!dot) return;
 
     document.body.classList.add("sl-cursor-on");
-
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
-    let rx = x;
-    let ry = y;
     let seen = false;
-    let raf = 0;
 
     const onMove = (event: PointerEvent) => {
-      x = event.clientX;
-      y = event.clientY;
       if (!seen) {
         seen = true;
         dot.style.opacity = "1";
-        ring.style.opacity = "1";
       }
+      dot.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
       const target = event.target as Element | null;
-      const interactive = Boolean(target?.closest?.("a, button, select, [data-cursor]"));
-      ring.dataset.hover = interactive ? "1" : "0";
+      dot.dataset.hover = target?.closest?.("a, button, select, [data-cursor]") ? "1" : "0";
     };
     const onLeave = () => {
       seen = false;
       dot.style.opacity = "0";
-      ring.style.opacity = "0";
     };
-
-    const tick = () => {
-      rx += (x - rx) * 0.16;
-      ry += (y - ry) * 0.16;
-      dot.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-      ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
 
     window.addEventListener("pointermove", onMove, { passive: true });
     document.documentElement.addEventListener("pointerleave", onLeave);
 
     return () => {
-      cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
       document.documentElement.removeEventListener("pointerleave", onLeave);
       document.body.classList.remove("sl-cursor-on");
@@ -425,27 +510,40 @@ function LandingCursor() {
 
   if (!enabled) return null;
 
-  return (
-    <>
-      <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} />
-      <div ref={ringRef} className="sl-cur-ring" style={{ opacity: 0 }} data-hover="0" />
-    </>
-  );
+  return <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} data-hover="0" />;
 }
 
-function SceneCopy({ copy }: { copy: SceneCopyDef }) {
+function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean }) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 text-center">
+    <div
+      className={
+        side
+          ? "w-full max-w-3xl px-6 text-center lg:max-w-none lg:px-0 lg:text-left"
+          : "mx-auto w-full max-w-3xl px-6 text-center"
+      }
+    >
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         {copy.index} · {copy.eyebrow}
       </p>
-      <h2 className="sl-e1 mt-3 text-[clamp(26px,4.6vw,52px)] font-black leading-[1.02] tracking-[-0.04em] text-white">
+      <h2
+        className={`sl-e1 mt-3 font-black leading-[1.02] tracking-[-0.04em] text-white ${
+          side ? "text-[clamp(26px,4.6vw,58px)]" : "text-[clamp(26px,4.6vw,52px)]"
+        }`}
+      >
         {copy.title}
       </h2>
-      <p className="sl-e2 mx-auto mt-4 max-w-2xl text-[clamp(12.5px,1.25vw,16px)] font-medium leading-relaxed text-white/55">
+      <p
+        className={`sl-e2 mt-4 max-w-2xl text-[clamp(12.5px,1.25vw,16px)] font-medium leading-relaxed text-white/55 ${
+          side ? "mx-auto lg:mx-0 lg:max-w-[34rem]" : "mx-auto"
+        }`}
+      >
         {copy.body}
       </p>
-      <div className="sl-e3 mt-4 flex flex-wrap items-center justify-center gap-2">
+      <div
+        className={`sl-e3 mt-4 flex flex-wrap items-center gap-2 ${
+          side ? "justify-center lg:justify-start" : "justify-center"
+        }`}
+      >
         {copy.chips.map((chip) => (
           <span
             key={chip}
@@ -459,12 +557,12 @@ function SceneCopy({ copy }: { copy: SceneCopyDef }) {
   );
 }
 
-function PanelFrame({ children }: { children: ReactNode }) {
+function PanelFrame({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
   return (
     <div
       className="overflow-hidden rounded-3xl border border-white/12 bg-[#04120b]"
       style={{
-        width: "min(1220px, 94vw, 112vh)",
+        width: compact ? "min(100%, 900px, 118vh)" : "min(1220px, 94vw, 112vh)",
         aspectRatio: "1280 / 756",
         boxShadow:
           "0 0 0 1px rgba(0,0,0,0.6), 0 60px 140px rgba(0,0,0,0.72), 0 0 120px rgba(221,177,89,0.07)",
@@ -635,7 +733,11 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   );
 }
 
-function FinaleContent() {
+function FinaleContent({
+  statRefs,
+}: {
+  statRefs?: React.MutableRefObject<(HTMLSpanElement | null)[]>;
+}) {
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
@@ -656,7 +758,34 @@ function FinaleContent() {
           Log in
         </GoldButton>
       </div>
-      <div className="sl-e3 mt-10 flex items-center justify-center gap-3">
+      {/* count-up stats — scrubbed by scroll in the animated landing,
+          shown at rest in the static fallback */}
+      <div className="sl-e3 mt-10 grid w-full max-w-xl grid-cols-3 gap-3">
+        {FINALE_STATS.map((stat, i) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-white/10 bg-white/[0.03] px-2 py-4 backdrop-blur-sm"
+          >
+            <span
+              ref={
+                statRefs
+                  ? (el) => {
+                      statRefs.current[i] = el;
+                    }
+                  : undefined
+              }
+              className="sl-mono block text-[clamp(22px,2.8vw,38px)] font-black leading-none text-[#ddb159]"
+            >
+              {statRefs ? "0" : `${stat.value}${stat.suffix}`}
+            </span>
+            <span className="mt-2 block text-[9.5px] font-black uppercase tracking-[0.16em] text-white/40">
+              {stat.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="sl-e3 mt-9 flex items-center justify-center gap-3">
         {SOCIALS.map((social) => (
           <SocialIconLink key={social.href} social={social} />
         ))}
@@ -688,18 +817,13 @@ function FinaleContent() {
 /*  Main component                                                    */
 /* ================================================================== */
 
-export function ScrollLandingClient({
-  metrics,
-  tape = [],
-}: {
-  metrics: LandingMetrics;
-  tape?: TickerTapeItem[];
-}) {
+export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const scrollerRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLDivElement | null>(null);
+  const heroOutlineRef = useRef<HTMLDivElement | null>(null);
   const cueRef = useRef<HTMLDivElement | null>(null);
-  const tapeRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
+  const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
@@ -805,15 +929,25 @@ export function ScrollLandingClient({
       const cue = cueRef.current;
       if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
 
-      /* market tape leaves with the hero; progress bar tracks p */
-      const tapeEl = tapeRef.current;
-      if (tapeEl) {
-        const o = 1 - seg(p, 0.015, 0.06);
-        tapeEl.style.opacity = String(o);
-        tapeEl.style.visibility = o <= 0 ? "hidden" : "visible";
+      /* hero backdrop type leaves with the title; progress bar tracks p */
+      const heroOutline = heroOutlineRef.current;
+      if (heroOutline) {
+        const o = (1 - seg(p, 0.01, 0.07)) * 0.85;
+        heroOutline.style.opacity = String(o);
+        heroOutline.style.visibility = o <= 0 ? "hidden" : "visible";
       }
       const prog = progressRef.current;
       if (prog) prog.style.transform = `scaleX(${p})`;
+
+      /* finale stats count up as the CTA arrives */
+      const ft = easeOut(seg(p, 0.9, 0.975));
+      statRefs.current.forEach((el, i) => {
+        if (!el) return;
+        const stat = FINALE_STATS[i];
+        if (!stat) return;
+        const value = `${Math.round(stat.value * ft)}${ft >= 1 ? stat.suffix : ""}`;
+        if (el.textContent !== value) el.textContent = value;
+      });
 
       /* spotlight recedes as the card takes over the frame */
       const glow = glowRef.current;
@@ -1029,22 +1163,82 @@ export function ScrollLandingClient({
     }
     .sl-magnet:hover { --mags: 1.04; }
 
-    /* marquee tape */
-    @keyframes slTape { to { transform: translate3d(-33.333%, 0, 0); } }
-    .sl-tape-track { animation: slTape 34s linear infinite; will-change: transform; }
-    .sl-tape-slow { animation-duration: 60s; }
+    /* endless drifting type */
+    @keyframes slTape { to { transform: translate3d(-50%, 0, 0); } }
+    .sl-tape-track { animation: slTape 60s linear infinite; will-change: transform; }
     .sl-tape-rev { animation-direction: reverse; }
 
-    /* giant outlined drift text behind the finale */
-    .sl-outline {
-      font-size: clamp(90px, 17vw, 240px);
+    /* giant outlined type, in four scales */
+    .sl-outline, .sl-outline-solid {
       font-weight: 900;
       line-height: 1;
       letter-spacing: -0.04em;
-      color: transparent;
-      -webkit-text-stroke: 1.5px rgba(221, 177, 89, 0.14);
       white-space: nowrap;
     }
+    .sl-outline {
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(221, 177, 89, 0.15);
+    }
+    .sl-outline-solid { color: rgba(221, 177, 89, 0.07); }
+    .sl-outline-sm { font-size: clamp(40px, 7vw, 100px); }
+    .sl-outline-md { font-size: clamp(60px, 10vw, 150px); }
+    .sl-outline-lg { font-size: clamp(90px, 17vw, 240px); }
+    .sl-outline-xl { font-size: clamp(120px, 24vw, 340px); }
+
+    /* scene backdrop word: drift is scrubbed from the scene's --k, so
+       the type physically rides the scroll */
+    .sl-backdrop-word {
+      left: 0;
+      opacity: 0.55;
+      transform: translate3d(calc(-12vw - (1 - var(--k, 1)) * 34vw), 0, 0);
+      will-change: transform;
+    }
+    .sl-ghost-index {
+      font-size: clamp(140px, 26vw, 380px);
+      font-weight: 900;
+      letter-spacing: -0.06em;
+      color: rgba(255, 255, 255, 0.028);
+      transform: translate3d(calc((1 - var(--k, 1)) * 8vw), 0, 0);
+      will-change: transform;
+    }
+
+    /* gold dust drifting up through the stage */
+    @keyframes slDust {
+      0% { transform: translate3d(0, 12vh, 0) scale(0.6); opacity: 0; }
+      12% { opacity: var(--dust-o, 0.5); }
+      88% { opacity: var(--dust-o, 0.5); }
+      100% { transform: translate3d(var(--dust-dx, 3vw), -108vh, 0) scale(1.1); opacity: 0; }
+    }
+    .sl-dust {
+      position: absolute;
+      bottom: 0;
+      width: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: #f4d78a;
+      box-shadow: 0 0 8px rgba(221, 177, 89, 0.8);
+      animation: slDust var(--dust-t, 16s) linear infinite;
+      animation-delay: var(--dust-d, 0s);
+      opacity: 0;
+    }
+    .sl-dust:nth-child(1)  { left: 6%;  --dust-t: 15s; --dust-d: -2s;  --dust-o: 0.4; --dust-dx: 2vw; }
+    .sl-dust:nth-child(2)  { left: 14%; --dust-t: 21s; --dust-d: -9s;  --dust-o: 0.28; --dust-dx: -3vw; }
+    .sl-dust:nth-child(3)  { left: 22%; --dust-t: 17s; --dust-d: -5s;  --dust-o: 0.5; --dust-dx: 4vw; }
+    .sl-dust:nth-child(4)  { left: 31%; --dust-t: 24s; --dust-d: -14s; --dust-o: 0.22; --dust-dx: -2vw; }
+    .sl-dust:nth-child(5)  { left: 38%; --dust-t: 14s; --dust-d: -7s;  --dust-o: 0.45; --dust-dx: 3vw; }
+    .sl-dust:nth-child(6)  { left: 46%; --dust-t: 19s; --dust-d: -11s; --dust-o: 0.3; --dust-dx: -4vw; }
+    .sl-dust:nth-child(7)  { left: 53%; --dust-t: 23s; --dust-d: -3s;  --dust-o: 0.26; --dust-dx: 2vw; }
+    .sl-dust:nth-child(8)  { left: 61%; --dust-t: 16s; --dust-d: -12s; --dust-o: 0.5; --dust-dx: -3vw; }
+    .sl-dust:nth-child(9)  { left: 68%; --dust-t: 20s; --dust-d: -6s;  --dust-o: 0.34; --dust-dx: 4vw; }
+    .sl-dust:nth-child(10) { left: 75%; --dust-t: 15s; --dust-d: -10s; --dust-o: 0.42; --dust-dx: -2vw; }
+    .sl-dust:nth-child(11) { left: 82%; --dust-t: 25s; --dust-d: -4s;  --dust-o: 0.2; --dust-dx: 3vw; }
+    .sl-dust:nth-child(12) { left: 88%; --dust-t: 18s; --dust-d: -13s; --dust-o: 0.38; --dust-dx: -4vw; }
+    .sl-dust:nth-child(13) { left: 94%; --dust-t: 22s; --dust-d: -8s;  --dust-o: 0.3; --dust-dx: 2vw; }
+    .sl-dust:nth-child(14) { left: 3%;  --dust-t: 26s; --dust-d: -16s; --dust-o: 0.24; --dust-dx: 3vw; }
+
+    /* preloader */
+    .sl-preloader { transition: transform 650ms cubic-bezier(0.7, 0, 0.2, 1); }
+    .sl-preloader-out { transform: translateY(-100%); }
 
     /* per-letter hero entrance (plays once on load) */
     @keyframes slLetter {
@@ -1081,26 +1275,19 @@ export function ScrollLandingClient({
       transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    /* custom cursor (fine pointers; class applied only when active) */
+    /* custom cursor: a single gold dot that grows over interactives
+       (fine pointers; class applied only when active) */
     .sl-cursor-on .sl-root, .sl-cursor-on .sl-root * { cursor: none !important; }
     .sl-cur-dot {
-      position: fixed; left: -3px; top: -3px; width: 7px; height: 7px;
+      position: fixed; left: -4px; top: -4px; width: 9px; height: 9px;
       border-radius: 999px; background: #f4d78a; z-index: 120;
-      pointer-events: none; box-shadow: 0 0 14px rgba(221, 177, 89, 0.85);
-      transition: opacity 200ms ease;
+      pointer-events: none; box-shadow: 0 0 16px rgba(221, 177, 89, 0.9);
+      transition: opacity 200ms ease, scale 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .sl-cur-ring {
-      position: fixed; left: -19px; top: -19px; width: 38px; height: 38px;
-      border-radius: 999px; border: 1.5px solid rgba(221, 177, 89, 0.55);
-      z-index: 119; pointer-events: none;
-      transition: opacity 200ms ease, scale 250ms ease, border-color 250ms ease, background 250ms ease;
-    }
-    .sl-cur-ring[data-hover="1"] {
-      scale: 1.75; border-color: #ddb159; background: rgba(221, 177, 89, 0.08);
-    }
+    .sl-cur-dot[data-hover="1"] { scale: 2.6; }
 
     @media (prefers-reduced-motion: reduce) {
-      .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora { animation: none !important; }
+      .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora, .sl-dust { animation: none !important; }
       .sl-magnet, .sl-parallax { transform: none !important; transition: none !important; }
     }
   `;
@@ -1139,6 +1326,7 @@ export function ScrollLandingClient({
   return (
     <main ref={scrollerRef} className="sl-root h-[100dvh] overflow-y-auto overflow-x-hidden">
       <style>{css}</style>
+      <Preloader />
       <LandingCursor />
       {/* scroll progress — hairline gold bar pinned to the very top */}
       <div
@@ -1157,6 +1345,7 @@ export function ScrollLandingClient({
         >
           {/* atmosphere */}
           <div className="sl-aurora pointer-events-none absolute inset-[-20%]" />
+          <GoldDust />
           <div className="sl-parallax pointer-events-none absolute inset-0">
             <div
               ref={glowRef}
@@ -1198,6 +1387,15 @@ export function ScrollLandingClient({
             </div>
           </div>
 
+          {/* hero backdrop: slow outlined drift behind the phone */}
+          <div
+            ref={heroOutlineRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-[30%] z-[6] overflow-hidden opacity-85"
+          >
+            <OutlineRow word="STOCKGPT" size="lg" speed={90} />
+          </div>
+
           {/* hero title */}
           <div
             ref={heroTitleRef}
@@ -1223,13 +1421,10 @@ export function ScrollLandingClient({
             </p>
           </div>
 
-          {/* live market tape along the hero's bottom edge */}
-          <MarqueeTape tape={tape} tapeRef={tapeRef} />
-
           {/* scroll cue */}
           <div
             ref={cueRef}
-            className="pointer-events-none absolute bottom-16 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
+            className="pointer-events-none absolute bottom-7 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
           >
             <span className="sl-mono text-[9.5px] font-black uppercase tracking-[0.4em] text-white/45">
               Scroll
@@ -1239,34 +1434,55 @@ export function ScrollLandingClient({
             </span>
           </div>
 
-          {/* feature scenes */}
-          {SCENE_COPY.map((copy, i) => (
-            <div
-              key={copy.index}
-              ref={(el) => {
-                sceneRefs.current[i] = el;
-              }}
-              className="sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
-              style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
-            >
-              <SceneCopy copy={copy} />
-              {i === 0 ? (
-                /* slide 2's panel is the flying card itself — this slot
-                   only reserves its landing rect in the layout */
-                <div
-                  ref={slotRef}
-                  aria-hidden
-                  style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
-                />
-              ) : (
-                <PanelFrame>
-                  <FixedScale w={1280} h={756}>
-                    {screens[i]}
-                  </FixedScale>
-                </PanelFrame>
-              )}
-            </div>
-          ))}
+          {/* feature scenes — each with its own composition. Scene 0
+              keeps the exact centered stack the card-morph geometry is
+              measured against; the others alternate copy/panel sides. */}
+          {SCENE_COPY.map((copy, i) => {
+            const split = i !== 0 && copy.layout !== "center";
+            const containerClass =
+              i === 0 || copy.layout === "center"
+                ? "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
+                : copy.layout === "left"
+                  ? "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh] lg:grid lg:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] lg:items-center lg:gap-[3vw] lg:px-[5vw] lg:pt-[9vh]"
+                  : "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh] lg:grid lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:items-center lg:gap-[3vw] lg:px-[5vw] lg:pt-[9vh]";
+
+            return (
+              <div
+                key={copy.index}
+                ref={(el) => {
+                  sceneRefs.current[i] = el;
+                }}
+                className={containerClass}
+                style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
+              >
+                <SceneBackdrop word={copy.word} index={copy.index} />
+                <div className={copy.layout === "right" ? "min-w-0 lg:order-2" : "min-w-0"}>
+                  <SceneCopy copy={copy} side={split} />
+                </div>
+                {i === 0 ? (
+                  /* slide 2's panel is the flying card itself — this slot
+                     only reserves its landing rect in the layout */
+                  <div
+                    ref={slotRef}
+                    aria-hidden
+                    style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
+                  />
+                ) : (
+                  <div
+                    className={`flex w-full min-w-0 justify-center px-2 lg:px-0 ${
+                      copy.layout === "right" ? "lg:order-1" : ""
+                    }`}
+                  >
+                    <PanelFrame compact={split}>
+                      <FixedScale w={1280} h={756}>
+                        {screens[i]}
+                      </FixedScale>
+                    </PanelFrame>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* finale */}
           <div
@@ -1277,7 +1493,16 @@ export function ScrollLandingClient({
             style={{ ...hiddenScene, pointerEvents: "none" }}
           >
             <OutlineMarquee />
-            <FinaleContent />
+            <FinaleContent statRefs={statRefs} />
+            {/* giant cropped wordmark bleeding off the bottom edge */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 -bottom-[7vw] z-0 whitespace-nowrap text-center"
+            >
+              <span className="text-[19vw] font-black leading-none tracking-[-0.06em] text-white/[0.045]">
+                STOCKGPT
+              </span>
+            </div>
           </div>
 
           {/* socials rail */}
