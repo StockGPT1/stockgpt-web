@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { LandingMetrics } from "./ScrollLandingScreens";
+import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
   ChatScreen,
   FixedScale,
@@ -210,60 +211,6 @@ function GoldButton({
     >
       {children}
     </Link>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Socials — TikTok / Instagram / X                                  */
-/* ------------------------------------------------------------------ */
-
-const SOCIALS = [
-  {
-    label: "TikTok — @stockgptltd",
-    href: "https://www.tiktok.com/@stockgptltd",
-    icon: (
-      <path d="M16.6 3c.4 2.1 1.9 3.7 4 4v3.1c-1.5 0-2.9-.5-4-1.3v6.7a6 6 0 1 1-6-6c.3 0 .7 0 1 .1v3.2a2.9 2.9 0 1 0 2 2.7V3h3z" />
-    ),
-  },
-  {
-    label: "Instagram — @stockgptpro2",
-    href: "https://www.instagram.com/stockgptpro2",
-    icon: (
-      <>
-        <rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" strokeWidth="2" stroke="currentColor" />
-        <circle cx="12" cy="12" r="4.1" fill="none" strokeWidth="2" stroke="currentColor" />
-        <circle cx="17.2" cy="6.8" r="1.3" />
-      </>
-    ),
-  },
-  {
-    label: "X — @stockgptpro",
-    href: "https://x.com/stockgptpro",
-    icon: (
-      <path d="M18.9 2H22l-7.9 9.1L23.2 22h-6.8l-5.3-6.6L5 22H1.9l8.5-9.7L1.3 2h7l4.8 6.1L18.9 2zm-1.2 18h1.7L7.3 3.9H5.5L17.7 20z" />
-    ),
-  },
-];
-
-function SocialIconLink({
-  social,
-  className = "",
-}: {
-  social: (typeof SOCIALS)[number];
-  className?: string;
-}) {
-  return (
-    <a
-      href={social.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={social.label}
-      className={`sl-social grid size-11 place-items-center rounded-full border border-white/12 bg-white/[0.03] !text-white/55 no-underline backdrop-blur-sm transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 hover:!text-[#ddb159] hover:shadow-[0_0_22px_rgba(221,177,89,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] ${className}`}
-    >
-      <svg viewBox="0 0 24 24" className="size-[17px]" fill="currentColor" aria-hidden="true">
-        {social.icon}
-      </svg>
-    </a>
   );
 }
 
@@ -735,6 +682,7 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
       </section>
 
       <FinaleContent />
+      <LandingBelowFold />
     </div>
   );
 }
@@ -1542,6 +1490,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           <SocialRail />
         </div>
       </div>
+
+      {/* Revolut-style below-the-fold: normal flow after the story */}
+      <LandingBelowFold />
     </main>
   );
 }

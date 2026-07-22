@@ -14,6 +14,7 @@ import { AppChromeProvider } from "@/components/AppChromeProvider";
 import { MobileAppHeader } from "@/components/MobileAppHeader";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { GlobalSearchOverlay } from "@/components/GlobalSearchOverlay";
+import { CommandPalette } from "@/components/CommandPalette";
 import type { AskContext } from "@/lib/ask-context";
 
 const navItems = [
@@ -342,6 +343,7 @@ export async function AppShell({
       </div>
 
         <GlobalSearchOverlay showRankingData={canUseAskStockGPT} />
+        <CommandPalette />
         <MobileBottomNav unreadCount={unreadCount} />
       </div>
     </AppChromeProvider>
