@@ -331,7 +331,7 @@ function OutlineMarquee() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-0 flex flex-col justify-center gap-3 overflow-hidden opacity-70"
+      className="sl-mq-k pointer-events-none absolute inset-0 z-0 flex flex-col justify-center gap-3 overflow-hidden"
     >
       <OutlineRow word="STOCKGPT" size="lg" speed={64} />
       <OutlineRow word="SCORED ◆ RANKED ◆" size="md" speed={46} reverse />
@@ -746,13 +746,13 @@ function ManifestoContent() {
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         05 · Why StockGPT exists
       </p>
-      <h2 className="sl-e1 mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
+      <h2 className="sl-e1 sl-spread mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] text-white">
         No noise.
       </h2>
-      <h2 className="sl-e2 sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+      <h2 className="sl-e2 sl-spread sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98]">
         No vibes.
       </h2>
-      <h2 className="sl-e3 sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+      <h2 className="sl-e3 sl-spread sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98]">
         Just structure.
       </h2>
       <p className="sl-e3 mx-auto mt-7 max-w-2xl text-[clamp(13px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
@@ -865,6 +865,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const cueRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const veilRef = useRef<HTMLDivElement | null>(null);
+  const askWordRef = useRef<HTMLDivElement | null>(null);
+  const askBlockRef = useRef<HTMLSpanElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
@@ -1032,7 +1035,20 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
       }
 
-      /* feature scenes + finale */
+      /* ------------------------------------------------------------ */
+      /*  Scenes — every hand-off is a different camera move:          */
+      /*    0→1  the camera DIVES INTO the rankings panel through a    */
+      /*         gold flash; portfolio emerges from inside the zoom    */
+      /*    1→2  portfolio slides off left; news pushes in from the    */
+      /*         right on a perspective hinge                          */
+      /*    2→3  news COLLAPSES INTO A PIXEL that lands as the full    */
+      /*         stop of a giant "ASK." — then Ask rises beneath it    */
+      /*    3→4  Ask pushes straight up; the manifesto flips up from   */
+      /*         the floor                                             */
+      /*    4→5  the manifesto's letters blow apart (tracking          */
+      /*         explosion); the stats wall stamps in from a zoom      */
+      /*    5→6  stats sink away; the finale marquee zoom-settles      */
+      /* ------------------------------------------------------------ */
       SCENES.forEach((w, i) => {
         const el = sceneRefs.current[i];
         if (!el) return;
@@ -1044,25 +1060,105 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           /* the card is already on screen carrying the transition; the
              copy above it rises in around the landed card. The scene
              root must not move while entering, or the slot would slide
-             out from under the card. */
-          const o = seg(p, 0.27 * Z, 0.31 * Z) * (1 - tout);
+             out from under the card. Exit is the dive: the camera
+             accelerates INTO the panel. */
+          const o = seg(p, 0.27 * Z, 0.31 * Z) * (1 - seg(tout, 0.5, 1));
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
-          el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
-          el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
+          el.style.transform = tout > 0 ? `scale(${1 + tout * 4.6})` : "none";
+          el.style.filter = tout > 0.01 ? `blur(${tout * 13}px)` : "none";
           el.style.setProperty("--k", easeOut(seg(p, 0.3 * Z, 0.38 * Z)).toFixed(4));
           return;
         }
 
         const tin = easeOut(seg(t, 0, w.final ? 0.5 : 0.24));
-        const o = tin * (1 - tout);
+        let o = tin * (1 - tout);
+        let transform = "";
+        let filter = "none";
+
+        switch (i) {
+          case 1: {
+            /* born inside the dive: shrinks from deep zoom into place */
+            const emerge = 1 + (1 - tin) * 3.4;
+            transform = `translateX(${tout * -36}vw) scale(${emerge})`;
+            filter =
+              tin < 0.99
+                ? `blur(${(1 - tin) * 9}px)`
+                : tout > 0.01
+                  ? `blur(${tout * 7}px)`
+                  : "none";
+            break;
+          }
+          case 2: {
+            /* hinges in from the right; collapses to centre — becoming
+               the pixel the ASK interstitial claims as its full stop */
+            const x = (1 - tin) * 56;
+            const rot = (1 - tin) * -13;
+            transform = `perspective(1500px) translateX(${x}vw) rotateY(${rot}deg) scale(${1 - tout * 0.95})`;
+            o = tin * (1 - seg(tout, 0.8, 1));
+            filter = tout > 0.6 ? "none" : 1 - tin > 0.01 ? `blur(${(1 - tin) * 6}px)` : "none";
+            break;
+          }
+          case 3: {
+            /* rises beneath the ASK word, exits straight up */
+            transform = `translateY(${(1 - tin) * 110 - tout * 420}px) scale(${0.96 + tin * 0.04})`;
+            filter = tout > 0.01 ? `blur(${tout * 7}px)` : "none";
+            break;
+          }
+          case 4: {
+            /* flips up from the floor; letters blow apart on exit via
+               --spread (letter-spacing) on the manifesto lines */
+            el.style.transformOrigin = "50% 90%";
+            transform = `perspective(1300px) rotateX(${(1 - tin) * 17}deg) translateY(${(1 - tin) * 130}px)`;
+            el.style.setProperty("--spread", (tout * 0.42).toFixed(3));
+            o = tin * (1 - seg(tout, 0.55, 1));
+            break;
+          }
+          case 5: {
+            /* stamps in from an over-zoom, sinks away when done */
+            transform = `translateY(${tout * 150}px) scale(${1.3 - tin * 0.3 + tout * 0.06})`;
+            filter =
+              tin < 0.99
+                ? `blur(${(1 - tin) * 7}px)`
+                : tout > 0.01
+                  ? `blur(${tout * 5}px)`
+                  : "none";
+            break;
+          }
+          default: {
+            transform = `translateY(${(1 - tin) * 90}px) scale(${0.95 + tin * 0.05 + tout * 0.13})`;
+            filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
+          }
+        }
+
         el.style.opacity = String(o);
         el.style.visibility = o < 0.003 ? "hidden" : "visible";
-        el.style.transform = `translateY(${(1 - tin) * 90}px) scale(${0.95 + tin * 0.05 + tout * 0.13})`;
-        el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
+        el.style.transform = transform;
+        el.style.filter = filter;
         el.style.setProperty("--k", tin.toFixed(4));
         if (w.final) el.style.pointerEvents = o > 0.5 ? "auto" : "none";
       });
+
+      /* gold veil — the flash as the camera punches through the panel */
+      const veil = veilRef.current;
+      if (veil) {
+        const v = Math.max(0, 1 - Math.abs(p - SCENES[0].b) / 0.02);
+        veil.style.opacity = (v * 0.85).toFixed(3);
+      }
+
+      /* ASK. interstitial — scene 2's collapse lands as its full stop,
+         then the whole word scales past the camera as Ask arrives */
+      const askWord = askWordRef.current;
+      const askBlock = askBlockRef.current;
+      if (askWord && askBlock) {
+        const grow = easeOut(seg(p, 0.578, SCENES[2].b));
+        const leave = seg(p, SCENES[2].b, 0.638);
+        const o = Math.min(seg(p, 0.578, 0.59), 1 - leave);
+        askWord.style.opacity = o.toFixed(3);
+        askWord.style.visibility = o <= 0 ? "hidden" : "visible";
+        askWord.style.transform = `translate(-50%, -50%) scale(${1 + leave * 1.6})`;
+        askBlock.style.transform = `scale(${Math.max(grow, 0.001)})`;
+      }
     };
 
     const tick = () => {
@@ -1188,6 +1284,13 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-stroke-white {
       color: transparent;
       -webkit-text-stroke: 2px rgba(255, 255, 255, 0.4);
+    }
+    /* tracking explosion: base -0.05em, blown apart by the scene's --spread */
+    .sl-spread { letter-spacing: calc(-0.05em + var(--spread, 0) * 1em); }
+    /* finale marquee zoom-settles with the scene's --k */
+    .sl-mq-k {
+      opacity: calc(var(--k, 1) * 0.7);
+      transform: scale(calc(1.12 - var(--k, 1) * 0.12));
     }
     .sl-outline-sm { font-size: clamp(40px, 7vw, 100px); }
     .sl-outline-md { font-size: clamp(60px, 10vw, 150px); }
@@ -1378,6 +1481,41 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             style={{ visibility: "hidden", opacity: 0 }}
           >
             <RankCard metrics={metrics} />
+          </div>
+
+          {/* gold veil for the dive-through cut (0→1) */}
+          <div
+            ref={veilRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[38]"
+            style={{
+              opacity: 0,
+              background:
+                "radial-gradient(ellipse 62% 52% at 50% 50%, rgba(244,215,138,0.95), rgba(221,177,89,0.72) 42%, rgba(2,8,6,0) 76%)",
+            }}
+          />
+
+          {/* ASK. interstitial — the collapsing news scene becomes the
+              gold full stop of this word (2→3) */}
+          <div
+            ref={askWordRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 z-[28]"
+            style={{ opacity: 0, visibility: "hidden", transform: "translate(-50%, -50%)" }}
+          >
+            <div className="flex items-end gap-[0.14em]">
+              <span
+                className="sl-mono text-[clamp(72px,14vw,200px)] font-black leading-none tracking-[-0.02em] text-white"
+                style={{ textShadow: "0 12px 70px rgba(0,0,0,0.8)" }}
+              >
+                ASK
+              </span>
+              <span
+                ref={askBlockRef}
+                className="mb-[0.055em] block size-[clamp(15px,2.6vw,38px)] bg-[#ddb159]"
+                style={{ transform: "scale(0.001)", boxShadow: "0 0 46px rgba(221,177,89,0.85)" }}
+              />
+            </div>
           </div>
 
           {/* hero phone — pointer-events-none is load-bearing: this
