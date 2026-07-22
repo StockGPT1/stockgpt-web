@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import type { TickerTapeItem } from "@/lib/yahoo";
 import type { LandingMetrics } from "./ScrollLandingScreens";
 import {
   ChatScreen,
@@ -137,6 +145,9 @@ const SCENE_COPY: SceneCopyDef[] = [
 /*  Shared UI pieces                                                  */
 /* ------------------------------------------------------------------ */
 
+/* Magnetic CTA: the button leans toward the cursor while hovered and
+   springs home on leave. Pure transform on a CSS var, so it composes
+   with the sheen and never fights the scroll engine. */
 function GoldButton({
   href,
   children,
@@ -146,11 +157,33 @@ function GoldButton({
   children: ReactNode;
   ghost?: boolean;
 }) {
+  const ref = useRef<HTMLAnchorElement | null>(null);
+
+  const onMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const el = ref.current;
+    if (!el || event.pointerType !== "mouse") return;
+    const rect = el.getBoundingClientRect();
+    const dx = event.clientX - (rect.left + rect.width / 2);
+    const dy = event.clientY - (rect.top + rect.height / 2);
+    el.style.setProperty("--magx", `${(dx * 0.22).toFixed(1)}px`);
+    el.style.setProperty("--magy", `${(dy * 0.3).toFixed(1)}px`);
+  };
+
+  const onLeave = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--magx", "0px");
+    el.style.setProperty("--magy", "0px");
+  };
+
   return (
     <Link
+      ref={ref}
       href={href}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
       className={[
-        "fx-sheen inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
+        "fx-sheen sl-magnet inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
         ghost
           ? "border border-white/25 bg-white/[0.04] !text-white hover:bg-white/[0.09]"
           : "border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] !text-[#071b11] shadow-[0_10px_40px_rgba(221,177,89,0.35)]",
@@ -158,6 +191,245 @@ function GoldButton({
     >
       {children}
     </Link>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Socials — TikTok / Instagram / X                                  */
+/* ------------------------------------------------------------------ */
+
+const SOCIALS = [
+  {
+    label: "TikTok — @stockgptltd",
+    href: "https://www.tiktok.com/@stockgptltd",
+    icon: (
+      <path d="M16.6 3c.4 2.1 1.9 3.7 4 4v3.1c-1.5 0-2.9-.5-4-1.3v6.7a6 6 0 1 1-6-6c.3 0 .7 0 1 .1v3.2a2.9 2.9 0 1 0 2 2.7V3h3z" />
+    ),
+  },
+  {
+    label: "Instagram — @stockgptpro2",
+    href: "https://www.instagram.com/stockgptpro2",
+    icon: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" strokeWidth="2" stroke="currentColor" />
+        <circle cx="12" cy="12" r="4.1" fill="none" strokeWidth="2" stroke="currentColor" />
+        <circle cx="17.2" cy="6.8" r="1.3" />
+      </>
+    ),
+  },
+  {
+    label: "X — @stockgptpro",
+    href: "https://x.com/stockgptpro",
+    icon: (
+      <path d="M18.9 2H22l-7.9 9.1L23.2 22h-6.8l-5.3-6.6L5 22H1.9l8.5-9.7L1.3 2h7l4.8 6.1L18.9 2zm-1.2 18h1.7L7.3 3.9H5.5L17.7 20z" />
+    ),
+  },
+];
+
+function SocialIconLink({
+  social,
+  className = "",
+}: {
+  social: (typeof SOCIALS)[number];
+  className?: string;
+}) {
+  return (
+    <a
+      href={social.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={social.label}
+      className={`sl-social grid size-11 place-items-center rounded-full border border-white/12 bg-white/[0.03] !text-white/55 no-underline backdrop-blur-sm transition hover:border-[#ddb159] hover:bg-[#ddb159]/10 hover:!text-[#ddb159] hover:shadow-[0_0_22px_rgba(221,177,89,0.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] ${className}`}
+    >
+      <svg viewBox="0 0 24 24" className="size-[17px]" fill="currentColor" aria-hidden="true">
+        {social.icon}
+      </svg>
+    </a>
+  );
+}
+
+/* Vertical rail pinned to the left edge on desktop — present through
+   the whole scroll story, mirroring the progress dots on the right. */
+function SocialRail() {
+  return (
+    <div className="absolute left-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-3 md:flex">
+      <span className="sl-mono mb-1 text-[8.5px] font-black uppercase tracking-[0.3em] text-white/30 [writing-mode:vertical-rl]">
+        Follow
+      </span>
+      {SOCIALS.map((social) => (
+        <SocialIconLink key={social.href} social={social} />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Marquee tape — live market data with brand-copy fallback          */
+/* ------------------------------------------------------------------ */
+
+const BRAND_TAPE = [
+  "AI-driven market insights",
+  "500+ US stocks scored daily",
+  "Six-factor model",
+  "Rankings · Portfolio · News · Ask",
+  "Built for clearer research",
+];
+
+function TapeRun({ tape }: { tape: TickerTapeItem[] }) {
+  if (tape.length === 0) {
+    return (
+      <>
+        {BRAND_TAPE.map((item) => (
+          <span key={item} className="flex items-center gap-6">
+            <span className="sl-mono text-[11px] font-black uppercase tracking-[0.26em] text-white/50">
+              {item}
+            </span>
+            <span className="text-[9px] text-[#ddb159]/70">◆</span>
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {tape.map((item) => (
+        <span key={item.yahooSymbol} className="flex items-center gap-6">
+          <span className="flex items-baseline gap-2.5">
+            <span className="sl-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/60">
+              {item.symbol}
+            </span>
+            <span className="sl-mono text-[11px] font-bold text-white/85">
+              {item.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span
+              className="sl-mono text-[10.5px] font-black"
+              style={{ color: item.changePct >= 0 ? "#34d399" : "#f87171" }}
+            >
+              {item.changePct >= 0 ? "▲" : "▼"} {Math.abs(item.changePct).toFixed(2)}%
+            </span>
+          </span>
+          <span className="text-[9px] text-[#ddb159]/70">◆</span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+function MarqueeTape({
+  tape,
+  tapeRef,
+}: {
+  tape: TickerTapeItem[];
+  tapeRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  /* the run is rendered twice; the track animates -50% for a seamless loop */
+  return (
+    <div
+      ref={tapeRef}
+      className="sl-tape pointer-events-none absolute inset-x-0 bottom-0 z-[12] border-t border-white/8 bg-black/25 py-2.5 backdrop-blur-[2px]"
+    >
+      <div className="sl-tape-track flex w-max items-center gap-6 pl-6">
+        <TapeRun tape={tape} />
+        <TapeRun tape={tape} />
+        <TapeRun tape={tape} />
+      </div>
+    </div>
+  );
+}
+
+/* Giant outlined headline drifting behind the finale — pure texture. */
+function OutlineMarquee() {
+  const row = Array.from({ length: 4 }, (_, i) => (
+    <span key={i} className="sl-outline px-8">
+      STOCKGPT
+    </span>
+  ));
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 flex flex-col justify-center overflow-hidden opacity-60">
+      <div className="sl-tape-track sl-tape-slow flex w-max">{row}{row}</div>
+      <div className="sl-tape-track sl-tape-slow sl-tape-rev mt-2 flex w-max">{row}{row}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom cursor — gold dot + trailing ring (fine pointers only)     */
+/* ------------------------------------------------------------------ */
+
+function LandingCursor() {
+  const dotRef = useRef<HTMLDivElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: fine)");
+    const update = () => setEnabled(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const dot = dotRef.current;
+    const ring = ringRef.current;
+    if (!dot || !ring) return;
+
+    document.body.classList.add("sl-cursor-on");
+
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    let rx = x;
+    let ry = y;
+    let seen = false;
+    let raf = 0;
+
+    const onMove = (event: PointerEvent) => {
+      x = event.clientX;
+      y = event.clientY;
+      if (!seen) {
+        seen = true;
+        dot.style.opacity = "1";
+        ring.style.opacity = "1";
+      }
+      const target = event.target as Element | null;
+      const interactive = Boolean(target?.closest?.("a, button, select, [data-cursor]"));
+      ring.dataset.hover = interactive ? "1" : "0";
+    };
+    const onLeave = () => {
+      seen = false;
+      dot.style.opacity = "0";
+      ring.style.opacity = "0";
+    };
+
+    const tick = () => {
+      rx += (x - rx) * 0.16;
+      ry += (y - ry) * 0.16;
+      dot.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
+      document.body.classList.remove("sl-cursor-on");
+    };
+  }, [enabled]);
+
+  if (!enabled) return null;
+
+  return (
+    <>
+      <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} />
+      <div ref={ringRef} className="sl-cur-ring" style={{ opacity: 0 }} data-hover="0" />
+    </>
   );
 }
 
@@ -365,7 +637,7 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
 
 function FinaleContent() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
+    <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         Your move
       </p>
@@ -384,7 +656,12 @@ function FinaleContent() {
           Log in
         </GoldButton>
       </div>
-      <div className="sl-e3 mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-bold text-white/40">
+      <div className="sl-e3 mt-10 flex items-center justify-center gap-3">
+        {SOCIALS.map((social) => (
+          <SocialIconLink key={social.href} social={social} />
+        ))}
+      </div>
+      <div className="sl-e3 mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-bold text-white/40">
         <Link href="/about" className="!text-white/40 no-underline hover:!text-[#ddb159]">
           About
         </Link>
@@ -411,10 +688,19 @@ function FinaleContent() {
 /*  Main component                                                    */
 /* ================================================================== */
 
-export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
+export function ScrollLandingClient({
+  metrics,
+  tape = [],
+}: {
+  metrics: LandingMetrics;
+  tape?: TickerTapeItem[];
+}) {
   const scrollerRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLDivElement | null>(null);
   const cueRef = useRef<HTMLDivElement | null>(null);
+  const tapeRef = useRef<HTMLDivElement | null>(null);
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
@@ -518,6 +804,16 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       }
       const cue = cueRef.current;
       if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
+
+      /* market tape leaves with the hero; progress bar tracks p */
+      const tapeEl = tapeRef.current;
+      if (tapeEl) {
+        const o = 1 - seg(p, 0.015, 0.06);
+        tapeEl.style.opacity = String(o);
+        tapeEl.style.visibility = o <= 0 ? "hidden" : "visible";
+      }
+      const prog = progressRef.current;
+      if (prog) prog.style.transform = `scaleX(${p})`;
 
       /* spotlight recedes as the card takes over the frame */
       const glow = glowRef.current;
@@ -724,8 +1020,88 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-caret { animation: slCaret 1s steps(1) infinite; }
     @keyframes slPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     .sl-pulse { animation: slPulse 1.6s ease-in-out infinite; }
+
+    /* magnetic CTAs — transform lives on CSS vars so hover scale,
+       cursor pull and spring-back all compose */
+    .sl-magnet {
+      transform: translate3d(var(--magx, 0px), var(--magy, 0px), 0) scale(var(--mags, 1));
+      transition: transform 320ms cubic-bezier(0.22, 1.4, 0.36, 1);
+    }
+    .sl-magnet:hover { --mags: 1.04; }
+
+    /* marquee tape */
+    @keyframes slTape { to { transform: translate3d(-33.333%, 0, 0); } }
+    .sl-tape-track { animation: slTape 34s linear infinite; will-change: transform; }
+    .sl-tape-slow { animation-duration: 60s; }
+    .sl-tape-rev { animation-direction: reverse; }
+
+    /* giant outlined drift text behind the finale */
+    .sl-outline {
+      font-size: clamp(90px, 17vw, 240px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(221, 177, 89, 0.14);
+      white-space: nowrap;
+    }
+
+    /* per-letter hero entrance (plays once on load) */
+    @keyframes slLetter {
+      from { opacity: 0; transform: translateY(46px) rotate(5deg); }
+      to { opacity: 1; transform: none; }
+    }
+    .sl-letter { animation: slLetter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    /* aurora drift behind everything */
+    @keyframes slAurora {
+      0% { transform: rotate(0deg) scale(1.35); }
+      50% { transform: rotate(180deg) scale(1.5); }
+      100% { transform: rotate(360deg) scale(1.35); }
+    }
+    .sl-aurora {
+      background: conic-gradient(
+        from 90deg at 50% 50%,
+        transparent 0deg,
+        rgba(221, 177, 89, 0.05) 70deg,
+        transparent 140deg,
+        rgba(16, 185, 129, 0.045) 220deg,
+        transparent 300deg,
+        rgba(221, 177, 89, 0.04) 340deg,
+        transparent 360deg
+      );
+      filter: blur(48px);
+      animation: slAurora 46s linear infinite;
+      will-change: transform;
+    }
+
+    /* mouse-parallax spotlight (vars set on the stage) */
+    .sl-parallax {
+      transform: translate3d(calc(var(--mx, 0) * 28px), calc(var(--my, 0) * 18px), 0);
+      transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* custom cursor (fine pointers; class applied only when active) */
+    .sl-cursor-on .sl-root, .sl-cursor-on .sl-root * { cursor: none !important; }
+    .sl-cur-dot {
+      position: fixed; left: -3px; top: -3px; width: 7px; height: 7px;
+      border-radius: 999px; background: #f4d78a; z-index: 120;
+      pointer-events: none; box-shadow: 0 0 14px rgba(221, 177, 89, 0.85);
+      transition: opacity 200ms ease;
+    }
+    .sl-cur-ring {
+      position: fixed; left: -19px; top: -19px; width: 38px; height: 38px;
+      border-radius: 999px; border: 1.5px solid rgba(221, 177, 89, 0.55);
+      z-index: 119; pointer-events: none;
+      transition: opacity 200ms ease, scale 250ms ease, border-color 250ms ease, background 250ms ease;
+    }
+    .sl-cur-ring[data-hover="1"] {
+      scale: 1.75; border-color: #ddb159; background: rgba(221, 177, 89, 0.08);
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .sl-cue-anim, .sl-caret, .sl-pulse { animation: none !important; }
+      .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora { animation: none !important; }
+      .sl-magnet, .sl-parallax { transform: none !important; transition: none !important; }
     }
   `;
 
@@ -751,23 +1127,46 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     <ChatScreen key="c" />,
   ];
 
+  /* mouse parallax: normalised cursor position feeds the spotlight
+     (and nothing the scroll engine writes to) via CSS vars */
+  const onStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const stage = stageRef.current;
+    if (!stage || event.pointerType !== "mouse") return;
+    stage.style.setProperty("--mx", ((event.clientX / window.innerWidth) * 2 - 1).toFixed(3));
+    stage.style.setProperty("--my", ((event.clientY / window.innerHeight) * 2 - 1).toFixed(3));
+  };
+
   return (
     <main ref={scrollerRef} className="sl-root h-[100dvh] overflow-y-auto overflow-x-hidden">
       <style>{css}</style>
+      <LandingCursor />
+      {/* scroll progress — hairline gold bar pinned to the very top */}
+      <div
+        ref={progressRef}
+        className="fixed inset-x-0 top-0 z-[60] h-[2.5px] origin-left bg-[linear-gradient(90deg,#f4d78a,#ddb159_60%,#c08f2f)] shadow-[0_0_12px_rgba(221,177,89,0.55)]"
+        style={{ transform: "scaleX(0)" }}
+      />
       <TopNav />
 
       {/* scroll track — the stage stays pinned while this scrolls */}
       <div className="h-[700vh]">
-        <div className="sl-bg sticky top-0 h-[100dvh] overflow-hidden">
+        <div
+          ref={stageRef}
+          onPointerMove={onStagePointerMove}
+          className="sl-bg sticky top-0 h-[100dvh] overflow-hidden"
+        >
           {/* atmosphere */}
-          <div
-            ref={glowRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse 46% 42% at 50% 6%, rgba(244,231,193,0.15), transparent 60%), radial-gradient(ellipse 30% 26% at 50% 30%, rgba(221,177,89,0.12), transparent 65%)",
-            }}
-          />
+          <div className="sl-aurora pointer-events-none absolute inset-[-20%]" />
+          <div className="sl-parallax pointer-events-none absolute inset-0">
+            <div
+              ref={glowRef}
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse 46% 42% at 50% 6%, rgba(244,231,193,0.15), transparent 60%), radial-gradient(ellipse 30% 26% at 50% 30%, rgba(221,177,89,0.12), transparent 65%)",
+              }}
+            />
+          </div>
           <div className="pointer-events-none absolute bottom-[6%] left-1/2 h-[10vh] w-[64vw] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse,rgba(221,177,89,0.10),transparent_70%)] blur-2xl" />
           <div className="sl-grain pointer-events-none absolute inset-0" />
           <div className="sl-vignette pointer-events-none absolute inset-0" />
@@ -808,17 +1207,29 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
               className="text-[clamp(56px,12.5vw,150px)] font-black leading-none tracking-[-0.055em] text-white"
               style={{ textShadow: "0 10px 60px rgba(0,0,0,0.75), 0 0 110px rgba(221,177,89,0.18)" }}
             >
-              StockGPT
+              {/* per-letter entrance on load; scroll still owns the container */}
+              {"StockGPT".split("").map((letter, i) => (
+                <span
+                  key={i}
+                  className="sl-letter inline-block"
+                  style={{ animationDelay: `${0.08 + i * 0.055}s` }}
+                >
+                  {letter}
+                </span>
+              ))}
             </h1>
             <p className="sl-mono mt-2 text-[clamp(11px,1.7vw,18px)] font-bold uppercase tracking-[0.44em] text-white/60">
               AI-driven market insights
             </p>
           </div>
 
+          {/* live market tape along the hero's bottom edge */}
+          <MarqueeTape tape={tape} tapeRef={tapeRef} />
+
           {/* scroll cue */}
           <div
             ref={cueRef}
-            className="pointer-events-none absolute bottom-7 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
+            className="pointer-events-none absolute bottom-16 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2"
           >
             <span className="sl-mono text-[9.5px] font-black uppercase tracking-[0.4em] text-white/45">
               Scroll
@@ -865,8 +1276,12 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={{ ...hiddenScene, pointerEvents: "none" }}
           >
+            <OutlineMarquee />
             <FinaleContent />
           </div>
+
+          {/* socials rail */}
+          <SocialRail />
 
           {/* progress dots */}
           <nav
