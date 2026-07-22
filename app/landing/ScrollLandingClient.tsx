@@ -43,32 +43,31 @@ import {
 /*    0.900 – 1.000  finale · CTA                                     */
 /* ================================================================== */
 
-const STRAIGHTEN = { a: 0.03, b: 0.14 };
+/* The original hero-and-features timeline occupied the whole track;
+   two extra movements (manifesto, stats wall) now live in the final
+   2/9, so every original anchor is compressed by Z to keep its
+   absolute scroll distance identical. */
+const Z = 7 / 9;
+
+const STRAIGHTEN = { a: 0.03 * Z, b: 0.14 * Z };
 /* the invisible cut: the phone's "Top ranked" card undocks and flies
    to its slide-2 slot (MORPH) while its own layout unfolds from the
    compact mobile card into the desktop table (UNFOLD). The card is the
    same component in both worlds, so no surface ever swaps on screen. */
-const MORPH = { a: 0.14, b: 0.33 };
-const UNFOLD = { a: 0.17, b: 0.33 };
+const MORPH = { a: 0.14 * Z, b: 0.33 * Z };
+const UNFOLD = { a: 0.17 * Z, b: 0.33 * Z };
 
 const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
   /* scene 1 fades in around the landing dot-letter — no slide, no
      scale, so the measured letter target stays put */
-  { a: 0.29, b: 0.46, pixel: true },
-  { a: 0.46, b: 0.62 },
-  { a: 0.62, b: 0.78 },
-  { a: 0.78, b: 0.9 },
-  { a: 0.9, b: 1.0, final: true },
-];
-
-/* Progress targets for the side-rail dots. */
-const DOT_STOPS = [
-  { label: "Intro", p: 0 },
-  { label: "Rankings", p: 0.37 },
-  { label: "Portfolio Builder", p: 0.54 },
-  { label: "World News", p: 0.7 },
-  { label: "Ask StockGPT", p: 0.84 },
-  { label: "Get started", p: 0.985 },
+  { a: 0.29 * Z, b: 0.46 * Z, pixel: true },
+  { a: 0.46 * Z, b: 0.62 * Z },
+  { a: 0.62 * Z, b: 0.78 * Z },
+  { a: 0.78 * Z, b: 0.7 },
+  /* the new movements */
+  { a: 0.7, b: 0.79 },
+  { a: 0.79, b: 0.88 },
+  { a: 0.88, b: 1.0, final: true },
 ];
 
 
@@ -150,12 +149,12 @@ const SCENE_COPY: SceneCopyDef[] = [
       "Ask StockGPT sits on top of the entire ranking engine. Question a score, stress-test a thesis, compare two tickers side by side — and get answers grounded in the same data that builds the rankings, not vibes.",
     chips: ["Grounded in live rankings", "Thesis stress-tests", "Plain-English answers"],
     word: "ANSWERED",
-    layout: "center",
+    layout: "left",
   },
 ];
 
-/* count-up stats revealed in the finale, scrubbed by scroll progress */
-const FINALE_STATS: { value: number; suffix: string; label: string }[] = [
+/* count-up stats for the dedicated stats movement, scrubbed by scroll */
+const STATS: { value: number; suffix: string; label: string }[] = [
   { value: 500, suffix: "+", label: "US stocks scored" },
   { value: 6, suffix: "", label: "model factors" },
   { value: 365, suffix: "", label: "runs a year" },
@@ -728,16 +727,85 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
         </section>
       ))}
 
+      <section className="px-4 py-20">
+        <ManifestoContent />
+      </section>
+      <section className="px-4 py-20">
+        <StatsContent />
+      </section>
+
       <FinaleContent />
     </div>
   );
 }
 
-function FinaleContent({
+/* Movement 5 — the manifesto: a full-screen typographic statement. */
+function ManifestoContent() {
+  return (
+    <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
+      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
+        05 · Why StockGPT exists
+      </p>
+      <h2 className="sl-e1 mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
+        No noise.
+      </h2>
+      <h2 className="sl-e2 sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+        No vibes.
+      </h2>
+      <h2 className="sl-e3 sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+        Just structure.
+      </h2>
+      <p className="sl-e3 mx-auto mt-7 max-w-2xl text-[clamp(13px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
+        Every number on this page comes out of the same model that runs the product —
+        scored daily, ranked openly, explained on demand. Research the way it should
+        feel.
+      </p>
+    </div>
+  );
+}
+
+/* Movement 6 — the stats wall: three giant numbers counting up. */
+function StatsContent({
   statRefs,
 }: {
   statRefs?: React.MutableRefObject<(HTMLSpanElement | null)[]>;
 }) {
+  return (
+    <div className="relative z-10 mx-auto w-full max-w-6xl px-6 text-center">
+      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
+        06 · The receipts
+      </p>
+      <div className="mt-[4vh] grid grid-cols-1 gap-[4.5vh] sm:grid-cols-3 sm:gap-6">
+        {STATS.map((stat, i) => (
+          <div key={stat.label} className={i === 0 ? "sl-e1" : i === 1 ? "sl-e2" : "sl-e3"}>
+            <span
+              ref={
+                statRefs
+                  ? (el) => {
+                      statRefs.current[i] = el;
+                    }
+                  : undefined
+              }
+              className="sl-mono block text-[clamp(56px,9vw,148px)] font-black leading-none text-[#ddb159]"
+              style={{ textShadow: "0 0 60px rgba(221,177,89,0.35)" }}
+            >
+              {statRefs ? "0" : `${stat.value}${stat.suffix}`}
+            </span>
+            <span className="mt-3 block text-[10.5px] font-black uppercase tracking-[0.22em] text-white/42">
+              {stat.label}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="sl-e3 mx-auto mt-[5vh] max-w-xl text-[clamp(12px,1.15vw,15px)] font-medium leading-relaxed text-white/45">
+        Scored every market day. No cherry-picking, no backfilled wins — the model&apos;s
+        output is the product.
+      </p>
+    </div>
+  );
+}
+
+function FinaleContent() {
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
@@ -758,34 +826,7 @@ function FinaleContent({
           Log in
         </GoldButton>
       </div>
-      {/* count-up stats — scrubbed by scroll in the animated landing,
-          shown at rest in the static fallback */}
-      <div className="sl-e3 mt-10 grid w-full max-w-xl grid-cols-3 gap-3">
-        {FINALE_STATS.map((stat, i) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] px-2 py-4 backdrop-blur-sm"
-          >
-            <span
-              ref={
-                statRefs
-                  ? (el) => {
-                      statRefs.current[i] = el;
-                    }
-                  : undefined
-              }
-              className="sl-mono block text-[clamp(22px,2.8vw,38px)] font-black leading-none text-[#ddb159]"
-            >
-              {statRefs ? "0" : `${stat.value}${stat.suffix}`}
-            </span>
-            <span className="mt-2 block text-[9.5px] font-black uppercase tracking-[0.16em] text-white/40">
-              {stat.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="sl-e3 mt-9 flex items-center justify-center gap-3">
+      <div className="sl-e3 mt-10 flex items-center justify-center gap-3">
         {SOCIALS.map((social) => (
           <SocialIconLink key={social.href} social={social} />
         ))}
@@ -833,7 +874,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
 
   useEffect(() => {
@@ -919,7 +959,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const tout0 = out0 * out0;
 
       /* hero text */
-      const heroOut = seg(p, 0.03, 0.1);
+      const heroOut = seg(p, 0.03 * Z, 0.1 * Z);
       const title = heroTitleRef.current;
       if (title) {
         title.style.opacity = String(1 - easeOut(heroOut));
@@ -927,12 +967,12 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         title.style.visibility = heroOut >= 1 ? "hidden" : "visible";
       }
       const cue = cueRef.current;
-      if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
+      if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.025));
 
       /* hero backdrop type leaves with the title; progress bar tracks p */
       const heroOutline = heroOutlineRef.current;
       if (heroOutline) {
-        const o = (1 - seg(p, 0.01, 0.07)) * 0.85;
+        const o = (1 - seg(p, 0.008, 0.055)) * 0.85;
         heroOutline.style.opacity = String(o);
         heroOutline.style.visibility = o <= 0 ? "hidden" : "visible";
       }
@@ -940,10 +980,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       if (prog) prog.style.transform = `scaleX(${p})`;
 
       /* finale stats count up as the CTA arrives */
-      const ft = easeOut(seg(p, 0.9, 0.975));
+      const ft = easeOut(seg(p, 0.795, 0.865));
       statRefs.current.forEach((el, i) => {
         if (!el) return;
-        const stat = FINALE_STATS[i];
+        const stat = STATS[i];
         if (!stat) return;
         const value = `${Math.round(stat.value * ft)}${ft >= 1 ? stat.suffix : ""}`;
         if (el.textContent !== value) el.textContent = value;
@@ -963,7 +1003,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const y = c0.y + (slot.y - c0.y) * tM;
       const ov = overlayRef.current;
       if (ov) {
-        const on = p >= MORPH.a && p < 0.475;
+        const on = p >= MORPH.a && p < 0.475 * Z;
         ov.style.visibility = on ? "visible" : "hidden";
         ov.style.opacity = String(1 - tout0);
         ov.style.setProperty("--t", tC.toFixed(4));
@@ -986,7 +1026,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const tx = tM > 0 ? cx - phoneC.x - (c0.cx - phoneC.x) * F : 0;
         const ty = (tM > 0 ? y - phoneC.y - (c0.y - phoneC.y) * F : 0) + (1 - t1) * 26;
         phone.style.transform = `translate(${tx}px, ${ty}px) scale(${(0.96 + 0.04 * t1) * F})`;
-        const o = 1 - seg(p, 0.27, 0.315);
+        const o = 1 - seg(p, 0.27 * Z, 0.315 * Z);
         phone.style.opacity = String(o);
         phone.style.visibility = o <= 0 ? "hidden" : "visible";
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
@@ -1005,12 +1045,12 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
              copy above it rises in around the landed card. The scene
              root must not move while entering, or the slot would slide
              out from under the card. */
-          const o = seg(p, 0.27, 0.31) * (1 - tout);
+          const o = seg(p, 0.27 * Z, 0.31 * Z) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
           el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
           el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
-          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.38)).toFixed(4));
+          el.style.setProperty("--k", easeOut(seg(p, 0.3 * Z, 0.38 * Z)).toFixed(4));
           return;
         }
 
@@ -1022,16 +1062,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
         el.style.setProperty("--k", tin.toFixed(4));
         if (w.final) el.style.pointerEvents = o > 0.5 ? "auto" : "none";
-      });
-
-      /* dots rail */
-      let active = 0;
-      if (p >= 0.29) {
-        active = 1 + SCENES.findIndex((w, i) => (i === SCENES.length - 1 ? true : p < w.b));
-      }
-      dotRefs.current.forEach((dot, i) => {
-        if (!dot) return;
-        dot.dataset.active = i === active ? "1" : "0";
       });
     };
 
@@ -1072,13 +1102,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       window.removeEventListener("resize", onResize);
     };
   }, [staticMode]);
-
-  const scrollToProgress = (p: number) => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const max = scroller.scrollHeight - scroller.clientHeight;
-    scroller.scrollTo({ top: p * max, behavior: "smooth" });
-  };
 
   const css = `
     .sl-root {
@@ -1127,24 +1150,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-scene .sl-e2 { opacity: calc(var(--k, 1) * 1.9 - 0.44); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.44), 1) * 40px)); }
     .sl-scene .sl-e3 { opacity: calc(var(--k, 1) * 1.9 - 0.62); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.62), 1) * 46px)); }
 
-    .sl-dot {
-      display: block; height: 8px; width: 8px; border-radius: 999px;
-      background: rgba(255,255,255,0.22);
-      transition: background 300ms ease, transform 300ms ease, box-shadow 300ms ease;
-    }
-    .sl-dotbtn[data-active="1"] .sl-dot {
-      background: #ddb159; transform: scale(1.45);
-      box-shadow: 0 0 14px rgba(221,177,89,0.65);
-    }
-    .sl-dotbtn .sl-dotlabel {
-      position: absolute; right: 26px; top: 50%; transform: translateY(-50%) translateX(6px);
-      white-space: nowrap; opacity: 0; pointer-events: none;
-      transition: opacity 200ms ease, transform 200ms ease;
-    }
-    .sl-dotbtn:hover .sl-dotlabel, .sl-dotbtn:focus-visible .sl-dotlabel {
-      opacity: 1; transform: translateY(-50%) translateX(0);
-    }
-
     @keyframes slCue {
       0%, 100% { transform: translateY(0); opacity: 0.9; }
       50% { transform: translateY(9px); opacity: 0.4; }
@@ -1180,6 +1185,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       -webkit-text-stroke: 1.5px rgba(221, 177, 89, 0.15);
     }
     .sl-outline-solid { color: rgba(221, 177, 89, 0.07); }
+    .sl-stroke-white {
+      color: transparent;
+      -webkit-text-stroke: 2px rgba(255, 255, 255, 0.4);
+    }
     .sl-outline-sm { font-size: clamp(40px, 7vw, 100px); }
     .sl-outline-md { font-size: clamp(60px, 10vw, 150px); }
     .sl-outline-lg { font-size: clamp(90px, 17vw, 240px); }
@@ -1337,7 +1346,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       <TopNav />
 
       {/* scroll track — the stage stays pinned while this scrolls */}
-      <div className="h-[700vh]">
+      <div className="h-[900vh]">
         <div
           ref={stageRef}
           onPointerMove={onStagePointerMove}
@@ -1484,16 +1493,40 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             );
           })}
 
-          {/* finale */}
+          {/* movement 5 — manifesto */}
           <div
             ref={(el) => {
               sceneRefs.current[4] = el;
             }}
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
+            style={hiddenScene}
+          >
+            <SceneBackdrop word="STRUCTURE" index="05" />
+            <ManifestoContent />
+          </div>
+
+          {/* movement 6 — stats wall */}
+          <div
+            ref={(el) => {
+              sceneRefs.current[5] = el;
+            }}
+            className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
+            style={hiddenScene}
+          >
+            <SceneBackdrop word="PROOF" index="06" />
+            <StatsContent statRefs={statRefs} />
+          </div>
+
+          {/* finale */}
+          <div
+            ref={(el) => {
+              sceneRefs.current[6] = el;
+            }}
+            className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={{ ...hiddenScene, pointerEvents: "none" }}
           >
             <OutlineMarquee />
-            <FinaleContent statRefs={statRefs} />
+            <FinaleContent />
             {/* giant cropped wordmark bleeding off the bottom edge */}
             <div
               aria-hidden="true"
@@ -1507,31 +1540,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
 
           {/* socials rail */}
           <SocialRail />
-
-          {/* progress dots */}
-          <nav
-            aria-label="Landing sections"
-            className="absolute right-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-4 md:flex"
-          >
-            {DOT_STOPS.map((stop, i) => (
-              <button
-                key={stop.label}
-                ref={(el) => {
-                  dotRefs.current[i] = el;
-                }}
-                type="button"
-                data-active={i === 0 ? "1" : "0"}
-                aria-label={stop.label}
-                onClick={() => scrollToProgress(stop.p)}
-                className="sl-dotbtn relative p-1 focus:outline-none"
-              >
-                <span className="sl-dot" />
-                <span className="sl-dotlabel sl-mono text-[9px] font-black uppercase tracking-[0.22em] text-white/55">
-                  {stop.label}
-                </span>
-              </button>
-            ))}
-          </nav>
         </div>
       </div>
     </main>
