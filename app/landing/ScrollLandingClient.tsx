@@ -2,8 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import type { LandingMetrics } from "./ScrollLandingScreens";
+import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
   ChatScreen,
   FixedScale,
@@ -36,32 +44,31 @@ import {
 /*    0.900 – 1.000  finale · CTA                                     */
 /* ================================================================== */
 
-const STRAIGHTEN = { a: 0.03, b: 0.14 };
+/* The original hero-and-features timeline occupied the whole track;
+   two extra movements (manifesto, stats wall) now live in the final
+   2/9, so every original anchor is compressed by Z to keep its
+   absolute scroll distance identical. */
+const Z = 7 / 9;
+
+const STRAIGHTEN = { a: 0.03 * Z, b: 0.14 * Z };
 /* the invisible cut: the phone's "Top ranked" card undocks and flies
    to its slide-2 slot (MORPH) while its own layout unfolds from the
    compact mobile card into the desktop table (UNFOLD). The card is the
    same component in both worlds, so no surface ever swaps on screen. */
-const MORPH = { a: 0.14, b: 0.33 };
-const UNFOLD = { a: 0.17, b: 0.33 };
+const MORPH = { a: 0.14 * Z, b: 0.33 * Z };
+const UNFOLD = { a: 0.17 * Z, b: 0.33 * Z };
 
 const SCENES: { a: number; b: number; final?: boolean; pixel?: boolean }[] = [
   /* scene 1 fades in around the landing dot-letter — no slide, no
      scale, so the measured letter target stays put */
-  { a: 0.29, b: 0.46, pixel: true },
-  { a: 0.46, b: 0.62 },
-  { a: 0.62, b: 0.78 },
-  { a: 0.78, b: 0.9 },
-  { a: 0.9, b: 1.0, final: true },
-];
-
-/* Progress targets for the side-rail dots. */
-const DOT_STOPS = [
-  { label: "Intro", p: 0 },
-  { label: "Rankings", p: 0.37 },
-  { label: "Portfolio Builder", p: 0.54 },
-  { label: "World News", p: 0.7 },
-  { label: "Ask StockGPT", p: 0.84 },
-  { label: "Get started", p: 0.985 },
+  { a: 0.29 * Z, b: 0.46 * Z, pixel: true },
+  { a: 0.46 * Z, b: 0.62 * Z },
+  { a: 0.62 * Z, b: 0.78 * Z },
+  { a: 0.78 * Z, b: 0.7 },
+  /* the new movements */
+  { a: 0.7, b: 0.79 },
+  { a: 0.79, b: 0.88 },
+  { a: 0.88, b: 1.0, final: true },
 ];
 
 
@@ -74,12 +81,18 @@ function seg(p: number, a: number, b: number) {
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
+type SceneLayout = "center" | "left" | "right";
+
 type SceneCopyDef = {
   index: string;
   eyebrow: string;
   title: ReactNode;
   body: string;
   chips: string[];
+  /* giant outlined verb scrubbed behind the scene */
+  word: string;
+  /* lg+ composition: centered stack, or copy beside the panel */
+  layout: SceneLayout;
 };
 
 const SCENE_COPY: SceneCopyDef[] = [
@@ -94,6 +107,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "StockGPT scans 500+ US stocks every single day and distils quality, growth, value, momentum, risk and income into one score — so your research starts at the top of a ranked list, not in a hundred open tabs.",
     chips: ["Daily model runs", "Six-factor scoring", "Rank movement tracking"],
+    word: "RANKED",
+    layout: "center",
   },
   {
     index: "02",
@@ -106,6 +121,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "Set your risk appetite, horizon and sector tilt — the Portfolio Builder drafts a fully-weighted allocation from the live rankings in seconds. Import your real positions and it keeps watching exposure, concentration and weak-ranked holdings for you.",
     chips: ["Risk-based generation", "Trading 212 CSV import", "Exposure monitoring"],
+    word: "BUILT",
+    layout: "left",
   },
   {
     index: "03",
@@ -118,6 +135,8 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "World News connects global headlines to the tickers they actually touch — scored for impact, mapped to sectors, and written in plain English. You know why the market moved before you have to ask.",
     chips: ["Ticker mapping", "Impact scoring", "Sector context"],
+    word: "MAPPED",
+    layout: "right",
   },
   {
     index: "04",
@@ -130,13 +149,25 @@ const SCENE_COPY: SceneCopyDef[] = [
     body:
       "Ask StockGPT sits on top of the entire ranking engine. Question a score, stress-test a thesis, compare two tickers side by side — and get answers grounded in the same data that builds the rankings, not vibes.",
     chips: ["Grounded in live rankings", "Thesis stress-tests", "Plain-English answers"],
+    word: "ANSWERED",
+    layout: "left",
   },
+];
+
+/* count-up stats for the dedicated stats movement, scrubbed by scroll */
+const STATS: { value: number; suffix: string; label: string }[] = [
+  { value: 500, suffix: "+", label: "US stocks scored" },
+  { value: 6, suffix: "", label: "model factors" },
+  { value: 365, suffix: "", label: "runs a year" },
 ];
 
 /* ------------------------------------------------------------------ */
 /*  Shared UI pieces                                                  */
 /* ------------------------------------------------------------------ */
 
+/* Magnetic CTA: the button leans toward the cursor while hovered and
+   springs home on leave. Pure transform on a CSS var, so it composes
+   with the sheen and never fights the scroll engine. */
 function GoldButton({
   href,
   children,
@@ -146,11 +177,33 @@ function GoldButton({
   children: ReactNode;
   ghost?: boolean;
 }) {
+  const ref = useRef<HTMLAnchorElement | null>(null);
+
+  const onMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const el = ref.current;
+    if (!el || event.pointerType !== "mouse") return;
+    const rect = el.getBoundingClientRect();
+    const dx = event.clientX - (rect.left + rect.width / 2);
+    const dy = event.clientY - (rect.top + rect.height / 2);
+    el.style.setProperty("--magx", `${(dx * 0.22).toFixed(1)}px`);
+    el.style.setProperty("--magy", `${(dy * 0.3).toFixed(1)}px`);
+  };
+
+  const onLeave = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--magx", "0px");
+    el.style.setProperty("--magy", "0px");
+  };
+
   return (
     <Link
+      ref={ref}
       href={href}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
       className={[
-        "fx-sheen inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
+        "fx-sheen sl-magnet inline-flex h-12 items-center justify-center rounded-full px-7 text-[12px] font-black uppercase tracking-[0.16em] no-underline focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black",
         ghost
           ? "border border-white/25 bg-white/[0.04] !text-white hover:bg-white/[0.09]"
           : "border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] !text-[#071b11] shadow-[0_10px_40px_rgba(221,177,89,0.35)]",
@@ -161,23 +214,290 @@ function GoldButton({
   );
 }
 
-function SceneCopy({ copy }: { copy: SceneCopyDef }) {
+/* Vertical rail pinned to the left edge on desktop — present through
+   the whole scroll story, mirroring the progress dots on the right. */
+function SocialRail() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 text-center">
+    <div className="absolute left-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-3 md:flex">
+      <span className="sl-mono mb-1 text-[8.5px] font-black uppercase tracking-[0.3em] text-white/30 [writing-mode:vertical-rl]">
+        Follow
+      </span>
+      {SOCIALS.map((social) => (
+        <SocialIconLink key={social.href} social={social} />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Kinetic outlined typography                                        */
+/* ------------------------------------------------------------------ */
+
+/* An endless row of giant stroke-outlined words drifting sideways.
+   `size` tunes the type scale, `speed` the loop duration, `reverse`
+   the direction — the same primitive dresses the hero, the finale and
+   anything in between. */
+function OutlineRow({
+  word,
+  size = "lg",
+  speed = 60,
+  reverse = false,
+  solid = false,
+  className = "",
+}: {
+  word: string;
+  size?: "sm" | "md" | "lg";
+  speed?: number;
+  reverse?: boolean;
+  solid?: boolean;
+  className?: string;
+}) {
+  const run = (half: string) =>
+    Array.from({ length: 6 }, (_, i) => (
+      <span
+        key={`${half}${i}`}
+        className={`${solid ? "sl-outline-solid" : "sl-outline"} sl-outline-${size} px-[0.35em]`}
+      >
+        {word}
+      </span>
+    ));
+  return (
+    <div
+      aria-hidden="true"
+      className={`sl-tape-track flex w-max ${reverse ? "sl-tape-rev" : ""} ${className}`}
+      style={{ animationDuration: `${speed}s` }}
+    >
+      {run("a")}
+      {run("b")}
+    </div>
+  );
+}
+
+/* Finale backdrop: three storeys of drifting outlined STOCKGPT. */
+function OutlineMarquee() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-0 flex flex-col justify-center gap-3 overflow-hidden opacity-70"
+    >
+      <OutlineRow word="STOCKGPT" size="lg" speed={64} />
+      <OutlineRow word="SCORED ◆ RANKED ◆" size="md" speed={46} reverse />
+      <OutlineRow word="STOCKGPT" size="lg" speed={78} />
+    </div>
+  );
+}
+
+/* Per-scene kinetic backdrop: a giant outlined verb plus a ghost index
+   numeral. Horizontal drift is scrubbed straight off the scene's --k,
+   so the word slides in sync with the scroll — not on a clock. */
+function SceneBackdrop({ word, index }: { word: string; index: string }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        className="sl-backdrop-word absolute top-[8%] flex w-max items-baseline gap-[0.4em] whitespace-nowrap"
+      >
+        <span className="sl-outline sl-outline-xl">{word}</span>
+        <span className="sl-outline sl-outline-xl opacity-60">{word}</span>
+      </div>
+      <span className="sl-ghost-index absolute -bottom-[4%] right-[2%] leading-none">
+        {index}
+      </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Gold dust — slow particles rising through the stage                */
+/* ------------------------------------------------------------------ */
+
+function GoldDust() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+      {Array.from({ length: 14 }, (_, i) => (
+        <span key={i} className="sl-dust" />
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Preloader — count-up + letter scramble, once per session           */
+/* ------------------------------------------------------------------ */
+
+const SCRAMBLE_CHARS = "◆▲$%#01STOCKGPT";
+
+function Preloader() {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const pctRef = useRef<HTMLSpanElement | null>(null);
+  const wordRef = useRef<HTMLSpanElement | null>(null);
+  const [mounted, setMounted] = useState(true);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    if (window.sessionStorage.getItem("sl-preloaded") === "1") {
+      /* repeat visit this session: hide instantly, unmount next tick */
+      root.style.display = "none";
+      const skip = window.setTimeout(() => setMounted(false), 0);
+      return () => window.clearTimeout(skip);
+    }
+
+    const started = performance.now();
+    const DURATION = 1400;
+    const FINAL = "STOCKGPT";
+    let raf = 0;
+    let hideTimer = 0;
+
+    const frame = (now: number) => {
+      const t = clamp01((now - started) / DURATION);
+      const pct = pctRef.current;
+      const word = wordRef.current;
+      if (pct) pct.textContent = String(Math.round(t * 100)).padStart(3, "0");
+      if (word) {
+        /* letters lock in left-to-right as the counter climbs */
+        const settled = Math.floor(t * (FINAL.length + 2));
+        word.textContent = FINAL.split("")
+          .map((letter, i) =>
+            i < settled
+              ? letter
+              : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)],
+          )
+          .join("");
+      }
+      if (t < 1) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      window.sessionStorage.setItem("sl-preloaded", "1");
+      root.classList.add("sl-preloader-out");
+      hideTimer = window.setTimeout(() => setMounted(false), 700);
+    };
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <div
+      ref={rootRef}
+      className="sl-preloader fixed inset-0 z-[140] flex flex-col items-center justify-center bg-[#020806]"
+      aria-hidden="true"
+    >
+      <span
+        ref={wordRef}
+        className="sl-mono text-[clamp(28px,6vw,64px)] font-black tracking-[0.18em] text-white"
+      >
+        ◆◆◆◆◆◆◆◆
+      </span>
+      <div className="mt-6 flex items-center gap-4">
+        <span className="h-px w-16 bg-[#ddb159]/40" />
+        <span ref={pctRef} className="sl-mono text-[13px] font-black tracking-[0.3em] text-[#ddb159]">
+          000
+        </span>
+        <span className="h-px w-16 bg-[#ddb159]/40" />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Custom cursor — a single gold dot (fine pointers only)             */
+/* ------------------------------------------------------------------ */
+
+function LandingCursor() {
+  const dotRef = useRef<HTMLDivElement | null>(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: fine)");
+    const update = () => setEnabled(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const dot = dotRef.current;
+    if (!dot) return;
+
+    document.body.classList.add("sl-cursor-on");
+    let seen = false;
+
+    const onMove = (event: PointerEvent) => {
+      if (!seen) {
+        seen = true;
+        dot.style.opacity = "1";
+      }
+      dot.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
+      const target = event.target as Element | null;
+      dot.dataset.hover = target?.closest?.("a, button, select, [data-cursor]") ? "1" : "0";
+    };
+    const onLeave = () => {
+      seen = false;
+      dot.style.opacity = "0";
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
+      document.body.classList.remove("sl-cursor-on");
+    };
+  }, [enabled]);
+
+  if (!enabled) return null;
+
+  return (
+    <div ref={dotRef} className="sl-cur-dot" style={{ opacity: 0 }} data-hover="0">
+      <span className="sl-cur-dot-core" />
+    </div>
+  );
+}
+
+function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean }) {
+  return (
+    <div
+      className={
+        side
+          ? "w-full max-w-3xl px-6 text-center lg:max-w-none lg:px-0 lg:text-left"
+          : "mx-auto w-full max-w-3xl px-6 text-center"
+      }
+    >
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         {copy.index} · {copy.eyebrow}
       </p>
-      <h2 className="sl-e1 mt-3 text-[clamp(26px,4.6vw,52px)] font-black leading-[1.02] tracking-[-0.04em] text-white">
+      <h2
+        className={`sl-e1 mt-3 font-black leading-[1.02] tracking-[-0.04em] text-white ${
+          side ? "text-[clamp(26px,4.6vw,58px)]" : "text-[clamp(26px,4.6vw,52px)]"
+        }`}
+      >
         {copy.title}
       </h2>
-      <p className="sl-e2 mx-auto mt-4 max-w-2xl text-[clamp(12.5px,1.25vw,16px)] font-medium leading-relaxed text-white/55">
+      <p
+        className={`sl-e2 mt-4 max-w-2xl text-[clamp(12.5px,1.25vw,16px)] font-medium leading-relaxed text-white/55 ${
+          side ? "mx-auto lg:mx-0 lg:max-w-[34rem]" : "mx-auto"
+        }`}
+      >
         {copy.body}
       </p>
-      <div className="sl-e3 mt-4 flex flex-wrap items-center justify-center gap-2">
+      <div
+        className={`sl-e3 mt-4 flex flex-wrap items-center gap-2 ${
+          side ? "justify-center lg:justify-start" : "justify-center"
+        }`}
+      >
         {copy.chips.map((chip) => (
           <span
             key={chip}
-            className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-[10.5px] font-black uppercase tracking-[0.12em] text-white/60"
+            className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-white/60 sm:px-3.5 sm:py-1.5 sm:text-[10.5px] sm:tracking-[0.12em]"
           >
             {chip}
           </span>
@@ -187,12 +507,12 @@ function SceneCopy({ copy }: { copy: SceneCopyDef }) {
   );
 }
 
-function PanelFrame({ children }: { children: ReactNode }) {
+function PanelFrame({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
   return (
     <div
       className="overflow-hidden rounded-3xl border border-white/12 bg-[#04120b]"
       style={{
-        width: "min(1220px, 94vw, 112vh)",
+        width: compact ? "min(100%, 900px, 118vh)" : "min(1220px, 94vw, 112vh)",
         aspectRatio: "1280 / 756",
         boxShadow:
           "0 0 0 1px rgba(0,0,0,0.6), 0 60px 140px rgba(0,0,0,0.72), 0 0 120px rgba(221,177,89,0.07)",
@@ -286,7 +606,7 @@ function TopNav() {
         <Link
           href="/"
           aria-label="StockGPT home"
-          className="relative h-10 w-[140px] focus:outline-none focus:ring-2 focus:ring-[#ddb159] sm:h-11 sm:w-[160px]"
+          className="relative h-9 w-[112px] focus:outline-none focus:ring-2 focus:ring-[#ddb159] sm:h-11 sm:w-[160px]"
         >
           <Image
             src="/logo.png"
@@ -298,17 +618,16 @@ function TopNav() {
           />
         </Link>
         <div className="flex items-center gap-2.5">
-          {/* on mobile the single top-right button is Log in (gold);
-             desktop shows the ghost Log in + gold Create account pair */}
+          {/* same pair as desktop, compacted to fit a phone header */}
           <Link
             href="/login"
-            className="inline-flex h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:border-white/20 sm:bg-black/30 sm:!text-white sm:backdrop-blur-md sm:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-full border border-white/20 bg-black/30 px-3.5 text-[10px] font-black uppercase tracking-[0.12em] !text-white no-underline backdrop-blur-md transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:h-11 sm:px-6 sm:text-[11px] sm:tracking-[0.16em]"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="fx-sheen hidden h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:inline-flex"
+            className="fx-sheen inline-flex h-10 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-3.5 text-[10px] font-black uppercase tracking-[0.12em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:h-11 sm:px-6 sm:text-[11px] sm:tracking-[0.16em]"
           >
             Create account
           </Link>
@@ -358,14 +677,88 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
         </section>
       ))}
 
+      <section className="px-4 py-20">
+        <ManifestoContent />
+      </section>
+      <section className="px-4 py-20">
+        <StatsContent />
+      </section>
+
       <FinaleContent />
+      <LandingBelowFold />
+    </div>
+  );
+}
+
+/* Movement 5 — the manifesto: a full-screen typographic statement. */
+function ManifestoContent() {
+  return (
+    <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
+      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
+        05 · Why StockGPT exists
+      </p>
+      <h2 className="sl-e1 mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
+        No noise.
+      </h2>
+      <h2 className="sl-e2 sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+        No vibes.
+      </h2>
+      <h2 className="sl-e3 sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
+        Just structure.
+      </h2>
+      <p className="sl-e3 mx-auto mt-7 max-w-2xl text-[clamp(13px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
+        Every number on this page comes out of the same model that runs the product —
+        scored daily, ranked openly, explained on demand. Research the way it should
+        feel.
+      </p>
+    </div>
+  );
+}
+
+/* Movement 6 — the stats wall: three giant numbers counting up. */
+function StatsContent({
+  statRefs,
+}: {
+  statRefs?: React.MutableRefObject<(HTMLSpanElement | null)[]>;
+}) {
+  return (
+    <div className="relative z-10 mx-auto w-full max-w-6xl px-6 text-center">
+      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
+        06 · The receipts
+      </p>
+      <div className="mt-[4vh] grid grid-cols-1 gap-[4.5vh] sm:grid-cols-3 sm:gap-6">
+        {STATS.map((stat, i) => (
+          <div key={stat.label} className={i === 0 ? "sl-e1" : i === 1 ? "sl-e2" : "sl-e3"}>
+            <span
+              ref={
+                statRefs
+                  ? (el) => {
+                      statRefs.current[i] = el;
+                    }
+                  : undefined
+              }
+              className="sl-mono block text-[clamp(56px,9vw,148px)] font-black leading-none text-[#ddb159]"
+              style={{ textShadow: "0 0 60px rgba(221,177,89,0.35)" }}
+            >
+              {statRefs ? "0" : `${stat.value}${stat.suffix}`}
+            </span>
+            <span className="mt-3 block text-[10.5px] font-black uppercase tracking-[0.22em] text-white/42">
+              {stat.label}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="sl-e3 mx-auto mt-[5vh] max-w-xl text-[clamp(12px,1.15vw,15px)] font-medium leading-relaxed text-white/45">
+        Scored every market day. No cherry-picking, no backfilled wins — the model&apos;s
+        output is the product.
+      </p>
     </div>
   );
 }
 
 function FinaleContent() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
+    <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-20 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         Your move
       </p>
@@ -384,7 +777,12 @@ function FinaleContent() {
           Log in
         </GoldButton>
       </div>
-      <div className="sl-e3 mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-bold text-white/40">
+      <div className="sl-e3 mt-10 flex items-center justify-center gap-3">
+        {SOCIALS.map((social) => (
+          <SocialIconLink key={social.href} social={social} />
+        ))}
+      </div>
+      <div className="sl-e3 mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-bold text-white/40">
         <Link href="/about" className="!text-white/40 no-underline hover:!text-[#ddb159]">
           About
         </Link>
@@ -414,7 +812,11 @@ function FinaleContent() {
 export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const scrollerRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLDivElement | null>(null);
+  const heroOutlineRef = useRef<HTMLDivElement | null>(null);
   const cueRef = useRef<HTMLDivElement | null>(null);
+  const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
@@ -423,7 +825,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const dotRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
 
   useEffect(() => {
@@ -489,8 +890,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     };
 
     const readTarget = () => {
-      const max = scroller.scrollHeight - scroller.clientHeight;
-      target = max > 0 ? scroller.scrollTop / max : 0;
+      /* the story spans the sticky track only — the sections after it
+         extend scrollHeight and must not dilute the timeline */
+      const trackEl = trackRef.current;
+      const max = (trackEl ? trackEl.offsetHeight : scroller.scrollHeight) - scroller.clientHeight;
+      target = max > 0 ? clamp01(scroller.scrollTop / max) : 0;
     };
 
     const onResize = () => {
@@ -509,7 +913,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const tout0 = out0 * out0;
 
       /* hero text */
-      const heroOut = seg(p, 0.03, 0.1);
+      const heroOut = seg(p, 0.03 * Z, 0.1 * Z);
       const title = heroTitleRef.current;
       if (title) {
         title.style.opacity = String(1 - easeOut(heroOut));
@@ -517,7 +921,25 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         title.style.visibility = heroOut >= 1 ? "hidden" : "visible";
       }
       const cue = cueRef.current;
-      if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.03));
+      if (cue) cue.style.opacity = String(1 - seg(p, 0.004, 0.025));
+
+      /* hero backdrop type leaves with the title */
+      const heroOutline = heroOutlineRef.current;
+      if (heroOutline) {
+        const o = (1 - seg(p, 0.008, 0.055)) * 0.85;
+        heroOutline.style.opacity = String(o);
+        heroOutline.style.visibility = o <= 0 ? "hidden" : "visible";
+      }
+
+      /* finale stats count up as the CTA arrives */
+      const ft = easeOut(seg(p, 0.795, 0.865));
+      statRefs.current.forEach((el, i) => {
+        if (!el) return;
+        const stat = STATS[i];
+        if (!stat) return;
+        const value = `${Math.round(stat.value * ft)}${ft >= 1 ? stat.suffix : ""}`;
+        if (el.textContent !== value) el.textContent = value;
+      });
 
       /* spotlight recedes as the card takes over the frame */
       const glow = glowRef.current;
@@ -533,7 +955,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       const y = c0.y + (slot.y - c0.y) * tM;
       const ov = overlayRef.current;
       if (ov) {
-        const on = p >= MORPH.a && p < 0.475;
+        const on = p >= MORPH.a && p < 0.475 * Z;
         ov.style.visibility = on ? "visible" : "hidden";
         ov.style.opacity = String(1 - tout0);
         ov.style.setProperty("--t", tC.toFixed(4));
@@ -556,7 +978,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         const tx = tM > 0 ? cx - phoneC.x - (c0.cx - phoneC.x) * F : 0;
         const ty = (tM > 0 ? y - phoneC.y - (c0.y - phoneC.y) * F : 0) + (1 - t1) * 26;
         phone.style.transform = `translate(${tx}px, ${ty}px) scale(${(0.96 + 0.04 * t1) * F})`;
-        const o = 1 - seg(p, 0.27, 0.315);
+        const o = 1 - seg(p, 0.27 * Z, 0.315 * Z);
         phone.style.opacity = String(o);
         phone.style.visibility = o <= 0 ? "hidden" : "visible";
         tilt.style.transform = `perspective(1500px) rotateX(${6 * (1 - t1)}deg) rotateY(${-24 * (1 - t1)}deg) rotateZ(${-8 * (1 - t1)}deg)`;
@@ -575,12 +997,12 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
              copy above it rises in around the landed card. The scene
              root must not move while entering, or the slot would slide
              out from under the card. */
-          const o = seg(p, 0.27, 0.31) * (1 - tout);
+          const o = seg(p, 0.27 * Z, 0.31 * Z) * (1 - tout);
           el.style.opacity = String(o);
           el.style.visibility = o < 0.003 ? "hidden" : "visible";
           el.style.transform = tout > 0 ? `scale(${1 + tout * 0.13})` : "none";
           el.style.filter = tout > 0.01 ? `blur(${tout * 6}px)` : "none";
-          el.style.setProperty("--k", easeOut(seg(p, 0.3, 0.38)).toFixed(4));
+          el.style.setProperty("--k", easeOut(seg(p, 0.3 * Z, 0.38 * Z)).toFixed(4));
           return;
         }
 
@@ -593,23 +1015,15 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
         el.style.setProperty("--k", tin.toFixed(4));
         if (w.final) el.style.pointerEvents = o > 0.5 ? "auto" : "none";
       });
-
-      /* dots rail */
-      let active = 0;
-      if (p >= 0.29) {
-        active = 1 + SCENES.findIndex((w, i) => (i === SCENES.length - 1 ? true : p < w.b));
-      }
-      dotRefs.current.forEach((dot, i) => {
-        if (!dot) return;
-        dot.dataset.active = i === active ? "1" : "0";
-      });
     };
 
     const tick = () => {
       if (!running) return;
       if (current < 0) current = target;
       const diff = target - current;
-      current = Math.abs(diff) < 0.00035 ? target : current + diff * 0.15;
+      /* 0.24/frame: catches the wheel quickly while still smoothing
+         out discrete scroll steps (0.15 felt a beat behind the hand) */
+      current = Math.abs(diff) < 0.00035 ? target : current + diff * 0.24;
       if (current !== lastApplied) {
         apply(current);
         lastApplied = current;
@@ -642,13 +1056,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       window.removeEventListener("resize", onResize);
     };
   }, [staticMode]);
-
-  const scrollToProgress = (p: number) => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const max = scroller.scrollHeight - scroller.clientHeight;
-    scroller.scrollTo({ top: p * max, behavior: "smooth" });
-  };
 
   const css = `
     .sl-root {
@@ -697,24 +1104,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-scene .sl-e2 { opacity: calc(var(--k, 1) * 1.9 - 0.44); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.44), 1) * 40px)); }
     .sl-scene .sl-e3 { opacity: calc(var(--k, 1) * 1.9 - 0.62); transform: translateY(calc(clamp(0, 1 - (var(--k, 1) * 1.9 - 0.62), 1) * 46px)); }
 
-    .sl-dot {
-      display: block; height: 8px; width: 8px; border-radius: 999px;
-      background: rgba(255,255,255,0.22);
-      transition: background 300ms ease, transform 300ms ease, box-shadow 300ms ease;
-    }
-    .sl-dotbtn[data-active="1"] .sl-dot {
-      background: #ddb159; transform: scale(1.45);
-      box-shadow: 0 0 14px rgba(221,177,89,0.65);
-    }
-    .sl-dotbtn .sl-dotlabel {
-      position: absolute; right: 26px; top: 50%; transform: translateY(-50%) translateX(6px);
-      white-space: nowrap; opacity: 0; pointer-events: none;
-      transition: opacity 200ms ease, transform 200ms ease;
-    }
-    .sl-dotbtn:hover .sl-dotlabel, .sl-dotbtn:focus-visible .sl-dotlabel {
-      opacity: 1; transform: translateY(-50%) translateX(0);
-    }
-
     @keyframes slCue {
       0%, 100% { transform: translateY(0); opacity: 0.9; }
       50% { transform: translateY(9px); opacity: 0.4; }
@@ -724,8 +1113,152 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     .sl-caret { animation: slCaret 1s steps(1) infinite; }
     @keyframes slPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     .sl-pulse { animation: slPulse 1.6s ease-in-out infinite; }
+
+    /* magnetic CTAs — transform lives on CSS vars so hover scale,
+       cursor pull and spring-back all compose */
+    .sl-magnet {
+      transform: translate3d(var(--magx, 0px), var(--magy, 0px), 0) scale(var(--mags, 1));
+      transition: transform 320ms cubic-bezier(0.22, 1.4, 0.36, 1);
+    }
+    .sl-magnet:hover { --mags: 1.04; }
+
+    /* endless drifting type */
+    @keyframes slTape { to { transform: translate3d(-50%, 0, 0); } }
+    .sl-tape-track { animation: slTape 60s linear infinite; will-change: transform; }
+    .sl-tape-rev { animation-direction: reverse; }
+
+    /* giant outlined type, in four scales */
+    .sl-outline, .sl-outline-solid {
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
+    }
+    .sl-outline {
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(221, 177, 89, 0.15);
+    }
+    .sl-outline-solid { color: rgba(221, 177, 89, 0.07); }
+    .sl-stroke-white {
+      color: transparent;
+      -webkit-text-stroke: 2px rgba(255, 255, 255, 0.4);
+    }
+    .sl-outline-sm { font-size: clamp(40px, 7vw, 100px); }
+    .sl-outline-md { font-size: clamp(60px, 10vw, 150px); }
+    .sl-outline-lg { font-size: clamp(90px, 17vw, 240px); }
+    .sl-outline-xl { font-size: clamp(120px, 24vw, 340px); }
+
+    /* scene backdrop word: drift is scrubbed from the scene's --k, so
+       the type physically rides the scroll */
+    .sl-backdrop-word {
+      left: 0;
+      opacity: 0.55;
+      transform: translate3d(calc(-12vw - (1 - var(--k, 1)) * 34vw), 0, 0);
+      will-change: transform;
+    }
+    .sl-ghost-index {
+      font-size: clamp(140px, 26vw, 380px);
+      font-weight: 900;
+      letter-spacing: -0.06em;
+      color: rgba(255, 255, 255, 0.028);
+      transform: translate3d(calc((1 - var(--k, 1)) * 8vw), 0, 0);
+      will-change: transform;
+    }
+
+    /* gold dust drifting up through the stage */
+    @keyframes slDust {
+      0% { transform: translate3d(0, 12vh, 0) scale(0.6); opacity: 0; }
+      12% { opacity: var(--dust-o, 0.5); }
+      88% { opacity: var(--dust-o, 0.5); }
+      100% { transform: translate3d(var(--dust-dx, 3vw), -108vh, 0) scale(1.1); opacity: 0; }
+    }
+    .sl-dust {
+      position: absolute;
+      bottom: 0;
+      width: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: #f4d78a;
+      box-shadow: 0 0 8px rgba(221, 177, 89, 0.8);
+      animation: slDust var(--dust-t, 16s) linear infinite;
+      animation-delay: var(--dust-d, 0s);
+      opacity: 0;
+    }
+    .sl-dust:nth-child(1)  { left: 6%;  --dust-t: 15s; --dust-d: -2s;  --dust-o: 0.4; --dust-dx: 2vw; }
+    .sl-dust:nth-child(2)  { left: 14%; --dust-t: 21s; --dust-d: -9s;  --dust-o: 0.28; --dust-dx: -3vw; }
+    .sl-dust:nth-child(3)  { left: 22%; --dust-t: 17s; --dust-d: -5s;  --dust-o: 0.5; --dust-dx: 4vw; }
+    .sl-dust:nth-child(4)  { left: 31%; --dust-t: 24s; --dust-d: -14s; --dust-o: 0.22; --dust-dx: -2vw; }
+    .sl-dust:nth-child(5)  { left: 38%; --dust-t: 14s; --dust-d: -7s;  --dust-o: 0.45; --dust-dx: 3vw; }
+    .sl-dust:nth-child(6)  { left: 46%; --dust-t: 19s; --dust-d: -11s; --dust-o: 0.3; --dust-dx: -4vw; }
+    .sl-dust:nth-child(7)  { left: 53%; --dust-t: 23s; --dust-d: -3s;  --dust-o: 0.26; --dust-dx: 2vw; }
+    .sl-dust:nth-child(8)  { left: 61%; --dust-t: 16s; --dust-d: -12s; --dust-o: 0.5; --dust-dx: -3vw; }
+    .sl-dust:nth-child(9)  { left: 68%; --dust-t: 20s; --dust-d: -6s;  --dust-o: 0.34; --dust-dx: 4vw; }
+    .sl-dust:nth-child(10) { left: 75%; --dust-t: 15s; --dust-d: -10s; --dust-o: 0.42; --dust-dx: -2vw; }
+    .sl-dust:nth-child(11) { left: 82%; --dust-t: 25s; --dust-d: -4s;  --dust-o: 0.2; --dust-dx: 3vw; }
+    .sl-dust:nth-child(12) { left: 88%; --dust-t: 18s; --dust-d: -13s; --dust-o: 0.38; --dust-dx: -4vw; }
+    .sl-dust:nth-child(13) { left: 94%; --dust-t: 22s; --dust-d: -8s;  --dust-o: 0.3; --dust-dx: 2vw; }
+    .sl-dust:nth-child(14) { left: 3%;  --dust-t: 26s; --dust-d: -16s; --dust-o: 0.24; --dust-dx: 3vw; }
+
+    /* preloader */
+    .sl-preloader { transition: transform 650ms cubic-bezier(0.7, 0, 0.2, 1); }
+    .sl-preloader-out { transform: translateY(-100%); }
+
+    /* per-letter hero entrance (plays once on load) */
+    @keyframes slLetter {
+      from { opacity: 0; transform: translateY(46px) rotate(5deg); }
+      to { opacity: 1; transform: none; }
+    }
+    .sl-letter { animation: slLetter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    /* aurora drift behind everything */
+    @keyframes slAurora {
+      0% { transform: rotate(0deg) scale(1.35); }
+      50% { transform: rotate(180deg) scale(1.5); }
+      100% { transform: rotate(360deg) scale(1.35); }
+    }
+    .sl-aurora {
+      background: conic-gradient(
+        from 90deg at 50% 50%,
+        transparent 0deg,
+        rgba(221, 177, 89, 0.05) 70deg,
+        transparent 140deg,
+        rgba(16, 185, 129, 0.045) 220deg,
+        transparent 300deg,
+        rgba(221, 177, 89, 0.04) 340deg,
+        transparent 360deg
+      );
+      filter: blur(48px);
+      animation: slAurora 46s linear infinite;
+      will-change: transform;
+    }
+
+    /* mouse-parallax spotlight (vars set on the stage) */
+    .sl-parallax {
+      transform: translate3d(calc(var(--mx, 0) * 28px), calc(var(--my, 0) * 18px), 0);
+      transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* custom cursor: a single gold dot that grows over interactives
+       (fine pointers; class applied only when active) */
+    .sl-cursor-on .sl-root, .sl-cursor-on .sl-root * { cursor: none !important; }
+    /* the outer element only translates; the inner core scales. Mixing
+       the standalone scale property with the transform translate would
+       multiply the translation and teleport the dot on hover. */
+    .sl-cur-dot {
+      position: fixed; left: -4px; top: -4px; z-index: 120;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+    .sl-cur-dot-core {
+      display: block; width: 9px; height: 9px; border-radius: 999px;
+      background: #f4d78a; box-shadow: 0 0 16px rgba(221, 177, 89, 0.9);
+      transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .sl-cur-dot[data-hover="1"] .sl-cur-dot-core { transform: scale(2.6); }
+
     @media (prefers-reduced-motion: reduce) {
-      .sl-cue-anim, .sl-caret, .sl-pulse { animation: none !important; }
+      .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora, .sl-dust { animation: none !important; }
+      .sl-magnet, .sl-parallax { transform: none !important; transition: none !important; }
     }
   `;
 
@@ -751,23 +1284,42 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     <ChatScreen key="c" />,
   ];
 
+  /* mouse parallax: normalised cursor position feeds the spotlight
+     (and nothing the scroll engine writes to) via CSS vars */
+  const onStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const stage = stageRef.current;
+    if (!stage || event.pointerType !== "mouse") return;
+    stage.style.setProperty("--mx", ((event.clientX / window.innerWidth) * 2 - 1).toFixed(3));
+    stage.style.setProperty("--my", ((event.clientY / window.innerHeight) * 2 - 1).toFixed(3));
+  };
+
   return (
     <main ref={scrollerRef} className="sl-root h-[100dvh] overflow-y-auto overflow-x-hidden">
       <style>{css}</style>
+      <Preloader />
+      <LandingCursor />
       <TopNav />
 
       {/* scroll track — the stage stays pinned while this scrolls */}
-      <div className="h-[700vh]">
-        <div className="sl-bg sticky top-0 h-[100dvh] overflow-hidden">
+      <div ref={trackRef} className="h-[900vh]">
+        <div
+          ref={stageRef}
+          onPointerMove={onStagePointerMove}
+          className="sl-bg sticky top-0 h-[100dvh] overflow-hidden"
+        >
           {/* atmosphere */}
-          <div
-            ref={glowRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse 46% 42% at 50% 6%, rgba(244,231,193,0.15), transparent 60%), radial-gradient(ellipse 30% 26% at 50% 30%, rgba(221,177,89,0.12), transparent 65%)",
-            }}
-          />
+          <div className="sl-aurora pointer-events-none absolute inset-[-20%]" />
+          <GoldDust />
+          <div className="sl-parallax pointer-events-none absolute inset-0">
+            <div
+              ref={glowRef}
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse 46% 42% at 50% 6%, rgba(244,231,193,0.15), transparent 60%), radial-gradient(ellipse 30% 26% at 50% 30%, rgba(221,177,89,0.12), transparent 65%)",
+              }}
+            />
+          </div>
           <div className="pointer-events-none absolute bottom-[6%] left-1/2 h-[10vh] w-[64vw] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse,rgba(221,177,89,0.10),transparent_70%)] blur-2xl" />
           <div className="sl-grain pointer-events-none absolute inset-0" />
           <div className="sl-vignette pointer-events-none absolute inset-0" />
@@ -799,6 +1351,15 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             </div>
           </div>
 
+          {/* hero backdrop: slow outlined drift behind the phone */}
+          <div
+            ref={heroOutlineRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-[30%] z-[6] overflow-hidden opacity-85"
+          >
+            <OutlineRow word="STOCKGPT" size="lg" speed={90} />
+          </div>
+
           {/* hero title */}
           <div
             ref={heroTitleRef}
@@ -808,7 +1369,16 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
               className="text-[clamp(56px,12.5vw,150px)] font-black leading-none tracking-[-0.055em] text-white"
               style={{ textShadow: "0 10px 60px rgba(0,0,0,0.75), 0 0 110px rgba(221,177,89,0.18)" }}
             >
-              StockGPT
+              {/* per-letter entrance on load; scroll still owns the container */}
+              {"StockGPT".split("").map((letter, i) => (
+                <span
+                  key={i}
+                  className="sl-letter inline-block"
+                  style={{ animationDelay: `${0.08 + i * 0.055}s` }}
+                >
+                  {letter}
+                </span>
+              ))}
             </h1>
             <p className="sl-mono mt-2 text-[clamp(11px,1.7vw,18px)] font-bold uppercase tracking-[0.44em] text-white/60">
               AI-driven market insights
@@ -828,72 +1398,108 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             </span>
           </div>
 
-          {/* feature scenes */}
-          {SCENE_COPY.map((copy, i) => (
-            <div
-              key={copy.index}
-              ref={(el) => {
-                sceneRefs.current[i] = el;
-              }}
-              className="sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
-              style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
-            >
-              <SceneCopy copy={copy} />
-              {i === 0 ? (
-                /* slide 2's panel is the flying card itself — this slot
-                   only reserves its landing rect in the layout */
-                <div
-                  ref={slotRef}
-                  aria-hidden
-                  style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
-                />
-              ) : (
-                <PanelFrame>
-                  <FixedScale w={1280} h={756}>
-                    {screens[i]}
-                  </FixedScale>
-                </PanelFrame>
-              )}
-            </div>
-          ))}
+          {/* feature scenes — each with its own composition. Scene 0
+              keeps the exact centered stack the card-morph geometry is
+              measured against; the others alternate copy/panel sides. */}
+          {SCENE_COPY.map((copy, i) => {
+            const split = i !== 0 && copy.layout !== "center";
+            const containerClass =
+              i === 0 || copy.layout === "center"
+                ? "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh]"
+                : copy.layout === "left"
+                  ? "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh] lg:grid lg:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] lg:items-center lg:gap-[3vw] lg:px-[5vw] lg:pt-[9vh]"
+                  : "sl-scene absolute inset-0 z-20 flex flex-col items-center justify-center gap-[3.2vh] pb-[2vh] pt-[10vh] lg:grid lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:items-center lg:gap-[3vw] lg:px-[5vw] lg:pt-[9vh]";
 
-          {/* finale */}
+            return (
+              <div
+                key={copy.index}
+                ref={(el) => {
+                  sceneRefs.current[i] = el;
+                }}
+                className={containerClass}
+                style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
+              >
+                <SceneBackdrop word={copy.word} index={copy.index} />
+                <div className={copy.layout === "right" ? "min-w-0 lg:order-2" : "min-w-0"}>
+                  <SceneCopy copy={copy} side={split} />
+                </div>
+                {i === 0 ? (
+                  /* slide 2's panel is the flying card itself — this slot
+                     only reserves its landing rect in the layout */
+                  <div
+                    ref={slotRef}
+                    aria-hidden
+                    style={{ width: "min(900px, 90vw)", aspectRatio: "900 / 470" }}
+                  />
+                ) : (
+                  <div
+                    className={`flex w-full min-w-0 justify-center px-0 ${
+                      copy.layout === "right" ? "lg:order-1" : ""
+                    }`}
+                  >
+                    <PanelFrame compact={split}>
+                      <FixedScale w={1280} h={756}>
+                        {screens[i]}
+                      </FixedScale>
+                    </PanelFrame>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* movement 5 — manifesto */}
           <div
             ref={(el) => {
               sceneRefs.current[4] = el;
             }}
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
-            style={{ ...hiddenScene, pointerEvents: "none" }}
+            style={hiddenScene}
           >
-            <FinaleContent />
+            <SceneBackdrop word="STRUCTURE" index="05" />
+            <ManifestoContent />
           </div>
 
-          {/* progress dots */}
-          <nav
-            aria-label="Landing sections"
-            className="absolute right-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-4 md:flex"
+          {/* movement 6 — stats wall */}
+          <div
+            ref={(el) => {
+              sceneRefs.current[5] = el;
+            }}
+            className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
+            style={hiddenScene}
           >
-            {DOT_STOPS.map((stop, i) => (
-              <button
-                key={stop.label}
-                ref={(el) => {
-                  dotRefs.current[i] = el;
-                }}
-                type="button"
-                data-active={i === 0 ? "1" : "0"}
-                aria-label={stop.label}
-                onClick={() => scrollToProgress(stop.p)}
-                className="sl-dotbtn relative p-1 focus:outline-none"
-              >
-                <span className="sl-dot" />
-                <span className="sl-dotlabel sl-mono text-[9px] font-black uppercase tracking-[0.22em] text-white/55">
-                  {stop.label}
-                </span>
-              </button>
-            ))}
-          </nav>
+            <SceneBackdrop word="PROOF" index="06" />
+            <StatsContent statRefs={statRefs} />
+          </div>
+
+          {/* finale */}
+          <div
+            ref={(el) => {
+              sceneRefs.current[6] = el;
+            }}
+            className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
+            style={{ ...hiddenScene, pointerEvents: "none" }}
+          >
+            <OutlineMarquee />
+            <FinaleContent />
+            {/* giant cropped wordmark bleeding off the bottom edge */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 -bottom-[7vw] z-0 whitespace-nowrap text-center"
+            >
+              <span className="text-[19vw] font-black leading-none tracking-[-0.06em] text-white/[0.045]">
+                STOCKGPT
+              </span>
+            </div>
+          </div>
+
+          {/* socials rail */}
+          <SocialRail />
         </div>
       </div>
+
+      {/* Revolut-style below-the-fold: normal flow after the story */}
+      <LandingBelowFold />
     </main>
   );
 }
