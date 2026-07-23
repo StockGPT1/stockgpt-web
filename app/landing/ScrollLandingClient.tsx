@@ -290,7 +290,7 @@ function OutlineMarquee() {
 /* Per-scene kinetic backdrop: a giant outlined verb plus a ghost index
    numeral. Horizontal drift is scrubbed straight off the scene's --k,
    so the word slides in sync with the scroll — not on a clock. */
-function SceneBackdrop({ word, index }: { word: string; index: string }) {
+function SceneBackdrop({ word }: { word: string }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       <div
@@ -299,9 +299,6 @@ function SceneBackdrop({ word, index }: { word: string; index: string }) {
         <span className="sl-outline sl-outline-xl">{word}</span>
         <span className="sl-outline sl-outline-xl opacity-60">{word}</span>
       </div>
-      <span className="sl-ghost-index absolute -bottom-[4%] right-[2%] leading-none">
-        {index}
-      </span>
     </div>
   );
 }
@@ -473,7 +470,7 @@ function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean 
       }
     >
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        {copy.index} · {copy.eyebrow}
+        {copy.eyebrow}
       </p>
       <h2
         className={`sl-e1 mt-3 font-black leading-[1.02] tracking-[-0.04em] text-white ${
@@ -690,26 +687,61 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   );
 }
 
-/* Movement 5 — the manifesto: a full-screen typographic statement. */
+/* Movement 5 — the engine room: what the model actually measures.
+   A spec sheet dressed as cinema; the six factors with live-looking
+   meter bars and a terminal readout underneath. */
+const ENGINE_FACTORS: { code: string; name: string; body: string; meter: number }[] = [
+  { code: "QLT", name: "Quality", body: "Balance-sheet strength and durable profitability", meter: 86 },
+  { code: "GRW", name: "Growth", body: "Revenue and earnings trajectory, not stories", meter: 74 },
+  { code: "VAL", name: "Value", body: "Price against sector-adjusted fundamentals", meter: 63 },
+  { code: "MOM", name: "Momentum", body: "Trend strength measured against the market", meter: 91 },
+  { code: "RSK", name: "Risk", body: "Volatility and drawdown behaviour, penalised", meter: 57 },
+  { code: "INC", name: "Income", body: "Dividend yield and how reliably it is paid", meter: 68 },
+];
+
 function ManifestoContent() {
   return (
     <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        05 · Why StockGPT exists
+        Under the hood
       </p>
-      <h2 className="sl-e1 mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
-        No noise.
+      <h2 className="sl-e1 mt-3 text-[clamp(30px,5vw,58px)] font-black leading-[1.02] tracking-[-0.045em] text-white">
+        One model. Six lenses. <span className="sl-gold">Zero guesswork.</span>
       </h2>
-      <h2 className="sl-e2 sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
-        No vibes.
-      </h2>
-      <h2 className="sl-e3 sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
-        Just structure.
-      </h2>
-      <p className="sl-e3 mx-auto mt-7 max-w-2xl text-[clamp(13px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
-        Every number on this page comes out of the same model that runs the product —
-        scored daily, ranked openly, explained on demand. Research the way it should
-        feel.
+
+      <div className="sl-e2 mx-auto mt-[4vh] grid max-w-4xl grid-cols-2 gap-2.5 text-left lg:grid-cols-3">
+        {ENGINE_FACTORS.map((factor) => (
+          <div
+            key={factor.code}
+            className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="sl-mono text-[10px] font-black tracking-[0.2em] text-[#ddb159]">
+                {factor.code}
+              </span>
+              <span className="text-[12.5px] font-black text-white">{factor.name}</span>
+            </div>
+            <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-white/8">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,#b88a32,#f4d78a)]"
+                style={{ width: `${factor.meter}%` }}
+              />
+            </div>
+            <p className="mt-2.5 hidden text-[10.5px] font-medium leading-relaxed text-white/48 sm:block">
+              {factor.body}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <p className="sl-e3 sl-mono mx-auto mt-[3.5vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/38">
+        <span>Universe · 500+ US equities</span>
+        <span className="text-[#ddb159]/60">◆</span>
+        <span>Cadence · every market day</span>
+        <span className="text-[#ddb159]/60">◆</span>
+        <span>Scored · sector-relative</span>
+        <span className="text-[#ddb159]/60">◆</span>
+        <span>Output · one number per stock</span>
       </p>
     </div>
   );
@@ -724,7 +756,7 @@ function StatsContent({
   return (
     <div className="relative z-10 mx-auto w-full max-w-6xl px-6 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        06 · The receipts
+        The receipts
       </p>
       <div className="mt-[4vh] grid grid-cols-1 gap-[4.5vh] sm:grid-cols-3 sm:gap-6">
         {STATS.map((stat, i) => (
@@ -1156,14 +1188,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       transform: translate3d(calc(-12vw - (1 - var(--k, 1)) * 34vw), 0, 0);
       will-change: transform;
     }
-    .sl-ghost-index {
-      font-size: clamp(140px, 26vw, 380px);
-      font-weight: 900;
-      letter-spacing: -0.06em;
-      color: rgba(255, 255, 255, 0.028);
-      transform: translate3d(calc((1 - var(--k, 1)) * 8vw), 0, 0);
-      will-change: transform;
-    }
 
     /* gold dust drifting up through the stage */
     @keyframes slDust {
@@ -1419,7 +1443,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
                 className={containerClass}
                 style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
               >
-                <SceneBackdrop word={copy.word} index={copy.index} />
+                <SceneBackdrop word={copy.word} />
                 <div className={copy.layout === "right" ? "min-w-0 lg:order-2" : "min-w-0"}>
                   <SceneCopy copy={copy} side={split} />
                 </div>
@@ -1456,7 +1480,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={hiddenScene}
           >
-            <SceneBackdrop word="STRUCTURE" index="05" />
+            <SceneBackdrop word="ENGINEERED" />
             <ManifestoContent />
           </div>
 
@@ -1468,7 +1492,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={hiddenScene}
           >
-            <SceneBackdrop word="PROOF" index="06" />
+            <SceneBackdrop word="PROOF" />
             <StatsContent statRefs={statRefs} />
           </div>
 
