@@ -497,7 +497,7 @@ function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean 
         {copy.chips.map((chip) => (
           <span
             key={chip}
-            className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-[10.5px] font-black uppercase tracking-[0.12em] text-white/60"
+            className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-white/60 sm:px-3.5 sm:py-1.5 sm:text-[10.5px] sm:tracking-[0.12em]"
           >
             {chip}
           </span>
@@ -606,7 +606,7 @@ function TopNav() {
         <Link
           href="/"
           aria-label="StockGPT home"
-          className="relative h-10 w-[140px] focus:outline-none focus:ring-2 focus:ring-[#ddb159] sm:h-11 sm:w-[160px]"
+          className="relative h-9 w-[112px] focus:outline-none focus:ring-2 focus:ring-[#ddb159] sm:h-11 sm:w-[160px]"
         >
           <Image
             src="/logo.png"
@@ -618,17 +618,16 @@ function TopNav() {
           />
         </Link>
         <div className="flex items-center gap-2.5">
-          {/* on mobile the single top-right button is Log in (gold);
-             desktop shows the ghost Log in + gold Create account pair */}
+          {/* same pair as desktop, compacted to fit a phone header */}
           <Link
             href="/login"
-            className="inline-flex h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:border-white/20 sm:bg-black/30 sm:!text-white sm:backdrop-blur-md sm:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-full border border-white/20 bg-black/30 px-3.5 text-[10px] font-black uppercase tracking-[0.12em] !text-white no-underline backdrop-blur-md transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:h-11 sm:px-6 sm:text-[11px] sm:tracking-[0.16em]"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="fx-sheen hidden h-11 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-6 text-[11px] font-black uppercase tracking-[0.16em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:inline-flex"
+            className="fx-sheen inline-flex h-10 items-center rounded-full border border-[#ddb159] bg-[#ddb159] px-3.5 text-[10px] font-black uppercase tracking-[0.12em] !text-[#071b11] no-underline transition-colors hover:bg-[#e8c36b] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-black sm:h-11 sm:px-6 sm:text-[11px] sm:tracking-[0.16em]"
           >
             Create account
           </Link>
@@ -817,6 +816,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const cueRef = useRef<HTMLDivElement | null>(null);
   const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
@@ -890,8 +890,11 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     };
 
     const readTarget = () => {
-      const max = scroller.scrollHeight - scroller.clientHeight;
-      target = max > 0 ? scroller.scrollTop / max : 0;
+      /* the story spans the sticky track only — the sections after it
+         extend scrollHeight and must not dilute the timeline */
+      const trackEl = trackRef.current;
+      const max = (trackEl ? trackEl.offsetHeight : scroller.scrollHeight) - scroller.clientHeight;
+      target = max > 0 ? clamp01(scroller.scrollTop / max) : 0;
     };
 
     const onResize = () => {
@@ -1298,7 +1301,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       <TopNav />
 
       {/* scroll track — the stage stays pinned while this scrolls */}
-      <div className="h-[900vh]">
+      <div ref={trackRef} className="h-[900vh]">
         <div
           ref={stageRef}
           onPointerMove={onStagePointerMove}
@@ -1430,7 +1433,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
                   />
                 ) : (
                   <div
-                    className={`flex w-full min-w-0 justify-center px-2 lg:px-0 ${
+                    className={`flex w-full min-w-0 justify-center px-0 ${
                       copy.layout === "right" ? "lg:order-1" : ""
                     }`}
                   >
