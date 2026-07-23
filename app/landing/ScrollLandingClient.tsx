@@ -290,7 +290,7 @@ function OutlineMarquee() {
 /* Per-scene kinetic backdrop: a giant outlined verb plus a ghost index
    numeral. Horizontal drift is scrubbed straight off the scene's --k,
    so the word slides in sync with the scroll — not on a clock. */
-function SceneBackdrop({ word, index }: { word: string; index: string }) {
+function SceneBackdrop({ word }: { word: string }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       <div
@@ -299,9 +299,6 @@ function SceneBackdrop({ word, index }: { word: string; index: string }) {
         <span className="sl-outline sl-outline-xl">{word}</span>
         <span className="sl-outline sl-outline-xl opacity-60">{word}</span>
       </div>
-      <span className="sl-ghost-index absolute -bottom-[4%] right-[2%] leading-none">
-        {index}
-      </span>
     </div>
   );
 }
@@ -473,7 +470,7 @@ function SceneCopy({ copy, side = false }: { copy: SceneCopyDef; side?: boolean 
       }
     >
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        {copy.index} · {copy.eyebrow}
+        {copy.eyebrow}
       </p>
       <h2
         className={`sl-e1 mt-3 font-black leading-[1.02] tracking-[-0.04em] text-white ${
@@ -690,26 +687,81 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   );
 }
 
-/* Movement 5 — the manifesto: a full-screen typographic statement. */
+/* Movement 5 — the instrument wall: every indicator the model
+   watches, grouped into its six factor families. Names mirror
+   lib/factor-labels.ts, so the landing shows the real instrument set
+   the rankings run on. */
+const INDICATOR_FAMILIES: { family: string; items: string[] }[] = [
+  {
+    family: "Quality",
+    items: ["ROIC", "ROE", "Gross margin", "Operating margin", "Free-cash-flow margin"],
+  },
+  {
+    family: "Growth",
+    items: ["Revenue growth", "EPS growth", "Free-cash-flow growth"],
+  },
+  {
+    family: "Value",
+    items: [
+      "Sector-adjusted P/E",
+      "Sector-adjusted EV/EBITDA",
+      "Sector-adjusted price/sales",
+      "Free-cash-flow yield",
+    ],
+  },
+  {
+    family: "Momentum",
+    items: ["12-month momentum", "6-month momentum", "Price vs moving average", "Moving-average trend"],
+  },
+  {
+    family: "Risk",
+    items: ["Downside volatility", "Drawdown control", "Market beta", "Debt-to-equity"],
+  },
+  {
+    family: "Income",
+    items: ["Dividend yield"],
+  },
+];
+
 function ManifestoContent() {
   return (
     <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
-      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        05 · Why StockGPT exists
+      <p className="sl-e0 sl-mono hidden text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159] sm:block">
+        What the model watches
       </p>
-      <h2 className="sl-e1 mt-6 text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
-        No noise.
+      <h2 className="sl-e1 mt-3 text-[clamp(26px,5vw,58px)] font-black leading-[1.02] tracking-[-0.045em] text-white">
+        Every angle. <span className="sl-gold">Weighed daily.</span>
       </h2>
-      <h2 className="sl-e2 sl-stroke-white text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
-        No vibes.
-      </h2>
-      <h2 className="sl-e3 sl-gold text-[clamp(44px,8vw,108px)] font-black leading-[0.98] tracking-[-0.05em]">
-        Just structure.
-      </h2>
-      <p className="sl-e3 mx-auto mt-7 max-w-2xl text-[clamp(13px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
-        Every number on this page comes out of the same model that runs the product —
-        scored daily, ranked openly, explained on demand. Research the way it should
-        feel.
+
+      <div className="sl-e2 mx-auto mt-[2.6vh] grid max-w-4xl grid-cols-2 gap-x-4 gap-y-[2vh] text-left sm:gap-x-5 sm:gap-y-[2.6vh] lg:grid-cols-3">
+        {INDICATOR_FAMILIES.map((group) => (
+          <div key={group.family} className="min-w-0">
+            <p className="sl-mono flex items-center gap-2 text-[9.5px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
+              <span className="inline-block size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_8px_rgba(221,177,89,0.8)]" />
+              {group.family}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {group.items.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-lg border border-white/10 bg-white/[0.035] px-2 py-1 text-[9px] font-bold text-white/68 transition hover:border-[#ddb159]/50 hover:text-white sm:px-2.5 sm:py-1.5 sm:text-[11px]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="sl-e3 sl-mono mx-auto mt-[2.6vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/38 sm:mt-[3.5vh] sm:text-[9.5px] sm:tracking-[0.18em]">
+        <span>21 indicators</span>
+        <span className="text-[#ddb159]/60">◆</span>
+        <span className="hidden sm:inline">Z-scored against sector peers</span>
+        <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
+        <span className="hidden sm:inline">Blended into six factors</span>
+        <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
+        <span>One score per stock</span>
       </p>
     </div>
   );
@@ -724,7 +776,7 @@ function StatsContent({
   return (
     <div className="relative z-10 mx-auto w-full max-w-6xl px-6 text-center">
       <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        06 · The receipts
+        The receipts
       </p>
       <div className="mt-[4vh] grid grid-cols-1 gap-[4.5vh] sm:grid-cols-3 sm:gap-6">
         {STATS.map((stat, i) => (
@@ -1156,14 +1208,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       transform: translate3d(calc(-12vw - (1 - var(--k, 1)) * 34vw), 0, 0);
       will-change: transform;
     }
-    .sl-ghost-index {
-      font-size: clamp(140px, 26vw, 380px);
-      font-weight: 900;
-      letter-spacing: -0.06em;
-      color: rgba(255, 255, 255, 0.028);
-      transform: translate3d(calc((1 - var(--k, 1)) * 8vw), 0, 0);
-      will-change: transform;
-    }
 
     /* gold dust drifting up through the stage */
     @keyframes slDust {
@@ -1419,7 +1463,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
                 className={containerClass}
                 style={i === 0 ? { opacity: 0, visibility: "hidden" } : hiddenScene}
               >
-                <SceneBackdrop word={copy.word} index={copy.index} />
+                <SceneBackdrop word={copy.word} />
                 <div className={copy.layout === "right" ? "min-w-0 lg:order-2" : "min-w-0"}>
                   <SceneCopy copy={copy} side={split} />
                 </div>
@@ -1456,7 +1500,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={hiddenScene}
           >
-            <SceneBackdrop word="STRUCTURE" index="05" />
+            <SceneBackdrop word="MEASURED" />
             <ManifestoContent />
           </div>
 
@@ -1468,7 +1512,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={hiddenScene}
           >
-            <SceneBackdrop word="PROOF" index="06" />
+            <SceneBackdrop word="PROOF" />
             <StatsContent statRefs={statRefs} />
           </div>
 
