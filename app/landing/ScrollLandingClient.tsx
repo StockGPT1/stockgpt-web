@@ -687,61 +687,81 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   );
 }
 
-/* Movement 5 — the engine room: what the model actually measures.
-   A spec sheet dressed as cinema; the six factors with live-looking
-   meter bars and a terminal readout underneath. */
-const ENGINE_FACTORS: { code: string; name: string; body: string; meter: number }[] = [
-  { code: "QLT", name: "Quality", body: "Balance-sheet strength and durable profitability", meter: 86 },
-  { code: "GRW", name: "Growth", body: "Revenue and earnings trajectory, not stories", meter: 74 },
-  { code: "VAL", name: "Value", body: "Price against sector-adjusted fundamentals", meter: 63 },
-  { code: "MOM", name: "Momentum", body: "Trend strength measured against the market", meter: 91 },
-  { code: "RSK", name: "Risk", body: "Volatility and drawdown behaviour, penalised", meter: 57 },
-  { code: "INC", name: "Income", body: "Dividend yield and how reliably it is paid", meter: 68 },
+/* Movement 5 — the instrument wall: every indicator the model
+   watches, grouped into its six factor families. Names mirror
+   lib/factor-labels.ts, so the landing shows the real instrument set
+   the rankings run on. */
+const INDICATOR_FAMILIES: { family: string; items: string[] }[] = [
+  {
+    family: "Quality",
+    items: ["ROIC", "ROE", "Gross margin", "Operating margin", "Free-cash-flow margin"],
+  },
+  {
+    family: "Growth",
+    items: ["Revenue growth", "EPS growth", "Free-cash-flow growth"],
+  },
+  {
+    family: "Value",
+    items: [
+      "Sector-adjusted P/E",
+      "Sector-adjusted EV/EBITDA",
+      "Sector-adjusted price/sales",
+      "Free-cash-flow yield",
+    ],
+  },
+  {
+    family: "Momentum",
+    items: ["12-month momentum", "6-month momentum", "Price vs moving average", "Moving-average trend"],
+  },
+  {
+    family: "Risk",
+    items: ["Downside volatility", "Drawdown control", "Market beta", "Debt-to-equity"],
+  },
+  {
+    family: "Income",
+    items: ["Dividend yield"],
+  },
 ];
 
 function ManifestoContent() {
   return (
     <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
-      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
-        Under the hood
+      <p className="sl-e0 sl-mono hidden text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159] sm:block">
+        What the model watches
       </p>
-      <h2 className="sl-e1 mt-3 text-[clamp(30px,5vw,58px)] font-black leading-[1.02] tracking-[-0.045em] text-white">
-        One model. Six lenses. <span className="sl-gold">Zero guesswork.</span>
+      <h2 className="sl-e1 mt-3 text-[clamp(26px,5vw,58px)] font-black leading-[1.02] tracking-[-0.045em] text-white">
+        Every angle. <span className="sl-gold">Weighed daily.</span>
       </h2>
 
-      <div className="sl-e2 mx-auto mt-[4vh] grid max-w-4xl grid-cols-2 gap-2.5 text-left lg:grid-cols-3">
-        {ENGINE_FACTORS.map((factor) => (
-          <div
-            key={factor.code}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm"
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="sl-mono text-[10px] font-black tracking-[0.2em] text-[#ddb159]">
-                {factor.code}
-              </span>
-              <span className="text-[12.5px] font-black text-white">{factor.name}</span>
-            </div>
-            <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-white/8">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#b88a32,#f4d78a)]"
-                style={{ width: `${factor.meter}%` }}
-              />
-            </div>
-            <p className="mt-2.5 hidden text-[10.5px] font-medium leading-relaxed text-white/48 sm:block">
-              {factor.body}
+      <div className="sl-e2 mx-auto mt-[2.6vh] grid max-w-4xl grid-cols-2 gap-x-4 gap-y-[2vh] text-left sm:gap-x-5 sm:gap-y-[2.6vh] lg:grid-cols-3">
+        {INDICATOR_FAMILIES.map((group) => (
+          <div key={group.family} className="min-w-0">
+            <p className="sl-mono flex items-center gap-2 text-[9.5px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
+              <span className="inline-block size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_8px_rgba(221,177,89,0.8)]" />
+              {group.family}
             </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {group.items.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-lg border border-white/10 bg-white/[0.035] px-2 py-1 text-[9px] font-bold text-white/68 transition hover:border-[#ddb159]/50 hover:text-white sm:px-2.5 sm:py-1.5 sm:text-[11px]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>
 
-      <p className="sl-e3 sl-mono mx-auto mt-[3.5vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/38">
-        <span>Universe · 500+ US equities</span>
+      <p className="sl-e3 sl-mono mx-auto mt-[2.6vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/38 sm:mt-[3.5vh] sm:text-[9.5px] sm:tracking-[0.18em]">
+        <span>21 indicators</span>
         <span className="text-[#ddb159]/60">◆</span>
-        <span>Cadence · every market day</span>
-        <span className="text-[#ddb159]/60">◆</span>
-        <span>Scored · sector-relative</span>
-        <span className="text-[#ddb159]/60">◆</span>
-        <span>Output · one number per stock</span>
+        <span className="hidden sm:inline">Z-scored against sector peers</span>
+        <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
+        <span className="hidden sm:inline">Blended into six factors</span>
+        <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
+        <span>One score per stock</span>
       </p>
     </div>
   );
@@ -1480,7 +1500,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
             className="sl-scene absolute inset-0 z-20 flex items-center justify-center"
             style={hiddenScene}
           >
-            <SceneBackdrop word="ENGINEERED" />
+            <SceneBackdrop word="MEASURED" />
             <ManifestoContent />
           </div>
 
