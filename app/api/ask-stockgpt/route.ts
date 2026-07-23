@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { normaliseAskContext, type AskContext } from "@/lib/ask-context";
+import { checkRateLimit, rateKey } from "@/lib/security/rate-limit";
 import { hasActiveSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
@@ -915,6 +916,28 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const access = await requireSubscribedUser(supabase);
     if (access.response) return access.response;
+
+    // Generous for a human, but stops runaway client loops from burning
+    // the shared OpenRouter quota for every subscriber.
+    const rateLimit = await checkRateLimit({
+      action: "ask_stockgpt_question",
+      key: rateKey(["ask-stockgpt", access.userId]),
+      limit: 40,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          answer:
+            "You have sent a lot of questions in the last hour, so Ask StockGPT is taking a short break for your account. Please try again in a few minutes.",
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {

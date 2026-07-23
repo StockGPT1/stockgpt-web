@@ -6,13 +6,31 @@ import {
   sendPaymentFailedEmail,
   sendSubscriptionCancelledEmail,
 } from "@/lib/transactional-email";
+import { hasActiveSubscription } from "@/lib/subscription";
 import { stripe } from "@/lib/stripe";
 
-type ProfileEmailRow = {
+type ProfileRow = {
   email: string | null;
+  subscription_status: string | null;
 };
 
 type SupabaseAdminClient = SupabaseClient;
+
+// Stripe subscription statuses that should not remove app access.
+// "past_due" is included on purpose: Stripe keeps retrying the payment
+// (smart retries) and most involuntary failures recover. Access is only
+// removed once Stripe gives up and the subscription is deleted/canceled.
+const STRIPE_STATUSES_KEEPING_ACCESS = new Set<Stripe.Subscription.Status>([
+  "active",
+  "trialing",
+  "past_due",
+]);
+
+const STRIPE_STATUSES_ENDING_ACCESS = new Set<Stripe.Subscription.Status>([
+  "canceled",
+  "unpaid",
+  "incomplete_expired",
+]);
 
 async function getProfileEmail(
   supabaseAdmin: SupabaseAdminClient,
@@ -24,24 +42,22 @@ async function getProfileEmail(
     .eq("id", userId)
     .maybeSingle();
 
-  const profile = data as ProfileEmailRow | null;
+  const profile = data as Pick<ProfileRow, "email"> | null;
 
   return profile?.email ?? null;
 }
 
-async function getProfileEmailByStripeCustomer(
+async function getProfileByStripeCustomer(
   supabaseAdmin: SupabaseAdminClient,
   customerId: string,
 ) {
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("email")
+    .select("email,subscription_status")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
-  const profile = data as ProfileEmailRow | null;
-
-  return profile?.email ?? null;
+  return (data as ProfileRow | null) ?? null;
 }
 
 export async function POST(request: Request) {
@@ -99,13 +115,45 @@ export async function POST(request: Request) {
     }
   }
 
+  if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId =
+      typeof subscription.customer === "string" ? subscription.customer : null;
+
+    if (customerId) {
+      if (STRIPE_STATUSES_KEEPING_ACCESS.has(subscription.status)) {
+        // Reinstate lapsed profiles — e.g. Stripe recovered a previously
+        // failed payment, or a subscription resumed after being paused.
+        // Profiles that already hold an active plan (including manually
+        // granted tiers like "alpha") are left untouched so this event
+        // never downgrades a plan name.
+        const profile = await getProfileByStripeCustomer(
+          supabaseAdmin,
+          customerId,
+        );
+
+        if (profile && !hasActiveSubscription(profile.subscription_status)) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ subscription_status: "basic" })
+            .eq("stripe_customer_id", customerId);
+        }
+      } else if (STRIPE_STATUSES_ENDING_ACCESS.has(subscription.status)) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ subscription_status: "none" })
+          .eq("stripe_customer_id", customerId);
+      }
+    }
+  }
+
   if (event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
     const customerId =
       typeof subscription.customer === "string" ? subscription.customer : null;
 
     if (customerId) {
-      const email = await getProfileEmailByStripeCustomer(
+      const profile = await getProfileByStripeCustomer(
         supabaseAdmin,
         customerId,
       );
@@ -115,8 +163,8 @@ export async function POST(request: Request) {
         .update({ subscription_status: "none" })
         .eq("stripe_customer_id", customerId);
 
-      if (email) {
-        await sendSubscriptionCancelledEmail(email);
+      if (profile?.email) {
+        await sendSubscriptionCancelledEmail(profile.email);
       }
     }
   }
@@ -126,19 +174,18 @@ export async function POST(request: Request) {
     const customerId =
       typeof invoice.customer === "string" ? invoice.customer : null;
 
+    // Notify the customer but keep their access: Stripe retries failed
+    // payments automatically and the subscription moves to "past_due".
+    // If every retry fails, Stripe cancels the subscription and the
+    // customer.subscription.deleted handler above removes access.
     if (customerId) {
-      const email = await getProfileEmailByStripeCustomer(
+      const profile = await getProfileByStripeCustomer(
         supabaseAdmin,
         customerId,
       );
 
-      await supabaseAdmin
-        .from("profiles")
-        .update({ subscription_status: "none" })
-        .eq("stripe_customer_id", customerId);
-
-      if (email) {
-        await sendPaymentFailedEmail(email);
+      if (profile?.email) {
+        await sendPaymentFailedEmail(profile.email);
       }
     }
   }
