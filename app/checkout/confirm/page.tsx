@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { StockIcon } from "@/components/StockIcon";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 };
 
 type CheckoutConfirmSearchParams = {
+  checkout?: string;
   legal?: string;
+  offer?: string;
   plan?: string;
 };
 
@@ -25,6 +28,16 @@ const includedFeatures = [
 
 function normalisePlan(value?: string): BillingPlan {
   return value === "annual" ? "annual" : "monthly";
+}
+
+function normaliseOffer(value?: string) {
+  return value?.trim().toUpperCase() === "50PORTFOLIO2026"
+    ? "50PORTFOLIO2026"
+    : null;
+}
+
+function checkoutConfirmHref(plan: BillingPlan, offer: string | null) {
+  return `/checkout/confirm?plan=${plan}${offer ? `&offer=${offer}` : ""}`;
 }
 
 const planCopy = {
@@ -49,7 +62,10 @@ export default async function CheckoutConfirmPage({
 }) {
   const params = searchParams ? await searchParams : {};
   const selectedPlan = normalisePlan(params.plan);
+  const offer = normaliseOffer(params.offer);
   const copy = planCopy[selectedPlan];
+  const returnPath = checkoutConfirmHref(selectedPlan, offer);
+  const encodedReturnPath = encodeURIComponent(returnPath);
   const supabase = await createClient();
   const {
     data: { user },
@@ -90,7 +106,7 @@ export default async function CheckoutConfirmPage({
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
               {includedFeatures.map((feature) => (
                 <div key={feature} className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] px-4 py-3 text-[12px] font-bold leading-5 text-[#faf6f0]/76">
-                  <span className="mr-2 text-[#ddb159]">✓</span>
+                  <StockIcon name="check" className="mr-2 inline size-4 text-[#ddb159]" />
                   {feature}
                 </div>
               ))}
@@ -117,11 +133,22 @@ export default async function CheckoutConfirmPage({
                 {copy.note} You will be redirected to Stripe. StockGPT does not store your card details.
               </p>
 
+              {offer && (
+                <div className="mt-3 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">
+                    Launch offer applied
+                  </p>
+                  <p className="mt-1 text-[12px] font-semibold leading-5 text-[#faf6f0]/72">
+                    50% off your first month will be applied automatically in Stripe Checkout.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link href="/checkout/confirm?plan=monthly" className={["rounded-2xl border px-4 py-2 text-center text-[11px] font-black uppercase tracking-[0.12em] transition", selectedPlan === "monthly" ? "border-[#ddb159] bg-[#ddb159] text-[#072116]" : "border-[#ddb159]/25 text-[#ddb159] hover:bg-[#ddb159]/10"].join(" ")}>
+                <Link href={checkoutConfirmHref("monthly", offer)} className={["rounded-2xl border px-4 py-2 text-center text-[11px] font-black uppercase tracking-[0.12em] transition", selectedPlan === "monthly" ? "border-[#ddb159] bg-[#ddb159] text-[#072116]" : "border-[#ddb159]/25 text-[#ddb159] hover:bg-[#ddb159]/10"].join(" ")}>
                   Monthly
                 </Link>
-                <Link href="/checkout/confirm?plan=annual" className={["rounded-2xl border px-4 py-2 text-center text-[11px] font-black uppercase tracking-[0.12em] transition", selectedPlan === "annual" ? "border-[#ddb159] bg-[#ddb159] text-[#072116]" : "border-[#ddb159]/25 text-[#ddb159] hover:bg-[#ddb159]/10"].join(" ")}>
+                <Link href={checkoutConfirmHref("annual", offer)} className={["rounded-2xl border px-4 py-2 text-center text-[11px] font-black uppercase tracking-[0.12em] transition", selectedPlan === "annual" ? "border-[#ddb159] bg-[#ddb159] text-[#072116]" : "border-[#ddb159]/25 text-[#ddb159] hover:bg-[#ddb159]/10"].join(" ")}>
                   Annual
                 </Link>
               </div>
@@ -132,16 +159,34 @@ export default async function CheckoutConfirmPage({
                 </p>
               )}
 
+              {params.checkout === "offer_unavailable" && (
+                <p className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 px-4 py-3 text-[12px] font-bold leading-5 text-red-100">
+                  The launch discount is not configured for checkout yet. Please try again shortly.
+                </p>
+              )}
+
+              {params.checkout === "failed" && (
+                <p className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 px-4 py-3 text-[12px] font-bold leading-5 text-red-100">
+                  Stripe Checkout could not be started. No payment was taken. Please try again.
+                </p>
+              )}
+
+              {params.checkout === "configuration_error" && (
+                <p className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 px-4 py-3 text-[12px] font-bold leading-5 text-red-100">
+                  Checkout configuration is incomplete. No payment was taken. Please try again after the billing settings are updated.
+                </p>
+              )}
+
               {!user ? (
                 <div className="mt-5 rounded-2xl border border-[#ddb159]/18 bg-[#061b12]/50 p-4">
                   <p className="text-[13px] font-bold leading-6 text-[#faf6f0]/72">
                     Log in or create an account before subscribing so Core access is linked correctly.
                   </p>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#072116] transition hover:brightness-110">
+                    <Link href={`/signup${offer ? `?coupon=${offer}&next=${encodedReturnPath}` : `?next=${encodedReturnPath}`}`} className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#072116] transition hover:brightness-110">
                       Create account
                     </Link>
-                    <Link href="/login" className="inline-flex h-11 items-center justify-center rounded-full border border-[#ddb159]/35 px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159] transition hover:bg-[#ddb159]/10">
+                    <Link href={`/login?next=${encodedReturnPath}`} className="inline-flex h-11 items-center justify-center rounded-full border border-[#ddb159]/35 px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159] transition hover:bg-[#ddb159]/10">
                       Log in
                     </Link>
                   </div>
@@ -150,6 +195,7 @@ export default async function CheckoutConfirmPage({
                 <form action="/api/create-checkout-session" method="post" className="mt-5">
                   <EndorselyReferralInput />
                   <input type="hidden" name="plan" value={selectedPlan} />
+                  {offer && <input type="hidden" name="offer" value={offer} />}
                   <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/60 p-4 text-left transition hover:border-[#ddb159]/40 hover:bg-[#061b12]/80">
                     <input type="checkbox" name="legal_acknowledgement" value="accepted" required className="mt-1 size-4 shrink-0 accent-[#ddb159]" />
                     <span className="text-[12px] font-semibold leading-6 text-[#faf6f0]/68">

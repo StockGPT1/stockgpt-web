@@ -74,6 +74,7 @@ export function moveClassName(tone: RankMove24h["tone"]) {
 
 export async function getRankSnapshotMapAround24hAgo(
   supabase: SupabaseClient,
+  tickers?: string[],
 ): Promise<Map<string, number>> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -91,10 +92,20 @@ export async function getRankSnapshotMapAround24hAgo(
     return new Map();
   }
 
-  const { data } = await supabase
+  if (tickers && tickers.length === 0) {
+    return new Map();
+  }
+
+  let snapshotQuery = supabase
     .from("stock_rank_snapshots")
     .select("ticker,rank,snapshot_at")
     .eq("snapshot_at", snapshotAt);
+
+  if (tickers) {
+    snapshotQuery = snapshotQuery.in("ticker", Array.from(new Set(tickers)));
+  }
+
+  const { data } = await snapshotQuery;
 
   const rows = (data ?? []) as SnapshotRow[];
 

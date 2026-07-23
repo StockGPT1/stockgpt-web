@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 
 type AuthProvider = "google";
 
@@ -55,11 +54,20 @@ export function AuthProviderButtons({
     setLoadingProvider(provider);
     onError("");
 
+    /* supabase-js is only needed once the user actually clicks — loading
+       it here keeps ~35KB gz out of the auth pages' first-load bundle. */
+    const { createClient } = await import("@/utils/supabase/client");
+
     const origin = window.location.origin;
+    const requestedNext = new URLSearchParams(window.location.search).get("next");
+    const safeRedirectTo =
+      requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+        ? requestedNext
+        : redirectTo;
     const { error } = await createClient().auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}`,
       },
     });
 

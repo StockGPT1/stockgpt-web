@@ -31,7 +31,7 @@ export function StockNewsSection({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-            ✦ World Events & Company Activity
+            World Events & Company Activity
           </p>
 
           <h2 className="mt-1 text-[22px] font-black tracking-[-0.03em] text-[#faf6f0]">

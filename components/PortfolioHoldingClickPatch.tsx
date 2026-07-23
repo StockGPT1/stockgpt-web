@@ -201,7 +201,7 @@ function patchManageTradeLevels() {
 
 function recommendedTrimPercent(dialog: Element) {
   const text = dialog.textContent ?? "";
-  const match = text.match(/Trim and reinvest:\s*([0-9]+(?:\.[0-9]+)?)%/i);
+  const match = text.match(/Trim holding:\s*([0-9]+(?:\.[0-9]+)?)%/i);
   const value = Number(match?.[1]);
   return Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -209,7 +209,7 @@ function recommendedTrimPercent(dialog: Element) {
 function recommendedReinvestmentTicker(dialog: Element) {
   const paragraphs = Array.from(dialog.querySelectorAll("p"));
   const header = paragraphs.find((paragraph) =>
-    (paragraph.textContent ?? "").trim().toLowerCase().startsWith("reinvestment candidate"),
+    (paragraph.textContent ?? "").trim().toLowerCase().startsWith("reallocation candidate"),
   );
   const block = header?.parentElement;
   const tickerLine = block
@@ -287,7 +287,7 @@ export function PortfolioHoldingClickPatch() {
       if (
         trimButton instanceof HTMLButtonElement &&
         dialog &&
-        trimButton.textContent?.trim() === "Trim and reinvest" &&
+        trimButton.dataset.stockgptLegacyTrimAndReinvest === "true" &&
         recommendedTrimPercent(dialog) &&
         recommendedReinvestmentTicker(dialog)
       ) {

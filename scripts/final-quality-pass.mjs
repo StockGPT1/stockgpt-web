@@ -174,7 +174,7 @@ function severityStyle`,
   source = source.replace(
     /<Link\n\s+href=\{`\/stock\/\$\{notification\.ticker\}`\}[\s\S]*?\n\s+<\/Link>\n\s+\{notification\.company && \(/,
     String.raw`<Link
-              href={`/stock/${notification.ticker}`}
+              href={\`/stock/\${notification.ticker}\`}
               className="text-[11px] font-black tracking-wider text-[#072116] underline decoration-[#ddb159]/40 underline-offset-2 hover:decoration-[#ddb159]"
             >
               {notification.ticker}

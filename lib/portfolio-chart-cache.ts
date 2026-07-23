@@ -2,13 +2,17 @@ import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
 import type { PortfolioSnapshotPayload } from "@/lib/portfolio-speed-cache";
+import { isPortfolioChartLatestPointFresh } from "@/lib/portfolio-snapshots";
+import {
+  filterDisplayablePortfolioChartData,
+  isPortfolioChartRangeDisplayable,
+} from "@/lib/portfolio-chart-health";
 
 const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v7";
-const MIN_PORTFOLIO_1D_POINTS = Number(process.env.MIN_PORTFOLIO_1D_POINTS ?? 6);
+const PORTFOLIO_CHART_CACHE_VERSION = "v10";
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
@@ -49,13 +53,14 @@ function normaliseSummary(summary: SummaryLike) {
 function hasUsableOneDayChart(chartData: PortfolioChartData) {
   const oneDayPoints = chartData["1D"] ?? [];
   if (oneDayPoints.length === 0) return true;
-  return oneDayPoints.length >= MIN_PORTFOLIO_1D_POINTS;
+  return isPortfolioChartRangeDisplayable("1D", oneDayPoints);
 }
 
 export function hasUsablePortfolioChart(chartData: PortfolioChartData | null | undefined) {
   if (!chartData) return false;
-  const hasAnyUsableRange = Object.values(chartData).some((points) => (points?.length ?? 0) > 1);
-  return hasAnyUsableRange && hasUsableOneDayChart(chartData);
+  const displayable = filterDisplayablePortfolioChartData(chartData);
+  const hasAnyUsableRange = Object.values(displayable).some((points) => (points?.length ?? 0) > 1);
+  return hasAnyUsableRange && hasUsableOneDayChart(displayable);
 }
 
 function chartMatchesSummary(payload: PortfolioChartCachePayload, summary: SummaryLike) {
@@ -80,8 +85,9 @@ export async function getLatestPortfolioChart({
 
   if (!payload || !hasUsablePortfolioChart(payload.chartData)) return null;
   if (!chartMatchesSummary(payload, summary)) return null;
+  if (!isPortfolioChartLatestPointFresh({ chartData: payload.chartData })) return null;
 
-  return payload.chartData;
+  return filterDisplayablePortfolioChartData(payload.chartData);
 }
 
 export async function saveLatestPortfolioChart({
@@ -93,13 +99,14 @@ export async function saveLatestPortfolioChart({
   summary: PortfolioHealthSummary;
   chartData: PortfolioChartData;
 }) {
-  if (!hasUsablePortfolioChart(chartData)) return;
+  const displayableChartData = filterDisplayablePortfolioChartData(chartData);
+  if (!hasUsablePortfolioChart(displayableChartData)) return;
 
   const current = normaliseSummary(summary);
   await setJsonCache<PortfolioChartCachePayload>(
     portfolioChartKey(portfolioId),
     {
-      chartData,
+      chartData: displayableChartData,
       totalValue: current.totalValue,
       totalPnl: current.totalPnl,
       totalPnlPct: current.totalPnlPct,

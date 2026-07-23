@@ -125,7 +125,7 @@ async function saveExactTradeLevels({
   const savedTarget = savedLevel(holding.target_level_at_entry);
 
   if (Math.abs((savedRisk ?? 0) - riskLevel) > 0.01 || Math.abs((savedTarget ?? 0) - targetLevel) > 0.01) {
-    const { error: saveError } = await (supabase as any)
+    const { error: saveError } = await supabase
       .from("portfolio_holdings")
       .update({
         risk_level_at_entry: riskLevel,
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ levels: null, reason: "Login required." }, { status: 401 });
   }
 
-  const { data: portfoliosData, error: portfolioError } = await (supabase as any)
+  const { data: portfoliosData, error: portfolioError } = await supabase
     .from("user_portfolios")
     .select("id,currency")
     .eq("user_id", user.id)
@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
   }
   const scopedPortfolioIds = requestedPortfolioId ? [requestedPortfolioId] : portfolioIds;
 
-  const { data: holdingsData, error: holdingError } = await (supabase as any)
+  const { data: holdingsData, error: holdingError } = await supabase
     .from("portfolio_holdings")
     .select("portfolio_id,ticker,entry_price,risk_level_at_entry,target_level_at_entry,score_at_entry,rank_at_entry,source")
     .in("portfolio_id", scopedPortfolioIds)

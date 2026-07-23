@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AffiliateCandleScrollbar } from "@/components/AffiliateCandleScrollbar";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { StockIcon } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
   title: "StockGPT Affiliate Program",
@@ -366,7 +367,7 @@ export default async function AffiliatePage({
             ].map(([title, copy]) => (
               <article key={title} className="affiliate-card rounded-[1.7rem] p-6">
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#D4AF37]/28 bg-[#D4AF37]/10 text-2xl text-[#D4AF37] shadow-[0_0_28px_rgba(212,175,55,0.10)]">
-                  ✦
+                  <StockIcon name="ask" className="size-6" />
                 </div>
                 <h3 className="affiliate-heading text-3xl font-black tracking-[-0.04em] text-[#e8f5e9]">
                   {title}

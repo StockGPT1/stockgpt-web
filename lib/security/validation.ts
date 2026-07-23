@@ -73,7 +73,6 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
   lastName: string;
   fullName: string;
   dob: string;
-  phone: string;
   email: string;
   password: string;
   marketingConsent: boolean;
@@ -87,7 +86,6 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
   const firstName = cleanString(record.firstName, 60);
   const lastName = cleanString(record.lastName, 60);
   const dob = cleanString(record.dob, 10);
-  const phone = cleanString(record.phone, 25);
   const email = cleanEmail(record.email);
   const password = typeof record.password === "string" ? record.password : "";
 
@@ -122,13 +120,6 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
     return {
       ok: false,
       message: "StockGPT is only available to users aged 18 or over.",
-    };
-  }
-
-  if (phone && !isValidPhone(phone)) {
-    return {
-      ok: false,
-      message: "Enter a valid phone number or leave it blank.",
     };
   }
 
@@ -167,7 +158,6 @@ export function validateSignupPayload(body: unknown): ValidationResult<{
       lastName,
       fullName: `${firstName} ${lastName}`.trim(),
       dob,
-      phone,
       email,
       password,
       marketingConsent,

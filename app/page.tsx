@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getLandingData } from "@/lib/landing-data";
-import { LandingClient } from "./landing/LandingClient";
+import { getScrollLandingData } from "@/lib/scroll-landing-data";
+import { ScrollLandingClient } from "./landing/ScrollLandingClient";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LandingPage() {
-  const { tickerTape, metrics, topRankings } = await getLandingData();
+  const { metrics } = await getScrollLandingData();
 
-  return (
-    <LandingClient
-      tickerTape={tickerTape}
-      metrics={metrics}
-      topRankings={topRankings}
-    />
-  );
+  return <ScrollLandingClient metrics={metrics} />;
 }

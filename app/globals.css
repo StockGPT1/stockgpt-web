@@ -57,6 +57,56 @@ select {
   font: inherit;
 }
 
+button,
+a[href],
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]) {
+  transition-duration: 100ms;
+  user-select: none;
+}
+
+button:not(:disabled):active,
+a[href]:active,
+[role="button"]:not([aria-disabled="true"]):active {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+button:focus-visible,
+a[href]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #ddb159;
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] {
+    grid-template-columns:
+      minmax(230px, 1.55fr)
+      minmax(96px, 112px)
+      minmax(112px, 130px)
+      minmax(76px, 92px)
+      minmax(104px, 120px)
+      minmax(112px, 124px) !important;
+  }
+
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] > div:last-child {
+    justify-content: flex-end;
+  }
+
+  #portfolio-check [class*="minmax(210px,1.6fr)_110px_125px_90px_80px_94px"] > div:last-child > button {
+    min-width: 104px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 .font-luxury,
 .luxury-heading,
 h1,
@@ -80,6 +130,12 @@ h2 {
 }
 
 @media (max-width: 639px) {
+  .portfolio-mobile-page button,
+  .stockgpt-manual-entry button,
+  .stockgpt-manage-holding-dialog button {
+    min-height: 44px;
+  }
+
   .portfolio-mobile-page {
     overflow: visible !important;
     max-width: 100% !important;
@@ -456,6 +512,109 @@ h2 {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  fx-* motion toolkit — shared micro-interactions for the whole app  */
+/*  (matches the landing/loader vibe: gold, cinematic, understated)    */
+/* ------------------------------------------------------------------ */
+
+/* Staggered entrance: opacity + rise. Set --fx-delay per element. */
+.fx-rise {
+  animation: fx-rise 0.6s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+  animation-delay: var(--fx-delay, 0s);
+}
+
+@keyframes fx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Gold sheen that sweeps across a button on hover/focus. The host
+   keeps its own background; this only paints a moving highlight. */
+.fx-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.fx-sheen::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto;
+  left: -70%;
+  width: 45%;
+  transform: skewX(-22deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.42),
+    transparent
+  );
+  opacity: 0;
+  transition: none;
+  pointer-events: none;
+}
+
+.fx-sheen:hover::after,
+.fx-sheen:focus-visible::after {
+  animation: fx-sheen-sweep 0.7s ease forwards;
+}
+
+@keyframes fx-sheen-sweep {
+  from {
+    left: -70%;
+    opacity: 1;
+  }
+  to {
+    left: 130%;
+    opacity: 1;
+  }
+}
+
+/* Recording-style live indicator: solid dot + expanding ring. */
+.fx-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.fx-live-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: fx-live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes fx-live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-rise {
+    animation: none;
+  }
+  .fx-sheen:hover::after,
+  .fx-sheen:focus-visible::after {
+    animation: none;
+  }
+  .fx-live-dot::before {
+    animation: none;
   }
 }
 

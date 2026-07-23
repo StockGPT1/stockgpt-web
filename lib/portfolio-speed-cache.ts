@@ -29,6 +29,7 @@ export type PortfolioSnapshotPayload = {
   enriched: unknown;
   summary: unknown;
   chartData: unknown;
+  chartMeta?: unknown;
   portfolioNews: unknown;
 };
 
@@ -299,6 +300,33 @@ export async function savePortfolioPageSnapshot({
   })();
 
   await Promise.allSettled([redisWrite, latestRedisWrite, supabaseWrite]);
+}
+
+export async function invalidatePortfolioPageSnapshot({
+  portfolioId,
+  ownerId,
+}: {
+  portfolioId: string;
+  ownerId: string;
+}) {
+  const latestKey = latestPortfolioSnapshotKey({ ownerId, portfolioId });
+  const redisDelete = redisCommand<number>(["DEL", latestKey]);
+  const supabaseDelete = (async () => {
+    try {
+      const supabase = createAdminClient();
+      const { error } = await supabase
+        .from("portfolio_page_snapshots")
+        .delete()
+        .eq("portfolio_id", portfolioId)
+        .eq("owner_id", ownerId);
+
+      if (error) console.warn("Portfolio page snapshot invalidation failed", error.message ?? error);
+    } catch (err) {
+      console.warn("Portfolio page snapshot invalidation failed", err);
+    }
+  })();
+
+  await Promise.allSettled([redisDelete, supabaseDelete]);
 }
 
 const getPortfolioStockUniverseFromSupabase = unstable_cache(

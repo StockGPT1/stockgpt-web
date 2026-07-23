@@ -11,6 +11,11 @@ type PortfolioRow = {
   currency: string | null;
 };
 
+type PortfolioTotalsRow = {
+  cash_balance: number | string | null;
+  cash_deposited_total: number | string | null;
+};
+
 type StockRow = {
   ticker: string | null;
   price: number | string | null;
@@ -126,8 +131,9 @@ async function recalculatePortfolioTotals(
     (sum, holding) => sum + toNumber(holding.entry_price) * toNumber(holding.shares),
     0,
   );
-  const cashBalance = toNumber((portfolio as any)?.cash_balance);
-  const deposited = toNumber((portfolio as any)?.cash_deposited_total);
+  const portfolioTotals = portfolio as PortfolioTotalsRow | null;
+  const cashBalance = toNumber(portfolioTotals?.cash_balance);
+  const deposited = toNumber(portfolioTotals?.cash_deposited_total);
 
   await supabase
     .from("user_portfolios")

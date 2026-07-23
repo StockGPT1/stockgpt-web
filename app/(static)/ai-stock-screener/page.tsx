@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { StockIcon } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
   title: "AI Stock Screener for S&P 500 Research | StockGPT",
@@ -37,7 +38,7 @@ export default function AiStockScreenerPage() {
           <div className="mt-4 grid gap-3">
             {features.map((feature) => (
               <div key={feature} className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] px-4 py-3 text-[13px] font-bold text-[#faf6f0]/78">
-                <span className="mr-2 text-[#ddb159]">✓</span>{feature}
+                <StockIcon name="check" className="mr-2 inline size-4 text-[#ddb159]" />{feature}
               </div>
             ))}
           </div>

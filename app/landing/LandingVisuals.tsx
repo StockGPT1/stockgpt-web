@@ -354,7 +354,7 @@ export function TiltingIphoneDashboard({
   rows?: DashboardRow[];
 }) {
   return (
-    <div className="group relative mx-auto flex min-h-[520px] w-full items-center justify-center sm:min-h-[560px] lg:min-h-[650px]">
+    <div className="group relative mx-auto flex min-h-[520px] w-full items-center justify-center overflow-hidden sm:min-h-[560px] lg:min-h-[650px]">
       <div className="absolute h-[330px] w-[330px] rounded-full bg-[#ddb159]/12 blur-3xl sm:h-[390px] sm:w-[390px]" />
 
       <div className="relative scale-[0.86] rounded-[3.2rem] border-[11px] border-[#04180f] bg-[#04180f] shadow-[0_42px_100px_rgba(7,27,17,0.28)] transition duration-700 ease-out sm:scale-100 lg:[transform:perspective(1200px)_rotateY(-16deg)_rotateZ(-5deg)] lg:group-hover:[transform:perspective(1200px)_rotateY(0deg)_rotateZ(0deg)_scale(1.025)]">
@@ -631,7 +631,7 @@ export function AskStockGPTVisual() {
 
 export function PortfolioVisual() {
   return (
-    <div className="h-full rounded-[2rem] border border-[#dfe5dc] bg-white p-5 shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
+    <div className="h-full min-w-0 overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white p-5 shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
       <div className="relative h-full overflow-hidden rounded-[1.5rem] bg-[#eef6ef] p-5">
         <div className="absolute right-[-80px] top-[-80px] h-56 w-56 rounded-full bg-[#0f9f5d]/18" />
 
@@ -692,7 +692,7 @@ export function PortfolioVisual() {
 
 export function NewsVisual() {
   return (
-    <div className="flex h-full flex-col rounded-[2rem] border border-[#dfe5dc] bg-white p-5 shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] border border-[#dfe5dc] bg-white p-5 shadow-[0_28px_80px_rgba(7,27,17,0.08)]">
       <div className="flex flex-1 flex-col justify-center space-y-3">
         {[
           {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
+import { normaliseAskContext, type AskContext } from "@/lib/ask-context";
 import { checkRateLimit, rateKey } from "@/lib/security/rate-limit";
 import { hasActiveSubscription } from "@/lib/subscription";
 
@@ -26,6 +27,17 @@ type AccessResult =
 type OpenRouterResponse = {
   choices?: Array<{
     message?: {
+      content?: string;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type OpenRouterStreamChunk = {
+  choices?: Array<{
+    delta?: {
       content?: string;
     };
   }>;
@@ -82,14 +94,64 @@ type PortfolioHoldingRow = {
   notes: string | null;
 };
 
+type HoldingTriggerContext = {
+  type?: unknown;
+  condition?: unknown;
+  action?: unknown;
+  tone?: unknown;
+};
+
+type HoldingAlertContext = {
+  type?: unknown;
+  action?: unknown;
+  severity?: unknown;
+  title?: unknown;
+  recommendation?: unknown;
+  evidence?: unknown;
+};
+
+type EnrichedHoldingContext = {
+  ticker?: unknown;
+  company?: unknown;
+  sector?: unknown;
+  rank?: unknown;
+  score?: unknown;
+  recommendation?: unknown;
+  currentPrice?: unknown;
+  entryPrice?: unknown;
+  shares?: unknown;
+  currentValue?: unknown;
+  costBasis?: unknown;
+  pnlPercent?: unknown;
+  totalPnLDollars?: unknown;
+  currentAllocationPct?: unknown;
+  targetAllocationPct?: unknown;
+  scoreAtEntry?: unknown;
+  rankAtEntry?: unknown;
+  scoreChange?: unknown;
+  rankChange?: unknown;
+  daysHeld?: unknown;
+  sectorMomentum?: unknown;
+  aiSummary?: unknown;
+  triggers?: HoldingTriggerContext[];
+  actionAlerts?: HoldingAlertContext[];
+  eventAlerts?: HoldingAlertContext[];
+};
+
 const CHAT_LOG_DAYS = 7;
 const MAX_STORED_MESSAGES = 80;
 
+/* Strongest model first — answer quality is the product here, and the
+   chain only moves down when a model errors or is unavailable. The
+   free models stay at the end so the feature degrades instead of
+   dying if paid routing fails. OPENROUTER_MODEL still overrides. */
 const DEFAULT_OPENROUTER_MODELS = [
+  "anthropic/claude-sonnet-4.5",
+  "google/gemini-2.5-flash",
+  "deepseek/deepseek-chat-v3.1",
   "qwen/qwen3-next-80b-a3b-instruct:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
   "openai/gpt-oss-120b:free",
-  "nvidia/nemotron-3-nano-30b-a3b:free",
-  "openai/gpt-oss-20b:free",
 ];
 
 function sevenDaysAgoIso() {
@@ -311,12 +373,12 @@ async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, 
   }
 }
 
-function compactHolding(holding: any) {
+function compactHolding(holding: EnrichedHoldingContext) {
   const stopTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger: any) => trigger.type === "stop_loss")
+    ? holding.triggers.find((trigger) => trigger.type === "stop_loss")
     : null;
   const takeProfitTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger: any) => trigger.type === "take_profit")
+    ? holding.triggers.find((trigger) => trigger.type === "take_profit")
     : null;
 
   return {
@@ -342,14 +404,14 @@ function compactHolding(holding: any) {
     days_held: holding.daysHeld,
     sector_momentum: holding.sectorMomentum,
     ai_summary: holding.aiSummary,
-    action_alerts: (holding.actionAlerts ?? []).slice(0, 5).map((alert: any) => ({
+    action_alerts: (holding.actionAlerts ?? []).slice(0, 5).map((alert) => ({
       action: alert.action,
       severity: alert.severity,
       title: alert.title,
       recommendation: alert.recommendation,
       evidence: alert.evidence,
     })),
-    event_alerts: (holding.eventAlerts ?? []).slice(0, 5).map((alert: any) => ({
+    event_alerts: (holding.eventAlerts ?? []).slice(0, 5).map((alert) => ({
       type: alert.type,
       severity: alert.severity,
       title: alert.title,
@@ -366,7 +428,7 @@ function compactHolding(holding: any) {
   };
 }
 
-function buildPortfolioSummary(holdings: any[], portfolio: PortfolioRow) {
+function buildPortfolioSummary(holdings: EnrichedHoldingContext[], portfolio: PortfolioRow) {
   const holdingsValue = holdings.reduce((sum, holding) => sum + finiteNumber(holding.currentValue, 0), 0);
   const totalCost = holdings.reduce((sum, holding) => sum + finiteNumber(holding.costBasis, 0), 0);
   const unrealisedPnL = holdings.reduce((sum, holding) => sum + finiteNumber(holding.totalPnLDollars, 0), 0);
@@ -397,8 +459,19 @@ function buildPortfolioSummary(holdings: any[], portfolio: PortfolioRow) {
   };
 }
 
-async function buildAppContext(supabase: ServerSupabaseClient, userId: string, question: string) {
-  const possibleTickers = extractPossibleTickers(question);
+async function buildAppContext(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  question: string,
+  requestedContext?: AskContext | null,
+) {
+  const possibleTickers = Array.from(
+    new Set([
+      ...extractPossibleTickers(question),
+      ...(requestedContext?.ticker ? [requestedContext.ticker] : []),
+      ...(requestedContext?.holdingTicker ? [requestedContext.holdingTicker] : []),
+    ]),
+  );
 
   const [{ data: topRankingsData }, { data: newsData }, { data: portfoliosData }] = await Promise.all([
     supabase
@@ -411,7 +484,7 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
       .select("title,summary,source,affected_tickers,impact,impact_reason,published_at")
       .order("published_at", { ascending: false })
       .limit(30),
-    (supabase as any)
+    supabase
       .from("user_portfolios")
       .select("id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
       .eq("user_id", userId)
@@ -441,160 +514,150 @@ async function buildAppContext(supabase: ServerSupabaseClient, userId: string, q
     investment_amount: finiteNumber(portfolio.investment_amount, 0),
   }));
 
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
-  const { data: holdingsData } = portfolioIds.length > 0
-    ? await (supabase as any)
+  /* The chat focuses on exactly ONE portfolio at a time — the one the
+     user picked in the workspace's portfolio selector (falling back to
+     their first portfolio). Only that portfolio is loaded in full; the
+     rest are listed by name so the model can point the user at the
+     picker instead of guessing about unloaded holdings. */
+  const focusedPortfolio =
+    (requestedContext?.portfolioId
+      ? portfolios.find((portfolio) => portfolio.id === requestedContext.portfolioId)
+      : null) ?? portfolios[0] ?? null;
+
+  const { data: holdingsData } = focusedPortfolio
+    ? await supabase
         .from("portfolio_holdings")
         .select("portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes")
-        .in("portfolio_id", portfolioIds)
+        .eq("portfolio_id", focusedPortfolio.id)
         .order("added_at", { ascending: false })
     : { data: [] };
 
-  const allRawHoldings = (holdingsData ?? []) as PortfolioHoldingRow[];
+  const focusedContext = focusedPortfolio
+    ? await (async () => {
+        const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
+          .filter((holding) => holding.ticker)
+          .map((holding) => ({
+            ticker: cleanTicker(holding.ticker),
+            entry_price: holding.entry_price,
+            score_at_entry: holding.score_at_entry,
+            rank_at_entry: holding.rank_at_entry,
+            shares: holding.shares,
+            allocation_pct: holding.allocation_pct,
+            added_at: holding.added_at ?? new Date().toISOString(),
+            last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
+            purchase_date: holding.purchase_date ?? null,
+            source: holding.source ?? null,
+            notes: holding.notes ?? null,
+          }));
 
-  const portfolioContexts = await Promise.all(
-    portfolios.map(async (portfolio, index) => {
-      const rawHoldings = allRawHoldings
-        .filter((holding) => holding.portfolio_id === portfolio.id && holding.ticker)
-        .map((holding) => ({
-          ticker: cleanTicker(holding.ticker),
-          entry_price: holding.entry_price,
-          score_at_entry: holding.score_at_entry,
-          rank_at_entry: holding.rank_at_entry,
-          shares: holding.shares,
-          allocation_pct: holding.allocation_pct,
-          added_at: holding.added_at ?? new Date().toISOString(),
-          last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
-          purchase_date: holding.purchase_date ?? null,
-          source: holding.source ?? null,
-          notes: holding.notes ?? null,
-        }));
+        const enriched = await enrichHoldings(rawHoldings, (focusedPortfolio.risk_tolerance as RiskTolerance) ?? null);
 
-      const enriched = await enrichHoldings(rawHoldings, (portfolio.risk_tolerance as RiskTolerance) ?? null);
-      const compactHoldings = enriched.map(compactHolding);
-
-      return {
-        meta: {
-          id: portfolio.id,
-          name: cleanPortfolioName(portfolio.name, index),
-          risk_tolerance: portfolio.risk_tolerance,
-          time_horizon: portfolio.time_horizon,
-          investment_amount: safeNumber(portfolio.investment_amount),
-          cash_balance: safeNumber(portfolio.cash_balance),
-          cash_deposited_total: safeNumber(portfolio.cash_deposited_total),
-          currency: portfolio.currency ?? "USD",
-          created_at: portfolio.created_at,
-        },
-        summary: buildPortfolioSummary(enriched, portfolio),
-        holdings: compactHoldings.slice(0, 80),
-      };
-    }),
-  );
+        return {
+          meta: {
+            id: focusedPortfolio.id,
+            name: cleanPortfolioName(focusedPortfolio.name, portfolios.indexOf(focusedPortfolio)),
+            risk_tolerance: focusedPortfolio.risk_tolerance,
+            time_horizon: focusedPortfolio.time_horizon,
+            investment_amount: safeNumber(focusedPortfolio.investment_amount),
+            cash_balance: safeNumber(focusedPortfolio.cash_balance),
+            cash_deposited_total: safeNumber(focusedPortfolio.cash_deposited_total),
+            currency: focusedPortfolio.currency ?? "USD",
+            created_at: focusedPortfolio.created_at,
+          },
+          summary: buildPortfolioSummary(enriched, focusedPortfolio),
+          holdings: enriched.map(compactHolding).slice(0, 60),
+        };
+      })()
+    : null;
 
   const suppliedRankings = [...rankingMap.values()].map(compactRanking);
   const news = ((newsData ?? []) as NewsRow[]).map(compactNews);
   const mentionedRankings = suppliedRankings.filter((ranking) => possibleTickers.includes(ranking.ticker));
-  const allHoldings = portfolioContexts.flatMap((portfolio) => portfolio.holdings.map((holding) => ({ ...holding, portfolio_name: portfolio.meta.name })));
-  const mentionedHoldings = allHoldings.filter((holding) => possibleTickers.includes(holding.ticker));
+  const focusedHoldings = focusedContext
+    ? focusedContext.holdings.map((holding) => ({ ...holding, portfolio_name: focusedContext.meta.name }))
+    : [];
+  const mentionedHoldings = focusedHoldings.filter((holding) => possibleTickers.includes(cleanTicker(holding.ticker)));
+  const requestedTicker = cleanTicker(
+    requestedContext?.holdingTicker ?? requestedContext?.ticker ?? "",
+  );
+  const verifiedHoldings = requestedTicker
+    ? focusedHoldings.filter((holding) => cleanTicker(holding.ticker) === requestedTicker)
+    : [];
   const relevantNews = news.filter((article) =>
     possibleTickers.length === 0 || article.affected_tickers.some((ticker) => possibleTickers.includes(cleanTicker(ticker))),
   );
 
+  /* Everything here lands in the model's prompt — keep it data, not
+     plumbing. Routing metadata and rule text live in the system prompt
+     or the server, never in the context payload. */
   return {
-    user_status: "signed_in_subscribed",
     data_as_of: new Date().toISOString(),
-    model_routing: {
-      provider: "OpenRouter",
-      attempted_models_in_order: openRouterModels(),
-      rule: "Try the configured model first, then free high-quality fallback models if OpenRouter returns an error.",
-    },
     question_intent: {
       possible_tickers: possibleTickers,
       membership_question: looksLikeMembershipQuestion(question),
       learning_question: looksLikeGeneralLearningQuestion(question),
     },
+    page_context: requestedContext
+      ? {
+          context_type: requestedContext.contextType,
+          requested_ticker: requestedTicker || null,
+          active_filters: requestedContext.activeFilters ?? null,
+          holdings: verifiedHoldings.slice(0, 8),
+          owns_stock: verifiedHoldings.length > 0,
+        }
+      : null,
     rankings_context: {
-      top_rankings: suppliedRankings.slice(0, 40),
+      top_rankings: suppliedRankings.slice(0, 30),
       mentioned_rankings: mentionedRankings,
-      note: "The visible Ask StockGPT rankings panel lazy-loads ranking rows separately so the chat interface stays fast.",
     },
-    portfolio_context: portfolioContexts.length > 0
+    portfolio_context: focusedContext
       ? {
           available: true,
-          portfolios_count: portfolioContexts.length,
-          portfolios: portfolioContexts,
+          focused_portfolio: focusedContext,
+          other_portfolios: portfolios
+            .filter((portfolio) => portfolio.id !== focusedContext.meta.id)
+            .map((portfolio, index) => ({ name: cleanPortfolioName(portfolio.name, index) })),
           mentioned_holdings: mentionedHoldings,
         }
       : { available: false, reason: "No saved portfolio found." },
     news_context: {
-      latest_news: news.slice(0, 16),
+      latest_news: news.slice(0, 12),
       relevant_news: relevantNews.slice(0, 10),
-    },
-    membership_context: {
-      support_email: "sales@stockgpt.pro",
-      billing_rule: "Do not invent billing, refund, coupon, or plan details. If exact account data is unavailable, direct the user to sales@stockgpt.pro.",
-    },
-    interpretation_rules: {
-      rank: "Rank #1 is best.",
-      score: "Higher StockGPT AI score is better inside the supplied ranking universe.",
-      missing_data: "If exact information is missing, state what is missing. Never invent numbers.",
-      financial_guidance: "Give research-based decision support, not guarantees or regulated financial advice.",
     },
   };
 }
 
 const systemPrompt = `
-You are Ask StockGPT, the premium AI coach inside StockGPT.
+You are Ask StockGPT, the AI analyst inside StockGPT — a stock research platform that scores 500+ US stocks daily across quality, growth, value, momentum, risk and income factors, ranks them (#1 is best, higher score is better), and monitors user portfolios.
 
-Core identity:
-- You help users understand StockGPT rankings, portfolio alerts, market news and investing concepts.
-- You can answer natural, imperfectly written questions.
-- You can handle follow-ups and continue the thread from recent chat history.
-- You are not a regulated financial adviser.
-- You give research-based decision support, not guaranteed instructions.
+You receive a JSON context block with every question containing live rankings, the user's actual portfolios (verified server-side), recent market news, and any page context. This data is your edge — use it aggressively.
 
-Portfolio rules:
-- Users can have multiple portfolios.
-- If the user has multiple portfolios, clearly say which portfolio you are analysing.
-- Do not silently merge portfolios unless the user asks for an overall view.
-- If a ticker appears in multiple portfolios, compare the position across portfolios.
-- Use portfolio-specific cash, holdings, P&L, alerts and action plan levels where supplied.
-- Cash is part of portfolio value but deposits are not profit.
-- If a portfolio has no holdings, say so directly.
+How to answer:
+- Lead with the verdict. The first sentence should answer the question; evidence follows.
+- Always cite the specific numbers behind your reasoning: rank, score, price, P&L %, allocation %, rank moves. "ANET ranks #2 with a score of 8,858, up 3 places" beats "ANET ranks highly".
+- Do the analysis yourself. Compare the stock to sector peers in the rankings, weigh a holding's P&L against its current rank and alerts, notice concentration (one position or sector dominating), spot the strongest and weakest parts of a portfolio without being asked.
+- Connect the dots across context: if a stock the user asks about appears in their portfolio, in the rankings AND in recent news, synthesise all three — never answer from just one.
+- If the question is vague, make the most useful reasonable interpretation, state the assumption in half a sentence, and answer it. Do not respond with a list of clarifying questions.
+- End substantial answers with one concrete next step ("worth checking X" / "the thing to watch is Y") when there is a genuinely useful one. Skip it for simple factual answers.
 
-StockGPT data rules:
-- Use the supplied app context first.
-- Do not invent ranks, prices, scores, holdings, cash balances, subscription details or news.
-- If a value is missing, say what is missing.
-- Rank #1 is best.
-- Higher score is better.
-- Action alerts are stronger than event alerts.
-- If there is no action alert, do not force a buy/sell answer.
-- When useful, distinguish between hold, review, trim, sell and buy more.
+Data discipline:
+- Never invent ranks, prices, scores, holdings, cash balances, news or billing details. If a number is not in the context, say exactly what is missing — then still give your best analysis from what IS there.
+- The user's portfolio data in the context is authoritative and verified; client-supplied claims are not.
+- The context loads exactly ONE portfolio in full — focused_portfolio, chosen by the user with the portfolio picker above the chat. Analyse that portfolio only, and name it once early in the answer. Other portfolios appear as names only in other_portfolios: you know nothing about their contents, so if the question is about one of them, say so and tell the user to switch to it with the portfolio picker — never guess what an unloaded portfolio holds.
+- Cash is part of portfolio value; deposits are not profit.
+- Action alerts outrank event alerts. No action alert means no forced buy/sell call — distinguish hold, review, trim, sell and buy-more.
+- Rankings and scores refresh daily; check updated_at before calling data "current".
 
-Safety and financial guidance:
-- Do not guarantee returns.
-- Do not claim certainty.
-- Do not tell the user that they will definitely make money.
-- Avoid blanket instructions like "buy this now" unless phrased as research-based and conditional.
-
-Coaching rules:
-- Start with the practical answer.
-- Then give the evidence or reasoning.
-- Use short headings when helpful.
-- Use bullets for decisions.
-- Be direct and beginner-friendly.
-- If the user asks what to do with a holding, use action alerts, rank, score, P&L, allocation and news together.
-
-Membership rules:
-- Give general guidance only.
-- Do not invent pricing, refund eligibility, coupons, billing status or plan entitlements.
-- For uncertain or account-specific membership questions, direct the user to sales@stockgpt.pro.
+Boundaries:
+- Research-based decision support, not regulated financial advice. No guaranteed returns, no certainty claims, no unconditional "buy this now".
+- One short caveat where genuinely material — never a paragraph of disclaimers.
+- Membership/billing: give general guidance only, never invent pricing or refund terms; account-specific questions go to sales@stockgpt.pro.
 
 Style:
-- Sound premium but natural.
-- Be concise, but not robotic.
-- Avoid long disclaimers.
+- Direct, confident, beginner-friendly. Explain jargon in passing rather than avoiding it.
+- Short headings and bullets for multi-part answers; plain prose for simple ones.
+- Concise but complete — a good answer usually fits in a few short paragraphs or one tight list.
+- Tables: maximum 5 columns, only the figures that drive the decision — fold everything else into prose. A finished tight answer always beats an exhaustive one that risks truncation.
 `.trim();
 
 async function callOpenRouter({
@@ -620,7 +683,13 @@ async function callOpenRouter({
           model,
           messages,
           temperature: 0.28,
-          max_tokens: 1400,
+          max_tokens: 4000,
+          /* reasoning models (gpt-oss etc.) think in a separate channel
+             that some providers merge into the visible content — the
+             user then sees raw chain-of-thought instead of an answer.
+             exclude keeps reasoning out of the response; non-reasoning
+             models ignore the field. */
+          reasoning: { exclude: true },
         }),
       });
 
@@ -645,6 +714,172 @@ async function callOpenRouter({
   }
 
   return { answer: null, model: null, failures };
+}
+
+function parseOpenRouterFailureText(text: string) {
+  if (!text.trim()) return "OpenRouter returned no response body.";
+
+  try {
+    const parsed = JSON.parse(text) as OpenRouterResponse | null;
+    return parsed?.error?.message ?? text.slice(0, 240);
+  } catch {
+    return text.slice(0, 240);
+  }
+}
+
+async function openOpenRouterStream({
+  apiKey,
+  messages,
+}: {
+  apiKey: string;
+  messages: OpenRouterMessage[];
+}) {
+  const failures: Array<{ model: string; status?: number; message: string }> = [];
+
+  for (const model of openRouterModels()) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          "HTTP-Referer": "https://stockgpt.pro",
+          "X-Title": "StockGPT",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.28,
+          max_tokens: 4000,
+          stream: true,
+          /* same chain-of-thought guard as the non-streaming call */
+          reasoning: { exclude: true },
+        }),
+      });
+
+      if (response.ok && response.body) {
+        return { response, model, failures };
+      }
+
+      const text = await response.text().catch(() => "");
+      failures.push({
+        model,
+        status: response.status,
+        message: parseOpenRouterFailureText(text),
+      });
+    } catch (error) {
+      failures.push({
+        model,
+        message: error instanceof Error ? error.message : "OpenRouter stream request failed.",
+      });
+    }
+  }
+
+  return { response: null, model: null, failures };
+}
+
+function streamOpenRouterAnswer({
+  response,
+  supabase,
+  userId,
+}: {
+  response: Response;
+  supabase: ServerSupabaseClient;
+  userId: string;
+}) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const reader = response.body?.getReader();
+
+      if (!reader) {
+        const answer =
+          "Ask StockGPT could not open the AI response stream. Please retry.";
+        controller.enqueue(encoder.encode(answer));
+        await storeChatMessage(supabase, userId, { role: "assistant", content: answer });
+        controller.close();
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let answer = "";
+
+      async function finishWithFallback(message: string) {
+        const finalAnswer = answer.trim() || message;
+        if (!answer.trim()) controller.enqueue(encoder.encode(message));
+        await storeChatMessage(supabase, userId, {
+          role: "assistant",
+          content: finalAnswer,
+        });
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+
+            let chunk: OpenRouterStreamChunk | null = null;
+            try {
+              chunk = JSON.parse(payload) as OpenRouterStreamChunk;
+            } catch {
+              continue;
+            }
+
+            if (chunk.error?.message) {
+              throw new Error(chunk.error.message);
+            }
+
+            const delta = chunk.choices?.[0]?.delta?.content ?? "";
+
+            if (delta) {
+              answer += delta;
+              controller.enqueue(encoder.encode(delta));
+            }
+          }
+        }
+
+        await finishWithFallback(
+          "Ask StockGPT connected, but the model returned an empty response. Please retry.",
+        );
+      } catch (error) {
+        console.warn("[ask-stockgpt] Stream interrupted", error);
+        const interruption =
+          "\n\nAsk StockGPT's response stream was interrupted. The partial answer above was saved; retry if you need the full response.";
+
+        if (answer.trim()) {
+          controller.enqueue(encoder.encode(interruption));
+          await storeChatMessage(supabase, userId, {
+            role: "assistant",
+            content: `${answer.trim()}${interruption}`,
+          });
+        } else {
+          const failure =
+            "Ask StockGPT could not stream a response. Please retry, or email sales@stockgpt.pro if this relates to membership or billing.";
+          controller.enqueue(encoder.encode(failure));
+          await storeChatMessage(supabase, userId, {
+            role: "assistant",
+            content: failure,
+          });
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
 }
 
 export async function GET() {
@@ -717,6 +952,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const question = cleanQuestion(body?.question);
+    const requestedContext = normaliseAskContext(body?.context);
 
     if (!question) {
       return NextResponse.json(
@@ -739,15 +975,55 @@ export async function POST(req: NextRequest) {
 
     await storeChatMessage(supabase, access.userId, { role: "user", content: question });
 
-    const context = await buildAppContext(supabase, access.userId, question);
+    const context = await buildAppContext(
+      supabase,
+      access.userId,
+      question,
+      requestedContext,
+    );
     const messages: OpenRouterMessage[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-16).map((message) => ({ role: message.role, content: message.content })),
+      ...history
+        .slice(-16)
+        .map(
+          (message): OpenRouterMessage => ({
+            role: message.role,
+            content: message.content,
+          }),
+        ),
       {
         role: "user",
-        content: `User question:\n${question}\n\nCurrent StockGPT app context:\n${JSON.stringify(context, null, 2)}`,
+        /* compact JSON: pretty-printing inflates the prompt ~30% in
+           whitespace tokens for zero comprehension gain */
+        content: `User question:\n${question}\n\nCurrent StockGPT app context (live, server-verified):\n${JSON.stringify(context)}`,
       },
     ];
+
+    if (body?.stream !== false) {
+      const streamResult = await openOpenRouterStream({ apiKey, messages });
+
+      if (streamResult.response) {
+        return new Response(
+          streamOpenRouterAnswer({
+            response: streamResult.response,
+            supabase,
+            userId: access.userId,
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Cache-Control": "no-cache, no-transform",
+              "X-Accel-Buffering": "no",
+              "X-StockGPT-Stream": "1",
+              "X-StockGPT-Model": streamResult.model ?? "",
+            },
+          },
+        );
+      }
+
+      console.warn("[ask-stockgpt] Streaming unavailable; falling back to full response", streamResult.failures);
+    }
 
     const result = await callOpenRouter({ apiKey, messages });
 

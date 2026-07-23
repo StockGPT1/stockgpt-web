@@ -3,6 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import type { Portfolio } from "@/lib/portfolio";
+import { invalidatePortfolioPageSnapshot } from "@/lib/portfolio-speed-cache";
+import {
+  buildCurrentPortfolioSnapshotPoint,
+  saveLatestPortfolioSnapshotFromChartData,
+} from "@/lib/portfolio-snapshots";
+import {
+  resolveTradeOrder,
+  roundTradeMoney,
+  roundTradeShares,
+  type TradeOrderInput,
+} from "@/lib/trade-calculator";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -15,10 +26,25 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type PortfolioRecord = {
   id: string;
   name?: string | null;
+  objective?: string | null;
+  risk_tolerance?: string | null;
+  time_horizon?: string | null;
   cash_balance?: number | null;
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
   currency?: string | null;
+};
+
+type PortfolioBalanceRow = Pick<
+  PortfolioRecord,
+  "cash_balance" | "cash_deposited_total"
+>;
+
+type PortfolioHoldingTradeRow = {
+  shares?: number | null;
+  entry_price?: number | null;
+  purchase_date?: string | null;
+  notes?: string | null;
 };
 
 type ParsedCsvRow = Record<string, string>;
@@ -48,6 +74,19 @@ type Trading212PreviewSummary = Trading212ImportSummary & {
   replaceWarning?: string | null;
 };
 
+type Trading212PortfolioCreateInput = {
+  name: string;
+  csvText: string;
+  currency?: "USD";
+};
+
+type Trading212PortfolioCreateSummary = Trading212ImportSummary & {
+  portfolioId: string;
+  portfolioName: string;
+  currency: "USD";
+  matchedTickers: string[];
+};
+
 type StockMatch = {
   ticker: string;
   price: number;
@@ -75,6 +114,22 @@ type SavePortfolioOptions = {
   portfolioId?: string | null;
 };
 
+export type ManualPortfolioHoldingInput = {
+  ticker: string;
+  shares: number;
+  averagePrice: number;
+  purchaseDate?: string | null;
+  notes?: string | null;
+};
+
+export type ManualPortfolioInput = {
+  name: string;
+  currency: "GBP" | "USD" | "EUR";
+  startingCash: number;
+  goal: "growth" | "income" | "balanced" | "watchlist" | "long-term";
+  holdings: ManualPortfolioHoldingInput[];
+};
+
 type AddCashInput = {
   portfolioId?: string | null;
   amount: number;
@@ -85,11 +140,30 @@ type RenamePortfolioInput = {
   name: string;
 };
 
+type PortfolioObjective =
+  | "growth"
+  | "income"
+  | "balanced"
+  | "capital_preservation"
+  | "watchlist";
+
+type PortfolioRiskTolerance = "conservative" | "moderate" | "aggressive";
+type PortfolioTimeHorizon = "short" | "medium" | "long";
+
+type UpdatePortfolioPreferencesInput = {
+  portfolioId: string;
+  objective: PortfolioObjective;
+  riskTolerance: PortfolioRiskTolerance;
+  timeHorizon: PortfolioTimeHorizon;
+};
+
 type LogExistingHoldingInput = {
   portfolioId?: string | null;
   ticker: string;
-  shares: number;
+  shares?: number | null;
   entryPrice?: number | null;
+  value?: number | null;
+  price?: number | null;
   purchaseDate?: string | null;
   notes?: string | null;
 };
@@ -97,8 +171,11 @@ type LogExistingHoldingInput = {
 type BuyHoldingWithCashInput = {
   portfolioId?: string | null;
   ticker: string;
-  dollarAmount: number;
+  dollarAmount?: number | null;
   entryPrice?: number | null;
+  value?: number | null;
+  price?: number | null;
+  shares?: number | null;
   purchaseDate?: string | null;
   notes?: string | null;
 };
@@ -115,7 +192,11 @@ type UpdateHoldingDetailsInput = {
 type TrimHoldingInput = {
   portfolioId: string;
   ticker: string;
-  percentage: number;
+  percentage?: number | null;
+  value?: number | null;
+  price?: number | null;
+  shares?: number | null;
+  notes?: string | null;
 };
 
 type RemoveHoldingInput = {
@@ -181,6 +262,24 @@ function roundMoney(value: number) {
 
 function roundShares(value: number) {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function resolvedTradeOrError(input: TradeOrderInput) {
+  const resolved = resolveTradeOrder(input);
+  if (resolved.error || resolved.value == null || resolved.price == null || resolved.shares == null) {
+    return { success: false as const, error: resolved.error ?? "Enter a valid value, price and shares combination." };
+  }
+
+  if (resolved.value <= 0 || resolved.price <= 0 || resolved.shares <= 0) {
+    return { success: false as const, error: "Value, price and shares must all be positive." };
+  }
+
+  return {
+    success: true as const,
+    value: roundTradeMoney(resolved.value),
+    price: resolved.price,
+    shares: roundTradeShares(resolved.shares),
+  };
 }
 
 function normaliseHeader(header: string) {
@@ -375,7 +474,7 @@ function parseTrading212Holdings(csvText: string): ParsedHolding[] {
 
     let shares = Math.abs(parseFlexibleNumber(shareValue));
     const price = Math.abs(parseFlexibleNumber(priceValue));
-    let value = Math.abs(parseFlexibleNumber(totalValue));
+    const value = Math.abs(parseFlexibleNumber(totalValue));
     const purchaseDate = parsePossibleDate(dateValue);
 
     if (shares <= 0 && price > 0 && value > 0) {
@@ -470,6 +569,7 @@ async function getOrCreatePortfolio(
     .insert({
       user_id: userId,
       name: "My Portfolio",
+      objective: "balanced",
       risk_tolerance: "moderate",
       time_horizon: "medium",
       investment_amount: 0,
@@ -561,6 +661,119 @@ async function recordTransaction(
   }
 }
 
+type MergeHoldingPositionInput = {
+  portfolioId: string;
+  ticker: string;
+  incomingShares: number;
+  incomingEntryPrice: number;
+  incomingCost?: number | null;
+  scoreAtEntry?: number | null;
+  rankAtEntry?: number | null;
+  purchaseDate?: string | null;
+  source: string;
+  notes?: string | null;
+};
+
+function weightedAverageEntryPrice({
+  existingShares,
+  existingEntryPrice,
+  incomingShares,
+  incomingEntryPrice,
+  incomingCost,
+}: {
+  existingShares: number;
+  existingEntryPrice: number;
+  incomingShares: number;
+  incomingEntryPrice: number;
+  incomingCost?: number | null;
+}) {
+  const safeExistingShares = Math.max(0, moneyNumber(existingShares));
+  const safeIncomingShares = Math.max(0, moneyNumber(incomingShares));
+  const nextShares = roundShares(safeExistingShares + safeIncomingShares);
+  const safeIncomingCost = moneyNumber(
+    incomingCost,
+    safeIncomingShares * Math.max(0, moneyNumber(incomingEntryPrice)),
+  );
+  const existingCost = safeExistingShares * Math.max(0, moneyNumber(existingEntryPrice));
+
+  if (nextShares <= 0) return { shares: 0, entryPrice: 0 };
+
+  return {
+    shares: nextShares,
+    entryPrice: Math.round(((existingCost + safeIncomingCost) / nextShares) * 10_000) / 10_000,
+  };
+}
+
+async function mergeHoldingPosition(
+  supabase: SupabaseClient,
+  input: MergeHoldingPositionInput,
+): Promise<ActionResult<{ updatedExisting: boolean; shares: number; entryPrice: number }>> {
+  const ticker = cleanTicker(input.ticker);
+  const incomingShares = roundShares(input.incomingShares);
+  const incomingEntryPrice = moneyNumber(input.incomingEntryPrice);
+
+  if (!ticker) return { success: false, error: "Missing ticker." };
+  if (!Number.isFinite(incomingShares) || incomingShares <= 0) {
+    return { success: false, error: "Enter a positive share quantity." };
+  }
+  if (!Number.isFinite(incomingEntryPrice) || incomingEntryPrice <= 0) {
+    return { success: false, error: "Enter a valid average price." };
+  }
+
+  const { data: existingHolding, error: existingError } = await supabase
+    .from("portfolio_holdings")
+    .select("shares,entry_price,purchase_date,notes")
+    .eq("portfolio_id", input.portfolioId)
+    .eq("ticker", ticker)
+    .maybeSingle();
+
+  if (existingError) return { success: false, error: existingError.message };
+
+  const existingTrade = existingHolding as PortfolioHoldingTradeRow | null;
+  const next = weightedAverageEntryPrice({
+    existingShares: moneyNumber(existingTrade?.shares),
+    existingEntryPrice: moneyNumber(existingTrade?.entry_price),
+    incomingShares,
+    incomingEntryPrice,
+    incomingCost: input.incomingCost,
+  });
+  const now = new Date().toISOString();
+  const row = {
+    entry_price: next.entryPrice,
+    shares: next.shares,
+    allocation_pct: null,
+    score_at_entry: input.scoreAtEntry ?? null,
+    rank_at_entry: input.rankAtEntry ?? null,
+    last_reviewed_at: now,
+    purchase_date: existingTrade?.purchase_date ?? input.purchaseDate ?? null,
+    source: input.source,
+    notes: input.notes ?? existingTrade?.notes ?? null,
+  };
+
+  const result = existingTrade
+    ? await supabase
+        .from("portfolio_holdings")
+        .update(row)
+        .eq("portfolio_id", input.portfolioId)
+        .eq("ticker", ticker)
+    : await supabase.from("portfolio_holdings").insert({
+        portfolio_id: input.portfolioId,
+        ticker,
+        ...row,
+      });
+
+  if (result.error) return { success: false, error: result.error.message };
+
+  return {
+    success: true,
+    data: {
+      updatedExisting: Boolean(existingTrade),
+      shares: next.shares,
+      entryPrice: next.entryPrice,
+    },
+  };
+}
+
 async function recalculatePortfolioTotals(
   supabase: SupabaseClient,
   portfolioId: string,
@@ -590,8 +803,9 @@ async function recalculatePortfolioTotals(
     0,
   );
 
-  const currentCash = moneyNumber((portfolio as any)?.cash_balance);
-  const currentDeposited = moneyNumber((portfolio as any)?.cash_deposited_total);
+  const balance = portfolio as PortfolioBalanceRow | null;
+  const currentCash = moneyNumber(balance?.cash_balance);
+  const currentDeposited = moneyNumber(balance?.cash_deposited_total);
   const minimumDeposited = currentCash + holdingsCost;
 
   const nextDeposited = options.ensureDepositedCoversCurrentValue
@@ -617,6 +831,77 @@ function revalidatePortfolio(portfolioId?: string | null) {
 
 function revalidateStock(ticker: string) {
   revalidatePath(`/stock/${cleanTicker(ticker)}`);
+}
+
+async function markPortfolioChartInputsChanged({
+  supabase,
+  portfolioId,
+  userId,
+  writeCurrentSnapshot = true,
+}: {
+  supabase: SupabaseClient;
+  portfolioId: string;
+  userId: string;
+  writeCurrentSnapshot?: boolean;
+}) {
+  await invalidatePortfolioPageSnapshot({ portfolioId, ownerId: userId });
+
+  if (!writeCurrentSnapshot) return;
+
+  try {
+    const [{ data: portfolio }, { data: holdings }] = await Promise.all([
+      supabase
+        .from("user_portfolios")
+        .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
+        .eq("id", portfolioId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("portfolio_holdings")
+        .select("ticker,shares,entry_price,purchase_date,added_at")
+        .eq("portfolio_id", portfolioId)
+        .not("ticker", "is", null),
+    ]);
+
+    if (!portfolio) return;
+
+    const holdingRows = (holdings ?? []) as Array<{
+      ticker: string | null;
+      shares: number | null;
+      entry_price: number | null;
+      purchase_date?: string | null;
+      added_at?: string | null;
+    }>;
+    const tickers = Array.from(new Set(holdingRows.map((holding) => cleanTicker(holding.ticker ?? "")).filter(Boolean)));
+    const { data: currentRows } =
+      tickers.length > 0
+        ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+        : { data: [] };
+    const currentPrices = Object.fromEntries(
+      ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
+        .map((row) => [cleanTicker(row.ticker ?? ""), moneyNumber(row.price)] as const)
+        .filter(([ticker, price]) => Boolean(ticker) && price > 0),
+    );
+    const point = buildCurrentPortfolioSnapshotPoint({
+      portfolio: portfolio as {
+        cash_balance?: number | null;
+        cash_deposited_total?: number | null;
+        investment_amount?: number | null;
+      },
+      holdings: holdingRows,
+      currentPrices,
+    });
+
+    await saveLatestPortfolioSnapshotFromChartData({
+      supabase,
+      portfolioId,
+      userId,
+      chartData: { "1D": [point] },
+      source: "page_current_value",
+    });
+  } catch (error) {
+    console.warn("[portfolio-chart-repair] mutation current snapshot failed", error);
+  }
 }
 
 async function prepareTrading212Import(
@@ -827,6 +1112,197 @@ export async function previewTrading212Csv(
   }
 }
 
+export async function previewTrading212CsvForNewPortfolio(
+  csvText: string,
+): Promise<ActionResult<Trading212PreviewSummary>> {
+  if (!csvText || csvText.length > 2_000_000) {
+    return {
+      success: false,
+      error: "Upload a valid Trading 212 CSV under 2MB.",
+    };
+  }
+
+  const parsedHoldings = parseTrading212Holdings(csvText);
+
+  if (parsedHoldings.length === 0) {
+    return {
+      success: false,
+      error:
+        "No holdings could be found. Export your Trading 212 Invest/ISA history as CSV and make sure it includes ticker, shares and price/value columns.",
+    };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  try {
+    const prepared = await prepareTrading212Import(
+      supabase,
+      "new-portfolio-preview",
+      parsedHoldings,
+    );
+
+    return {
+      success: true,
+      data: {
+        imported: prepared.holdingsToInsert.length,
+        skipped: prepared.skippedTickers.length,
+        totalValue: prepared.importedValue,
+        skippedTickers: prepared.skippedTickers,
+        matchedTickers: prepared.matchedTickers,
+        replaceWarning: null,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Could not preview CSV.",
+    };
+  }
+}
+
+export async function createPortfolioFromTrading212Csv(
+  input: Trading212PortfolioCreateInput,
+): Promise<ActionResult<Trading212PortfolioCreateSummary>> {
+  const name = input.name.trim().slice(0, 80);
+  const currency = input.currency ?? "USD";
+
+  if (!name) {
+    return { success: false, error: "Portfolio name is required." };
+  }
+
+  if (currency !== "USD") {
+    return {
+      success: false,
+      error:
+        "Trading 212 import currently uses StockGPT's USD ranked-stock price feed. Create the portfolio in USD for this import.",
+    };
+  }
+
+  if (!input.csvText || input.csvText.length > 2_000_000) {
+    return {
+      success: false,
+      error: "Upload a valid Trading 212 CSV under 2MB.",
+    };
+  }
+
+  const parsedHoldings = parseTrading212Holdings(input.csvText);
+
+  if (parsedHoldings.length === 0) {
+    return {
+      success: false,
+      error:
+        "No holdings could be found. Export your Trading 212 Invest/ISA history as CSV and make sure it includes ticker, shares and price/value columns.",
+    };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  try {
+    const prepared = await prepareTrading212Import(
+      supabase,
+      "new-portfolio",
+      parsedHoldings,
+    );
+
+    if (prepared.holdingsToInsert.length === 0) {
+      return {
+        success: false,
+        error:
+          "None of the CSV tickers matched StockGPT rankings. Check that the export contains supported US stock tickers rather than only names/ISINs.",
+      };
+    }
+
+    const { data: created, error: createError } = await supabase
+      .from("user_portfolios")
+      .insert({
+        user_id: user.id,
+        name,
+        objective: "balanced",
+        risk_tolerance: "moderate",
+        time_horizon: "medium",
+        investment_amount: prepared.importedValue,
+        cash_balance: 0,
+        cash_deposited_total: prepared.importedValue,
+        currency,
+      })
+      .select("id")
+      .single();
+
+    if (createError || !created) {
+      return {
+        success: false,
+        error: createError?.message ?? "Could not create the portfolio.",
+      };
+    }
+
+    const portfolioId = String(created.id);
+    const holdingsToInsert = prepared.holdingsToInsert.map((holding) => ({
+      ...holding,
+      portfolio_id: portfolioId,
+    }));
+
+    const { error: holdingsError } = await supabase
+      .from("portfolio_holdings")
+      .insert(holdingsToInsert);
+
+    if (holdingsError) {
+      await supabase
+        .from("user_portfolios")
+        .delete()
+        .eq("id", portfolioId)
+        .eq("user_id", user.id);
+
+      return { success: false, error: holdingsError.message };
+    }
+
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      type: "import",
+      amount: prepared.importedValue,
+      currency,
+      notes: `Created normal portfolio from Trading 212 CSV with ${holdingsToInsert.length} imported holding${
+        holdingsToInsert.length === 1 ? "" : "s"
+      }.`,
+    });
+
+    await markPortfolioChartInputsChanged({ supabase, portfolioId, userId: user.id });
+    revalidatePortfolio(portfolioId);
+
+    for (const holding of holdingsToInsert) {
+      revalidateStock(holding.ticker);
+    }
+
+    return {
+      success: true,
+      data: {
+        portfolioId,
+        portfolioName: name,
+        currency,
+        imported: prepared.holdingsToInsert.length,
+        skipped: prepared.skippedTickers.length,
+        totalValue: prepared.importedValue,
+        skippedTickers: prepared.skippedTickers,
+        matchedTickers: prepared.matchedTickers,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not create a portfolio from this CSV.",
+    };
+  }
+}
+
 export async function importTrading212Csv(
   csvText: string,
   options: Trading212ImportOptions = {},
@@ -900,19 +1376,39 @@ export async function importTrading212Csv(
           error: deleteError.message,
         };
       }
-    }
 
-    const { error: upsertError } = await supabase
-      .from("portfolio_holdings")
-      .upsert(prepared.holdingsToInsert, {
-        onConflict: "portfolio_id,ticker",
-      });
+      const { error: insertError } = await supabase
+        .from("portfolio_holdings")
+        .insert(prepared.holdingsToInsert);
 
-    if (upsertError) {
-      return {
-        success: false,
-        error: upsertError.message,
-      };
+      if (insertError) {
+        return {
+          success: false,
+          error: insertError.message,
+        };
+      }
+    } else {
+      for (const holding of prepared.holdingsToInsert) {
+        const merge = await mergeHoldingPosition(supabase, {
+          portfolioId: portfolio.id,
+          ticker: holding.ticker,
+          incomingShares: holding.shares,
+          incomingEntryPrice: holding.entry_price,
+          incomingCost: holding.shares * holding.entry_price,
+          scoreAtEntry: holding.score_at_entry,
+          rankAtEntry: holding.rank_at_entry,
+          purchaseDate: holding.purchase_date,
+          source: "import",
+          notes: holding.notes,
+        });
+
+        if (!merge.success) {
+          return {
+            success: false,
+            error: merge.error ?? `Could not merge ${holding.ticker}.`,
+          };
+        }
+      }
     }
 
     await recordTransaction(supabase, {
@@ -924,7 +1420,7 @@ export async function importTrading212Csv(
       notes: `Imported ${prepared.holdingsToInsert.length} holding${
         prepared.holdingsToInsert.length === 1 ? "" : "s"
       } from Trading 212 CSV${
-        options.replaceExisting ? " using replace mode" : ""
+        options.replaceExisting ? " using replace mode" : " using merge mode"
       }.`,
     });
 
@@ -932,6 +1428,7 @@ export async function importTrading212Csv(
       ensureDepositedCoversCurrentValue: true,
     });
 
+    await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
     revalidatePortfolio(portfolio.id);
 
     for (const holding of prepared.holdingsToInsert) {
@@ -1002,6 +1499,7 @@ export async function addCash(
     notes: "Cash added manually.",
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   return { success: true };
 }
@@ -1030,8 +1528,9 @@ export async function savePortfolio(
     const { error: updateError } = await supabase
       .from("user_portfolios")
       .update({
-        name: cleanName,
-        risk_tolerance: portfolio.riskTolerance,
+      name: cleanName,
+      objective: "balanced",
+      risk_tolerance: portfolio.riskTolerance,
         time_horizon: portfolio.timeHorizon,
         investment_amount: portfolio.totalInvested,
         cash_balance: 0,
@@ -1055,6 +1554,7 @@ export async function savePortfolio(
       .insert({
         user_id: user.id,
         name: cleanName,
+        objective: "balanced",
         risk_tolerance: portfolio.riskTolerance,
         time_horizon: portfolio.timeHorizon,
         investment_amount: portfolio.totalInvested,
@@ -1116,11 +1616,232 @@ export async function savePortfolio(
       : "New AI portfolio created.",
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId, userId: user.id });
   revalidatePortfolio(portfolioId);
 
   for (const holding of portfolio.holdings) {
     revalidateStock(holding.ticker);
   }
+
+  return { success: true, data: { portfolioId } };
+}
+
+export async function createManualPortfolio(
+  input: ManualPortfolioInput,
+): Promise<ActionResult<{ portfolioId: string }>> {
+  const name = input.name.trim().slice(0, 80);
+  const allowedCurrencies = new Set(["GBP", "USD", "EUR"]);
+  const goalMap = {
+    growth: { riskTolerance: "aggressive", timeHorizon: "long" },
+    income: { riskTolerance: "moderate", timeHorizon: "medium" },
+    balanced: { riskTolerance: "moderate", timeHorizon: "medium" },
+    watchlist: { riskTolerance: "conservative", timeHorizon: "medium" },
+    "long-term": { riskTolerance: "moderate", timeHorizon: "long" },
+  } as const;
+
+  if (!name) {
+    return { success: false, error: "Portfolio name is required." };
+  }
+
+  if (!allowedCurrencies.has(input.currency)) {
+    return { success: false, error: "Choose a supported portfolio currency." };
+  }
+
+  if (
+    !Number.isFinite(input.startingCash) ||
+    input.startingCash < 0 ||
+    input.startingCash > 100_000_000
+  ) {
+    return { success: false, error: "Starting cash must be zero or more." };
+  }
+
+  if (!goalMap[input.goal]) {
+    return { success: false, error: "Choose a valid portfolio goal." };
+  }
+
+  if (input.holdings.length > 100) {
+    return { success: false, error: "A manual portfolio can contain up to 100 holdings." };
+  }
+
+  if (input.holdings.length === 0 && input.startingCash === 0) {
+    return {
+      success: false,
+      error: "Add at least one holding or enter starting cash.",
+    };
+  }
+
+  const cleanedHoldings = input.holdings.map((holding) => ({
+    ticker: cleanTicker(holding.ticker),
+    shares: Number(holding.shares),
+    averagePrice: Number(holding.averagePrice),
+    purchaseDate: holding.purchaseDate?.trim() || null,
+    notes: holding.notes?.trim().slice(0, 500) || null,
+  }));
+
+  const seenTickers = new Set<string>();
+
+  for (const holding of cleanedHoldings) {
+    if (!holding.ticker || !/^[A-Z][A-Z0-9.-]{0,11}$/.test(holding.ticker)) {
+      return { success: false, error: "Every holding needs a valid ticker." };
+    }
+    if (seenTickers.has(holding.ticker)) {
+      return {
+        success: false,
+        error: `${holding.ticker} appears more than once. Edit the existing row instead.`,
+      };
+    }
+    if (!Number.isFinite(holding.shares) || holding.shares <= 0) {
+      return {
+        success: false,
+        error: `${holding.ticker} needs a positive share quantity.`,
+      };
+    }
+    if (!Number.isFinite(holding.averagePrice) || holding.averagePrice < 0) {
+      return {
+        success: false,
+        error: `${holding.ticker} needs a non-negative average price.`,
+      };
+    }
+    seenTickers.add(holding.ticker);
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const tickers = cleanedHoldings.map((holding) => holding.ticker);
+  const { data: stockRows, error: stockError } =
+    tickers.length > 0
+      ? await supabase
+          .from("stock_rankings")
+          .select("ticker,price,score,rank")
+          .in("ticker", tickers)
+      : { data: [], error: null };
+
+  if (stockError) return { success: false, error: stockError.message };
+
+  const stocks = new Map(
+    ((stockRows ?? []) as Array<{
+      ticker: string | null;
+      price: number | null;
+      score: number | null;
+      rank: number | null;
+    }>).map((stock) => [String(stock.ticker ?? "").toUpperCase(), stock]),
+  );
+
+  const missingTicker = tickers.find((ticker) => !stocks.has(ticker));
+
+  if (missingTicker) {
+    return {
+      success: false,
+      error: `${missingTicker} is not available in the StockGPT stock universe.`,
+    };
+  }
+
+  const costBasis = cleanedHoldings.reduce(
+    (sum, holding) => sum + holding.shares * holding.averagePrice,
+    0,
+  );
+  const estimatedHoldingsValue = cleanedHoldings.reduce((sum, holding) => {
+    const currentPrice = moneyNumber(stocks.get(holding.ticker)?.price);
+    return sum + holding.shares * (currentPrice || holding.averagePrice);
+  }, 0);
+  const estimatedTotalValue = input.startingCash + estimatedHoldingsValue;
+  const goal = goalMap[input.goal];
+
+  const { data: created, error: createError } = await supabase
+    .from("user_portfolios")
+    .insert({
+      user_id: user.id,
+      name,
+      objective: input.goal === "long-term" ? "growth" : input.goal,
+      risk_tolerance: goal.riskTolerance,
+      time_horizon: goal.timeHorizon,
+      investment_amount: roundMoney(costBasis),
+      cash_balance: roundMoney(input.startingCash),
+      cash_deposited_total: roundMoney(input.startingCash + costBasis),
+      currency: input.currency,
+    })
+    .select("id")
+    .single();
+
+  if (createError || !created) {
+    return {
+      success: false,
+      error: createError?.message ?? "Could not create the portfolio.",
+    };
+  }
+
+  const portfolioId = String(created.id);
+  const now = new Date().toISOString();
+
+  if (cleanedHoldings.length > 0) {
+    const holdingsToInsert = cleanedHoldings.map((holding) => {
+      const stock = stocks.get(holding.ticker);
+      const currentPrice = moneyNumber(stock?.price) || holding.averagePrice;
+      const estimatedValue = holding.shares * currentPrice;
+
+      return {
+        portfolio_id: portfolioId,
+        ticker: holding.ticker,
+        entry_price: roundMoney(holding.averagePrice),
+        shares: roundShares(holding.shares),
+        allocation_pct:
+          estimatedTotalValue > 0
+            ? Math.round((estimatedValue / estimatedTotalValue) * 10_000) / 100
+            : null,
+        score_at_entry: stock?.score ?? null,
+        rank_at_entry: stock?.rank ?? null,
+        last_reviewed_at: now,
+        purchase_date: holding.purchaseDate,
+        source: "manual_builder",
+        notes: holding.notes,
+      };
+    });
+
+    const { error: holdingsError } = await supabase
+      .from("portfolio_holdings")
+      .insert(holdingsToInsert);
+
+    if (holdingsError) {
+      await supabase
+        .from("user_portfolios")
+        .delete()
+        .eq("id", portfolioId)
+        .eq("user_id", user.id);
+
+      return { success: false, error: holdingsError.message };
+    }
+  }
+
+  if (input.startingCash > 0) {
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      type: "deposit",
+      amount: input.startingCash,
+      currency: input.currency,
+      notes: "Starting cash added during manual portfolio creation.",
+    });
+  }
+
+  for (const holding of cleanedHoldings) {
+    await recordTransaction(supabase, {
+      portfolioId,
+      userId: user.id,
+      ticker: holding.ticker,
+      type: "log_existing",
+      shares: holding.shares,
+      price: holding.averagePrice,
+      amount: holding.shares * holding.averagePrice,
+      currency: input.currency,
+      notes: holding.notes ?? "Added during manual portfolio creation.",
+    });
+    revalidateStock(holding.ticker);
+  }
+
+  revalidatePortfolio(portfolioId);
 
   return { success: true, data: { portfolioId } };
 }
@@ -1145,20 +1866,76 @@ export async function renamePortfolio(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: input.portfolioId,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
+  revalidatePortfolio(input.portfolioId);
+  return { success: true };
+}
+
+export async function updatePortfolioPreferences(
+  input: UpdatePortfolioPreferencesInput,
+): Promise<ActionResult> {
+  const allowedObjectives = new Set<PortfolioObjective>([
+    "growth",
+    "income",
+    "balanced",
+    "capital_preservation",
+    "watchlist",
+  ]);
+  const allowedRisk = new Set<PortfolioRiskTolerance>([
+    "conservative",
+    "moderate",
+    "aggressive",
+  ]);
+  const allowedHorizon = new Set<PortfolioTimeHorizon>(["short", "medium", "long"]);
+
+  if (!allowedObjectives.has(input.objective)) {
+    return { success: false, error: "Choose a valid portfolio objective." };
+  }
+  if (!allowedRisk.has(input.riskTolerance)) {
+    return { success: false, error: "Choose a valid risk tolerance." };
+  }
+  if (!allowedHorizon.has(input.timeHorizon)) {
+    return { success: false, error: "Choose a valid time horizon." };
+  }
+
+  const supabase = await createClient();
+  const user = await getAuthenticatedUser(supabase);
+
+  if (!user) return { success: false, error: "not_authenticated" };
+
+  const { error } = await supabase
+    .from("user_portfolios")
+    .update({
+      objective: input.objective,
+      risk_tolerance: input.riskTolerance,
+      time_horizon: input.timeHorizon,
+    })
+    .eq("id", input.portfolioId)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: input.portfolioId,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio(input.portfolioId);
   return { success: true };
 }
 
 export async function logExistingHolding(
   input: LogExistingHoldingInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
-
-  if (!Number.isFinite(input.shares) || input.shares <= 0) {
-    return { success: false, error: "Enter the number of shares you own." };
-  }
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
@@ -1182,75 +1959,71 @@ export async function logExistingHolding(
 
   if (!stock) return { success: false, error: "Stock not found in rankings." };
 
-  const finalEntryPrice =
-    input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
-      ? input.entryPrice
-      : moneyNumber(stock.price);
+  const preferredPrice =
+    input.price && Number.isFinite(input.price) && input.price > 0
+      ? input.price
+      : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
+        ? input.entryPrice
+        : moneyNumber(stock.price);
+  const trade = resolvedTradeOrError({
+    value: input.value,
+    price: preferredPrice,
+    shares: input.shares,
+  });
 
-  if (!Number.isFinite(finalEntryPrice) || finalEntryPrice <= 0) {
-    return { success: false, error: "Could not find a valid stock price." };
+  if (!trade.success) {
+    return { success: false, error: trade.error };
   }
 
-  const now = new Date().toISOString();
+  const merge = await mergeHoldingPosition(supabase, {
+    portfolioId: portfolio.id,
+    ticker: upperTicker,
+    incomingShares: trade.shares,
+    incomingEntryPrice: trade.price,
+    incomingCost: trade.value,
+    scoreAtEntry: stock.score,
+    rankAtEntry: stock.rank,
+    purchaseDate: input.purchaseDate ?? null,
+    source: "manual",
+    notes: input.notes ?? null,
+  });
 
-  const { data: existingHolding } = await supabase
-    .from("portfolio_holdings")
-    .select("ticker")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
-
-  const { error } = await supabase.from("portfolio_holdings").upsert(
-    {
-      portfolio_id: portfolio.id,
-      ticker: upperTicker,
-      entry_price: finalEntryPrice,
-      shares: roundShares(input.shares),
-      allocation_pct: null,
-      score_at_entry: stock.score,
-      rank_at_entry: stock.rank,
-      last_reviewed_at: now,
-      purchase_date: input.purchaseDate ?? null,
-      source: "manual",
-      notes: input.notes ?? null,
-    },
-    { onConflict: "portfolio_id,ticker" },
-  );
-
-  if (error) return { success: false, error: error.message };
+  if (!merge.success) return { success: false, error: merge.error };
 
   await recordTransaction(supabase, {
     portfolioId: portfolio.id,
     userId: user.id,
     ticker: upperTicker,
-    type: existingHolding ? "adjustment" : "log_existing",
-    shares: roundShares(input.shares),
-    price: finalEntryPrice,
-    amount: finalEntryPrice * input.shares,
+    type: "log_existing",
+    shares: trade.shares,
+    price: trade.price,
+    amount: trade.value,
     currency: portfolio.currency ?? "USD",
-    notes: input.notes ?? "Manual holding logged.",
+    notes:
+      input.notes ??
+      `External purchase added: ${trade.shares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)}.`,
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id, {
     ensureDepositedCoversCurrentValue: true,
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
-  return { success: true };
+  return {
+    success: true,
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
+  };
 }
 
 export async function buyHoldingWithCash(
   input: BuyHoldingWithCashInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
-
-  if (!Number.isFinite(input.dollarAmount) || input.dollarAmount <= 0) {
-    return { success: false, error: "Enter a positive investment amount." };
-  }
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
@@ -1274,72 +2047,58 @@ export async function buyHoldingWithCash(
 
   if (!stock) return { success: false, error: "Stock not found in rankings." };
 
-  const finalEntryPrice =
-    input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
-      ? input.entryPrice
-      : moneyNumber(stock.price);
+  const preferredPrice =
+    input.price && Number.isFinite(input.price) && input.price > 0
+      ? input.price
+      : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
+        ? input.entryPrice
+        : moneyNumber(stock.price);
+  const trade = resolvedTradeOrError({
+    value: input.value ?? input.dollarAmount,
+    price: preferredPrice,
+    shares: input.shares,
+  });
 
-  if (!Number.isFinite(finalEntryPrice) || finalEntryPrice <= 0) {
-    return { success: false, error: "Could not find a valid stock price." };
+  if (!trade.success) {
+    return { success: false, error: trade.error };
   }
 
   const currentCash = moneyNumber(portfolio.cash_balance);
 
-  if (input.dollarAmount > currentCash + 0.001) {
+  if (trade.value > currentCash + 0.001) {
     return {
       success: false,
       error: `Not enough available cash. Add $${(
-        input.dollarAmount - currentCash
+        trade.value - currentCash
       ).toFixed(2)} cash or reduce the amount.`,
     };
   }
 
-  const boughtShares = roundShares(input.dollarAmount / finalEntryPrice);
+  const boughtShares = trade.shares;
 
   if (boughtShares <= 0) {
     return { success: false, error: "Investment amount is too small." };
   }
 
-  const { data: existingHolding } = await supabase
-    .from("portfolio_holdings")
-    .select("shares,entry_price,purchase_date,notes")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
+  const merge = await mergeHoldingPosition(supabase, {
+    portfolioId: portfolio.id,
+    ticker: upperTicker,
+    incomingShares: boughtShares,
+    incomingEntryPrice: trade.price,
+    incomingCost: trade.value,
+    scoreAtEntry: stock.score,
+    rankAtEntry: stock.rank,
+    purchaseDate: input.purchaseDate ?? null,
+    source: "cash",
+    notes: input.notes ?? null,
+  });
 
-  const oldShares = moneyNumber((existingHolding as any)?.shares);
-  const oldEntryPrice = moneyNumber((existingHolding as any)?.entry_price);
-  const oldCost = oldShares * oldEntryPrice;
-  const newCost = input.dollarAmount;
-  const nextShares = roundShares(oldShares + boughtShares);
-  const nextEntryPrice = nextShares > 0 ? (oldCost + newCost) / nextShares : finalEntryPrice;
-
-  const now = new Date().toISOString();
-
-  const { error: upsertError } = await supabase.from("portfolio_holdings").upsert(
-    {
-      portfolio_id: portfolio.id,
-      ticker: upperTicker,
-      entry_price: Math.round(nextEntryPrice * 10_000) / 10_000,
-      shares: nextShares,
-      allocation_pct: null,
-      score_at_entry: stock.score,
-      rank_at_entry: stock.rank,
-      last_reviewed_at: now,
-      purchase_date:
-        (existingHolding as any)?.purchase_date ?? input.purchaseDate ?? null,
-      source: "cash",
-      notes: input.notes ?? (existingHolding as any)?.notes ?? null,
-    },
-    { onConflict: "portfolio_id,ticker" },
-  );
-
-  if (upsertError) return { success: false, error: upsertError.message };
+  if (!merge.success) return { success: false, error: merge.error };
 
   const { error: cashError } = await supabase
     .from("user_portfolios")
     .update({
-      cash_balance: roundMoney(currentCash - input.dollarAmount),
+      cash_balance: roundMoney(currentCash - trade.value),
     })
     .eq("id", portfolio.id)
     .eq("user_id", user.id);
@@ -1352,18 +2111,24 @@ export async function buyHoldingWithCash(
     ticker: upperTicker,
     type: "buy",
     shares: boughtShares,
-    price: finalEntryPrice,
-    amount: input.dollarAmount,
+    price: trade.price,
+    amount: trade.value,
     currency: portfolio.currency ?? "USD",
-    notes: input.notes ?? "Bought using portfolio cash.",
+    notes:
+      input.notes ??
+      `Bought ${boughtShares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)} using portfolio cash.`,
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
-  return { success: true };
+  return {
+    success: true,
+    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
+  };
 }
 
 export async function updateHoldingDetails(
@@ -1427,6 +2192,7 @@ export async function updateHoldingDetails(
     ensureDepositedCoversCurrentValue: true,
   });
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1437,13 +2203,8 @@ export async function trimHolding(
   input: TrimHoldingInput,
 ): Promise<ActionResult> {
   const upperTicker = cleanTicker(input.ticker);
-  const percentage = Number(input.percentage);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
-
-  if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
-    return { success: false, error: "Trim percentage must be between 1 and 100." };
-  }
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
@@ -1465,20 +2226,45 @@ export async function trimHolding(
 
   const stock = await getStock(supabase, upperTicker);
 
-  const currentShares = moneyNumber((holding as any).shares);
-  const entryPrice = moneyNumber((holding as any).entry_price);
-  const sellPrice = moneyNumber(stock?.price, entryPrice);
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
+  const currentShares = moneyNumber(tradeHolding.shares);
+  const entryPrice = moneyNumber(tradeHolding.entry_price);
+  const fallbackPrice = moneyNumber(stock?.price, entryPrice);
 
-  if (currentShares <= 0 || sellPrice <= 0) {
+  if (currentShares <= 0 || fallbackPrice <= 0) {
     return { success: false, error: "Could not calculate sell value." };
   }
 
-  const sharesToSell =
-    percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100));
+  const percentage = Number(input.percentage);
+  const hasExplicitOrder = input.value != null || input.price != null || input.shares != null;
+  const resolvedOrder = hasExplicitOrder
+    ? resolvedTradeOrError({
+        value: input.value,
+        price: input.price ?? fallbackPrice,
+        shares: input.shares,
+      })
+    : Number.isFinite(percentage) && percentage > 0 && percentage <= 100
+      ? resolvedTradeOrError({
+          value: null,
+          price: fallbackPrice,
+          shares: percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100)),
+        })
+      : { success: false as const, error: "Enter any two of value, price and shares." };
+
+  if (!resolvedOrder.success) {
+    return { success: false, error: resolvedOrder.error };
+  }
+
+  const sharesToSell = resolvedOrder.shares;
+  const sellPrice = resolvedOrder.price;
 
   const remainingShares = roundShares(currentShares - sharesToSell);
-  const proceeds = roundMoney(sharesToSell * sellPrice);
+  const proceeds = roundMoney(resolvedOrder.value);
   const realisedPnl = roundMoney((sellPrice - entryPrice) * sharesToSell);
+
+  if (sharesToSell > currentShares + 0.000001) {
+    return { success: false, error: "You cannot sell more shares than this holding contains." };
+  }
 
   if (remainingShares <= 0.000001) {
     const { error: deleteError } = await supabase
@@ -1521,13 +2307,15 @@ export async function trimHolding(
     realisedPnl,
     currency: portfolio.currency ?? "USD",
     notes:
-      percentage >= 100
-        ? "Position sold/removed."
-        : `Trimmed ${percentage.toFixed(0)}% of the position.`,
+      input.notes ??
+      (remainingShares <= 0.000001
+        ? `Closed ${upperTicker}: sold ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`
+        : `Trimmed ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`),
   });
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1594,6 +2382,7 @@ export async function removeHolding(
 
   await recalculatePortfolioTotals(supabase, portfolio.id);
 
+  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1626,6 +2415,12 @@ export async function markReviewed(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: portfolio.id,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio(portfolio.id);
   revalidateStock(upperTicker);
 
@@ -1663,6 +2458,12 @@ export async function deletePortfolio(
 
   if (error) return { success: false, error: error.message };
 
+  await markPortfolioChartInputsChanged({
+    supabase,
+    portfolioId: portfolio.id,
+    userId: user.id,
+    writeCurrentSnapshot: false,
+  });
   revalidatePortfolio();
 
   for (const ticker of tickers) {
@@ -1681,7 +2482,7 @@ export async function addHolding(
   ticker: string,
   entryPrice?: number,
   shares?: number,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   return logExistingHolding({
     ticker,
     entryPrice,
@@ -1695,7 +2496,7 @@ export async function addHoldingByAmount(
   ticker: string,
   dollarAmount: number,
   entryPrice?: number,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
   return buyHoldingWithCash({
     portfolioId: null,
     ticker,
@@ -1732,13 +2533,14 @@ export async function updateEntryPrice(
 
   if (!holding) return { success: false, error: "Holding not found." };
 
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
   return updateHoldingDetails({
     portfolioId: portfolio.id,
     ticker: upperTicker,
-    shares: moneyNumber((holding as any).shares),
+    shares: moneyNumber(tradeHolding.shares),
     entryPrice: newPrice,
-    purchaseDate: (holding as any).purchase_date ?? null,
-    notes: (holding as any).notes ?? null,
+    purchaseDate: tradeHolding.purchase_date ?? null,
+    notes: tradeHolding.notes ?? null,
   });
 }
 
@@ -1769,12 +2571,13 @@ export async function updateShares(
 
   if (!holding) return { success: false, error: "Holding not found." };
 
+  const tradeHolding = holding as PortfolioHoldingTradeRow;
   return updateHoldingDetails({
     portfolioId: portfolio.id,
     ticker: upperTicker,
     shares: newShares,
-    entryPrice: moneyNumber((holding as any).entry_price),
-    purchaseDate: (holding as any).purchase_date ?? null,
-    notes: (holding as any).notes ?? null,
+    entryPrice: moneyNumber(tradeHolding.entry_price),
+    purchaseDate: tradeHolding.purchase_date ?? null,
+    notes: tradeHolding.notes ?? null,
   });
 }

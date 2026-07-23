@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { FreshnessLabel } from "@/components/FreshnessLabel";
+import { RankingsMobileBatchList } from "@/components/RankingsMobileBatchList";
+import { LazyWhyRankDetails } from "@/components/LazyWhyRankDetails";
 import { RankingsLock } from "@/components/RankingsLock";
+import { StockIcon } from "@/components/StockIcon";
 import { StockLogo } from "@/components/StockLogo";
 import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
 import {
@@ -10,16 +14,20 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import {
-  getFactorExplanations,
   getModelConfidence,
   lightConfidenceClassName,
   matchesConfidenceFilter,
   matchesPriceMoveFilter,
   matchesScoreFilter,
 } from "@/lib/research-explainability";
-import { getStableRankings, type StableRankingRow } from "@/lib/stable-rankings";
+import {
+  getRankingSectors,
+  getStableRankingsPage,
+  type StableRankingRow,
+} from "@/lib/stable-rankings";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export const metadata: Metadata = {
   title: "AI Stock Rankings | StockGPT S&P 500 Leaderboard",
@@ -37,6 +45,7 @@ type RankingsSearchParams = {
   score?: string;
   priceMove?: string;
   confidence?: string;
+  page?: string;
 };
 
 type Profile = {
@@ -138,7 +147,10 @@ function FilterSelect({
           </option>
         ))}
       </select>
-      <span className="pointer-events-none absolute right-4 text-[10px] text-[#ddb159]/70">▾</span>
+      <StockIcon
+        name="chevron-down"
+        className="pointer-events-none absolute right-4 size-3 text-[#ddb159]/70"
+      />
     </label>
   );
 }
@@ -173,39 +185,21 @@ function ScoreMethodCard() {
   );
 }
 
-function WhyRankDetails({
-  stock,
-  dailyMove,
-  light = false,
-}: {
-  stock: Ranking;
-  dailyMove: number | null | undefined;
-  light?: boolean;
-}) {
-  const factors = getFactorExplanations(stock, dailyMove);
-
-  return (
-    <details className={light ? "mt-3 rounded-2xl border border-[#072116]/10 bg-white px-3 py-2" : "border-b border-[#072116]/8 bg-white/72 px-4 py-2"}>
-      <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.12em] text-[#8a641a]">
-        Why this rank?
-      </summary>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {factors.map((factor) => (
-          <div key={factor.label} className="rounded-xl border border-[#072116]/8 bg-[#072116]/[0.025] p-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#072116]/45">{factor.label}</p>
-              <span className="shrink-0 rounded-full bg-[#ddb159]/18 px-2 py-0.5 text-[8px] font-black text-[#8a641a]">{factor.value}</span>
-            </div>
-            <p className="mt-1 text-[10px] font-semibold leading-4 text-[#072116]/58">{factor.detail}</p>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
 function HiddenFilterValue({ name, value }: { name: string; value: string }) {
   return value && value !== "all" ? <input type="hidden" name={name} value={value} /> : null;
+}
+
+function rankingsPageHref(params: RankingsSearchParams, page: number) {
+  const next = new URLSearchParams();
+
+  for (const key of ["q", "sector", "move", "score", "priceMove", "confidence"] as const) {
+    const value = params[key];
+    if (value && value !== "all") next.set(key, value);
+  }
+
+  if (page > 1) next.set("page", String(page));
+  const query = next.toString();
+  return query ? `/rankings?${query}` : "/rankings";
 }
 
 export default async function RankingsPage({
@@ -214,7 +208,7 @@ export default async function RankingsPage({
   searchParams?: Promise<RankingsSearchParams>;
 }) {
   const params = searchParams ? await searchParams : {};
-  const q = (params.q ?? "").trim().toLowerCase();
+  const q = (params.q ?? "").trim();
   const sectorFilter = params.sector ?? "all";
   const moveFilter = params.move ?? "all";
   const scoreFilter = params.score ?? "all";
@@ -232,9 +226,7 @@ export default async function RankingsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch profile subscription status and rankings data in parallel —
-  // previously the profile fetch blocked the rankings query.
-  const [profileResult, stableRankings, snapshotMap] = await Promise.all([
+  const [profileResult, sectors] = await Promise.all([
     user
       ? supabase
           .from("profiles")
@@ -242,15 +234,29 @@ export default async function RankingsPage({
           .eq("id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    getStableRankings(supabase),
-    getRankSnapshotMapAround24hAgo(supabase),
+    getRankingSectors(supabase),
   ]);
 
   const profile = (profileResult.data ?? null) as Profile | null;
   const hasSubscription = hasActiveSubscription(profile?.subscription_status);
 
   const rankingsLocked = !hasSubscription;
-  const rawRankings = stableRankings.slice(0, hasSubscription ? 500 : 10);
+  const perPage = rankingsLocked ? 10 : 50;
+  const parsedPage = Number.parseInt(params.page ?? "1", 10);
+  const currentPage =
+    rankingsLocked || !Number.isFinite(parsedPage) || parsedPage < 1
+      ? 1
+      : parsedPage;
+  const offset = (currentPage - 1) * perPage;
+  const rankingSource = rankingsLocked ? createAdminClient() : supabase;
+  const rankingPage = await getStableRankingsPage(rankingSource, {
+    limit: perPage,
+    offset,
+    q,
+    sector: sectorFilter,
+    scoreFilter,
+  });
+  const rawRankings = rankingPage.rows;
 
   // Run price enrichment and daily move fetch concurrently —
   // previously dailyMoveMap waited for allRankings to complete first.
@@ -258,20 +264,17 @@ export default async function RankingsPage({
     .map((stock) => stock.ticker)
     .filter((ticker): ticker is string => !!ticker);
 
-  const [allRankings, dailyMoveMap] = await Promise.all([
+  const [allRankings, dailyMoveMap, snapshotMap] = await Promise.all([
     Promise.all(rawRankings.map((stock) => attachLivePriceIfMissing(stock))),
     getOneDayMoveMap(tickers),
+    getRankSnapshotMapAround24hAgo(supabase, tickers),
   ]);
-
-  const sectors = Array.from(
-    new Set(allRankings.map((stock) => stock.sector).filter((sector): sector is string => Boolean(sector))),
-  ).sort((a, b) => a.localeCompare(b));
 
   const rankings = allRankings.filter((stock) => {
     const ticker = stock.ticker ?? "";
     const dailyMove = dailyMoveMap.get(ticker)?.changePct;
     const searchable = `${stock.ticker ?? ""} ${stock.company ?? ""}`.toLowerCase();
-    const matchesSearch = !q || searchable.includes(q);
+    const matchesSearch = !q || searchable.includes(q.toLowerCase());
     const matchesSector = sectorFilter === "all" || stock.sector === sectorFilter;
     const matchesMove = matchesMoveFilter(stock, moveFilter, snapshotMap);
 
@@ -284,11 +287,17 @@ export default async function RankingsPage({
       matchesConfidenceFilter(stock, confidenceFilter)
     );
   });
+  const totalPages = Math.max(1, Math.ceil(rankingPage.total / perPage));
+  const hasPreviousPage = !rankingsLocked && currentPage > 1;
+  const hasNextPage =
+    !rankingsLocked &&
+    currentPage < totalPages &&
+    offset + rawRankings.length < rankingPage.total;
 
-  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px]";
+  const gridCols = "grid-cols-[58px_72px_104px_minmax(0,1fr)_110px_86px_92px_86px]";
 
   return (
-    <AppShell activePath="/rankings">
+    <AppShell activePath="/rankings" askLabel="Ask about rankings" askContext={{ contextType: "rankings", activeFilters: { q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter } }}>
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -300,9 +309,10 @@ export default async function RankingsPage({
               <h1 className="text-[28px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[34px]">
                 Stock Rankings
               </h1>
+              <div className="mt-2"><FreshnessLabel value={rawRankings[0]?.updated_at} label={rawRankings[0]?.updated_at ? `Last model run ${new Date(rawRankings[0].updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "Model run time unavailable"} /></div>
               <p className="mt-2 max-w-[680px] text-[12px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[13px]">
                 {hasSubscription
-                  ? `${rankings.length} stocks shown from ${allRankings.length} ranked names. Rankings use the latest complete StockGPT snapshot.`
+                  ? `${rankings.length} stocks shown on page ${currentPage} of ${totalPages}. Rankings use the latest complete StockGPT snapshot.`
                   : "Rankings are locked. Subscribe to Core to unlock the full AI ranking table, score context and why-this-rank explanations."}
               </p>
             </div>
@@ -327,7 +337,9 @@ export default async function RankingsPage({
 
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(260px,1fr)_auto_auto]">
               <label className="group flex h-11 min-w-0 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[13px] text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">⌕</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">
+                  <StockIcon name="search" className="size-4" />
+                </span>
                 <input name="q" defaultValue={params.q ?? ""} placeholder="Search ticker or company" className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/34" />
               </label>
 
@@ -342,7 +354,8 @@ export default async function RankingsPage({
 
             <details open={advancedFiltersActive} className="mt-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.025] p-2">
               <summary className="cursor-pointer list-none rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
-                Advanced filters {advancedFiltersActive ? "active" : "optional"} ▾
+                Advanced filters {advancedFiltersActive ? "active" : "optional"}
+                <StockIcon name="chevron-down" className="ml-1 inline size-3" />
               </summary>
               <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                 <FilterSelect label="Sector" name="sector" value={sectorFilter} options={[{ value: "all", label: "All sectors" }, ...sectors.map((sector) => ({ value: sector, label: sector }))]} />
@@ -358,46 +371,13 @@ export default async function RankingsPage({
         <ScoreMethodCard />
 
         <RankingsLock isLocked={rankingsLocked} className="min-w-0 max-w-full overflow-hidden bg-[#faf6f0] lg:hidden">
-          {rankings.length > 0 ? (
-            rankings.map((stock) => {
-              const ticker = stock.ticker ?? "";
-              const move = getRankMove24h(stock.rank, snapshotMap.get(ticker));
-              const dailyMove = dailyMoveMap.get(ticker)?.changePct;
-              const confidence = getModelConfidence(stock);
-
-              return (
-                <div key={stock.id} className="min-w-0 max-w-full overflow-hidden border-b border-[#072116]/8 bg-[#faf6f0] p-3 text-[#072116] last:border-b-0">
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <Link href={`/stock/${stock.ticker}`} className="flex min-w-0 items-center gap-2">
-                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#072116] text-[11px] font-black text-[#ddb159]">{stock.rank ?? "—"}</div>
-                      <StockLogo ticker={stock.ticker} company={stock.company} size={28} />
-                      <div className="min-w-0">
-                        <p className="text-[15px] font-black leading-tight">{stock.ticker ?? "—"}</p>
-                        <p className="mt-0.5 text-[11px] font-semibold leading-snug text-[#072116]/55">{stock.company ?? "—"}</p>
-                      </div>
-                    </Link>
-                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span>
-                  </div>
-
-                  <div className="mt-3 grid min-w-0 grid-cols-4 gap-1 text-center">
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Rank</p><span title={move.title} className={["mt-1 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">1D</p><DailyMovePill changePct={dailyMove} className="mt-1 block text-[10px]" /></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Price</p><p className="mt-1 truncate text-[11px] font-black tabular-nums">{formatPrice(stock.price)}</p></div>
-                    <div className="min-w-0 px-1"><p className="text-[8px] font-black uppercase tracking-wide text-[#072116]/40">Conf.</p><span className={["mt-1 inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
-                  </div>
-                  <WhyRankDetails stock={stock} dailyMove={dailyMove} light />
-                </div>
-              );
-            })
-          ) : (
-            <div className="rounded-2xl bg-[#faf6f0] px-4 py-10 text-center text-[13px] font-bold text-[#072116]/55">No stocks match those filters.</div>
-          )}
+          <RankingsMobileBatchList initialItems={rankings.map((stock) => ({ ...stock, dailyMove: dailyMoveMap.get(stock.ticker ?? "")?.changePct ?? null }))} initialPage={currentPage} totalPages={totalPages} locked={rankingsLocked} filters={{ q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter }} />
         </RankingsLock>
 
         <RankingsLock isLocked={rankingsLocked} className="relative hidden min-w-0 overflow-hidden rounded-2xl bg-[#faf6f0] shadow-[0_14px_36px_rgba(0,0,0,0.18)] lg:block">
           <div className="min-w-0">
             <div className={`grid ${gridCols} sticky top-0 z-10 bg-[#072116] text-[#faf6f0]`}>
-              {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score"].map((header) => (
+              {["Rank", "Move", "Ticker", "Company", "Confidence", "Price", "AI Score", "Why"].map((header) => (
                 <div key={header} className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide">{header}</div>
               ))}
             </div>
@@ -420,8 +400,8 @@ export default async function RankingsPage({
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
+                        <div className="px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
                       </div>
-                      <WhyRankDetails stock={stock} dailyMove={dailyMove} />
                     </div>
                   );
                 })
@@ -431,6 +411,37 @@ export default async function RankingsPage({
             </div>
           </div>
         </RankingsLock>
+
+        {!rankingsLocked && (
+          <nav
+            aria-label="Rankings pages"
+            className="hidden min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl border border-[#ddb159]/18 bg-[#04180f]/72 p-2 lg:grid"
+          >
+            {hasPreviousPage ? (
+              <Link
+                href={rankingsPageHref(params, currentPage - 1)}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/28 px-4 text-[11px] font-black text-[#ddb159]"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <span className="text-center text-[10px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/55">
+              Page {currentPage} of {totalPages}
+            </span>
+            {hasNextPage ? (
+              <Link
+                href={rankingsPageHref(params, currentPage + 1)}
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116]"
+              >
+                Next 50
+              </Link>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+          </nav>
+        )}
       </main>
     </AppShell>
   );

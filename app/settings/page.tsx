@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { CurrencyPreferenceSelect } from "@/components/CurrencyPreferenceSelect";
 import { NotificationPreferenceToggles } from "@/components/NotificationPreferenceToggles";
 import { SupportFeedbackForm } from "@/components/SupportFeedbackForm";
+import { normaliseCurrency } from "@/lib/currency";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
 
@@ -18,6 +20,7 @@ type Profile = {
   email_news_digests: boolean | null;
   email_portfolio_alerts: boolean | null;
   email_watchlist_alerts: boolean | null;
+  preferred_currency?: string | null;
   stripe_customer_id: string | null;
 };
 
@@ -38,7 +41,7 @@ export default async function SettingsPage() {
 
     supabase
       .from("profiles")
-      .select("subscription_status,email_news_digests,email_portfolio_alerts,email_watchlist_alerts,stripe_customer_id")
+      .select("subscription_status,email_news_digests,email_portfolio_alerts,email_watchlist_alerts,preferred_currency,stripe_customer_id")
       .eq("id", user.id)
       .single(),
   ]);
@@ -49,6 +52,7 @@ export default async function SettingsPage() {
   const emailDigestEnabled = Boolean(profile?.email_news_digests);
   const portfolioAlertsEnabled = profile?.email_portfolio_alerts !== false;
   const watchlistAlertsEnabled = profile?.email_watchlist_alerts !== false;
+  const preferredCurrency = normaliseCurrency(profile?.preferred_currency);
 
   return (
     <AppShell activePath="/settings">
@@ -128,6 +132,14 @@ export default async function SettingsPage() {
                 initialPortfolioAlerts={portfolioAlertsEnabled}
                 initialWatchlistAlerts={watchlistAlertsEnabled}
               />
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
+            <h2 className="text-[15px] font-black tracking-[-0.02em]">Currency</h2>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">Choose the display currency for portfolio values.</p>
+            <div className="mt-4">
+              <CurrencyPreferenceSelect initialCurrency={preferredCurrency} />
             </div>
           </section>
 

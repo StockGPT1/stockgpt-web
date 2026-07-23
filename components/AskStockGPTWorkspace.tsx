@@ -1,9 +1,11 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode, RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { AskContext } from "@/lib/ask-context";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -53,6 +55,7 @@ type RankingsResponse = {
 type AskStockGPTWorkspaceProps = {
   canUseAskStockGPT: boolean;
   isAuthenticated: boolean;
+  initialContext?: AskContext | null;
 };
 
 const welcomeMessage: ChatMessage = {
@@ -149,7 +152,7 @@ function renderMessageContent(content: string) {
 function StockGPTIconImage({ fallbackClassName }: { fallbackClassName: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <span className={fallbackClassName}>S</span>;
-  return <img src="/icon.png" alt="" aria-hidden="true" className="block h-full w-full object-contain" onError={() => setFailed(true)} />;
+  return <Image src="/icon.png" alt="" aria-hidden="true" width={32} height={32} className="block h-full w-full object-contain" onError={() => setFailed(true)} />;
 }
 
 function PremiumOrb({ small = false }: { small?: boolean }) {
@@ -485,23 +488,117 @@ function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding
   );
 }
 
-export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: AskStockGPTWorkspaceProps) {
+/* Chooses which single portfolio the chat is focused on. Hidden when
+   the user has fewer than two portfolios — there is nothing to choose. */
+function PortfolioFocusPicker({
+  portfolios,
+  selectedId,
+  onSelect,
+  className = "",
+}: {
+  portfolios: Array<{ id: string; name: string }>;
+  selectedId: string | null;
+  onSelect: (portfolioId: string) => void;
+  className?: string;
+}) {
+  if (portfolios.length < 2) return null;
+
+  return (
+    <label className={`relative inline-flex min-w-0 items-center ${className}`}>
+      <span className="sr-only">Focused portfolio</span>
+      <select
+        value={selectedId ?? portfolios[0].id}
+        onChange={(event) => onSelect(event.target.value)}
+        className="h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-full border border-[#ddb159]/26 bg-[#071b12] pl-4 pr-9 text-[11px] font-black text-[#ddb159] outline-none transition hover:border-[#ddb159]/50 focus:border-[#ddb159]"
+      >
+        {portfolios.map((portfolio) => (
+          <option key={portfolio.id} value={portfolio.id}>
+            {portfolio.name}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute right-3.5 size-3 text-[#ddb159]/70"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+      >
+        <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </label>
+  );
+}
+
+export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initialContext = null }: AskStockGPTWorkspaceProps) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [activeMode, setActiveMode] = useState<Mode>("portfolio");
+  const [activeMode, setActiveMode] = useState<Mode>(
+    initialContext?.contextType === "rankings" ? "rankings" : "portfolio",
+  );
   const [holdingOptions, setHoldingOptions] = useState<HoldingOption[]>([]);
   const [holdingLoading, setHoldingLoading] = useState(false);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
+  const [portfolioOptions, setPortfolioOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(
+    initialContext?.portfolioId ?? null,
+  );
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const mobileBottomRef = useRef<HTMLDivElement>(null);
+  const desktopBottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const forceNextScrollRef = useRef(false);
   const locked = !canUseAskStockGPT;
 
   const visibleStarters = useMemo(() => starterPrompts.filter((prompt) => prompt.mode === activeMode), [activeMode]);
   const mobileStarters = useMemo(() => visibleStarters.slice(0, 2), [visibleStarters]);
-  const showStarterCards = messages.length <= 1 && !loading && !historyLoading;
+  const showStarterCards = messages.length <= 1 && !loading && !streaming && !historyLoading;
+
+  const visibleScrollerFromRef = useCallback((ref: RefObject<HTMLDivElement | null>) => {
+    const node = ref.current;
+    if (!node) return null;
+
+    const scroller = node.closest<HTMLElement>(".sg-ask-scroll");
+    if (!scroller) return null;
+
+    const rect = scroller.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+
+    return scroller;
+  }, []);
+
+  const getActiveChatScroller = useCallback(() => {
+    return (
+      visibleScrollerFromRef(mobileBottomRef) ??
+      visibleScrollerFromRef(desktopBottomRef)
+    );
+  }, [visibleScrollerFromRef]);
+
+  const isNearBottom = useCallback((scroller: HTMLElement) => {
+    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 180;
+  }, []);
+
+  const updateAutoScrollPreference = useCallback(() => {
+    const scroller = getActiveChatScroller();
+    shouldAutoScrollRef.current = scroller ? isNearBottom(scroller) : true;
+  }, [getActiveChatScroller, isNearBottom]);
+
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const scroller = getActiveChatScroller();
+
+    if (scroller) {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+      return;
+    }
+
+    const target = mobileBottomRef.current ?? desktopBottomRef.current;
+    target?.scrollIntoView({ behavior });
+  }, [getActiveChatScroller]);
 
   useEffect(() => {
     if (locked) return;
@@ -540,23 +637,40 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
 
   useEffect(() => {
     if (locked) return;
-    const bottom = bottomRef.current;
-    if (!bottom) return;
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      const scroller = bottom.closest<HTMLElement>(".sg-ask-scroll");
-      if (scroller) {
-        scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-        return;
-      }
-    }
-    bottom.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, historyLoading, locked]);
+    if (!forceNextScrollRef.current && !shouldAutoScrollRef.current) return;
+    scrollChatToBottom(forceNextScrollRef.current ? "auto" : "smooth");
+    forceNextScrollRef.current = false;
+  }, [messages, loading, historyLoading, locked, scrollChatToBottom]);
 
   useEffect(() => {
-    if (locked || activeMode !== "portfolio" || holdingsLoaded || holdingLoading) return;
+    if (locked) return;
+
+    const scrollers = Array.from(
+      document.querySelectorAll<HTMLElement>(".sg-ask-scroll"),
+    );
+
+    scrollers.forEach((scroller) => {
+      scroller.addEventListener("scroll", updateAutoScrollPreference, {
+        passive: true,
+      });
+    });
+
+    updateAutoScrollPreference();
+
+    return () => {
+      scrollers.forEach((scroller) => {
+        scroller.removeEventListener("scroll", updateAutoScrollPreference);
+      });
+    };
+  }, [locked, updateAutoScrollPreference]);
+
+  /* Load on mount (not just when the Portfolio panel opens): the chat's
+     portfolio focus picker needs the directory of portfolios up front. */
+  useEffect(() => {
+    if (locked || holdingsLoaded || holdingLoading) return;
     void loadHoldings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked, activeMode, holdingsLoaded, holdingLoading]);
+  }, [locked, holdingsLoaded, holdingLoading]);
 
   async function clearHistory() {
     setMessages([welcomeMessage]);
@@ -569,28 +683,118 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     if (!text || loading || historyLoading) return;
     setQuestion("");
     setLoading(true);
+    setStreaming(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
     const userMessage: ChatMessage = { role: "user", content: text };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     try {
-      const response = await fetch("/api/ask-stockgpt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text, mode: activeMode, messages: nextMessages.slice(-14) }) });
+      const response = await fetch("/api/ask-stockgpt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/plain, application/json",
+        },
+        body: JSON.stringify({
+          question: text,
+          mode: activeMode,
+          /* the picker's selection travels with every question so the
+             server builds context for exactly that portfolio */
+          context: selectedPortfolioId
+            ? { ...(initialContext ?? { contextType: "portfolio" }), portfolioId: selectedPortfolioId }
+            : initialContext,
+          messages: nextMessages.slice(-14),
+          stream: true,
+        }),
+      });
+
+      const isStreamingResponse =
+        response.ok &&
+        response.body &&
+        response.headers.get("x-stockgpt-stream") === "1";
+
+      if (isStreamingResponse) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantStarted = false;
+        let streamedAnswer = "";
+
+        setStreaming(true);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk) continue;
+
+          streamedAnswer += chunk;
+
+          setMessages((current) => {
+            if (!assistantStarted) {
+              assistantStarted = true;
+              return [...current, { role: "assistant", content: chunk }];
+            }
+
+            const next = [...current];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") {
+              next[next.length - 1] = {
+                ...last,
+                content: `${last.content}${chunk}`,
+              };
+              return next;
+            }
+
+            return [...next, { role: "assistant", content: chunk }];
+          });
+        }
+
+        if (!streamedAnswer.trim()) {
+          setMessages((current) => [
+            ...current,
+            {
+              role: "assistant",
+              content:
+                "Ask StockGPT connected, but the model returned an empty response. Please retry.",
+            },
+          ]);
+        }
+
+        return;
+      }
+
       const data = (await response.json().catch(() => null)) as { answer?: string } | null;
-      const answer = data?.answer ?? "I could not return an answer from Ask StockGPT. Try again, or email sales@stockgpt.pro if this relates to membership or billing.";
+      const answer =
+        data?.answer ??
+        "I could not return an answer from Ask StockGPT. Try again, or email sales@stockgpt.pro if this relates to membership or billing.";
       setMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch {
       setMessages((current) => [...current, { role: "assistant", content: "I could not connect to the StockGPT coach. Check the deployment logs and API route. For membership or billing questions, contact sales@stockgpt.pro." }]);
     } finally {
+      setStreaming(false);
       setLoading(false);
     }
   }
 
-  async function loadHoldings() {
+  async function loadHoldings(portfolioId?: string | null) {
     if (holdingLoading) return;
     setHoldingLoading(true);
     try {
-      const response = await fetch("/api/ask-stockgpt/portfolio-holdings", { headers: { Accept: "application/json" } });
-      const data = (await response.json().catch(() => null)) as { holdings?: HoldingOption[] } | null;
+      const requested = portfolioId ?? selectedPortfolioId;
+      const query = requested ? `?portfolioId=${encodeURIComponent(requested)}` : "";
+      const response = await fetch(`/api/ask-stockgpt/portfolio-holdings${query}`, { headers: { Accept: "application/json" } });
+      const data = (await response.json().catch(() => null)) as {
+        holdings?: HoldingOption[];
+        portfolios?: Array<{ id: string; name: string }>;
+        portfolioId?: string | null;
+      } | null;
       setHoldingOptions(Array.isArray(data?.holdings) ? data.holdings : []);
+      setPortfolioOptions(Array.isArray(data?.portfolios) ? data.portfolios : []);
+      /* server echoes back the portfolio it actually resolved (ownership
+         verified) — keep the picker in sync with that */
+      if (typeof data?.portfolioId === "string") setSelectedPortfolioId(data.portfolioId);
       setHoldingsLoaded(true);
     } catch {
       setHoldingOptions([]);
@@ -598,6 +802,13 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     } finally {
       setHoldingLoading(false);
     }
+  }
+
+  function switchPortfolio(portfolioId: string) {
+    if (portfolioId === selectedPortfolioId) return;
+    setSelectedPortfolioId(portfolioId);
+    setHoldingOptions([]);
+    void loadHoldings(portfolioId);
   }
 
   function askAboutHolding(holding: HoldingOption) {
@@ -614,11 +825,11 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
     void sendQuestion();
   }
 
-  const chatContent = (
+  const renderChatContent = (bottomRef: RefObject<HTMLDivElement | null>) => (
     <>
       {historyLoading && <div className="flex justify-center"><div className="rounded-full border border-[#ddb159]/18 bg-[#fbf4e5]/[0.045] px-4 py-2 text-[11px] font-bold text-[#fbf4e5]/58">Loading chat log</div></div>}
       {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
-      {loading && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Analysing</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and app context.</div></div></div>}
+      {loading && !streaming && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Connecting</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and opening the response stream.</div></div></div>}
       <div ref={bottomRef} />
     </>
   );
@@ -628,7 +839,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
       <header className="shrink-0 border-b border-[#ddb159]/16 bg-[#04140c] px-3 py-2 sm:px-5 sm:py-3">
         <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-3">
           <BackButton />
-          <div className="min-w-0 text-center"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-0.5 hidden text-[12px] font-semibold text-[#fbf4e5]/42 sm:block">Chat and portfolio intelligence</p></div>
+          <div className="min-w-0 text-center"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-0.5 hidden text-[12px] font-semibold text-[#fbf4e5]/42 sm:block">{initialContext?.contextType === "stock" && initialContext.ticker ? `Research context: ${initialContext.ticker}` : initialContext?.contextType === "holding" && initialContext.holdingTicker ? `Holding context: ${initialContext.holdingTicker}` : initialContext?.contextType === "portfolio" ? "Selected portfolio context" : initialContext?.contextType === "rankings" ? "Current rankings context" : "Chat and portfolio intelligence"}</p></div>
           <button type="button" onClick={() => void clearHistory()} className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#fbf4e5]/[0.04] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:px-4 sm:text-[12px] sm:tracking-[0.14em]">Clear</button>
         </div>
       </header>
@@ -636,6 +847,22 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
       {locked ? <LockedExperience isAuthenticated={isAuthenticated} /> : (
         <>
           <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
+
+          {portfolioOptions.length > 1 && (
+            <div className="shrink-0 border-b border-[#ddb159]/12 bg-[#04140c] px-3 py-2 lg:hidden">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.16em] text-[#fbf4e5]/42">
+                  Focused on
+                </span>
+                <PortfolioFocusPicker
+                  portfolios={portfolioOptions}
+                  selectedId={selectedPortfolioId}
+                  onSelect={switchPortfolio}
+                  className="min-w-0 flex-1"
+                />
+              </div>
+            </div>
+          )}
 
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
             <div className="sg-ask-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
@@ -648,7 +875,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
                     <div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Chat</p><p className="truncate text-[12px] font-semibold text-[#fbf4e5]/45">Ask naturally</p></div>
                   </div>
                   {showStarterCards && <div className="grid grid-cols-2 gap-2">{mobileStarters.map((starter) => <button key={starter.prompt} type="button" onClick={() => void sendQuestion(starter.prompt)} className="min-h-[58px] min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.04] px-3 py-2.5 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/80"><span className="block truncate text-[8px] font-black uppercase tracking-[0.13em] text-[#ddb159]/72">{starter.eyebrow}</span><span className="mt-1 block line-clamp-2">{starter.label}</span></button>)}</div>}
-                  <div className="grid gap-3">{chatContent}</div>
+                  <div className="grid gap-3">{renderChatContent(mobileBottomRef)}</div>
                 </section>
               </div>
             </div>
@@ -668,12 +895,18 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated }: Ask
               <header className="relative shrink-0 border-b border-[#ddb159]/14 px-5 py-4">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3"><PremiumOrb small /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Portfolio intelligence</p><h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[34px]">Ask StockGPT</h1></div></div>
+                  <PortfolioFocusPicker
+                    portfolios={portfolioOptions}
+                    selectedId={selectedPortfolioId}
+                    onSelect={switchPortfolio}
+                    className="mt-1 max-w-[240px] shrink-0"
+                  />
                 </div>
                 <p className="mt-3 max-w-full text-[13px] font-medium leading-5 text-[#fbf4e5]/52">Ask naturally. Portfolio and ranking tools load only when needed.</p>
               </header>
 
               <main className="sg-ask-scroll min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-5 py-4">
-                <div className="mx-auto grid max-w-3xl gap-3">{chatContent}</div>
+                <div className="mx-auto grid max-w-3xl gap-3">{renderChatContent(desktopBottomRef)}</div>
               </main>
 
               <form onSubmit={handleSubmit} className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-4">

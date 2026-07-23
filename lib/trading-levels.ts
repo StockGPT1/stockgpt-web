@@ -417,16 +417,17 @@ export async function calculateTradeLevels({
   if (!Number.isFinite(price) || price <= 0) return null;
 
   const supabase = await createClient();
-  const maxScore = await getMaxScore();
-  const technical = await getTechnicalLevels(ticker, price);
-
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentNews } = await supabase
-    .from("news_articles")
-    .select("title,summary,impact,affected_tickers")
-    .gte("published_at", fourteenDaysAgo)
-    .order("published_at", { ascending: false })
-    .limit(150);
+  const [maxScore, technical, { data: recentNews }] = await Promise.all([
+    getMaxScore(),
+    getTechnicalLevels(ticker, price),
+    supabase
+      .from("news_articles")
+      .select("title,summary,impact,affected_tickers")
+      .gte("published_at", fourteenDaysAgo)
+      .order("published_at", { ascending: false })
+      .limit(150),
+  ]);
 
   const tickerNews = (recentNews ?? []).filter((n) => {
     const tickers = Array.isArray(n.affected_tickers) ? n.affected_tickers : [];

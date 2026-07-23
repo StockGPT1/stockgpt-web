@@ -1,0 +1,98 @@
+[data-sg-stock-ask-mobile-wrapper] {
+  min-width: 0;
+  width: 100%;
+}
+
+[data-sg-stock-ask] svg {
+  display: none !important;
+}
+
+[data-sg-stock-ask] {
+  transform: none !important;
+}
+
+[data-sg-stock-ask]:hover,
+[data-sg-stock-ask]:active {
+  transform: none !important;
+}
+
+[data-sg-stock-ask] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-sg-stock-ask="mobile"] {
+  display: flex !important;
+  width: 100% !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  border: 1px solid rgba(243, 217, 139, 0.78) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, #f7e4a3 0%, #d6ae4d 52%, #9b7228 100%) !important;
+  color: #061b12 !important;
+  font-size: clamp(11px, 3.4vw, 13px) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 10px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-sg-stock-ask="mobile"]:hover {
+  filter: brightness(1.03);
+}
+
+[data-sg-stock-secondary-actions] {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+[data-sg-stock-secondary-actions] > a {
+  min-width: 0;
+}
+
+[data-sg-stock-hero-actions] {
+  align-items: center !important;
+}
+
+[data-sg-stock-ask="desktop"] {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  [data-sg-stock-ask-mobile-wrapper] {
+    display: none !important;
+  }
+
+  [data-sg-stock-ask="desktop"] {
+    display: inline-flex !important;
+    width: auto !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-width: min(320px, 34vw);
+    padding: 0 16px !important;
+    border: 1px solid rgba(243, 217, 139, 0.72) !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #f7e4a3 0%, #d6ae4d 52%, #9b7228 100%) !important;
+    color: #061b12 !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      0 8px 20px rgba(0, 0, 0, 0.18) !important;
+  }
+}
+
+@media (max-width: 359px) {
+  [data-sg-stock-ask="mobile"] {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    border-radius: 14px !important;
+  }
+}

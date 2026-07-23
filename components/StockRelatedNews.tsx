@@ -284,7 +284,7 @@ export function StockRelatedNews({
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-            ✦ World Events & Company Activity
+            World Events & Company Activity
           </p>
 
           <h2 className="mt-1 min-w-0 break-words text-[22px] font-black tracking-[-0.03em] text-[#faf6f0]">

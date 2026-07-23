@@ -4,29 +4,27 @@ import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
-import { PremiumInteractionEffects } from "@/components/PremiumInteractionEffects";
 import { NavigationWarmup } from "@/components/NavigationWarmup";
 import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
+import { StockIcon, type StockIconName } from "@/components/StockIcon";
+import { AppChromeProvider } from "@/components/AppChromeProvider";
+import { MobileAppHeader } from "@/components/MobileAppHeader";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { GlobalSearchOverlay } from "@/components/GlobalSearchOverlay";
+import { CommandPalette } from "@/components/CommandPalette";
+import type { AskContext } from "@/lib/ask-context";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "▦" },
-  { href: "/rankings", label: "Rankings", icon: "♛" },
-  { href: "/portfolio", label: "Portfolio", icon: "✦" },
-  { href: "/watchlist", label: "Watchlist", icon: "☆" },
-  { href: "/notifications", label: "Alerts", icon: "◐" },
-  { href: "/world-news", label: "World News", icon: "◈" },
-  { href: "/settings", label: "Settings", icon: "⚙" },
-] as const;
-
-const mobileBottomNav = [
-  { href: "/dashboard", label: "Home", icon: "▦" },
-  { href: "/rankings", label: "Rankings", icon: "♛" },
-  { href: "/portfolio", label: "Portfolio", icon: "✦" },
-  { href: "/notifications", label: "Alerts", icon: "◐" },
-  { href: "/world-news", label: "News", icon: "◈" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/rankings", label: "Rankings", icon: "rankings" },
+  { href: "/portfolio", label: "Portfolio", icon: "portfolio" },
+  { href: "/watchlist", label: "Watchlist", icon: "watchlist" },
+  { href: "/notifications", label: "Alerts", icon: "alerts" },
+  { href: "/world-news", label: "World News", icon: "news" },
+  { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
 function PageBackdrop({ activePath }: { activePath: string }) {
@@ -92,8 +90,8 @@ function PageBackdrop({ activePath }: { activePath: string }) {
       {variant === "watchlist" && (
         <>
           <div className="absolute right-[8%] top-[12%] h-[300px] w-[300px] rounded-full border border-[#ddb159]/12" />
-          <div className="absolute right-[15%] top-[21%] text-[190px] leading-none text-[#ddb159]/[0.055]">
-            ☆
+          <div className="absolute right-[15%] top-[21%] text-[#ddb159]/[0.055]">
+            <StockIcon name="watchlist" className="size-[190px]" />
           </div>
         </>
       )}
@@ -163,9 +161,13 @@ function PageBackdrop({ activePath }: { activePath: string }) {
 export async function AppShell({
   children,
   activePath,
+  askLabel,
+  askContext,
 }: {
   children: ReactNode;
   activePath: string;
+  askLabel?: string;
+  askContext?: AskContext | null;
 }) {
   const supabase = await createClient();
 
@@ -188,16 +190,32 @@ export async function AppShell({
     canUseAskStockGPT = hasActiveSubscription(profile?.subscription_status);
   }
 
-  return (
-    <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
-      <PremiumInteractionEffects />
-      <NavigationWarmup />
+  const inferredAskContext: AskContext | null = askContext ??
+    (activePath === "/dashboard"
+      ? { contextType: "dashboard" }
+      : activePath === "/rankings"
+        ? { contextType: "rankings" }
+        : activePath === "/portfolio"
+          ? { contextType: "portfolio" }
+          : null);
+  const inferredAskLabel = askLabel ??
+    (activePath === "/rankings"
+      ? "Ask about rankings"
+      : activePath === "/portfolio"
+        ? "Ask about this portfolio"
+        : "Ask StockGPT");
 
-      <header className="sg-app-header relative z-40 flex h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 shadow-[0_8px_28px_rgba(0,0,0,0.24)] sm:px-5">
+  return (
+    <AppChromeProvider>
+      <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
+        <NavigationWarmup />
+        <MobileAppHeader />
+
+      <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,0.24)] lg:flex">
         <Link
           href="/dashboard"
           prefetch={false}
-          className="sg-no-premium absolute left-1/2 top-1/2 h-[46px] w-[155px] -translate-x-1/2 -translate-y-1/2 transition duration-300 hover:scale-[1.015] md:relative md:left-auto md:top-auto md:h-[52px] md:w-[205px] md:translate-x-0 md:translate-y-0"
+          className="sg-no-premium relative h-[52px] w-[205px] shrink-0 transition duration-300 hover:scale-[1.015]"
         >
           <Image
             src="/logo.png"
@@ -205,18 +223,21 @@ export async function AppShell({
             fill
             priority
             className="object-contain object-center drop-shadow-[0_6px_14px_rgba(221,177,89,0.12)] md:object-left"
-            sizes="(max-width: 768px) 155px, 205px"
+            sizes="205px"
           />
         </Link>
 
-        <div className="hidden min-w-0 flex-1 md:flex">
-          <SearchBar showRankingData={!!user} />
+        <div className="flex min-w-0 flex-1">
+          <SearchBar showRankingData={canUseAskStockGPT} />
         </div>
 
-        <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <AskStockGPTButton
             canUseAskStockGPT={canUseAskStockGPT}
             isAuthenticated={!!user}
+            label={inferredAskLabel}
+            context={inferredAskContext}
+            compact
           />
 
           <Link
@@ -262,38 +283,10 @@ export async function AppShell({
           </Link>
         </div>
 
-        <Link
-          href="/settings"
-          prefetch={false}
-          aria-label="Account settings"
-          className="sg-icon-button absolute right-3 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-[#ddb159]/80 text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-300 hover:bg-[#ddb159]/10 md:hidden"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="size-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
-        </Link>
       </header>
 
-      <TickerTape />
-
-      <div className="sg-mobile-search-row flex shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-3 py-2 md:hidden">
-        <div className="min-w-0 flex-1">
-          <SearchBar showRankingData={!!user} />
-        </div>
-
-        <div className="shrink-0 [&_button]:h-10 [&_button]:px-3 [&_button]:text-[11px] max-[370px]:[&_button_span:last-child]:hidden max-[370px]:[&_button]:w-10 max-[370px]:[&_button]:justify-center max-[370px]:[&_button]:px-0">
-          <AskStockGPTButton
-            canUseAskStockGPT={canUseAskStockGPT}
-            isAuthenticated={!!user}
-          />
-        </div>
+      <div className="hidden shrink-0 lg:block">
+        <TickerTape />
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -324,7 +317,7 @@ export async function AppShell({
                   />
 
                   <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110">
-                    {item.icon}
+                    <StockIcon name={item.icon as StockIconName} className="size-[18px]" />
                   </span>
 
                   <span className="truncate">{item.label}</span>
@@ -340,7 +333,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[84px] sm:p-3 lg:overflow-hidden lg:pb-3">
+        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
@@ -349,37 +342,10 @@ export async function AppShell({
         </section>
       </div>
 
-      <nav className="sg-bottom-nav fixed inset-x-0 bottom-0 z-30 flex h-[64px] shrink-0 items-stretch border-t border-[#ddb159]/20 bg-[#04180f] shadow-[0_-10px_24px_rgba(0,0,0,0.28)] lg:hidden">
-        {mobileBottomNav.map((item) => {
-          const isActive = activePath === item.href;
-          const isAlerts = item.href === "/notifications";
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={false}
-              data-active={isActive ? "true" : "false"}
-              className={`sg-mobile-nav-link relative flex flex-1 flex-col items-center justify-center gap-0.5 transition ${
-                isActive ? "text-[#ddb159]" : "text-[#faf6f0]/55"
-              }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-[10px] font-bold">{item.label}</span>
-
-              {isAlerts && unreadCount > 0 && (
-                <span className="absolute right-2 top-1.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-
-              {isActive && (
-                <span className="absolute inset-x-4 top-0 h-[2px] bg-[#ddb159]" />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
+        <GlobalSearchOverlay showRankingData={canUseAskStockGPT} />
+        <CommandPalette />
+        <MobileBottomNav unreadCount={unreadCount} />
+      </div>
+    </AppChromeProvider>
   );
 }

@@ -88,6 +88,65 @@ export async function checkRateLimit({
   return { allowed: true, remaining: Math.max(0, limit - used - 1) };
 }
 
+/**
+ * Latency-optimised two-phase variant of checkRateLimit for hot auth
+ * routes: precheckRateLimit does the count only, so the caller can run
+ * recordRateLimitAttempts concurrently with the actual auth call
+ * instead of paying two more sequential round-trips. Semantics match
+ * checkRateLimit: counts fail closed, attempts are only recorded when
+ * the request was allowed.
+ */
+export async function precheckRateLimit({
+  action,
+  key,
+  limit,
+  windowSeconds,
+}: RateLimitOptions): Promise<RateLimitResult> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+
+  const { count, error } = await admin
+    .from("security_rate_limits")
+    .select("*", { count: "exact", head: true })
+    .eq("action", action)
+    .eq("key", key)
+    .gte("created_at", since);
+
+  if (error) {
+    console.error("[rate-limit] count failed", {
+      action,
+      message: error.message,
+    });
+
+    return { allowed: false, retryAfterSeconds: 60 };
+  }
+
+  const used = count ?? 0;
+
+  if (used >= limit) {
+    return { allowed: false, retryAfterSeconds: windowSeconds };
+  }
+
+  return { allowed: true, remaining: Math.max(0, limit - used - 1) };
+}
+
+export async function recordRateLimitAttempts(
+  attempts: Array<{ action: string; key: string }>,
+) {
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("security_rate_limits")
+    .insert(attempts.map(({ action, key }) => ({ action, key, success: true })));
+
+  if (error) {
+    /* Recording runs concurrently with the auth call, so by the time an
+       insert failure surfaces the attempt has already been made — fail
+       open here. A DB outage still fails closed at precheck time. */
+    console.error("[rate-limit] record failed", { message: error.message });
+  }
+}
+
 export function tooManyRequests(retryAfterSeconds: number) {
   return NextResponse.json(
     {

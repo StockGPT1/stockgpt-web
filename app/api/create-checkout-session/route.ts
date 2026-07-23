@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 const LEGAL_VERSION = "2026-05-17";
 
 type BillingPlan = "monthly" | "annual";
+const APPROVED_OFFER = "50PORTFOLIO2026";
 
 function getTrialPeriodDays() {
   const rawValue = process.env.STRIPE_CORE_TRIAL_DAYS;
@@ -22,6 +23,12 @@ function getTrialPeriodDays() {
 
 function normaliseBillingPlan(value: FormDataEntryValue | null): BillingPlan {
   return value === "annual" ? "annual" : "monthly";
+}
+
+function normaliseOffer(value: FormDataEntryValue | null) {
+  return String(value ?? "").trim().toUpperCase() === APPROVED_OFFER
+    ? APPROVED_OFFER
+    : null;
 }
 
 function getPriceId(plan: BillingPlan) {
@@ -52,21 +59,53 @@ function getPriceId(plan: BillingPlan) {
 async function createCheckoutSession(request: Request) {
   const formData = await request.formData();
   const plan = normaliseBillingPlan(formData.get("plan"));
+  const offer = normaliseOffer(formData.get("offer"));
   const legalAcknowledgement = String(
     formData.get("legal_acknowledgement") ?? "",
   );
 
   if (legalAcknowledgement !== "accepted") {
     return NextResponse.redirect(
-      new URL(`/checkout/confirm?plan=${plan}&legal=missing`, request.url),
+      new URL(
+        `/checkout/confirm?plan=${plan}${offer ? `&offer=${offer}` : ""}&legal=missing`,
+        request.url,
+      ),
       { status: 303 },
     );
   }
 
-  const priceId = getPriceId(plan);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
-  const trialPeriodDays = getTrialPeriodDays();
   const endorselyReferral = String(formData.get("endorsely_referral") ?? "");
+  const promotionCodeId = offer
+    ? process.env.STRIPE_PROMO_50_FIRST_MONTH?.trim()
+    : undefined;
+
+  if (offer && !promotionCodeId) {
+    return NextResponse.redirect(
+      new URL(
+        `/checkout/confirm?plan=${plan}&offer=${offer}&checkout=offer_unavailable`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  }
+
+  let priceId: string;
+  let trialPeriodDays: number | undefined;
+
+  try {
+    priceId = getPriceId(plan);
+    trialPeriodDays = getTrialPeriodDays();
+  } catch (error) {
+    console.error("Stripe checkout configuration is incomplete", error);
+    return NextResponse.redirect(
+      new URL(
+        `/checkout/confirm?plan=${plan}${offer ? `&offer=${offer}` : ""}&checkout=configuration_error`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  }
 
   const supabase = await createClient();
 
@@ -84,6 +123,7 @@ async function createCheckoutSession(request: Request) {
     user_id: user.id,
     plan: `core_${plan}`,
     billing_interval: plan,
+    offer: offer ?? "none",
     endorsely_referral: endorselyReferral,
     legal_version: LEGAL_VERSION,
     legal_acknowledgement: "research_software",
@@ -94,24 +134,39 @@ async function createCheckoutSession(request: Request) {
     disclaimer_url: `${siteUrl}/legal#disclaimer`,
   };
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer_email: user.email,
-    allow_promotion_codes: true,
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ],
-    metadata: legalMetadata,
-    subscription_data: {
-      ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
+  let session;
+
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer_email: user.email,
+      ...(promotionCodeId
+        ? { discounts: [{ promotion_code: promotionCodeId }] }
+        : { allow_promotion_codes: true }),
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
       metadata: legalMetadata,
-    },
-    success_url: `${siteUrl}/account?success=true`,
-    cancel_url: `${siteUrl}/pricing`,
-  });
+      subscription_data: {
+        ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
+        metadata: legalMetadata,
+      },
+      success_url: `${siteUrl}/account?success=true`,
+      cancel_url: `${siteUrl}/pricing`,
+    });
+  } catch (error) {
+    console.error("Stripe checkout session creation failed", error);
+    return NextResponse.redirect(
+      new URL(
+        `/checkout/confirm?plan=${plan}${offer ? `&offer=${offer}` : ""}&checkout=failed`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  }
 
   return NextResponse.redirect(session.url!, {
     status: 303,

@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { generatePortfolioAction } from "@/lib/actions/portfolio";
 import { savePortfolio } from "@/lib/actions/portfolio-management";
 import type { Portfolio, RiskTolerance, TimeHorizon } from "@/lib/portfolio";
+import {
+  ManualPortfolioBuilder,
+  type ManualBuilderStockOption,
+} from "@/components/ManualPortfolioBuilder";
+import { Trading212PortfolioCreator } from "@/components/Trading212PortfolioCreator";
+import type { SupportedCurrency } from "@/lib/currency";
 
 type ExistingPortfolio = {
   id: string;
@@ -14,7 +20,13 @@ type ExistingPortfolio = {
 
 type Props = {
   existingPortfolios?: ExistingPortfolio[];
+  stockOptions?: ManualBuilderStockOption[];
+  initialMode?: "choice" | "ai" | "manual";
+  displayCurrency?: SupportedCurrency;
+  usdToDisplayRate?: number;
 };
+
+type CreationMode = "choice" | "ai" | "existing" | "manual" | "csv";
 
 const SECTOR_COLORS: Record<string, string> = {
   "Information Technology": "#ddb159",
@@ -88,8 +100,15 @@ function amountLabel(value: number) {
   return `$${value.toLocaleString()}`;
 }
 
-export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
+export function PortfolioBuilder({
+  existingPortfolios = [],
+  stockOptions = [],
+  initialMode = "choice",
+  displayCurrency = "USD",
+  usdToDisplayRate = 1,
+}: Props) {
   const router = useRouter();
+  const [creationMode, setCreationMode] = useState<CreationMode>(initialMode);
 
   const [risk, setRisk] = useState<RiskTolerance>("moderate");
   const [horizon, setHorizon] = useState<TimeHorizon>("medium");
@@ -159,6 +178,185 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
     });
   }
 
+  if (creationMode === "manual") {
+    return (
+      <ManualPortfolioBuilder
+        stockOptions={stockOptions}
+        existingCount={existingPortfolios.length}
+        displayCurrency={displayCurrency}
+        usdToDisplayRate={usdToDisplayRate}
+        onBack={() => setCreationMode("existing")}
+      />
+    );
+  }
+
+  if (creationMode === "csv") {
+    return (
+      <Trading212PortfolioCreator
+        existingCount={existingPortfolios.length}
+        onBack={() => setCreationMode("existing")}
+      />
+    );
+  }
+
+  if (creationMode === "existing") {
+    return (
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
+        <header className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+                Add Existing Portfolio
+              </p>
+              <h1 className="mt-1 text-[32px] font-black leading-tight tracking-[-0.05em] text-[#faf6f0] sm:text-[42px]">
+                Add holdings your way
+              </h1>
+              <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/60">
+                Import a Trading 212 CSV for speed, or add holdings and cash manually.
+                Both paths create a normal StockGPT portfolio after review.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreationMode("choice")}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/36 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10 focus:outline-none focus:ring-2 focus:ring-[#ddb159]"
+            >
+              Back
+            </button>
+          </div>
+        </header>
+
+        <section className="grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setCreationMode("csv")}
+            className="group min-h-[230px] rounded-3xl border border-[#00a6ff]/30 bg-[#faf6f0] p-5 text-left text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#00a6ff] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full bg-[#00a6ff] text-[12px] font-black text-white">
+              212
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#0078bd]">
+              Fastest if you already use Trading 212
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Import Trading 212 CSV
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#072116]/58">
+              Upload your CSV, preview supported holdings and skipped rows, then save
+              the reviewed import as a normal portfolio.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#072116] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Upload CSV
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreationMode("manual")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/35 bg-[#ddb159]/10 text-xl text-[#ddb159]">
+              +
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159]">
+              Full control
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Add manually
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">
+              Enter tickers, share counts, average prices and starting cash yourself,
+              then review before creating.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-[#ddb159]/40 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Open manual builder
+            </span>
+          </button>
+        </section>
+      </div>
+    );
+  }
+
+  if (creationMode === "choice") {
+    return (
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
+        <header className="relative overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <div className="relative">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
+              Portfolio workspace
+            </p>
+            <h1 className="mt-1 text-[32px] font-black leading-tight tracking-[-0.05em] text-[#faf6f0] sm:text-[42px]">
+              Create a portfolio
+            </h1>
+            <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/60">
+              Start with an AI Portfolio Draft or add an existing portfolio by
+              importing Trading 212 CSV data or entering holdings manually.
+            </p>
+          </div>
+        </header>
+
+        <section className="grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setCreationMode("ai")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/35 bg-[#faf6f0] p-5 text-left text-[#072116] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159] focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full bg-[#072116] text-xl text-[#ddb159]">
+              AI
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#8a641a]">
+              Fastest route
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              AI Portfolio Draft
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#072116]/58">
+              Build a Portfolio Draft from your preferences, then review allocations,
+              risks and trade-offs.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#072116]">
+              Create draft
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreationMode("existing")}
+            className="group min-h-[230px] rounded-3xl border border-[#ddb159]/20 bg-[#061b12] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/70 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full border border-[#ddb159]/35 bg-[#ddb159]/10 text-xl text-[#ddb159]">
+              +
+            </span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-[#ddb159]">
+              Full control
+            </p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">
+              Add Existing Portfolio
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">
+              Import a Trading 212 CSV or add holdings manually, then let StockGPT
+              analyse the structure.
+            </p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-[#ddb159]/40 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+              Add existing portfolio
+            </span>
+          </button>
+        </section>
+
+        {existingPortfolios.length > 0 && (
+          <Link
+            href="/portfolio"
+            className="mx-auto inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/28 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+          >
+            Back to portfolios
+          </Link>
+        )}
+      </div>
+    );
+  }
+
   if (portfolio) {
     return (
       <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
@@ -170,7 +368,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159] sm:text-[10px]">
-                  ✦ New AI-generated portfolio
+                  New AI-generated portfolio
                 </p>
 
                 <h1 className="mt-1 text-[25px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[32px]">
@@ -196,7 +394,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
                   }}
                   className="min-w-0 rounded-full px-4 py-2 text-[11px] font-black transition hover:opacity-90 disabled:opacity-90 sm:px-5 sm:text-[12px]"
                 >
-                  {savedPortfolioId ? "✓ Saved" : isSaving ? "Saving…" : "Save new"}
+                  {savedPortfolioId ? "Saved" : isSaving ? "Saving…" : "Save new"}
                 </button>
 
                 <button
@@ -304,7 +502,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
 
         <div className="min-w-0 rounded-2xl border border-[#ddb159]/30 bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Investment Strategy
+            AI Investment Strategy
           </p>
           <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#072116]/85 sm:text-[13px]">
             {portfolio.strategy}
@@ -322,7 +520,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
 
         <div className="min-w-0 rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Sector Allocation
+            AI Sector Allocation
           </p>
           <p className="mt-1 text-[10px] font-semibold text-[#072116]/55 sm:text-[11px]">
             Why each sector is weighted this way
@@ -382,7 +580,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
 
         <div className="min-w-0 rounded-2xl bg-[#faf6f0] p-4 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)] sm:p-5">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55 sm:text-[10px]">
-            ✦ AI Stock Picks
+            AI Stock Research
           </p>
           <p className="mt-1 text-[10px] font-semibold text-[#072116]/55 sm:text-[11px]">
             Sorted by allocation · click any stock for full AI analysis
@@ -471,7 +669,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
         </div>
 
         <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40 sm:text-[11px]">
-          ⚠️ AI-generated portfolios are based on quantitative factors and
+          AI-generated portfolios are based on quantitative factors and
           ranking data. They are research tools, not financial advice.
         </p>
       </div>
@@ -480,6 +678,13 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+      <button
+        type="button"
+        onClick={() => setCreationMode("choice")}
+        className="w-fit min-h-11 rounded-full border border-[#ddb159]/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10"
+      >
+        ← Creation options
+      </button>
       <div className="relative min-w-0 overflow-hidden rounded-3xl border border-[#ddb159]/25 bg-[linear-gradient(160deg,#0d3420,#082519)] px-5 py-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] sm:px-6 sm:py-6">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/10 blur-3xl" />
 
@@ -487,7 +692,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
           <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-                ✦ AI Portfolio Builder
+                AI Portfolio Builder
               </p>
               <h1 className="mt-1 text-[30px] font-black leading-[1.05] tracking-[-0.04em] text-[#faf6f0] sm:text-[36px]">
                 Build a new portfolio in 30 seconds.
@@ -714,7 +919,7 @@ export function PortfolioBuilder({ existingPortfolios = [] }: Props) {
               </>
             ) : (
               <>
-                ✦ Generate AI Portfolio<span>→</span>
+                Generate AI Portfolio<span>→</span>
               </>
             )}
           </button>
