@@ -16,7 +16,13 @@ function replacePriceText(root: ParentNode) {
 
   for (const node of matches) {
     const parent = node.parentElement;
-    if (!parent || parent.dataset.limitedOfferPrice === "true") continue;
+    if (
+      !parent ||
+      parent.dataset.limitedOfferPrice === "true" ||
+      parent.closest('[data-limited-offer-price="true"]')
+    ) {
+      continue;
+    }
 
     parent.dataset.limitedOfferPrice = "true";
     parent.setAttribute(
