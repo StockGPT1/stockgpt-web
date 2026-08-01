@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
+import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import "./globals.css";
+import "./limited-time-offer.css";
 import "./mobile-overflow.css";
 import "./visual-cleanup.css";
 import "./dashboard-right-rail.css";
@@ -99,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
+        <LimitedTimePriceOffer />
         <StockAskActionPolish />
         <Analytics />
         <SpeedInsights />
@@ -111,8 +114,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             operatingSystem: "Web",
             offers: {
               "@type": "Offer",
-              price: "18.99",
+              price: "4.99",
               priceCurrency: "GBP",
+              description: "Limited-time exclusive monthly offer; normally £18.99.",
             },
           })}
         </Script>
