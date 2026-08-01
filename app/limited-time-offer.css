@@ -1,0 +1,44 @@
+[data-limited-offer-price="true"] {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.22em;
+}
+
+.sg-limited-offer-original {
+  font-size: 0.46em;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.58;
+  text-decoration-line: line-through;
+  text-decoration-thickness: 0.1em;
+}
+
+.sg-limited-offer-current {
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+.sg-limited-offer-badge {
+  display: block;
+  width: fit-content;
+  margin-top: 0.45rem;
+  border: 1px solid rgba(221, 177, 89, 0.48);
+  border-radius: 9999px;
+  background: rgba(221, 177, 89, 0.13);
+  padding: 0.28rem 0.62rem;
+  color: inherit;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .sg-limited-offer-badge {
+    font-size: 0.52rem;
+    letter-spacing: 0.075em;
+  }
+}
