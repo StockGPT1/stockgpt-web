@@ -6,6 +6,9 @@ const LEGAL_VERSION = "2026-05-17";
 
 type BillingPlan = "monthly" | "annual";
 const APPROVED_OFFER = "50PORTFOLIO2026";
+const LIMITED_TIME_MONTHLY_PRICE_ID =
+  process.env.STRIPE_CORE_LIMITED_OFFER_PRICE_ID ??
+  "price_1Tzit3IldrSzUOixERXx9tIb";
 
 function getTrialPeriodDays() {
   const rawValue = process.env.STRIPE_CORE_TRIAL_DAYS;
@@ -42,18 +45,7 @@ function getPriceId(plan: BillingPlan) {
     return annualPriceId;
   }
 
-  const monthlyPriceId =
-    process.env.STRIPE_CORE_MONTHLY_PRICE_ID ??
-    process.env.STRIPE_CORE_PRICE_ID ??
-    process.env.STRIPE_BASIC_PRICE_ID;
-
-  if (!monthlyPriceId) {
-    throw new Error(
-      "Missing STRIPE_CORE_MONTHLY_PRICE_ID, STRIPE_CORE_PRICE_ID or STRIPE_BASIC_PRICE_ID",
-    );
-  }
-
-  return monthlyPriceId;
+  return LIMITED_TIME_MONTHLY_PRICE_ID;
 }
 
 async function createCheckoutSession(request: Request) {
@@ -76,11 +68,12 @@ async function createCheckoutSession(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
   const endorselyReferral = String(formData.get("endorsely_referral") ?? "");
-  const promotionCodeId = offer
-    ? process.env.STRIPE_PROMO_50_FIRST_MONTH?.trim()
-    : undefined;
+  const promotionCodeId =
+    plan === "annual" && offer
+      ? process.env.STRIPE_PROMO_50_FIRST_MONTH?.trim()
+      : undefined;
 
-  if (offer && !promotionCodeId) {
+  if (plan === "annual" && offer && !promotionCodeId) {
     return NextResponse.redirect(
       new URL(
         `/checkout/confirm?plan=${plan}&offer=${offer}&checkout=offer_unavailable`,
@@ -123,7 +116,7 @@ async function createCheckoutSession(request: Request) {
     user_id: user.id,
     plan: `core_${plan}`,
     billing_interval: plan,
-    offer: offer ?? "none",
+    offer: plan === "monthly" ? "limited_time_exclusive_499" : offer ?? "none",
     endorsely_referral: endorselyReferral,
     legal_version: LEGAL_VERSION,
     legal_acknowledgement: "research_software",
@@ -142,7 +135,9 @@ async function createCheckoutSession(request: Request) {
       customer_email: user.email,
       ...(promotionCodeId
         ? { discounts: [{ promotion_code: promotionCodeId }] }
-        : { allow_promotion_codes: true }),
+        : plan === "annual"
+          ? { allow_promotion_codes: true }
+          : { allow_promotion_codes: false }),
       line_items: [
         {
           price: priceId,
