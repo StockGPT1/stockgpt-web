@@ -62,6 +62,15 @@ function replaceOfferCopy(root: ParentNode) {
       "Flexible monthly access to the current Core platform.",
       "Limited-time monthly access to the current Core platform. Cancel anytime.",
     ],
+    ["Best value — 2 months free", "Annual plan"],
+    [
+      "Annual access with the same Core features, priced as 2 months free versus monthly.",
+      "Annual access remains at the existing annual price. The £4.99 offer applies to monthly billing.",
+    ],
+    [
+      "Best value — 2 months free versus paying monthly.",
+      "Annual access remains at the existing annual price. The £4.99 offer applies to monthly billing.",
+    ],
   ]);
 
   while (walker.nextNode()) {
