@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { LandingMetrics } from "./ScrollLandingScreens";
+import { offerClaimedPercent, offerSeatsLeft } from "@/lib/limited-offer";
 import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
   ChatScreen,
@@ -596,9 +597,51 @@ function CinematicPhone({
 /*  Fixed chrome: nav + dots rail                                     */
 /* ------------------------------------------------------------------ */
 
+/* founding-offer chrome: a hairline strip above the nav on phones (the
+   nav drops 28px to make room), a pill floating in the empty nav centre
+   on wide screens */
+function OfferPill() {
+  const seats = offerSeatsLeft();
+  const pct = offerClaimedPercent();
+  return (
+    <>
+      <Link
+        href="/pricing"
+        className="fixed inset-x-0 top-0 flex h-7 items-center justify-center gap-2 whitespace-nowrap border-b border-[#ddb159]/25 bg-black/60 no-underline backdrop-blur-md transition-colors hover:bg-black/75 lg:hidden"
+      >
+        <span className="sl-pulse h-1 w-1 shrink-0 rounded-full bg-[#ddb159]" />
+        <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
+          £4.99/mo — next 500 members
+        </span>
+        <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
+          {seats} left
+        </span>
+      </Link>
+      <Link
+        href="/pricing"
+        className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-[#ddb159]/30 bg-black/45 px-3.5 py-1.5 no-underline backdrop-blur-md transition-colors hover:border-[#ddb159]/60 hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#ddb159] lg:flex"
+      >
+        <span className="sl-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-[#ddb159]" />
+        <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
+          £4.99/mo — next 500 members
+        </span>
+        <span className="h-1 w-14 overflow-hidden rounded-full bg-white/15" suppressHydrationWarning>
+          <span
+            className="block h-full rounded-full bg-[#ddb159]"
+            style={{ width: `${pct}%` }}
+          />
+        </span>
+        <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
+          {seats} left
+        </span>
+      </Link>
+    </>
+  );
+}
+
 function TopNav() {
   return (
-    <header className="fixed left-0 right-0 top-0 z-50">
+    <header className="fixed left-0 right-0 top-7 z-50 lg:top-0">
       <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link
           href="/"
@@ -630,6 +673,7 @@ function TopNav() {
           </Link>
         </div>
       </div>
+      <OfferPill />
     </header>
   );
 }

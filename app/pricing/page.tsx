@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { OfferSeatsMeter } from "@/components/OfferSeatsMeter";
 import { StockIcon } from "@/components/StockIcon";
 
 export const metadata: Metadata = {
@@ -212,6 +213,7 @@ export default async function PricingPage({
             <p className="mx-auto mt-2 max-w-2xl text-[13px] font-medium leading-relaxed text-[#faf6f0]/58 sm:text-[15px] lg:text-[14px]">
               Core is live now. Executive remains waitlist-only while we build the advanced tier properly.
             </p>
+            <OfferSeatsMeter />
             <UpgradeNotice feature={params.feature} />
 
             {waitlistStatus === "joined" && (
