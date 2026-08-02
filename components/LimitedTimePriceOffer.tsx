@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { offerSeatsLeft } from "@/lib/limited-offer";
 
 const ORIGINAL_PRICE = "£18.99";
 const OFFER_PRICE = "£4.99";
@@ -24,10 +25,11 @@ function replacePriceText(root: ParentNode) {
       continue;
     }
 
+    const seatsLeft = offerSeatsLeft();
     parent.dataset.limitedOfferPrice = "true";
     parent.setAttribute(
       "aria-label",
-      `Limited-time exclusive offer: ${OFFER_PRICE} per month, normally ${ORIGINAL_PRICE}`,
+      `Offer for the next 500 members: ${OFFER_PRICE} per month, normally ${ORIGINAL_PRICE}. ${seatsLeft} spots left.`,
     );
     parent.textContent = "";
 
@@ -45,7 +47,7 @@ function replacePriceText(root: ParentNode) {
 
     const badge = document.createElement("span");
     badge.className = "sg-limited-offer-badge";
-    badge.textContent = "Limited-time exclusive offer";
+    badge.textContent = `Next 500 members — ${seatsLeft} left`;
     badge.setAttribute("aria-hidden", "true");
     parent.insertAdjacentElement("afterend", badge);
   }
@@ -60,7 +62,7 @@ function replaceOfferCopy(root: ParentNode) {
     ],
     [
       "Flexible monthly access to the current Core platform.",
-      "Limited-time monthly access to the current Core platform. Cancel anytime.",
+      "Founding rate for the next 500 members. Full Core access, cancel anytime.",
     ],
     ["Best value — 2 months free", "Annual plan"],
     [

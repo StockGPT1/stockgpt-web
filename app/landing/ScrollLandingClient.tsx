@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { LandingMetrics } from "./ScrollLandingScreens";
+import { offerClaimedPercent, offerSeatsLeft } from "@/lib/limited-offer";
 import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
   ChatScreen,
@@ -596,9 +597,51 @@ function CinematicPhone({
 /*  Fixed chrome: nav + dots rail                                     */
 /* ------------------------------------------------------------------ */
 
+/* founding-offer chrome: a hairline strip above the nav on phones (the
+   nav drops 28px to make room), a pill floating in the empty nav centre
+   on wide screens */
+function OfferPill() {
+  const seats = offerSeatsLeft();
+  const pct = offerClaimedPercent();
+  return (
+    <>
+      <Link
+        href="/pricing"
+        className="fixed inset-x-0 top-0 flex h-7 items-center justify-center gap-2 whitespace-nowrap border-b border-[#ddb159]/25 bg-black/60 no-underline backdrop-blur-md transition-colors hover:bg-black/75 lg:hidden"
+      >
+        <span className="sl-pulse h-1 w-1 shrink-0 rounded-full bg-[#ddb159]" />
+        <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
+          £4.99/mo — next 500 members
+        </span>
+        <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
+          {seats} left
+        </span>
+      </Link>
+      <Link
+        href="/pricing"
+        className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-[#ddb159]/30 bg-black/45 px-3.5 py-1.5 no-underline backdrop-blur-md transition-colors hover:border-[#ddb159]/60 hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#ddb159] lg:flex"
+      >
+        <span className="sl-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-[#ddb159]" />
+        <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
+          £4.99/mo — next 500 members
+        </span>
+        <span className="h-1 w-14 overflow-hidden rounded-full bg-white/15" suppressHydrationWarning>
+          <span
+            className="block h-full rounded-full bg-[#ddb159]"
+            style={{ width: `${pct}%` }}
+          />
+        </span>
+        <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
+          {seats} left
+        </span>
+      </Link>
+    </>
+  );
+}
+
 function TopNav() {
   return (
-    <header className="fixed left-0 right-0 top-0 z-50">
+    <header className="fixed left-0 right-0 top-7 z-50 lg:top-0">
       <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link
           href="/"
@@ -630,6 +673,7 @@ function TopNav() {
           </Link>
         </div>
       </div>
+      <OfferPill />
     </header>
   );
 }
@@ -687,79 +731,129 @@ function StaticLanding({ metrics }: { metrics: LandingMetrics }) {
   );
 }
 
-/* Movement 5 — the instrument wall: every indicator the model
-   watches, grouped into its six factor families. Names mirror
-   lib/factor-labels.ts, so the landing shows the real instrument set
-   the rankings run on. */
-const INDICATOR_FAMILIES: { family: string; items: string[] }[] = [
-  {
-    family: "Quality",
-    items: ["ROIC", "ROE", "Gross margin", "Operating margin", "Free-cash-flow margin"],
-  },
-  {
-    family: "Growth",
-    items: ["Revenue growth", "EPS growth", "Free-cash-flow growth"],
-  },
-  {
-    family: "Value",
-    items: [
-      "Sector-adjusted P/E",
-      "Sector-adjusted EV/EBITDA",
-      "Sector-adjusted price/sales",
-      "Free-cash-flow yield",
-    ],
-  },
-  {
-    family: "Momentum",
-    items: ["12-month momentum", "6-month momentum", "Price vs moving average", "Moving-average trend"],
-  },
-  {
-    family: "Risk",
-    items: ["Downside volatility", "Drawdown control", "Market beta", "Debt-to-equity"],
-  },
-  {
-    family: "Income",
-    items: ["Dividend yield"],
-  },
+/* Movement 5 — the factor wheel: a giant word used as a window.
+   The word FACTORS is a CSS mask (SVG data-URI) over three revolving
+   marquee rows of real indicator names, so the names are visible ONLY
+   through the letterforms — the gaps between letters show nothing.
+   A matching stroke-only SVG paints the ghost outline behind, using
+   identical geometry so outline and mask align exactly. */
+const WHEEL_STRIPS = [
+  "ROIC ◆ ROE ◆ GROSS MARGIN ◆ OPERATING MARGIN ◆ FCF MARGIN ◆ REVENUE GROWTH ◆ ",
+  "SECTOR P/E ◆ EV/EBITDA ◆ PRICE/SALES ◆ FCF YIELD ◆ 12-MO MOMENTUM ◆ MA TREND ◆ ",
+  "DOWNSIDE VOL ◆ MAX DRAWDOWN ◆ BETA ◆ DEBT/EQUITY ◆ DIVIDEND YIELD ◆ EPS GROWTH ◆ ",
 ];
+
+const FW_FONT = "Arial, Helvetica, sans-serif";
+const FW_ROWS = [
+  { speed: 46, y: 0.335, alpha: 0.92 },
+  { speed: -32, y: 0.615, alpha: 0.72 },
+  { speed: 26, y: 0.895, alpha: 0.92 },
+];
+
+function FactorWheelCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const start = performance.now();
+
+    const draw = (now: number) => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w === 0 || h === 0) {
+        if (!reduced) raf = requestAnimationFrame(draw);
+        return;
+      }
+      if (canvas.width !== Math.round(w * dpr)) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const t = reduced ? 0 : (now - start) / 1000;
+
+      /* faint letter fill, then the revolving strips */
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "rgba(244, 231, 193, 0.13)");
+      grad.addColorStop(1, "rgba(221, 177, 89, 0.05)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `800 ${h * 0.205}px ${FW_FONT}`;
+      ctx.fillStyle = "#ddb159";
+      for (const row of FW_ROWS) {
+        const strip = WHEEL_STRIPS[FW_ROWS.indexOf(row)];
+        const sw = ctx.measureText(strip).width;
+        if (sw <= 0) continue;
+        ctx.globalAlpha = row.alpha;
+        const shift = ((((t * row.speed) % sw) + sw) % sw);
+        for (let x = -shift; x < w; x += sw) {
+          ctx.fillText(strip, x, h * row.y);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      /* keep strip pixels only where the word's letterforms are */
+      const probe = 100;
+      ctx.font = `900 ${probe}px ${FW_FONT}`;
+      const wordSize = (probe * w) / ctx.measureText("FACTORS").width;
+      ctx.font = `900 ${wordSize}px ${FW_FONT}`;
+      ctx.textAlign = "center";
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("FACTORS", w / 2, h * 0.862);
+      ctx.globalCompositeOperation = "source-over";
+
+      /* ghost outline so the word still reads between strips */
+      ctx.strokeStyle = "rgba(244, 231, 193, 0.2)";
+      ctx.lineWidth = Math.max(1, w / 1000);
+      ctx.strokeText("FACTORS", w / 2, h * 0.862);
+
+      if (!reduced) raf = requestAnimationFrame(draw);
+    };
+
+    raf = requestAnimationFrame(draw);
+    const onResize = () => {
+      if (reduced) raf = requestAnimationFrame(draw);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="block h-full w-full" />;
+}
 
 function ManifestoContent() {
   return (
-    <div className="relative z-10 mx-auto w-full max-w-5xl px-6 text-center">
-      <p className="sl-e0 sl-mono hidden text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159] sm:block">
+    <div className="relative z-10 mx-auto w-full max-w-6xl px-4 text-center">
+      <p className="sl-e0 sl-mono text-[11px] font-black uppercase tracking-[0.34em] text-[#ddb159]">
         What the model watches
       </p>
-      <h2 className="sl-e1 mt-3 text-[clamp(26px,5vw,58px)] font-black leading-[1.02] tracking-[-0.045em] text-white">
-        Every angle. <span className="sl-gold">Weighed daily.</span>
-      </h2>
 
-      <div className="sl-e2 mx-auto mt-[2.6vh] grid max-w-4xl grid-cols-2 gap-x-4 gap-y-[2vh] text-left sm:gap-x-5 sm:gap-y-[2.6vh] lg:grid-cols-3">
-        {INDICATOR_FAMILIES.map((group) => (
-          <div key={group.family} className="min-w-0">
-            <p className="sl-mono flex items-center gap-2 text-[9.5px] font-black uppercase tracking-[0.24em] text-[#ddb159]">
-              <span className="inline-block size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_8px_rgba(221,177,89,0.8)]" />
-              {group.family}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {group.items.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-lg border border-white/10 bg-white/[0.035] px-2 py-1 text-[9px] font-bold text-white/68 transition hover:border-[#ddb159]/50 hover:text-white sm:px-2.5 sm:py-1.5 sm:text-[11px]"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+      <h2 className="sr-only">Factors</h2>
+      <div className="sl-e1 sl-fw-frame mt-[2vh] w-full" aria-hidden="true">
+        <FactorWheelCanvas />
       </div>
 
-      <p className="sl-e3 sl-mono mx-auto mt-[2.6vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/38 sm:mt-[3.5vh] sm:text-[9.5px] sm:tracking-[0.18em]">
+      <p className="sl-e2 mx-auto mt-[3vh] max-w-2xl text-[clamp(12.5px,1.3vw,17px)] font-medium leading-relaxed text-white/55">
+        Twenty-one indicators spin behind every score — quality, growth, value,
+        momentum, risk and income — weighed against sector peers, every market day.
+      </p>
+
+      <p className="sl-e3 sl-mono mx-auto mt-[2.5vh] flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/38 sm:text-[9.5px] sm:tracking-[0.18em]">
         <span>21 indicators</span>
         <span className="text-[#ddb159]/60">◆</span>
         <span className="hidden sm:inline">Z-scored against sector peers</span>
-        <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
-        <span className="hidden sm:inline">Blended into six factors</span>
         <span className="hidden text-[#ddb159]/60 sm:inline">◆</span>
         <span>One score per stock</span>
       </p>
@@ -1299,6 +1393,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
     .sl-cur-dot[data-hover="1"] .sl-cur-dot-core { transform: scale(2.6); }
+
+    /* factor wheel: the FACTORS canvas draws revolving indicator names
+       through the letterforms (see FactorWheelCanvas) */
+    .sl-fw-frame { aspect-ratio: 1180 / 260; }
 
     @media (prefers-reduced-motion: reduce) {
       .sl-cue-anim, .sl-caret, .sl-pulse, .sl-tape-track, .sl-letter, .sl-aurora, .sl-dust { animation: none !important; }
