@@ -1,7 +1,19 @@
 html,
 body {
+  width: 100%;
   max-width: 100%;
   overflow-x: clip;
+  overflow-y: auto;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sg-app-shell,
@@ -35,6 +47,12 @@ body {
     padding-bottom: calc(112px + env(safe-area-inset-bottom));
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .sg-app-content [class~="overflow-y-auto"] {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
