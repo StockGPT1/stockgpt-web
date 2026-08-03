@@ -1,7 +1,19 @@
 html,
 body {
+  width: 100%;
   max-width: 100%;
   overflow-x: clip;
+  overflow-y: auto;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sg-app-shell,
@@ -35,6 +47,30 @@ body {
     padding-bottom: calc(112px + env(safe-area-inset-bottom));
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .sg-app-content [class~="overflow-y-auto"] {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  /* AppShell owns mobile page scrolling. Pages that were designed as
+     fixed desktop workspaces must not create a second full-height scroll
+     trap inside it. This covers subscription and any equivalent route. */
+  .sg-app-content > .relative.z-10 > main.relative.h-full.min-h-0.overflow-hidden {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  .sg-app-content
+    > .relative.z-10
+    > main.relative.h-full.min-h-0.overflow-hidden
+    > div.relative.flex.h-full.min-h-0.flex-col.overflow-y-auto {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
   }
 
   .sg-app-content :where(section, main, article, aside, header, footer, form, nav, ul, li, div) {
