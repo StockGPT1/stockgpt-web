@@ -697,3 +697,26 @@ html[data-app-shell="true"] .sg-offer-chrome {
 html[data-app-shell="true"] .sg-landing-nav {
   top: 0 !important;
 }
+
+/* web-only elements the app shell hides (e.g. Google OAuth, which Google
+   blocks inside embedded WebViews) */
+html[data-app-shell="true"] .sg-web-only {
+  display: none !important;
+}
+
+/* native app feel inside the shell: no grey tap flashes, no rubber-band
+   overscroll behind the page, no long-press text selection on controls */
+html[data-app-shell="true"] body {
+  overscroll-behavior-y: none;
+}
+
+html[data-app-shell="true"] * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-app-shell="true"] button,
+html[data-app-shell="true"] a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

@@ -39,7 +39,7 @@ export function AuthScaffold({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_30%_-10%,rgba(221,177,89,0.16),transparent_60%),radial-gradient(ellipse_50%_40%_at_80%_110%,rgba(16,185,129,0.10),transparent_65%),linear-gradient(160deg,#062017_0%,#04140d_45%,#020c08_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_65%_at_50%_45%,transparent_55%,rgba(0,0,0,0.5)_100%)]" />
 
-          <div className="relative flex items-center justify-between px-5 py-4 lg:h-full lg:flex-col lg:items-start lg:justify-between lg:p-10">
+          <div className="relative flex items-center justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] lg:h-full lg:flex-col lg:items-start lg:justify-between lg:p-10">
             <Link
               href="/"
               aria-label="StockGPT home"
@@ -143,17 +143,19 @@ export function AuthScaffold({
   );
 }
 
+/* 16px input text is load-bearing: anything smaller makes iOS Safari and
+   the app shell zoom the whole page when a field is focused */
 export const authInputClass =
-  "block h-12 w-full min-w-0 rounded-xl border border-white/10 bg-[#071b11] px-4 text-[14px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-white/28 focus:border-[#ddb159]/80 focus:ring-2 focus:ring-[#ddb159]/25";
+  "block h-[52px] w-full min-w-0 rounded-2xl border border-white/10 bg-[#071b11] px-4 text-[16px] font-semibold text-[#faf6f0] outline-none transition placeholder:text-white/28 focus:border-[#ddb159]/80 focus:ring-2 focus:ring-[#ddb159]/25";
 
 export const authLabelClass =
   "mb-1.5 block text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]/85";
 
 export const authPrimaryButtonClass =
-  "fx-sheen h-12 w-full rounded-full border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] px-4 text-[13px] font-black uppercase tracking-[0.12em] text-[#071b11] shadow-[0_14px_40px_rgba(221,177,89,0.25)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
+  "fx-sheen h-[52px] w-full rounded-full border border-[#ddb159] bg-[linear-gradient(135deg,#f4d78a_0%,#ddb159_55%,#c99a3e_100%)] px-4 text-[13px] font-black uppercase tracking-[0.12em] text-[#071b11] shadow-[0_14px_40px_rgba(221,177,89,0.25)] transition hover:brightness-105 active:scale-[0.985] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-55";
 
 export const authGhostButtonClass =
-  "h-11 rounded-full border border-white/14 bg-white/[0.03] px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/8 disabled:opacity-55";
+  "h-12 rounded-full border border-white/14 bg-white/[0.03] px-4 text-[12px] font-black text-[#faf6f0] transition hover:border-[#ddb159]/55 hover:bg-[#ddb159]/8 active:scale-[0.985] disabled:opacity-55";
 
 /* Inline text links (e.g. "Create an account", "Log in") — gold with a
    visible underline so the clickable part is unmistakable. The !
@@ -165,7 +167,9 @@ export const authInlineLinkClass =
 
 export function AuthDivider({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 py-1 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/30">
+    /* sg-web-only: the divider separates provider buttons from email —
+       the app shell hides providers, so it hides the divider too */
+    <div className="sg-web-only flex items-center gap-3 py-1 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/30">
       <span className="h-px min-w-0 flex-1 bg-white/10" />
       <span className="shrink-0">{label}</span>
       <span className="h-px min-w-0 flex-1 bg-white/10" />

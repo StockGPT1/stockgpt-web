@@ -64,6 +64,15 @@ function buildContentSecurityPolicy(nonce: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  /* The iOS app shell (UA suffix "StockGPTApp") never shows the marketing
+     landing — send it straight to the product. Signed-out users are then
+     bounced to /login by the dashboard's session check. */
+  if (pathname === "/" && (request.headers.get("user-agent") ?? "").includes("StockGPTApp")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   if (pathname.startsWith("/stocks/")) {
     const ticker = pathname.replace("/stocks/", "");
     const url = request.nextUrl.clone();
