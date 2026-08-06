@@ -78,7 +78,9 @@ export function AuthProviderButtons({
   }
 
   return (
-    <div className="grid w-full min-w-0 gap-2">
+    /* sg-web-only: Google blocks OAuth inside embedded WebViews, so the
+       iOS app shell hides provider buttons and uses email + password */
+    <div className="sg-web-only grid w-full min-w-0 gap-2">
       {PROVIDERS.map((provider) => {
         const isLoading = loadingProvider === provider.id;
         const disabled = Boolean(loadingProvider);
@@ -90,7 +92,7 @@ export function AuthProviderButtons({
             onClick={() => continueWithProvider(provider.id)}
             disabled={disabled}
             aria-label={provider.label}
-            className="flex h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-[#ddb159]/18 bg-[#faf6f0] px-3 text-[13px] font-black text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.18)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-[14px]"
+            className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-full border border-[#ddb159]/18 bg-[#faf6f0] px-3 text-[13px] font-black text-[#072116] shadow-[0_10px_26px_rgba(0,0,0,0.18)] transition hover:bg-white active:scale-[0.985] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:text-[14px]"
           >
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,0.12)]">
               <GoogleLogo />

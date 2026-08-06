@@ -1,70 +1,85 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import {
+  AuthMessage,
+  AuthScaffold,
+  authInlineLinkClass,
+  authInputClass,
+  authLabelClass,
+  authPrimaryButtonClass,
+} from "@/components/auth/AuthScaffold";
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
   const [done, setDone] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function updatePassword() {
+    if (loading) return;
+
+    setLoading(true);
     setErrorMessage("");
 
-    const { error } = await createClient().auth.updateUser({
-      password,
-    });
+    try {
+      const { error } = await createClient().auth.updateUser({
+        password,
+      });
 
-    if (error) {
-      setErrorMessage("Could not update password. Please request a new reset link.");
-      return;
+      if (error) {
+        setErrorMessage("Could not update password. Please request a new reset link.");
+        return;
+      }
+
+      setDone(true);
+    } finally {
+      setLoading(false);
     }
-
-    setDone(true);
   }
 
   return (
-    <main className="min-h-screen bg-[#0F2A1F] flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-3xl border border-[#D4AF37]/30 bg-[#FFFDF5] p-8 text-[#0F2A1F] shadow-2xl">
-        <div className="relative mb-4 h-12 w-44"><Image src="/logo.png" alt="StockGPT" fill className="object-contain object-left" /></div>
-        <h1 className="text-3xl font-bold">Choose a new password</h1>
-
-        {done ? (
-          <div className="mt-6">
-            <div className="rounded-xl bg-green-50 p-4 text-green-700">
-              Password updated successfully.
-            </div>
-
-            <a href="/login" className="mt-4 block text-center underline">
-              Log in
-            </a>
-          </div>
-        ) : (
-          <div className="mt-6 space-y-3">
+    <AuthScaffold
+      eyebrow="Account recovery"
+      title="Choose a new password."
+      subtitle="Pick something strong — you'll use it to sign in from now on."
+      footer={
+        <p className="text-center text-[13px] font-semibold text-white/60">
+          All set?{" "}
+          <Link href="/login" className={authInlineLinkClass}>
+            Back to log in
+          </Link>
+        </p>
+      }
+    >
+      {done ? (
+        <AuthMessage tone="success">
+          Password updated successfully. You can now log in with your new password.
+        </AuthMessage>
+      ) : (
+        <div className="space-y-4">
+          <label className="block">
+            <span className={authLabelClass}>New password</span>
             <input
-              className="w-full rounded-xl border p-3"
+              className={authInputClass}
               type="password"
-              placeholder="New password"
+              placeholder="Enter a new password"
               value={password}
+              autoComplete="new-password"
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && updatePassword()}
             />
+          </label>
 
-            {errorMessage && (
-              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
-                {errorMessage}
-              </div>
-            )}
+          {errorMessage && <AuthMessage tone="error">{errorMessage}</AuthMessage>}
 
-            <button
-              onClick={updatePassword}
-              className="w-full rounded-xl bg-[#D4AF37] px-4 py-3 font-bold"
-            >
-              Update password
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
+          <button onClick={updatePassword} disabled={loading} className={authPrimaryButtonClass}>
+            {loading ? "Updating..." : "Update password"}
+          </button>
+        </div>
+      )}
+    </AuthScaffold>
   );
 }
