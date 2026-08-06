@@ -13,6 +13,8 @@
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "@vercel/analytics": "^1.5.0",
@@ -23,6 +25,7 @@
     "stripe": "^22.1.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
