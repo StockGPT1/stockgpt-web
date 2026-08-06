@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>StockGPT</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #04180f;
+        color: #faf6f0;
+        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .wrap { padding: 32px; }
+      .ring {
+        width: 54px;
+        height: 54px;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        border: 3px solid rgba(221, 177, 89, 0.18);
+        border-top-color: #ddb159;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      h1 { font-size: 17px; font-weight: 800; letter-spacing: 0.02em; margin: 0 0 6px; }
+      p { font-size: 13px; font-weight: 500; color: rgba(250, 246, 240, 0.55); margin: 0; }
+      @media (prefers-reduced-motion: reduce) { .ring { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="ring"></div>
+      <h1>StockGPT</h1>
+      <p>Loading your dashboard…</p>
+    </div>
+  </body>
+</html>

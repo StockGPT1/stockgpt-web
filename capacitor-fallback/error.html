@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>StockGPT — offline</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #04180f;
+        color: #faf6f0;
+        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .wrap { padding: 32px; max-width: 320px; }
+      .dot {
+        width: 10px;
+        height: 10px;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        background: #ddb159;
+        box-shadow: 0 0 22px rgba(221, 177, 89, 0.8);
+      }
+      h1 { font-size: 17px; font-weight: 800; letter-spacing: 0.02em; margin: 0 0 8px; }
+      p { font-size: 13px; font-weight: 500; line-height: 1.55; color: rgba(250, 246, 240, 0.55); margin: 0 0 22px; }
+      button {
+        appearance: none;
+        border: 2px solid #ddb159;
+        background: #ddb159;
+        color: #072116;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 12px 26px;
+      }
+      button:active { background: #c9a04f; border-color: #c9a04f; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="dot"></div>
+      <h1>You&rsquo;re offline</h1>
+      <p>StockGPT needs a connection to load live rankings and your portfolio. Check your internet and try again.</p>
+      <button onclick="window.location.href='https://stockgpt.pro'">Retry</button>
+    </div>
+  </body>
+</html>

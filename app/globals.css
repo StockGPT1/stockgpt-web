@@ -684,3 +684,16 @@ h2 {
     margin-left: 0.1rem;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  iOS app shell (Capacitor WKWebView tags <html data-app-shell>)     */
+/*  Apple review guideline 3.1.1 restricts steering to external        */
+/*  payments inside apps, so the shell hides web-only offer chrome.    */
+/* ------------------------------------------------------------------ */
+html[data-app-shell="true"] .sg-offer-chrome {
+  display: none !important;
+}
+
+html[data-app-shell="true"] .sg-landing-nav {
+  top: 0 !important;
+}

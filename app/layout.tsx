@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
+import { AppShellMode } from "@/components/AppShellMode";
 import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import "./globals.css";
@@ -101,6 +102,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
+        <AppShellMode />
         <LimitedTimePriceOffer />
         <StockAskActionPolish />
         <Analytics />

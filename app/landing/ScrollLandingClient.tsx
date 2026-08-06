@@ -607,7 +607,7 @@ function OfferPill() {
     <>
       <Link
         href="/pricing"
-        className="fixed inset-x-0 top-0 flex h-7 items-center justify-center gap-2 whitespace-nowrap border-b border-[#ddb159]/25 bg-black/60 no-underline backdrop-blur-md transition-colors hover:bg-black/75 lg:hidden"
+        className="sg-offer-chrome fixed inset-x-0 top-0 flex h-7 items-center justify-center gap-2 whitespace-nowrap border-b border-[#ddb159]/25 bg-black/60 no-underline backdrop-blur-md transition-colors hover:bg-black/75 lg:hidden"
       >
         <span className="sl-pulse h-1 w-1 shrink-0 rounded-full bg-[#ddb159]" />
         <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
@@ -619,7 +619,7 @@ function OfferPill() {
       </Link>
       <Link
         href="/pricing"
-        className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-[#ddb159]/30 bg-black/45 px-3.5 py-1.5 no-underline backdrop-blur-md transition-colors hover:border-[#ddb159]/60 hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#ddb159] lg:flex"
+        className="sg-offer-chrome absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border border-[#ddb159]/30 bg-black/45 px-3.5 py-1.5 no-underline backdrop-blur-md transition-colors hover:border-[#ddb159]/60 hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#ddb159] lg:flex"
       >
         <span className="sl-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-[#ddb159]" />
         <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
@@ -641,7 +641,7 @@ function OfferPill() {
 
 function TopNav() {
   return (
-    <header className="fixed left-0 right-0 top-7 z-50 lg:top-0">
+    <header className="sg-landing-nav fixed left-0 right-0 top-7 z-50 lg:top-0">
       <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link
           href="/"
