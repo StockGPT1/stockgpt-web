@@ -14,9 +14,9 @@ import type { LandingMetrics } from "./ScrollLandingScreens";
 import { offerClaimedPercent, offerSeatsLeft } from "@/lib/limited-offer";
 import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
-  InsideEngineSequence,
-  type InsideEngineSequenceHandle,
-} from "./InsideEngineSequence";
+  InsideEngineExperience,
+  type InsideEngineExperienceHandle,
+} from "./InsideEngineExperience";
 import {
   ChatScreen,
   FixedScale,
@@ -54,11 +54,6 @@ import {
    2/9, so every original anchor is compressed by Z to keep its
    absolute scroll distance identical. */
 const Z = 7 / 9;
-
-/* Temporary Phase 1 switch. Production keeps the existing cinematic unless
-   a preview/dev environment explicitly opts into the frame sequence. */
-const INSIDE_ENGINE_SEQUENCE_TEST_FLAG =
-  process.env.NEXT_PUBLIC_LANDING_INSIDE_ENGINE_SEQUENCE === "1";
 
 const STRAIGHTEN = { a: 0.03 * Z, b: 0.14 * Z };
 /* the invisible cut: the phone's "Top ranked" card undocks and flies
@@ -972,7 +967,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const insideEngineRef = useRef<InsideEngineSequenceHandle | null>(null);
+  const insideEngineRef = useRef<InsideEngineExperienceHandle | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
@@ -982,10 +977,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
-  const [desktopSequenceViewport, setDesktopSequenceViewport] = useState(false);
+  const [desktopSequenceViewport, setDesktopSequenceViewport] = useState<boolean | null>(null);
 
-  const useInsideEngineSequence =
-    INSIDE_ENGINE_SEQUENCE_TEST_FLAG && desktopSequenceViewport;
+  const useInsideEngineSequence = desktopSequenceViewport === true;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -996,7 +990,6 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   }, []);
 
   useEffect(() => {
-    if (!INSIDE_ENGINE_SEQUENCE_TEST_FLAG) return;
     const mq = window.matchMedia("(min-width: 768px)");
     const update = () => setDesktopSequenceViewport(mq.matches);
     update();
@@ -1005,7 +998,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   }, []);
 
   useEffect(() => {
-    if (staticMode) return;
+    if (staticMode || desktopSequenceViewport === null) return;
     const scroller = scrollerRef.current;
     if (!scroller) return;
 
@@ -1226,7 +1219,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       scroller.removeEventListener("scroll", readTarget);
       window.removeEventListener("resize", onResize);
     };
-  }, [staticMode, useInsideEngineSequence]);
+  }, [desktopSequenceViewport, staticMode]);
 
   const css = `
     .sl-root {
@@ -1474,9 +1467,10 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           onPointerMove={onStagePointerMove}
           className="sl-bg sticky top-0 h-[100dvh] overflow-hidden"
         >
-          {useInsideEngineSequence ? (
-            <InsideEngineSequence
+          {desktopSequenceViewport === null ? null : useInsideEngineSequence ? (
+            <InsideEngineExperience
               ref={insideEngineRef}
+              metrics={metrics}
               className="absolute inset-0"
             />
           ) : (
