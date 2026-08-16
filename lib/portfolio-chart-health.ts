@@ -1,12 +1,12 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
-export const PORTFOLIO_CHART_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+export const PORTFOLIO_CHART_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
 export const PORTFOLIO_CHART_MIN_REAL_POINTS: Record<TimeRange, number> = {
   "1D": 6,
+  "5D": 6,
   "1M": 4,
   "6M": 8,
   "1Y": 8,
-  "5D": 6,
   "5Y": 8,
   MAX: 4,
 };
@@ -87,6 +87,7 @@ const LIVE_SNAPSHOT_SOURCES = new Set([
 ]);
 const HISTORICAL_SNAPSHOT_SOURCES = new Set(["backfill", "chart_rebuild"]);
 const DEFAULT_STALE_LIVE_MS = 30 * 60 * 1000;
+const ONE_DAY_MS = 86_400_000;
 const MIN_NON_MINIMAL_POINTS = 3;
 
 function toNumber(value: unknown, fallback = 0) {
@@ -248,9 +249,7 @@ function chartDisplayState({
     return "updating";
   }
   if (status === "missing" || status === "building" || status === "sparse") return "building";
-  if (status === "broken" || status === "rebuild_needed") {
-    return "repairing";
-  }
+  if (status === "broken" || status === "rebuild_needed") return "repairing";
   if (status === "stale") return displayable ? "updating" : "building";
   return displayable ? "ready" : "building";
 }
@@ -286,10 +285,11 @@ function expectedRangeMissing({
   const ageMs = Math.max(0, nowMs - createdMs);
   const has = (range: TimeRange) => rangesAvailable.includes(range);
 
-  if (ageMs >= 2 * 86_400_000 && !has("MAX")) return true;
-  if (ageMs >= 7 * 86_400_000 && !has("1M")) return true;
-  if (ageMs >= 190 * 86_400_000 && !has("6M")) return true;
-  if (ageMs >= 370 * 86_400_000 && !has("1Y")) return true;
+  if (ageMs >= 2 * ONE_DAY_MS && !has("MAX")) return true;
+  if (ageMs >= 5 * ONE_DAY_MS && !has("5D")) return true;
+  if (ageMs >= 7 * ONE_DAY_MS && !has("1M")) return true;
+  if (ageMs >= 190 * ONE_DAY_MS && !has("6M")) return true;
+  if (ageMs >= 370 * ONE_DAY_MS && !has("1Y")) return true;
 
   return false;
 }
