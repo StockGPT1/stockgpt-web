@@ -40,19 +40,24 @@ export type PortfolioPriceFetcher = (
   ranges: TimeRange[],
 ) => Promise<PortfolioTimelineChartData>;
 
-const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
+const OUTPUT_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
 const FETCH_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "MAX"];
+const THIRTY_MINUTES_MS = 30 * 60_000;
 const ONE_HOUR_MS = 3_600_000;
+const FOUR_HOURS_MS = 4 * ONE_HOUR_MS;
 const ONE_DAY_MS = 86_400_000;
-const PORTFOLIO_ONE_DAY_POINTS = 24;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+const TWO_YEARS_MS = 2 * 365 * ONE_DAY_MS;
+const PORTFOLIO_ONE_DAY_POINTS = 49;
 const RANGE_DAYS: Partial<Record<TimeRange, number>> = {
+  "5D": 5,
   "1M": 30,
   "6M": 182,
   "1Y": 365,
 };
 const FALLBACK_RANGES: Record<TimeRange, TimeRange[]> = {
   "1D": ["1D", "5D", "1M", "6M", "1Y", "MAX"],
-  "5D": ["5D", "1M", "6M", "1Y", "MAX"],
+  "5D": ["5D", "1D", "1M", "6M", "1Y", "MAX"],
   "1M": ["1M", "6M", "1Y", "MAX"],
   "6M": ["6M", "1Y", "MAX"],
   "1Y": ["1Y", "MAX"],
@@ -125,11 +130,29 @@ function startOfUtcDay(ms: number) {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
-function buildOneDayHourlyTimes(nowMs: number) {
-  const end = Math.floor(nowMs / ONE_HOUR_MS) * ONE_HOUR_MS;
-  return Array.from({ length: PORTFOLIO_ONE_DAY_POINTS }, (_, index) =>
-    end - (PORTFOLIO_ONE_DAY_POINTS - 1 - index) * ONE_HOUR_MS,
+function buildIntervalTimes(rangeStartMs: number, nowMs: number, intervalMs: number) {
+  const start = Math.ceil(rangeStartMs / intervalMs) * intervalMs;
+  const end = Math.floor(nowMs / intervalMs) * intervalMs;
+  const times: number[] = [];
+
+  for (let ms = start; ms <= end; ms += intervalMs) {
+    times.push(ms);
+  }
+
+  if (times[0] !== rangeStartMs) times.unshift(rangeStartMs);
+  if (times.at(-1) !== nowMs) times.push(nowMs);
+
+  return Array.from(new Set(times)).sort((a, b) => a - b);
+}
+
+function buildOneDayHalfHourTimes(nowMs: number) {
+  const end = Math.floor(nowMs / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS;
+  const times = Array.from({ length: PORTFOLIO_ONE_DAY_POINTS }, (_, index) =>
+    end - (PORTFOLIO_ONE_DAY_POINTS - 1 - index) * THIRTY_MINUTES_MS,
   );
+
+  if (times.at(-1) !== nowMs) times.push(nowMs);
+  return Array.from(new Set(times)).sort((a, b) => a - b);
 }
 
 function holdingDate(holding: PortfolioTimelineHolding, fallbackMs: number) {
@@ -150,7 +173,10 @@ function normaliseHoldings(holdings: PortfolioTimelineHolding[], portfolioStartM
 
       const currentValue = toNumber(holding.currentValue, 0);
       const currentPriceFromValue = currentValue > 0 ? currentValue / shares : 0;
-      const currentPrice = toNumber(holding.currentPrice, currentPriceFromValue > 0 ? currentPriceFromValue : 0);
+      const currentPrice = toNumber(
+        holding.currentPrice,
+        currentPriceFromValue > 0 ? currentPriceFromValue : 0,
+      );
       const entryPrice = toNumber(
         holding.entry_price ?? holding.entryPrice,
         currentPrice > 0 ? currentPrice : currentPriceFromValue,
@@ -177,13 +203,26 @@ function reduceLots(lots: Lot[], ticker: string, sharesToReduce: number) {
   }
 }
 
-function setTickerExposure(lots: Lot[], ticker: string, shares: number, price: number, startMs: number, implicitBasis: boolean) {
+function setTickerExposure(
+  lots: Lot[],
+  ticker: string,
+  shares: number,
+  price: number,
+  startMs: number,
+  implicitBasis: boolean,
+) {
   lots.forEach((lot) => {
     if (lot.ticker === ticker) lot.shares = 0;
   });
 
   if (shares > EPSILON) {
-    lots.push({ ticker, shares: roundShares(shares), entryPrice: Math.max(0, price), startMs, implicitBasis });
+    lots.push({
+      ticker,
+      shares: roundShares(shares),
+      entryPrice: Math.max(0, price),
+      startMs,
+      implicitBasis,
+    });
   }
 }
 
@@ -201,11 +240,20 @@ function lotCost(lot: Lot) {
 }
 
 function activeImplicitLotCost(lots: Lot[], ticker: string) {
-  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.implicitBasis && lot.shares > EPSILON ? sum + lotCost(lot) : sum), 0);
+  return lots.reduce(
+    (sum, lot) =>
+      lot.ticker === ticker && lot.implicitBasis && lot.shares > EPSILON
+        ? sum + lotCost(lot)
+        : sum,
+    0,
+  );
 }
 
 function activeLotShares(lots: Lot[], ticker: string) {
-  return lots.reduce((sum, lot) => (lot.ticker === ticker && lot.shares > EPSILON ? sum + lot.shares : sum), 0);
+  return lots.reduce(
+    (sum, lot) => (lot.ticker === ticker && lot.shares > EPSILON ? sum + lot.shares : sum),
+    0,
+  );
 }
 
 function buildLedger({
@@ -235,7 +283,10 @@ function buildLedger({
       const type = normaliseTransactionType(transaction.type);
       const ms = Math.min(
         nowMs,
-        Math.max(portfolioStartMs, safeDateMs(transaction.created_at ?? transaction.createdAt ?? null) ?? portfolioStartMs),
+        Math.max(
+          portfolioStartMs,
+          safeDateMs(transaction.created_at ?? transaction.createdAt ?? null) ?? portfolioStartMs,
+        ),
       );
       const ticker = cleanTicker(transaction.ticker);
       const amount = toNumber(transaction.amount, 0);
@@ -300,7 +351,8 @@ function buildLedger({
       if (type === "adjustment") {
         if (shares > EPSILON) {
           const currentCost = activeImplicitLotCost(lots, ticker);
-          const hasExistingExplicitExposure = activeLotShares(lots, ticker) > EPSILON && currentCost <= EPSILON;
+          const hasExistingExplicitExposure =
+            activeLotShares(lots, ticker) > EPSILON && currentCost <= EPSILON;
           const entryPrice = price > 0 ? price : shares > 0 ? absoluteAmount / shares : 0;
           const nextCost = shares * entryPrice;
           const tracksImplicitBasis = !hasExistingExplicitExposure;
@@ -441,8 +493,8 @@ function priceAtTime({
   for (const lookupRange of FALLBACK_RANGES[range]) {
     const points = charts.get(`${ticker}:${lookupRange}`) ?? [];
 
-    if (range === "1D") {
-      const interpolated = interpolatePriceAtTime(points, targetMs, 0);
+    if (range === "1D" || range === "5D") {
+      const interpolated = interpolatePriceAtTime(points, targetMs, range === "5D" ? earliestLookupMs : 0);
       if (interpolated != null && interpolated > 0) return interpolated;
       continue;
     }
@@ -470,7 +522,7 @@ function basisAtTime(basisEvents: BasisEvent[], ms: number) {
 }
 
 function rangeStartFor(range: TimeRange, portfolioStartMs: number, nowMs: number) {
-  if (range === "1D") return Math.max(0, nowMs - (PORTFOLIO_ONE_DAY_POINTS - 1) * ONE_HOUR_MS);
+  if (range === "1D") return Math.max(0, nowMs - 24 * ONE_HOUR_MS);
   if (range === "MAX") return portfolioStartMs;
   const days = RANGE_DAYS[range];
   return days ? Math.max(0, nowMs - days * ONE_DAY_MS) : portfolioStartMs;
@@ -493,18 +545,27 @@ function collectTimes({
   range,
   rangeStartMs,
   nowMs,
+  portfolioStartMs,
   cashEvents,
 }: {
   range: TimeRange;
   rangeStartMs: number;
   nowMs: number;
+  portfolioStartMs: number;
   lots: Lot[];
   cashEvents: CashEvent[];
   charts: Map<string, ChartPoint[]>;
 }) {
-  if (range === "1D") return buildOneDayHourlyTimes(nowMs);
+  if (range === "1D") return buildOneDayHalfHourTimes(nowMs);
 
-  const times = new Set<number>(buildCalendarDayTimes(rangeStartMs, nowMs));
+  const baseTimes =
+    range === "5D"
+      ? buildIntervalTimes(rangeStartMs, nowMs, FOUR_HOURS_MS)
+      : range === "MAX" && nowMs - portfolioStartMs > TWO_YEARS_MS
+        ? buildIntervalTimes(rangeStartMs, nowMs, ONE_WEEK_MS)
+        : buildCalendarDayTimes(rangeStartMs, nowMs);
+
+  const times = new Set<number>(baseTimes);
   cashEvents.forEach((event) => {
     if (event.ms >= rangeStartMs && event.ms <= nowMs) times.add(event.ms);
   });
@@ -532,7 +593,15 @@ function buildRangeSeries({
   currentPrices: Map<string, number>;
 }) {
   const rangeStartMs = rangeStartFor(range, portfolioStartMs, nowMs);
-  const times = collectTimes({ range, rangeStartMs, nowMs, lots, cashEvents, charts });
+  const times = collectTimes({
+    range,
+    rangeStartMs,
+    nowMs,
+    portfolioStartMs,
+    lots,
+    cashEvents,
+    charts,
+  });
   const currentCash = cashAtTime(cashEvents, nowMs);
   const currentBasis = roundMoney(basisAtTime(basisEvents, nowMs));
 
@@ -548,7 +617,10 @@ function buildRangeSeries({
       return sum + lot.shares * price;
     }, 0);
 
-    const close = Math.max(0, roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue));
+    const close = Math.max(
+      0,
+      roundMoney((range === "1D" ? currentCash : cashAtTime(cashEvents, ms)) + holdingsValue),
+    );
     const basis = range === "1D" ? currentBasis : roundMoney(basisAtTime(basisEvents, ms));
     const pnl = roundMoney(close - basis);
 
@@ -622,7 +694,16 @@ export async function buildPortfolioValueTimeline({
   const charts = tickers.length > 0 ? await loadCharts({ tickers, priceFetcher }) : new Map<string, ChartPoint[]>();
 
   return OUTPUT_RANGES.reduce<PortfolioTimelineChartData>((acc, range) => {
-    const points = buildRangeSeries({ range, portfolioStartMs, nowMs, lots, cashEvents, basisEvents, charts, currentPrices: currentPriceMap });
+    const points = buildRangeSeries({
+      range,
+      portfolioStartMs,
+      nowMs,
+      lots,
+      cashEvents,
+      basisEvents,
+      charts,
+      currentPrices: currentPriceMap,
+    });
     if (points.length > 1) acc[range] = points;
     return acc;
   }, {});
