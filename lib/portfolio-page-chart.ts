@@ -18,7 +18,9 @@ import {
   isPortfolioChartLatestPointFresh,
   latestPortfolioInputChangeMs,
   saveLatestPortfolioSnapshotFromChartData,
+  savePortfolioSnapshotsFromChartData,
 } from "@/lib/portfolio-snapshots";
+import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const PORTFOLIO_PAGE_CHART_CACHE_ENABLED =
@@ -62,6 +64,38 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function pointMs(point: ChartPoint) {
+  const ms = new Date(point.date).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isWeekendUtc(ms: number) {
+  const day = new Date(ms).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function keepWeekdayPortfolioPoints(
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>,
+): Partial<Record<TimeRange, ChartPoint[]>> {
+  return Object.fromEntries(
+    Object.entries(chartData).map(([range, points]) => {
+      if (range === "1D") return [range, points ?? []];
+
+      const sorted = [...(points ?? [])].sort((a, b) => (pointMs(a) ?? 0) - (pointMs(b) ?? 0));
+      const first = sorted[0] ?? null;
+      const last = sorted.at(-1) ?? null;
+      const filtered = sorted.filter((point) => {
+        const ms = pointMs(point);
+        if (ms == null) return false;
+        if (point === first || point === last) return true;
+        return !isWeekendUtc(ms);
+      });
+
+      return [range, filtered];
+    }),
+  ) as Partial<Record<TimeRange, ChartPoint[]>>;
+}
+
 function holdingsForSnapshots(enriched: EnrichedHolding[]) {
   return enriched.map((holding) => ({
     ticker: holding.ticker,
@@ -72,6 +106,14 @@ function holdingsForSnapshots(enriched: EnrichedHolding[]) {
     purchaseDate: holding.purchaseDate,
     addedAt: holding.addedAt,
   }));
+}
+
+function currentPricesForHoldings(enriched: EnrichedHolding[]) {
+  return Object.fromEntries(
+    enriched
+      .map((holding) => [holding.ticker, toNumber(holding.currentPrice, 0)] as const)
+      .filter(([, price]) => price > 0),
+  );
 }
 
 async function resolvePortfolioOwnerId({
@@ -162,6 +204,7 @@ export async function buildPortfolioPageChartResult({
   const supabase = createAdminClient();
   const resolvedOwnerId = await resolvePortfolioOwnerId({ supabase, portfolio, ownerId });
   const snapshotHoldings = holdingsForSnapshots(enriched);
+  const currentPrices = currentPricesForHoldings(enriched);
   const currentPoint = buildCurrentPortfolioSnapshotPoint({
     portfolio: {
       cash_balance: portfolio.cash_balance,
@@ -169,9 +212,7 @@ export async function buildPortfolioPageChartResult({
       investment_amount: portfolio.investment_amount,
     },
     holdings: snapshotHoldings,
-    currentPrices: Object.fromEntries(
-      enriched.map((holding) => [holding.ticker, toNumber(holding.currentPrice, 0)]),
-    ),
+    currentPrices,
     snapshotAt: new Date(nowMs),
   });
   const currentSnapshotChart = { "1D": [currentPoint] } satisfies Partial<
@@ -192,6 +233,60 @@ export async function buildPortfolioPageChartResult({
     holdings: snapshotHoldings,
     transactions,
   });
+  const rebuildTimelineChart = async (): Promise<PortfolioPageChartResult | null> => {
+    if ((summary.holdingsCount ?? 0) <= 0 && summary.totalValue <= 0.01) return null;
+
+    const timelineChart = await buildPortfolioValueTimeline({
+      portfolio,
+      holdings: snapshotHoldings,
+      transactions,
+      currentPrices,
+    });
+    const chartData = filterDisplayablePortfolioChartData(
+      keepWeekdayPortfolioPoints(timelineChart),
+    );
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolio.created_at ?? null,
+      latestInputMs,
+      chartData,
+      summary,
+      nowMs,
+    });
+
+    if (!health.displayable) return null;
+
+    saveCurrentSnapshot();
+
+    if (resolvedOwnerId) {
+      void savePortfolioSnapshotsFromChartData({
+        supabase,
+        portfolioId: portfolio.id,
+        userId: resolvedOwnerId,
+        chartData,
+        source: "chart_rebuild",
+      }).catch((error) => {
+        console.warn("[portfolio-page-chart] timeline snapshot write failed", error);
+      });
+    }
+
+    if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
+      void saveLatestPortfolioChart({
+        portfolioId: portfolio.id,
+        summary,
+        chartData,
+      }).catch((error) => {
+        console.warn("[portfolio-page-chart] timeline cache write failed", error);
+      });
+    }
+
+    return {
+      chartData,
+      meta: {
+        source: "timeline-rebuild",
+        health,
+      },
+    };
+  };
 
   if (resolvedOwnerId) {
     const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
@@ -254,6 +349,9 @@ export async function buildPortfolioPageChartResult({
       };
     }
 
+    const rebuilt = await rebuildTimelineChart();
+    if (rebuilt) return rebuilt;
+
     if (snapshotChart) {
       const chartData = filterDisplayablePortfolioChartData(
         allowCurrentSnapshot
@@ -284,6 +382,9 @@ export async function buildPortfolioPageChartResult({
       };
     }
   }
+
+  const rebuilt = await rebuildTimelineChart();
+  if (rebuilt) return rebuilt;
 
   if ((summary.holdingsCount ?? 0) <= 0 && summary.totalValue <= 0.01) {
     return {
