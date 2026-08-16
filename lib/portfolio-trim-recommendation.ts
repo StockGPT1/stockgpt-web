@@ -1,4 +1,5 @@
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
+import { portfolioConstructionPolicy } from "@/lib/portfolio-construction-policy";
 
 export type PortfolioTrimDriver = {
   name: string;
@@ -57,12 +58,6 @@ function positiveNumber(value: number | null | undefined) {
 function signedPct(value: number) {
   const safe = Number.isFinite(value) ? value : 0;
   return `${safe >= 0 ? "+" : ""}${safe.toFixed(1)}%`;
-}
-
-function concentrationCap(riskTolerance: string | null) {
-  if (riskTolerance === "conservative") return 18;
-  if (riskTolerance === "aggressive") return 30;
-  return 24;
 }
 
 function severityScore(severity: string) {
@@ -158,13 +153,15 @@ export function buildPortfolioTrimRecommendation(
 ): PortfolioTrimRecommendation {
   const currentAllocation = positiveNumber(holding.currentAllocationPct) ?? 0;
   const userTarget = positiveNumber(holding.targetAllocationPct);
-  const riskCap = concentrationCap(riskTolerance);
+  const policy = portfolioConstructionPolicy(riskTolerance);
+  const riskCap = policy.concentrationReviewPct;
+  const trimCap = policy.concentrationTrimPct;
   const activeAction = holding.actionAlerts[0]?.action ?? "none";
   const addingSignal = activeAction === "buy_more" || holding.recommendation.includes("Buying");
 
   const targetBuffer = userTarget ? Math.max(1.5, userTarget * 0.2) : 0;
-  const ceiling = userTarget ? userTarget + targetBuffer : riskCap;
-  const desiredAllocation = userTarget ? userTarget + targetBuffer * 0.35 : riskCap * 0.92;
+  const ceiling = userTarget ? userTarget + targetBuffer : trimCap;
+  const desiredAllocation = userTarget ? userTarget + targetBuffer * 0.35 : riskCap;
   const materiallyOversized = currentAllocation > ceiling && currentAllocation - ceiling >= 1.25;
   const allocationTrimPct =
     materiallyOversized && currentAllocation > 0
@@ -177,7 +174,7 @@ export function buildPortfolioTrimRecommendation(
       ? 0
       : userTarget
         ? clamp((allocationDriftPct / Math.max(targetBuffer, 1.5)) * 35, 0, 100)
-        : clamp((allocationDriftPct / Math.max(riskCap * 0.35, 1)) * 100, 0, 100);
+        : clamp((allocationDriftPct / Math.max((trimCap - riskCap) || riskCap * 0.2, 1)) * 50, 0, 100);
 
   const scoreDeclinePct =
     holding.scoreAtEntry && holding.scoreAtEntry > 0
@@ -227,7 +224,7 @@ export function buildPortfolioTrimRecommendation(
       name: "Position size",
       detail: userTarget
         ? `${currentAllocation.toFixed(1)}% vs ${userTarget.toFixed(1)}% target`
-        : `${currentAllocation.toFixed(1)}% vs ${riskCap}% cap`,
+        : `${currentAllocation.toFixed(1)}% vs ${riskCap}% review / ${trimCap}% trim band`,
       pct: allocationTrimPct,
       riskScore: Math.round(allocationRisk),
       weight: 55,
@@ -272,7 +269,7 @@ export function buildPortfolioTrimRecommendation(
       label: "No trim suggested",
       reason:
         riskScore > 0
-          ? "Some signals have moved, but not enough to justify a practical trim. StockGPT now requires a clearer oversized, profit-protection, or conviction-break setup."
+          ? "Some signals have moved, but not enough to justify a practical trim. StockGPT now requires a clearer oversized, profit-protection, or conviction-break setup using the same construction band as add ideas."
           : "Allocation is inside range, AI conviction is stable, and no confirmed trim setup is active.",
       riskScore,
       estimatedValue: null,
@@ -287,7 +284,7 @@ export function buildPortfolioTrimRecommendation(
   const topDriver = drivers.find((driver) => driver.pct === rawTrimPct) ?? drivers[0];
   const reason =
     topDriver.name === "Position size"
-      ? `StockGPT suggests a ${pct}% trim because this holding is ${currentAllocation.toFixed(1)}% of the portfolio, above the ${ceiling.toFixed(1)}% level StockGPT allows before treating it as concentrated. The suggested trim moves the position back toward roughly ${desiredAllocation.toFixed(1)}%, rather than removing it completely.`
+      ? `StockGPT suggests a ${pct}% trim because this holding is ${currentAllocation.toFixed(1)}% of the portfolio, above the ${ceiling.toFixed(1)}% level StockGPT now allows before treating it as concentrated for this risk profile. The suggested trim moves the position back toward roughly ${desiredAllocation.toFixed(1)}%, rather than removing it completely.`
       : topDriver.name === "AI conviction"
         ? `StockGPT suggests a ${pct}% trim because conviction has weakened since entry: the score is down ${scoreDeclinePct.toFixed(1)}% and the rank-movement risk is ${rankDeteriorationPct.toFixed(1)}. The trim is intentionally partial because the position may still have a valid role in the portfolio.`
         : topDriver.name === "Price / P&L"
