@@ -1,5 +1,6 @@
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
+import { portfolioConstructionPolicy } from "@/lib/portfolio-construction-policy";
 import type {
   ActivityItem,
   PortfolioTransaction,
@@ -93,21 +94,35 @@ export function toneBackground(value: number) {
   return "bg-[#faf6f0]/6 text-[#faf6f0]/58";
 }
 
+function sizingOnlyTrimAlert(holding: ExtendedHolding) {
+  const alert = holding.actionAlerts[0];
+  if (alert?.action !== "trim") return false;
+  const text = [alert.title, alert.message, alert.recommendation]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return /too large|oversized|concentration|allocation|position sizing|risk threshold/.test(text);
+}
+
 export function statusForHolding(
   holding: ExtendedHolding,
   riskTolerance: string | null,
 ) {
   if (holding.currentPrice <= 0 && holding.shares > 0) return "Price unavailable";
-  if (holding.actionAlerts.length > 0) {
-    return holding.actionAlerts[0]?.action === "trim" ? "Review size" : "Review";
+  const policy = portfolioConstructionPolicy(riskTolerance);
+  const firstAction = holding.actionAlerts[0];
+  if (firstAction) {
+    if (
+      firstAction.action === "trim" &&
+      sizingOnlyTrimAlert(holding) &&
+      holding.isRecentlyAdded &&
+      holding.currentAllocationPct <= policy.hardConcentrationPct
+    ) {
+      return "Construction review";
+    }
+    return firstAction.action === "trim" ? "Review size" : "Review";
   }
-  const cap =
-    riskTolerance === "conservative"
-      ? 18
-      : riskTolerance === "aggressive"
-        ? 32
-        : 24;
-  if (holding.currentAllocationPct > cap) return "Oversized";
+  if (holding.currentAllocationPct > policy.concentrationReviewPct) return "Oversized";
   if (holding.pnlPercent >= 12) return "Strong contributor";
   if (holding.pnlPercent <= -10) return "Under pressure";
   return "Healthy";
@@ -120,7 +135,7 @@ export function statusTone(status: string) {
   if (status === "Under pressure" || status === "Price unavailable") {
     return "text-[#f1908d]";
   }
-  if (status === "Review" || status === "Review size" || status === "Oversized") {
+  if (status === "Review" || status === "Review size" || status === "Oversized" || status === "Construction review") {
     return "text-[#e8bd61]";
   }
   return "text-[#faf6f0]/48";
