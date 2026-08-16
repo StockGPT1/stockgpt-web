@@ -195,7 +195,11 @@ export async function buildPortfolioPageChartResult({
         chartData: cachedChart,
         summary,
       });
-      if (health.displayable && isPortfolioChartLatestPointFresh({ chartData: cachedChart, nowMs })) {
+      if (
+        health.displayable &&
+        health.status !== "sparse" &&
+        isPortfolioChartLatestPointFresh({ chartData: cachedChart, nowMs })
+      ) {
         return { chartData: cachedChart, meta: { source: "cached-good", health } };
       }
     }
