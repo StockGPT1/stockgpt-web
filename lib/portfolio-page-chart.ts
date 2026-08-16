@@ -298,7 +298,7 @@ export async function buildPortfolioPageChartResult({
       summary,
     });
 
-    if (snapshotChart?.health.displayable) {
+    if (snapshotChart?.health.displayable && snapshotChart.health.status !== "sparse") {
       const needsCurrentPoint =
         allowCurrentSnapshot &&
         (snapshotChart.health.status === "stale" ||
