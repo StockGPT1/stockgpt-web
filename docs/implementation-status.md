@@ -1,0 +1,104 @@
+# StockGPT Engineering Implementation Ledger
+
+## Baseline
+
+Live production source commit:
+`e36212ed3c98f6218130441c3d20dddc3442f0bc`
+
+Foundation branch:
+`codex/broker-sync-foundation`
+
+Engineering constitution:
+`0e42765c6f47ee338700a5acd8c104026c4950e7`
+
+## Implementation stages
+
+| # | Stage | Status | PR/Commit | Notes |
+|---|---|---|---|---|
+| 01 | Engineering harness and staging setup | IN PROGRESS | | |
+| 02 | Restore green build/CI foundation | NOT STARTED | | |
+| 03 | Reconcile Supabase schema and generated types | NOT STARTED | | |
+| 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
+| 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
+| 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
+| 07 | Provider-neutral broker data model | NOT STARTED | | |
+| 08 | Broker secret/security architecture | NOT STARTED | | |
+| 09 | SnapTrade sandbox integration | NOT STARTED | | |
+| 10 | Broker sync state machine and reconciliation | NOT STARTED | | |
+| 11 | Broker connection UX | NOT STARTED | | |
+| 12 | Post-connection onboarding | NOT STARTED | | |
+| 13 | Connected accounts → Portfolio projection | NOT STARTED | | |
+| 14 | Connected portfolio historical charting | NOT STARTED | | |
+| 15 | Portfolio ownership context across StockGPT | NOT STARTED | | |
+| 16 | StockGPT motion system | NOT STARTED | | |
+| 17 | Responsive/container architecture cleanup | NOT STARTED | | |
+| 18 | Security/privacy/account hardening | NOT STARTED | | |
+| 19 | Remaining customer-facing audit cleanup | NOT STARTED | | |
+| 20 | Full automated test suite | NOT STARTED | | |
+| 21 | Performance/load testing | NOT STARTED | | |
+| 22 | First real broker pilot | NOT STARTED | | |
+| 23 | Second-broker abstraction proof | NOT STARTED | | |
+| 24 | Compliance/legal launch review | NOT STARTED | | |
+| 25 | Controlled production rollout | NOT STARTED | | |
+| 26 | Post-launch provider strategy | NOT STARTED | | |
+
+## Global release gates
+
+Every implementation stage must pass:
+
+1. Code / migration complete
+2. Relevant automated checks pass
+3. Preview/staging verification complete where applicable
+4. Diff reviewed for scope and security
+5. Explicit merge approval
+
+## Standing rules
+
+- No direct production experimentation.
+- No direct commits to `main`.
+- Do not import newer `main` commits into the foundation branch without explicit approval.
+- One stage should not silently absorb unrelated refactors.
+- Every known audit issue must have an owner stage.
+- Meaningful bug fixes receive regression tests where practical.
+- External/broker failures must preserve last-known-good user data.
+- Broker capability remains read-only.
+- Portfolio status vocabulary remains `On track / Monitor / Review / Urgent review`.
+- Motion must preserve native scrolling and responsive correctness.
+
+## Known baseline issue ownership
+
+| Baseline issue | Intended stage | Ownership note |
+|---|---|---|
+| Schema and migration history cannot reproduce the referenced database | Stage 03 | Reconcile checked-in migrations with the intended schema. |
+| Placeholder Supabase generated types | Stage 03 | Regenerate only after schema intent is reconciled. |
+| `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolve table/schema and application-reference consistency. |
+| Conflicting portfolio recommendation/status engines | Stage 04 | Establish the canonical portfolio-intelligence boundary and vocabulary. |
+| Non-atomic portfolio writes and swallowed transaction-record failures | Stage 05 | Make persistence outcomes coherent and observable. |
+| Unsafe CSV replacement behaviour | Stage 05 | Preserve the prior portfolio unless replacement succeeds as a complete operation. |
+| Trim/reinvest non-atomicity | Stage 05 | Keep holdings, cash and activity records consistent. |
+| `GET` route mutating holding trade levels | Stage 05 | Reconcile read/write semantics and persistence ownership. |
+| Current FX applied to historical data | Stage 05 / Stage 14 | Separate current display conversion from historically correct valuation. |
+| Portfolio currency accounting ambiguity | Stage 05 / Stage 14 | Define and preserve currency provenance before connected-history work. |
+| Portfolio-page snapshot cache is warmed but not read by the current page | Stage 05 | Reconcile or retire duplicated page-snapshot behaviour. |
+| Ticker-only instrument identity | Stage 06 / Stage 07 | Separate market identity from future provider/account identity. |
+| Unsupported assets are rejected or dropped | Stage 06 / Stage 07 / Stage 13 | Preserve unsupported/tracked-only assets in connected portfolio totals. |
+| Market-snapshot cron does not persist market snapshots | Stage 06 | Align naming, storage and consumer behaviour. |
+| Market cron uses a session client despite subscriber-only checked-in RLS | Stage 06 / Stage 18 | Verify background-job access and least-privilege security. |
+| Stripe webhook lacks explicit processed-event idempotency and complete write checks | Stage 18 | Harden subscription event processing and observability. |
+| Notification infrastructure failure can become zero unread | Stage 18 / Stage 19 | Preserve failure visibility while keeping user messaging safe. |
+| Digest entitlement and 100-recipient cap differ from shared entitlement logic | Stage 19 | Reconcile customer-facing digest eligibility and batching. |
+| Missing `.env.example` referenced by README | Stage 01 / Stage 02 | Restore a factual fresh-environment setup contract without secrets. |
+| Next.js middleware naming/deprecation review | Stage 02 | Validate against the installed Next.js version during build restoration. |
+| Self-mutating GitHub patch workflows | Stage 02 | Restore reviewable CI boundaries before wider implementation. |
+| Direct action-oriented portfolio language remains in code and UI | Stage 04 / Stage 19 | Align domain output first, then remaining customer-facing surfaces. |
+| Duplicate Supabase browser-client patterns | Stage 18 | Reconcile client ownership and security assumptions. |
+| Notification events are recomputed rather than durably represented | Stage 04 / Stage 19 | Decide after canonical intelligence ownership is established. |
+| Dashboard and Portfolio duplicate enrichment/assessment work | Stage 04 / Stage 21 | Establish one assessment boundary before performance tuning. |
+| Global CSS and DOM-patch components have broad cross-route effects | Stage 16 / Stage 17 / Stage 19 | Address only within the responsible staged UI work. |
+| Native shells depend immediately on live web deployment behaviour | Stage 17 / Stage 25 | Verify responsive/native behaviour before controlled rollout. |
+
+## Change log
+
+- Engineering constitution established.
+- Live-derived source baseline mapped.
+- No runtime functionality changed yet.
