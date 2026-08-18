@@ -171,7 +171,7 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section className="relative px-5 py-[12vh] sm:px-8">
+    <section id="how-it-works" className="relative px-5 py-[12vh] sm:px-8">
       <SectionHeading
         eyebrow="How it works"
         title={
