@@ -18,7 +18,7 @@ Engineering constitution:
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
 | 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
-| 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
+| 04 | Canonical portfolio intelligence engine | IN PROGRESS | Stage 04A audit + 04B canonical V1 engine | Pure structured assessment boundary and deterministic contract suite added; customer-surface migration remains outstanding. |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
 | 07 | Provider-neutral broker data model | NOT STARTED | | |
@@ -77,6 +77,14 @@ Engineering constitution:
 - TypeScript, database contracts, portfolio tests, tracked-source lint and production build pass.
 - Future migration release is forward-only, reviewable, dry-run-first and explicitly approved; historical mutation and unsafe executable automation are checked automatically.
 - Production remained untouched throughout Stage 03.
+
+### Stage 04 progress
+
+- Stage 04A mapped the conflicting portfolio alert, action, health, trimming, opportunity, notification and AI-context producers before selecting a canonical boundary.
+- Step 04B adds the unused pure V1 portfolio-intelligence package with one shared `on_track` / `monitor` / `review` / `urgent_review` vocabulary, structured reason evidence, explicit per-source freshness and deterministic ordering.
+- V1 derives concentration from total portfolio value including cash and does not treat legacy `portfolio_holdings.allocation_pct` as a user target. Incomplete valuation blocks concentration assessment.
+- P&L alone cannot affect status. The legacy health score remains separate, and transaction-oriented recommendations are excluded from the canonical contract. `urgent_review` requires independent review-level corroboration.
+- Portfolio, Dashboard, Ask StockGPT, notifications, cache warming and persistence still use their existing paths until later Stage 04 slices migrate them deliberately.
 
 ## Global release gates
 
@@ -144,4 +152,5 @@ Every implementation stage must pass:
 - Step 03B-3A archived incomplete historical SQL, aligned all 26 production migration timestamps and proved the canonical 26-table structure through two clean local resets and catalog parity assertions.
 - Step 03B-3B added deterministic synthetic local fixtures and proved two seeded resets, local Auth sign-in, entitlement gating and owner-scoped RLS isolation.
 - Step 03B-3C committed local-generated database types, typed all Supabase client boundaries, repaired confirmed watchlist/ranking schema references and passed the full local reset/type/test/lint/build integration gate.
-- Stage 03 closeout formalised the forward-only, approval-gated Supabase migration release runbook; added immutable baseline hashes, migration-order/automation guards and negative tests; and repeated the complete local reset/RLS/type/test/lint/build proof. Stage 04 remains not started.
+- Stage 03 closeout formalised the forward-only, approval-gated Supabase migration release runbook; added immutable baseline hashes, migration-order/automation guards and negative tests; and repeated the complete local reset/RLS/type/test/lint/build proof, leaving Stage 04 as the next major stage.
+- Stage 04A completed the portfolio-intelligence census. Step 04B introduced the isolated canonical V1 domain engine and deterministic fixture/contract suite without migrating customer surfaces.
