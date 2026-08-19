@@ -1,8 +1,7 @@
 # LOCAL DEVELOPMENT ONLY.
 # This file contains no cloud project reference or credential. Do not link it to
 # the production StockGPT project or use --linked for routine development.
-# The checked-in migrations remain incomplete until Stage 03B-2, so do not start
-# or reset the local stack yet.
+# The canonical migrations and synthetic seed are safe for local reset.
 #
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
@@ -71,8 +70,8 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-enabled = false
-# Stage 03 will enable this only after a synthetic, non-production seed exists.
+enabled = true
+# Synthetic local-only fixtures. Never replace this with production-derived data.
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
