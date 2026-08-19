@@ -34,6 +34,12 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Check database and migration contracts
+        run: |
+          npm run test:database-contract
+          npm run db:migrations:check
+          npm run test:db-migrations
+
       - name: Test portfolio reliability
         run: npm run test:portfolio
 

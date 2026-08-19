@@ -17,7 +17,7 @@ Engineering constitution:
 |---|---|---|---|---|
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
-| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/broker-sync-foundation` | Audit, local tooling, canonical baseline, synthetic fixtures and real generated database types are complete. Typed clients and confirmed schema-reference repairs pass reset/RLS/type/test/lint/build checks. The controlled future production-migration workflow remains outstanding. |
+| 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
 | 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
@@ -47,11 +47,11 @@ Engineering constitution:
 - `stockgpt-staging` is the persistent Vercel web staging project.
 - `StockGPT` is the single cloud Supabase project and is production-only.
 - No second paid Supabase project or Supabase branch is maintained.
-- Stage 03 owns production schema reconciliation, reproducible migrations, generated database types, local Supabase bring-up and synthetic development data.
-- Until Stage 03 is complete, staging must not receive broad production-database write credentials or the production service-role credential.
+- Stage 03 established production schema reconciliation, reproducible migrations, generated database types, local Supabase bring-up and synthetic development data.
+- Staging must not receive broad production-database write credentials or the production service-role credential.
 - Production Supabase inspection is read-only unless a separately reviewed and explicitly approved migration operation is authorised.
 
-### Stage 03 working state
+### Stage 03 closeout state
 
 - Stage 03A established that repository migrations cannot reproduce the verified production schema or migration history.
 - Step 03B-1 pins the project-local Supabase CLI and commits local-only PostgreSQL 17 configuration without linking to production.
@@ -64,7 +64,19 @@ Engineering constitution:
 - Step 03B-3C replaces the placeholder with unmodified types generated from local Supabase, applies `Database` at browser/server/middleware/admin/legacy client boundaries, and adds a local-only drift check plus compile-time schema assertions.
 - The stock page now uses canonical `watchlist`. Ranking factor coverage comes from `stock_factor_diagnostics`; unsupported `stock_rankings.factor_coverage` and `stock_rankings.data_confidence` assumptions were removed without inventing a confidence formula.
 - Typed integration also exposed and resolved three local contract issues: nullable ranking tickers are filtered before snapshot insertion, portfolio page snapshots are normalised to database JSON, and security audit metadata uses the generated JSON type. Local reset/RLS, TypeScript, portfolio tests, tracked-source lint and production build pass.
-- The controlled future production-migration workflow remains the explicit next/final Stage 03 subtask.
+- The controlled future production-migration workflow is documented in `docs/runbooks/supabase-migration-release.md`. Production releases are manual, dry-run-first and explicitly approval-gated; production seed/reset and casual migration-history repair are forbidden.
+- `supabase/migration-baseline-manifest.json` and `npm run db:migrations:check` protect all 26 historical filenames and normalized content hashes, enforce forward timestamps after `20260709230153`, reject unapproved no-op migrations and scan executable repository automation for dangerous remote operations. Focused negative tests run locally and in the normal web build workflow.
+
+### Stage 03 acceptance audit
+
+- The active migration path reproduces the canonical 26-table schema from a clean local reset; archived incomplete SQL remains outside that path.
+- All 26 verified production migration versions are represented, with immutable alignment markers and one clearly labelled squashed current-state baseline.
+- Deterministic synthetic seed, local Auth sign-in, subscriber gating and bidirectional owner-scoped RLS isolation pass without production data or credentials.
+- Real local-generated TypeScript database types are committed, drift-checked and applied at every Supabase client-construction boundary.
+- Runtime code uses canonical `watchlist`; nonexistent `stock_rankings` columns were removed without padding the schema, and factor coverage uses diagnostics.
+- TypeScript, database contracts, portfolio tests, tracked-source lint and production build pass.
+- Future migration release is forward-only, reviewable, dry-run-first and explicitly approved; historical mutation and unsafe executable automation are checked automatically.
+- Production remained untouched throughout Stage 03.
 
 ## Global release gates
 
@@ -93,7 +105,7 @@ Every implementation stage must pass:
 
 | Baseline issue | Intended stage | Ownership note |
 |---|---|---|
-| Schema and migration history cannot reproduce the referenced database | Stage 03 | Local reproduction, synthetic seed, generated types and application-reference alignment are resolved; the controlled future production migration workflow remains in Stage 03. |
+| Schema and migration history cannot reproduce the referenced database | Stage 03 | Resolved: canonical local reproduction, synthetic seed, generated types, application-reference alignment and controlled future release workflow are complete. |
 | Placeholder Supabase generated types | Stage 03 | Resolved from the canonical local schema with a repeatable local drift check. |
 | `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolved in runtime code: all application queries use canonical `watchlist`; compile/source contracts guard against regression. |
 | Conflicting portfolio recommendation/status engines | Stage 04 | Establish the canonical portfolio-intelligence boundary and vocabulary. |
@@ -132,3 +144,4 @@ Every implementation stage must pass:
 - Step 03B-3A archived incomplete historical SQL, aligned all 26 production migration timestamps and proved the canonical 26-table structure through two clean local resets and catalog parity assertions.
 - Step 03B-3B added deterministic synthetic local fixtures and proved two seeded resets, local Auth sign-in, entitlement gating and owner-scoped RLS isolation.
 - Step 03B-3C committed local-generated database types, typed all Supabase client boundaries, repaired confirmed watchlist/ranking schema references and passed the full local reset/type/test/lint/build integration gate.
+- Stage 03 closeout formalised the forward-only, approval-gated Supabase migration release runbook; added immutable baseline hashes, migration-order/automation guards and negative tests; and repeated the complete local reset/RLS/type/test/lint/build proof. Stage 04 remains not started.

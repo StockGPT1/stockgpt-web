@@ -19,7 +19,9 @@
     "types:gen": "npm run types:gen:local",
     "types:gen:local": "supabase gen types typescript --local > lib/database.types.ts",
     "db:types:check": "node scripts/check-local-database-types.mjs",
-    "test:database-contract": "node scripts/database-contract-checks.mjs"
+    "test:database-contract": "node scripts/database-contract-checks.mjs",
+    "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
+    "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

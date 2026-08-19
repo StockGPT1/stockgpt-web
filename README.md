@@ -64,7 +64,7 @@ npm run build
 Compilation and production builds must not require production credentials.
 Runtime integrations still require their corresponding safe local/test values.
 
-### Local Supabase — Stage 03 in progress
+### Local Supabase
 
 The Supabase CLI is pinned as a project development dependency and installed by
 `npm ci`. Verify the local binary with:
@@ -78,14 +78,23 @@ runtime is required before `npm run supabase:start` can run. The committed local
 configuration targets PostgreSQL 17 and contains no cloud project reference or
 credential.
 
-The canonical StockGPT schema and synthetic seed are not ready in Step 03B-1.
-Do not run the local start/reset scripts yet: the known-incomplete migration
-directory cannot rebuild the application schema. Stage 03B-2 will establish the
-schema baseline before local runtime verification.
+The committed migrations rebuild the canonical StockGPT application schema and
+the seed supplies deterministic synthetic local fixtures. With the local stack
+running, the routine database gate is:
+
+```bash
+npm run supabase:reset
+node scripts/verify-local-supabase-fixtures.mjs
+npm run db:types:check
+npm run test:database-contract
+npm run db:migrations:check
+npm run test:db-migrations
+```
 
 Routine development must remain local. Never run `supabase link` or use
-`--linked`; obtain the local URL and generated local keys from `supabase start`
-only after the schema baseline is ready.
+`--linked` during ordinary development. See
+`docs/runbooks/supabase-migration-release.md` before creating or releasing any
+future schema migration.
 
 ## Environment variables
 
