@@ -93,13 +93,14 @@ assert.match(stage, /filterDisplayablePortfolioChartData/);
 
 assert.match(overview, /Portfolio Pulse/);
 assert.match(overview, /Conviction × exposure/);
-assert.match(overview, /Portfolio-fit ideas/);
+assert.doesNotMatch(overview, /Portfolio-fit ideas|StockGPT opportunities/);
 assert.match(visuals, /ConvictionMap/);
 assert.match(visuals, /AllocationTreemap/);
 assert.match(holdings, /Search holdings/);
 assert.match(holdings, /sticky top-0/);
 assert.match(activity, /Load more activity/);
-assert.match(activity, /Transactions are user actions/);
+assert.match(activity, /Recorded portfolio transactions appear here/);
+assert.match(activity, /not reconstructed as historical activity/);
 
 assert.match(orchestrator, /overflow-x-hidden/);
 assert.doesNotMatch(orchestrator, /overflow-y-auto/);

@@ -17,14 +17,14 @@ import {
 
 const FILTERS: Array<{ value: ActivityFilter; label: string }> = [
   { value: "all", label: "All" },
-  { value: "transactions", label: "Transactions" },
-  { value: "ai", label: "AI events" },
-  { value: "reviews", label: "Reviews" },
+  { value: "purchases", label: "Purchases" },
+  { value: "sales", label: "Sales" },
+  { value: "cash", label: "Cash" },
+  { value: "other", label: "Other" },
 ];
 
 function iconFor(item: ActivityItem) {
-  if (item.kind === "transaction") return "cash" as const;
-  if (item.kind === "review") return "filter" as const;
+  if (item.kind === "cash") return "cash" as const;
   return "activity" as const;
 }
 
@@ -49,16 +49,16 @@ export function PortfolioActivity({
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const [limit, setLimit] = useState(40);
   const activity = useMemo(
-    () => buildActivityItems(transactions, holdings, meta.currency),
-    [holdings, meta.currency, transactions],
+    () => buildActivityItems(transactions, meta.currency),
+    [meta.currency, transactions],
   );
   const filtered = useMemo(
     () =>
       activity.filter((item) => {
         if (filter === "all") return true;
-        if (filter === "transactions") return item.kind === "transaction";
-        if (filter === "ai") return item.kind === "ai";
-        return item.kind === "review";
+        if (filter === "purchases") return item.kind === "purchase";
+        if (filter === "sales") return item.kind === "sale";
+        return item.kind === filter;
       }),
     [activity, filter],
   );
@@ -84,7 +84,7 @@ export function PortfolioActivity({
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio history</p>
         <h2 className="mt-1 text-[27px] font-black tracking-[-0.045em] text-[#faf6f0] lg:text-[34px]">Activity, connected</h2>
         <p className="mt-3 max-w-2xl text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-          Transactions, model events and holding reviews appear in one timeline so performance changes have context.
+          Recorded portfolio transactions appear here in chronological order.
         </p>
       </section>
 
@@ -110,7 +110,7 @@ export function PortfolioActivity({
         <div className="mt-7 border-y border-[#faf6f0]/8 py-12 text-center">
           <p className="text-[18px] font-black text-[#faf6f0]">No activity in this view</p>
           <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-            Transactions and meaningful StockGPT events will appear here as the portfolio changes.
+            User-recorded purchases, sales and cash changes will appear here.
           </p>
         </div>
       ) : (
@@ -140,7 +140,7 @@ export function PortfolioActivity({
                             </span>
                             <span className="shrink-0 text-right text-[9px] font-semibold text-[#faf6f0]/30">{formatDate(item.date, true)}</span>
                           </span>
-                          {item.ticker && <span className="mt-2 block text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">{item.ticker} · {item.kind === "transaction" ? "Transaction" : item.kind === "review" ? "Review" : "AI event"}</span>}
+                          {item.ticker && <span className="mt-2 block text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">{item.ticker} · {item.kind === "purchase" ? "Purchase" : item.kind === "sale" ? "Sale" : item.kind === "cash" ? "Cash" : "Other"}</span>}
                         </span>
                       </>
                     );
@@ -176,9 +176,10 @@ export function PortfolioActivity({
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Timeline summary</p>
             <dl className="mt-5 divide-y divide-[#faf6f0]/8">
               {[
-                ["Transactions", String(activity.filter((item) => item.kind === "transaction").length)],
-                ["AI events", String(activity.filter((item) => item.kind === "ai").length)],
-                ["Reviews", String(activity.filter((item) => item.kind === "review").length)],
+                ["Purchases", String(activity.filter((item) => item.kind === "purchase").length)],
+                ["Sales", String(activity.filter((item) => item.kind === "sale").length)],
+                ["Cash records", String(activity.filter((item) => item.kind === "cash").length)],
+                ["Other records", String(activity.filter((item) => item.kind === "other").length)],
                 ["Most recent", activity[0] ? formatDate(activity[0].date, true) : "No activity"],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
@@ -188,7 +189,7 @@ export function PortfolioActivity({
               ))}
             </dl>
             <p className="mt-6 text-[10px] font-semibold leading-5 text-[#faf6f0]/32">
-              Transactions are user actions. AI events and reviews are research signals, not executed trades or financial advice.
+              These entries are portfolio records. StockGPT assessment status is shown separately and is not reconstructed as historical activity.
             </p>
           </aside>
         </div>

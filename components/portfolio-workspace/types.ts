@@ -2,7 +2,6 @@ import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
-import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 
 export type PortfolioSection = "overview" | "holdings" | "activity";
@@ -27,7 +26,7 @@ export type HoldingSort =
   | "rank"
   | "urgent"
   | "ticker";
-export type ActivityFilter = "all" | "transactions" | "ai" | "reviews";
+export type ActivityFilter = "all" | "purchases" | "sales" | "cash" | "other";
 
 export type PortfolioOption = {
   id: string;
@@ -69,18 +68,24 @@ export type PortfolioMeta = {
   currency: string;
 };
 
+export type HoldingReferenceLevels = {
+  entryPrice: number | null;
+  savedRiskLevel: number | null;
+  savedTargetLevel: number | null;
+};
+
 export type PortfolioWorkspaceProps = {
   portfolioId: string;
   portfolios: PortfolioOption[];
   portfolioMeta: PortfolioMeta;
   intelligence: PortfolioIntelligenceView;
+  holdingReferenceLevels: Record<string, HoldingReferenceLevels>;
   summary: PortfolioHealthSummary;
   holdings: ExtendedHolding[];
   stockOptions: StockOption[];
   transactions: PortfolioTransaction[];
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta;
-  opportunities: DashboardPortfolioOpportunity[];
   usdToDisplayRate: number;
   canUsePremium: boolean;
   initialSection: PortfolioSection;
@@ -88,7 +93,7 @@ export type PortfolioWorkspaceProps = {
 
 export type ActivityItem = {
   id: string;
-  kind: "transaction" | "ai" | "review";
+  kind: "purchase" | "sale" | "cash" | "other";
   date: string;
   ticker: string | null;
   title: string;

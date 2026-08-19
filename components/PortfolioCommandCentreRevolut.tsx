@@ -36,14 +36,8 @@ import {
 } from "@/lib/actions/portfolio-management";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
-import {
-  buildPortfolioTrimRecommendation,
-  type PortfolioTrimRecommendation,
-} from "@/lib/portfolio-trim-recommendation";
-import {
-  derivePortfolioHoldingAction,
-  type PortfolioActionRecommendation,
-} from "@/lib/portfolio-action-engine";
+import type { PortfolioTrimRecommendation } from "@/lib/portfolio-trim-recommendation";
+import type { PortfolioActionRecommendation } from "@/lib/portfolio-action-engine";
 import { resolveTradeOrder } from "@/lib/trade-calculator";
 import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
 import { ManageHoldingDrawer } from "@/components/ManageHoldingDrawer";
@@ -1683,48 +1677,18 @@ function HoldingsRow({
   portfolioId,
   holding,
   currency,
-  riskTolerance,
-  objective,
-  timeHorizon,
   cashBalance,
-  stockOptions,
-  heldTickers,
   usdToDisplayRate,
 }: {
   portfolioId: string;
   holding: ExtendedHolding;
   currency: string;
-  riskTolerance: string | null;
-  objective?: string | null;
-  timeHorizon?: string | null;
   cashBalance: number;
-  stockOptions: StockOption[];
-  heldTickers: Set<string>;
   usdToDisplayRate: number;
 }) {
   const [open, setOpen] = useState(false);
   const isPositive = holding.totalPnLDollars >= 0;
   const widthPct = Math.max(0, Math.min(100, holding.currentAllocationPct));
-  const trimRecommendation = useMemo(
-    () =>
-      buildPortfolioTrimRecommendation(
-        holding,
-        riskTolerance,
-        stockOptions,
-        heldTickers,
-      ),
-    [holding, riskTolerance, stockOptions, heldTickers],
-  );
-  const action = useMemo(
-    () =>
-      derivePortfolioHoldingAction(holding, {
-        riskTolerance,
-        objective,
-        timeHorizon,
-        cashBalance,
-      }),
-    [holding, riskTolerance, objective, timeHorizon, cashBalance],
-  );
   const target = holding.targetAllocationPct;
   const allocationStatus = target == null
     ? "Target unavailable"
@@ -1769,8 +1733,21 @@ function HoldingsRow({
         <ManageHoldingDrawer
           portfolioId={portfolioId}
           holding={holding}
-          recommendation={trimRecommendation}
-          action={action}
+          assessment={{
+            instrumentKey: holding.ticker.toUpperCase(),
+            ticker: holding.ticker.toUpperCase(),
+            status: null,
+            statusLabel: "Analysis limited",
+            tone: "neutral",
+            attentionRank: Number.MAX_SAFE_INTEGER,
+            reasonCodes: [],
+            reasons: [],
+          }}
+          referenceLevels={{
+            entryPrice: holding.entryPrice > 0 ? holding.entryPrice : null,
+            savedRiskLevel: null,
+            savedTargetLevel: null,
+          }}
           cashBalance={cashBalance}
           displayCurrency={currency}
           usdToDisplayRate={usdToDisplayRate}
@@ -1785,31 +1762,19 @@ function HoldingsPanel({
   portfolioId,
   holdings,
   currency,
-  riskTolerance,
-  objective,
-  timeHorizon,
   cashBalance,
-  stockOptions,
   usdToDisplayRate,
   preview = false,
 }: {
   portfolioId: string;
   holdings: ExtendedHolding[];
   currency: string;
-  riskTolerance: string | null;
-  objective?: string | null;
-  timeHorizon?: string | null;
   cashBalance: number;
-  stockOptions: StockOption[];
   usdToDisplayRate: number;
   preview?: boolean;
 }) {
   const [sort, setSort] = useState<HoldingSort>("value");
   const [query, setQuery] = useState("");
-  const heldTickers = useMemo(
-    () => new Set(holdings.map((holding) => holding.ticker.toUpperCase())),
-    [holdings],
-  );
   const sortOptions = [
     { value: "value", label: "Highest value" },
     { value: "urgent", label: "Most urgent" },
@@ -1885,12 +1850,7 @@ function HoldingsPanel({
               portfolioId={portfolioId}
               holding={holding}
               currency={currency}
-              riskTolerance={riskTolerance}
-              objective={objective}
-              timeHorizon={timeHorizon}
               cashBalance={cashBalance}
-              stockOptions={stockOptions}
-              heldTickers={heldTickers}
               usdToDisplayRate={usdToDisplayRate}
             />
           ))}
@@ -2310,7 +2270,7 @@ export function PortfolioCommandCentreRevolut({
           </div>
           {canUsePremium ? <PortfolioOpportunitiesWidget opportunities={opportunities.slice(0, 2)} variant="portfolio" /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Unlock StockGPT intelligence to compare portfolio fit, concentration, and current model signals." tone="locked" />}
           <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
-            <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} riskTolerance={portfolioMeta.riskTolerance} objective={portfolioMeta.objective} timeHorizon={portfolioMeta.timeHorizon} cashBalance={portfolioMeta.cashBalance} stockOptions={stockOptions} usdToDisplayRate={usdToDisplayRate} preview />
+            <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} cashBalance={portfolioMeta.cashBalance} usdToDisplayRate={usdToDisplayRate} preview />
             {canUsePremium ? (
               <div className="grid content-start gap-3 rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Health drivers</p>
@@ -2330,11 +2290,7 @@ export function PortfolioCommandCentreRevolut({
           portfolioId={portfolioId}
           holdings={holdings}
           currency={currency}
-          riskTolerance={portfolioMeta.riskTolerance}
-          objective={portfolioMeta.objective}
-          timeHorizon={portfolioMeta.timeHorizon}
           cashBalance={portfolioMeta.cashBalance}
-          stockOptions={stockOptions}
           usdToDisplayRate={usdToDisplayRate}
         />
       )}

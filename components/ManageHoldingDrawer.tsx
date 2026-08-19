@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { StockLogo } from "@/components/StockLogo";
-import { StockGPTView } from "@/components/StockGPTView";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
-import type { PortfolioTrimRecommendation } from "@/lib/portfolio-trim-recommendation";
-import type { PortfolioActionRecommendation } from "@/lib/portfolio-action-engine";
+import type { HoldingReferenceLevels } from "@/components/portfolio-workspace/types";
+import type { HoldingIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
 import { buildAskHref } from "@/lib/ask-context";
 import { resolveTradeOrder } from "@/lib/trade-calculator";
 import {
@@ -19,20 +19,13 @@ import {
   trimHolding,
 } from "@/lib/actions/portfolio-management";
 
-type TradeMode = "trim" | "buy" | null;
-
-type SavedLevels = {
-  entry_price: number | null;
-  risk_level_at_entry: number | null;
-  target_level_at_entry: number | null;
-  current_price: number | null;
-};
+type TradeMode = "reduction" | "purchase" | null;
 
 type Props = {
   portfolioId: string;
   holding: ExtendedHolding;
-  recommendation: PortfolioTrimRecommendation;
-  action: PortfolioActionRecommendation;
+  assessment: HoldingIntelligenceView;
+  referenceLevels: HoldingReferenceLevels;
   cashBalance: number;
   displayCurrency: string;
   usdToDisplayRate: number;
@@ -85,8 +78,8 @@ function InputField({
 export function ManageHoldingDrawer({
   portfolioId,
   holding,
-  recommendation,
-  action,
+  assessment,
+  referenceLevels,
   cashBalance,
   displayCurrency,
   usdToDisplayRate,
@@ -106,8 +99,6 @@ export function ManageHoldingDrawer({
   );
   const [buyShares, setBuyShares] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [levels, setLevels] = useState<SavedLevels | null>(null);
-  const [levelsLoaded, setLevelsLoaded] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -183,32 +174,6 @@ export function ManageHoldingDrawer({
     };
   }, [onClose]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const params = new URLSearchParams({ portfolioId, ticker: holding.ticker });
-    fetch(`/api/portfolio/holding-trade-levels?${params.toString()}`, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as { levels?: SavedLevels | null } | null;
-        if (response.ok) setLevels(payload?.levels ?? null);
-      })
-      .catch(() => {})
-      .finally(() => setLevelsLoaded(true));
-    return () => controller.abort();
-  }, [holding.ticker, portfolioId]);
-
-  function prefillSuggestedTrim() {
-    const percentage = action.suggestedTrimRange?.[0] ?? recommendation.pct ?? null;
-    if (percentage == null || holding.currentPrice <= 0) return;
-    const shares = holding.shares * (percentage / 100);
-    setTradeMode("trim");
-    setTrimShares(String(Number(shares.toFixed(6))));
-    setTrimPrice(String(Number(holding.currentPrice.toFixed(2))));
-    setTrimValue(String(Number((shares * holding.currentPrice).toFixed(2))));
-  }
-
   function finish(successMessage: string) {
     setMessage(successMessage);
     window.setTimeout(() => router.refresh(), 100);
@@ -217,7 +182,7 @@ export function ManageHoldingDrawer({
 
   function runTrim() {
     if (!trimValid) return;
-    setMessage("Recording trim...");
+    setMessage("Recording reduction...");
     startTransition(async () => {
       const result = await trimHolding({
         portfolioId,
@@ -230,7 +195,7 @@ export function ManageHoldingDrawer({
         setMessage(result.error ?? "Could not record the portfolio change.");
         return;
       }
-      finish(`${holding.ticker} trim recorded. Proceeds were added to portfolio cash.`);
+      finish(`${holding.ticker} reduction recorded. Proceeds were added to portfolio cash.`);
     });
   }
 
@@ -258,8 +223,8 @@ export function ManageHoldingDrawer({
 
   function runRemove(creditCash: boolean) {
     const wording = creditCash
-      ? "close this position and credit portfolio cash"
-      : "remove this holding without crediting cash";
+      ? "record a full sale and credit portfolio cash"
+      : "remove this holding without recording sale proceeds";
     if (!window.confirm(`Confirm that you want to ${wording}. This cannot be undone.`)) return;
     setMessage("Recording change...");
     startTransition(async () => {
@@ -270,18 +235,10 @@ export function ManageHoldingDrawer({
         setMessage(result.error ?? "Could not record the portfolio change.");
         return;
       }
-      finish(creditCash ? `${holding.ticker} position closed.` : `${holding.ticker} removed.`);
+      finish(creditCash ? `${holding.ticker} full sale recorded.` : `${holding.ticker} removed.`);
     });
   }
 
-  const target = holding.targetAllocationPct;
-  const allocationStatus = target == null
-    ? "Target unavailable"
-    : holding.currentAllocationPct > target + 1
-      ? "Above target"
-      : holding.currentAllocationPct < target - 1
-        ? "Below target"
-        : "In range";
   const askHref = buildAskHref({
     contextType: "holding",
     portfolioId,
@@ -318,20 +275,37 @@ export function ManageHoldingDrawer({
                 {money(holding.totalPnLDollars, displayCurrency)} · {holding.pnlPercent >= 0 ? "+" : ""}{holding.pnlPercent.toFixed(1)}%
               </p>
               <p className="mt-3 text-[12px] font-semibold text-[#faf6f0]/52">
-                {number(holding.shares, 6)} shares · {holding.currentAllocationPct.toFixed(1)}% invested allocation · target {target?.toFixed(1) ?? "—"}%
+                {number(holding.shares, 6)} shares · {holding.currentAllocationPct.toFixed(1)}% current allocation
               </p>
               <p className="mt-1 text-[12px] font-semibold text-[#faf6f0]/52">
-                AI score {number(holding.score, 0)} · Rank {holding.rank == null ? "unavailable" : `#${holding.rank}`} · {allocationStatus}
+                AI score {number(holding.score, 0)} · Rank {holding.rank == null ? "unavailable" : `#${holding.rank}`}
               </p>
             </section>
 
-            <StockGPTView
-              judgement={action.plainEnglishReason}
-              status={action.label}
-              evidence={action.evidence.slice(0, 3)}
-              risks={action.risks.slice(0, 3)}
-              updatedAt={action.dataUpdatedAt ?? action.generatedAt}
-            />
+            <section className="rounded-[20px] border border-[#ddb159]/16 bg-[#faf6f0]/[0.035] p-4" aria-labelledby="holding-assessment-title">
+              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">StockGPT assessment</p>
+              <h3 id="holding-assessment-title" className={`mt-2 text-[21px] font-black ${intelligenceToneClass(assessment.tone)}`}>
+                {assessment.statusLabel}
+              </h3>
+              {assessment.status == null ? (
+                <p className="mt-2 text-[12px] font-semibold leading-6 text-[#faf6f0]/52">
+                  A complete canonical assessment is unavailable for this portfolio. Holding facts and manual record controls remain available.
+                </p>
+              ) : assessment.reasons.length > 0 ? (
+                <div className="mt-3 grid gap-3">
+                  {assessment.reasons.map((reason) => (
+                    <article key={reason.code} className="border-t border-[#faf6f0]/8 pt-3 first:border-t-0 first:pt-0">
+                      <p className="text-[12px] font-black text-[#faf6f0]">{reason.title}</p>
+                      <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/48">{reason.detail}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-[12px] font-semibold leading-6 text-[#faf6f0]/52">
+                  No material holding-level review signal is present in the currently covered data.
+                </p>
+              )}
+            </section>
 
             <section className="grid gap-2 rounded-[20px] border border-[#ddb159]/16 bg-[#faf6f0]/[0.035] p-4 sm:grid-cols-2">
               <div>
@@ -347,35 +321,37 @@ export function ManageHoldingDrawer({
 
           <div className="grid content-start gap-4 border-t border-[#ddb159]/14 bg-[#04140c]/45 p-4 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-6">
             <section className="rounded-[20px] border border-[#ddb159]/16 bg-[#faf6f0]/[0.035] p-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Saved trade levels</p>
-              {!levelsLoaded ? (
-                <p className="mt-2 text-[12px] font-semibold text-[#faf6f0]/48">Loading saved levels...</p>
-              ) : levels ? (
-                <p className="mt-2 text-[13px] font-semibold text-[#faf6f0]/70">
-                  Stop loss {levels.risk_level_at_entry == null ? "—" : money(levels.risk_level_at_entry * rate, displayCurrency)} · Take profit {levels.target_level_at_entry == null ? "—" : money(levels.target_level_at_entry * rate, displayCurrency)}
-                </p>
-              ) : (
-                <p className="mt-2 text-[12px] font-semibold text-[#faf6f0]/48">No reliable saved levels are available for this holding.</p>
-              )}
-              <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/38">Saved from when this holding was added.</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Saved reference levels</p>
+              <dl className="mt-3 grid grid-cols-3 gap-3">
+                {[
+                  ["Entry price", referenceLevels.entryPrice],
+                  ["Risk reference", referenceLevels.savedRiskLevel],
+                  ["Target reference", referenceLevels.savedTargetLevel],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-[9px] font-semibold text-[#faf6f0]/38">{label}</dt>
+                    <dd className="mt-1 truncate text-[11px] font-black text-[#faf6f0]/70">
+                      {typeof value === "number" ? money(value, displayCurrency) : "Unavailable"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-[10px] font-semibold leading-4 text-[#faf6f0]/38">Stored factual references only. Missing levels are not calculated when this drawer opens.</p>
             </section>
 
             <section>
               <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Record a change</p>
-              <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/50">This records a portfolio change in StockGPT. It does not place a broker order.</p>
-              {action.freshness === "stale" && <p className="mt-2 rounded-xl border border-[#ddb159]/22 bg-[#ddb159]/8 px-3 py-2 text-[11px] font-semibold text-[#e6c36e]">Latest price/model inputs may be stale. Check the order price before confirming.</p>}
+              <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/50">This updates your StockGPT portfolio record. It does not place a broker order.</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setTradeMode(tradeMode === "trim" ? null : "trim")} className={`h-12 rounded-2xl border text-[11px] font-black ${tradeMode === "trim" ? "border-[#ddb159] bg-[#ddb159] text-[#061b12]" : "border-[#ddb159]/25 text-[#ddb159]"}`}>Trim</button>
-                <button type="button" onClick={() => setTradeMode(tradeMode === "buy" ? null : "buy")} className={`h-12 rounded-2xl border text-[11px] font-black ${tradeMode === "buy" ? "border-[#ddb159] bg-[#ddb159] text-[#061b12]" : "border-[#ddb159]/25 text-[#ddb159]"}`}>Buy more</button>
+                <button type="button" onClick={() => setTradeMode(tradeMode === "reduction" ? null : "reduction")} className={`min-h-12 rounded-2xl border px-3 text-[11px] font-black ${tradeMode === "reduction" ? "border-[#ddb159] bg-[#ddb159] text-[#061b12]" : "border-[#ddb159]/25 text-[#ddb159]"}`}>Record reduction / sale</button>
+                <button type="button" onClick={() => setTradeMode(tradeMode === "purchase" ? null : "purchase")} className={`min-h-12 rounded-2xl border px-3 text-[11px] font-black ${tradeMode === "purchase" ? "border-[#ddb159] bg-[#ddb159] text-[#061b12]" : "border-[#ddb159]/25 text-[#ddb159]"}`}>Record additional purchase</button>
               </div>
             </section>
 
-            {tradeMode === "trim" && (
+            {tradeMode === "reduction" && (
               <section className="rounded-[20px] border border-[#ddb159]/18 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div><h3 className="font-black">Trim {holding.ticker}</h3><p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/48">Enter any two of value, price and shares.</p></div>
-                  {(action.suggestedTrimRange || recommendation.pct != null) && <button type="button" onClick={prefillSuggestedTrim} className="rounded-full border border-[#ddb159]/24 px-2.5 py-1.5 text-[9px] font-black text-[#ddb159]">Prefill</button>}
-                </div>
+                <h3 className="font-black">Record a reduction for {holding.ticker}</h3>
+                <p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/48">Enter any two of value, price and shares.</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                   <InputField label={`Value sold (${displayCurrency})`} value={trimValue} onChange={setTrimValue} step="0.01" />
                   <InputField label={`Price (${displayCurrency})`} value={trimPrice} onChange={setTrimPrice} step="0.01" />
@@ -383,18 +359,18 @@ export function ManageHoldingDrawer({
                 </div>
                 <div className={`mt-3 rounded-xl px-3 py-2 text-[11px] font-semibold ${!trimValid ? "bg-[#b9504d]/10 text-[#f1aaa7]" : "bg-[#faf6f0]/[0.045] text-[#faf6f0]/62"}`}>
                   {tooManyShares
-                    ? `You own ${number(holding.shares, 6)} shares; reduce the trim amount.`
+                    ? `You own ${number(holding.shares, 6)} shares; reduce the recorded amount.`
                     : trimCalculation.error
                       ? trimCalculation.error
-                      : <>Sell {number(trimCalculation.shares ?? 0, 6)} shares at {money(trimCalculation.price ?? 0, displayCurrency)} · proceeds {money(trimCalculation.value ?? 0, displayCurrency)} · estimated realised P/L {money(realisedPnl ?? 0, displayCurrency)}</>}
+                      : <>Record {number(trimCalculation.shares ?? 0, 6)} shares at {money(trimCalculation.price ?? 0, displayCurrency)} · proceeds {money(trimCalculation.value ?? 0, displayCurrency)} · estimated realised P/L {money(realisedPnl ?? 0, displayCurrency)}</>}
                 </div>
-                <button type="button" disabled={isPending || !trimValid} onClick={runTrim} className="mt-3 h-12 w-full rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#061b12] disabled:cursor-not-allowed disabled:opacity-40">Confirm trim</button>
+                <button type="button" disabled={isPending || !trimValid} onClick={runTrim} className="mt-3 h-12 w-full rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#061b12] disabled:cursor-not-allowed disabled:opacity-40">Record reduction / sale</button>
               </section>
             )}
 
-            {tradeMode === "buy" && (
+            {tradeMode === "purchase" && (
               <section className="rounded-[20px] border border-[#ddb159]/18 p-4">
-                <h3 className="font-black">Buy more {holding.ticker}</h3>
+                <h3 className="font-black">Record an additional purchase for {holding.ticker}</h3>
                 <p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/48">Enter any two of value, price and shares.</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                   <InputField label={`Value (${displayCurrency})`} value={buyValue} onChange={setBuyValue} step="0.01" />
@@ -402,19 +378,19 @@ export function ManageHoldingDrawer({
                   <InputField label="Shares" value={buyShares} onChange={setBuyShares} step="0.000001" />
                 </div>
                 <div className={`mt-3 rounded-xl px-3 py-2 text-[11px] font-semibold ${!buyValid ? "bg-[#b9504d]/10 text-[#f1aaa7]" : "bg-[#faf6f0]/[0.045] text-[#faf6f0]/62"}`}>
-                  {buyCalculation.error ?? <>Add {number(buyCalculation.shares ?? 0, 6)} shares at {money(buyCalculation.price ?? 0, displayCurrency)} · value {money(buyCalculation.value ?? 0, displayCurrency)}</>}
+                  {buyCalculation.error ?? <>Record {number(buyCalculation.shares ?? 0, 6)} shares at {money(buyCalculation.price ?? 0, displayCurrency)} · value {money(buyCalculation.value ?? 0, displayCurrency)}</>}
                 </div>
                 {insufficientCash && <p className="mt-2 text-[11px] font-semibold text-[#e7c56c]">Portfolio cash is {money(cashBalance, displayCurrency)}. Cash mode is unavailable for this amount.</p>}
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <button type="button" disabled={isPending || !buyValid || insufficientCash} onClick={() => runBuyMore("cash")} className="h-12 rounded-2xl bg-[#ddb159] px-3 text-[10px] font-black text-[#061b12] disabled:opacity-40">Buy more with cash</button>
-                  <button type="button" disabled={isPending || !buyValid} onClick={() => runBuyMore("external")} className="h-12 rounded-2xl border border-[#ddb159]/24 px-3 text-[10px] font-black text-[#ddb159] disabled:opacity-40">Add external purchase</button>
+                  <button type="button" disabled={isPending || !buyValid || insufficientCash} onClick={() => runBuyMore("cash")} className="h-12 rounded-2xl bg-[#ddb159] px-3 text-[10px] font-black text-[#061b12] disabled:opacity-40">Record using portfolio cash</button>
+                  <button type="button" disabled={isPending || !buyValid} onClick={() => runBuyMore("external")} className="h-12 rounded-2xl border border-[#ddb159]/24 px-3 text-[10px] font-black text-[#ddb159] disabled:opacity-40">Record external purchase</button>
                 </div>
               </section>
             )}
 
             <section className="border-t border-[#ddb159]/14 pt-3">
-              <button type="button" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen} className="flex h-11 w-full items-center justify-between text-left text-[11px] font-black text-[#faf6f0]/58"><span>Advanced actions</span><span aria-hidden="true">{advancedOpen ? "−" : "+"}</span></button>
-              {advancedOpen && <div className="grid gap-2 rounded-[18px] border border-[#b9504d]/22 bg-[#b9504d]/[0.04] p-3 sm:grid-cols-2"><button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-xl border border-[#ddb159]/22 text-[10px] font-black text-[#e7c56c]">Close + credit cash</button><button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-xl border border-[#b9504d]/36 text-[10px] font-black text-[#f1aaa7]">Remove only</button><p className="sm:col-span-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/42">These actions remove the full position from StockGPT. Review the confirmation carefully.</p></div>}
+              <button type="button" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen} className="flex h-11 w-full items-center justify-between text-left text-[11px] font-black text-[#faf6f0]/58"><span>Remove holding</span><span aria-hidden="true">{advancedOpen ? "−" : "+"}</span></button>
+              {advancedOpen && <div className="grid gap-2 rounded-[18px] border border-[#b9504d]/22 bg-[#b9504d]/[0.04] p-3 sm:grid-cols-2"><button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-xl border border-[#ddb159]/22 text-[10px] font-black text-[#e7c56c]">Record full sale + cash</button><button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-xl border border-[#b9504d]/36 text-[10px] font-black text-[#f1aaa7]">Remove record only</button><p className="sm:col-span-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/42">These controls remove the full holding from StockGPT. Review the confirmation carefully.</p></div>}
             </section>
 
             {message && <p role="status" className="rounded-xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] px-3 py-2 text-[11px] font-semibold text-[#faf6f0]/62">{message}</p>}

@@ -1,4 +1,3 @@
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import type {
   ActivityItem,
@@ -135,12 +134,20 @@ export function transactionDetail(
 
 export function buildActivityItems(
   transactions: PortfolioTransaction[],
-  holdings: ExtendedHolding[],
   currency: string,
 ): ActivityItem[] {
-  const transactionItems: ActivityItem[] = transactions.map((transaction) => ({
+  return transactions.map((transaction): ActivityItem => ({
     id: `transaction-${transaction.id}`,
-    kind: "transaction",
+    kind:
+      transaction.type === "buy"
+        ? "purchase"
+        : transaction.type === "sell"
+          ? "sale"
+          : transaction.type === "deposit" ||
+              transaction.type === "withdrawal" ||
+              transaction.type === "cash_adjustment"
+            ? "cash"
+            : "other",
     date: transaction.createdAt,
     ticker: transaction.ticker,
     title: transactionTitle(transaction.type, transaction.ticker),
@@ -151,35 +158,7 @@ export function buildActivityItems(
         : transaction.type === "withdrawal" || transaction.type === "sell"
           ? "negative"
           : "neutral",
-  }));
-
-  const alertItems: ActivityItem[] = holdings.flatMap((holding) => [
-    ...holding.actionAlerts.map((alert) => ({
-      id: `action-${holding.ticker}-${alert.id}`,
-      kind: "review" as const,
-      date: alert.triggeredAt ?? alert.dataUpdatedAt ?? alert.generatedAt ?? holding.lastReviewedAt,
-      ticker: holding.ticker,
-      title: alert.title || `${holding.ticker} review triggered`,
-      detail: alert.recommendation || alert.message,
-      tone: alert.severity === "critical" ? "negative" as const : "warning" as const,
-    })),
-    ...holding.eventAlerts.map((alert) => ({
-      id: `event-${holding.ticker}-${alert.id}`,
-      kind: "ai" as const,
-      date: alert.triggeredAt ?? alert.dataUpdatedAt ?? alert.generatedAt ?? holding.lastReviewedAt,
-      ticker: holding.ticker,
-      title: alert.title || `${holding.ticker} portfolio event`,
-      detail: alert.message || alert.recommendation,
-      tone:
-        alert.severity === "success"
-          ? "positive" as const
-          : alert.severity === "critical"
-            ? "negative" as const
-            : "neutral" as const,
-    })),
-  ]);
-
-  return [...transactionItems, ...alertItems]
+  }))
     .filter((item) => Number.isFinite(new Date(item.date).getTime()))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }

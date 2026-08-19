@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
 import { HoldingLedgerRow, PortfolioExposureView } from "@/components/portfolio-workspace/PortfolioHoldingsVisuals";
 import type { PortfolioMeta } from "@/components/portfolio-workspace/types";
 import {
@@ -19,7 +17,6 @@ import {
   signedPct,
   toneClass,
 } from "@/components/portfolio-workspace/utils";
-import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
 
 function SectionHeading({
   eyebrow,
@@ -75,7 +72,6 @@ export function PortfolioOverview({
   intelligence,
   summary,
   holdings,
-  opportunities,
   canUsePremium,
   latestActivityDate,
   onHolding,
@@ -88,7 +84,6 @@ export function PortfolioOverview({
   intelligence: PortfolioIntelligenceView;
   summary: PortfolioHealthSummary;
   holdings: ExtendedHolding[];
-  opportunities: DashboardPortfolioOpportunity[];
   canUsePremium: boolean;
   latestActivityDate: string | null;
   onHolding: (holding: ExtendedHolding) => void;
@@ -222,72 +217,6 @@ export function PortfolioOverview({
             onSelect={onHolding}
           />
         </div>
-      </section>
-
-      <section>
-        <SectionHeading
-          eyebrow="StockGPT opportunities"
-          title="Portfolio-fit ideas"
-          action={
-            opportunities.length > 0 ? (
-              <Link
-                href="/rankings"
-                className="hidden min-h-11 items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] sm:inline-flex"
-              >
-                Review rankings →
-              </Link>
-            ) : undefined
-          }
-        />
-        {opportunities.length > 0 ? (
-          <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
-            {opportunities.slice(0, 6).map((opportunity) => (
-              <article
-                key={`${opportunity.ticker}-${opportunity.category}`}
-                className="flex min-h-[232px] w-[calc(100vw-56px)] max-w-[390px] shrink-0 snap-center flex-col rounded-[20px] border border-[#ddb159]/16 bg-[#0a2a1d]/72 p-5 shadow-[0_16px_34px_rgba(0,0,0,0.18)] lg:w-auto lg:max-w-none"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[19px] font-black text-[#faf6f0]">
-                      {opportunity.ticker}
-                      <span className="ml-2 font-semibold text-[#faf6f0]/38">{opportunity.company}</span>
-                    </p>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
-                      {opportunity.category}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#ddb159]/18 px-3 py-1 text-[10px] font-black text-[#f2d27a]">
-                    AI {Math.round(opportunity.score).toLocaleString("en-GB")}
-                  </span>
-                </div>
-                <p className="mt-4 line-clamp-3 text-[12px] font-semibold leading-6 text-[#faf6f0]/58">
-                  {opportunity.reason}
-                </p>
-                <p className="mt-3 line-clamp-2 text-[11px] font-semibold leading-5 text-[#f1908d]/72">
-                  Risk: {opportunity.risk}
-                </p>
-                <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-                  <span className="text-[9px] font-semibold text-[#faf6f0]/30">
-                    {opportunity.updatedAt ? formatDate(opportunity.updatedAt, true) : "Freshness unavailable"}
-                  </span>
-                  <Link
-                    href={`/stock/${opportunity.ticker}`}
-                    className="inline-flex min-h-11 items-center gap-2 text-[11px] font-black text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
-                  >
-                    Research <PortfolioIcon name="arrow" className="size-4" />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-5 border-y border-[#faf6f0]/8 py-9 text-center">
-            <p className="text-[16px] font-black text-[#faf6f0]">No strong fit ideas right now</p>
-            <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-              StockGPT will only surface ideas when the model finds a meaningful portfolio-specific reason and a clear risk to consider.
-            </p>
-          </div>
-        )}
       </section>
 
       <section>

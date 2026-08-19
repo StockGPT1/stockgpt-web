@@ -7,7 +7,6 @@ import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type EnrichedHolding, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
-import { buildPortfolioOpportunities } from "@/lib/dashboard-portfolio";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getUsdFxRates } from "@/lib/fx-rates";
 import {
@@ -71,6 +70,11 @@ type StockRow = CurrentRankingFact & {
 function n(value: unknown, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function positiveNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function cleanName(value: string | null | undefined, index: number) {
@@ -372,13 +376,28 @@ export default async function ModernPortfolioPage({
     ),
   });
   const canUsePremium = hasActiveSubscription(profile?.subscription_status);
-  const opportunities = canUsePremium
-    ? await buildPortfolioOpportunities(supabase, activePortfolio, enriched, summaryUsd)
-    : [];
 
   const totalValueDisplay = convertUsdToCurrency(summaryUsd.totalValue, displayCurrency, fxRates);
   const displayHoldings = enriched.map((holding) =>
     convertHolding(holding, displayCurrency, fxRates, totalValueDisplay),
+  );
+  const holdingReferenceLevels = Object.fromEntries(
+    factualHoldings.map((holding) => {
+      const convertStoredLevel = (value: unknown) => {
+        const parsed = positiveNumber(value);
+        return parsed == null
+          ? null
+          : convertUsdToCurrency(parsed, displayCurrency, fxRates);
+      };
+      return [
+        holding.ticker.trim().toUpperCase(),
+        {
+          entryPrice: convertStoredLevel(holding.entry_price),
+          savedRiskLevel: convertStoredLevel(holding.risk_level_at_entry),
+          savedTargetLevel: convertStoredLevel(holding.target_level_at_entry),
+        },
+      ];
+    }),
   );
   const displaySummary = {
     ...summaryUsd,
@@ -443,13 +462,13 @@ export default async function ModernPortfolioPage({
           currency: displayCurrency,
         }}
         intelligence={intelligence}
+        holdingReferenceLevels={holdingReferenceLevels}
         summary={displaySummary}
         holdings={displayHoldings}
         stockOptions={stocks}
         transactions={displayTransactions}
         chartData={convertChart(chartResult.chartData, displayCurrency, fxRates)}
         chartMeta={chartResult.meta}
-        opportunities={opportunities}
         usdToDisplayRate={usdToDisplayRate}
         canUsePremium={canUsePremium}
         initialSection={

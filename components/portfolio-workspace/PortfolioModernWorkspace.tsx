@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ManageHoldingDrawer } from "@/components/ManageHoldingDrawer";
-import { buildPortfolioTrimRecommendation } from "@/lib/portfolio-trim-recommendation";
-import { derivePortfolioHoldingAction } from "@/lib/portfolio-action-engine";
 import { PortfolioStage } from "@/components/portfolio-workspace/PortfolioStage";
 import { PortfolioOverview } from "@/components/portfolio-workspace/PortfolioOverview";
 import { PortfolioHoldings } from "@/components/portfolio-workspace/PortfolioHoldings";
@@ -16,19 +14,20 @@ import type {
   PortfolioSection,
   PortfolioWorkspaceProps,
 } from "@/components/portfolio-workspace/types";
+import { holdingIntelligenceForTicker } from "@/lib/portfolio-intelligence-presentation";
 
 export function PortfolioModernWorkspace({
   portfolioId,
   portfolios,
   portfolioMeta,
   intelligence,
+  holdingReferenceLevels,
   summary,
   holdings,
   stockOptions,
   transactions,
   chartData,
   chartMeta,
-  opportunities,
   usdToDisplayRate,
   canUsePremium,
   initialSection,
@@ -67,42 +66,24 @@ export function PortfolioModernWorkspace({
   const selectedHolding = selectedTicker
     ? holdingMap.get(selectedTicker.toUpperCase()) ?? null
     : null;
-  const heldTickers = useMemo(
-    () => new Set(holdings.map((holding) => holding.ticker.toUpperCase())),
-    [holdings],
-  );
-  const selectedRecommendation = selectedHolding
-    ? buildPortfolioTrimRecommendation(
-        selectedHolding,
-        portfolioMeta.riskTolerance,
-        stockOptions,
-        heldTickers,
-      )
+  const selectedAssessment = selectedHolding
+    ? holdingIntelligenceForTicker(intelligence, selectedHolding.ticker)
     : null;
-  const selectedAction = selectedHolding
-    ? derivePortfolioHoldingAction(selectedHolding, {
-        riskTolerance: portfolioMeta.riskTolerance,
-        objective: portfolioMeta.objective,
-        timeHorizon: portfolioMeta.timeHorizon,
-        cashBalance: portfolioMeta.cashBalance,
-        cashDrag: summary.cashDrag,
-      })
+  const selectedReferenceLevels = selectedHolding
+    ? holdingReferenceLevels[selectedHolding.ticker.toUpperCase()] ?? {
+        entryPrice: null,
+        savedRiskLevel: null,
+        savedTargetLevel: null,
+      }
     : null;
   const latestActivityDate = useMemo(() => {
-    const values = [
-      ...transactions.map((transaction) => transaction.createdAt),
-      ...holdings.flatMap((holding) =>
-        [...holding.actionAlerts, ...holding.eventAlerts]
-          .map((alert) => alert.triggeredAt ?? alert.dataUpdatedAt ?? alert.generatedAt)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    ];
+    const values = transactions.map((transaction) => transaction.createdAt);
     return (
       values
         .filter((value) => Number.isFinite(new Date(value).getTime()))
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
     );
-  }, [holdings, transactions]);
+  }, [transactions]);
 
   function updateUrl(next: { section?: PortfolioSection; portfolio?: string }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -152,7 +133,6 @@ export function PortfolioModernWorkspace({
                 intelligence={intelligence}
                 summary={summary}
                 holdings={holdings}
-                opportunities={opportunities}
                 canUsePremium={canUsePremium}
                 latestActivityDate={latestActivityDate}
                 onHolding={(holding) => setSelectedTicker(holding.ticker)}
@@ -207,18 +187,19 @@ export function PortfolioModernWorkspace({
         key={`analysis-${portfolioId}`}
         open={analysisOpen}
         onClose={() => setAnalysisOpen(false)}
+        intelligence={intelligence}
         summary={summary}
         portfolioId={portfolioId}
         canUsePremium={canUsePremium}
       />
 
-      {selectedHolding && selectedRecommendation && selectedAction && (
+      {selectedHolding && selectedAssessment && selectedReferenceLevels && (
         <ManageHoldingDrawer
           key={`${portfolioId}-${selectedHolding.ticker}`}
           portfolioId={portfolioId}
           holding={selectedHolding}
-          recommendation={selectedRecommendation}
-          action={selectedAction}
+          assessment={selectedAssessment}
+          referenceLevels={selectedReferenceLevels}
           cashBalance={portfolioMeta.cashBalance}
           displayCurrency={portfolioMeta.currency}
           usdToDisplayRate={usdToDisplayRate}

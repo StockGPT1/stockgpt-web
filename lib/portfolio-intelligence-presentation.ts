@@ -1,8 +1,10 @@
 import type {
+  AssessmentReason,
   HoldingAssessment,
   PortfolioIntelligenceResult,
   PortfolioStatus,
   ReasonCode,
+  ReasonLevel,
 } from "@/lib/portfolio-intelligence";
 
 export type PortfolioIntelligenceAvailability = "ready" | "limited";
@@ -13,6 +15,14 @@ export type PortfolioIntelligenceTone =
   | "risk"
   | "neutral";
 
+export type IntelligenceReasonView = {
+  code: ReasonCode;
+  level: ReasonLevel;
+  title: string;
+  detail: string;
+  affectedInstrumentKeys: string[];
+};
+
 export type HoldingIntelligenceView = {
   instrumentKey: string;
   ticker: string | null;
@@ -21,6 +31,7 @@ export type HoldingIntelligenceView = {
   tone: PortfolioIntelligenceTone;
   attentionRank: number;
   reasonCodes: ReasonCode[];
+  reasons: IntelligenceReasonView[];
 };
 
 export type PortfolioIntelligenceView = {
@@ -32,6 +43,7 @@ export type PortfolioIntelligenceView = {
   holdingAssessments: Record<string, HoldingIntelligenceView>;
   countsByStatus: Record<PortfolioStatus, number>;
   attentionOrder: string[];
+  reasons: IntelligenceReasonView[];
 };
 
 const STATUS_PRESENTATION: Record<
@@ -68,6 +80,78 @@ const EMPTY_COUNTS: Record<PortfolioStatus, number> = {
   urgent_review: 0,
 };
 
+const REASON_PRESENTATION: Record<
+  ReasonCode,
+  { title: string; detail: string }
+> = {
+  portfolio_empty: {
+    title: "Portfolio empty",
+    detail: "This portfolio does not currently contain any holdings.",
+  },
+  position_concentration: {
+    title: "Position concentration",
+    detail:
+      "This position represents a large share of the portfolio under the selected risk setting.",
+  },
+  ranking_deterioration: {
+    title: "Ranking deterioration",
+    detail:
+      "The current StockGPT rank or score has weakened materially compared with the saved entry context.",
+  },
+  diagnostic_deterioration: {
+    title: "Diagnostic deterioration",
+    detail:
+      "Current diagnostic evidence has weakened compared with its previous reading.",
+  },
+  event_risk: {
+    title: "Event risk",
+    detail: "A current structured event signal warrants attention.",
+  },
+  saved_risk_level_breached: {
+    title: "Saved risk level reached",
+    detail:
+      "The current price has reached or moved below a saved risk reference level.",
+  },
+  data_stale: {
+    title: "Data freshness",
+    detail:
+      "Some required market or ranking data is older than the current freshness window.",
+  },
+  data_missing: {
+    title: "Data unavailable",
+    detail: "Some required market or ranking data is unavailable.",
+  },
+  instrument_coverage_limited: {
+    title: "Limited instrument coverage",
+    detail:
+      "StockGPT can identify this holding, but full ranking coverage is not currently available.",
+  },
+};
+
+function reasonView(
+  reason: AssessmentReason,
+  fallbackInstrumentKey?: string,
+): IntelligenceReasonView {
+  const copy = REASON_PRESENTATION[reason.code];
+  const affectedInstrumentKeys = [
+    ...new Set(
+      reason.evidence
+        .map((evidence) => evidence.instrumentKey)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+  if (affectedInstrumentKeys.length === 0 && fallbackInstrumentKey) {
+    affectedInstrumentKeys.push(fallbackInstrumentKey);
+  }
+  return {
+    code: reason.code,
+    level: reason.level,
+    title: copy.title,
+    detail: copy.detail,
+    affectedInstrumentKeys,
+  };
+}
+
 function tickerKey(value: string | null | undefined) {
   return String(value ?? "").trim().toUpperCase();
 }
@@ -84,6 +168,7 @@ function limitedHoldingView(
     tone: "neutral",
     attentionRank,
     reasonCodes: [],
+    reasons: [],
   };
 }
 
@@ -122,6 +207,9 @@ export function buildPortfolioIntelligenceView({
             tone: presentation.tone,
             attentionRank: assessment.attentionRank,
             reasonCodes: assessment.reasons.map((reason) => reason.code),
+            reasons: assessment.reasons.map((reason) =>
+              reasonView(reason, assessment.instrumentKey),
+            ),
           };
   }
 
@@ -138,6 +226,7 @@ export function buildPortfolioIntelligenceView({
       attentionOrder: orderedAssessments.map(
         (assessment) => assessment.instrumentKey,
       ),
+      reasons: [],
     };
   }
 
@@ -151,6 +240,7 @@ export function buildPortfolioIntelligenceView({
     holdingAssessments,
     countsByStatus: { ...result.portfolio.countsByStatus },
     attentionOrder: [...result.portfolio.attentionOrder],
+    reasons: result.portfolio.reasons.map((reason) => reasonView(reason)),
   };
 }
 
@@ -167,6 +257,7 @@ export function holdingIntelligenceForTicker(
       tone: "neutral",
       attentionRank: Number.MAX_SAFE_INTEGER,
       reasonCodes: [],
+      reasons: [],
     }
   );
 }
