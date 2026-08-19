@@ -8,7 +8,12 @@ import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
 import { HoldingLedgerRow, PortfolioExposureView } from "@/components/portfolio-workspace/PortfolioHoldingsVisuals";
 import type { PortfolioMeta } from "@/components/portfolio-workspace/types";
 import {
+  holdingIntelligenceForTicker,
+  type PortfolioIntelligenceView,
+} from "@/lib/portfolio-intelligence-presentation";
+import {
   formatDate,
+  intelligenceToneClass,
   money,
   signedMoney,
   signedPct,
@@ -67,6 +72,7 @@ function Metric({
 export function PortfolioOverview({
   portfolioId,
   meta,
+  intelligence,
   summary,
   holdings,
   opportunities,
@@ -79,6 +85,7 @@ export function PortfolioOverview({
 }: {
   portfolioId: string;
   meta: PortfolioMeta;
+  intelligence: PortfolioIntelligenceView;
   summary: PortfolioHealthSummary;
   holdings: ExtendedHolding[];
   opportunities: DashboardPortfolioOpportunity[];
@@ -91,6 +98,10 @@ export function PortfolioOverview({
 }) {
   const sortedHoldings = holdings.slice().sort((a, b) => b.currentValue - a.currentValue);
   const topHoldings = sortedHoldings.slice(0, 5);
+  const canonicalReviewCount =
+    intelligence.countsByStatus.review +
+    intelligence.countsByStatus.urgent_review;
+  const canonicalMonitorCount = intelligence.countsByStatus.monitor;
 
   return (
     <div className="space-y-12 lg:space-y-14">
@@ -111,9 +122,17 @@ export function PortfolioOverview({
           />
           <Metric
             label="Reviews"
-            value={String(summary.actionAlerts)}
-            detail={`${summary.eventAlerts} supporting events`}
-            tone={summary.actionAlerts > 0 ? "text-[#e8bd61]" : "text-[#61d7ab]"}
+            value={
+              intelligence.availability === "ready"
+                ? String(canonicalReviewCount)
+                : "—"
+            }
+            detail={
+              intelligence.availability === "ready"
+                ? `${canonicalMonitorCount} to monitor`
+                : "Analysis limited"
+            }
+            tone={intelligenceToneClass(intelligence.tone)}
           />
           <Metric
             label="Largest position"
@@ -130,17 +149,20 @@ export function PortfolioOverview({
             Portfolio Pulse
           </p>
           <h2 className="mt-2 max-w-3xl text-[28px] font-black leading-[1.16] tracking-[-0.045em] text-[#faf6f0] lg:text-[36px]">
-            {summary.label}, {summary.actionAlerts > 0 ? "with decisions worth reviewing." : "with no urgent action signal."}
+            {intelligence.statusLabel}
           </h2>
           <p className="mt-4 max-w-3xl text-[14px] font-semibold leading-7 text-[#faf6f0]/54">
-            {summary.explanation}
+            {intelligence.summary}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
-            {[
-              `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"}`,
-              `${summary.oversizedCount} oversized`,
-              `${summary.sectorCount} sectors`,
-            ].map((signal) => (
+            {(intelligence.availability === "ready"
+              ? [
+                  `${canonicalReviewCount} review${canonicalReviewCount === 1 ? "" : "s"}`,
+                  `${canonicalMonitorCount} to monitor`,
+                  `${summary.sectorCount} sectors`,
+                ]
+              : ["Analysis limited", `${summary.sectorCount} sectors`]
+            ).map((signal) => (
               <span
                 key={signal}
                 className="inline-flex min-h-9 items-center rounded-full border border-[#ddb159]/16 bg-[#ddb159]/6 px-3 text-[10px] font-black text-[#f2d27a]"
@@ -172,7 +194,7 @@ export function PortfolioOverview({
             ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
             ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}% allocation`],
             ["AI score", summary.weightedAvgScore?.toLocaleString("en-GB") ?? "—", "Value weighted"],
-            ["Health", `${summary.score}/100`, summary.label],
+            ["Health", `${summary.score}/100`, "Separate descriptive score"],
           ].map(([label, value, detail]) => (
             <div key={label}>
               <dt className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">{label}</dt>
@@ -195,7 +217,7 @@ export function PortfolioOverview({
         <div className="mt-5">
           <PortfolioExposureView
             holdings={holdings}
-            riskTolerance={meta.riskTolerance}
+            intelligence={intelligence}
             currency={meta.currency}
             onSelect={onHolding}
           />
@@ -291,7 +313,7 @@ export function PortfolioOverview({
                 key={holding.ticker}
                 holding={holding}
                 currency={meta.currency}
-                riskTolerance={meta.riskTolerance}
+                assessment={holdingIntelligenceForTicker(intelligence, holding.ticker)}
                 onOpen={onHolding}
                 compact
               />
@@ -323,8 +345,14 @@ export function PortfolioOverview({
           {[
             ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
             ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}% of portfolio`],
-            ["Active reviews", String(summary.actionAlerts), `${summary.eventAlerts} supporting events`],
-            ["Largest position", `${summary.largestPositionPct.toFixed(1)}%`, `${summary.oversizedCount} oversized`],
+            [
+              "Reviews",
+              intelligence.availability === "ready" ? String(canonicalReviewCount) : "—",
+              intelligence.availability === "ready"
+                ? `${canonicalMonitorCount} to monitor`
+                : "Analysis limited",
+            ],
+            ["Largest position", `${summary.largestPositionPct.toFixed(1)}%`, "Current factual allocation"],
           ].map(([label, value, detail]) => (
             <div key={label}>
               <dt className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">{label}</dt>

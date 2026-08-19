@@ -4,6 +4,7 @@ import type {
   ActivityItem,
   PortfolioTransaction,
 } from "@/components/portfolio-workspace/types";
+import type { PortfolioIntelligenceTone } from "@/lib/portfolio-intelligence-presentation";
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -93,37 +94,20 @@ export function toneBackground(value: number) {
   return "bg-[#faf6f0]/6 text-[#faf6f0]/58";
 }
 
-export function statusForHolding(
-  holding: ExtendedHolding,
-  riskTolerance: string | null,
-) {
-  if (holding.currentPrice <= 0 && holding.shares > 0) return "Price unavailable";
-  if (holding.actionAlerts.length > 0) {
-    return holding.actionAlerts[0]?.action === "trim" ? "Review size" : "Review";
-  }
-  const cap =
-    riskTolerance === "conservative"
-      ? 18
-      : riskTolerance === "aggressive"
-        ? 32
-        : 24;
-  if (holding.currentAllocationPct > cap) return "Oversized";
-  if (holding.pnlPercent >= 12) return "Strong contributor";
-  if (holding.pnlPercent <= -10) return "Under pressure";
-  return "Healthy";
+export function intelligenceToneClass(tone: PortfolioIntelligenceTone) {
+  if (tone === "positive") return "text-[#61d7ab]";
+  if (tone === "caution") return "text-[#e8bd61]";
+  if (tone === "warning") return "text-[#f2b35c]";
+  if (tone === "risk") return "text-[#f1908d]";
+  return "text-[#faf6f0]/48";
 }
 
-export function statusTone(status: string) {
-  if (status === "Healthy" || status === "Strong contributor") {
-    return "text-[#61d7ab]";
-  }
-  if (status === "Under pressure" || status === "Price unavailable") {
-    return "text-[#f1908d]";
-  }
-  if (status === "Review" || status === "Review size" || status === "Oversized") {
-    return "text-[#e8bd61]";
-  }
-  return "text-[#faf6f0]/48";
+export function intelligenceToneDot(tone: PortfolioIntelligenceTone) {
+  if (tone === "positive") return "bg-emerald-400";
+  if (tone === "caution") return "bg-[#e8bd61]";
+  if (tone === "warning") return "bg-orange-400";
+  if (tone === "risk") return "bg-red-400";
+  return "bg-[#faf6f0]/42";
 }
 
 export function transactionTitle(type: string, ticker: string | null) {

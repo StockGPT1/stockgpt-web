@@ -21,6 +21,7 @@ export function PortfolioModernWorkspace({
   portfolioId,
   portfolios,
   portfolioMeta,
+  intelligence,
   summary,
   holdings,
   stockOptions,
@@ -125,6 +126,7 @@ export function PortfolioModernWorkspace({
           portfolioId={portfolioId}
           portfolios={portfolios}
           meta={portfolioMeta}
+          intelligence={intelligence}
           summary={summary}
           chartData={chartData}
           chartMeta={chartMeta}
@@ -147,6 +149,7 @@ export function PortfolioModernWorkspace({
               <PortfolioOverview
                 portfolioId={portfolioId}
                 meta={portfolioMeta}
+                intelligence={intelligence}
                 summary={summary}
                 holdings={holdings}
                 opportunities={opportunities}
@@ -163,6 +166,7 @@ export function PortfolioModernWorkspace({
               <PortfolioHoldings
                 holdings={holdings}
                 meta={portfolioMeta}
+                intelligence={intelligence}
                 onHolding={(holding) => setSelectedTicker(holding.ticker)}
               />
             )}

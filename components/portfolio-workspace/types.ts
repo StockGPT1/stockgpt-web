@@ -3,14 +3,18 @@ import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
+import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 
 export type PortfolioSection = "overview" | "holdings" | "activity";
 export type HoldingsView = "list" | "map";
 export type ExposureView = "map" | "treemap";
 export type HoldingFilter =
   | "all"
-  | "oversized"
-  | "reviews"
+  | "urgent_review"
+  | "review"
+  | "monitor"
+  | "on_track"
+  | "concentration"
   | "gainers"
   | "losers"
   | "missing";
@@ -69,6 +73,7 @@ export type PortfolioWorkspaceProps = {
   portfolioId: string;
   portfolios: PortfolioOption[];
   portfolioMeta: PortfolioMeta;
+  intelligence: PortfolioIntelligenceView;
   summary: PortfolioHealthSummary;
   holdings: ExtendedHolding[];
   stockOptions: StockOption[];

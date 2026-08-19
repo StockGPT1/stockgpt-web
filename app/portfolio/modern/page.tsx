@@ -11,6 +11,15 @@ import { buildPortfolioOpportunities } from "@/lib/dashboard-portfolio";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getUsdFxRates } from "@/lib/fx-rates";
 import {
+  assessCurrentPortfolioIntelligenceFacts,
+  type CurrentDiagnosticFact,
+  type CurrentHoldingFact,
+  type CurrentPortfolioFact,
+  type CurrentRankingFact,
+} from "@/lib/current-portfolio-intelligence";
+import { buildPortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import type { Tables } from "@/lib/database.types";
+import {
   convertUsdToCurrency,
   normaliseCurrency,
   rateForCurrency,
@@ -27,32 +36,18 @@ type SearchParams = {
   section?: string;
 };
 
-type PortfolioRow = {
-  id: string;
-  name: string | null;
-  objective: string | null;
-  risk_tolerance: string | null;
-  time_horizon: string | null;
+type PortfolioRow = CurrentPortfolioFact & {
+  name: string;
   investment_amount: number | null;
-  cash_balance: number | null;
-  cash_deposited_total: number | null;
-  currency: string | null;
-  created_at: string | null;
+  cash_deposited_total: number;
+  created_at: string;
 };
 
-type HoldingRow = {
-  ticker: string | null;
-  entry_price: number | null;
-  score_at_entry: number | null;
-  rank_at_entry: number | null;
-  added_at: string | null;
-  last_reviewed_at: string | null;
-  shares: number | null;
-  allocation_pct: number | null;
-  purchase_date: string | null;
-  source: string | null;
-  notes: string | null;
-};
+type HoldingRow = CurrentHoldingFact &
+  Pick<
+    Tables<"portfolio_holdings">,
+    "added_at" | "last_reviewed_at" | "purchase_date" | "notes"
+  >;
 
 type TransactionRow = {
   id: string;
@@ -68,13 +63,9 @@ type TransactionRow = {
   created_at: string;
 };
 
-type StockRow = {
-  ticker: string | null;
+type StockRow = CurrentRankingFact & {
   company: string | null;
   sector: string | null;
-  rank: number | null;
-  score: number | null;
-  price: number | null;
 };
 
 function n(value: unknown, fallback = 0) {
@@ -141,8 +132,14 @@ export default async function ModernPortfolioPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+  const intelligenceAsOf = new Date().toISOString();
 
-  const [{ data: portfolioRows }, { data: profile }, fxRates, { data: stockRows }] =
+  const [
+    { data: portfolioRows, error: portfoliosError },
+    { data: profile, error: profileError },
+    fxRates,
+    { data: stockRows, error: stocksError },
+  ] =
     await Promise.all([
       supabase
         .from("user_portfolios")
@@ -160,10 +157,15 @@ export default async function ModernPortfolioPage({
       getUsdFxRates(),
       supabase
         .from("stock_rankings")
-        .select("ticker,company,sector,rank,score,price")
+        .select(
+          "ticker,company,sector,rank,score,price,last_price_update,last_ranking_update",
+        )
         .order("rank", { ascending: true })
         .limit(500),
     ]);
+
+  if (portfoliosError) throw new Error("Portfolio list could not be loaded.");
+  if (profileError) throw new Error("Portfolio profile could not be loaded.");
 
   const portfolios = ((portfolioRows ?? []) as PortfolioRow[]).map((portfolio, index) => ({
     ...portfolio,
@@ -213,11 +215,14 @@ export default async function ModernPortfolioPage({
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
 
-  const [{ data: holdingRows }, { data: transactionRows }] = await Promise.all([
+  const [
+    { data: holdingRows, error: holdingsError },
+    { data: transactionRows, error: transactionsError },
+  ] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
-        "ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes",
+        "id,portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes,risk_level_at_entry,target_level_at_entry",
       )
       .eq("portfolio_id", selectedPortfolioId)
       .order("added_at", { ascending: false }),
@@ -231,18 +236,99 @@ export default async function ModernPortfolioPage({
       .limit(1000),
   ]);
 
-  const rawHoldings = ((holdingRows ?? []) as HoldingRow[])
-    .filter((holding) => holding.ticker)
+  if (holdingsError) throw new Error("Portfolio holdings could not be loaded.");
+  if (transactionsError) throw new Error("Portfolio activity could not be loaded.");
+
+  const factualHoldings = ((holdingRows ?? []) as HoldingRow[]).filter(
+    (holding) => holding.ticker.trim().length > 0,
+  );
+  const heldTickers = [
+    ...new Set(
+      factualHoldings.map((holding) => holding.ticker.trim().toUpperCase()),
+    ),
+  ];
+  if (stocksError && heldTickers.length > 0) {
+    throw new Error("Portfolio ranking facts could not be loaded.");
+  }
+  const initialRankingRows = (stockRows ?? []) as StockRow[];
+  const loadedRankingTickers = new Set(
+    initialRankingRows
+      .map((ranking) => String(ranking.ticker ?? "").trim().toUpperCase())
+      .filter(Boolean),
+  );
+  const missingHeldTickers = heldTickers.filter(
+    (ticker) => !loadedRankingTickers.has(ticker),
+  );
+  const diagnosticsPromise =
+    heldTickers.length > 0
+      ? supabase
+          .from("stock_factor_diagnostics")
+          .select("ticker,current_score,previous_score,updated_at")
+          .in("ticker", heldTickers)
+          .order("ticker", { ascending: true })
+      : Promise.resolve({ data: [] as CurrentDiagnosticFact[], error: null });
+  const universePromise =
+    heldTickers.length > 0
+      ? supabase
+          .from("stock_rankings")
+          .select("rank", { count: "exact", head: true })
+          .not("rank", "is", null)
+      : Promise.resolve({ count: null as number | null, error: null });
+  const missingRankingsPromise =
+    missingHeldTickers.length > 0
+      ? supabase
+          .from("stock_rankings")
+          .select(
+            "ticker,score,rank,price,last_price_update,last_ranking_update",
+          )
+          .in("ticker", missingHeldTickers)
+          .order("ticker", { ascending: true })
+      : Promise.resolve({ data: [] as CurrentRankingFact[], error: null });
+  const [diagnosticsResult, universeResult, missingRankingsResult] =
+    await Promise.all([
+      diagnosticsPromise,
+      universePromise,
+      missingRankingsPromise,
+    ]);
+
+  if (diagnosticsResult.error) {
+    throw new Error("Portfolio diagnostic facts could not be loaded.");
+  }
+  if (universeResult.error) {
+    throw new Error("Portfolio ranking universe could not be counted.");
+  }
+  if (missingRankingsResult.error) {
+    throw new Error("Held ranking facts could not be loaded.");
+  }
+
+  const currentIntelligence = assessCurrentPortfolioIntelligenceFacts(
+    {
+      portfolio: activePortfolio,
+      holdings: factualHoldings,
+      rankings: [
+        ...initialRankingRows,
+        ...(missingRankingsResult.data ?? []),
+      ],
+      diagnostics: diagnosticsResult.data ?? [],
+      rankingUniverseSize: universeResult.count,
+    },
+    intelligenceAsOf,
+  );
+  const intelligence = buildPortfolioIntelligenceView({
+    result: currentIntelligence.assessment,
+    adapterLimitations: currentIntelligence.adapterLimitations,
+  });
+
+  const rawHoldings = factualHoldings
     .map((holding) => ({
-      ticker: String(holding.ticker).toUpperCase(),
+      ticker: holding.ticker.trim().toUpperCase(),
       entry_price: holding.entry_price,
       score_at_entry: holding.score_at_entry,
       rank_at_entry: holding.rank_at_entry,
       shares: holding.shares,
       allocation_pct: holding.allocation_pct,
-      added_at: holding.added_at ?? new Date().toISOString(),
-      last_reviewed_at:
-        holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
+      added_at: holding.added_at ?? intelligenceAsOf,
+      last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? intelligenceAsOf,
       purchase_date: holding.purchase_date,
       source: holding.source,
       notes: holding.notes,
@@ -356,6 +442,7 @@ export default async function ModernPortfolioPage({
           ),
           currency: displayCurrency,
         }}
+        intelligence={intelligence}
         summary={displaySummary}
         holdings={displayHoldings}
         stockOptions={stocks}

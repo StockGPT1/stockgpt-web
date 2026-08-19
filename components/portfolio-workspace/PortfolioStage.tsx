@@ -17,9 +17,12 @@ import type {
   PortfolioSection,
 } from "@/components/portfolio-workspace/types";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
+import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import {
   formatDate,
   freshnessCopy,
+  intelligenceToneClass,
+  intelligenceToneDot,
   money,
   signedMoney,
   signedPct,
@@ -53,6 +56,7 @@ export function PortfolioStage({
   portfolioId,
   portfolios,
   meta,
+  intelligence,
   summary,
   chartData,
   chartMeta,
@@ -68,6 +72,7 @@ export function PortfolioStage({
   portfolioId: string;
   portfolios: PortfolioOption[];
   meta: PortfolioMeta;
+  intelligence: PortfolioIntelligenceView;
   summary: PortfolioHealthSummary;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta;
@@ -167,25 +172,32 @@ export function PortfolioStage({
                 </p>
               </div>
 
-              <div className="mt-5 flex flex-col items-center gap-1.5 lg:mt-0 lg:items-end">
+              <div className="mt-5 flex flex-col items-center gap-2 lg:mt-0 lg:items-end">
                 <span
-                  aria-label={`Portfolio health ${summary.score} out of 100, ${summary.label}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 py-1.5 pl-3 pr-3.5"
+                  aria-label={`Portfolio status ${intelligence.statusLabel}`}
+                  className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#04140c]/46 py-1.5 pl-3 pr-3.5"
                 >
                   <span
                     aria-hidden="true"
-                    className={`size-2 shrink-0 rounded-full ${
-                      summary.score >= 67
-                        ? "bg-emerald-400"
-                        : summary.score >= 40
-                          ? "bg-[#ddb159]"
-                          : "bg-red-400"
-                    }`}
+                    className={`size-2 shrink-0 rounded-full ${intelligenceToneDot(intelligence.tone)}`}
                   />
-                  <span className="text-[13px] font-black tabular-nums text-[#ddb159]">
-                    Health {summary.score}/100
+                  <span className="text-[10px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/44">
+                    Status
                   </span>
-                  <span className="text-[11px] font-black text-[#faf6f0]/72">{summary.label}</span>
+                  <span className={`min-w-0 truncate text-[12px] font-black ${intelligenceToneClass(intelligence.tone)}`}>
+                    {intelligence.statusLabel}
+                  </span>
+                </span>
+                <span
+                  aria-label={`Portfolio health ${summary.score} out of 100`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#ddb159]/8 px-3 py-1.5"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/44">
+                    Health
+                  </span>
+                  <span className="text-[12px] font-black tabular-nums text-[#ddb159]">
+                    {summary.score}/100
+                  </span>
                 </span>
                 <p className="text-[10px] font-semibold text-[#faf6f0]/42">
                   {freshnessCopy(chartMeta)}

@@ -12,18 +12,24 @@ import type {
   PortfolioMeta,
 } from "@/components/portfolio-workspace/types";
 import {
+  holdingIntelligenceForTicker,
+  type PortfolioIntelligenceView,
+} from "@/lib/portfolio-intelligence-presentation";
+import {
+  intelligenceToneClass,
   money,
   signedMoney,
   signedPct,
-  statusForHolding,
-  statusTone,
   toneClass,
 } from "@/components/portfolio-workspace/utils";
 
 const FILTERS: Array<{ value: HoldingFilter; label: string }> = [
   { value: "all", label: "All" },
-  { value: "oversized", label: "Oversized" },
-  { value: "reviews", label: "Reviews" },
+  { value: "urgent_review", label: "Urgent review" },
+  { value: "review", label: "Review" },
+  { value: "monitor", label: "Monitor" },
+  { value: "on_track", label: "On track" },
+  { value: "concentration", label: "Concentration" },
   { value: "gainers", label: "Gainers" },
   { value: "losers", label: "Losers" },
   { value: "missing", label: "Missing prices" },
@@ -40,24 +46,24 @@ const SORTS: Array<{ value: HoldingSort; label: string }> = [
   { value: "ticker", label: "Ticker A–Z" },
 ];
 
-function urgentScore(holding: ExtendedHolding, riskTolerance: string | null) {
-  const status = statusForHolding(holding, riskTolerance);
-  if (status === "Price unavailable") return 100;
-  if (status === "Review" || status === "Review size") return 90;
-  if (status === "Oversized") return 75;
-  if (status === "Under pressure") return 65;
-  return holding.actionAlerts.length * 10 + holding.eventAlerts.length * 2;
-}
-
 function matchesFilter(
   holding: ExtendedHolding,
   filter: HoldingFilter,
-  riskTolerance: string | null,
+  intelligence: PortfolioIntelligenceView,
 ) {
-  const status = statusForHolding(holding, riskTolerance);
+  const assessment = holdingIntelligenceForTicker(intelligence, holding.ticker);
   if (filter === "all") return true;
-  if (filter === "oversized") return status === "Oversized" || status === "Review size";
-  if (filter === "reviews") return holding.actionAlerts.length > 0 || status === "Review";
+  if (
+    filter === "urgent_review" ||
+    filter === "review" ||
+    filter === "monitor" ||
+    filter === "on_track"
+  ) {
+    return assessment.status === filter;
+  }
+  if (filter === "concentration") {
+    return assessment.reasonCodes.includes("position_concentration");
+  }
   if (filter === "gainers") return holding.totalPnLDollars > 0;
   if (filter === "losers") return holding.totalPnLDollars < 0;
   return holding.currentPrice <= 0 && holding.shares > 0;
@@ -66,7 +72,7 @@ function matchesFilter(
 function sortHoldings(
   holdings: ExtendedHolding[],
   sort: HoldingSort,
-  riskTolerance: string | null,
+  intelligence: PortfolioIntelligenceView,
 ) {
   return holdings.slice().sort((a, b) => {
     if (sort === "allocation") return b.currentAllocationPct - a.currentAllocationPct;
@@ -74,7 +80,12 @@ function sortHoldings(
     if (sort === "worst") return a.pnlPercent - b.pnlPercent;
     if (sort === "score") return b.score - a.score;
     if (sort === "rank") return (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER);
-    if (sort === "urgent") return urgentScore(b, riskTolerance) - urgentScore(a, riskTolerance);
+    if (sort === "urgent") {
+      return (
+        holdingIntelligenceForTicker(intelligence, a.ticker).attentionRank -
+        holdingIntelligenceForTicker(intelligence, b.ticker).attentionRank
+      );
+    }
     if (sort === "ticker") return a.ticker.localeCompare(b.ticker);
     return b.currentValue - a.currentValue;
   });
@@ -93,10 +104,12 @@ function SummaryMetric({ label, value, detail }: { label: string; value: string;
 export function PortfolioHoldings({
   holdings,
   meta,
+  intelligence,
   onHolding,
 }: {
   holdings: ExtendedHolding[];
   meta: PortfolioMeta;
+  intelligence: PortfolioIntelligenceView;
   onHolding: (holding: ExtendedHolding) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -110,6 +123,26 @@ export function PortfolioHoldings({
     () => Array.from(new Set(holdings.map((holding) => holding.sector).filter((value): value is string => Boolean(value)))).sort(),
     [holdings],
   );
+  const availableFilters =
+    intelligence.availability === "ready"
+      ? FILTERS
+      : FILTERS.filter(
+          (item) =>
+            item.value === "all" ||
+            item.value === "gainers" ||
+            item.value === "losers" ||
+            item.value === "missing",
+        );
+  const availableSorts =
+    intelligence.availability === "ready"
+      ? SORTS
+      : SORTS.filter((item) => item.value !== "urgent");
+  const effectiveFilter = availableFilters.some((item) => item.value === filter)
+    ? filter
+    : "all";
+  const effectiveSort = availableSorts.some((item) => item.value === sort)
+    ? sort
+    : "value";
   const visible = useMemo(() => {
     const lowered = query.trim().toLowerCase();
     const filtered = holdings.filter((holding) => {
@@ -117,16 +150,16 @@ export function PortfolioHoldings({
       return (
         (!lowered || searchable.includes(lowered)) &&
         (sector === "all" || holding.sector === sector) &&
-        matchesFilter(holding, filter, meta.riskTolerance)
+        matchesFilter(holding, effectiveFilter, intelligence)
       );
     });
-    return sortHoldings(filtered, sort, meta.riskTolerance);
-  }, [filter, holdings, meta.riskTolerance, query, sector, sort]);
+    return sortHoldings(filtered, effectiveSort, intelligence);
+  }, [effectiveFilter, effectiveSort, holdings, intelligence, query, sector]);
 
   const invested = holdings.reduce((sum, holding) => sum + Math.max(0, holding.currentValue), 0);
   const largest = holdings.reduce((max, holding) => Math.max(max, holding.currentAllocationPct), 0);
   const missingCount = holdings.filter((holding) => holding.shares > 0 && holding.currentPrice <= 0).length;
-  const activeFilterCount = Number(filter !== "all") + Number(sector !== "all");
+  const activeFilterCount = Number(effectiveFilter !== "all") + Number(sector !== "all");
 
   return (
     <div>
@@ -171,11 +204,11 @@ export function PortfolioHoldings({
           <label className="min-w-0">
             <span className="sr-only">Sort holdings</span>
             <select
-              value={sort}
+              value={effectiveSort}
               onChange={(event) => setSort(event.target.value as HoldingSort)}
               className="h-11 w-full truncate rounded-xl border border-[#ddb159]/14 bg-[#04140c]/58 px-3 text-[11px] font-black text-[#faf6f0] outline-none focus:border-[#ddb159]"
             >
-              {SORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              {availableSorts.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
           <button
@@ -207,14 +240,14 @@ export function PortfolioHoldings({
             <div>
               <p className="mb-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">Position state</p>
               <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-                {FILTERS.map((item) => (
+                {availableFilters.map((item) => (
                   <button
                     key={item.value}
                     type="button"
                     onClick={() => setFilter(item.value)}
-                    aria-pressed={filter === item.value}
+                    aria-pressed={effectiveFilter === item.value}
                     className={`min-h-10 shrink-0 rounded-full px-4 text-[10px] font-black transition ${
-                      filter === item.value
+                      effectiveFilter === item.value
                         ? "bg-[#ddb159] text-[#061b12]"
                         : "border border-[#ddb159]/14 text-[#faf6f0]/48 hover:text-[#faf6f0]"
                     }`}
@@ -268,13 +301,13 @@ export function PortfolioHoldings({
         </div>
       ) : view === "map" ? (
         <div className="mt-5">
-          <PortfolioExposureView holdings={visible} riskTolerance={meta.riskTolerance} currency={meta.currency} onSelect={onHolding} />
+          <PortfolioExposureView holdings={visible} intelligence={intelligence} currency={meta.currency} onSelect={onHolding} />
         </div>
       ) : (
         <>
           <div className="mt-4 border-t border-[#faf6f0]/8 lg:hidden">
             {visible.map((holding) => (
-              <HoldingLedgerRow key={holding.ticker} holding={holding} currency={meta.currency} riskTolerance={meta.riskTolerance} onOpen={onHolding} />
+              <HoldingLedgerRow key={holding.ticker} holding={holding} currency={meta.currency} assessment={holdingIntelligenceForTicker(intelligence, holding.ticker)} onOpen={onHolding} />
             ))}
           </div>
 
@@ -294,7 +327,10 @@ export function PortfolioHoldings({
               </thead>
               <tbody className="divide-y divide-[#faf6f0]/8">
                 {visible.map((holding) => {
-                  const status = statusForHolding(holding, meta.riskTolerance);
+                  const assessment = holdingIntelligenceForTicker(
+                    intelligence,
+                    holding.ticker,
+                  );
                   const priceAvailable = holding.currentPrice > 0 || holding.shares <= 0;
                   return (
                     <tr key={holding.ticker} className="group h-[70px] hover:bg-[#faf6f0]/[0.025]">
@@ -309,7 +345,7 @@ export function PortfolioHoldings({
                       <td className="w-[190px] px-4"><div className="flex items-center gap-3"><span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#faf6f0]/9"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#b7842f,#ddb159_55%,#f2d27a)]" style={{ width: `${Math.max(holding.currentAllocationPct > 0 ? 0.35 : 0, Math.min(100, holding.currentAllocationPct))}%` }} /></span><span className="w-12 text-right text-[10px] font-black tabular-nums text-[#faf6f0]/58">{holding.currentAllocationPct.toFixed(1)}%</span></div></td>
                       <td className="px-4 text-right text-[11px] font-black tabular-nums text-[#ddb159]">{Math.round(holding.score).toLocaleString("en-GB")}</td>
                       <td className="px-4 text-right text-[11px] font-black tabular-nums text-[#faf6f0]/58">#{holding.rank ?? "—"}</td>
-                      <td className={`px-4 text-[10px] font-black ${statusTone(status)}`}>{status}</td>
+                      <td className={`px-4 text-[10px] font-black ${intelligenceToneClass(assessment.tone)}`}>{assessment.statusLabel}</td>
                       <td className="px-4 text-right"><button type="button" onClick={() => onHolding(holding)} className="min-h-11 rounded-full border border-[#ddb159]/18 px-4 text-[10px] font-black text-[#ddb159] hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]">Open</button></td>
                     </tr>
                   );

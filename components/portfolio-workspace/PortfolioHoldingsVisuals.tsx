@@ -5,30 +5,33 @@ import { StockLogo } from "@/components/StockLogo";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import type { ExposureView } from "@/components/portfolio-workspace/types";
 import {
+  holdingIntelligenceForTicker,
+  type HoldingIntelligenceView,
+  type PortfolioIntelligenceView,
+} from "@/lib/portfolio-intelligence-presentation";
+import {
   clamp,
+  intelligenceToneClass,
   money,
   number,
   signedMoney,
   signedPct,
-  statusForHolding,
-  statusTone,
   toneClass,
 } from "@/components/portfolio-workspace/utils";
 
 export function HoldingLedgerRow({
   holding,
   currency,
-  riskTolerance,
+  assessment,
   onOpen,
   compact = false,
 }: {
   holding: ExtendedHolding;
   currency: string;
-  riskTolerance: string | null;
+  assessment: HoldingIntelligenceView;
   onOpen: (holding: ExtendedHolding) => void;
   compact?: boolean;
 }) {
-  const status = statusForHolding(holding, riskTolerance);
   const priceAvailable = holding.currentPrice > 0 || holding.shares <= 0;
   const visualAllocation = priceAvailable
     ? clamp(
@@ -42,7 +45,7 @@ export function HoldingLedgerRow({
     <button
       type="button"
       onClick={() => onOpen(holding)}
-      aria-label={`Open holding ${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% allocation, ${status}`}
+      aria-label={`Open holding ${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% allocation, ${assessment.statusLabel}`}
       className={`group block w-full border-b border-[#faf6f0]/8 text-left transition hover:bg-[#faf6f0]/[0.025] focus-visible:bg-[#faf6f0]/[0.035] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159] ${
         compact ? "px-0 py-4" : "px-0 py-5 sm:px-1"
       }`}
@@ -73,7 +76,9 @@ export function HoldingLedgerRow({
         <span className="truncate text-[10px] font-black text-[#ddb159]">
           AI #{holding.rank ?? "—"} · {Math.round(holding.score).toLocaleString("en-GB")}
         </span>
-        <span className={`shrink-0 text-[10px] font-black ${statusTone(status)}`}>{status}</span>
+        <span className={`shrink-0 text-[10px] font-black ${intelligenceToneClass(assessment.tone)}`}>
+          {assessment.statusLabel}
+        </span>
       </span>
 
       <span className="mt-3 block h-1.5 overflow-hidden rounded-full bg-[#faf6f0]/9">
@@ -92,14 +97,14 @@ export function HoldingLedgerRow({
 
 export function PortfolioExposureView({
   holdings,
-  riskTolerance,
+  intelligence,
   currency,
   initialView = "map",
   showToggle = true,
   onSelect,
 }: {
   holdings: ExtendedHolding[];
-  riskTolerance: string | null;
+  intelligence: PortfolioIntelligenceView;
   currency: string;
   initialView?: ExposureView;
   showToggle?: boolean;
@@ -150,7 +155,7 @@ export function PortfolioExposureView({
       )}
 
       {view === "map" ? (
-        <ConvictionMap holdings={usable} riskTolerance={riskTolerance} onSelect={onSelect} />
+        <ConvictionMap holdings={usable} intelligence={intelligence} onSelect={onSelect} />
       ) : (
         <AllocationTreemap holdings={usable} currency={currency} onSelect={onSelect} />
       )}
@@ -171,11 +176,11 @@ export function PortfolioExposureView({
 
 function ConvictionMap({
   holdings,
-  riskTolerance,
+  intelligence,
   onSelect,
 }: {
   holdings: ExtendedHolding[];
-  riskTolerance: string | null;
+  intelligence: PortfolioIntelligenceView;
   onSelect: (holding: ExtendedHolding) => void;
 }) {
   const points = useMemo(() => {
@@ -217,8 +222,16 @@ function ConvictionMap({
         </span>
 
         {points.map(({ holding, x, y, size }) => {
-          const status = statusForHolding(holding, riskTolerance);
-          const review = status === "Review" || status === "Review size" || status === "Oversized";
+          const assessment = holdingIntelligenceForTicker(
+            intelligence,
+            holding.ticker,
+          );
+          const reviewBorder =
+            assessment.status === "urgent_review"
+              ? "border-[#f1908d]/72"
+              : assessment.status === "review"
+                ? "border-[#e8bd61]/65"
+                : "border-[#faf6f0]/18";
           const fill =
             holding.pnlPercent > 0.1
               ? "bg-[#61d7ab]/18 text-[#9de9cc]"
@@ -230,10 +243,8 @@ function ConvictionMap({
               key={holding.ticker}
               type="button"
               onClick={() => onSelect(holding)}
-              aria-label={`${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% allocation, AI score ${Math.round(holding.score)}, ${status}`}
-              className={`absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border text-[10px] font-black shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur transition hover:z-30 hover:scale-110 focus-visible:z-30 focus-visible:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#faf6f0] ${fill} ${
-                review ? "border-[#e8bd61]/65" : "border-[#faf6f0]/18"
-              }`}
+              aria-label={`${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% allocation, AI score ${Math.round(holding.score)}, ${assessment.statusLabel}`}
+              className={`absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border text-[10px] font-black shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur transition hover:z-30 hover:scale-110 focus-visible:z-30 focus-visible:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#faf6f0] ${fill} ${reviewBorder}`}
               style={{ left: `${x}%`, top: `${y}%`, width: size, height: size }}
             >
               {holding.ticker}
