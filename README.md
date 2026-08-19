@@ -16,10 +16,12 @@ This repository contains the public marketing experience and authenticated app s
 
 ## Getting started
 
-Install dependencies:
+The web application uses Node 24. Select it through `.nvmrc`, then install the
+locked dependency tree:
 
 ```bash
-npm install
+nvm use
+npm ci
 ```
 
 Create a local environment file:
@@ -28,7 +30,9 @@ Create a local environment file:
 cp .env.example .env.local
 ```
 
-Then add the required Supabase and Stripe values.
+Use `.env.example` as the source of truth. Add only local, test or staging
+values needed for the feature you are exercising. Never commit secrets or use
+the production Supabase service-role credential for ordinary development.
 
 Run the development server:
 
@@ -47,29 +51,24 @@ npm run start    # Start the production server
 npm run lint     # Run ESLint
 ```
 
-## Environment variables
-
-The app expects environment variables for Supabase, Stripe and any server-side market data integrations. Keep secrets out of source control and use Vercel project settings for deployed environments.
-
-Typical variables include:
+The local quality gate is:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_CORE_MONTHLY_PRICE_ID=
-STRIPE_CORE_ANNUAL_PRICE_ID=
-STRIPE_CORE_TRIAL_DAYS=
-STRIPE_PROMO_50_FIRST_MONTH=
-NEXT_PUBLIC_SITE_URL=
+npm run lint
+npx next typegen
+npx tsc --noEmit
+npm run test:portfolio
+npm run build
 ```
 
-`STRIPE_PROMO_50_FIRST_MONTH` must contain the server-side Stripe Promotion Code
-ID approved for the `50PORTFOLIO2026` offer. It is never exposed to browser code.
+Compilation and production builds must not require production credentials.
+Runtime integrations still require their corresponding safe local/test values.
 
-Check the implementation before adding or renaming variables, because some routes may require additional provider keys.
+## Environment variables
+
+See `.env.example` for the factual current variable inventory, public/server
+boundaries, optional providers and tuning controls. Keep secrets out of source
+control and use environment-scoped Vercel settings for deployed environments.
 
 ## App areas
 
@@ -103,7 +102,7 @@ When changing copy or UI, keep these rules in mind:
 - The landing page pulls live-ish ticker data and public ranking metrics, so failures should degrade gracefully.
 - Authenticated routes should protect premium or account-only functionality server-side, not only through hidden UI.
 - Avoid committing generated build output, secrets, exports or local data files.
-- Keep deployment checks lightweight for now: lint and build warnings should be addressed, but avoid adding strict blockers without a product reason.
+- Run the complete local quality gate before proposing structural changes.
 
 ## Deployment
 

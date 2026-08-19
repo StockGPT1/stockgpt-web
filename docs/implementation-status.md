@@ -15,8 +15,8 @@ Engineering constitution:
 
 | # | Stage | Status | PR/Commit | Notes |
 |---|---|---|---|---|
-| 01 | Engineering harness and staging setup | IN PROGRESS | | |
-| 02 | Restore green build/CI foundation | NOT STARTED | | |
+| 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
+| 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
 | 03 | Reconcile Supabase schema and generated types | NOT STARTED | | |
 | 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
@@ -41,6 +41,15 @@ Engineering constitution:
 | 24 | Compliance/legal launch review | NOT STARTED | | |
 | 25 | Controlled production rollout | NOT STARTED | | |
 | 26 | Post-launch provider strategy | NOT STARTED | | |
+
+## Current development topology
+
+- `stockgpt-staging` is the persistent Vercel web staging project.
+- `StockGPT` is the single cloud Supabase project and is production-only.
+- No second paid Supabase project or Supabase branch is maintained.
+- Stage 03 owns production schema reconciliation, reproducible migrations, generated database types, local Supabase bring-up and synthetic development data.
+- Until Stage 03 is complete, staging must not receive broad production-database write credentials or the production service-role credential.
+- Production Supabase inspection is read-only unless a separately reviewed and explicitly approved migration operation is authorised.
 
 ## Global release gates
 
@@ -87,9 +96,9 @@ Every implementation stage must pass:
 | Stripe webhook lacks explicit processed-event idempotency and complete write checks | Stage 18 | Harden subscription event processing and observability. |
 | Notification infrastructure failure can become zero unread | Stage 18 / Stage 19 | Preserve failure visibility while keeping user messaging safe. |
 | Digest entitlement and 100-recipient cap differ from shared entitlement logic | Stage 19 | Reconcile customer-facing digest eligibility and batching. |
-| Missing `.env.example` referenced by README | Stage 01 / Stage 02 | Restore a factual fresh-environment setup contract without secrets. |
-| Next.js middleware naming/deprecation review | Stage 02 | Validate against the installed Next.js version during build restoration. |
-| Self-mutating GitHub patch workflows | Stage 02 | Restore reviewable CI boundaries before wider implementation. |
+| Missing `.env.example` referenced by README | Stage 01 / Stage 02 | Resolved: the tracked example now records the current secret-free environment contract. |
+| Next.js middleware naming/deprecation review | Stage 02 assessment; later cleanup | Assessed against Next.js 16.2.4: accepted but deprecated and non-blocking; migration remains a separately scoped cleanup. |
+| Self-mutating GitHub patch workflows | Stage 02 | Resolved: all 19 source-rewriting commit-and-push workflows were removed. Historical scripts remain inert. |
 | Direct action-oriented portfolio language remains in code and UI | Stage 04 / Stage 19 | Align domain output first, then remaining customer-facing surfaces. |
 | Duplicate Supabase browser-client patterns | Stage 18 | Reconcile client ownership and security assumptions. |
 | Notification events are recomputed rather than durably represented | Stage 04 / Stage 19 | Decide after canonical intelligence ownership is established. |
@@ -101,4 +110,6 @@ Every implementation stage must pass:
 
 - Engineering constitution established.
 - Live-derived source baseline mapped.
-- No runtime functionality changed yet.
+- Stage 01 completed with the persistent Vercel staging and local-Supabase development topology documented.
+- Stage 02 established Node 24, explicit TypeScript test execution, full web quality gates, read-only CI permissions and a secret-free environment contract.
+- Nineteen self-mutating GitHub patch workflows removed from the normal engineering path.

@@ -163,6 +163,16 @@ Database changes must be reproducible.
 
 Before destructive schema changes, document migration/rollback implications.
 
+Current Supabase topology:
+
+- `StockGPT` is the only cloud Supabase project and is the production project.
+- Do not create another cloud Supabase project or branch without explicit user approval after disclosing the expected cost.
+- After Stage 03 reconciles schema and migrations, normal development database work uses local Supabase with synthetic data.
+- Production Supabase may be inspected read-only when necessary for schema reconciliation.
+- Local development and Vercel staging must never receive the production `SUPABASE_SERVICE_ROLE_KEY`.
+- The `stockgpt-staging` Vercel project remains the persistent web staging environment, but must not receive broad production-database write credentials.
+- Production migrations are applied only through the controlled migration process after explicit review and approval.
+
 ## 9. Sensitive data and secrets
 
 Never commit, print, expose, or deliberately log:
@@ -199,6 +209,8 @@ Unless the user explicitly authorises a production operation:
 - do not merge directly into `main`.
 
 Use branches, previews, staging/test environments and provider sandboxes for implementation.
+
+No agent may create a paid cloud project or resource, enable a paid feature, or materially increase recurring infrastructure cost without explicit user approval after stating the expected cost.
 
 ## 11. Git discipline
 
