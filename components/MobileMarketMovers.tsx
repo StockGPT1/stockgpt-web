@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type TouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +15,10 @@ import { StockLogo } from "@/components/StockLogo";
 
 type MoverMode = "gainers" | "losers";
 type LoadState = "idle" | "loading" | "ready" | "error";
+
+const subscribeToHydration = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 type MarketMover = {
   ticker: string;
@@ -342,8 +347,13 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
   const [items, setItems] = useState<MarketMover[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
-  const [sessionLabel, setSessionLabel] = useState("Market session");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerSnapshot,
+  );
+  const sessionLabel = hydrated ? marketSessionLabel() : "Market session";
 
   const loadMovers = useCallback(async () => {
     if (!canUsePremium || loadState === "loading") return;
@@ -371,17 +381,15 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
   }, [canUsePremium, loadState]);
 
   useEffect(() => {
-    setSessionLabel(marketSessionLabel());
-  }, []);
-
-  useEffect(() => {
     if (!canUsePremium || loadState !== "idle") return;
     const section = sectionRef.current;
     if (!section) return;
 
     if (!("IntersectionObserver" in window)) {
-      void loadMovers();
-      return;
+      const frame = requestAnimationFrame(() => {
+        void loadMovers();
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const observer = new IntersectionObserver(
@@ -563,8 +571,8 @@ export function MobileMarketMoversPortal({
       "[data-mobile-market-movers-host]",
     );
     if (existing) {
-      setHost(existing);
-      return;
+      const frame = window.requestAnimationFrame(() => setHost(existing));
+      return () => window.cancelAnimationFrame(frame);
     }
 
     const newsLink = document.querySelector<HTMLAnchorElement>(
@@ -577,9 +585,10 @@ export function MobileMarketMoversPortal({
     mount.dataset.mobileMarketMoversHost = "true";
     mount.className = "mt-7 min-w-0 lg:hidden";
     newsSection.parentElement.insertBefore(mount, newsSection);
-    setHost(mount);
+    const frame = window.requestAnimationFrame(() => setHost(mount));
 
     return () => {
+      window.cancelAnimationFrame(frame);
       mount.remove();
     };
   }, []);

@@ -2,13 +2,16 @@
   "name": "stockgpt-web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "npm run test:portfolio && next build",
     "start": "next start",
     "lint": "eslint",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
-    "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && npm run lint:portfolio",
+    "test:portfolio": "tsx scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && npm run lint:portfolio",
     "types:gen": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > lib/database.types.ts",
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
@@ -33,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

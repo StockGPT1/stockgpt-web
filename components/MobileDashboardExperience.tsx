@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
@@ -72,6 +73,10 @@ const PANEL_CLIP_STYLE: CSSProperties = {
   clipPath: "inset(0 round 1.65rem)",
   WebkitMaskImage: "-webkit-radial-gradient(white, black)",
 };
+
+const subscribeToHydration = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 function money(value: number, currency = "USD") {
   const safe = Number.isFinite(value) ? value : 0;
@@ -182,20 +187,26 @@ export function MobileDashboardExperience({
   const carouselRef = useRef<HTMLDivElement>(null);
   const scrollFrame = useRef<number | null>(null);
   const [activePanel, setActivePanel] = useState(0);
-  const [greeting, setGreeting] = useState("Your StockGPT briefing");
-  const [market, setMarket] = useState("Market status");
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerSnapshot,
+  );
+  const greeting = hydrated
+    ? localGreeting(firstName)
+    : "Your StockGPT briefing";
+  const market = hydrated ? marketStatus() : "Market status";
 
   useEffect(() => {
-    setGreeting(localGreeting(firstName));
-    setMarket(marketStatus());
     return () => {
       if (scrollFrame.current != null) {
         window.cancelAnimationFrame(scrollFrame.current);
       }
     };
-  }, [firstName]);
+  }, []);
 
   const topRanked = rankings[0];
+  const topRankedTicker = topRanked?.ticker;
   const portfolioHref = portfolioId
     ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}`
     : "/portfolio";
@@ -206,15 +217,15 @@ export function MobileDashboardExperience({
 
   const briefingLine = useMemo(() => {
     if (!summary) {
-      return topRanked?.ticker
-        ? `${topRanked.ticker} leads the rankings · build a portfolio for personal intelligence`
+      return topRankedTicker
+        ? `${topRankedTicker} leads the rankings · build a portfolio for personal intelligence`
         : "Build or import a portfolio to unlock personal intelligence";
     }
     if (valuationState === "unavailable") {
       return "Portfolio prices need refreshing · last-known intelligence remains available";
     }
     if (valuationState === "partial") {
-      return `Portfolio value is estimated${topRanked?.ticker ? ` · ${topRanked.ticker} remains #1` : ""}`;
+      return `Portfolio value is estimated${topRankedTicker ? ` · ${topRankedTicker} remains #1` : ""}`;
     }
     const health = canUsePremium
       ? `${summary.label.toLowerCase()} portfolio`
@@ -222,18 +233,18 @@ export function MobileDashboardExperience({
     const review =
       canUsePremium && summary.actionAlerts > 0
         ? `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"} worth checking`
-        : topRanked?.ticker
-          ? `${topRanked.ticker} remains #1`
+        : topRankedTicker
+          ? `${topRankedTicker} remains #1`
           : "rankings ready";
     return `${health} · ${review}`;
-  }, [canUsePremium, summary, topRanked?.ticker, valuationState]);
+  }, [canUsePremium, summary, topRankedTicker, valuationState]);
 
   const changedItems = useMemo(() => {
     if (!summary) {
       return [
         "Build or import a portfolio to receive a personal daily briefing.",
-        topRanked?.ticker
-          ? `${topRanked.ticker} is currently the highest-ranked StockGPT stock.`
+        topRankedTicker
+          ? `${topRankedTicker} is currently the highest-ranked StockGPT stock.`
           : "The latest rankings are not available yet.",
       ];
     }
@@ -250,11 +261,11 @@ export function MobileDashboardExperience({
           : "No major portfolio review alerts are active right now."
         : "Portfolio health and review priorities are available with an active subscription.",
       `${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
-      topRanked?.ticker
-        ? `${topRanked.ticker} remains the highest-ranked stock in the current table.`
+      topRankedTicker
+        ? `${topRankedTicker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, summary, topRanked?.ticker, valuationState]);
+  }, [canUsePremium, summary, topRankedTicker, valuationState]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
