@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import {
   analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
@@ -43,7 +44,7 @@ function getAdminClient() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  return createSupabaseAdmin(supabaseUrl, serviceKey, {
+  return createSupabaseAdmin<Database>(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

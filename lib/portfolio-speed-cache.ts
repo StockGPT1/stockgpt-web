@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { getJsonCache, rememberJson, setJsonCache } from "@/lib/redis-cache";
 import { isRedisConfigured, redisCommand } from "@/lib/redis";
 import { createAdminClient } from "@/utils/supabase/admin";
+import type { Json } from "@/lib/database.types";
 
 const PORTFOLIO_SNAPSHOT_TTL_MS = Number(
   process.env.PORTFOLIO_SNAPSHOT_TTL_MS ?? 15 * 60 * 1000,
@@ -59,6 +60,24 @@ function stableJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
     .join(",")}}`;
+}
+
+function toDatabaseJson(value: unknown): Json {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (Array.isArray(value)) {
+    return value.map((item) => (item === undefined ? null : toDatabaseJson(item)));
+  }
+  if (typeof value === "object") {
+    const result: { [key: string]: Json | undefined } = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (item !== undefined) result[key] = toDatabaseJson(item);
+    }
+    return result;
+  }
+  throw new TypeError("Portfolio snapshot contains a non-JSON value.");
 }
 
 function isFresh(updatedAt: string | null, ttlMs: number) {
@@ -289,7 +308,7 @@ export async function savePortfolioPageSnapshot({
           portfolio_id: portfolioId,
           owner_id: ownerId,
           input_hash: inputHash,
-          snapshot,
+          snapshot: toDatabaseJson(snapshot),
           updated_at: updatedAt,
         },
         { onConflict: "portfolio_id" },

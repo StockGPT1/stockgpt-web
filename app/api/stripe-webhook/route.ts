@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import {
   sendCoreSubscriptionActivatedEmail,
   sendPaymentFailedEmail,
@@ -14,7 +15,7 @@ type ProfileRow = {
   subscription_status: string | null;
 };
 
-type SupabaseAdminClient = SupabaseClient;
+type SupabaseAdminClient = SupabaseClient<Database>;
 
 // Stripe subscription statuses that should not remove app access.
 // "past_due" is included on purpose: Stripe keeps retrying the payment
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceRole);
+  const supabaseAdmin = createClient<Database>(supabaseUrl, serviceRole);
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");

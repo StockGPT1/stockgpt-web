@@ -6,15 +6,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-type RankingRow = {
-  ticker: string | null;
-  rank: number | null;
-  score: number | string | null;
-  price: number | string | null;
-  company: string | null;
-  sector: string | null;
-};
-
 function toNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -42,8 +33,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const rows = ((rankingsData ?? []) as RankingRow[])
-      .filter((row) => row.ticker)
+    const rows = (rankingsData ?? [])
+      .filter(
+        (row): row is typeof row & { ticker: string } =>
+          typeof row.ticker === "string" && row.ticker.length > 0,
+      )
       .map((row) => ({
         snapshot_at: snapshotAt,
         ticker: row.ticker,

@@ -333,7 +333,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
   const [tradeLevels, watchlistEntry, sectorPeers, daysAtTop, ownedRowsResult] = await Promise.all([
     canSeeRankAndScore ? calculateTradeLevels({ ticker, price: livePrice, score: Number(stock.score) || 0, rank: Number(stock.rank) || null, sector: stock.sector ?? null }) : Promise.resolve(null),
-    isAuthenticated && stock.ticker ? supabase.from("user_watchlist").select("id").eq("user_id", user!.id).eq("ticker", stock.ticker).maybeSingle().then((r) => r.data) : Promise.resolve(null),
+    isAuthenticated && stock.ticker ? supabase.from("watchlist").select("id").eq("user_id", user!.id).eq("ticker", stock.ticker).maybeSingle().then((r) => r.data) : Promise.resolve(null),
     canSeeRankAndScore && stock.sector ? supabase.from("stock_rankings").select("ticker, company, rank, score, price").eq("sector", stock.sector).neq("ticker", ticker).order("rank", { ascending: true }).limit(5) : Promise.resolve({ data: [] as Peer[] }),
     canSeeRankAndScore ? getDaysAtTop(supabase, ticker, stock.rank) : Promise.resolve(null),
     portfolioOptions.length > 0

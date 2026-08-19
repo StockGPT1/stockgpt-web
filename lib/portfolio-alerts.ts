@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { getStockChart } from "@/lib/yahoo";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 export type AlertSeverity = "critical" | "warning" | "info" | "success";
 export type AlertCategory = "event" | "action";
@@ -373,7 +374,7 @@ function positiveFactorEvidence(diagnostics?: DiagnosticRecord | null) {
 }
 
 type SupabaseQueryClient = {
-  from: SupabaseClient["from"];
+  from: SupabaseClient<Database>["from"];
 };
 
 async function getSectorData(supabase: SupabaseQueryClient) {

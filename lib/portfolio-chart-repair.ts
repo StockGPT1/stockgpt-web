@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import {
   buildCurrentPortfolioSnapshotPoint,
   getFirstLiveSnapshotMs,
@@ -10,7 +11,7 @@ import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 type SupabaseLike = {
-  from: SupabaseClient["from"];
+  from: SupabaseClient<Database>["from"];
 };
 
 type PortfolioRow = {

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import type { Json } from "@/lib/database.types";
 
 type RateLimitOptions = {
   action: string;
@@ -170,7 +171,7 @@ export async function auditSecurityEvent({
   req: NextRequest | Request;
   eventType: string;
   userId?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: Json;
 }) {
   try {
     const admin = createAdminClient();

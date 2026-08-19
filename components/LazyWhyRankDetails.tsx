@@ -17,9 +17,9 @@ type DiagnosticsPayload = {
     factor_contributions?: unknown;
     top_positive_factors?: unknown;
     top_negative_factors?: unknown;
+    factor_coverage?: number | null;
     updated_at?: string | null;
   } | null;
-  ranking?: { factor_coverage?: number | null; data_confidence?: string | null } | null;
 };
 
 type LazyWhyRankDetailsProps = {
@@ -204,16 +204,12 @@ function FactorColumn({
 /* Provenance footer: how much data sits behind this rank and how fresh
    it is — the trust signals users asked "why" for in the first place. */
 function WhyMetaFooter({ data }: { data: DiagnosticsPayload | null }) {
-  const coverage = data?.ranking?.factor_coverage;
-  const confidence = data?.ranking?.data_confidence;
+  const coverage = data?.diagnostics?.factor_coverage;
   const updatedAt = data?.diagnostics?.updated_at;
 
   const parts: string[] = [];
   if (typeof coverage === "number" && coverage > 0) {
     parts.push(coverage <= 1 ? `${Math.round(coverage * 100)}% factor coverage` : `${Math.round(coverage)} factors tracked`);
-  }
-  if (typeof confidence === "string" && confidence.trim()) {
-    parts.push(`${confidence.trim().replace(/^\w/, (c) => c.toUpperCase())} data confidence`);
   }
   if (typeof updatedAt === "string" && updatedAt) {
     const date = new Date(updatedAt);

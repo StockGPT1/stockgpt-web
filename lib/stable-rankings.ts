@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 export type StableRankingRow = {
   id: string | number;
@@ -58,7 +59,7 @@ export type StableRankingsPageOptions = {
 };
 
 export async function getStableRankingsPage(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   options: StableRankingsPageOptions,
 ): Promise<{ rows: StableRankingRow[]; total: number }> {
   const limit = Math.min(Math.max(Math.trunc(options.limit), 1), 100);
@@ -97,7 +98,7 @@ export async function getStableRankingsPage(
   };
 }
 
-export async function getRankingSectors(supabase: SupabaseClient): Promise<string[]> {
+export async function getRankingSectors(supabase: SupabaseClient<Database>): Promise<string[]> {
   if (
     rankingSectorsCache &&
     Date.now() - rankingSectorsCache.fetchedAt < RANKING_SECTORS_CACHE_TTL_MS
@@ -132,7 +133,7 @@ export async function getRankingSectors(supabase: SupabaseClient): Promise<strin
   return sectors;
 }
 
-export async function getStableRankings(supabase: SupabaseClient): Promise<StableRankingRow[]> {
+export async function getStableRankings(supabase: SupabaseClient<Database>): Promise<StableRankingRow[]> {
   const { data, error } = await supabase
     .from("stock_rankings")
     .select(RANKING_SELECT)

@@ -81,6 +81,36 @@ async function verifyActiveUser(client) {
   assert(data === true, "Active user did not pass is_active_subscriber");
 }
 
+async function verifyApplicationQuerySeams(client) {
+  const { data: watchlistEntry, error: watchlistError } = await client
+    .from("watchlist")
+    .select("id,ticker")
+    .eq("user_id", users.active.id)
+    .eq("ticker", "NVDA")
+    .maybeSingle();
+  if (watchlistError) throw new Error(`Stock-page watchlist query failed: ${watchlistError.message}`);
+  assert(watchlistEntry?.ticker === "NVDA", "Stock-page watchlist lookup did not find the seeded row");
+
+  const { data: ranking, error: rankingError } = await client
+    .from("stock_rankings")
+    .select("ticker,rank,score,price,momentum,pe,risk,updated_at")
+    .eq("ticker", "AAPL")
+    .maybeSingle();
+  if (rankingError) throw new Error(`Financial-metrics ranking query failed: ${rankingError.message}`);
+  assert(ranking?.ticker === "AAPL", "Financial-metrics ranking query did not find AAPL");
+
+  const { data: diagnostics, error: diagnosticsError } = await client
+    .from("stock_factor_diagnostics")
+    .select("ticker,factor_coverage,updated_at")
+    .eq("ticker", "AAPL")
+    .maybeSingle();
+  if (diagnosticsError) throw new Error(`Financial-metrics diagnostics query failed: ${diagnosticsError.message}`);
+  assert(
+    diagnostics?.ticker === "AAPL" && diagnostics.factor_coverage === 1,
+    "Financial-metrics diagnostics query did not provide seeded factor coverage",
+  );
+}
+
 async function verifyFreeUser(client) {
   await exactCount(client.from("profiles").select("id", { count: "exact", head: true }), 1, "Free user profile RLS");
   await exactCount(client.from("user_portfolios").select("id", { count: "exact", head: true }), 0, "Free-user empty state");
@@ -110,6 +140,7 @@ const freeClient = await authenticatedClient(status.API_URL, status.ANON_KEY, us
 const isolationClient = await authenticatedClient(status.API_URL, status.ANON_KEY, users.isolation);
 
 await verifyActiveUser(activeClient);
+await verifyApplicationQuerySeams(activeClient);
 await verifyFreeUser(freeClient);
 await verifyIsolationUser(isolationClient);
 

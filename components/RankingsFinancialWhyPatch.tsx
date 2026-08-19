@@ -30,8 +30,6 @@ type RankingRow = {
   momentum?: number | null;
   pe?: number | null;
   risk?: number | null;
-  factor_coverage?: number | null;
-  data_confidence?: string | null;
 };
 
 const staleWhyRankPatterns = [

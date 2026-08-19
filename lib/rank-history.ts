@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 export type SnapshotRank = {
   ticker: string;
@@ -73,7 +74,7 @@ export function moveClassName(tone: RankMove24h["tone"]) {
 }
 
 export async function getRankSnapshotMapAround24hAgo(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   tickers?: string[],
 ): Promise<Map<string, number>> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -117,7 +118,7 @@ export async function getRankSnapshotMapAround24hAgo(
 }
 
 export async function getDaysAtTop(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   ticker: string,
   currentRank: number | null,
 ): Promise<number | null> {

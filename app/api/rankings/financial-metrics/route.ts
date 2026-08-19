@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getFinancialMetricMap } from "@/lib/yahoo-financials";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
+import type { Database } from "@/lib/database.types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ async function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   if (url && serviceKey) {
-    return createSupabaseClient(url, serviceKey, {
+    return createSupabaseClient<Database>(url, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
-    }) as SupabaseClient;
+    });
   }
   return createServerSupabaseClient();
 }
@@ -53,7 +54,7 @@ async function getRankingRow(ticker: string) {
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_rankings")
-      .select("ticker,rank,score,price,momentum,pe,risk,factor_coverage,data_confidence,updated_at")
+      .select("ticker,rank,score,price,momentum,pe,risk,updated_at")
       .in("ticker", variants)
       .limit(1);
 

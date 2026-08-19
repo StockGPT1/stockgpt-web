@@ -5,6 +5,7 @@ import {
   type PortfolioChartSnapshotHealthRow,
 } from "@/lib/portfolio-chart-health";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 const OUTPUT_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 const FIVE_MINUTES_MS = 5 * 60_000;
@@ -45,7 +46,7 @@ type SnapshotChartPoint = ChartPoint & { cash?: number };
 export type PortfolioSnapshotChartData = Partial<Record<TimeRange, SnapshotChartPoint[]>>;
 
 type SupabaseLike = {
-  from: SupabaseClient["from"];
+  from: SupabaseClient<Database>["from"];
 };
 
 export type PortfolioSnapshotSourceRow = {

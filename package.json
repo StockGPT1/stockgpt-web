@@ -17,7 +17,9 @@
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset --local",
     "types:gen": "npm run types:gen:local",
-    "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
+    "types:gen:local": "supabase gen types typescript --local > lib/database.types.ts",
+    "db:types:check": "node scripts/check-local-database-types.mjs",
+    "test:database-contract": "node scripts/database-contract-checks.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

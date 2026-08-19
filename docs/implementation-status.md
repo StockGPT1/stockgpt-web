@@ -17,7 +17,7 @@ Engineering constitution:
 |---|---|---|---|---|
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
-| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/broker-sync-foundation` | Audit, local tooling and the canonical 26-version baseline are complete. Deterministic synthetic fixtures now survive two clean seeded resets with local Auth, entitlement and cross-user RLS proofs. Generated types and application/schema inconsistency corrections remain outstanding. |
+| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/broker-sync-foundation` | Audit, local tooling, canonical baseline, synthetic fixtures and real generated database types are complete. Typed clients and confirmed schema-reference repairs pass reset/RLS/type/test/lint/build checks. The controlled future production-migration workflow remains outstanding. |
 | 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
@@ -61,7 +61,10 @@ Engineering constitution:
 - The local extension versions and placements matched the supplied production metadata with no required platform exception. The existing `pg_trgm`-in-`public` advisor warning remains later security-cleanup work, not permission to mutate production during reconciliation.
 - `public.watchlist` is canonical and `public.user_watchlist` is absent. The application reference to `user_watchlist` remains pending, as do the `stock_rankings.factor_coverage` and `stock_rankings.data_confidence` application references; those nonexistent objects were not invented in the baseline.
 - Step 03B-3B adds three deterministic `.invalid` local Auth users, minimal market/reference data, an active-user portfolio, a free-user no-portfolio empty state and a separate isolation-user fixture. Two clean seeded resets reproduced the fixed identifiers and counts; genuine local password sessions proved subscriber gating and bidirectional portfolio/watchlist ownership isolation.
-- Generated database types, application/schema inconsistency corrections and final Stage 03 end-to-end proof remain pending.
+- Step 03B-3C replaces the placeholder with unmodified types generated from local Supabase, applies `Database` at browser/server/middleware/admin/legacy client boundaries, and adds a local-only drift check plus compile-time schema assertions.
+- The stock page now uses canonical `watchlist`. Ranking factor coverage comes from `stock_factor_diagnostics`; unsupported `stock_rankings.factor_coverage` and `stock_rankings.data_confidence` assumptions were removed without inventing a confidence formula.
+- Typed integration also exposed and resolved three local contract issues: nullable ranking tickers are filtered before snapshot insertion, portfolio page snapshots are normalised to database JSON, and security audit metadata uses the generated JSON type. Local reset/RLS, TypeScript, portfolio tests, tracked-source lint and production build pass.
+- The controlled future production-migration workflow remains the explicit next/final Stage 03 subtask.
 
 ## Global release gates
 
@@ -90,9 +93,9 @@ Every implementation stage must pass:
 
 | Baseline issue | Intended stage | Ownership note |
 |---|---|---|
-| Schema and migration history cannot reproduce the referenced database | Stage 03 | Structurally resolved for local reset by the verified 26-version canonical baseline; seed, generated types, application-reference alignment and the controlled future production migration workflow remain in Stage 03. |
-| Placeholder Supabase generated types | Stage 03 | Regenerate only after schema intent is reconciled. |
-| `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolve table/schema and application-reference consistency. |
+| Schema and migration history cannot reproduce the referenced database | Stage 03 | Local reproduction, synthetic seed, generated types and application-reference alignment are resolved; the controlled future production migration workflow remains in Stage 03. |
+| Placeholder Supabase generated types | Stage 03 | Resolved from the canonical local schema with a repeatable local drift check. |
+| `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolved in runtime code: all application queries use canonical `watchlist`; compile/source contracts guard against regression. |
 | Conflicting portfolio recommendation/status engines | Stage 04 | Establish the canonical portfolio-intelligence boundary and vocabulary. |
 | Non-atomic portfolio writes and swallowed transaction-record failures | Stage 05 | Make persistence outcomes coherent and observable. |
 | Unsafe CSV replacement behaviour | Stage 05 | Preserve the prior portfolio unless replacement succeeds as a complete operation. |
@@ -128,3 +131,4 @@ Every implementation stage must pass:
 - Stage 03A completed the production-schema/repository reconciliation audit; Step 03B-1 established the project-local Supabase CLI and local-only configuration boundary.
 - Step 03B-3A archived incomplete historical SQL, aligned all 26 production migration timestamps and proved the canonical 26-table structure through two clean local resets and catalog parity assertions.
 - Step 03B-3B added deterministic synthetic local fixtures and proved two seeded resets, local Auth sign-in, entitlement gating and owner-scoped RLS isolation.
+- Step 03B-3C committed local-generated database types, typed all Supabase client boundaries, repaired confirmed watchlist/ranking schema references and passed the full local reset/type/test/lint/build integration gate.
