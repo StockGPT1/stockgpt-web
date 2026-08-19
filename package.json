@@ -12,7 +12,11 @@
     "lint": "eslint",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
     "test:portfolio": "tsx scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && npm run lint:portfolio",
-    "types:gen": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > lib/database.types.ts",
+    "supabase:version": "supabase --version",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset --local",
+    "types:gen": "npm run types:gen:local",
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
@@ -35,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "supabase": "2.115.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"

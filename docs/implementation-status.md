@@ -17,7 +17,7 @@ Engineering constitution:
 |---|---|---|---|---|
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
-| 03 | Reconcile Supabase schema and generated types | NOT STARTED | | |
+| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/03b1-local-supabase-tooling` | Stage 03A audit complete; project-local CLI and local-only Postgres 17 configuration established. Canonical migration reconstruction, synthetic seed, reset proof, generated types and watchlist correction remain outstanding. |
 | 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
@@ -50,6 +50,14 @@ Engineering constitution:
 - Stage 03 owns production schema reconciliation, reproducible migrations, generated database types, local Supabase bring-up and synthetic development data.
 - Until Stage 03 is complete, staging must not receive broad production-database write credentials or the production service-role credential.
 - Production Supabase inspection is read-only unless a separately reviewed and explicitly approved migration operation is authorised.
+
+### Stage 03 working state
+
+- Stage 03A established that repository migrations cannot reproduce the verified production schema or migration history.
+- Step 03B-1 pins the project-local Supabase CLI and commits local-only PostgreSQL 17 configuration without linking to production.
+- Production extension metadata records `pg_trgm` 1.6 in `public`, `pgcrypto` 1.3 and `uuid-ossp` 1.1 in `extensions`, `pg_stat_statements` 1.11 in `extensions`, `supabase_vault` 0.3.1 in `vault`, and `plpgsql` 1.0 in `pg_catalog`.
+- The future canonical baseline must preserve the confirmed production extension state first. The existing `pg_trgm`-in-`public` advisor warning is security-cleanup work, not permission to mutate production during reconciliation.
+- Canonical migrations, synthetic seed data, local reset verification, generated database types and the `user_watchlist` correction remain pending.
 
 ## Global release gates
 
@@ -113,3 +121,4 @@ Every implementation stage must pass:
 - Stage 01 completed with the persistent Vercel staging and local-Supabase development topology documented.
 - Stage 02 established Node 24, explicit TypeScript test execution, full web quality gates, read-only CI permissions and a secret-free environment contract.
 - Nineteen self-mutating GitHub patch workflows removed from the normal engineering path.
+- Stage 03A completed the production-schema/repository reconciliation audit; Step 03B-1 established the project-local Supabase CLI and local-only configuration boundary.

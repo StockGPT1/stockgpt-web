@@ -64,6 +64,29 @@ npm run build
 Compilation and production builds must not require production credentials.
 Runtime integrations still require their corresponding safe local/test values.
 
+### Local Supabase — Stage 03 in progress
+
+The Supabase CLI is pinned as a project development dependency and installed by
+`npm ci`. Verify the local binary with:
+
+```bash
+npm run supabase:version
+```
+
+A running Docker Desktop installation or another Docker-compatible container
+runtime is required before `npm run supabase:start` can run. The committed local
+configuration targets PostgreSQL 17 and contains no cloud project reference or
+credential.
+
+The canonical StockGPT schema and synthetic seed are not ready in Step 03B-1.
+Do not run the local start/reset scripts yet: the known-incomplete migration
+directory cannot rebuild the application schema. Stage 03B-2 will establish the
+schema baseline before local runtime verification.
+
+Routine development must remain local. Never run `supabase link` or use
+`--linked`; obtain the local URL and generated local keys from `supabase start`
+only after the schema baseline is ready.
+
 ## Environment variables
 
 See `.env.example` for the factual current variable inventory, public/server

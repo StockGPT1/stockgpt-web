@@ -172,6 +172,8 @@ Current Supabase topology:
 - Local development and Vercel staging must never receive the production `SUPABASE_SERVICE_ROLE_KEY`.
 - The `stockgpt-staging` Vercel project remains the persistent web staging environment, but must not receive broad production-database write credentials.
 - Production migrations are applied only through the controlled migration process after explicit review and approval.
+- Routine local Supabase work must use the project-local CLI and explicitly local commands where the CLI supports a local/linked choice.
+- Do not run `supabase link`, `db pull`, `db push`, `migration repair` or `db reset --linked` during ordinary development. Any remote operation requires a separately scoped, reviewed and explicitly approved task.
 
 ## 9. Sensitive data and secrets
 
