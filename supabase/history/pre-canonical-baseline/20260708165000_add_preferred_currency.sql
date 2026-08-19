@@ -18,4 +18,3 @@ begin
       check (preferred_currency in ('USD', 'GBP', 'EUR', 'CHF'));
   end if;
 end $$;
-

@@ -1,0 +1,4 @@
+-- History-alignment marker.
+-- The original production SQL is unavailable in this repository.
+-- The final current structure is reconstructed by the final squashed baseline.
+-- This file is intentionally a no-op on local reset.

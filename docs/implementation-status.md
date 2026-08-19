@@ -17,7 +17,7 @@ Engineering constitution:
 |---|---|---|---|---|
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
-| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/03b1-local-supabase-tooling` | Stage 03A audit complete; project-local CLI and local-only Postgres 17 configuration established. Canonical migration reconstruction, synthetic seed, reset proof, generated types and watchlist correction remain outstanding. |
+| 03 | Reconcile Supabase schema and generated types | IN PROGRESS | `codex/03b1-local-supabase-tooling` | Audit and local tooling complete; the authoritative 26-version canonical baseline now rebuilds the exact verified 26-table structure and passed two clean local resets. Synthetic seed, generated types and application/schema inconsistency corrections remain outstanding. |
 | 04 | Canonical portfolio intelligence engine | NOT STARTED | | |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
@@ -56,8 +56,11 @@ Engineering constitution:
 - Stage 03A established that repository migrations cannot reproduce the verified production schema or migration history.
 - Step 03B-1 pins the project-local Supabase CLI and commits local-only PostgreSQL 17 configuration without linking to production.
 - Production extension metadata records `pg_trgm` 1.6 in `public`, `pgcrypto` 1.3 and `uuid-ossp` 1.1 in `extensions`, `pg_stat_statements` 1.11 in `extensions`, `supabase_vault` 0.3.1 in `vault`, and `plpgsql` 1.0 in `pg_catalog`.
-- The future canonical baseline must preserve the confirmed production extension state first. The existing `pg_trgm`-in-`public` advisor warning is security-cleanup work, not permission to mutate production during reconciliation.
-- Canonical migrations, synthetic seed data, local reset verification, generated database types and the `user_watchlist` correction remain pending.
+- Step 03B-3A aligns the active local history with all 26 verified production timestamps. The first 25 files are explicit no-op history markers because their original SQL is unavailable; the final `20260709230153` migration is a clearly labelled squashed current-state baseline. Archived pre-canonical SQL is historical evidence and is not replayed.
+- Two clean local resets on PostgreSQL 17.6 reproduced the exact 26-table set, table ownership/RLS state, columns, defaults, identity/sequence semantics, constraints, indexes, policies, functions, triggers, grants, comment, empty Storage bucket set and empty application Realtime publication membership.
+- The local extension versions and placements matched the supplied production metadata with no required platform exception. The existing `pg_trgm`-in-`public` advisor warning remains later security-cleanup work, not permission to mutate production during reconciliation.
+- `public.watchlist` is canonical and `public.user_watchlist` is absent. The application reference to `user_watchlist` remains pending, as do the `stock_rankings.factor_coverage` and `stock_rankings.data_confidence` application references; those nonexistent objects were not invented in the baseline.
+- Synthetic seed data, generated database types, application/schema inconsistency corrections and final Stage 03 end-to-end proof remain pending.
 
 ## Global release gates
 
@@ -86,7 +89,7 @@ Every implementation stage must pass:
 
 | Baseline issue | Intended stage | Ownership note |
 |---|---|---|
-| Schema and migration history cannot reproduce the referenced database | Stage 03 | Reconcile checked-in migrations with the intended schema. |
+| Schema and migration history cannot reproduce the referenced database | Stage 03 | Structurally resolved for local reset by the verified 26-version canonical baseline; seed, generated types, application-reference alignment and the controlled future production migration workflow remain in Stage 03. |
 | Placeholder Supabase generated types | Stage 03 | Regenerate only after schema intent is reconciled. |
 | `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolve table/schema and application-reference consistency. |
 | Conflicting portfolio recommendation/status engines | Stage 04 | Establish the canonical portfolio-intelligence boundary and vocabulary. |
@@ -122,3 +125,4 @@ Every implementation stage must pass:
 - Stage 02 established Node 24, explicit TypeScript test execution, full web quality gates, read-only CI permissions and a secret-free environment contract.
 - Nineteen self-mutating GitHub patch workflows removed from the normal engineering path.
 - Stage 03A completed the production-schema/repository reconciliation audit; Step 03B-1 established the project-local Supabase CLI and local-only configuration boundary.
+- Step 03B-3A archived incomplete historical SQL, aligned all 26 production migration timestamps and proved the canonical 26-table structure through two clean local resets and catalog parity assertions.
