@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { enrichHoldings, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { normaliseAskContext, type AskContext } from "@/lib/ask-context";
+import {
+  type CurrentDiagnosticFact,
+  type CurrentHoldingFact,
+  type CurrentPortfolioIntelligenceFacts,
+  type CurrentRankingFact,
+} from "@/lib/current-portfolio-intelligence";
+import {
+  ASK_STOCKGPT_SYSTEM_PROMPT,
+  buildAskStockGPTPortfolioContext,
+} from "@/lib/ask-stockgpt-portfolio-context";
 import { checkRateLimit, rateKey } from "@/lib/security/rate-limit";
 import { hasActiveSubscription } from "@/lib/subscription";
 
@@ -55,6 +64,8 @@ type RankingRow = {
   score: number | string | null;
   price: number | string | null;
   updated_at: string | null;
+  last_price_update: string | null;
+  last_ranking_update: string | null;
 };
 
 type NewsRow = {
@@ -71,71 +82,27 @@ type PortfolioRow = {
   id: string;
   name: string | null;
   risk_tolerance: string | null;
+  objective: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
-  cash_balance: number | null;
-  cash_deposited_total: number | null;
-  currency: string | null;
+  cash_balance: number;
+  cash_deposited_total: number;
+  currency: string;
   created_at: string | null;
 };
 
 type PortfolioHoldingRow = {
+  id: string;
   portfolio_id: string;
   ticker: string | null;
   entry_price: number | null;
   score_at_entry: number | null;
   rank_at_entry: number | null;
-  added_at: string | null;
-  last_reviewed_at: string | null;
   shares: number | null;
   allocation_pct: number | null;
-  purchase_date: string | null;
   source: string | null;
-  notes: string | null;
-};
-
-type HoldingTriggerContext = {
-  type?: unknown;
-  condition?: unknown;
-  action?: unknown;
-  tone?: unknown;
-};
-
-type HoldingAlertContext = {
-  type?: unknown;
-  action?: unknown;
-  severity?: unknown;
-  title?: unknown;
-  recommendation?: unknown;
-  evidence?: unknown;
-};
-
-type EnrichedHoldingContext = {
-  ticker?: unknown;
-  company?: unknown;
-  sector?: unknown;
-  rank?: unknown;
-  score?: unknown;
-  recommendation?: unknown;
-  currentPrice?: unknown;
-  entryPrice?: unknown;
-  shares?: unknown;
-  currentValue?: unknown;
-  costBasis?: unknown;
-  pnlPercent?: unknown;
-  totalPnLDollars?: unknown;
-  currentAllocationPct?: unknown;
-  targetAllocationPct?: unknown;
-  scoreAtEntry?: unknown;
-  rankAtEntry?: unknown;
-  scoreChange?: unknown;
-  rankChange?: unknown;
-  daysHeld?: unknown;
-  sectorMomentum?: unknown;
-  aiSummary?: unknown;
-  triggers?: HoldingTriggerContext[];
-  actionAlerts?: HoldingAlertContext[];
-  eventAlerts?: HoldingAlertContext[];
+  risk_level_at_entry: number | null;
+  target_level_at_entry: number | null;
 };
 
 const CHAT_LOG_DAYS = 7;
@@ -189,11 +156,6 @@ function safeNumber(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
-function finiteNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function cleanTicker(value: unknown) {
   return String(value ?? "").trim().toUpperCase();
 }
@@ -229,6 +191,8 @@ function compactRanking(row: RankingRow) {
     score,
     price: safeNumber(row.price),
     updated_at: row.updated_at,
+    last_ranking_update: row.last_ranking_update,
+    last_price_update: row.last_price_update,
     rank_move: rank !== null && previousRank !== null ? previousRank - rank : null,
   };
 }
@@ -288,7 +252,7 @@ async function requireSubscribedUser(supabase: ServerSupabaseClient): Promise<Ac
       response: NextResponse.json(
         {
           answer:
-            "Ask StockGPT is available to active subscribers. Please log in to use the portfolio coach. For membership or billing help, contact sales@stockgpt.pro.",
+            "Ask StockGPT is available to active subscribers. Please log in to use the portfolio research assistant. For membership or billing help, contact sales@stockgpt.pro.",
         },
         { status: 401 },
       ),
@@ -307,7 +271,7 @@ async function requireSubscribedUser(supabase: ServerSupabaseClient): Promise<Ac
       response: NextResponse.json(
         {
           answer:
-            "Ask StockGPT is available to active subscribers only. Upgrade your plan to unlock portfolio coaching, rankings context, news interpretation and AI answers. For membership or billing help, contact sales@stockgpt.pro.",
+            "Ask StockGPT is available to active subscribers only. Upgrade your plan to unlock portfolio research context, rankings, news interpretation and AI answers. For membership or billing help, contact sales@stockgpt.pro.",
         },
         { status: 403 },
       ),
@@ -373,98 +337,14 @@ async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, 
   }
 }
 
-function compactHolding(holding: EnrichedHoldingContext) {
-  const stopTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger) => trigger.type === "stop_loss")
-    : null;
-  const takeProfitTrigger = Array.isArray(holding.triggers)
-    ? holding.triggers.find((trigger) => trigger.type === "take_profit")
-    : null;
-
-  return {
-    ticker: holding.ticker,
-    company: holding.company,
-    sector: holding.sector,
-    rank: holding.rank,
-    score: holding.score,
-    recommendation: holding.recommendation,
-    current_price: holding.currentPrice,
-    entry_price: holding.entryPrice,
-    shares: holding.shares,
-    current_value: holding.currentValue,
-    cost_basis: holding.costBasis,
-    pnl_percent: holding.pnlPercent,
-    pnl_dollars: holding.totalPnLDollars,
-    current_allocation_pct: holding.currentAllocationPct,
-    target_allocation_pct: holding.targetAllocationPct,
-    score_at_entry: holding.scoreAtEntry,
-    rank_at_entry: holding.rankAtEntry,
-    score_change: holding.scoreChange,
-    rank_change: holding.rankChange,
-    days_held: holding.daysHeld,
-    sector_momentum: holding.sectorMomentum,
-    ai_summary: holding.aiSummary,
-    action_alerts: (holding.actionAlerts ?? []).slice(0, 5).map((alert) => ({
-      action: alert.action,
-      severity: alert.severity,
-      title: alert.title,
-      recommendation: alert.recommendation,
-      evidence: alert.evidence,
-    })),
-    event_alerts: (holding.eventAlerts ?? []).slice(0, 5).map((alert) => ({
-      type: alert.type,
-      severity: alert.severity,
-      title: alert.title,
-      recommendation: alert.recommendation,
-    })),
-    action_plan: {
-      stop_or_exit: stopTrigger
-        ? { condition: stopTrigger.condition, action: stopTrigger.action, tone: stopTrigger.tone }
-        : null,
-      take_profit: takeProfitTrigger
-        ? { condition: takeProfitTrigger.condition, action: takeProfitTrigger.action, tone: takeProfitTrigger.tone }
-        : null,
-    },
-  };
-}
-
-function buildPortfolioSummary(holdings: EnrichedHoldingContext[], portfolio: PortfolioRow) {
-  const holdingsValue = holdings.reduce((sum, holding) => sum + finiteNumber(holding.currentValue, 0), 0);
-  const totalCost = holdings.reduce((sum, holding) => sum + finiteNumber(holding.costBasis, 0), 0);
-  const unrealisedPnL = holdings.reduce((sum, holding) => sum + finiteNumber(holding.totalPnLDollars, 0), 0);
-  const cashBalance = finiteNumber(portfolio.cash_balance, 0);
-  const totalValue = holdingsValue + cashBalance;
-  const cashDepositedTotal = finiteNumber(portfolio.cash_deposited_total, finiteNumber(portfolio.investment_amount, totalCost + cashBalance));
-  const pnlPct = cashDepositedTotal > 0 ? (unrealisedPnL / cashDepositedTotal) * 100 : null;
-  const avgScore = holdings.length > 0 ? holdings.reduce((sum, holding) => sum + finiteNumber(holding.score, 0), 0) / holdings.length : null;
-
-  return {
-    total_value: Number(totalValue.toFixed(2)),
-    holdings_value: Number(holdingsValue.toFixed(2)),
-    cash_balance: Number(cashBalance.toFixed(2)),
-    total_cost_basis: Number(totalCost.toFixed(2)),
-    cash_deposited_total: Number(cashDepositedTotal.toFixed(2)),
-    unrealised_pnl_dollars: Number(unrealisedPnL.toFixed(2)),
-    unrealised_pnl_percent: pnlPct === null ? null : Number(pnlPct.toFixed(2)),
-    holdings_count: holdings.length,
-    average_score: avgScore === null ? null : Number(avgScore.toFixed(0)),
-    strongest_ranked_holdings: [...holdings]
-      .sort((a, b) => finiteNumber(a.rank, 9999) - finiteNumber(b.rank, 9999))
-      .slice(0, 5)
-      .map((holding) => ({ ticker: holding.ticker, rank: holding.rank, score: holding.score, recommendation: holding.recommendation })),
-    weakest_ranked_holdings: [...holdings]
-      .sort((a, b) => finiteNumber(b.rank, -1) - finiteNumber(a.rank, -1))
-      .slice(0, 5)
-      .map((holding) => ({ ticker: holding.ticker, rank: holding.rank, score: holding.score, recommendation: holding.recommendation })),
-  };
-}
-
 async function buildAppContext(
   supabase: ServerSupabaseClient,
   userId: string,
   question: string,
-  requestedContext?: AskContext | null,
+  requestedContext: AskContext | null | undefined,
+  asOf: string,
 ) {
+  if (!asOf) throw new Error("Ask context requires an explicit asOf timestamp.");
   const possibleTickers = Array.from(
     new Set([
       ...extractPossibleTickers(question),
@@ -473,10 +353,10 @@ async function buildAppContext(
     ]),
   );
 
-  const [{ data: topRankingsData }, { data: newsData }, { data: portfoliosData }] = await Promise.all([
+  const [topRankingsResult, newsResult, portfoliosResult] = await Promise.all([
     supabase
       .from("stock_rankings")
-      .select("rank,previous_rank,ticker,company,sector,score,price,updated_at")
+      .select("rank,previous_rank,ticker,company,sector,score,price,updated_at,last_price_update,last_ranking_update")
       .order("rank", { ascending: true })
       .limit(60),
     supabase
@@ -486,18 +366,25 @@ async function buildAppContext(
       .limit(30),
     supabase
       .from("user_portfolios")
-      .select("id,name,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
+      .select("id,name,risk_tolerance,objective,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
   ]);
+  if (topRankingsResult.error || newsResult.error || portfoliosResult.error) {
+    throw new Error("Ask research context could not be loaded.");
+  }
+  const topRankingsData = topRankingsResult.data;
+  const newsData = newsResult.data;
+  const portfoliosData = portfoliosResult.data;
 
   let mentionedRankingsData: RankingRow[] = [];
   if (possibleTickers.length > 0) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("stock_rankings")
-      .select("rank,previous_rank,ticker,company,sector,score,price,updated_at")
+      .select("rank,previous_rank,ticker,company,sector,score,price,updated_at,last_price_update,last_ranking_update")
       .in("ticker", possibleTickers);
+    if (error) throw new Error("Mentioned ranking facts could not be loaded.");
     mentionedRankingsData = (data ?? []) as RankingRow[];
   }
 
@@ -506,13 +393,7 @@ async function buildAppContext(
     .filter((row) => row.ticker)
     .forEach((row) => rankingMap.set(cleanTicker(row.ticker), row));
 
-  const portfolios = ((portfoliosData ?? []) as PortfolioRow[]).map((portfolio) => ({
-    ...portfolio,
-    currency: portfolio.currency ?? "USD",
-    cash_balance: finiteNumber(portfolio.cash_balance, 0),
-    cash_deposited_total: finiteNumber(portfolio.cash_deposited_total, finiteNumber(portfolio.investment_amount, 0)),
-    investment_amount: finiteNumber(portfolio.investment_amount, 0),
-  }));
+  const portfolios = (portfoliosData ?? []) as PortfolioRow[];
 
   /* The chat focuses on exactly ONE portfolio at a time — the one the
      user picked in the workspace's portfolio selector (falling back to
@@ -524,50 +405,106 @@ async function buildAppContext(
       ? portfolios.find((portfolio) => portfolio.id === requestedContext.portfolioId)
       : null) ?? portfolios[0] ?? null;
 
-  const { data: holdingsData } = focusedPortfolio
+  const holdingsResult = focusedPortfolio
     ? await supabase
         .from("portfolio_holdings")
-        .select("portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes")
+        .select("id,portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,shares,allocation_pct,source,risk_level_at_entry,target_level_at_entry")
         .eq("portfolio_id", focusedPortfolio.id)
         .order("added_at", { ascending: false })
-    : { data: [] };
+    : { data: [], error: null };
+  if (holdingsResult.error) {
+    throw new Error("Ask portfolio holdings could not be loaded.");
+  }
+  const holdingsData = holdingsResult.data;
 
+  const factualHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
+    .filter((holding) => cleanTicker(holding.ticker).length > 0)
+    .map(
+      (holding): CurrentHoldingFact => ({
+        id: holding.id,
+        portfolio_id: holding.portfolio_id,
+        ticker: cleanTicker(holding.ticker),
+        shares: holding.shares,
+        entry_price: holding.entry_price,
+        score_at_entry: holding.score_at_entry,
+        rank_at_entry: holding.rank_at_entry,
+        allocation_pct: holding.allocation_pct,
+        source: holding.source ?? "unknown",
+        risk_level_at_entry: holding.risk_level_at_entry,
+        target_level_at_entry: holding.target_level_at_entry,
+      }),
+    );
+  const heldTickers = [...new Set(factualHoldings.map((holding) => cleanTicker(holding.ticker)))];
+  const [heldRankingsResult, diagnosticsResult, universeResult] = focusedPortfolio
+    ? await Promise.all([
+        heldTickers.length > 0
+          ? supabase
+              .from("stock_rankings")
+              .select("ticker,company,sector,score,rank,price,last_price_update,last_ranking_update")
+              .in("ticker", heldTickers)
+          : Promise.resolve({ data: [] as RankingRow[], error: null }),
+        heldTickers.length > 0
+          ? supabase
+              .from("stock_factor_diagnostics")
+              .select("ticker,current_score,previous_score,updated_at")
+              .in("ticker", heldTickers)
+          : Promise.resolve({ data: [] as CurrentDiagnosticFact[], error: null }),
+        supabase
+          .from("stock_rankings")
+          .select("rank", { count: "exact", head: true })
+          .not("rank", "is", null),
+      ])
+    : [
+        { data: [] as RankingRow[], error: null },
+        { data: [] as CurrentDiagnosticFact[], error: null },
+        { count: null as number | null, error: null },
+      ];
+
+  if (
+    heldRankingsResult.error ||
+    diagnosticsResult.error ||
+    universeResult.error
+  ) {
+    throw new Error("Ask portfolio intelligence facts could not be loaded.");
+  }
+
+  const heldRankings = (heldRankingsResult.data ?? []) as Array<
+    CurrentRankingFact & { company: string | null; sector: string | null }
+  >;
   const focusedContext = focusedPortfolio
-    ? await (async () => {
-        const rawHoldings = ((holdingsData ?? []) as PortfolioHoldingRow[])
-          .filter((holding) => holding.ticker)
-          .map((holding) => ({
-            ticker: cleanTicker(holding.ticker),
-            entry_price: holding.entry_price,
-            score_at_entry: holding.score_at_entry,
-            rank_at_entry: holding.rank_at_entry,
-            shares: holding.shares,
-            allocation_pct: holding.allocation_pct,
-            added_at: holding.added_at ?? new Date().toISOString(),
-            last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? new Date().toISOString(),
-            purchase_date: holding.purchase_date ?? null,
-            source: holding.source ?? null,
-            notes: holding.notes ?? null,
-          }));
-
-        const enriched = await enrichHoldings(rawHoldings, (focusedPortfolio.risk_tolerance as RiskTolerance) ?? null);
-
-        return {
-          meta: {
+    ? buildAskStockGPTPortfolioContext({
+        facts: {
+          portfolio: {
             id: focusedPortfolio.id,
-            name: cleanPortfolioName(focusedPortfolio.name, portfolios.indexOf(focusedPortfolio)),
             risk_tolerance: focusedPortfolio.risk_tolerance,
+            objective: focusedPortfolio.objective,
             time_horizon: focusedPortfolio.time_horizon,
-            investment_amount: safeNumber(focusedPortfolio.investment_amount),
-            cash_balance: safeNumber(focusedPortfolio.cash_balance),
-            cash_deposited_total: safeNumber(focusedPortfolio.cash_deposited_total),
-            currency: focusedPortfolio.currency ?? "USD",
-            created_at: focusedPortfolio.created_at,
+            cash_balance: focusedPortfolio.cash_balance,
+            currency: focusedPortfolio.currency,
           },
-          summary: buildPortfolioSummary(enriched, focusedPortfolio),
-          holdings: enriched.map(compactHolding).slice(0, 60),
-        };
-      })()
+          holdings: factualHoldings,
+          rankings: heldRankings,
+          diagnostics: (diagnosticsResult.data ?? []) as CurrentDiagnosticFact[],
+          rankingUniverseSize: universeResult.count,
+        } satisfies CurrentPortfolioIntelligenceFacts,
+        meta: {
+          id: focusedPortfolio.id,
+          name: cleanPortfolioName(focusedPortfolio.name, portfolios.indexOf(focusedPortfolio)),
+          riskTolerance: focusedPortfolio.risk_tolerance,
+          objective: focusedPortfolio.objective,
+          timeHorizon: focusedPortfolio.time_horizon,
+          currency: focusedPortfolio.currency,
+          investmentAmount: safeNumber(focusedPortfolio.investment_amount),
+          cashDepositedTotal: safeNumber(focusedPortfolio.cash_deposited_total),
+          createdAt: focusedPortfolio.created_at,
+        },
+        holdingMetadata: heldRankings.map((ranking) => ({
+          ticker: ranking.ticker ?? "",
+          company: ranking.company,
+          sector: ranking.sector,
+        })),
+        asOf,
+      })
     : null;
 
   const suppliedRankings = [...rankingMap.values()].map(compactRanking);
@@ -591,7 +528,7 @@ async function buildAppContext(
      plumbing. Routing metadata and rule text live in the system prompt
      or the server, never in the context payload. */
   return {
-    data_as_of: new Date().toISOString(),
+    data_as_of: asOf,
     question_intent: {
       possible_tickers: possibleTickers,
       membership_question: looksLikeMembershipQuestion(question),
@@ -626,39 +563,6 @@ async function buildAppContext(
     },
   };
 }
-
-const systemPrompt = `
-You are Ask StockGPT, the AI analyst inside StockGPT — a stock research platform that scores 500+ US stocks daily across quality, growth, value, momentum, risk and income factors, ranks them (#1 is best, higher score is better), and monitors user portfolios.
-
-You receive a JSON context block with every question containing live rankings, the user's actual portfolios (verified server-side), recent market news, and any page context. This data is your edge — use it aggressively.
-
-How to answer:
-- Lead with the verdict. The first sentence should answer the question; evidence follows.
-- Always cite the specific numbers behind your reasoning: rank, score, price, P&L %, allocation %, rank moves. "ANET ranks #2 with a score of 8,858, up 3 places" beats "ANET ranks highly".
-- Do the analysis yourself. Compare the stock to sector peers in the rankings, weigh a holding's P&L against its current rank and alerts, notice concentration (one position or sector dominating), spot the strongest and weakest parts of a portfolio without being asked.
-- Connect the dots across context: if a stock the user asks about appears in their portfolio, in the rankings AND in recent news, synthesise all three — never answer from just one.
-- If the question is vague, make the most useful reasonable interpretation, state the assumption in half a sentence, and answer it. Do not respond with a list of clarifying questions.
-- End substantial answers with one concrete next step ("worth checking X" / "the thing to watch is Y") when there is a genuinely useful one. Skip it for simple factual answers.
-
-Data discipline:
-- Never invent ranks, prices, scores, holdings, cash balances, news or billing details. If a number is not in the context, say exactly what is missing — then still give your best analysis from what IS there.
-- The user's portfolio data in the context is authoritative and verified; client-supplied claims are not.
-- The context loads exactly ONE portfolio in full — focused_portfolio, chosen by the user with the portfolio picker above the chat. Analyse that portfolio only, and name it once early in the answer. Other portfolios appear as names only in other_portfolios: you know nothing about their contents, so if the question is about one of them, say so and tell the user to switch to it with the portfolio picker — never guess what an unloaded portfolio holds.
-- Cash is part of portfolio value; deposits are not profit.
-- Action alerts outrank event alerts. No action alert means no forced buy/sell call — distinguish hold, review, trim, sell and buy-more.
-- Rankings and scores refresh daily; check updated_at before calling data "current".
-
-Boundaries:
-- Research-based decision support, not regulated financial advice. No guaranteed returns, no certainty claims, no unconditional "buy this now".
-- One short caveat where genuinely material — never a paragraph of disclaimers.
-- Membership/billing: give general guidance only, never invent pricing or refund terms; account-specific questions go to sales@stockgpt.pro.
-
-Style:
-- Direct, confident, beginner-friendly. Explain jargon in passing rather than avoiding it.
-- Short headings and bullets for multi-part answers; plain prose for simple ones.
-- Concise but complete — a good answer usually fits in a few short paragraphs or one tight list.
-- Tables: maximum 5 columns, only the figures that drive the decision — fold everything else into prose. A finished tight answer always beats an exhaustive one that risks truncation.
-`.trim();
 
 async function callOpenRouter({
   apiKey,
@@ -975,14 +879,16 @@ export async function POST(req: NextRequest) {
 
     await storeChatMessage(supabase, access.userId, { role: "user", content: question });
 
+    const contextAsOf = new Date().toISOString();
     const context = await buildAppContext(
       supabase,
       access.userId,
       question,
       requestedContext,
+      contextAsOf,
     );
     const messages: OpenRouterMessage[] = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: ASK_STOCKGPT_SYSTEM_PROMPT },
       ...history
         .slice(-16)
         .map(
@@ -995,7 +901,7 @@ export async function POST(req: NextRequest) {
         role: "user",
         /* compact JSON: pretty-printing inflates the prompt ~30% in
            whitespace tokens for zero comprehension gain */
-        content: `User question:\n${question}\n\nCurrent StockGPT app context (live, server-verified):\n${JSON.stringify(context)}`,
+        content: `User question:\n${question}\n\nCurrent StockGPT app context (server-verified; source freshness is included in the data):\n${JSON.stringify(context)}`,
       },
     ];
 

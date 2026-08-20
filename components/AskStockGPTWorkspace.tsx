@@ -61,23 +61,23 @@ type AskStockGPTWorkspaceProps = {
 const welcomeMessage: ChatMessage = {
   role: "assistant",
   content:
-    "I’m your StockGPT coach. Ask me about your portfolio, rankings, alerts, market news, stop-losses, take-profit levels, trading concepts, membership questions, or anything you want explained clearly.",
+    "I’m your StockGPT research assistant. Ask me about your portfolio status and evidence, rankings, market news, investing concepts, membership questions, or anything you want explained clearly.",
 };
 
 const modeOptions: Array<{ mode: Mode; label: string; shortLabel: string; description: string }> = [
-  { mode: "portfolio", label: "Portfolio", shortLabel: "Portfolio", description: "Holdings, alerts, P&L" },
+  { mode: "portfolio", label: "Portfolio", shortLabel: "Portfolio", description: "Holdings, status, P&L" },
   { mode: "rankings", label: "Rankings", shortLabel: "Rankings", description: "Scores, sectors, leaders" },
   { mode: "learn", label: "Learn", shortLabel: "Learn", description: "Trading concepts" },
   { mode: "account", label: "Account", shortLabel: "Account", description: "Membership and billing" },
 ];
 
 const starterPrompts: StarterPrompt[] = [
-  { eyebrow: "Portfolio coach", label: "Find weakest holding", prompt: "What is my weakest holding and what should I do about it?", mode: "portfolio" },
-  { eyebrow: "Action plan", label: "Trim, hold, sell, or buy more", prompt: "Which stocks in my portfolio should I trim, hold, sell, or buy more?", mode: "portfolio" },
-  { eyebrow: "Risk control", label: "Stop-loss and take-profit", prompt: "What are the key stop-loss and take-profit levels in my portfolio?", mode: "portfolio" },
+  { eyebrow: "Portfolio status", label: "Highest-attention holding", prompt: "Which holding is highest in StockGPT's attention order, why, and what evidence should I investigate?", mode: "portfolio" },
+  { eyebrow: "Portfolio evidence", label: "Explain current review signals", prompt: "Explain my portfolio's canonical status and the evidence behind each current review signal.", mode: "portfolio" },
+  { eyebrow: "Risk context", label: "Review saved reference levels", prompt: "Which saved risk or target reference levels are relevant factual context for my holdings?", mode: "portfolio" },
   { eyebrow: "Rankings", label: "Strongest stocks today", prompt: "Which stocks are ranking strongest right now and why?", mode: "rankings" },
   { eyebrow: "Rankings", label: "Compare my holdings", prompt: "How do my current holdings compare to the top-ranked stocks?", mode: "rankings" },
-  { eyebrow: "Learning", label: "Risk/reward and sizing", prompt: "Explain risk/reward and position sizing like a market coach.", mode: "learn" },
+  { eyebrow: "Learning", label: "Risk/reward and sizing", prompt: "Explain risk/reward and position sizing in beginner-friendly terms.", mode: "learn" },
   { eyebrow: "Learning", label: "Stop-loss theory", prompt: "Explain how stop-losses should be used without getting shaken out too early.", mode: "learn" },
   { eyebrow: "Account", label: "Membership and billing", prompt: "How do I manage my StockGPT membership or billing?", mode: "account" },
   { eyebrow: "Account", label: "Subscription help", prompt: "Who should I contact if I have a StockGPT subscription or payment issue?", mode: "account" },
@@ -197,7 +197,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]">
               <StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" />
             </span>
-            <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">StockGPT Coach</span>
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">StockGPT Research</span>
           </div>
         )}
         <div className="min-w-0 [&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
@@ -222,9 +222,9 @@ function LockedExperience({ isAuthenticated }: { isAuthenticated: boolean }) {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(221,177,89,0.18),transparent_32%),radial-gradient(circle_at_90%_10%,rgba(72,140,94,0.18),transparent_35%),linear-gradient(135deg,#06140d,#0b2417_48%,#06140d)]" />
         <section className="relative flex min-h-[520px] min-w-0 flex-col justify-between p-6 sm:p-8 lg:p-10">
           <div>
-            <div className="flex min-w-0 items-center gap-3"><PremiumOrb /><div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Premium intelligence</p><p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">Portfolio-aware AI coach</p></div></div>
+            <div className="flex min-w-0 items-center gap-3"><PremiumOrb /><div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Premium intelligence</p><p className="mt-0.5 truncate text-[12px] font-semibold text-[#fbf4e5]/45">Portfolio-aware research assistant</p></div></div>
             <h1 className="mt-7 max-w-xl text-[38px] font-black leading-[0.94] tracking-[-0.06em] text-[#fbf4e5] sm:text-[52px] lg:text-[58px]">Ask StockGPT is a subscriber feature.</h1>
-            <p className="mt-5 max-w-xl text-[14px] font-medium leading-7 text-[#fbf4e5]/64 sm:text-[15px]">Unlock a premium market coach that can explain your portfolio, alerts, rankings, stop-loss levels, take-profit zones, news impact and trading concepts in plain English.</p>
+            <p className="mt-5 max-w-xl text-[14px] font-medium leading-7 text-[#fbf4e5]/64 sm:text-[15px]">Unlock a research assistant that can explain your canonical portfolio status, supporting evidence, rankings, news context and investing concepts in plain English.</p>
           </div>
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <Link href={isAuthenticated ? "/subscription" : "/login"} className="inline-flex h-12 items-center justify-center rounded-full bg-[#ddb159] px-6 text-[12px] font-black uppercase tracking-[0.16em] text-[#07170f] transition hover:brightness-105">{isAuthenticated ? "Upgrade access" : "Log in"}</Link>
@@ -232,7 +232,7 @@ function LockedExperience({ isAuthenticated }: { isAuthenticated: boolean }) {
           </div>
         </section>
         <aside className="relative hidden min-h-0 border-l border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] p-8 lg:block">
-          <div className="rounded-[28px] border border-[#ddb159]/25 bg-[#06140d]/55 p-5"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">What it answers</p><div className="mt-5 grid gap-3">{["What should I do with my weakest holding?", "Which stocks are worth adding to?", "Where am I overexposed?", "Why did an alert appear?", "What does this trading concept mean?", "How do I manage billing or membership?"].map((item) => <div key={item} className="rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.04] px-4 py-3 text-[13px] font-bold leading-relaxed text-[#fbf4e5]/72">{item}</div>)}</div></div>
+          <div className="rounded-[28px] border border-[#ddb159]/25 bg-[#06140d]/55 p-5"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ddb159]">What it answers</p><div className="mt-5 grid gap-3">{["Why does this holding need review?", "Which evidence should I investigate first?", "Where is my portfolio concentrated?", "What limits the current analysis?", "What does this investing concept mean?", "How do I manage billing or membership?"].map((item) => <div key={item} className="rounded-2xl border border-[#ddb159]/16 bg-[#fbf4e5]/[0.04] px-4 py-3 text-[13px] font-bold leading-relaxed text-[#fbf4e5]/72">{item}</div>)}</div></div>
         </aside>
       </section>
     </main>
@@ -243,7 +243,7 @@ function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onC
   return (
     <aside className="hidden min-h-0 overflow-hidden border-r border-[#ddb159]/14 bg-[#fbf4e5]/[0.035] lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto]">
       <div className="shrink-0 px-4 pb-3 pt-4 xl:px-5 xl:pt-5">
-        <div className="flex items-center gap-3"><PremiumOrb /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">StockGPT Coach</p><p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">Workspace intelligence</p></div></div>
+        <div className="flex items-center gap-3"><PremiumOrb /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ddb159]">StockGPT Research</p><p className="mt-0.5 text-[12px] font-semibold text-[#fbf4e5]/45">Workspace intelligence</p></div></div>
       </div>
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden px-4 pb-3 xl:px-5">
         <div className="rounded-[24px] border border-[#ddb159]/18 bg-[#06140d]/60 p-3.5 xl:p-4">
@@ -457,7 +457,7 @@ function LearnPanel({ onAskPrompt }: { onAskPrompt: (prompt: string) => void }) 
     ["AI scores", "Explain how StockGPT AI score and rank should be interpreted in plain English."],
   ];
   return (
-    <PanelShell eyebrow="Beginner-friendly coach" title="Learn faster">
+    <PanelShell eyebrow="Beginner-friendly research" title="Learn faster">
       <div className="grid gap-3">
         <div className="rounded-[22px] border border-[#ddb159]/16 bg-[#fbf4e5]/[0.04] p-4"><p className="text-[13px] font-semibold leading-6 text-[#fbf4e5]/58">Learn the concept, then apply it to rankings or your holdings.</p></div>
         <div className="grid overflow-hidden rounded-[22px] border border-[#ddb159]/14 bg-[#06140d]/55">
@@ -771,7 +771,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
         "I could not return an answer from Ask StockGPT. Try again, or email sales@stockgpt.pro if this relates to membership or billing.";
       setMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch {
-      setMessages((current) => [...current, { role: "assistant", content: "I could not connect to the StockGPT coach. Check the deployment logs and API route. For membership or billing questions, contact sales@stockgpt.pro." }]);
+      setMessages((current) => [...current, { role: "assistant", content: "I could not connect to the StockGPT research assistant. Check the deployment logs and API route. For membership or billing questions, contact sales@stockgpt.pro." }]);
     } finally {
       setStreaming(false);
       setLoading(false);
@@ -813,7 +813,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
 
   function askAboutHolding(holding: HoldingOption) {
     setActiveMode("portfolio");
-    void sendQuestion(`Analyse my ${holding.ticker} position. Explain whether I should hold, trim, sell, or buy more, using its AI score, rank, alerts, trade plan levels, risk/reward, position sizing, and any relevant market/news context.`);
+    void sendQuestion(`Analyse my ${holding.ticker} position. Explain its canonical status, structured evidence, factual rank, score, allocation, P&L context, saved references, and what I should investigate next. Discuss relevant news separately from the canonical status.`);
   }
 
   function askPrompt(prompt: string) {

@@ -6,7 +6,7 @@ import { askContextFromSearchParams } from "@/lib/ask-context";
 
 export const metadata: Metadata = {
   title: "Ask StockGPT",
-  description: "Portfolio-aware AI coach for StockGPT members.",
+  description: "Portfolio-aware research assistant for StockGPT members.",
 };
 
 export default async function AskStockGPTPage({
