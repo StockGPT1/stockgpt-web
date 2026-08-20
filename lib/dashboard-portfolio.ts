@@ -13,6 +13,17 @@ import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import { derivePortfolioHoldingAction } from "@/lib/portfolio-action-engine";
 import { getOneDayMoveMap } from "@/lib/yahoo";
+import {
+  assessCurrentPortfolioIntelligenceFacts,
+  type CurrentDiagnosticFact,
+  type CurrentHoldingFact,
+  type CurrentPortfolioIntelligenceFacts,
+  type CurrentRankingFact,
+} from "@/lib/current-portfolio-intelligence";
+import {
+  buildPortfolioIntelligenceView,
+  type PortfolioIntelligenceView,
+} from "@/lib/portfolio-intelligence-presentation";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -30,6 +41,7 @@ type PortfolioRow = {
 };
 
 type HoldingRow = {
+  id: string;
   portfolio_id: string;
   ticker: string | null;
   entry_price: number | null;
@@ -42,6 +54,8 @@ type HoldingRow = {
   purchase_date?: string | null;
   source?: string | null;
   notes?: string | null;
+  risk_level_at_entry: number | null;
+  target_level_at_entry: number | null;
 };
 
 type TransactionRow = {
@@ -106,7 +120,7 @@ export type DashboardMainPortfolioResult = {
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta | null;
   tickers: string[];
-  opportunities: DashboardPortfolioOpportunity[];
+  intelligence: PortfolioIntelligenceView | null;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
 };
@@ -327,10 +341,25 @@ function normaliseHolding(holding: HoldingRow): RawHolding | null {
   };
 }
 
+export function buildDashboardPortfolioIntelligence(
+  facts: CurrentPortfolioIntelligenceFacts,
+  asOf: string,
+): PortfolioIntelligenceView {
+  const currentIntelligence = assessCurrentPortfolioIntelligenceFacts(
+    facts,
+    asOf,
+  );
+  return buildPortfolioIntelligenceView({
+    result: currentIntelligence.assessment,
+    adapterLimitations: currentIntelligence.adapterLimitations,
+  });
+}
+
 export async function getDashboardMainPortfolio(
   supabase: SupabaseClient,
   userId: string,
-  requestedPortfolioId?: string | null,
+  requestedPortfolioId: string | null | undefined,
+  asOf: string,
 ): Promise<DashboardMainPortfolioResult> {
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
@@ -354,7 +383,7 @@ export async function getDashboardMainPortfolio(
   }));
 
   if (portfolios.length === 0) {
-    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
+    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [] };
   }
 
   const selectedPortfolio =
@@ -365,7 +394,7 @@ export async function getDashboardMainPortfolio(
     supabase
       .from("portfolio_holdings")
       .select(
-        "portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes",
+        "id,portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes,risk_level_at_entry,target_level_at_entry",
       )
       .in("portfolio_id", portfolioIds),
     supabase
@@ -422,7 +451,7 @@ export async function getDashboardMainPortfolio(
   }
 
   const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
+  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [] };
 
   const missingPriceTickers = mainPortfolio.enriched
     .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
@@ -436,9 +465,8 @@ export async function getDashboardMainPortfolio(
           ? "unavailable"
           : "partial";
 
-  /* chart build and opportunity scan are independent — running them
-     sequentially was a large chunk of dashboard TTFB */
-  const [chartResult, opportunities] = await Promise.all([
+  const heldTickers = mainPortfolio.rawHoldings.map((holding) => holding.ticker);
+  const [chartResult, rankingsResult, diagnosticsResult, universeResult] = await Promise.all([
     buildPortfolioPageChartResult({
       portfolio: {
         id: mainPortfolio.portfolio.id,
@@ -459,13 +487,62 @@ export async function getDashboardMainPortfolio(
       ownerId: userId,
       allowCurrentSnapshot: missingPriceTickers.length === 0,
     }),
-    buildPortfolioOpportunities(
-      supabase,
-      mainPortfolio.portfolio,
-      mainPortfolio.enriched,
-      mainPortfolio.summary,
-    ),
+    heldTickers.length > 0
+      ? supabase
+          .from("stock_rankings")
+          .select("ticker,score,rank,price,last_price_update,last_ranking_update")
+          .in("ticker", heldTickers)
+      : Promise.resolve({ data: [] as CurrentRankingFact[], error: null }),
+    heldTickers.length > 0
+      ? supabase
+          .from("stock_factor_diagnostics")
+          .select("ticker,current_score,previous_score,updated_at")
+          .in("ticker", heldTickers)
+      : Promise.resolve({ data: [] as CurrentDiagnosticFact[], error: null }),
+    supabase
+      .from("stock_rankings")
+      .select("rank", { count: "exact", head: true })
+      .not("rank", "is", null),
   ]);
+
+  if (rankingsResult.error || diagnosticsResult.error || universeResult.error) {
+    throw new Error("Dashboard portfolio intelligence facts could not be loaded.");
+  }
+
+  const factualHoldings = ((holdingsData ?? []) as HoldingRow[])
+    .filter((holding) => holding.portfolio_id === mainPortfolio.portfolio.id)
+    .map(
+      (holding): CurrentHoldingFact => ({
+        id: holding.id,
+        portfolio_id: holding.portfolio_id,
+        ticker: holding.ticker ?? "",
+        shares: holding.shares,
+        entry_price: holding.entry_price,
+        score_at_entry: holding.score_at_entry,
+        rank_at_entry: holding.rank_at_entry,
+        allocation_pct: holding.allocation_pct,
+        source: holding.source ?? "manual",
+        risk_level_at_entry: holding.risk_level_at_entry,
+        target_level_at_entry: holding.target_level_at_entry,
+      }),
+    );
+  const intelligence = buildDashboardPortfolioIntelligence(
+    {
+      portfolio: {
+        id: mainPortfolio.portfolio.id,
+        risk_tolerance: mainPortfolio.portfolio.risk_tolerance ?? "moderate",
+        objective: mainPortfolio.portfolio.objective ?? "balanced",
+        time_horizon: mainPortfolio.portfolio.time_horizon ?? "long_term",
+        cash_balance: mainPortfolio.portfolio.cash_balance ?? 0,
+        currency: mainPortfolio.portfolio.currency ?? "USD",
+      },
+      holdings: factualHoldings,
+      rankings: (rankingsResult.data ?? []) as CurrentRankingFact[],
+      diagnostics: (diagnosticsResult.data ?? []) as CurrentDiagnosticFact[],
+      rankingUniverseSize: universeResult.count,
+    },
+    asOf,
+  );
 
   return {
     portfolioId: mainPortfolio.portfolio.id,
@@ -474,7 +551,7 @@ export async function getDashboardMainPortfolio(
     chartData: chartResult.chartData,
     chartMeta: chartResult.meta,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
-    opportunities,
+    intelligence,
     valuationState,
     missingPriceTickers,
   };

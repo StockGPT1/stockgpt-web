@@ -17,7 +17,8 @@ import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
+import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
 
 export type MobileDashboardRanking = {
   id: string | number;
@@ -58,7 +59,7 @@ type Props = {
   portfolioChartState: PortfolioChartState;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
-  opportunities: DashboardPortfolioOpportunity[];
+  intelligence: PortfolioIntelligenceView | null;
   rankings: MobileDashboardRanking[];
   rankingsLocked: boolean;
   marketChart: Partial<Record<TimeRange, ChartPoint[]>>;
@@ -68,7 +69,7 @@ type Props = {
   newsStatus: "ok" | "error" | "locked";
 };
 
-const PANELS = ["Portfolio", "What changed", "Opportunities"] as const;
+const PANELS = ["Portfolio", "Current signals"] as const;
 const PANEL_CLIP_STYLE: CSSProperties = {
   clipPath: "inset(0 round 1.65rem)",
   WebkitMaskImage: "-webkit-radial-gradient(white, black)",
@@ -104,17 +105,6 @@ function indexValue(value: number | null) {
         maximumFractionDigits: 2,
       })
     : "—";
-}
-
-function opportunityUpdated(value?: string | null) {
-  if (!value) return "Update unavailable";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Update unavailable";
-  const minutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60_000));
-  if (minutes < 60) return `Updated ${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`;
 }
 
 function newsAge(value?: string | null) {
@@ -175,7 +165,7 @@ export function MobileDashboardExperience({
   portfolioChartState,
   valuationState,
   missingPriceTickers,
-  opportunities,
+  intelligence,
   rankings,
   rankingsLocked,
   marketChart,
@@ -221,23 +211,17 @@ export function MobileDashboardExperience({
         ? `${topRankedTicker} leads the rankings · build a portfolio for personal intelligence`
         : "Build or import a portfolio to unlock personal intelligence";
     }
-    if (valuationState === "unavailable") {
-      return "Portfolio prices need refreshing · last-known intelligence remains available";
+    if (!canUsePremium || !intelligence) {
+      return "Portfolio connected · status and current signals are available with an active subscription";
     }
-    if (valuationState === "partial") {
-      return `Portfolio value is estimated${topRankedTicker ? ` · ${topRankedTicker} remains #1` : ""}`;
-    }
-    const health = canUsePremium
-      ? `${summary.label.toLowerCase()} portfolio`
-      : "portfolio connected";
-    const review =
-      canUsePremium && summary.actionAlerts > 0
-        ? `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"} worth checking`
-        : topRankedTicker
-          ? `${topRankedTicker} remains #1`
-          : "rankings ready";
-    return `${health} · ${review}`;
-  }, [canUsePremium, summary, topRankedTicker, valuationState]);
+    const valuationNote =
+      valuationState === "unavailable"
+        ? " · portfolio prices need refreshing"
+        : valuationState === "partial"
+          ? " · portfolio value is estimated"
+          : "";
+    return `Portfolio status: ${intelligence.statusLabel} · ${intelligence.summary}${valuationNote}`;
+  }, [canUsePremium, intelligence, summary, topRankedTicker, valuationState]);
 
   const changedItems = useMemo(() => {
     if (!summary) {
@@ -249,23 +233,28 @@ export function MobileDashboardExperience({
       ];
     }
 
+    const reviewCount = intelligence
+      ? intelligence.countsByStatus.review +
+        intelligence.countsByStatus.urgent_review
+      : 0;
+    const monitorCount = intelligence?.countsByStatus.monitor ?? 0;
     return [
       valuationState === "unavailable"
         ? "Portfolio value is temporarily unavailable while prices refresh."
         : valuationState === "partial"
           ? "Portfolio value is estimated while missing prices refresh."
           : `Portfolio total return is ${summary.totalPnl >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
-      canUsePremium
-        ? summary.actionAlerts > 0
-          ? `${summary.actionAlerts} holding review${summary.actionAlerts === 1 ? " is" : "s are"} available; none is marked urgent.`
-          : "No major portfolio review alerts are active right now."
-        : "Portfolio health and review priorities are available with an active subscription.",
-      `${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
+      canUsePremium && intelligence
+        ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}`
+        : "Portfolio status and current signals are available with an active subscription.",
+      canUsePremium && intelligence
+        ? `${reviewCount} holding${reviewCount === 1 ? "" : "s"} for review · ${monitorCount} to monitor.`
+        : `${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
       topRankedTicker
         ? `${topRankedTicker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, summary, topRankedTicker, valuationState]);
+  }, [canUsePremium, intelligence, summary, topRankedTicker, valuationState]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
@@ -373,7 +362,7 @@ export function MobileDashboardExperience({
             <article
               role="group"
               aria-roledescription="slide"
-              aria-label="1 of 3, Portfolio"
+              aria-label={`1 of ${PANELS.length}, Portfolio`}
               style={PANEL_CLIP_STYLE}
               className="relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
             >
@@ -400,11 +389,20 @@ export function MobileDashboardExperience({
                         </h2>
                       )}
                     </div>
-                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
-                      {canUsePremium
-                        ? `Health ${summary.score}/100`
-                        : "Health locked"}
-                    </span>
+                    <div className="flex max-w-[9.5rem] shrink-0 flex-col items-end gap-1 text-[8.5px] font-black uppercase tracking-[0.07em]">
+                      <span
+                        className={`max-w-full truncate rounded-full border border-[#ddb159]/28 px-2 py-1 ${
+                          canUsePremium && intelligence
+                            ? intelligenceToneClass(intelligence.tone)
+                            : "text-[#ddb159]"
+                        }`}
+                      >
+                        Status · {canUsePremium && intelligence ? intelligence.statusLabel : "Locked"}
+                      </span>
+                      <span className="rounded-full border border-white/10 px-2 py-1 text-[#faf6f0]/55">
+                        Health · {canUsePremium ? `${summary.score}/100` : "Locked"}
+                      </span>
+                    </div>
                   </div>
 
                   {portfolioId && (
@@ -493,8 +491,8 @@ export function MobileDashboardExperience({
                       Build your first portfolio
                     </h2>
                     <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
-                      Add holdings or import a Trading 212 CSV to unlock personal value,
-                      risk and opportunity intelligence.
+                      Add holdings or import a Trading 212 CSV to unlock personal value
+                      and portfolio analysis.
                     </p>
                   </div>
                   <Link
@@ -510,7 +508,7 @@ export function MobileDashboardExperience({
             <article
               role="group"
               aria-roledescription="slide"
-              aria-label="2 of 3, What changed"
+              aria-label={`2 of ${PANELS.length}, Current signals`}
               style={PANEL_CLIP_STYLE}
               className="isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(150deg,rgba(10,45,30,0.84),rgba(5,26,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
             >
@@ -520,7 +518,7 @@ export function MobileDashboardExperience({
                     Daily briefing
                   </p>
                   <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
-                    What changed
+                    Current signals
                   </h2>
                 </div>
                 <FreshnessLabel value={topRanked?.updated_at} compact />
@@ -539,114 +537,8 @@ export function MobileDashboardExperience({
                 href="/notifications"
                 className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
               >
-                Review alerts →
+                Open notifications →
               </Link>
-            </article>
-
-            <article
-              role="group"
-              aria-roledescription="slide"
-              aria-label="3 of 3, Opportunities"
-              style={PANEL_CLIP_STYLE}
-              className="isolate flex h-[318px] w-full shrink-0 snap-start snap-always flex-col overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(145deg,rgba(13,50,33,0.84),rgba(5,25,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
-            >
-              <div className="flex shrink-0 items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-                    Portfolio intelligence
-                  </p>
-                  <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
-                    Ideas worth reviewing
-                  </h2>
-                </div>
-                <Link
-                  href="/rankings"
-                  className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
-                >
-                  Review all →
-                </Link>
-              </div>
-
-              <div className="mt-3 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
-                {!canUsePremium ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                    <p className="text-[13px] font-black">Premium analysis locked</p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                      Unlock portfolio-fit research and health analysis.
-                    </p>
-                    <Link
-                      href="/subscription"
-                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
-                    >
-                      View plans
-                    </Link>
-                  </div>
-                ) : !summary ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                    <p className="text-[13px] font-black">Build a portfolio first</p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                      Portfolio-fit opportunities need your holdings and allocation context.
-                    </p>
-                    <Link
-                      href="/portfolio?builder=1"
-                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
-                    >
-                      Build portfolio
-                    </Link>
-                  </div>
-                ) : opportunities.length === 0 ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
-                    <p className="text-[13px] font-black">
-                      No strong opportunities right now
-                    </p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
-                      StockGPT is not forcing an idea when the current setup is not strong
-                      enough.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-[#ddb159]/10 pb-2">
-                    {opportunities.slice(0, 2).map((item) => (
-                      <Link
-                        key={`${item.category}-${item.ticker}`}
-                        href={`/stock/${item.ticker}`}
-                        className="grid grid-cols-[38px_minmax(0,1fr)] gap-3 py-3 first:pt-0"
-                      >
-                        <StockLogo
-                          ticker={item.ticker}
-                          company={item.company}
-                          size={36}
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <p className="truncate text-[14px] font-black">
-                              {item.ticker}{" "}
-                              <span className="text-[10px] text-[#faf6f0]/42">
-                                {item.company}
-                              </span>
-                            </p>
-                            <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">
-                              {score(item.score)}
-                            </span>
-                          </div>
-                          <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
-                            {item.category}
-                          </p>
-                          <p className="mt-1 text-[10px] font-semibold leading-[1.45] text-[#faf6f0]/60">
-                            {item.reason}
-                          </p>
-                          <p
-                            suppressHydrationWarning
-                            className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38"
-                          >
-                            {opportunityUpdated(item.updatedAt)}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
             </article>
           </div>
         </div>

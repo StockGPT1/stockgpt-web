@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { DashboardPortfolioHoverWidget } from "@/components/DashboardPortfolioHoverWidget";
-import { DesktopPortfolioOpportunitiesCarousel } from "@/components/DesktopPortfolioOpportunitiesCarousel";
 import { StockLogo } from "@/components/StockLogo";
 import { WelcomeBanner } from "@/components/WelcomeBanner";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
@@ -10,12 +9,11 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
-import { ModuleState } from "@/components/ModuleState";
 import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelector";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
+import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 
 export type DashboardRanking = {
   id: string | number;
@@ -36,8 +34,8 @@ type Props = {
   totalCount: number;
   bullishPct: number;
   sentiment: string;
-  opportunities: DashboardPortfolioOpportunity[];
   portfolioSummary: PortfolioHealthSummary | null;
+  portfolioIntelligence: PortfolioIntelligenceView | null;
   portfolioChart: Partial<Record<TimeRange, ChartPoint[]>>;
   portfolioChartMeta: PortfolioChartMeta | null;
   portfolioId: string | null;
@@ -84,8 +82,8 @@ export function DesktopDashboardExperience({
   totalCount,
   bullishPct,
   sentiment,
-  opportunities,
   portfolioSummary,
+  portfolioIntelligence,
   portfolioChart,
   portfolioChartMeta,
   portfolioId,
@@ -118,16 +116,7 @@ export function DesktopDashboardExperience({
           <StatBlock icon="clock" label="Updated" main={formatUpdatedTime(topRanked?.updated_at)} sub="latest model run" />
         </div>
 
-        {canUsePremium ? (
-          <DesktopPortfolioOpportunitiesCarousel opportunities={opportunities} />
-        ) : (
-          <ModuleState
-            eyebrow="Portfolio-fit opportunities"
-            title="Premium opportunities locked"
-            description="Unlock portfolio-fit research and health analysis."
-            tone="locked"
-          />
-        )}
+        <ResearchStocksModule />
 
         <RankingsPanel
           rankings={rankings}
@@ -140,6 +129,7 @@ export function DesktopDashboardExperience({
       <aside className="grid content-start gap-3 lg:min-h-0">
         <PortfolioDashboardWidget
           summary={portfolioSummary}
+          intelligence={portfolioIntelligence}
           chartData={portfolioChart}
           chartMeta={portfolioChartMeta}
           portfolioId={portfolioId}
@@ -150,6 +140,7 @@ export function DesktopDashboardExperience({
         />
         <DashboardBriefing
           summary={portfolioSummary}
+          intelligence={portfolioIntelligence}
           topRanked={topRanked}
           canUsePremium={canUsePremium}
           valuationState={valuationState}
@@ -161,6 +152,30 @@ export function DesktopDashboardExperience({
         />
       </aside>
     </div>
+  );
+}
+
+function ResearchStocksModule() {
+  return (
+    <section className="flex min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/52 px-4 py-3 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm">
+      <div className="min-w-0">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159]">
+          Stock research
+        </p>
+        <h2 className="mt-0.5 truncate text-[18px] font-black tracking-[-0.035em]">
+          Explore the latest rankings
+        </h2>
+        <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/52">
+          Browse the latest StockGPT-ranked stocks and continue your own research.
+        </p>
+      </div>
+      <Link
+        href="/rankings"
+        className="shrink-0 rounded-full border border-[#ddb159]/24 px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:border-[#ddb159]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/55"
+      >
+        Explore →
+      </Link>
+    </section>
   );
 }
 
@@ -261,6 +276,7 @@ function StatBlock({
 
 function PortfolioDashboardWidget({
   summary,
+  intelligence,
   chartData,
   chartMeta,
   portfolioId,
@@ -270,6 +286,7 @@ function PortfolioDashboardWidget({
   missingPriceTickers,
 }: {
   summary: PortfolioHealthSummary | null;
+  intelligence: PortfolioIntelligenceView | null;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta | null;
   portfolioId: string | null;
@@ -312,7 +329,11 @@ function PortfolioDashboardWidget({
             <h2 className="mt-1 truncate text-[16px] font-black leading-none tracking-[-0.05em] xl:text-[18px]">{summary.name}</h2>
           )}
         </div>
-        <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">{canUsePremium ? `Health ${summary.score}/100` : "Health locked"}</span>
+        {!canUsePremium && (
+          <span className="shrink-0 rounded-full border border-[#ddb159]/24 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+            Intelligence locked
+          </span>
+        )}
       </div>
 
       {portfolioId && (
@@ -322,7 +343,13 @@ function PortfolioDashboardWidget({
       )}
 
       <Link href={portfolioHref} className="relative block min-w-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]">
-        <DashboardPortfolioHoverWidget summary={summary} chartData={chartData} valuationState={valuationState} />
+        <DashboardPortfolioHoverWidget
+          summary={summary}
+          intelligence={intelligence}
+          canUsePremium={canUsePremium}
+          chartData={chartData}
+          valuationState={valuationState}
+        />
       </Link>
 
       {(chartMeta?.health.displayState !== "ready" || chartMeta?.health.isFlat) && (
@@ -350,15 +377,21 @@ function PortfolioDashboardWidget({
 
 function DashboardBriefing({
   summary,
+  intelligence,
   topRanked,
   canUsePremium,
   valuationState,
 }: {
   summary: PortfolioHealthSummary | null;
+  intelligence: PortfolioIntelligenceView | null;
   topRanked?: DashboardRanking;
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
 }) {
+  const reviewCount = intelligence
+    ? intelligence.countsByStatus.review + intelligence.countsByStatus.urgent_review
+    : 0;
+  const monitorCount = intelligence?.countsByStatus.monitor ?? 0;
   const items = summary
     ? [
         valuationState === "unavailable"
@@ -366,12 +399,12 @@ function DashboardBriefing({
           : valuationState === "partial"
             ? "Portfolio value is estimated while StockGPT waits for missing prices."
             : `Portfolio total return is ${summary.totalPnl >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
-        canUsePremium
-          ? summary.actionAlerts > 0
-            ? `${summary.actionAlerts} holding review${summary.actionAlerts === 1 ? " is" : "s are"} available; none is presented as urgent.`
-            : "No major portfolio review alerts are active right now."
-          : "Portfolio health and review priorities are available with an active subscription.",
-        `Your portfolio currently contains ${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
+        canUsePremium && intelligence
+          ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}`
+          : "Portfolio status and current signals are available with an active subscription.",
+        canUsePremium && intelligence
+          ? `${reviewCount} holding${reviewCount === 1 ? "" : "s"} for review · ${monitorCount} to monitor.`
+          : `Your portfolio currently contains ${summary.holdingsCount} holding${summary.holdingsCount === 1 ? "" : "s"} across ${summary.sectorCount} sector${summary.sectorCount === 1 ? "" : "s"}.`,
         topRanked?.ticker ? `${topRanked.ticker} remains the highest-ranked stock in the current StockGPT table.` : "The latest rankings are not available yet.",
       ]
     : [
@@ -384,7 +417,7 @@ function DashboardBriefing({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Daily briefing</p>
-          <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">What changed today</h2>
+          <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em]">Current portfolio signals</h2>
         </div>
         <FreshnessLabel value={topRanked?.updated_at} compact />
       </div>

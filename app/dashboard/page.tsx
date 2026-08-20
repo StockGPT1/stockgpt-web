@@ -18,10 +18,7 @@ import {
 } from "@/lib/yahoo";
 import { getRankSnapshotMapAround24hAgo } from "@/lib/rank-history";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import {
-  getDashboardMainPortfolio,
-  type DashboardPortfolioOpportunity,
-} from "@/lib/dashboard-portfolio";
+import { getDashboardMainPortfolio } from "@/lib/dashboard-portfolio";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getCachedWorldNewsFeed } from "@/lib/world-news-feed";
 
@@ -91,6 +88,7 @@ export default async function DashboardPage({
   if (!user) redirect("/login?next=/dashboard");
 
   const firstName = getFirstNameFromUserMetadata(user);
+  const intelligenceAsOf = new Date().toISOString();
 
   const [
     profileResult,
@@ -117,7 +115,12 @@ export default async function DashboardPage({
       .from("stock_rankings")
       .select("*", { count: "exact", head: true })
       .gte("score", 7000),
-    getDashboardMainPortfolio(supabase, user.id, params.portfolio),
+    getDashboardMainPortfolio(
+      supabase,
+      user.id,
+      params.portfolio,
+      intelligenceAsOf,
+    ),
     getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
     getRankSnapshotMapAround24hAgo(supabase),
     getDashboardWorldNewsSafe(),
@@ -134,9 +137,7 @@ export default async function DashboardPage({
     dashboardPortfolio?.summary ?? null;
   const portfolioChart: Partial<Record<TimeRange, ChartPoint[]>> =
     dashboardPortfolio?.chartData ?? {};
-  const opportunities: DashboardPortfolioOpportunity[] = hasSubscription
-    ? (dashboardPortfolio?.opportunities ?? []).slice(0, 8)
-    : [];
+  const portfolioIntelligence = dashboardPortfolio?.intelligence ?? null;
 
   const resolvedTotalCount = totalCount ?? rankings.length;
   const bullishPct =
@@ -225,7 +226,7 @@ export default async function DashboardPage({
           }}
           valuationState={valuationState}
           missingPriceTickers={missingPriceTickers}
-          opportunities={opportunities.slice(0, 2)}
+          intelligence={portfolioIntelligence}
           rankings={rankings}
           rankingsLocked={rankingsLocked}
           marketChart={sp500Data}
@@ -244,8 +245,8 @@ export default async function DashboardPage({
           totalCount={resolvedTotalCount}
           bullishPct={bullishPct}
           sentiment={sentiment}
-          opportunities={opportunities}
           portfolioSummary={portfolioSummary}
+          portfolioIntelligence={portfolioIntelligence}
           portfolioChart={portfolioChart}
           portfolioChartMeta={portfolioChartMeta}
           portfolioId={portfolioId}
