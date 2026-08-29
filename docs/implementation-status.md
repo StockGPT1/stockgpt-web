@@ -114,6 +114,12 @@ Engineering constitution:
 - Canonical engine, factual adapter, Portfolio, Dashboard, Ask, Notifications, full Stage 04 source contract, aggregate portfolio regression, TypeScript, lint and production build gates pass without production access.
 - Stage 04 is complete. Stage 05 is the next major stage.
 
+### Pre-Stage-05 entitlement hardening
+
+- The Stage 05A portfolio-correctness design is complete; portfolio accounting and persistence implementation has not started. Stage 05B is the next implementation task.
+- The intervening P0 profile-permission patch makes `subscription_status` and `stripe_customer_id` trusted-server-owned at the database boundary. Owner-row RLS remains in force, while PostgreSQL column privileges limit authenticated profile updates to the explicit user-editable profile and preference fields used by the product.
+- A clean local reset plus genuine authenticated-session tests prove owner reads and approved edits, cross-user isolation, rejected billing-field writes, rejected paid-profile insertion and retained trusted service-role billing updates.
+
 ## Global release gates
 
 Every implementation stage must pass:
