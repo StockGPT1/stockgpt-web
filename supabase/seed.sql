@@ -253,12 +253,12 @@ values
 
 insert into public.portfolio_transactions (
   id, portfolio_id, user_id, ticker, type, shares, price, amount,
-  currency, notes, created_at
+  currency, notes, occurred_at, created_at
 )
 values
-  ('b1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', null, 'deposit', null, null, 5000, 'USD', 'Synthetic opening deposit.', '2026-01-02T09:00:00Z'),
-  ('b2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'AAPL', 'buy', 20, 100, 2000, 'USD', 'Synthetic AAPL purchase.', '2026-01-03T09:00:00Z'),
-  ('b3333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'MSFT', 'buy', 10, 200, 2000, 'USD', 'Synthetic MSFT purchase.', '2026-01-03T09:05:00Z');
+  ('b1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', null, 'deposit', null, null, 5000, 'USD', 'Synthetic opening deposit.', '2026-01-02T09:00:00Z', '2026-01-02T09:00:00Z'),
+  ('b2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'AAPL', 'buy', 20, 100, 2000, 'USD', 'Synthetic AAPL purchase.', '2026-01-03T09:00:00Z', '2026-01-03T09:00:00Z'),
+  ('b3333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'MSFT', 'buy', 10, 200, 2000, 'USD', 'Synthetic MSFT purchase.', '2026-01-03T09:05:00Z', '2026-01-03T09:05:00Z');
 
 insert into public.portfolio_snapshots (
   id, portfolio_id, user_id, snapshot_at, value, cash, basis, pnl, pnl_pct,

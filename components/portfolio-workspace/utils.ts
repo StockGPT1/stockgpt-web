@@ -3,6 +3,10 @@ import type {
   ActivityItem,
   PortfolioTransaction,
 } from "@/components/portfolio-workspace/types";
+import {
+  comparePortfolioTransactionActivityDesc,
+  portfolioTransactionActivityAt,
+} from "@/lib/portfolio-transaction-chronology";
 import type { PortfolioIntelligenceTone } from "@/lib/portfolio-intelligence-presentation";
 
 export function clamp(value: number, min: number, max: number) {
@@ -136,7 +140,10 @@ export function buildActivityItems(
   transactions: PortfolioTransaction[],
   currency: string,
 ): ActivityItem[] {
-  return transactions.map((transaction): ActivityItem => ({
+  return transactions
+    .slice()
+    .sort(comparePortfolioTransactionActivityDesc)
+    .map((transaction): ActivityItem => ({
     id: `transaction-${transaction.id}`,
     kind:
       transaction.type === "buy"
@@ -148,7 +155,7 @@ export function buildActivityItems(
               transaction.type === "cash_adjustment"
             ? "cash"
             : "other",
-    date: transaction.createdAt,
+    date: portfolioTransactionActivityAt(transaction),
     ticker: transaction.ticker,
     title: transactionTitle(transaction.type, transaction.ticker),
     detail: transactionDetail(transaction, currency),
@@ -158,9 +165,8 @@ export function buildActivityItems(
         : transaction.type === "withdrawal" || transaction.type === "sell"
           ? "negative"
           : "neutral",
-  }))
-    .filter((item) => Number.isFinite(new Date(item.date).getTime()))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }))
+    .filter((item) => Number.isFinite(new Date(item.date).getTime()));
 }
 
 export function dateGroupLabel(value: string) {

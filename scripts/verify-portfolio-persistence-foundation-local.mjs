@@ -84,7 +84,7 @@ async function expectRejected(query, message) {
   const { error } = await query;
   assert(error, `${message}: hostile write unexpectedly succeeded`);
   assert(
-    /row-level security|foreign key|violates/iu.test(error.message),
+    /permission denied|privilege|row-level security|foreign key|violates/iu.test(error.message),
     `${message}: unexpected failure: ${error.message}`,
   );
 }
@@ -102,7 +102,7 @@ function transactionRow(id, portfolioId, userId, notes) {
     currency: "USD",
     realised_pnl: null,
     notes,
-    created_at: "2026-03-01T10:00:00Z",
+    occurred_at: null,
   };
 }
 
@@ -291,13 +291,12 @@ try {
       && activeTransactionAfter.user_id === users.active.id,
     "Rejected transaction update changed parent or owner",
   );
-  await requiredSingle(
+  await expectRejected(
     activeClient
       .from("portfolio_transactions")
-      .update({ notes: "05B legitimate same-owner transaction update" })
-      .eq("id", ids.activeTransaction)
-      .select("id,notes"),
-    "Legitimate same-owner transaction update failed",
+      .update({ notes: "05B transaction update must remain append-only" })
+      .eq("id", ids.activeTransaction),
+    "Same-owner transaction update",
   );
 
   await expectRejected(

@@ -15,6 +15,7 @@ import type {
   PortfolioWorkspaceProps,
 } from "@/components/portfolio-workspace/types";
 import { holdingIntelligenceForTicker } from "@/lib/portfolio-intelligence-presentation";
+import { portfolioTransactionActivityAt } from "@/lib/portfolio-transaction-chronology";
 
 export function PortfolioModernWorkspace({
   portfolioId,
@@ -77,7 +78,7 @@ export function PortfolioModernWorkspace({
       }
     : null;
   const latestActivityDate = useMemo(() => {
-    const values = transactions.map((transaction) => transaction.createdAt);
+    const values = transactions.map(portfolioTransactionActivityAt);
     return (
       values
         .filter((value) => Number.isFinite(new Date(value).getTime()))

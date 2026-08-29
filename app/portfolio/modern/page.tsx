@@ -25,6 +25,7 @@ import {
   type SupportedCurrency,
   type UsdFxRates,
 } from "@/lib/currency";
+import { comparePortfolioTransactionActivityDesc } from "@/lib/portfolio-transaction-chronology";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ type TransactionRow = {
   realised_pnl: number | null;
   currency: string | null;
   notes: string | null;
+  occurred_at: string | null;
   created_at: string;
 };
 
@@ -233,7 +235,7 @@ export default async function ModernPortfolioPage({
     supabase
       .from("portfolio_transactions")
       .select(
-        "id,portfolio_id,ticker,type,shares,price,amount,realised_pnl,currency,notes,created_at",
+        "id,portfolio_id,ticker,type,shares,price,amount,realised_pnl,currency,notes,occurred_at,created_at",
       )
       .eq("portfolio_id", selectedPortfolioId)
       .order("created_at", { ascending: true })
@@ -409,8 +411,6 @@ export default async function ModernPortfolioPage({
     totalPnl: convertUsdToCurrency(summaryUsd.totalPnl, displayCurrency, fxRates),
   };
   const displayTransactions = transactions
-    .slice()
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .map((transaction) => ({
       id: transaction.id,
       portfolioId: transaction.portfolio_id,
@@ -431,8 +431,10 @@ export default async function ModernPortfolioPage({
           : convertUsdToCurrency(transaction.realised_pnl, displayCurrency, fxRates),
       currency: displayCurrency,
       notes: transaction.notes,
-      createdAt: transaction.created_at,
-    }));
+      occurredAt: transaction.occurred_at,
+      recordedAt: transaction.created_at,
+    }))
+    .sort(comparePortfolioTransactionActivityDesc);
 
   return (
     <AppShell

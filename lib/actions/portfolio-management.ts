@@ -642,7 +642,7 @@ async function recordTransaction(
     notes?: string | null;
   },
 ) {
-  const { error } = await supabase.from("portfolio_transactions").insert({
+  const transaction = {
     portfolio_id: input.portfolioId,
     user_id: input.userId,
     ticker: input.ticker ?? null,
@@ -654,7 +654,11 @@ async function recordTransaction(
       input.realisedPnl == null ? null : roundMoney(Number(input.realisedPnl)),
     currency: input.currency ?? "USD",
     notes: input.notes ?? null,
-  });
+    ...(input.type === "import" || input.type === "log_existing"
+      ? { occurred_at: null }
+      : {}),
+  };
+  const { error } = await supabase.from("portfolio_transactions").insert(transaction);
 
   if (error) {
     console.error("Failed to record portfolio transaction:", error.message);

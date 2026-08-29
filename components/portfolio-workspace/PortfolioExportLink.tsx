@@ -34,7 +34,8 @@ export function PortfolioExportLink({
   const exportData = useMemo(() => {
     const columns = [
       "record_type",
-      "date",
+      "event_or_added_at",
+      "recorded_at",
       "ticker",
       "company",
       "sector",
@@ -56,6 +57,7 @@ export function PortfolioExportLink({
       rows.push([
         "holding",
         holding.addedAt,
+        "",
         holding.ticker,
         holding.company,
         holding.sector,
@@ -76,7 +78,8 @@ export function PortfolioExportLink({
     for (const transaction of transactions) {
       rows.push([
         "transaction",
-        transaction.createdAt,
+        transaction.occurredAt ?? "",
+        transaction.recordedAt,
         transaction.ticker ?? "",
         "",
         "",

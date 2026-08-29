@@ -31,6 +31,7 @@
     "test:database-contract": "node scripts/database-contract-checks.mjs",
     "test:profile-entitlement-security": "node scripts/verify-profile-entitlement-security-local.mjs",
     "test:portfolio-persistence-foundation": "node scripts/verify-portfolio-persistence-foundation-local.mjs",
+    "test:portfolio-ledger": "node scripts/verify-portfolio-ledger-local.mjs && tsx scripts/portfolio-ledger-chronology-checks.ts",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },

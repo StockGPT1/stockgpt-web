@@ -99,7 +99,8 @@ assert.match(visuals, /AllocationTreemap/);
 assert.match(holdings, /Search holdings/);
 assert.match(holdings, /sticky top-0/);
 assert.match(activity, /Load more activity/);
-assert.match(activity, /Recorded portfolio transactions appear here/);
+assert.match(activity, /known event time/);
+assert.match(activity, /recorded time used when legacy event timing is unavailable/);
 assert.match(activity, /not reconstructed as historical activity/);
 
 assert.match(orchestrator, /overflow-x-hidden/);

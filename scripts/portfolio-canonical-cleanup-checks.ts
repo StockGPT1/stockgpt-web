@@ -151,7 +151,8 @@ const transactions: PortfolioTransaction[] = [
     realisedPnl: null,
     currency: "USD",
     notes: null,
-    createdAt: "2026-01-16T10:00:00.000Z",
+    occurredAt: "2026-01-16T10:00:00.000Z",
+    recordedAt: "2026-01-16T10:00:00.000Z",
   },
   {
     id: "sell-1",
@@ -164,7 +165,8 @@ const transactions: PortfolioTransaction[] = [
     realisedPnl: 5,
     currency: "USD",
     notes: null,
-    createdAt: "2026-01-16T09:00:00.000Z",
+    occurredAt: "2026-01-16T09:00:00.000Z",
+    recordedAt: "2026-01-16T09:00:00.000Z",
   },
   {
     id: "cash-1",
@@ -177,7 +179,8 @@ const transactions: PortfolioTransaction[] = [
     realisedPnl: null,
     currency: "USD",
     notes: null,
-    createdAt: "2026-01-16T08:00:00.000Z",
+    occurredAt: "2026-01-16T08:00:00.000Z",
+    recordedAt: "2026-01-16T08:00:00.000Z",
   },
   {
     id: "other-1",
@@ -190,7 +193,8 @@ const transactions: PortfolioTransaction[] = [
     realisedPnl: null,
     currency: "USD",
     notes: null,
-    createdAt: "2026-01-16T07:00:00.000Z",
+    occurredAt: "2026-01-16T07:00:00.000Z",
+    recordedAt: "2026-01-16T07:00:00.000Z",
   },
 ];
 assert.deepEqual(
@@ -229,8 +233,9 @@ assert.match(workspaceSource, /assessment=\{selectedAssessment\}/);
 assert.doesNotMatch(workspaceSource, /holding\.(?:actionAlerts|eventAlerts)/);
 assert.match(
   workspaceSource,
-  /const values = transactions\.map\(\(transaction\) => transaction\.createdAt\)/,
+  /const values = transactions\.map\(portfolioTransactionActivityAt\)/,
 );
+assert.match(workspaceSource, /portfolio-transaction-chronology/);
 
 assert.match(drawerSource, /assessment: HoldingIntelligenceView/);
 assert.match(drawerSource, /referenceLevels: HoldingReferenceLevels/);

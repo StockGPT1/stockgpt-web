@@ -84,8 +84,8 @@ begin
     and policyname like 'portfolio_transactions_%_owned_parent'
     and roles = array['authenticated']::name[];
 
-  if policy_count <> 4 then
-    raise exception 'Expected four authenticated parent-aware transaction policies, found %', policy_count;
+  if policy_count <> 2 then
+    raise exception 'Expected two authenticated parent-aware transaction policies after append-only hardening, found %', policy_count;
   end if;
 
   if exists (
@@ -114,11 +114,14 @@ begin
     raise exception 'Expected three authenticated parent-aware snapshot policies, found %', policy_count;
   end if;
 
-  if not has_table_privilege('authenticated', 'public.portfolio_transactions', 'select,insert,update,delete')
+  if not has_table_privilege('authenticated', 'public.portfolio_transactions', 'select')
+    or not has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'insert')
+    or has_table_privilege('authenticated', 'public.portfolio_transactions', 'update')
+    or has_table_privilege('authenticated', 'public.portfolio_transactions', 'delete')
     or not has_table_privilege('authenticated', 'public.portfolio_snapshots', 'select,insert,update')
     or not has_table_privilege('authenticated', 'public.portfolio_holdings', 'select,insert,update,delete')
     or not has_table_privilege('authenticated', 'public.user_portfolios', 'select,insert,update,delete') then
-    raise exception '05B unexpectedly removed an active direct financial table privilege';
+    raise exception 'Current financial table privileges do not preserve the 05B ownership foundation';
   end if;
 end;
 $portfolio_persistence_assertions$;

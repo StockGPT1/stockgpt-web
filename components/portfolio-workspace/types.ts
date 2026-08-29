@@ -54,7 +54,8 @@ export type PortfolioTransaction = {
   realisedPnl: number | null;
   currency: string;
   notes: string | null;
-  createdAt: string;
+  occurredAt: string | null;
+  recordedAt: string;
 };
 
 export type PortfolioMeta = {

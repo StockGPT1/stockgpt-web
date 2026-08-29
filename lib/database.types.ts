@@ -385,6 +385,7 @@ export type Database = {
           currency: string
           id: string
           notes: string | null
+          occurred_at: string | null
           portfolio_id: string
           price: number | null
           realised_pnl: number | null
@@ -399,6 +400,7 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          occurred_at?: string | null
           portfolio_id: string
           price?: number | null
           realised_pnl?: number | null
@@ -413,6 +415,7 @@ export type Database = {
           currency?: string
           id?: string
           notes?: string | null
+          occurred_at?: string | null
           portfolio_id?: string
           price?: number | null
           realised_pnl?: number | null

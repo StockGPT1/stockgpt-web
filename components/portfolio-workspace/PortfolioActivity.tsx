@@ -84,7 +84,7 @@ export function PortfolioActivity({
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Portfolio history</p>
         <h2 className="mt-1 text-[27px] font-black tracking-[-0.045em] text-[#faf6f0] lg:text-[34px]">Activity, connected</h2>
         <p className="mt-3 max-w-2xl text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-          Recorded portfolio transactions appear here in chronological order.
+          Portfolio transactions appear by known event time, with recorded time used when legacy event timing is unavailable.
         </p>
       </section>
 
