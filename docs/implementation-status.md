@@ -19,7 +19,7 @@ Engineering constitution:
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
 | 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
 | 04 | Canonical portfolio intelligence engine | COMPLETE | `98dd988` + `fa1a1ad` + `e0f0851` + `6426012` + `27a2a83` + `Close canonical portfolio intelligence migration` | Portfolio, Dashboard, Ask and Notifications share one factual adapter, canonical engine and status vocabulary; active competing customer assessment paths are removed or explicitly non-authoritative. |
-| 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
+| 05 | Portfolio correctness and persistence cleanup | IN PROGRESS | `05A design` + `05B ownership foundation` | Stage 05A design and the 05B database persistence/ownership foundation are complete; ledger and accounting mutation slices remain. |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
 | 07 | Provider-neutral broker data model | NOT STARTED | | |
 | 08 | Broker secret/security architecture | NOT STARTED | | |
@@ -119,6 +119,15 @@ Engineering constitution:
 - The Stage 05A portfolio-correctness design is complete; portfolio accounting and persistence implementation has not started. Stage 05B is the next implementation task.
 - The intervening P0 profile-permission patch makes `subscription_status` and `stripe_customer_id` trusted-server-owned at the database boundary. Owner-row RLS remains in force, while PostgreSQL column privileges limit authenticated profile updates to the explicit user-editable profile and preference fields used by the product.
 - A clean local reset plus genuine authenticated-session tests prove owner reads and approved edits, cross-user isolation, rejected billing-field writes, rejected paid-profile insertion and retained trusted service-role billing updates.
+
+### Stage 05 progress
+
+- Stage 05A design is complete. Step 05B establishes `user_portfolios (id, user_id)` as the relational parent/owner key and binds the redundant `(portfolio_id, user_id)` pairs on `portfolio_transactions` and `portfolio_snapshots` to it.
+- Both new child ownership foreign keys are intentionally `NOT VALID`: new and updated rows are constrained immediately, while unknown historical production rows cannot make the initial migration fail. No legacy row is silently changed; later validation requires explicit reconciliation and release review.
+- Transaction and snapshot RLS now requires both the row `user_id` and the referenced Portfolio owner to equal `auth.uid()` for every currently permitted client operation. Hostile authenticated sessions prove cross-owner inserts/updates and mismatched redundant owners fail without changing either owner's data.
+- Existing direct authenticated Portfolio, holding, transaction and snapshot table privileges deliberately remain until Stage 05I because the current product has not yet migrated to narrow mutation RPCs. No accounting operation or customer-visible behavior changed in 05B.
+- Future financial RPCs must authenticate with `auth.uid()`, select and lock the exact owned Portfolio/relevant rows, validate the requested operation, atomically mutate financial facts and ledger entries in one database transaction, return a deterministic result, and defer cache/revalidation work until after commit. No speculative mutation helper was added in 05B.
+- Stage 05C ledger redesign and a separate `occurred_at` timestamp are the next slice. Cash, trade, creation, CSV, currency, direct-write retirement and cache work remain in their approved 05D–05J slices.
 
 ## Global release gates
 

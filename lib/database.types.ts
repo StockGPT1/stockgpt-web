@@ -369,6 +369,13 @@ export type Database = {
             referencedRelation: "user_portfolios"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "portfolio_snapshots_portfolio_owner_fkey"
+            columns: ["portfolio_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "user_portfolios"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
       portfolio_transactions: {
@@ -421,6 +428,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_portfolios"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_transactions_portfolio_owner_fkey"
+            columns: ["portfolio_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "user_portfolios"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
