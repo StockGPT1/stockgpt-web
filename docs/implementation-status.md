@@ -18,7 +18,7 @@ Engineering constitution:
 | 01 | Engineering harness and staging setup | COMPLETE | `codex/02b2-environment-ci-hardening` | Constitution and live-derived baseline documented; persistent Vercel staging retained; local-Supabase/synthetic-data topology recorded, with database readiness deferred to Stage 03. |
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
 | 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
-| 04 | Canonical portfolio intelligence engine | IN PROGRESS | Stage 04A audit + 04B canonical V1 engine + 04C factual adapter + 04D/04E Portfolio migration + 04F Dashboard migration + 04G Ask context migration | Portfolio, Dashboard and Ask now share canonical assessment semantics; notification ownership and cache-warming reconciliation remain outstanding. |
+| 04 | Canonical portfolio intelligence engine | COMPLETE | `98dd988` + `fa1a1ad` + `e0f0851` + `6426012` + `27a2a83` + `Close canonical portfolio intelligence migration` | Portfolio, Dashboard, Ask and Notifications share one factual adapter, canonical engine and status vocabulary; active competing customer assessment paths are removed or explicitly non-authoritative. |
 | 05 | Portfolio correctness and persistence cleanup | NOT STARTED | | |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
 | 07 | Provider-neutral broker data model | NOT STARTED | | |
@@ -96,7 +96,23 @@ Engineering constitution:
 - Dashboard legacy health remains a separate numeric metric, while active legacy alert-label status and personalised portfolio-fit opportunities are removed. Mobile now presents Portfolio and Current signals panels; desktop uses a neutral rankings research link. Subscription locks remain in place.
 - Step 04G migrates Ask StockGPT's focused portfolio context to the same factual adapter, canonical engine and presentation semantics as Portfolio and Dashboard. The prompt receives canonical status, reason evidence, attention ordering and honest valuation coverage; legacy recommendations, action/event alerts, generated action plans and target-allocation interpretations no longer enter the portfolio context.
 - Ask keeps recent news as separate research context and explicitly states that canonical event severity remains unmapped under approved Option A. Personalized transaction questions are answered through evidence and investigation trade-offs rather than StockGPT transaction decisions, while general educational explanations remain available.
-- Notifications and cache warming remain unmigrated. The next Stage 04 slice is 04H: reconcile canonical ownership with notification/current-alert generation, decide what remains deferred to Stage 19, and run the Stage 04 closeout audit.
+- Step 04H makes Notifications a canonical attention inbox. One owner-scoped bulk fact load and one request-level `asOf` feed the existing adapter and engine; only holding-level `review` and `urgent_review` assessments create current prompts. `monitor` and `on_track` remain visible on Portfolio/Dashboard without inbox noise.
+- Notification acknowledgements now use deterministic portfolio/instrument/status/reason/week keys and are presented as Read/Unread rather than resolved. Saved target references remain separate factual, neutral prompts; saved-risk breaches are represented only by the canonical reason. Durable notification event history and summary failure hardening remain Stage 18/19 work.
+- Canonical event severity remains intentionally unmapped under approved Option A. Notifications do not use legacy news severity or article counts, and non-USD portfolios with an unresolved currency basis do not emit withheld canonical Review/Urgent conclusions.
+- The cache warmer's legacy enriched/health page snapshot is not read by Portfolio, Dashboard, Ask or Notifications as canonical status. It is non-authoritative and remains Stage 05 ownership for reconciliation or retirement.
+- The legacy alert/action/trim/opportunity implementations remain only as separate numeric-health plumbing, inactive/deferred code or non-canonical cache work. They are not authoritative for active Portfolio, Dashboard, Ask or Notifications assessment and may be removed in Stage 19 or the relevant owning cleanup stage.
+
+### Stage 04 acceptance audit
+
+- The pure deterministic engine retains one `on_track` / `monitor` / `review` / `urgent_review` vocabulary, approved thresholds, structured reason evidence and source-specific freshness.
+- Portfolio, Dashboard, Ask and Notifications all call the current-schema factual adapter and canonical engine; parity/source contracts prevent customer surfaces from introducing a second status derivation.
+- P&L and the separate legacy 0–100 health metric do not create canonical status. Active customer portfolio-assessment paths do not emit buy/sell/trim/add-more/reinvestment recommendations.
+- Canonical news/event severity remains honestly unavailable, and the internal `canonical_event_severity_source_unmapped` limitation remains regression-tested.
+- Non-USD unresolved currency basis remains the separate `Analysis limited` availability state and cannot create misleading canonical inbox prompts.
+- Notification generation is owner-scoped, canonical reason-driven and free of legacy alert/action/trim imports. Notification read state acknowledges a current prompt without claiming that its condition resolved.
+- Legacy warmed page snapshots cannot override canonical status and are explicitly assigned to Stage 05. Durable notification history and summary/cache failure semantics are explicitly assigned to Stage 18/19.
+- Canonical engine, factual adapter, Portfolio, Dashboard, Ask, Notifications, full Stage 04 source contract, aggregate portfolio regression, TypeScript, lint and production build gates pass without production access.
+- Stage 04 is complete. Stage 05 is the next major stage.
 
 ## Global release gates
 
@@ -128,7 +144,7 @@ Every implementation stage must pass:
 | Schema and migration history cannot reproduce the referenced database | Stage 03 | Resolved: canonical local reproduction, synthetic seed, generated types, application-reference alignment and controlled future release workflow are complete. |
 | Placeholder Supabase generated types | Stage 03 | Resolved from the canonical local schema with a repeatable local drift check. |
 | `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolved in runtime code: all application queries use canonical `watchlist`; compile/source contracts guard against regression. |
-| Conflicting portfolio recommendation/status engines | Stage 04 | Establish the canonical portfolio-intelligence boundary and vocabulary. |
+| Conflicting portfolio recommendation/status engines | Stage 04 | Resolved for active Portfolio, Dashboard, Ask and Notifications paths through one factual adapter, canonical engine and vocabulary. Inactive legacy cleanup remains Stage 19/owning-stage work. |
 | Non-atomic portfolio writes and swallowed transaction-record failures | Stage 05 | Make persistence outcomes coherent and observable. |
 | Unsafe CSV replacement behaviour | Stage 05 | Preserve the prior portfolio unless replacement succeeds as a complete operation. |
 | Trim/reinvest non-atomicity | Stage 05 | Keep holdings, cash and activity records consistent. |
@@ -146,10 +162,10 @@ Every implementation stage must pass:
 | Missing `.env.example` referenced by README | Stage 01 / Stage 02 | Resolved: the tracked example now records the current secret-free environment contract. |
 | Next.js middleware naming/deprecation review | Stage 02 assessment; later cleanup | Assessed against Next.js 16.2.4: accepted but deprecated and non-blocking; migration remains a separately scoped cleanup. |
 | Self-mutating GitHub patch workflows | Stage 02 | Resolved: all 19 source-rewriting commit-and-push workflows were removed. Historical scripts remain inert. |
-| Direct action-oriented portfolio language remains in code and UI | Stage 04 / Stage 19 | Align domain output first, then remaining customer-facing surfaces. |
+| Direct action-oriented portfolio language remains in code and UI | Stage 04 / Stage 19 | Resolved in active canonical portfolio-assessment surfaces; remaining unrelated/dead legacy customer-language cleanup belongs to Stage 19. |
 | Duplicate Supabase browser-client patterns | Stage 18 | Reconcile client ownership and security assumptions. |
-| Notification events are recomputed rather than durably represented | Stage 04 / Stage 19 | Decide after canonical intelligence ownership is established. |
-| Dashboard and Portfolio duplicate enrichment/assessment work | Stage 04 / Stage 21 | Establish one assessment boundary before performance tuning. |
+| Notification events are recomputed rather than durably represented | Stage 19 | Canonical current prompts now share assessment ownership; durable event history remains a separate persistence/product task. |
+| Dashboard and Portfolio duplicate enrichment/assessment work | Stage 04 / Stage 21 | Canonical assessment ownership is unified; remaining query/enrichment performance duplication belongs to Stage 21. |
 | Global CSS and DOM-patch components have broad cross-route effects | Stage 16 / Stage 17 / Stage 19 | Address only within the responsible staged UI work. |
 | Native shells depend immediately on live web deployment behaviour | Stage 17 / Stage 25 | Verify responsive/native behaviour before controlled rollout. |
 

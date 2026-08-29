@@ -9,8 +9,9 @@ import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Alerts | StockGPT Portfolio Notifications",
-  description: "Review StockGPT alerts for portfolio changes, ranking moves, score shifts and market research updates.",
+  title: "Notifications | StockGPT Portfolio Research Prompts",
+  description:
+    "Review current StockGPT portfolio research prompts and saved references.",
 };
 
 export default async function NotificationsPage() {
@@ -33,13 +34,13 @@ export default async function NotificationsPage() {
         ) : (
           <div className="grid gap-4">
             <header className="rounded-[24px] border border-[#ddb159]/24 bg-[linear-gradient(135deg,#082519,#0d3420)] p-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ddb159]">Alert inbox</p>
-              <h1 className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#faf6f0]">Portfolio alerts</h1>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ddb159]">Research prompt inbox</p>
+              <h1 className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#faf6f0]">Portfolio notifications</h1>
             </header>
             <ModuleState
               eyebrow="Subscriber intelligence"
-              title="Unlock your organised alert inbox"
-              description="Review holding conditions, portfolio changes, rank moves and relevant news in one calm inbox. No personalised alert data is shown in this locked preview."
+              title="Unlock your organised research-prompt inbox"
+              description="Review current holding conditions that warrant a closer look. No personalised portfolio prompt is shown in this locked preview."
               tone="locked"
               action={<Link href="/subscription" className="inline-flex min-h-10 items-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#07170f]">View plans</Link>}
             />

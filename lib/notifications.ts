@@ -1,253 +1,41 @@
-import { createClient } from "@/utils/supabase/server";
-import { saveUnreadNotificationSummary } from "@/lib/notification-summary";
+import "server-only";
+
 import {
-  enrichHoldings,
-  type AlertSeverity,
-  type AlertType,
-  type HoldingAlert,
-  type RiskTolerance,
-} from "@/lib/portfolio-alerts";
+  buildCanonicalNotificationCandidates,
+  stripNotificationDismissalKeys,
+  type Notification,
+} from "@/lib/canonical-notifications";
+import type { Tables } from "@/lib/database.types";
+import { saveUnreadNotificationSummary } from "@/lib/notification-summary";
+import type {
+  CurrentDiagnosticFact,
+  CurrentHoldingFact,
+  CurrentPortfolioFact,
+  CurrentRankingFact,
+} from "@/lib/current-portfolio-intelligence";
+import { createClient } from "@/utils/supabase/server";
 
-export type Notification = {
-  key: string;
-  ticker: string;
-  company: string | null;
-  type: AlertType;
-  severity: AlertSeverity;
-  title: string;
-  message: string;
-  recommendation: string;
-  createdAt: string | null;
-  portfolioId: string;
-  portfolioName: string;
-};
+export type { Notification } from "@/lib/canonical-notifications";
 
-type BuiltNotification = Notification & {
-  dismissalKeys: string[];
-};
-
-type PortfolioRow = {
-  id: string;
-  name: string | null;
-  risk_tolerance: string | null;
-};
-
-type HoldingRow = {
-  portfolio_id: string;
-  ticker: string | null;
-  entry_price: number | null;
-  score_at_entry: number | null;
-  rank_at_entry: number | null;
-  risk_level_at_entry: number | null;
-  target_level_at_entry: number | null;
-  added_at: string | null;
-  last_reviewed_at: string | null;
-  shares: number | null;
-  allocation_pct: number | null;
-  purchase_date?: string | null;
-  source?: string | null;
-  notes?: string | null;
-};
+type PortfolioRow = CurrentPortfolioFact & Pick<Tables<"user_portfolios">, "name">;
+type RankingRow = CurrentRankingFact & Pick<Tables<"stock_rankings">, "company">;
 
 function cleanName(name: string | null | undefined, fallback: string) {
   const value = String(name ?? "").trim();
   return value || fallback;
 }
 
-function buildAlertKey({
-  portfolioId,
-  ticker,
-  type,
-  dateStr,
-}: {
-  portfolioId: string;
-  ticker: string;
-  type: string;
-  dateStr: string;
-}): string {
-  const d = new Date(dateStr);
-  const year = d.getFullYear();
-  const week = Math.floor(
-    (d.getTime() - new Date(year, 0, 1).getTime()) /
-      (7 * 24 * 60 * 60 * 1000),
-  );
-
-  return `${portfolioId}:${ticker}:${type}:${year}w${week}`;
+function tickerKey(value: string | null | undefined) {
+  return String(value ?? "").trim().toUpperCase();
 }
 
-function buildLegacyAlertKey(ticker: string, type: string, dateStr: string): string {
-  const d = new Date(dateStr);
-  const year = d.getFullYear();
-  const week = Math.floor(
-    (d.getTime() - new Date(year, 0, 1).getTime()) /
-      (7 * 24 * 60 * 60 * 1000),
-  );
-
-  return `${ticker}:${type}:${year}w${week}`;
-}
-
-function buildLevelKey({
-  portfolioId,
-  ticker,
-  type,
-  level,
-}: {
-  portfolioId: string;
-  ticker: string;
-  type: string;
-  level: number;
-}): string {
-  return `${portfolioId}:${ticker}:${type}:${level.toFixed(2)}`;
-}
-
-function buildLegacyLevelKey(ticker: string, type: string, level: number): string {
-  return `${ticker}:${type}:${level.toFixed(2)}`;
-}
-
-function stripInternal(notification: BuiltNotification): Notification {
-  const { dismissalKeys, ...clean } = notification;
-  void dismissalKeys;
-  return clean;
-}
-
-function buildTrimNotification({
-  portfolioId,
-  portfolioName,
-  ticker,
-  company,
-  alert,
-  today,
-}: {
-  portfolioId: string;
-  portfolioName: string;
-  ticker: string;
-  company: string | null;
-  alert: HoldingAlert;
-  today: string;
-}): BuiltNotification {
-  const key = buildAlertKey({
-    portfolioId,
-    ticker,
-    type: alert.type,
-    dateStr: today,
-  });
-
-  return {
-    key,
-    dismissalKeys: [key, buildLegacyAlertKey(ticker, alert.type, today)],
-    portfolioId,
-    portfolioName,
-    ticker,
-    company,
-    type: alert.type,
-    severity: alert.severity,
-    title: alert.title,
-    message: alert.message,
-    recommendation: alert.recommendation,
-    createdAt: alert.dataUpdatedAt ?? alert.triggeredAt ?? alert.generatedAt ?? null,
-  };
-}
-
-function buildStoredTradeLevelNotifications({
-  portfolioId,
-  portfolioName,
-  ticker,
-  company,
-  currentPrice,
-  riskLevelAtEntry,
-  targetLevelAtEntry,
-}: {
-  portfolioId: string;
-  portfolioName: string;
-  ticker: string;
-  company: string | null;
-  currentPrice: number;
-  riskLevelAtEntry: number | null;
-  targetLevelAtEntry: number | null;
-}): BuiltNotification[] {
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
-    return [];
-  }
-
-  const notifications: BuiltNotification[] = [];
-
-  if (
-    riskLevelAtEntry !== null &&
-    Number.isFinite(riskLevelAtEntry) &&
-    riskLevelAtEntry > 0 &&
-    currentPrice <= riskLevelAtEntry
-  ) {
-    const key = buildLevelKey({
-      portfolioId,
-      ticker,
-      type: "entry_risk_level_hit",
-      level: riskLevelAtEntry,
-    });
-
-    notifications.push({
-      key,
-      dismissalKeys: [
-        key,
-        buildLegacyLevelKey(ticker, "entry_risk_level_hit", riskLevelAtEntry),
-        buildLegacyLevelKey(ticker, "stop_loss_hit", riskLevelAtEntry),
-      ],
-      portfolioId,
-      portfolioName,
-      ticker,
-      company,
-      type: "price_event",
-      severity: "critical",
-      title: `${ticker} has hit its buy-time risk level`,
-      message: `Current price is $${currentPrice.toFixed(
-        2,
-      )}, at or below the stored buy-time risk level near $${riskLevelAtEntry.toFixed(
-        2,
-      )}.`,
-      recommendation:
-        "Review the position against the risk level saved when the holding was bought.",
-      createdAt: null,
-    });
-  }
-
-  if (
-    targetLevelAtEntry !== null &&
-    Number.isFinite(targetLevelAtEntry) &&
-    targetLevelAtEntry > 0 &&
-    currentPrice >= targetLevelAtEntry
-  ) {
-    const key = buildLevelKey({
-      portfolioId,
-      ticker,
-      type: "entry_target_level_hit",
-      level: targetLevelAtEntry,
-    });
-
-    notifications.push({
-      key,
-      dismissalKeys: [
-        key,
-        buildLegacyLevelKey(ticker, "entry_target_level_hit", targetLevelAtEntry),
-        buildLegacyLevelKey(ticker, "take_profit_hit", targetLevelAtEntry),
-      ],
-      portfolioId,
-      portfolioName,
-      ticker,
-      company,
-      type: "price_event",
-      severity: "success",
-      title: `${ticker} has hit its buy-time target level`,
-      message: `Current price is $${currentPrice.toFixed(
-        2,
-      )}, at or above the stored buy-time target level near $${targetLevelAtEntry.toFixed(
-        2,
-      )}.`,
-      recommendation:
-        "Review whether the target saved when the holding was bought has now been met.",
-      createdAt: null,
-    });
-  }
-
-  return notifications;
+function errorResult(): {
+  unread: Notification[];
+  read: Notification[];
+  unreadCount: number;
+  status: "error";
+} {
+  return { unread: [], read: [], unreadCount: 0, status: "error" };
 }
 
 export async function getUserNotifications({
@@ -261,169 +49,144 @@ export async function getUserNotifications({
   status: "ok" | "error" | "unauthenticated";
 }> {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { unread: [], read: [], unreadCount: 0, status: "unauthenticated" };
+  if (!user) {
+    return { unread: [], read: [], unreadCount: 0, status: "unauthenticated" };
+  }
+  const asOf = new Date().toISOString();
 
   const { data: portfoliosData, error: portfoliosError } = await supabase
     .from("user_portfolios")
-    .select("id, name, risk_tolerance")
+    .select(
+      "id,name,risk_tolerance,objective,time_horizon,cash_balance,currency",
+    )
     .eq("user_id", user.id)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
   if (portfoliosError) {
     console.error("[notifications] portfolio read failed", portfoliosError);
-    return { unread: [], read: [], unreadCount: 0, status: "error" };
+    return errorResult();
   }
-  const portfolios = (portfoliosData ?? []) as PortfolioRow[];
-
+  const portfolios: PortfolioRow[] = portfoliosData ?? [];
   if (portfolios.length === 0) {
     await saveUnreadNotificationSummary(user.id, 0);
     return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
-
   const { data: holdingsData, error: holdingsError } = await supabase
     .from("portfolio_holdings")
     .select(
-      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
+      "id,portfolio_id,ticker,shares,entry_price,score_at_entry,rank_at_entry,allocation_pct,source,risk_level_at_entry,target_level_at_entry",
     )
-    .in("portfolio_id", portfolioIds);
+    .in("portfolio_id", portfolioIds)
+    .order("portfolio_id", { ascending: true })
+    .order("ticker", { ascending: true });
 
   if (holdingsError) {
     console.error("[notifications] holdings read failed", holdingsError);
-    return { unread: [], read: [], unreadCount: 0, status: "error" };
+    return errorResult();
   }
-  const holdings = (holdingsData ?? []) as HoldingRow[];
-
-  if (holdings.length === 0) {
-    await saveUnreadNotificationSummary(user.id, 0);
-    return { unread: [], read: [], unreadCount: 0, status: "ok" };
-  }
-
-  const { data: dismissalsData } = await supabase
+  const holdings: CurrentHoldingFact[] = holdingsData ?? [];
+  const tickers = [
+    ...new Set(holdings.map((holding) => tickerKey(holding.ticker)).filter(Boolean)),
+  ];
+  const dismissalsPromise = supabase
     .from("notification_dismissals")
     .select("alert_key")
     .eq("user_id", user.id);
 
-  const dismissedKeys = new Set(
-    (dismissalsData ?? []).map((dismissal) => String(dismissal.alert_key)),
-  );
+  let rankings: RankingRow[] = [];
+  let diagnostics: CurrentDiagnosticFact[] = [];
+  let rankingUniverseSize: number | null = null;
+  let dismissedKeys = new Set<string>();
 
-  const today = new Date().toISOString();
-  const allNotifications: BuiltNotification[] = [];
+  if (tickers.length > 0) {
+    const [rankingResult, diagnosticsResult, universeResult, dismissalsResult] =
+      await Promise.all([
+        supabase
+          .from("stock_rankings")
+          .select(
+            "ticker,company,score,rank,price,last_price_update,last_ranking_update",
+          )
+          .in("ticker", tickers)
+          .order("ticker", { ascending: true }),
+        supabase
+          .from("stock_factor_diagnostics")
+          .select("ticker,current_score,previous_score,updated_at")
+          .in("ticker", tickers)
+          .order("ticker", { ascending: true }),
+        supabase
+          .from("stock_rankings")
+          .select("rank", { count: "exact", head: true })
+          .not("rank", "is", null),
+        dismissalsPromise,
+      ]);
 
-  await Promise.all(
-    portfolios.map(async (portfolio, index) => {
-      const portfolioHoldings = holdings.filter(
-        (holding) => holding.portfolio_id === portfolio.id && holding.ticker,
-      );
-
-      if (portfolioHoldings.length === 0) return;
-
-      const portfolioName = cleanName(portfolio.name, `Portfolio ${index + 1}`);
-      const riskTolerance = (portfolio.risk_tolerance as RiskTolerance) ?? null;
-
-      const enriched = await enrichHoldings(
-        portfolioHoldings.map((holding) => ({
-          ticker: String(holding.ticker).toUpperCase(),
-          entry_price: holding.entry_price,
-          score_at_entry: holding.score_at_entry,
-          rank_at_entry: holding.rank_at_entry,
-          shares: holding.shares,
-          allocation_pct: holding.allocation_pct,
-          added_at: holding.added_at ?? today,
-          last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? today,
-          purchase_date: holding.purchase_date ?? null,
-          source: holding.source ?? null,
-          notes: holding.notes ?? null,
-        })),
-        riskTolerance,
-      );
-
-      const storedLevelsByTicker = new Map(
-        portfolioHoldings.map((holding) => [
-          String(holding.ticker).toUpperCase(),
-          {
-            riskLevelAtEntry: holding.risk_level_at_entry,
-            targetLevelAtEntry: holding.target_level_at_entry,
-          },
-        ]),
-      );
-
-      enriched.forEach((holding) => {
-        holding.alerts
-          .filter((alert: HoldingAlert) => alert.type === "trim_action")
-          .forEach((alert: HoldingAlert) => {
-            allNotifications.push(
-              buildTrimNotification({
-                portfolioId: portfolio.id,
-                portfolioName,
-                ticker: holding.ticker,
-                company: holding.company,
-                alert,
-                today,
-              }),
-            );
-          });
-
-        const storedLevels = storedLevelsByTicker.get(holding.ticker) ?? {
-          riskLevelAtEntry: null,
-          targetLevelAtEntry: null,
-        };
-
-        allNotifications.push(
-          ...buildStoredTradeLevelNotifications({
-            portfolioId: portfolio.id,
-            portfolioName,
-            ticker: holding.ticker,
-            company: holding.company,
-            currentPrice: holding.currentPrice,
-            riskLevelAtEntry: storedLevels.riskLevelAtEntry,
-            targetLevelAtEntry: storedLevels.targetLevelAtEntry,
-          }),
-        );
+    if (rankingResult.error || diagnosticsResult.error || universeResult.error) {
+      console.error("[notifications] canonical fact read failed", {
+        rankings: rankingResult.error,
+        diagnostics: diagnosticsResult.error,
+        universe: universeResult.error,
       });
-    }),
+      return errorResult();
+    }
+    if (dismissalsResult.error) {
+      console.error("[notifications] dismissal read failed", dismissalsResult.error);
+      return errorResult();
+    }
+    rankings = rankingResult.data ?? [];
+    diagnostics = diagnosticsResult.data ?? [];
+    rankingUniverseSize = universeResult.count;
+    dismissedKeys = new Set(
+      (dismissalsResult.data ?? []).map((item) => String(item.alert_key)),
+    );
+  } else {
+    const dismissalsResult = await dismissalsPromise;
+    if (dismissalsResult.error) {
+      console.error("[notifications] dismissal read failed", dismissalsResult.error);
+      return errorResult();
+    }
+    dismissedKeys = new Set(
+      (dismissalsResult.data ?? []).map((item) => String(item.alert_key)),
+    );
+  }
+
+  const companiesByTicker = Object.fromEntries(
+    rankings.map((ranking) => [tickerKey(ranking.ticker), ranking.company]),
   );
-
-  const severityOrder: Record<AlertSeverity, number> = {
-    critical: 0,
-    warning: 1,
-    info: 2,
-    success: 3,
-  };
-
-  allNotifications.sort((a, b) => {
-    const severityDifference = severityOrder[a.severity] - severityOrder[b.severity];
-
-    if (severityDifference !== 0) return severityDifference;
-
-    const portfolioDifference = a.portfolioName.localeCompare(b.portfolioName);
-    if (portfolioDifference !== 0) return portfolioDifference;
-
-    return a.ticker.localeCompare(b.ticker);
+  const candidates = buildCanonicalNotificationCandidates({
+    asOf,
+    portfolios: portfolios.map((portfolio, index) => ({
+      portfolioName: cleanName(portfolio.name, `Portfolio ${index + 1}`),
+      companiesByTicker,
+      facts: {
+        portfolio,
+        holdings: holdings.filter(
+          (holding) => holding.portfolio_id === portfolio.id,
+        ),
+        rankings,
+        diagnostics,
+        rankingUniverseSize,
+      },
+    })),
   });
-
-  const isDismissed = (notification: BuiltNotification) =>
-    notification.dismissalKeys.some((key) => dismissedKeys.has(key));
-
-  const unread = allNotifications.filter((notification) => !isDismissed(notification));
-  const read = includeDismissed
-    ? allNotifications.filter((notification) => isDismissed(notification))
+  const isRead = (candidate: (typeof candidates)[number]) =>
+    candidate.dismissalKeys.some((key) => dismissedKeys.has(key));
+  const unreadCandidates = candidates.filter((candidate) => !isRead(candidate));
+  const readCandidates = includeDismissed
+    ? candidates.filter((candidate) => isRead(candidate))
     : [];
 
-  await saveUnreadNotificationSummary(user.id, unread.length);
-
+  await saveUnreadNotificationSummary(user.id, unreadCandidates.length);
   return {
-    unread: unread.map(stripInternal),
-    read: read.map(stripInternal),
-    unreadCount: unread.length,
+    unread: unreadCandidates.map(stripNotificationDismissalKeys),
+    read: readCandidates.map(stripNotificationDismissalKeys),
+    unreadCount: unreadCandidates.length,
     status: "ok",
   };
 }
