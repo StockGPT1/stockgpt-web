@@ -47,7 +47,19 @@ type RankSnapshotInsert = Database["public"]["Tables"]["stock_rank_snapshots"]["
 
 export type PublicTableSetIsCanonical = Assert<Equal<PublicTables, ExpectedPublicTables>>;
 export type PublicFunctionSetIsCanonical = Assert<
-  Equal<PublicFunctions, "is_active_subscriber" | "show_limit" | "show_trgm">
+  Equal<
+    PublicFunctions,
+    | "is_active_subscriber"
+    | "mutate_portfolio_cash"
+    | "show_limit"
+    | "show_trgm"
+  >
+>;
+export type CashMutationArgsAreNarrow = Assert<
+  Equal<
+    Database["public"]["Functions"]["mutate_portfolio_cash"]["Args"],
+    { p_amount: number; p_operation: string; p_portfolio_id: string }
+  >
 >;
 export type UserWatchlistIsAbsent = Assert<
   Equal<Extract<PublicTables, "user_watchlist">, never>

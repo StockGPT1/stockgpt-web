@@ -1059,6 +1059,19 @@ export type Database = {
     }
     Functions: {
       is_active_subscriber: { Args: { user_uuid: string }; Returns: boolean }
+      mutate_portfolio_cash: {
+        Args: { p_amount: number; p_operation: string; p_portfolio_id: string }
+        Returns: {
+          amount: number
+          cash_balance: number
+          cash_deposited_total: number
+          created_at: string
+          occurred_at: string
+          operation: string
+          portfolio_id: string
+          transaction_id: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }

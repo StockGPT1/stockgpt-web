@@ -1067,9 +1067,9 @@ function SummaryCard({
             compact
           />
           <SummaryMini
-            label="Deposited basis"
+            label="Net contributions"
             value={money(portfolioMeta.cashDepositedTotal, currency)}
-            sub="cash in"
+            sub="external cash flow"
             compact
           />
         </div>

@@ -14,6 +14,7 @@ import {
   roundTradeShares,
   type TradeOrderInput,
 } from "@/lib/trade-calculator";
+import { mutatePortfolioCash } from "@/lib/portfolio-cash-mutation";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -131,7 +132,7 @@ export type ManualPortfolioInput = {
 };
 
 type AddCashInput = {
-  portfolioId?: string | null;
+  portfolioId: string;
   amount: number;
 };
 
@@ -1456,13 +1457,11 @@ export async function importTrading212Csv(
   }
 }
 
-export async function addCash(
-  input: AddCashInput | number,
-): Promise<ActionResult> {
-  const amount = typeof input === "number" ? input : input.amount;
-  const portfolioId = typeof input === "number" ? null : input.portfolioId ?? null;
-
-  if (!Number.isFinite(amount) || amount <= 0) {
+export async function addCash(input: AddCashInput): Promise<ActionResult> {
+  if (!input.portfolioId) {
+    return { success: false, error: "Choose a portfolio." };
+  }
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
     return { success: false, error: "Enter a positive cash amount." };
   }
 
@@ -1471,40 +1470,23 @@ export async function addCash(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await getOrCreatePortfolio(supabase, user.id, portfolioId);
-
-  if (!portfolio) {
-    return {
-      success: false,
-      error: portfolioId ? "Portfolio not found." : "Could not create portfolio.",
-    };
-  }
-
-  const currentCash = moneyNumber(portfolio.cash_balance);
-  const currentDeposited = moneyNumber(portfolio.cash_deposited_total);
-
-  const { error } = await supabase
-    .from("user_portfolios")
-    .update({
-      cash_balance: roundMoney(currentCash + amount),
-      cash_deposited_total: roundMoney(currentDeposited + amount),
-    })
-    .eq("id", portfolio.id)
-    .eq("user_id", user.id);
-
-  if (error) return { success: false, error: error.message };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
-    userId: user.id,
-    type: "deposit",
-    amount,
-    currency: portfolio.currency ?? "USD",
-    notes: "Cash added manually.",
+  const mutation = await mutatePortfolioCash(supabase, {
+    portfolioId: input.portfolioId,
+    operation: "deposit",
+    amount: input.amount,
   });
+  if (!mutation.success) return mutation;
 
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+    });
+    revalidatePortfolio(mutation.data.portfolioId);
+  } catch {
+    console.warn("[portfolio-cash] Post-commit Portfolio refresh failed.");
+  }
   return { success: true };
 }
 

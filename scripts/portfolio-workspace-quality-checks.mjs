@@ -39,6 +39,7 @@ const manageSheet = read("components/portfolio-workspace/PortfolioManageSheet.ts
 const exportLink = read("components/portfolio-workspace/PortfolioExportLink.tsx");
 const sheetShell = read("components/portfolio-workspace/PortfolioSheet.tsx");
 const cashAction = read("lib/actions/portfolio-cash.ts");
+const cashMutation = read("lib/portfolio-cash-mutation.ts");
 const layout = read("app/layout.tsx");
 const nextConfig = read("next.config.ts");
 const loading = read("app/portfolio/loading.tsx");
@@ -150,11 +151,13 @@ assert.match(exportLink, /download=\{exportData\.filename\}/);
 assert.match(exportLink, /record_type/);
 assert.match(analysisSheet, /canUseAskStockGPT=\{canUsePremium\}/);
 
-assert.match(cashAction, /eq\("user_id", user\.id\)/);
-assert.match(cashAction, /amount > currentCash/);
-assert.match(cashAction, /eq\("cash_balance", portfolio\.cash_balance/);
-assert.match(cashAction, /Restore the balance only when/);
+assert.match(cashAction, /mutatePortfolioCash/);
+assert.match(cashMutation, /supabase\.rpc\("mutate_portfolio_cash"/);
+assert.doesNotMatch(cashAction, /\.from\("user_portfolios"\)/);
+assert.doesNotMatch(cashAction, /\.from\("portfolio_transactions"\)/);
+assert.doesNotMatch(cashAction, /Restore the balance only when/);
 assert.match(cashAction, /invalidatePortfolioPageSnapshot/);
+assert.match(cashAction, /Post-commit Portfolio refresh failed/);
 
 assert.match(workspace, /size-11|size-12/);
 assert.match(workspace, /h-12/);
