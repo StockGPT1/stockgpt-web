@@ -161,7 +161,6 @@ export function PortfolioBuilder({
     startSaving(async () => {
       const result = await savePortfolio(portfolio, {
         name: cleanName,
-        mode: "create_new",
       });
 
       if (!result.success) {

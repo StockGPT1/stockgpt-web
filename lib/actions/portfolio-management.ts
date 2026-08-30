@@ -22,6 +22,11 @@ import {
   removePortfolioHoldingTracking,
   sellPortfolioHolding,
 } from "@/lib/portfolio-holding-mutation";
+import {
+  createAiPortfolioDraftAtomically,
+  createManualPortfolioAtomically,
+  deleteOwnedPortfolioAtomically,
+} from "@/lib/portfolio-creation-mutation";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -118,8 +123,6 @@ type PreparedImportHolding = {
 
 type SavePortfolioOptions = {
   name?: string;
-  mode?: "create_new" | "replace_current";
-  portfolioId?: string | null;
 };
 
 export type ManualPortfolioHoldingInput = {
@@ -132,7 +135,6 @@ export type ManualPortfolioHoldingInput = {
 
 export type ManualPortfolioInput = {
   name: string;
-  currency: "GBP" | "USD" | "EUR";
   startingCash: number;
   goal: "growth" | "income" | "balanced" | "watchlist" | "long-term";
   holdings: ManualPortfolioHoldingInput[];
@@ -1528,120 +1530,42 @@ export async function savePortfolio(
     options.name?.trim().slice(0, 80) ||
     `${portfolio.riskTolerance === "aggressive" ? "Growth" : portfolio.riskTolerance === "conservative" ? "Defensive" : "Balanced"} AI Portfolio`;
 
-  const replacing =
-    options.mode === "replace_current" && options.portfolioId
-      ? await requireOwnedPortfolio(supabase, user.id, options.portfolioId)
-      : null;
-
-  let portfolioId = replacing?.id ?? null;
-
-  if (replacing) {
-    const { error: updateError } = await supabase
-      .from("user_portfolios")
-      .update({
-      name: cleanName,
-      objective: "balanced",
-      risk_tolerance: portfolio.riskTolerance,
-        time_horizon: portfolio.timeHorizon,
-        investment_amount: portfolio.totalInvested,
-        cash_balance: 0,
-        cash_deposited_total: portfolio.totalInvested,
-        currency: "USD",
-      })
-      .eq("id", replacing.id)
-      .eq("user_id", user.id);
-
-    if (updateError) return { success: false, error: updateError.message };
-
-    const { error: deleteError } = await supabase
-      .from("portfolio_holdings")
-      .delete()
-      .eq("portfolio_id", replacing.id);
-
-    if (deleteError) return { success: false, error: deleteError.message };
-  } else {
-    const { data: created, error: createError } = await supabase
-      .from("user_portfolios")
-      .insert({
-        user_id: user.id,
-        name: cleanName,
-        objective: "balanced",
-        risk_tolerance: portfolio.riskTolerance,
-        time_horizon: portfolio.timeHorizon,
-        investment_amount: portfolio.totalInvested,
-        cash_balance: 0,
-        cash_deposited_total: portfolio.totalInvested,
-        currency: "USD",
-      })
-      .select("id")
-      .single();
-
-    if (createError || !created) {
-      return {
-        success: false,
-        error: createError?.message ?? "Could not save portfolio.",
-      };
-    }
-
-    portfolioId = created.id;
-  }
-
-  if (!portfolioId) {
-    return {
-      success: false,
-      error: "Could not save portfolio.",
-    };
-  }
-
-  const now = new Date().toISOString();
-  const today = new Date().toISOString().slice(0, 10);
-
-  const holdingsToInsert = portfolio.holdings.map((holding) => ({
-    portfolio_id: portfolioId,
-    ticker: holding.ticker,
-    entry_price: holding.price,
-    allocation_pct: holding.allocationPct,
-    shares: holding.shares,
-    score_at_entry: holding.score,
-    rank_at_entry: holding.rank,
-    last_reviewed_at: now,
-    purchase_date: today,
-    source: "ai_builder",
-    notes: "Created by StockGPT AI Portfolio Builder.",
-  }));
-
-  const { error: holdingsError } = await supabase
-    .from("portfolio_holdings")
-    .insert(holdingsToInsert);
-
-  if (holdingsError) return { success: false, error: holdingsError.message };
-
-  await recordTransaction(supabase, {
-    portfolioId,
-    userId: user.id,
-    type: "import",
-    amount: portfolio.totalInvested,
-    currency: "USD",
-    notes: replacing
-      ? "AI portfolio replaced this selected portfolio."
-      : "New AI portfolio created.",
+  const mutation = await createAiPortfolioDraftAtomically(supabase, {
+    name: cleanName,
+    riskTolerance: portfolio.riskTolerance,
+    timeHorizon: portfolio.timeHorizon,
+    holdings: portfolio.holdings.map((holding) => ({
+      ticker: cleanTicker(holding.ticker),
+      shares: Number(holding.shares),
+      entry_price: Number(holding.price),
+      score_at_entry: Number.isFinite(holding.score) ? holding.score : null,
+      rank_at_entry: Number.isInteger(holding.rank) ? holding.rank : null,
+      allocation_pct: Number.isFinite(holding.allocationPct)
+        ? holding.allocationPct
+        : null,
+    })),
   });
+  if (!mutation.success) return mutation;
 
-  await markPortfolioChartInputsChanged({ supabase, portfolioId, userId: user.id });
-  revalidatePortfolio(portfolioId);
-
-  for (const holding of portfolio.holdings) {
-    revalidateStock(holding.ticker);
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+    });
+    revalidatePortfolio(mutation.data.portfolioId);
+    for (const holding of portfolio.holdings) revalidateStock(holding.ticker);
+  } catch {
+    console.warn("[portfolio-creation] Post-commit AI Portfolio refresh failed.");
   }
 
-  return { success: true, data: { portfolioId } };
+  return { success: true, data: { portfolioId: mutation.data.portfolioId } };
 }
 
 export async function createManualPortfolio(
   input: ManualPortfolioInput,
 ): Promise<ActionResult<{ portfolioId: string }>> {
   const name = input.name.trim().slice(0, 80);
-  const allowedCurrencies = new Set(["GBP", "USD", "EUR"]);
   const goalMap = {
     growth: { riskTolerance: "aggressive", timeHorizon: "long" },
     income: { riskTolerance: "moderate", timeHorizon: "medium" },
@@ -1652,10 +1576,6 @@ export async function createManualPortfolio(
 
   if (!name) {
     return { success: false, error: "Portfolio name is required." };
-  }
-
-  if (!allowedCurrencies.has(input.currency)) {
-    return { success: false, error: "Choose a supported portfolio currency." };
   }
 
   if (
@@ -1707,10 +1627,10 @@ export async function createManualPortfolio(
         error: `${holding.ticker} needs a positive share quantity.`,
       };
     }
-    if (!Number.isFinite(holding.averagePrice) || holding.averagePrice < 0) {
+    if (!Number.isFinite(holding.averagePrice) || holding.averagePrice <= 0) {
       return {
         success: false,
-        error: `${holding.ticker} needs a non-negative average price.`,
+        error: `${holding.ticker} needs a positive average price.`,
       };
     }
     seenTickers.add(holding.ticker);
@@ -1730,8 +1650,6 @@ export async function createManualPortfolio(
           .in("ticker", tickers)
       : { data: [], error: null };
 
-  if (stockError) return { success: false, error: stockError.message };
-
   const stocks = new Map(
     ((stockRows ?? []) as Array<{
       ticker: string | null;
@@ -1741,120 +1659,55 @@ export async function createManualPortfolio(
     }>).map((stock) => [String(stock.ticker ?? "").toUpperCase(), stock]),
   );
 
-  const missingTicker = tickers.find((ticker) => !stocks.has(ticker));
-
-  if (missingTicker) {
-    return {
-      success: false,
-      error: `${missingTicker} is not available in the StockGPT stock universe.`,
-    };
+  if (stockError) {
+    console.warn("[portfolio-creation] Ranking metadata was unavailable during manual creation.");
   }
-
-  const costBasis = cleanedHoldings.reduce(
-    (sum, holding) => sum + holding.shares * holding.averagePrice,
-    0,
-  );
   const estimatedHoldingsValue = cleanedHoldings.reduce((sum, holding) => {
     const currentPrice = moneyNumber(stocks.get(holding.ticker)?.price);
     return sum + holding.shares * (currentPrice || holding.averagePrice);
   }, 0);
   const estimatedTotalValue = input.startingCash + estimatedHoldingsValue;
   const goal = goalMap[input.goal];
-
-  const { data: created, error: createError } = await supabase
-    .from("user_portfolios")
-    .insert({
-      user_id: user.id,
-      name,
-      objective: input.goal === "long-term" ? "growth" : input.goal,
-      risk_tolerance: goal.riskTolerance,
-      time_horizon: goal.timeHorizon,
-      investment_amount: roundMoney(costBasis),
-      cash_balance: roundMoney(input.startingCash),
-      cash_deposited_total: roundMoney(input.startingCash + costBasis),
-      currency: input.currency,
-    })
-    .select("id")
-    .single();
-
-  if (createError || !created) {
-    return {
-      success: false,
-      error: createError?.message ?? "Could not create the portfolio.",
-    };
-  }
-
-  const portfolioId = String(created.id);
-  const now = new Date().toISOString();
-
-  if (cleanedHoldings.length > 0) {
-    const holdingsToInsert = cleanedHoldings.map((holding) => {
+  const mutation = await createManualPortfolioAtomically(supabase, {
+    name,
+    objective: input.goal === "long-term" ? "growth" : input.goal,
+    riskTolerance: goal.riskTolerance,
+    timeHorizon: goal.timeHorizon,
+    startingCash: input.startingCash,
+    holdings: cleanedHoldings.map((holding) => {
       const stock = stocks.get(holding.ticker);
       const currentPrice = moneyNumber(stock?.price) || holding.averagePrice;
       const estimatedValue = holding.shares * currentPrice;
-
       return {
-        portfolio_id: portfolioId,
         ticker: holding.ticker,
-        entry_price: roundMoney(holding.averagePrice),
-        shares: roundShares(holding.shares),
+        shares: holding.shares,
+        entry_price: holding.averagePrice,
+        purchase_date: holding.purchaseDate,
+        notes: holding.notes,
+        score_at_entry: stock?.score ?? null,
+        rank_at_entry: stock?.rank ?? null,
         allocation_pct:
           estimatedTotalValue > 0
             ? Math.round((estimatedValue / estimatedTotalValue) * 10_000) / 100
             : null,
-        score_at_entry: stock?.score ?? null,
-        rank_at_entry: stock?.rank ?? null,
-        last_reviewed_at: now,
-        purchase_date: holding.purchaseDate,
-        source: "manual_builder",
-        notes: holding.notes,
       };
-    });
+    }),
+  });
+  if (!mutation.success) return mutation;
 
-    const { error: holdingsError } = await supabase
-      .from("portfolio_holdings")
-      .insert(holdingsToInsert);
-
-    if (holdingsError) {
-      await supabase
-        .from("user_portfolios")
-        .delete()
-        .eq("id", portfolioId)
-        .eq("user_id", user.id);
-
-      return { success: false, error: holdingsError.message };
-    }
-  }
-
-  if (input.startingCash > 0) {
-    await recordTransaction(supabase, {
-      portfolioId,
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
       userId: user.id,
-      type: "deposit",
-      amount: input.startingCash,
-      currency: input.currency,
-      notes: "Starting cash added during manual portfolio creation.",
     });
+    revalidatePortfolio(mutation.data.portfolioId);
+    for (const holding of cleanedHoldings) revalidateStock(holding.ticker);
+  } catch {
+    console.warn("[portfolio-creation] Post-commit manual Portfolio refresh failed.");
   }
 
-  for (const holding of cleanedHoldings) {
-    await recordTransaction(supabase, {
-      portfolioId,
-      userId: user.id,
-      ticker: holding.ticker,
-      type: "log_existing",
-      shares: holding.shares,
-      price: holding.averagePrice,
-      amount: holding.shares * holding.averagePrice,
-      currency: input.currency,
-      notes: holding.notes ?? "Added during manual portfolio creation.",
-    });
-    revalidateStock(holding.ticker);
-  }
-
-  revalidatePortfolio(portfolioId);
-
-  return { success: true, data: { portfolioId } };
+  return { success: true, data: { portfolioId: mutation.data.portfolioId } };
 }
 
 export async function renamePortfolio(
@@ -2239,46 +2092,38 @@ export async function markReviewed(
 }
 
 export async function deletePortfolio(
-  input?: DeletePortfolioInput,
+  input: DeletePortfolioInput,
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = input?.portfolioId
-    ? await requireOwnedPortfolio(supabase, user.id, input.portfolioId)
-    : await getOrCreatePortfolio(supabase, user.id, null);
-
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
+  if (!input.portfolioId) return { success: false, error: "Portfolio not found." };
 
   const { data: holdings } = await supabase
     .from("portfolio_holdings")
     .select("ticker")
-    .eq("portfolio_id", portfolio.id);
+    .eq("portfolio_id", input.portfolioId);
 
   const tickers = ((holdings ?? []) as Array<{ ticker: string | null }>)
     .map((holding) => cleanTicker(holding.ticker ?? ""))
     .filter(Boolean);
 
-  const { error } = await supabase
-    .from("user_portfolios")
-    .delete()
-    .eq("id", portfolio.id)
-    .eq("user_id", user.id);
+  const mutation = await deleteOwnedPortfolioAtomically(supabase, input.portfolioId);
+  if (!mutation.success) return mutation;
 
-  if (error) return { success: false, error: error.message };
-
-  await markPortfolioChartInputsChanged({
-    supabase,
-    portfolioId: portfolio.id,
-    userId: user.id,
-    writeCurrentSnapshot: false,
-  });
-  revalidatePortfolio();
-
-  for (const ticker of tickers) {
-    revalidateStock(ticker);
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+      writeCurrentSnapshot: false,
+    });
+    revalidatePortfolio();
+    for (const ticker of tickers) revalidateStock(ticker);
+  } catch {
+    console.warn("[portfolio-deletion] Post-commit Portfolio refresh failed.");
   }
 
   return { success: true };

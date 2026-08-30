@@ -250,7 +250,6 @@ export function ManualPortfolioBuilder({
     startSaving(async () => {
       const result = await createManualPortfolio({
         name,
-        currency: "USD",
         startingCash: summary.cash / inputRate,
         goal,
         holdings: holdings.map((holding) => ({

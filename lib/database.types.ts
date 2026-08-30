@@ -1097,6 +1097,44 @@ export type Database = {
           transaction_id: string
         }[]
       }
+      create_ai_portfolio_draft: {
+        Args: {
+          p_holdings: Json
+          p_name: string
+          p_risk_tolerance: string
+          p_time_horizon: string
+        }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          holdings_basis: number
+          holdings_count: number
+          portfolio_id: string
+        }[]
+      }
+      create_manual_portfolio: {
+        Args: {
+          p_holdings: Json
+          p_name: string
+          p_objective: string
+          p_risk_tolerance: string
+          p_starting_cash: number
+          p_time_horizon: string
+        }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          holdings_basis: number
+          holdings_count: number
+          portfolio_id: string
+        }[]
+      }
+      delete_owned_portfolio: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          portfolio_id: string
+        }[]
+      }
       is_active_subscriber: { Args: { user_uuid: string }; Returns: boolean }
       log_existing_portfolio_holding: {
         Args: {

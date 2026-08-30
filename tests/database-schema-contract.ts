@@ -51,6 +51,9 @@ export type PublicFunctionSetIsCanonical = Assert<
     PublicFunctions,
     | "buy_portfolio_holding"
     | "correct_portfolio_holding"
+    | "create_ai_portfolio_draft"
+    | "create_manual_portfolio"
+    | "delete_owned_portfolio"
     | "is_active_subscriber"
     | "log_existing_portfolio_holding"
     | "mutate_portfolio_cash"
