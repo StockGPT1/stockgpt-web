@@ -49,8 +49,13 @@ export type PublicTableSetIsCanonical = Assert<Equal<PublicTables, ExpectedPubli
 export type PublicFunctionSetIsCanonical = Assert<
   Equal<
     PublicFunctions,
+    | "buy_portfolio_holding"
+    | "correct_portfolio_holding"
     | "is_active_subscriber"
+    | "log_existing_portfolio_holding"
     | "mutate_portfolio_cash"
+    | "remove_portfolio_holding_tracking"
+    | "sell_portfolio_holding"
     | "show_limit"
     | "show_trgm"
   >

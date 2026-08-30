@@ -1058,7 +1058,67 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buy_portfolio_holding: {
+        Args: {
+          p_notes?: string
+          p_portfolio_id: string
+          p_price: number
+          p_purchase_date?: string
+          p_shares: number
+          p_ticker: string
+        }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          entry_price: number
+          holding_id: string
+          portfolio_id: string
+          shares: number
+          ticker: string
+          transaction_id: string
+          updated_existing: boolean
+        }[]
+      }
+      correct_portfolio_holding: {
+        Args: {
+          p_entry_price: number
+          p_notes?: string
+          p_portfolio_id: string
+          p_purchase_date?: string
+          p_shares: number
+          p_ticker: string
+        }
+        Returns: {
+          entry_price: number
+          holding_id: string
+          portfolio_id: string
+          shares: number
+          ticker: string
+          transaction_id: string
+        }[]
+      }
       is_active_subscriber: { Args: { user_uuid: string }; Returns: boolean }
+      log_existing_portfolio_holding: {
+        Args: {
+          p_entry_price: number
+          p_notes?: string
+          p_portfolio_id: string
+          p_purchase_date?: string
+          p_shares: number
+          p_ticker: string
+        }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          entry_price: number
+          holding_id: string
+          portfolio_id: string
+          shares: number
+          ticker: string
+          transaction_id: string
+          updated_existing: boolean
+        }[]
+      }
       mutate_portfolio_cash: {
         Args: { p_amount: number; p_operation: string; p_portfolio_id: string }
         Returns: {
@@ -1069,6 +1129,37 @@ export type Database = {
           occurred_at: string
           operation: string
           portfolio_id: string
+          transaction_id: string
+        }[]
+      }
+      remove_portfolio_holding_tracking: {
+        Args: { p_portfolio_id: string; p_ticker: string }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          portfolio_id: string
+          removed_shares: number
+          ticker: string
+          transaction_id: string
+        }[]
+      }
+      sell_portfolio_holding: {
+        Args: {
+          p_portfolio_id: string
+          p_price: number
+          p_shares: number
+          p_ticker: string
+        }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          closed: boolean
+          entry_price: number
+          holding_id: string
+          portfolio_id: string
+          realised_pnl: number
+          shares: number
+          ticker: string
           transaction_id: string
         }[]
       }

@@ -15,6 +15,13 @@ import {
   type TradeOrderInput,
 } from "@/lib/trade-calculator";
 import { mutatePortfolioCash } from "@/lib/portfolio-cash-mutation";
+import {
+  buyPortfolioHolding,
+  correctPortfolioHolding,
+  logExistingPortfolioHolding,
+  removePortfolioHoldingTracking,
+  sellPortfolioHolding,
+} from "@/lib/portfolio-holding-mutation";
 
 export type ActionResult<T = void> = {
   success: boolean;
@@ -159,7 +166,7 @@ type UpdatePortfolioPreferencesInput = {
 };
 
 type LogExistingHoldingInput = {
-  portfolioId?: string | null;
+  portfolioId: string;
   ticker: string;
   shares?: number | null;
   entryPrice?: number | null;
@@ -170,7 +177,7 @@ type LogExistingHoldingInput = {
 };
 
 type BuyHoldingWithCashInput = {
-  portfolioId?: string | null;
+  portfolioId: string;
   ticker: string;
   dollarAmount?: number | null;
   entryPrice?: number | null;
@@ -909,6 +916,26 @@ async function markPortfolioChartInputsChanged({
   }
 }
 
+async function refreshAfterHoldingMutation({
+  supabase,
+  portfolioId,
+  userId,
+  ticker,
+}: {
+  supabase: SupabaseClient;
+  portfolioId: string;
+  userId: string;
+  ticker: string;
+}) {
+  try {
+    await markPortfolioChartInputsChanged({ supabase, portfolioId, userId });
+    revalidatePortfolio(portfolioId);
+    revalidateStock(ticker);
+  } catch {
+    console.warn("[portfolio-holding] Post-commit Portfolio refresh failed.");
+  }
+}
+
 async function prepareTrading212Import(
   supabase: SupabaseClient,
   portfolioId: string,
@@ -1489,7 +1516,6 @@ export async function addCash(input: AddCashInput): Promise<ActionResult> {
   }
   return { success: true };
 }
-
 export async function savePortfolio(
   portfolio: Portfolio,
   options: SavePortfolioOptions = {},
@@ -1922,35 +1948,21 @@ export async function logExistingHolding(
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
+  if (!input.portfolioId) return { success: false, error: "Choose a portfolio." };
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await getOrCreatePortfolio(
-    supabase,
-    user.id,
-    input.portfolioId ?? null,
-  );
-
-  if (!portfolio) {
-    return {
-      success: false,
-      error: input.portfolioId ? "Portfolio not found." : "Could not create portfolio.",
-    };
-  }
-
   const stock = await getStock(supabase, upperTicker);
-
-  if (!stock) return { success: false, error: "Stock not found in rankings." };
 
   const preferredPrice =
     input.price && Number.isFinite(input.price) && input.price > 0
       ? input.price
       : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
         ? input.entryPrice
-        : moneyNumber(stock.price);
+        : moneyNumber(stock?.price);
   const trade = resolvedTradeOrError({
     value: input.value,
     price: preferredPrice,
@@ -1961,46 +1973,29 @@ export async function logExistingHolding(
     return { success: false, error: trade.error };
   }
 
-  const merge = await mergeHoldingPosition(supabase, {
-    portfolioId: portfolio.id,
+  const mutation = await logExistingPortfolioHolding(supabase, {
+    portfolioId: input.portfolioId,
     ticker: upperTicker,
-    incomingShares: trade.shares,
-    incomingEntryPrice: trade.price,
-    incomingCost: trade.value,
-    scoreAtEntry: stock.score,
-    rankAtEntry: stock.rank,
+    shares: trade.shares,
+    entryPrice: trade.price,
     purchaseDate: input.purchaseDate ?? null,
-    source: "manual",
     notes: input.notes ?? null,
   });
+  if (!mutation.success) return mutation;
 
-  if (!merge.success) return { success: false, error: merge.error };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
+  await refreshAfterHoldingMutation({
+    supabase,
+    portfolioId: mutation.data.portfolioId,
     userId: user.id,
     ticker: upperTicker,
-    type: "log_existing",
-    shares: trade.shares,
-    price: trade.price,
-    amount: trade.value,
-    currency: portfolio.currency ?? "USD",
-    notes:
-      input.notes ??
-      `External purchase added: ${trade.shares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)}.`,
   });
-
-  await recalculatePortfolioTotals(supabase, portfolio.id, {
-    ensureDepositedCoversCurrentValue: true,
-  });
-
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
 
   return {
     success: true,
-    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
+    data: {
+      portfolioId: mutation.data.portfolioId,
+      updatedExisting: Boolean(mutation.data.updatedExisting),
+    },
   };
 }
 
@@ -2010,35 +2005,21 @@ export async function buyHoldingWithCash(
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
+  if (!input.portfolioId) return { success: false, error: "Choose a portfolio." };
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await getOrCreatePortfolio(
-    supabase,
-    user.id,
-    input.portfolioId ?? null,
-  );
-
-  if (!portfolio) {
-    return {
-      success: false,
-      error: input.portfolioId ? "Portfolio not found." : "Could not create portfolio.",
-    };
-  }
-
   const stock = await getStock(supabase, upperTicker);
-
-  if (!stock) return { success: false, error: "Stock not found in rankings." };
 
   const preferredPrice =
     input.price && Number.isFinite(input.price) && input.price > 0
       ? input.price
       : input.entryPrice && Number.isFinite(input.entryPrice) && input.entryPrice > 0
         ? input.entryPrice
-        : moneyNumber(stock.price);
+        : moneyNumber(stock?.price);
   const trade = resolvedTradeOrError({
     value: input.value ?? input.dollarAmount,
     price: preferredPrice,
@@ -2049,71 +2030,29 @@ export async function buyHoldingWithCash(
     return { success: false, error: trade.error };
   }
 
-  const currentCash = moneyNumber(portfolio.cash_balance);
-
-  if (trade.value > currentCash + 0.001) {
-    return {
-      success: false,
-      error: `Not enough available cash. Add $${(
-        trade.value - currentCash
-      ).toFixed(2)} cash or reduce the amount.`,
-    };
-  }
-
-  const boughtShares = trade.shares;
-
-  if (boughtShares <= 0) {
-    return { success: false, error: "Investment amount is too small." };
-  }
-
-  const merge = await mergeHoldingPosition(supabase, {
-    portfolioId: portfolio.id,
+  const mutation = await buyPortfolioHolding(supabase, {
+    portfolioId: input.portfolioId,
     ticker: upperTicker,
-    incomingShares: boughtShares,
-    incomingEntryPrice: trade.price,
-    incomingCost: trade.value,
-    scoreAtEntry: stock.score,
-    rankAtEntry: stock.rank,
+    shares: trade.shares,
+    price: trade.price,
     purchaseDate: input.purchaseDate ?? null,
-    source: "cash",
     notes: input.notes ?? null,
   });
+  if (!mutation.success) return mutation;
 
-  if (!merge.success) return { success: false, error: merge.error };
-
-  const { error: cashError } = await supabase
-    .from("user_portfolios")
-    .update({
-      cash_balance: roundMoney(currentCash - trade.value),
-    })
-    .eq("id", portfolio.id)
-    .eq("user_id", user.id);
-
-  if (cashError) return { success: false, error: cashError.message };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
+  await refreshAfterHoldingMutation({
+    supabase,
+    portfolioId: mutation.data.portfolioId,
     userId: user.id,
     ticker: upperTicker,
-    type: "buy",
-    shares: boughtShares,
-    price: trade.price,
-    amount: trade.value,
-    currency: portfolio.currency ?? "USD",
-    notes:
-      input.notes ??
-      `Bought ${boughtShares.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${trade.price.toFixed(2)} using portfolio cash.`,
   });
-
-  await recalculatePortfolioTotals(supabase, portfolio.id);
-
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
 
   return {
     success: true,
-    data: { portfolioId: portfolio.id, updatedExisting: Boolean(merge.data?.updatedExisting) },
+    data: {
+      portfolioId: mutation.data.portfolioId,
+      updatedExisting: Boolean(mutation.data.updatedExisting),
+    },
   };
 }
 
@@ -2124,7 +2063,7 @@ export async function updateHoldingDetails(
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
 
-  if (!Number.isFinite(input.shares) || input.shares < 0) {
+  if (!Number.isFinite(input.shares) || input.shares <= 0) {
     return { success: false, error: "Invalid share count." };
   }
 
@@ -2132,55 +2071,27 @@ export async function updateHoldingDetails(
     return { success: false, error: "Invalid entry price." };
   }
 
-  if (input.shares === 0) {
-    return removeHolding({
-      portfolioId: input.portfolioId,
-      ticker: upperTicker,
-      creditCash: false,
-    });
-  }
-
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await requireOwnedPortfolio(supabase, user.id, input.portfolioId);
+  const mutation = await correctPortfolioHolding(supabase, {
+    portfolioId: input.portfolioId,
+    ticker: upperTicker,
+    shares: input.shares,
+    entryPrice: input.entryPrice,
+    purchaseDate: input.purchaseDate ?? null,
+    notes: input.notes ?? null,
+  });
+  if (!mutation.success) return mutation;
 
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
-  const { error } = await supabase
-    .from("portfolio_holdings")
-    .update({
-      shares: roundShares(input.shares),
-      entry_price: input.entryPrice,
-      purchase_date: input.purchaseDate ?? null,
-      notes: input.notes ?? null,
-    })
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker);
-
-  if (error) return { success: false, error: error.message };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
+  await refreshAfterHoldingMutation({
+    supabase,
+    portfolioId: mutation.data.portfolioId,
     userId: user.id,
     ticker: upperTicker,
-    type: "adjustment",
-    shares: roundShares(input.shares),
-    price: input.entryPrice,
-    amount: input.entryPrice * input.shares,
-    currency: portfolio.currency ?? "USD",
-    notes: input.notes ?? "Holding details adjusted.",
   });
-
-  await recalculatePortfolioTotals(supabase, portfolio.id, {
-    ensureDepositedCoversCurrentValue: true,
-  });
-
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
 
   return { success: true };
 }
@@ -2197,14 +2108,10 @@ export async function trimHolding(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await requireOwnedPortfolio(supabase, user.id, input.portfolioId);
-
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
   const { data: holding } = await supabase
     .from("portfolio_holdings")
     .select("shares,entry_price")
-    .eq("portfolio_id", portfolio.id)
+    .eq("portfolio_id", input.portfolioId)
     .eq("ticker", upperTicker)
     .maybeSingle();
 
@@ -2244,89 +2151,31 @@ export async function trimHolding(
   const sharesToSell = resolvedOrder.shares;
   const sellPrice = resolvedOrder.price;
 
-  const remainingShares = roundShares(currentShares - sharesToSell);
-  const proceeds = roundMoney(resolvedOrder.value);
-  const realisedPnl = roundMoney((sellPrice - entryPrice) * sharesToSell);
-
   if (sharesToSell > currentShares + 0.000001) {
     return { success: false, error: "You cannot sell more shares than this holding contains." };
   }
 
-  if (remainingShares <= 0.000001) {
-    const { error: deleteError } = await supabase
-      .from("portfolio_holdings")
-      .delete()
-      .eq("portfolio_id", portfolio.id)
-      .eq("ticker", upperTicker);
-
-    if (deleteError) return { success: false, error: deleteError.message };
-  } else {
-    const { error: updateError } = await supabase
-      .from("portfolio_holdings")
-      .update({ shares: remainingShares })
-      .eq("portfolio_id", portfolio.id)
-      .eq("ticker", upperTicker);
-
-    if (updateError) return { success: false, error: updateError.message };
-  }
-
-  const currentCash = moneyNumber(portfolio.cash_balance);
-
-  const { error: cashError } = await supabase
-    .from("user_portfolios")
-    .update({
-      cash_balance: roundMoney(currentCash + proceeds),
-    })
-    .eq("id", portfolio.id)
-    .eq("user_id", user.id);
-
-  if (cashError) return { success: false, error: cashError.message };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
-    userId: user.id,
+  const mutation = await sellPortfolioHolding(supabase, {
+    portfolioId: input.portfolioId,
     ticker: upperTicker,
-    type: "sell",
     shares: sharesToSell,
     price: sellPrice,
-    amount: proceeds,
-    realisedPnl,
-    currency: portfolio.currency ?? "USD",
-    notes:
-      input.notes ??
-      (remainingShares <= 0.000001
-        ? `Closed ${upperTicker}: sold ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`
-        : `Trimmed ${sharesToSell.toLocaleString("en-US", { maximumFractionDigits: 6 })} shares at $${sellPrice.toFixed(2)}. Proceeds added to cash.`),
   });
+  if (!mutation.success) return mutation;
 
-  await recalculatePortfolioTotals(supabase, portfolio.id);
-
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
+  await refreshAfterHoldingMutation({
+    supabase,
+    portfolioId: mutation.data.portfolioId,
+    userId: user.id,
+    ticker: upperTicker,
+  });
 
   return { success: true };
 }
 
 export async function removeHolding(
-  input: RemoveHoldingInput | string,
+  input: RemoveHoldingInput,
 ): Promise<ActionResult> {
-  if (typeof input === "string") {
-    const supabase = await createClient();
-    const user = await getAuthenticatedUser(supabase);
-
-    if (!user) return { success: false, error: "not_authenticated" };
-
-    const portfolio = await getOrCreatePortfolio(supabase, user.id, null);
-    if (!portfolio) return { success: false, error: "No portfolio found." };
-
-    return removeHolding({
-      portfolioId: portfolio.id,
-      ticker: input,
-      creditCash: true,
-    });
-  }
-
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
@@ -2344,33 +2193,18 @@ export async function removeHolding(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio = await requireOwnedPortfolio(supabase, user.id, input.portfolioId);
+  const mutation = await removePortfolioHoldingTracking(supabase, {
+    portfolioId: input.portfolioId,
+    ticker: upperTicker,
+  });
+  if (!mutation.success) return mutation;
 
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
-  const { error } = await supabase
-    .from("portfolio_holdings")
-    .delete()
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker);
-
-  if (error) return { success: false, error: error.message };
-
-  await recordTransaction(supabase, {
-    portfolioId: portfolio.id,
+  await refreshAfterHoldingMutation({
+    supabase,
+    portfolioId: mutation.data.portfolioId,
     userId: user.id,
     ticker: upperTicker,
-    type: "adjustment",
-    amount: 0,
-    currency: portfolio.currency ?? "USD",
-    notes: "Holding removed without crediting cash.",
   });
-
-  await recalculatePortfolioTotals(supabase, portfolio.id);
-
-  await markPortfolioChartInputsChanged({ supabase, portfolioId: portfolio.id, userId: user.id });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
 
   return { success: true };
 }
@@ -2457,113 +2291,4 @@ export async function deletePortfolio(
   }
 
   return { success: true };
-}
-
-/**
- * Backwards-compatible wrappers for older components/routes.
- * New UI should call logExistingHolding / buyHoldingWithCash directly.
- */
-
-export async function addHolding(
-  ticker: string,
-  entryPrice?: number,
-  shares?: number,
-): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
-  return logExistingHolding({
-    ticker,
-    entryPrice,
-    shares: shares && shares > 0 ? shares : 1,
-    portfolioId: null,
-    purchaseDate: null,
-  });
-}
-
-export async function addHoldingByAmount(
-  ticker: string,
-  dollarAmount: number,
-  entryPrice?: number,
-): Promise<ActionResult<{ portfolioId: string; updatedExisting: boolean }>> {
-  return buyHoldingWithCash({
-    portfolioId: null,
-    ticker,
-    dollarAmount,
-    entryPrice,
-    purchaseDate: null,
-  });
-}
-
-export async function updateEntryPrice(
-  ticker: string,
-  newPrice: number,
-): Promise<ActionResult> {
-  if (!Number.isFinite(newPrice) || newPrice <= 0) {
-    return { success: false, error: "Invalid price." };
-  }
-
-  const supabase = await createClient();
-  const user = await getAuthenticatedUser(supabase);
-
-  if (!user) return { success: false, error: "not_authenticated" };
-
-  const portfolio = await getOrCreatePortfolio(supabase, user.id, null);
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
-  const upperTicker = cleanTicker(ticker);
-
-  const { data: holding } = await supabase
-    .from("portfolio_holdings")
-    .select("shares,purchase_date,notes")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
-
-  if (!holding) return { success: false, error: "Holding not found." };
-
-  const tradeHolding = holding as PortfolioHoldingTradeRow;
-  return updateHoldingDetails({
-    portfolioId: portfolio.id,
-    ticker: upperTicker,
-    shares: moneyNumber(tradeHolding.shares),
-    entryPrice: newPrice,
-    purchaseDate: tradeHolding.purchase_date ?? null,
-    notes: tradeHolding.notes ?? null,
-  });
-}
-
-export async function updateShares(
-  ticker: string,
-  newShares: number,
-): Promise<ActionResult> {
-  if (!Number.isFinite(newShares) || newShares < 0) {
-    return { success: false, error: "Invalid share count." };
-  }
-
-  const supabase = await createClient();
-  const user = await getAuthenticatedUser(supabase);
-
-  if (!user) return { success: false, error: "not_authenticated" };
-
-  const portfolio = await getOrCreatePortfolio(supabase, user.id, null);
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
-  const upperTicker = cleanTicker(ticker);
-
-  const { data: holding } = await supabase
-    .from("portfolio_holdings")
-    .select("entry_price,purchase_date,notes")
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker)
-    .maybeSingle();
-
-  if (!holding) return { success: false, error: "Holding not found." };
-
-  const tradeHolding = holding as PortfolioHoldingTradeRow;
-  return updateHoldingDetails({
-    portfolioId: portfolio.id,
-    ticker: upperTicker,
-    shares: newShares,
-    entryPrice: moneyNumber(tradeHolding.entry_price),
-    purchaseDate: tradeHolding.purchase_date ?? null,
-    notes: tradeHolding.notes ?? null,
-  });
 }

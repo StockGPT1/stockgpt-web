@@ -172,6 +172,12 @@ export function ManualPortfolioEntry({
       return false;
     }
 
+    if (!portfolioId) {
+      setIsSuccess(false);
+      setMessage("Choose a portfolio before recording a holding change.");
+      return false;
+    }
+
     if (!cleanTicker) {
       setIsSuccess(false);
       setMessage("Enter a ticker.");
@@ -212,7 +218,7 @@ export function ManualPortfolioEntry({
 
     startTransition(async () => {
       const result = await logExistingHolding({
-        portfolioId: portfolioId || null,
+        portfolioId,
         ticker: cleanTicker,
         shares: shareCount,
         entryPrice: price,
@@ -272,7 +278,7 @@ export function ManualPortfolioEntry({
 
     startTransition(async () => {
       const result = await buyHoldingWithCash({
-        portfolioId: portfolioId || null,
+        portfolioId,
         ticker: cleanTicker,
         dollarAmount: amount,
         entryPrice: price,
