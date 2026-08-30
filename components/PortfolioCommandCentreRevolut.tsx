@@ -1150,36 +1150,35 @@ function ManageHoldingModal({
     });
   }
 
-  function runRemove(creditCash: boolean) {
-    const label = creditCash
-      ? "close this position and credit cash"
-      : "remove this holding without adding cash";
-    if (
-      !window.confirm(
-        `Are you sure you want to ${label} for ${holding.ticker}?`,
-      )
-    )
-      return;
-    setMessage("Removing holding...");
+  function runFullSale() {
+    if (!window.confirm(`Are you sure you want to record a full sale for ${holding.ticker} and credit portfolio cash?`)) return;
+    setMessage("Recording full sale...");
     startTransition(async () => {
-      const result = creditCash
-        ? await trimHolding({
-            portfolioId,
-            ticker: holding.ticker,
-            percentage: 100,
-          })
-        : await removeHolding({
-            portfolioId,
-            ticker: holding.ticker,
-            creditCash: false,
-          });
+      const result = await trimHolding({
+        portfolioId,
+        ticker: holding.ticker,
+        percentage: 100,
+      });
       if (!result.success) {
         setMessage(result.error ?? "Could not update holding.");
         return;
       }
-      setMessage(
-        creditCash ? `${holding.ticker} closed.` : `${holding.ticker} removed.`,
-      );
+      setMessage(`${holding.ticker} full sale recorded.`);
+      window.setTimeout(() => router.refresh(), 120);
+      window.setTimeout(onClose, 650);
+    });
+  }
+
+  function runRemoveFromTracking() {
+    if (!window.confirm(`Are you sure you want to remove ${holding.ticker} from tracking without recording a sale?`)) return;
+    setMessage("Removing from tracking...");
+    startTransition(async () => {
+      const result = await removeHolding({ portfolioId, ticker: holding.ticker });
+      if (!result.success) {
+        setMessage(result.error ?? "Could not remove holding from tracking.");
+        return;
+      }
+      setMessage(`${holding.ticker} removed from tracking.`);
       window.setTimeout(() => router.refresh(), 120);
       window.setTimeout(onClose, 650);
     });
@@ -1609,18 +1608,18 @@ function ManageHoldingModal({
             <button
               type="button"
               disabled={isPending}
-              onClick={() => runRemove(true)}
+              onClick={runFullSale}
               className="h-11 rounded-2xl border border-red-400/30 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-200 disabled:opacity-50"
             >
-              Close + credit cash
+              Record full sale
             </button>
             <button
               type="button"
               disabled={isPending}
-              onClick={() => runRemove(false)}
+              onClick={runRemoveFromTracking}
               className="h-11 rounded-2xl border border-[#ddb159]/16 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/55 disabled:opacity-50"
             >
-              Remove only
+              Remove from tracking
             </button>
           </div>
           {message && (

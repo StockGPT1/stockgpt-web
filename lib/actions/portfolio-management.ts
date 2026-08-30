@@ -210,7 +210,6 @@ type TrimHoldingInput = {
 type RemoveHoldingInput = {
   portfolioId: string;
   ticker: string;
-  creditCash?: boolean;
 };
 
 type MarkReviewedInput = {
@@ -2179,14 +2178,6 @@ export async function removeHolding(
   const upperTicker = cleanTicker(input.ticker);
 
   if (!upperTicker) return { success: false, error: "Missing ticker." };
-
-  if (input.creditCash) {
-    return trimHolding({
-      portfolioId: input.portfolioId,
-      ticker: upperTicker,
-      percentage: 100,
-    });
-  }
 
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);

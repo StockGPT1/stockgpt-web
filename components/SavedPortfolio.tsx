@@ -12,7 +12,6 @@ import {
   deletePortfolio,
   logExistingHolding,
   markReviewed,
-  removeHolding,
   renamePortfolio,
   trimHolding,
   updateHoldingDetails,
@@ -1171,22 +1170,22 @@ function EditHoldingModal({
     });
   }
 
-  function sellRemove() {
+  function recordFullSale() {
     const confirmed = window.confirm(
-      `Sell/remove ${holding.ticker}? This will remove it from this portfolio and credit cash using the current price.`,
+      `Record a full sale for ${holding.ticker}? This will remove the holding and credit portfolio cash using the current price.`,
     );
 
     if (!confirmed) return;
 
     startTransition(async () => {
-      const result = await removeHolding({
+      const result = await trimHolding({
         portfolioId,
         ticker: holding.ticker,
-        creditCash: true,
+        percentage: 100,
       });
 
       if (!result.success) {
-        setMessage(result.error ?? "Could not remove holding.");
+        setMessage(result.error ?? "Could not record the full sale.");
         return;
       }
 
@@ -1303,11 +1302,11 @@ function EditHoldingModal({
 
             <button
               type="button"
-              onClick={sellRemove}
+              onClick={recordFullSale}
               disabled={isPending}
               className="h-11 rounded-2xl border border-red-300 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-red-700 transition hover:bg-red-50 disabled:opacity-60"
             >
-              Sell/remove
+              Record full sale
             </button>
 
             <button

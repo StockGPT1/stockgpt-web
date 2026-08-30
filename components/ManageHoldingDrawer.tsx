@@ -221,21 +221,29 @@ export function ManageHoldingDrawer({
     });
   }
 
-  function runRemove(creditCash: boolean) {
-    const wording = creditCash
-      ? "record a full sale and credit portfolio cash"
-      : "remove this holding without recording sale proceeds";
-    if (!window.confirm(`Confirm that you want to ${wording}. This cannot be undone.`)) return;
-    setMessage("Recording change...");
+  function runFullSale() {
+    if (!window.confirm("Confirm that you want to record a full sale and credit portfolio cash. This cannot be undone.")) return;
+    setMessage("Recording full sale...");
     startTransition(async () => {
-      const result = creditCash
-        ? await trimHolding({ portfolioId, ticker: holding.ticker, percentage: 100 })
-        : await removeHolding({ portfolioId, ticker: holding.ticker, creditCash: false });
+      const result = await trimHolding({ portfolioId, ticker: holding.ticker, percentage: 100 });
       if (!result.success) {
         setMessage(result.error ?? "Could not record the portfolio change.");
         return;
       }
-      finish(creditCash ? `${holding.ticker} full sale recorded.` : `${holding.ticker} removed.`);
+      finish(`${holding.ticker} full sale recorded.`);
+    });
+  }
+
+  function runRemoveFromTracking() {
+    if (!window.confirm("Confirm that you want to remove this holding from tracking without recording a sale. This cannot be undone.")) return;
+    setMessage("Removing from tracking...");
+    startTransition(async () => {
+      const result = await removeHolding({ portfolioId, ticker: holding.ticker });
+      if (!result.success) {
+        setMessage(result.error ?? "Could not remove the holding from tracking.");
+        return;
+      }
+      finish(`${holding.ticker} removed from tracking.`);
     });
   }
 
@@ -390,7 +398,7 @@ export function ManageHoldingDrawer({
 
             <section className="border-t border-[#ddb159]/14 pt-3">
               <button type="button" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen} className="flex h-11 w-full items-center justify-between text-left text-[11px] font-black text-[#faf6f0]/58"><span>Remove holding</span><span aria-hidden="true">{advancedOpen ? "−" : "+"}</span></button>
-              {advancedOpen && <div className="grid gap-2 rounded-[18px] border border-[#b9504d]/22 bg-[#b9504d]/[0.04] p-3 sm:grid-cols-2"><button type="button" disabled={isPending} onClick={() => runRemove(true)} className="h-11 rounded-xl border border-[#ddb159]/22 text-[10px] font-black text-[#e7c56c]">Record full sale + cash</button><button type="button" disabled={isPending} onClick={() => runRemove(false)} className="h-11 rounded-xl border border-[#b9504d]/36 text-[10px] font-black text-[#f1aaa7]">Remove record only</button><p className="sm:col-span-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/42">These controls remove the full holding from StockGPT. Review the confirmation carefully.</p></div>}
+              {advancedOpen && <div className="grid gap-2 rounded-[18px] border border-[#b9504d]/22 bg-[#b9504d]/[0.04] p-3 sm:grid-cols-2"><button type="button" disabled={isPending} onClick={runFullSale} className="h-11 rounded-xl border border-[#ddb159]/22 text-[10px] font-black text-[#e7c56c]">Record full sale</button><button type="button" disabled={isPending} onClick={runRemoveFromTracking} className="h-11 rounded-xl border border-[#b9504d]/36 text-[10px] font-black text-[#f1aaa7]">Remove from tracking</button><p className="sm:col-span-2 text-[10px] font-semibold leading-4 text-[#faf6f0]/42">A full sale records proceeds in portfolio cash. Removing from tracking records no sale or cash movement.</p></div>}
             </section>
 
             {message && <p role="status" className="rounded-xl border border-[#ddb159]/16 bg-[#faf6f0]/[0.04] px-3 py-2 text-[11px] font-semibold text-[#faf6f0]/62">{message}</p>}

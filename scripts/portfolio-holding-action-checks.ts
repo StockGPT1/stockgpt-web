@@ -16,6 +16,9 @@ const management = source("lib/actions/portfolio-management.ts");
 const mutation = source("lib/portfolio-holding-mutation.ts");
 const migration = source("supabase/migrations/20260830075518_make_portfolio_holding_mutations_atomic.sql");
 const retiredRoute = source("app/api/portfolio/trim-and-reinvest/route.ts");
+const manageDrawer = source("components/ManageHoldingDrawer.tsx");
+const commandCentre = source("components/PortfolioCommandCentreRevolut.tsx");
+const savedPortfolio = source("components/SavedPortfolio.tsx");
 
 assert(/type LogExistingHoldingInput = \{\s*portfolioId: string;/u.test(management), "External log must require portfolioId");
 assert(/type BuyHoldingWithCashInput = \{\s*portfolioId: string;/u.test(management), "Cash buy must require portfolioId");
@@ -38,6 +41,28 @@ assert(!management.includes("export async function addHoldingByAmount("), "No-ID
 assert(!management.includes("export async function updateEntryPrice("), "Ticker-only correction wrapper must be retired");
 assert(!management.includes("export async function updateShares("), "Ticker-only shares wrapper must be retired");
 assert(!actionBlock(management, "updateHoldingDetails", "trimHolding").includes("removeHolding("), "Zero-share correction must not become removal");
+const removeInput = management.slice(
+  management.indexOf("type RemoveHoldingInput"),
+  management.indexOf("type MarkReviewedInput"),
+);
+const removeAction = actionBlock(management, "removeHolding", "markReviewed");
+assert(!removeInput.includes("creditCash"), "RemoveHoldingInput must not expose sale/cash semantics");
+assert(!removeAction.includes("creditCash"), "removeHolding must not branch on cash semantics");
+assert(!removeAction.includes("trimHolding("), "removeHolding must never call the sale action");
+assert(!removeAction.includes("sellPortfolioHolding"), "removeHolding must never call the sale RPC wrapper");
+assert(!manageDrawer.includes("creditCash"), "Manage Holding must not represent sale versus removal as a boolean");
+assert(!commandCentre.includes("creditCash"), "Legacy command centre must not retain the sale/removal boolean escape hatch");
+assert(!savedPortfolio.includes("creditCash"), "Saved Portfolio must not retain the sale/removal boolean escape hatch");
+assert(manageDrawer.includes("function runFullSale()"), "Manage Holding must expose an explicit full-sale flow");
+assert(manageDrawer.includes("function runRemoveFromTracking()"), "Manage Holding must expose an explicit remove-from-tracking flow");
+assert(
+  manageDrawer.includes('trimHolding({ portfolioId, ticker: holding.ticker, percentage: 100 })'),
+  "Full sale must continue through the explicit sale path",
+);
+assert(
+  manageDrawer.includes('removeHolding({ portfolioId, ticker: holding.ticker })'),
+  "Remove from tracking must pass only exact Portfolio/ticker identity",
+);
 
 for (const forbidden of ["userId:", "cashBalance:", "cashDepositedTotal:", "realisedPnl:", "createdAt:", "occurredAt:", "transactionType:"]) {
   const callInputs = mutation.matchAll(/input: \{([\s\S]*?)\},\n\): Promise<PortfolioHoldingMutationResult>/gu);
