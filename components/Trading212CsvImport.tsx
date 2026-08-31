@@ -10,18 +10,17 @@ import {
 
 type ImportPreview = {
   imported: number;
-  skipped: number;
   totalValue: number;
-  skippedTickers: string[];
+  ignoredNonInvestmentRows: number;
   matchedTickers?: string[];
   replaceWarning?: string | null;
 };
 
 type ImportSummary = {
   imported: number;
-  skipped: number;
   totalValue: number;
-  skippedTickers: string[];
+  ignoredNonInvestmentRows: number;
+  matchedTickers: string[];
 };
 
 type Props = {
@@ -65,7 +64,6 @@ function ImportPanel({
 
   const [fileName, setFileName] = useState("");
   const [csvText, setCsvText] = useState("");
-  const [replaceExisting, setReplaceExisting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -146,7 +144,6 @@ function ImportPanel({
     startPreviewing(async () => {
       const result = await previewTrading212Csv(csvText, {
         portfolioId,
-        replaceExisting,
       });
 
       if (!result.success) {
@@ -159,16 +156,11 @@ function ImportPanel({
       setPreview(data);
 
       const imported = data?.imported ?? 0;
-      const skipped = data?.skipped ?? 0;
 
       setMessage(
         imported > 0
-          ? `Preview ready: ${imported} supported holding${imported === 1 ? "" : "s"} found.${
-              skipped > 0
-                ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.`
-                : ""
-            }`
-          : "No supported S&P 500 holdings were found in this CSV.",
+          ? `Preview accepted: ${imported} supported open holding${imported === 1 ? "" : "s"} found.`
+          : "No supported open holdings were found in this CSV.",
       );
     });
   }
@@ -192,13 +184,10 @@ function ImportPanel({
       return;
     }
 
-    if (replaceExisting) {
-      const confirmed = window.confirm(
-        "This will replace the holdings inside this selected portfolio only. Other portfolios will not be touched. Continue?",
-      );
-
-      if (!confirmed) return;
-    }
+    const confirmed = window.confirm(
+      "Replace the holdings in this selected Portfolio? Existing cash, net contributions and prior activity stay unchanged.",
+    );
+    if (!confirmed) return;
 
     setMessage(null);
     setSummary(null);
@@ -206,7 +195,6 @@ function ImportPanel({
     startImporting(async () => {
       const result = await importTrading212Csv(csvText, {
         portfolioId,
-        replaceExisting,
       });
 
       if (!result.success) {
@@ -217,18 +205,13 @@ function ImportPanel({
 
       const data = result.data ?? null;
       const imported = data?.imported ?? 0;
-      const skipped = data?.skipped ?? 0;
 
       setIsSuccess(true);
       setSummary(data);
       setPreview(null);
       setMessage(
         imported > 0
-          ? `Imported ${imported} holding${imported === 1 ? "" : "s"}.${
-              skipped > 0
-                ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.`
-                : ""
-            }`
+          ? `Replaced tracked holdings with ${imported} imported holding${imported === 1 ? "" : "s"}. Cash and net contributions were unchanged.`
           : "No supported holdings were imported from this CSV.",
       );
       setCsvText("");
@@ -259,7 +242,8 @@ function ImportPanel({
             </div>
           </div>
           <p className="mt-3 max-w-2xl text-[12px] font-semibold leading-5 text-[#072116]/58">
-            Upload your Trading 212 CSV, preview the matches, then import into this portfolio.
+            Upload your Trading 212 CSV, preview the complete accepted holdings set,
+            then replace the holdings in this Portfolio.
           </p>
         </div>
 
@@ -298,7 +282,9 @@ function ImportPanel({
 
         <div className="rounded-2xl border border-[#ddb159]/25 bg-[#fff8e4] px-3 py-2">
           <p className="text-[11px] font-bold leading-5 text-[#8a641a]">
-            StockGPT currently tracks S&P 500 portfolios in USD. Check your CSV currency before importing.
+            This replaces holdings only. Existing cash, net contributions and prior
+            activity stay unchanged. Unsupported open investments refuse the entire
+            file, and this does not connect to or alter Trading 212.
           </p>
         </div>
 
@@ -327,21 +313,6 @@ function ImportPanel({
               </button>
             </div>
           )}
-        </label>
-
-        <label className="flex min-w-0 items-start gap-3 rounded-2xl border border-[#072116]/8 bg-white px-3 py-3">
-          <input
-            type="checkbox"
-            checked={replaceExisting}
-            onChange={(event) => {
-              setReplaceExisting(event.target.checked);
-              setPreview(null);
-            }}
-            className="mt-1 size-4 shrink-0 accent-[#00a6ff]"
-          />
-          <span className="min-w-0 text-[11px] font-semibold leading-5 text-[#072116]/62">
-            Replace holdings in this selected portfolio. Leave off to append/update imported holdings.
-          </span>
         </label>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -383,12 +354,12 @@ function ImportPanel({
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <ImportStat label="Matched" value={preview.imported} />
-              <ImportStat label="Skipped" value={preview.skipped} />
-              <ImportStat label="Value" value={money(preview.totalValue)} />
+              <ImportStat label="Ignored rows" value={preview.ignoredNonInvestmentRows} />
+              <ImportStat label="Cost basis" value={money(preview.totalValue)} />
             </div>
-            {preview.replaceWarning || replaceExisting ? (
+            {preview.replaceWarning ? (
               <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-5 text-amber-800">
-                {preview.replaceWarning ?? "Replace mode is on. This will clear holdings inside this portfolio before importing."}
+                {preview.replaceWarning}
               </p>
             ) : null}
             {preview.matchedTickers?.length ? (
@@ -397,12 +368,10 @@ function ImportPanel({
                 {preview.matchedTickers.length > 20 ? "…" : ""}
               </p>
             ) : null}
-            {preview.skippedTickers?.length ? (
-              <p className="mt-2 break-words text-[10px] font-semibold leading-5 text-red-700/75">
-                Skipped: {preview.skippedTickers.slice(0, 30).join(", ")}
-                {preview.skippedTickers.length > 30 ? "…" : ""}
-              </p>
-            ) : null}
+            <p className="mt-2 text-[10px] font-semibold leading-5 text-[#072116]/55">
+              Cash and account-history rows are not imported. Recognized non-investment
+              rows are intentionally ignored.
+            </p>
           </div>
         )}
 
@@ -413,15 +382,9 @@ function ImportPanel({
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <ImportStat label="Imported" value={summary.imported} />
-              <ImportStat label="Skipped" value={summary.skipped} />
-              <ImportStat label="Value" value={money(summary.totalValue)} />
+              <ImportStat label="Ignored rows" value={summary.ignoredNonInvestmentRows} />
+              <ImportStat label="Cost basis" value={money(summary.totalValue)} />
             </div>
-            {summary.skippedTickers?.length ? (
-              <p className="mt-3 break-words text-[10px] font-semibold leading-5 text-[#072116]/55">
-                Skipped: {summary.skippedTickers.slice(0, 20).join(", ")}
-                {summary.skippedTickers.length > 20 ? "…" : ""}
-              </p>
-            ) : null}
           </div>
         )}
 

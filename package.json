@@ -35,6 +35,7 @@
     "test:portfolio-cash": "node scripts/verify-portfolio-cash-local.mjs && tsx scripts/portfolio-cash-action-checks.ts",
     "test:portfolio-holdings": "node scripts/verify-portfolio-holdings-local.mjs && tsx scripts/portfolio-holding-action-checks.ts",
     "test:portfolio-creation": "node scripts/verify-portfolio-creation-local.mjs && tsx scripts/portfolio-creation-action-checks.ts",
+    "test:portfolio-csv": "node scripts/verify-portfolio-csv-local.mjs && tsx scripts/portfolio-csv-checks.ts",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },

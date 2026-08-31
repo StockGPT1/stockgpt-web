@@ -60,8 +60,10 @@ assert(aiAction.includes("Post-commit AI Portfolio refresh failed"), "AI post-co
 assert(manualAction.includes("Post-commit manual Portfolio refresh failed"), "Manual post-commit work is not isolated");
 assert(deleteAction.includes("Post-commit Portfolio refresh failed"), "Deletion post-commit work is not isolated");
 assert(
-  csvAction.includes('.from("user_portfolios")') && csvAction.includes('.from("portfolio_holdings")'),
-  "Trading 212 direct creation must remain explicitly visible for Stage 05G",
+  csvAction.includes("createTrading212PortfolioAtomically")
+    && !csvAction.includes('.from("user_portfolios")')
+    && !csvAction.includes('.from("portfolio_holdings")'),
+  "Trading 212 creation must remain on its Stage 05G atomic boundary",
 );
 
 console.log("Portfolio creation exact-ID, atomic-RPC, USD and deferred-CSV source contracts passed.");

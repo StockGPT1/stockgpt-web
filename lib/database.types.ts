@@ -1129,6 +1129,16 @@ export type Database = {
           portfolio_id: string
         }[]
       }
+      create_trading212_portfolio: {
+        Args: { p_holdings: Json; p_name: string }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          holdings_basis: number
+          holdings_count: number
+          portfolio_id: string
+        }[]
+      }
       delete_owned_portfolio: {
         Args: { p_portfolio_id: string }
         Returns: {
@@ -1179,6 +1189,16 @@ export type Database = {
           removed_shares: number
           ticker: string
           transaction_id: string
+        }[]
+      }
+      replace_portfolio_holdings_from_trading212: {
+        Args: { p_holdings: Json; p_portfolio_id: string }
+        Returns: {
+          cash_balance: number
+          cash_deposited_total: number
+          holdings_basis: number
+          holdings_count: number
+          portfolio_id: string
         }[]
       }
       sell_portfolio_holding: {

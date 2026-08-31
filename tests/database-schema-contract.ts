@@ -1,4 +1,4 @@
-import type { Database } from "@/lib/database.types";
+import type { Database, Json } from "@/lib/database.types";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends
@@ -53,14 +53,28 @@ export type PublicFunctionSetIsCanonical = Assert<
     | "correct_portfolio_holding"
     | "create_ai_portfolio_draft"
     | "create_manual_portfolio"
+    | "create_trading212_portfolio"
     | "delete_owned_portfolio"
     | "is_active_subscriber"
     | "log_existing_portfolio_holding"
     | "mutate_portfolio_cash"
     | "remove_portfolio_holding_tracking"
+    | "replace_portfolio_holdings_from_trading212"
     | "sell_portfolio_holding"
     | "show_limit"
     | "show_trgm"
+  >
+>;
+export type CsvCreationArgsAreNarrow = Assert<
+  Equal<
+    Database["public"]["Functions"]["create_trading212_portfolio"]["Args"],
+    { p_holdings: Json; p_name: string }
+  >
+>;
+export type CsvReplacementArgsAreNarrow = Assert<
+  Equal<
+    Database["public"]["Functions"]["replace_portfolio_holdings_from_trading212"]["Args"],
+    { p_holdings: Json; p_portfolio_id: string }
   >
 >;
 export type CashMutationArgsAreNarrow = Assert<

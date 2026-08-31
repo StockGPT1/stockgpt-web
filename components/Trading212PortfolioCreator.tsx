@@ -9,9 +9,8 @@ import {
 
 type ImportPreview = {
   imported: number;
-  skipped: number;
   totalValue: number;
-  skippedTickers: string[];
+  ignoredNonInvestmentRows: number;
   matchedTickers?: string[];
 };
 
@@ -125,15 +124,10 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
       setPreview(data);
 
       const imported = data?.imported ?? 0;
-      const skipped = data?.skipped ?? 0;
       setMessage(
         imported > 0
-          ? `Preview ready: ${imported} supported holding${imported === 1 ? "" : "s"} found.${
-              skipped > 0
-                ? ` ${skipped} row${skipped === 1 ? "" : "s"} could not be matched.`
-                : ""
-            }`
-          : "No supported S&P 500 holdings were found in this CSV.",
+          ? `Preview accepted: ${imported} supported open holding${imported === 1 ? "" : "s"} found.`
+          : "No supported open holdings were found in this CSV.",
       );
     });
   }
@@ -164,7 +158,6 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
       const result = await createPortfolioFromTrading212Csv({
         name,
         csvText,
-        currency: "USD",
       });
 
       if (!result.success || !result.data?.portfolioId) {
@@ -278,8 +271,9 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
 
             <div className="rounded-2xl border border-[#ddb159]/25 bg-[#fff8e4] px-3 py-2">
               <p className="text-[11px] font-bold leading-5 text-[#8a641a]">
-                Review before saving. Unsupported tickers, cash rows, empty files,
-                malformed numbers and non-CSV uploads are rejected or clearly skipped.
+                Trading 212 CSV imports holdings only. Cash is not imported, so this
+                Portfolio starts with $0 cash; add cash separately afterward if needed.
+                Any unsupported open investment causes the whole import to be refused.
               </p>
             </div>
 
@@ -326,8 +320,8 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
             <div className="mt-3 grid gap-3">
               <div className="grid grid-cols-3 gap-2">
                 <ImportStat label="Matched" value={preview.imported} />
-                <ImportStat label="Skipped" value={preview.skipped} />
-                <ImportStat label="Value" value={money(preview.totalValue)} />
+                <ImportStat label="Ignored rows" value={preview.ignoredNonInvestmentRows} />
+                <ImportStat label="Cost basis" value={money(preview.totalValue)} />
               </div>
               {preview.matchedTickers?.length ? (
                 <p className="break-words rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.05] px-3 py-2 text-[10px] font-semibold leading-5 text-[#faf6f0]/62">
@@ -335,12 +329,10 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
                   {preview.matchedTickers.length > 28 ? "…" : ""}
                 </p>
               ) : null}
-              {preview.skippedTickers?.length ? (
-                <p className="break-words rounded-2xl border border-red-300/20 bg-red-300/10 px-3 py-2 text-[10px] font-semibold leading-5 text-red-100/80">
-                  Skipped: {preview.skippedTickers.slice(0, 28).join(", ")}
-                  {preview.skippedTickers.length > 28 ? "…" : ""}
-                </p>
-              ) : null}
+              <p className="rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.05] px-3 py-2 text-[10px] font-semibold leading-5 text-[#faf6f0]/62">
+                Account-only rows such as deposits, dividends and fees are ignored;
+                StockGPT does not reconstruct broker cash or execution history.
+              </p>
             </div>
           ) : (
             <div className="mt-3 rounded-2xl border border-dashed border-[#ddb159]/24 bg-[#faf6f0]/[0.035] p-4">
