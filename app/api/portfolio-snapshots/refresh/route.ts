@@ -5,6 +5,7 @@ import {
 } from "@/lib/portfolio-snapshots";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -16,6 +17,7 @@ type PortfolioRow = {
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
   created_at?: string | null;
+  currency: string | null;
 };
 
 type HoldingRow = {
@@ -70,7 +72,7 @@ export async function GET(req: NextRequest) {
 
   const { data: portfolioRows, error: portfolioError } = await supabase
     .from("user_portfolios")
-    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
+    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at,currency")
     .is("archived_at", null)
     .limit(portfolioLimit);
 
@@ -78,7 +80,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Could not load portfolios" }, { status: 500 });
   }
 
-  const portfolios = (portfolioRows ?? []) as PortfolioRow[];
+  const portfolios = ((portfolioRows ?? []) as PortfolioRow[]).filter((portfolio) =>
+    isCanonicalUsdPortfolio(portfolio.currency),
+  );
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
   if (portfolioIds.length === 0) {

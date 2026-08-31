@@ -3,6 +3,7 @@ import {
   DEFAULT_USD_FX_RATES,
   SUPPORTED_CURRENCIES,
   type SupportedCurrency,
+  type UsdFxQuote,
   type UsdFxRates,
 } from "@/lib/currency";
 
@@ -21,24 +22,40 @@ function validRate(value: unknown) {
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
-function ratesFromEnv() {
+function fallbackQuote(): UsdFxQuote {
+  return {
+    rates: { ...DEFAULT_USD_FX_RATES },
+    sources: {
+      USD: "usd_identity",
+      GBP: "display_fallback",
+      EUR: "display_fallback",
+      CHF: "display_fallback",
+    },
+  };
+}
+
+function ratesFromEnv(): UsdFxQuote | null {
   const raw = process.env.STOCKGPT_USD_FX_RATES_JSON;
   if (!raw) return null;
 
   try {
     const parsed = JSON.parse(raw) as Partial<Record<SupportedCurrency, unknown>>;
-    const rates = { ...DEFAULT_USD_FX_RATES };
+    const quote = fallbackQuote();
     for (const currency of SUPPORTED_CURRENCIES) {
       const rate = validRate(parsed[currency]);
-      if (rate) rates[currency] = rate;
+      if (rate) {
+        quote.rates[currency] = rate;
+        quote.sources[currency] =
+          currency === "USD" ? "usd_identity" : "configured";
+      }
     }
-    return rates;
+    return quote;
   } catch {
     return null;
   }
 }
 
-async function fetchRatesUncached(): Promise<UsdFxRates> {
+async function fetchRatesUncached(): Promise<UsdFxQuote> {
   const envRates = ratesFromEnv();
   if (envRates) return envRates;
 
@@ -50,25 +67,32 @@ async function fetchRatesUncached(): Promise<UsdFxRates> {
       signal: controller.signal,
       next: { revalidate: FX_REVALIDATE_SECONDS },
     });
-    if (!response.ok) return DEFAULT_USD_FX_RATES;
+    if (!response.ok) return fallbackQuote();
 
     const json = (await response.json()) as {
       rates?: Partial<Record<SupportedCurrency, unknown>>;
     };
-    return {
-      USD: 1,
-      GBP: validRate(json.rates?.GBP) ?? DEFAULT_USD_FX_RATES.GBP,
-      EUR: validRate(json.rates?.EUR) ?? DEFAULT_USD_FX_RATES.EUR,
-      CHF: validRate(json.rates?.CHF) ?? DEFAULT_USD_FX_RATES.CHF,
-    };
+    const quote = fallbackQuote();
+    for (const currency of ["GBP", "EUR", "CHF"] as const) {
+      const rate = validRate(json.rates?.[currency]);
+      if (rate) {
+        quote.rates[currency] = rate;
+        quote.sources[currency] = "fetched_current";
+      }
+    }
+    return quote;
   } catch {
-    return DEFAULT_USD_FX_RATES;
+    return fallbackQuote();
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export const getUsdFxRates = unstable_cache(fetchRatesUncached, ["stockgpt-usd-fx-rates-v1"], {
+export const getUsdFxQuote = unstable_cache(fetchRatesUncached, ["stockgpt-usd-fx-quote-v2"], {
   revalidate: FX_REVALIDATE_SECONDS,
 });
+
+export async function getUsdFxRates(): Promise<UsdFxRates> {
+  return (await getUsdFxQuote()).rates;
+}
 

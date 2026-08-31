@@ -64,20 +64,25 @@ export function ManualPortfolioBuilder({
   stockOptions,
   existingCount,
   displayCurrency = "USD",
-  usdToDisplayRate = 1,
+  usdToWriteRate = null,
   onBack,
 }: {
   stockOptions: ManualBuilderStockOption[];
   existingCount: number;
   displayCurrency?: SupportedCurrency;
-  usdToDisplayRate?: number;
+  usdToWriteRate?: number | null;
   onBack: () => void;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState(`Manual Portfolio ${existingCount + 1}`);
   const currency = displayCurrency;
-  const inputRate = Number.isFinite(usdToDisplayRate) && usdToDisplayRate > 0 ? usdToDisplayRate : 1;
+  const inputRate =
+    displayCurrency === "USD"
+      ? 1
+      : Number.isFinite(usdToWriteRate) && Number(usdToWriteRate) > 0
+        ? Number(usdToWriteRate)
+        : null;
   const [startingCash, setStartingCash] = useState("0");
   const [goal, setGoal] = useState<Goal>("balanced");
   const [holdings, setHoldings] = useState<DraftHolding[]>([]);
@@ -245,6 +250,12 @@ export function ManualPortfolioBuilder({
 
   function createPortfolio() {
     if (isSaving) return;
+    if (inputRate == null) {
+      setError(
+        "A current verified FX rate is unavailable. Enter Portfolio financial values in USD or try again later.",
+      );
+      return;
+    }
 
     setError(null);
     startSaving(async () => {

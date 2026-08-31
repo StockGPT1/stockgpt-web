@@ -198,16 +198,16 @@ try {
     "Active user same-owner transaction insert failed",
   );
   await requiredSingle(
-    isolationClient
+    admin
       .from("portfolio_transactions")
       .insert(transactionRow(
         ids.isolationTransaction,
         users.isolation.portfolioId,
         users.isolation.id,
-        "05B isolation same-owner transaction",
+        "05B trusted isolation transaction fixture",
       ))
       .select("id,portfolio_id,user_id,notes"),
-    "Isolation user same-owner transaction insert failed",
+    "Trusted isolation transaction fixture insert failed",
   );
   await requiredSingle(
     activeClient

@@ -160,7 +160,7 @@ export function PortfolioAddSheet({
   holdings,
   stockOptions,
   summary,
-  usdToDisplayRate,
+  usdToWriteRate,
 }: {
   open: boolean;
   onClose: () => void;
@@ -169,7 +169,7 @@ export function PortfolioAddSheet({
   holdings: ExtendedHolding[];
   stockOptions: StockOption[];
   summary: PortfolioHealthSummary;
-  usdToDisplayRate: number;
+  usdToWriteRate: number | null;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<AddMode>("menu");
@@ -184,11 +184,10 @@ export function PortfolioAddSheet({
   const [holdingReview, setHoldingReview] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const rate =
-    Number.isFinite(usdToDisplayRate) && usdToDisplayRate > 0
-      ? usdToDisplayRate
-      : 1;
-  const toUsd = (amount: number) => amount / rate;
+  const writeRate =
+    Number.isFinite(usdToWriteRate) && Number(usdToWriteRate) > 0
+      ? Number(usdToWriteRate)
+      : null;
   const normalizedTicker = ticker.trim().toUpperCase();
   const selectedStock =
     stockOptions.find((stock) => stock.ticker === normalizedTicker) ?? null;
@@ -270,15 +269,20 @@ export function PortfolioAddSheet({
       setMessageTone("error");
       return;
     }
+    if (writeRate == null) {
+      setMessage("A current verified FX rate is unavailable. Use USD for this financial action or try again later.");
+      setMessageTone("error");
+      return;
+    }
     setMessage(withdraw ? "Recording withdrawal…" : "Adding cash…");
     setMessageTone("neutral");
     startTransition(async () => {
       const result = withdraw
         ? await withdrawPortfolioCash({
             portfolioId,
-            amount: toUsd(parsed),
+            amount: parsed / writeRate,
           })
-        : await addCash({ portfolioId, amount: toUsd(parsed) });
+        : await addCash({ portfolioId, amount: parsed / writeRate });
       if (!result.success) {
         setMessage(
           result.error ??
@@ -320,6 +324,11 @@ export function PortfolioAddSheet({
 
   function submitHolding() {
     if (!validateHolding() || !selectedStock) return;
+    if (writeRate == null) {
+      setMessage("A current verified FX rate is unavailable. Use USD for this financial action or try again later.");
+      setMessageTone("error");
+      return;
+    }
     setMessage(
       funding === "cash"
         ? "Buying with portfolio cash…"
@@ -333,13 +342,13 @@ export function PortfolioAddSheet({
               portfolioId,
               ticker: selectedStock.ticker,
               shares: orderShares,
-              price: toUsd(orderPrice),
+              price: orderPrice / writeRate,
             })
           : await logExistingHolding({
               portfolioId,
               ticker: selectedStock.ticker,
               shares: orderShares,
-              entryPrice: toUsd(orderPrice),
+              entryPrice: orderPrice / writeRate,
             });
       if (!result.success) {
         setMessage(result.error ?? "Could not add holding.");

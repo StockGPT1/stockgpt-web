@@ -28,7 +28,7 @@ type Props = {
   referenceLevels: HoldingReferenceLevels;
   cashBalance: number;
   displayCurrency: string;
-  usdToDisplayRate: number;
+  usdToWriteRate: number | null;
   onClose: () => void;
 };
 
@@ -82,7 +82,7 @@ export function ManageHoldingDrawer({
   referenceLevels,
   cashBalance,
   displayCurrency,
-  usdToDisplayRate,
+  usdToWriteRate,
   onClose,
 }: Props) {
   const router = useRouter();
@@ -104,10 +104,10 @@ export function ManageHoldingDrawer({
 
   useFocusedFlow(`manage-holding-${portfolioId}-${holding.ticker}`, true);
 
-  const rate = Number.isFinite(usdToDisplayRate) && usdToDisplayRate > 0
-    ? usdToDisplayRate
-    : 1;
-  const toUsd = (value: number) => value / rate;
+  const writeRate =
+    Number.isFinite(usdToWriteRate) && Number(usdToWriteRate) > 0
+      ? Number(usdToWriteRate)
+      : null;
   const trimCalculation = useMemo(
     () => resolveTradeOrder({ value: trimValue, price: trimPrice, shares: trimShares }),
     [trimPrice, trimShares, trimValue],
@@ -182,13 +182,17 @@ export function ManageHoldingDrawer({
 
   function runTrim() {
     if (!trimValid) return;
+    if (writeRate == null) {
+      setMessage("A current verified FX rate is unavailable. Use USD for this financial action or try again later.");
+      return;
+    }
     setMessage("Recording reduction...");
     startTransition(async () => {
       const result = await trimHolding({
         portfolioId,
         ticker: holding.ticker,
-        value: toUsd(trimCalculation.value ?? 0),
-        price: toUsd(trimCalculation.price ?? 0),
+        value: (trimCalculation.value ?? 0) / writeRate,
+        price: (trimCalculation.price ?? 0) / writeRate,
         shares: trimCalculation.shares ?? 0,
       });
       if (!result.success) {
@@ -201,13 +205,17 @@ export function ManageHoldingDrawer({
 
   function runBuyMore(mode: "cash" | "external") {
     if (!buyValid || (mode === "cash" && insufficientCash)) return;
+    if (writeRate == null) {
+      setMessage("A current verified FX rate is unavailable. Use USD for this financial action or try again later.");
+      return;
+    }
     setMessage(mode === "cash" ? "Recording cash purchase..." : "Recording external purchase...");
     startTransition(async () => {
       const input = {
         portfolioId,
         ticker: holding.ticker,
-        value: toUsd(buyCalculation.value ?? 0),
-        price: toUsd(buyCalculation.price ?? 0),
+        value: (buyCalculation.value ?? 0) / writeRate,
+        price: (buyCalculation.price ?? 0) / writeRate,
         shares: buyCalculation.shares ?? 0,
       };
       const result = mode === "cash"

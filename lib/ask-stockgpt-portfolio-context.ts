@@ -11,6 +11,7 @@ import {
   buildPortfolioIntelligenceView,
   type IntelligenceReasonView,
 } from "@/lib/portfolio-intelligence-presentation";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export type AskPortfolioMeta = {
   id: string;
@@ -119,6 +120,9 @@ export function buildAskStockGPTPortfolioContext({
   asOf: string;
 }) {
   const current = assessCurrentPortfolioIntelligenceFacts(facts, asOf);
+  const monetaryFactsAvailable = isCanonicalUsdPortfolio(
+    facts.portfolio.currency,
+  );
   const view = buildPortfolioIntelligenceView({
     result: current.assessment,
     adapterLimitations: current.adapterLimitations,
@@ -152,7 +156,9 @@ export function buildAskStockGPTPortfolioContext({
     unrealisedPnlDollars !== null && totalCostBasis !== null && totalCostBasis > 0
       ? (unrealisedPnlDollars / totalCostBasis) * 100
       : null;
-  const rawCashBalance = finiteNumber(facts.portfolio.cash_balance);
+  const rawCashBalance = monetaryFactsAvailable
+    ? finiteNumber(facts.portfolio.cash_balance)
+    : null;
 
   const holdings = current.input.holdings.map((inputHolding) => {
     const assessment = assessmentByKey.get(inputHolding.instrumentKey);
@@ -165,11 +171,13 @@ export function buildAskStockGPTPortfolioContext({
       holdingFactsByTicker.get(tickerKey(inputHolding.ticker)) ??
       holdingFactsById.get(inputHolding.instrumentKey.replace(/^holding:/, ""));
     const metadata = metadataByTicker.get(tickerKey(inputHolding.ticker));
-    const entryPrice = sourceHolding ? finiteNumber(sourceHolding.entry_price) : null;
-    const savedRiskReference = sourceHolding
+    const entryPrice = monetaryFactsAvailable && sourceHolding
+      ? finiteNumber(sourceHolding.entry_price)
+      : null;
+    const savedRiskReference = monetaryFactsAvailable && sourceHolding
       ? finitePositive(sourceHolding.risk_level_at_entry)
       : null;
-    const savedTargetReference = sourceHolding
+    const savedTargetReference = monetaryFactsAvailable && sourceHolding
       ? finitePositive(sourceHolding.target_level_at_entry)
       : null;
 
@@ -219,8 +227,10 @@ export function buildAskStockGPTPortfolioContext({
       objective: meta.objective,
       time_horizon: meta.timeHorizon,
       currency: meta.currency,
-      investment_amount: meta.investmentAmount,
-      cash_deposited_total: meta.cashDepositedTotal,
+      investment_amount: monetaryFactsAvailable ? meta.investmentAmount : null,
+      cash_deposited_total: monetaryFactsAvailable
+        ? meta.cashDepositedTotal
+        : null,
       created_at: meta.createdAt,
     },
     factual_summary: {

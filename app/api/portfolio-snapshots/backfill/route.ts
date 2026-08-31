@@ -10,6 +10,7 @@ import { assessPortfolioChartHealth } from "@/lib/portfolio-chart-health";
 import { buildPortfolioValueTimeline } from "@/lib/portfolio-value-timeline";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,6 +26,7 @@ type PortfolioRow = {
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
   created_at?: string | null;
+  currency: string | null;
 };
 
 type HoldingRow = {
@@ -124,7 +126,7 @@ export async function GET(req: NextRequest) {
 
   let portfolioQuery = supabase
     .from("user_portfolios")
-    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
+    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at,currency")
     .is("archived_at", null)
     .order("created_at", { ascending: true })
     .limit(candidateLimit);
@@ -139,7 +141,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Could not load portfolios" }, { status: 500 });
   }
 
-  const candidates = (portfolioRows ?? []) as PortfolioRow[];
+  const candidates = ((portfolioRows ?? []) as PortfolioRow[]).filter((portfolio) =>
+    isCanonicalUsdPortfolio(portfolio.currency),
+  );
   const candidateIds = candidates.map((portfolio) => portfolio.id);
 
   if (candidateIds.length === 0) {

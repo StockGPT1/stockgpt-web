@@ -1677,13 +1677,11 @@ function HoldingsRow({
   holding,
   currency,
   cashBalance,
-  usdToDisplayRate,
 }: {
   portfolioId: string;
   holding: ExtendedHolding;
   currency: string;
   cashBalance: number;
-  usdToDisplayRate: number;
 }) {
   const [open, setOpen] = useState(false);
   const isPositive = holding.totalPnLDollars >= 0;
@@ -1749,7 +1747,7 @@ function HoldingsRow({
           }}
           cashBalance={cashBalance}
           displayCurrency={currency}
-          usdToDisplayRate={usdToDisplayRate}
+          usdToWriteRate={null}
           onClose={() => setOpen(false)}
         />
       )}
@@ -1762,14 +1760,12 @@ function HoldingsPanel({
   holdings,
   currency,
   cashBalance,
-  usdToDisplayRate,
   preview = false,
 }: {
   portfolioId: string;
   holdings: ExtendedHolding[];
   currency: string;
   cashBalance: number;
-  usdToDisplayRate: number;
   preview?: boolean;
 }) {
   const [sort, setSort] = useState<HoldingSort>("value");
@@ -1850,7 +1846,6 @@ function HoldingsPanel({
               holding={holding}
               currency={currency}
               cashBalance={cashBalance}
-              usdToDisplayRate={usdToDisplayRate}
             />
           ))}
         </div>
@@ -2269,7 +2264,7 @@ export function PortfolioCommandCentreRevolut({
           </div>
           {canUsePremium ? <PortfolioOpportunitiesWidget opportunities={opportunities.slice(0, 2)} variant="portfolio" /> : <ModuleState eyebrow="Portfolio-fit opportunities" title="Premium analysis locked" description="Unlock StockGPT intelligence to compare portfolio fit, concentration, and current model signals." tone="locked" />}
           <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_minmax(280px,310px)]">
-            <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} cashBalance={portfolioMeta.cashBalance} usdToDisplayRate={usdToDisplayRate} preview />
+            <HoldingsPanel portfolioId={portfolioId} holdings={topHoldings} currency={currency} cashBalance={portfolioMeta.cashBalance} preview />
             {canUsePremium ? (
               <div className="grid content-start gap-3 rounded-2xl border border-[#ddb159]/16 bg-[#061b12]/72 p-4 text-[#faf6f0]">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">Health drivers</p>
@@ -2290,7 +2285,6 @@ export function PortfolioCommandCentreRevolut({
           holdings={holdings}
           currency={currency}
           cashBalance={portfolioMeta.cashBalance}
-          usdToDisplayRate={usdToDisplayRate}
         />
       )}
       {section === "add" && (

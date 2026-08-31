@@ -20,6 +20,7 @@ import {
   saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 const PORTFOLIO_PAGE_CHART_CACHE_ENABLED =
   process.env.PORTFOLIO_PAGE_CHART_CACHE_ENABLED !== "0";
@@ -142,6 +143,12 @@ export async function buildPortfolioPageChartResult({
   ownerId?: string | null;
   allowCurrentSnapshot?: boolean;
 }): Promise<PortfolioPageChartResult> {
+  if (!isCanonicalUsdPortfolio(portfolio.currency)) {
+    return {
+      chartData: {},
+      meta: { source: "empty", health: emptyPortfolioChartHealth() },
+    };
+  }
   const nowMs = Date.now();
 
   if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {

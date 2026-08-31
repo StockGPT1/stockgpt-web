@@ -29,7 +29,7 @@ export function PortfolioModernWorkspace({
   transactions,
   chartData,
   chartMeta,
-  usdToDisplayRate,
+  usdToWriteRate,
   canUsePremium,
   initialSection,
 }: PortfolioWorkspaceProps) {
@@ -173,7 +173,7 @@ export function PortfolioModernWorkspace({
         holdings={holdings}
         stockOptions={stockOptions}
         summary={summary}
-        usdToDisplayRate={usdToDisplayRate}
+        usdToWriteRate={usdToWriteRate}
       />
       <PortfolioManageSheet
         key={`manage-${portfolioId}`}
@@ -203,7 +203,7 @@ export function PortfolioModernWorkspace({
           referenceLevels={selectedReferenceLevels}
           cashBalance={portfolioMeta.cashBalance}
           displayCurrency={portfolioMeta.currency}
-          usdToDisplayRate={usdToDisplayRate}
+          usdToWriteRate={usdToWriteRate}
           onClose={() => setSelectedTicker(null)}
         />
       )}

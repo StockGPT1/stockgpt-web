@@ -11,6 +11,10 @@ import type {
   CurrentPortfolioIntelligenceFacts,
   CurrentRankingFact,
 } from "./types";
+import {
+  classifyPortfolioAccountingBasis,
+  portfolioCurrencyLimitation,
+} from "@/lib/portfolio-accounting-basis";
 
 export const CURRENT_EVENT_LIMITATION =
   "canonical_event_severity_source_unmapped";
@@ -176,12 +180,12 @@ export function buildCurrentPortfolioIntelligenceInput(
   if (universeSize === null && facts.holdings.length > 0) {
     limitations.add("ranking_universe_unavailable");
   }
-  const portfolioCurrency = facts.portfolio.currency.trim().toUpperCase();
-  const monetaryFactsCoherent = portfolioCurrency === "USD";
+  const accountingBasis = classifyPortfolioAccountingBasis(
+    facts.portfolio.currency,
+  );
+  const monetaryFactsCoherent = accountingBasis.status === "canonical_usd";
   if (!monetaryFactsCoherent) {
-    limitations.add(
-      `portfolio_currency_basis_unresolved:${portfolioCurrency || "unknown"}`,
-    );
+    limitations.add(portfolioCurrencyLimitation(facts.portfolio.currency)!);
   }
 
   const rankingByTicker = mapByTicker(facts.rankings);

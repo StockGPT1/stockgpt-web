@@ -81,7 +81,10 @@ begin
   from pg_policies
   where schemaname = 'public'
     and tablename = 'portfolio_transactions'
-    and policyname like 'portfolio_transactions_%_owned_parent'
+    and policyname in (
+      'portfolio_transactions_select_owned_parent',
+      'portfolio_transactions_insert_canonical_usd_parent'
+    )
     and roles = array['authenticated']::name[];
 
   if policy_count <> 2 then

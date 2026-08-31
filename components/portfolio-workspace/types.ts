@@ -87,7 +87,7 @@ export type PortfolioWorkspaceProps = {
   transactions: PortfolioTransaction[];
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta;
-  usdToDisplayRate: number;
+  usdToWriteRate: number | null;
   canUsePremium: boolean;
   initialSection: PortfolioSection;
 };

@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { PortfolioModernWorkspace } from "@/components/PortfolioModernWorkspace";
+import { LegacyPortfolioCurrencyWorkspace } from "@/components/LegacyPortfolioCurrencyWorkspace";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { createClient } from "@/utils/supabase/server";
 import { enrichHoldings, type EnrichedHolding, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { getUsdFxRates } from "@/lib/fx-rates";
+import { getUsdFxQuote } from "@/lib/fx-rates";
 import {
   assessCurrentPortfolioIntelligenceFacts,
   type CurrentDiagnosticFact,
@@ -21,10 +22,11 @@ import type { Tables } from "@/lib/database.types";
 import {
   convertUsdToCurrency,
   normaliseCurrency,
-  rateForCurrency,
+  writeSafeRateForCurrency,
   type SupportedCurrency,
   type UsdFxRates,
 } from "@/lib/currency";
+import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
 import { comparePortfolioTransactionActivityDesc } from "@/lib/portfolio-transaction-chronology";
 
 export const dynamic = "force-dynamic";
@@ -143,7 +145,7 @@ export default async function ModernPortfolioPage({
   const [
     { data: portfolioRows, error: portfoliosError },
     { data: profile, error: profileError },
-    fxRates,
+    fxQuote,
     { data: stockRows, error: stocksError },
   ] =
     await Promise.all([
@@ -160,7 +162,7 @@ export default async function ModernPortfolioPage({
         .select("preferred_currency,subscription_status")
         .eq("id", user.id)
         .maybeSingle(),
-      getUsdFxRates(),
+      getUsdFxQuote(),
       supabase
         .from("stock_rankings")
         .select(
@@ -173,12 +175,13 @@ export default async function ModernPortfolioPage({
   if (portfoliosError) throw new Error("Portfolio list could not be loaded.");
   if (profileError) throw new Error("Portfolio profile could not be loaded.");
 
+  const fxRates = fxQuote.rates;
   const portfolios = ((portfolioRows ?? []) as PortfolioRow[]).map((portfolio, index) => ({
     ...portfolio,
     name: cleanName(portfolio.name, index),
   }));
   const displayCurrency = normaliseCurrency(profile?.preferred_currency);
-  const usdToDisplayRate = rateForCurrency(displayCurrency, fxRates);
+  const usdToWriteRate = writeSafeRateForCurrency(displayCurrency, fxQuote);
   const stocks = ((stockRows ?? []) as StockRow[])
     .filter((stock) => stock.ticker)
     .map((stock) => ({
@@ -204,7 +207,7 @@ export default async function ModernPortfolioPage({
             }))}
             stockOptions={stocks}
             displayCurrency={displayCurrency}
-            usdToDisplayRate={usdToDisplayRate}
+            usdToWriteRate={usdToWriteRate}
             initialMode={
               params.mode === "manual" ? "manual" : params.mode === "ai" ? "ai" : "choice"
             }
@@ -248,6 +251,34 @@ export default async function ModernPortfolioPage({
   const factualHoldings = ((holdingRows ?? []) as HoldingRow[]).filter(
     (holding) => holding.ticker.trim().length > 0,
   );
+  const accountingBasis = classifyPortfolioAccountingBasis(
+    activePortfolio.currency,
+  );
+  if (accountingBasis.status === "legacy_currency_ambiguous") {
+    return (
+      <AppShell activePath="/portfolio">
+        <LegacyPortfolioCurrencyWorkspace
+          portfolioId={selectedPortfolioId}
+          portfolioName={activePortfolio.name ?? "Portfolio"}
+          storedCurrency={accountingBasis.storedCurrency}
+          portfolios={portfolios.map((portfolio) => ({
+            id: portfolio.id,
+            name: portfolio.name ?? "Portfolio",
+            legacyCurrency:
+              classifyPortfolioAccountingBasis(portfolio.currency).status ===
+              "legacy_currency_ambiguous",
+          }))}
+          holdings={factualHoldings.map((holding) => ({
+            ticker: holding.ticker.trim().toUpperCase(),
+            shares: holding.shares,
+          }))}
+          objective={activePortfolio.objective}
+          riskTolerance={activePortfolio.risk_tolerance}
+          timeHorizon={activePortfolio.time_horizon}
+        />
+      </AppShell>
+    );
+  }
   const heldTickers = [
     ...new Set(
       factualHoldings.map((holding) => holding.ticker.trim().toUpperCase()),
@@ -471,7 +502,7 @@ export default async function ModernPortfolioPage({
         transactions={displayTransactions}
         chartData={convertChart(chartResult.chartData, displayCurrency, fxRates)}
         chartMeta={chartResult.meta}
-        usdToDisplayRate={usdToDisplayRate}
+        usdToWriteRate={usdToWriteRate}
         canUsePremium={canUsePremium}
         initialSection={
           params.section === "holdings" || params.section === "activity"

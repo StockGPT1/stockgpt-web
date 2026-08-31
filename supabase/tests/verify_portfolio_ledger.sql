@@ -44,7 +44,7 @@ begin
         and tablename = 'portfolio_transactions'
         and policyname in (
           'portfolio_transactions_select_owned_parent',
-          'portfolio_transactions_insert_owned_parent'
+          'portfolio_transactions_insert_canonical_usd_parent'
         )
         and roles = array['authenticated']::name[]) <> 2
     or exists (

@@ -98,10 +98,13 @@ assert.match(pageSource, /notes,occurred_at,created_at/u);
 assert.match(pageSource, /occurredAt:\s*transaction\.occurred_at/u);
 assert.match(pageSource, /recordedAt:\s*transaction\.created_at/u);
 
-const managementSource = readFileSync(resolve("lib/actions/portfolio-management.ts"), "utf8");
+const holdingMutationMigration = readFileSync(
+  resolve("supabase/migrations/20260830075518_make_portfolio_holding_mutations_atomic.sql"),
+  "utf8",
+);
 assert.match(
-  managementSource,
-  /input\.type === "import" \|\| input\.type === "log_existing"[\s\S]*occurred_at: null/u,
+  holdingMutationMigration,
+  /'log_existing'[\s\S]*'External holding added\.', null/u,
 );
 
 console.log("Portfolio ledger chronology and source-contract checks passed.");

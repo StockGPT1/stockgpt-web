@@ -132,11 +132,11 @@ const transactionIds = [
 
 try {
   await requiredSingle(
-    isolationClient
+    admin
       .from("portfolio_transactions")
       .insert(transaction(ids.isolation, users.isolation.portfolioId, users.isolation.id))
       .select("id"),
-    "Isolation owner could not insert its ledger fixture",
+    "Trusted client could not insert the isolation ledger fixture",
   );
   await exactCount(
     activeClient

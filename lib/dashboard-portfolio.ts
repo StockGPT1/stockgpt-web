@@ -24,6 +24,7 @@ import {
   buildPortfolioIntelligenceView,
   type PortfolioIntelligenceView,
 } from "@/lib/portfolio-intelligence-presentation";
+import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -34,7 +35,7 @@ type PortfolioRow = {
   risk_tolerance: string | null;
   time_horizon: string | null;
   investment_amount: number | null;
-  cash_balance: number | null;
+  cash_balance: number;
   cash_deposited_total?: number | null;
   currency?: string | null;
   created_at?: string | null;
@@ -373,13 +374,6 @@ export async function getDashboardMainPortfolio(
   const portfolios = ((portfoliosData ?? []) as PortfolioRow[]).map((portfolio) => ({
     ...portfolio,
     name: cleanPortfolioName(portfolio.name),
-    cash_balance: toNumber(portfolio.cash_balance, 0),
-    cash_deposited_total: toNumber(
-      portfolio.cash_deposited_total,
-      toNumber(portfolio.investment_amount, 0),
-    ),
-    investment_amount: toNumber(portfolio.investment_amount, 0),
-    currency: portfolio.currency ?? "USD",
   }));
 
   if (portfolios.length === 0) {
@@ -422,6 +416,58 @@ export async function getDashboardMainPortfolio(
     existing.push(transaction);
     transactionsByPortfolio.set(transaction.portfolio_id, existing);
   });
+
+  const selectedAccountingBasis = classifyPortfolioAccountingBasis(
+    selectedPortfolio.currency,
+  );
+  if (selectedAccountingBasis.status === "legacy_currency_ambiguous") {
+    const factualHoldings = ((holdingsData ?? []) as HoldingRow[]).map(
+      (holding): CurrentHoldingFact => ({
+        id: holding.id,
+        portfolio_id: holding.portfolio_id,
+        ticker: holding.ticker ?? "",
+        shares: holding.shares,
+        entry_price: holding.entry_price,
+        score_at_entry: holding.score_at_entry,
+        rank_at_entry: holding.rank_at_entry,
+        allocation_pct: holding.allocation_pct,
+        source: holding.source ?? "manual",
+        risk_level_at_entry: holding.risk_level_at_entry,
+        target_level_at_entry: holding.target_level_at_entry,
+      }),
+    );
+    const intelligence = buildDashboardPortfolioIntelligence(
+      {
+        portfolio: {
+          id: selectedPortfolio.id,
+          risk_tolerance: selectedPortfolio.risk_tolerance ?? "moderate",
+          objective: selectedPortfolio.objective ?? "balanced",
+          time_horizon: selectedPortfolio.time_horizon ?? "long_term",
+          cash_balance: selectedPortfolio.cash_balance,
+          currency: selectedPortfolio.currency ?? "",
+        },
+        holdings: factualHoldings,
+        rankings: [],
+        diagnostics: [],
+        rankingUniverseSize: null,
+      },
+      asOf,
+    );
+    return {
+      portfolioId: selectedPortfolio.id,
+      portfolios: portfolios.map((portfolio) => ({
+        id: portfolio.id,
+        name: cleanPortfolioName(portfolio.name),
+      })),
+      summary: null,
+      chartData: {},
+      chartMeta: null,
+      tickers: factualHoldings.map((holding) => cleanTicker(holding.ticker)),
+      intelligence,
+      valuationState: "unavailable",
+      missingPriceTickers: [],
+    };
+  }
 
   const candidates: PortfolioCandidate[] = [];
 

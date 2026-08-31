@@ -16,6 +16,7 @@ import {
 import { redisCommand } from "@/lib/redis";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -219,9 +220,14 @@ export async function GET(req: NextRequest) {
 
   let warmed = 0;
   let failed = 0;
+  let skippedLegacyCurrency = 0;
 
   for (const portfolio of portfolios) {
     try {
+      if (!isCanonicalUsdPortfolio(portfolio.currency)) {
+        skippedLegacyCurrency += 1;
+        continue;
+      }
       const portfolioId = String(portfolio.id);
       const rawHoldings = (holdingsByPortfolio.get(portfolioId) ?? []).map((holding) => ({
         ticker: cleanTicker(holding.ticker),
@@ -311,5 +317,6 @@ export async function GET(req: NextRequest) {
     portfolios: portfolios.length,
     warmed,
     failed,
+    skippedLegacyCurrency,
   });
 }

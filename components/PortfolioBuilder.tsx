@@ -23,7 +23,7 @@ type Props = {
   stockOptions?: ManualBuilderStockOption[];
   initialMode?: "choice" | "ai" | "manual";
   displayCurrency?: SupportedCurrency;
-  usdToDisplayRate?: number;
+  usdToWriteRate?: number | null;
 };
 
 type CreationMode = "choice" | "ai" | "existing" | "manual" | "csv";
@@ -105,7 +105,7 @@ export function PortfolioBuilder({
   stockOptions = [],
   initialMode = "choice",
   displayCurrency = "USD",
-  usdToDisplayRate = 1,
+  usdToWriteRate = null,
 }: Props) {
   const router = useRouter();
   const [creationMode, setCreationMode] = useState<CreationMode>(initialMode);
@@ -183,7 +183,7 @@ export function PortfolioBuilder({
         stockOptions={stockOptions}
         existingCount={existingPortfolios.length}
         displayCurrency={displayCurrency}
-        usdToDisplayRate={usdToDisplayRate}
+        usdToWriteRate={usdToWriteRate}
         onBack={() => setCreationMode("existing")}
       />
     );
