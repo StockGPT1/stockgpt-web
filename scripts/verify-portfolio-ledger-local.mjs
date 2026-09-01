@@ -148,17 +148,17 @@ try {
   );
 
   const immediate = await requiredSingle(
-    activeClient
+    admin
       .from("portfolio_transactions")
       .insert(transaction(ids.immediate, users.active.portfolioId, users.active.id))
       .select("id,portfolio_id,user_id,amount,notes,occurred_at,created_at"),
-    "Immediate same-owner ledger INSERT failed",
+    "Trusted immediate ledger fixture INSERT failed",
   );
   assert(Number.isFinite(new Date(immediate.created_at).getTime()), "Immediate row lacks recorded time");
   assert(Number.isFinite(new Date(immediate.occurred_at).getTime()), "Immediate row lacks occurrence time");
 
   const unknown = await requiredSingle(
-    activeClient
+    admin
       .from("portfolio_transactions")
       .insert(transaction(ids.unknown, users.active.portfolioId, users.active.id, {
         type: "log_existing",
@@ -166,11 +166,17 @@ try {
         notes: "Exact occurrence time was not separately stored",
       }))
       .select("id,occurred_at,created_at"),
-    "Unknown-occurrence ledger INSERT failed",
+    "Trusted unknown-occurrence ledger fixture INSERT failed",
   );
   assert(unknown.occurred_at === null, "Unknown occurrence was fabricated");
   assert(Number.isFinite(new Date(unknown.created_at).getTime()), "Unknown occurrence row lacks recorded time");
 
+  await expectRejected(
+    activeClient.from("portfolio_transactions").insert(
+      transaction(ids.hostile, users.active.portfolioId, users.active.id),
+    ),
+    "Authenticated direct ledger INSERT",
+  );
   await expectRejected(
     activeClient.from("portfolio_transactions").insert(
       transaction(ids.forged, users.active.portfolioId, users.active.id, {
@@ -229,14 +235,14 @@ try {
   );
 
   const correction = await requiredSingle(
-    activeClient
+    admin
       .from("portfolio_transactions")
       .insert(transaction(ids.correction, users.active.portfolioId, users.active.id, {
         amount: -25,
         notes: "Explicit appended correction fixture",
       }))
       .select("id,amount,created_at,occurred_at"),
-    "Explicit appended correction fixture failed",
+    "Trusted explicit appended correction fixture failed",
   );
   assert(correction.amount === -25, "Correction fixture amount changed");
   const originalAfterCorrection = await requiredSingle(
@@ -247,7 +253,7 @@ try {
     "Correction append rewrote the original row");
 
   await requiredSingle(
-    activeClient
+    admin
       .from("user_portfolios")
       .insert({
         id: ids.cascadePortfolio,
@@ -259,16 +265,15 @@ try {
     "Temporary owned Portfolio creation failed",
   );
   await requiredSingle(
-    activeClient
+    admin
       .from("portfolio_transactions")
       .insert(transaction(ids.cascadeTransaction, ids.cascadePortfolio, users.active.id))
       .select("id"),
     "Temporary Portfolio ledger INSERT failed",
   );
-  const { error: deletePortfolioError } = await activeClient
-    .from("user_portfolios")
-    .delete()
-    .eq("id", ids.cascadePortfolio);
+  const { error: deletePortfolioError } = await activeClient.rpc("delete_owned_portfolio", {
+    p_portfolio_id: ids.cascadePortfolio,
+  });
   if (deletePortfolioError) throw new Error(`Owned Portfolio lifecycle delete failed: ${deletePortfolioError.message}`);
   await exactCount(
     admin

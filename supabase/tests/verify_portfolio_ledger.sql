@@ -4,7 +4,6 @@
 do $portfolio_ledger_assertions$
 declare
   occurred_default text;
-  insert_column text;
 begin
   select pg_get_expr(d.adbin, d.adrelid)
   into occurred_default
@@ -42,11 +41,8 @@ begin
   if (select count(*) from pg_policies
       where schemaname = 'public'
         and tablename = 'portfolio_transactions'
-        and policyname in (
-          'portfolio_transactions_select_owned_parent',
-          'portfolio_transactions_insert_canonical_usd_parent'
-        )
-        and roles = array['authenticated']::name[]) <> 2
+        and policyname = 'portfolio_transactions_select_owned_parent'
+        and roles = array['authenticated']::name[]) <> 1
     or exists (
       select 1 from pg_policies
       where schemaname = 'public'
@@ -60,6 +56,8 @@ begin
     or has_table_privilege('authenticated', 'public.portfolio_transactions', 'insert')
     or has_table_privilege('authenticated', 'public.portfolio_transactions', 'update')
     or has_table_privilege('authenticated', 'public.portfolio_transactions', 'delete')
+    or has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'insert')
+    or has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'update')
     or has_any_column_privilege('anon', 'public.portfolio_transactions', 'insert')
     or has_any_column_privilege('anon', 'public.portfolio_transactions', 'update')
     or has_table_privilege('anon', 'public.portfolio_transactions', 'delete')
@@ -67,20 +65,6 @@ begin
     or not has_table_privilege('service_role', 'public.portfolio_transactions', 'select,insert,update,delete') then
     raise exception 'Ledger grants do not enforce append-only authenticated access and trusted lifecycle access';
   end if;
-
-  foreach insert_column in array array[
-    'id', 'portfolio_id', 'user_id', 'ticker', 'type', 'shares', 'price',
-    'amount', 'realised_pnl', 'currency', 'notes', 'occurred_at'
-  ] loop
-    if not has_column_privilege(
-      'authenticated',
-      'public.portfolio_transactions',
-      insert_column,
-      'insert'
-    ) then
-      raise exception 'Authenticated INSERT privilege missing for %', insert_column;
-    end if;
-  end loop;
 
   if (select count(*) from public.portfolio_transactions
       where id in (

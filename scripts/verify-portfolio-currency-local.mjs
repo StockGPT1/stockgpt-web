@@ -94,7 +94,7 @@ for (const currency of ["GBP", "EUR", "CHF"]) {
 }
 
 await required(
-  authenticated.from("user_portfolios").insert({
+  admin.from("user_portfolios").insert({
     id: ids.directUsd,
     user_id: user.id,
     name: "Direct USD control",
@@ -106,7 +106,7 @@ await required(
     cash_deposited_total: 10,
     currency: "USD",
   }),
-  "authenticated direct USD insert",
+  "trusted direct USD control setup",
 );
 
 await required(
@@ -155,14 +155,16 @@ const legacyBefore = await required(
 );
 assert(legacyBefore.currency === "GBP", "Legacy currency was rewritten");
 
-await required(
-  authenticated.from("user_portfolios").update({ name: "Renamed legacy GBP" }).eq("id", ids.legacy),
-  "legacy rename",
-);
-await required(
-  authenticated.from("user_portfolios").update({ objective: "growth", risk_tolerance: "aggressive", time_horizon: "long" }).eq("id", ids.legacy),
-  "legacy preference update",
-);
+await required(authenticated.rpc("rename_owned_portfolio", {
+  p_portfolio_id: ids.legacy,
+  p_name: "Renamed legacy GBP",
+}), "legacy rename RPC");
+await required(authenticated.rpc("update_owned_portfolio_preferences", {
+  p_portfolio_id: ids.legacy,
+  p_objective: "growth",
+  p_risk_tolerance: "aggressive",
+  p_time_horizon: "long",
+}), "legacy preference RPC");
 await rejected(
   authenticated.from("user_portfolios").update({ currency: "USD" }).eq("id", ids.legacy),
   "legacy currency rewrite",
@@ -176,13 +178,13 @@ await rejected(
   authenticated.from("portfolio_holdings").insert({ portfolio_id: ids.legacy, ticker: "MSFT", shares: 1, entry_price: 20, source: "manual" }),
   "legacy direct holding insert",
 );
-await required(
+await rejected(
   authenticated.from("portfolio_holdings").update({ shares: 9 }).eq("portfolio_id", ids.legacy).eq("ticker", "AAPL"),
-  "legacy direct holding update request",
+  "legacy direct holding update",
 );
-await required(
+await rejected(
   authenticated.from("portfolio_holdings").delete().eq("portfolio_id", ids.legacy).eq("ticker", "AAPL"),
-  "legacy direct holding delete request",
+  "legacy direct holding delete",
 );
 const legacyHolding = await required(
   admin.from("portfolio_holdings").select("shares,entry_price").eq("portfolio_id", ids.legacy).eq("ticker", "AAPL").single(),

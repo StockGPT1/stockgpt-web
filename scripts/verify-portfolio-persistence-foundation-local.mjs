@@ -186,7 +186,7 @@ try {
   );
 
   await requiredSingle(
-    activeClient
+    admin
       .from("portfolio_transactions")
       .insert(transactionRow(
         ids.activeTransaction,
@@ -195,7 +195,7 @@ try {
         "05B active same-owner transaction",
       ))
       .select("id,portfolio_id,user_id,notes"),
-    "Active user same-owner transaction insert failed",
+    "Trusted same-owner transaction fixture insert failed",
   );
   await requiredSingle(
     admin
@@ -253,6 +253,15 @@ try {
     "Cross-user snapshot visibility",
   );
 
+  await expectRejected(
+    activeClient.from("portfolio_transactions").insert(transactionRow(
+      ids.hostileTransaction,
+      users.active.portfolioId,
+      users.active.id,
+      "Retired direct same-owner transaction insert",
+    )),
+    "Direct same-owner transaction insert",
+  );
   await expectRejected(
     activeClient.from("portfolio_transactions").insert(transactionRow(
       ids.hostileTransaction,
@@ -401,4 +410,4 @@ try {
   await Promise.all([activeClient.auth.signOut(), isolationClient.auth.signOut()]);
 }
 
-console.log("Local portfolio parent/owner constraints, RLS isolation and direct-write compatibility assertions passed.");
+  console.log("Local portfolio parent/owner constraints, RLS isolation and final authoritative write-boundary assertions passed.");

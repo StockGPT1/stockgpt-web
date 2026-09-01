@@ -57,12 +57,15 @@ export type PublicFunctionSetIsCanonical = Assert<
     | "delete_owned_portfolio"
     | "is_active_subscriber"
     | "log_existing_portfolio_holding"
+    | "mark_portfolio_holding_reviewed"
     | "mutate_portfolio_cash"
+    | "rename_owned_portfolio"
     | "remove_portfolio_holding_tracking"
     | "replace_portfolio_holdings_from_trading212"
     | "sell_portfolio_holding"
     | "show_limit"
     | "show_trgm"
+    | "update_owned_portfolio_preferences"
   >
 >;
 export type CsvCreationArgsAreNarrow = Assert<

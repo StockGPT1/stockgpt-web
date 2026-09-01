@@ -37,6 +37,7 @@
     "test:portfolio-creation": "node scripts/verify-portfolio-creation-local.mjs && tsx scripts/portfolio-creation-action-checks.ts",
     "test:portfolio-csv": "node scripts/verify-portfolio-csv-local.mjs && tsx scripts/portfolio-csv-checks.ts",
     "test:portfolio-currency": "node scripts/verify-portfolio-currency-local.mjs && tsx scripts/portfolio-currency-checks.ts",
+    "test:portfolio-write-boundaries": "node scripts/verify-portfolio-write-boundaries-local.mjs",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },

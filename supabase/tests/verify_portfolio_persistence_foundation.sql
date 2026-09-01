@@ -76,19 +76,15 @@ begin
     raise exception 'Legacy user_id-only transaction policy remains active';
   end if;
 
-  select count(*)
-  into policy_count
+  select count(*) into policy_count
   from pg_policies
   where schemaname = 'public'
     and tablename = 'portfolio_transactions'
-    and policyname in (
-      'portfolio_transactions_select_owned_parent',
-      'portfolio_transactions_insert_canonical_usd_parent'
-    )
+    and policyname = 'portfolio_transactions_select_owned_parent'
     and roles = array['authenticated']::name[];
 
-  if policy_count <> 2 then
-    raise exception 'Expected two authenticated parent-aware transaction policies after append-only hardening, found %', policy_count;
+  if policy_count <> 1 then
+    raise exception 'Expected one authenticated parent-aware transaction SELECT policy, found %', policy_count;
   end if;
 
   if exists (
@@ -118,13 +114,15 @@ begin
   end if;
 
   if not has_table_privilege('authenticated', 'public.portfolio_transactions', 'select')
-    or not has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'insert')
-    or has_table_privilege('authenticated', 'public.portfolio_transactions', 'update')
+    or has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'insert')
+    or has_any_column_privilege('authenticated', 'public.portfolio_transactions', 'update')
     or has_table_privilege('authenticated', 'public.portfolio_transactions', 'delete')
     or not has_table_privilege('authenticated', 'public.portfolio_snapshots', 'select,insert,update')
-    or not has_table_privilege('authenticated', 'public.portfolio_holdings', 'select,insert,update,delete')
-    or not has_table_privilege('authenticated', 'public.user_portfolios', 'select,insert,update,delete') then
-    raise exception 'Current financial table privileges do not preserve the 05B ownership foundation';
+    or not has_table_privilege('authenticated', 'public.portfolio_holdings', 'select')
+    or has_table_privilege('authenticated', 'public.portfolio_holdings', 'insert,update,delete')
+    or not has_table_privilege('authenticated', 'public.user_portfolios', 'select')
+    or has_table_privilege('authenticated', 'public.user_portfolios', 'insert,update,delete') then
+    raise exception 'Final authoritative-table grants do not preserve the 05B ownership foundation';
   end if;
 end;
 $portfolio_persistence_assertions$;

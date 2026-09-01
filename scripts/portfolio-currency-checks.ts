@@ -92,7 +92,12 @@ for (const path of [
 const migration = source("supabase/migrations/20260831165334_enforce_usd_portfolio_accounting_basis.sql");
 assert(migration.includes("new_portfolio_accounting_currency_must_be_usd"), "New non-USD DB guard missing");
 assert(migration.includes("legacy_portfolio_financial_state_is_read_only"), "Legacy financial immutability guard missing");
-assert(migration.includes("portfolio_holdings_insert_canonical_usd_parent"), "Holding USD-parent RLS missing");
-assert(migration.includes("portfolio_transactions_insert_canonical_usd_parent"), "Transaction USD-parent RLS missing");
+assert(migration.includes("portfolio_holdings_insert_canonical_usd_parent"), "Temporary holding USD-parent defense history missing");
+assert(migration.includes("portfolio_transactions_insert_canonical_usd_parent"), "Temporary transaction USD-parent defense history missing");
+
+const retirementMigration = source("supabase/migrations/20260901204135_retire_direct_portfolio_financial_writes.sql");
+assert(retirementMigration.includes("drop policy if exists portfolio_holdings_insert_canonical_usd_parent"), "Retired holding DML policy remains expected");
+assert(retirementMigration.includes("drop policy if exists portfolio_transactions_insert_canonical_usd_parent"), "Retired transaction DML policy remains expected");
+assert(retirementMigration.includes("rename_owned_portfolio"), "Legacy-safe metadata RPC is missing");
 
 console.log("Portfolio currency/accounting-basis checks passed.");

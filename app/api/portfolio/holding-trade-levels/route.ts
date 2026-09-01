@@ -91,13 +91,11 @@ function payload({
   };
 }
 
-async function saveExactTradeLevels({
-  supabase,
+async function calculateTransientTradeLevels({
   ticker,
   holding,
   ranking,
 }: {
-  supabase: Awaited<ReturnType<typeof createClient>>;
   ticker: string;
   holding: HoldingLevelRow;
   ranking: RankingRow | null;
@@ -120,25 +118,6 @@ async function saveExactTradeLevels({
   const riskLevel = tradeLevels.stopLoss;
   const targetLevel = tradeLevels.takeProfit;
   if (!riskLevel || !targetLevel || riskLevel <= 0 || targetLevel <= 0) return null;
-
-  const savedRisk = savedLevel(holding.risk_level_at_entry);
-  const savedTarget = savedLevel(holding.target_level_at_entry);
-
-  if (Math.abs((savedRisk ?? 0) - riskLevel) > 0.01 || Math.abs((savedTarget ?? 0) - targetLevel) > 0.01) {
-    const { error: saveError } = await supabase
-      .from("portfolio_holdings")
-      .update({
-        risk_level_at_entry: riskLevel,
-        target_level_at_entry: targetLevel,
-      })
-      .eq("portfolio_id", holding.portfolio_id)
-      .eq("ticker", ticker);
-
-    if (saveError) {
-      console.error("[holding-trade-levels] exact level save error", saveError);
-      return null;
-    }
-  }
 
   return {
     ...holding,
@@ -208,7 +187,7 @@ export async function GET(req: NextRequest) {
   const ranking = rankingData as RankingRow | null;
   const stockgptHolding = holdings.find(isStockGPTWrittenHolding);
   const exactHolding = stockgptHolding
-    ? await saveExactTradeLevels({ supabase, ticker, holding: stockgptHolding, ranking })
+    ? await calculateTransientTradeLevels({ ticker, holding: stockgptHolding, ranking })
     : null;
 
   if (exactHolding) {

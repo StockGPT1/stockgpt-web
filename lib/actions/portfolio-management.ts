@@ -32,6 +32,11 @@ import {
   replacePortfolioHoldingsFromTrading212Atomically,
 } from "@/lib/portfolio-csv-mutation";
 import {
+  markPortfolioHoldingReviewed,
+  renameOwnedPortfolio,
+  updateOwnedPortfolioPreferences,
+} from "@/lib/portfolio-metadata-mutation";
+import {
   prepareTrading212Import,
   trading212RefusalMessage,
 } from "@/lib/trading212-import";
@@ -231,56 +236,6 @@ async function getAuthenticatedUser(supabase: SupabaseClient) {
   } = await supabase.auth.getUser();
 
   return user ?? null;
-}
-
-async function getOrCreatePortfolio(
-  supabase: SupabaseClient,
-  userId: string,
-  portfolioId?: string | null,
-): Promise<PortfolioRecord | null> {
-  if (portfolioId) {
-    const { data } = await supabase
-      .from("user_portfolios")
-      .select(
-        "id,name,cash_balance,cash_deposited_total,investment_amount,currency",
-      )
-      .eq("id", portfolioId)
-      .eq("user_id", userId)
-      .is("archived_at", null)
-      .maybeSingle();
-
-    return data as PortfolioRecord | null;
-  }
-
-  const { data: existing } = await supabase
-    .from("user_portfolios")
-    .select("id,name,cash_balance,cash_deposited_total,investment_amount,currency")
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) return existing as PortfolioRecord;
-
-  const { data: created, error } = await supabase
-    .from("user_portfolios")
-    .insert({
-      user_id: userId,
-      name: "My Portfolio",
-      objective: "balanced",
-      risk_tolerance: "moderate",
-      time_horizon: "medium",
-      investment_amount: 0,
-      cash_balance: 0,
-      cash_deposited_total: 0,
-      currency: "USD",
-    })
-    .select("id,name,cash_balance,cash_deposited_total,investment_amount,currency")
-    .single();
-
-  if (error || !created) return null;
-  return created as PortfolioRecord;
 }
 
 async function requireOwnedPortfolio(
@@ -919,21 +874,23 @@ export async function renamePortfolio(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const { error } = await supabase
-    .from("user_portfolios")
-    .update({ name })
-    .eq("id", input.portfolioId)
-    .eq("user_id", user.id);
-
-  if (error) return { success: false, error: error.message };
-
-  await markPortfolioChartInputsChanged({
-    supabase,
+  const mutation = await renameOwnedPortfolio(supabase, {
     portfolioId: input.portfolioId,
-    userId: user.id,
-    writeCurrentSnapshot: false,
+    name,
   });
-  revalidatePortfolio(input.portfolioId);
+  if (!mutation.success) return mutation;
+
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+      writeCurrentSnapshot: false,
+    });
+    revalidatePortfolio(mutation.data.portfolioId);
+  } catch {
+    console.warn("[portfolio-metadata] Post-commit rename refresh failed.");
+  }
   return { success: true };
 }
 
@@ -969,25 +926,20 @@ export async function updatePortfolioPreferences(
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const { error } = await supabase
-    .from("user_portfolios")
-    .update({
-      objective: input.objective,
-      risk_tolerance: input.riskTolerance,
-      time_horizon: input.timeHorizon,
-    })
-    .eq("id", input.portfolioId)
-    .eq("user_id", user.id);
+  const mutation = await updateOwnedPortfolioPreferences(supabase, input);
+  if (!mutation.success) return mutation;
 
-  if (error) return { success: false, error: error.message };
-
-  await markPortfolioChartInputsChanged({
-    supabase,
-    portfolioId: input.portfolioId,
-    userId: user.id,
-    writeCurrentSnapshot: false,
-  });
-  revalidatePortfolio(input.portfolioId);
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+      writeCurrentSnapshot: false,
+    });
+    revalidatePortfolio(mutation.data.portfolioId);
+  } catch {
+    console.warn("[portfolio-metadata] Post-commit preference refresh failed.");
+  }
   return { success: true };
 }
 
@@ -1251,39 +1203,32 @@ export async function removeHolding(
 }
 
 export async function markReviewed(
-  input: MarkReviewedInput | string,
+  input: MarkReviewedInput,
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
 
-  const portfolio =
-    typeof input === "string"
-      ? await getOrCreatePortfolio(supabase, user.id, null)
-      : await requireOwnedPortfolio(supabase, user.id, input.portfolioId);
-
-  if (!portfolio) return { success: false, error: "Portfolio not found." };
-
-  const ticker = typeof input === "string" ? input : input.ticker;
-  const upperTicker = cleanTicker(ticker);
-
-  const { error } = await supabase
-    .from("portfolio_holdings")
-    .update({ last_reviewed_at: new Date().toISOString() })
-    .eq("portfolio_id", portfolio.id)
-    .eq("ticker", upperTicker);
-
-  if (error) return { success: false, error: error.message };
-
-  await markPortfolioChartInputsChanged({
-    supabase,
-    portfolioId: portfolio.id,
-    userId: user.id,
-    writeCurrentSnapshot: false,
+  const upperTicker = cleanTicker(input.ticker);
+  const mutation = await markPortfolioHoldingReviewed(supabase, {
+    portfolioId: input.portfolioId,
+    ticker: upperTicker,
   });
-  revalidatePortfolio(portfolio.id);
-  revalidateStock(upperTicker);
+  if (!mutation.success) return mutation;
+
+  try {
+    await markPortfolioChartInputsChanged({
+      supabase,
+      portfolioId: mutation.data.portfolioId,
+      userId: user.id,
+      writeCurrentSnapshot: false,
+    });
+    revalidatePortfolio(mutation.data.portfolioId);
+    revalidateStock(mutation.data.ticker);
+  } catch {
+    console.warn("[portfolio-metadata] Post-commit review refresh failed.");
+  }
 
   return { success: true };
 }

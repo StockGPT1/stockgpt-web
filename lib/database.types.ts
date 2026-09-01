@@ -1167,6 +1167,14 @@ export type Database = {
           updated_existing: boolean
         }[]
       }
+      mark_portfolio_holding_reviewed: {
+        Args: { p_portfolio_id: string; p_ticker: string }
+        Returns: {
+          portfolio_id: string
+          reviewed_at: string
+          ticker: string
+        }[]
+      }
       mutate_portfolio_cash: {
         Args: { p_amount: number; p_operation: string; p_portfolio_id: string }
         Returns: {
@@ -1189,6 +1197,13 @@ export type Database = {
           removed_shares: number
           ticker: string
           transaction_id: string
+        }[]
+      }
+      rename_owned_portfolio: {
+        Args: { p_name: string; p_portfolio_id: string }
+        Returns: {
+          portfolio_id: string
+          portfolio_name: string
         }[]
       }
       replace_portfolio_holdings_from_trading212: {
@@ -1223,6 +1238,20 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      update_owned_portfolio_preferences: {
+        Args: {
+          p_objective: string
+          p_portfolio_id: string
+          p_risk_tolerance: string
+          p_time_horizon: string
+        }
+        Returns: {
+          objective: string
+          portfolio_id: string
+          risk_tolerance: string
+          time_horizon: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

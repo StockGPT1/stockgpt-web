@@ -28,25 +28,13 @@ begin
     raise exception 'overlapping historical holding policies remain active';
   end if;
 
-  if not exists (
+  if exists (
     select 1 from pg_policies
     where schemaname = 'public'
-      and tablename = 'portfolio_holdings'
-      and policyname = 'portfolio_holdings_insert_canonical_usd_parent'
-      and with_check ilike '%currency%USD%'
+      and tablename in ('portfolio_holdings', 'portfolio_transactions')
+      and cmd <> 'SELECT'
   ) then
-    raise exception 'canonical USD holding insert policy is missing';
-  end if;
-
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public'
-      and tablename = 'portfolio_transactions'
-      and policyname = 'portfolio_transactions_insert_canonical_usd_parent'
-      and with_check ilike '%currency%'
-      and with_check ilike '%USD%'
-  ) then
-    raise exception 'canonical USD transaction insert policy is missing';
+    raise exception 'retired direct child mutation policy remains active';
   end if;
 end
 $verify$;
