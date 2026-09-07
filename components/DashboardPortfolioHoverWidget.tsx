@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
-import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
+import { intelligenceToneClass, signedPct, signedMoney } from "@/components/portfolio-workspace/utils";
+import { PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE } from "@/lib/portfolio-performance-availability";
 
 function money(value: number, currency = "USD") {
   const safe = Number.isFinite(value) ? value : 0;
@@ -13,11 +14,6 @@ function money(value: number, currency = "USD") {
     currency,
     maximumFractionDigits: safe >= 1000 ? 0 : 2,
   }).format(safe);
-}
-
-function pct(value: number, digits = 1) {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
 }
 
 function validPoint(point: ChartPoint | null) {
@@ -39,18 +35,13 @@ export function DashboardPortfolioHoverWidget({
   valuationState?: "exact" | "partial" | "unavailable" | "empty";
 }) {
   const [hoverPoint, setHoverPoint] = useState<ChartPoint | null>(null);
-  const costBasis = useMemo(
-    () => summary.totalValue - summary.totalPnl,
-    [summary.totalPnl, summary.totalValue],
-  );
-
   const point = validPoint(hoverPoint);
+  const performanceAvailable = summary.performanceAvailability.status === "available";
   const displayValue = point?.close ?? summary.totalValue;
-  const displayPnl = point?.pnl ?? displayValue - costBasis;
-  const displayPnlPct =
-    point?.pnlPct ?? (costBasis > 0 ? (displayPnl / costBasis) * 100 : summary.totalPnlPct);
-  const isPositive = displayPnl >= 0;
-  const valueUnavailable = valuationState === "unavailable";
+  const displayPnl = performanceAvailable ? point ? point.pnl : summary.totalPnl : null;
+  const displayPnlPct = performanceAvailable ? point ? point.pnlPct : summary.totalPnlPct : null;
+  const isPositive = displayPnl != null && displayPnl >= 0;
+  const valueUnavailable = valuationState === "unavailable" || valuationState === "partial";
 
   return (
     <div
@@ -62,15 +53,20 @@ export function DashboardPortfolioHoverWidget({
           <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
             {valueUnavailable ? "Value unavailable" : money(displayValue, summary.currency)}
           </p>
-          {!valueUnavailable && <p
+          {!valueUnavailable && performanceAvailable && <p
             className={[
               "mt-1 truncate text-[12px] font-black tabular-nums",
               isPositive ? "text-emerald-300" : "text-red-200",
             ].join(" ")}
           >
-            {money(displayPnl, summary.currency)} · {pct(displayPnlPct)}
+            {signedMoney(displayPnl, summary.currency)} · {signedPct(displayPnlPct)}
           </p>}
-          {valuationState === "partial" && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Estimated · latest price coverage is partial</p>}
+          {!valueUnavailable && !performanceAvailable && (
+            <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">
+              {PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE} · Realised P&amp;L {signedMoney(summary.realisedPnl, summary.currency)}
+            </p>
+          )}
+          {valuationState === "partial" && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Latest price coverage is partial</p>}
           {valueUnavailable && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Latest prices failed; zero is not being shown.</p>}
         </div>
         <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 text-[9px] font-black uppercase tracking-[0.09em]">

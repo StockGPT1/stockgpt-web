@@ -16,6 +16,14 @@ import {
 } from "@/lib/portfolio-snapshots";
 import { createClient } from "@/utils/supabase/server";
 import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
+import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
+import {
+  applyPortfolioPerformanceAvailabilityToChart,
+} from "@/lib/portfolio-page-chart";
+import {
+  assessPortfolioPerformanceAvailability,
+  suppressUnavailablePortfolioPerformance,
+} from "@/lib/portfolio-performance-availability";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 20;
@@ -38,6 +46,7 @@ type TransactionRow = {
   realised_pnl: number | null;
   currency: string | null;
   created_at: string | null;
+  notes: string | null;
 };
 
 type PortfolioRow = {
@@ -78,22 +87,17 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const [{ data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] =
+  const [{ data: holdingRows, error: holdingsError }, transactionRows] =
     await Promise.all([
       supabase
         .from("portfolio_holdings")
         .select("ticker,shares,entry_price,purchase_date,added_at")
         .eq("portfolio_id", portfolioId)
         .not("ticker", "is", null),
-      supabase
-        .from("portfolio_transactions")
-        .select("id,ticker,type,shares,price,amount,realised_pnl,currency,created_at")
-        .eq("portfolio_id", portfolioId)
-        .order("created_at", { ascending: true })
-        .limit(2000),
+      readPortfolioLedger(supabase, portfolioId),
     ]);
 
-  if (holdingsError || transactionError) {
+  if (holdingsError) {
     return NextResponse.json({ error: "Could not load portfolio history" }, { status: 500 });
   }
 
@@ -116,6 +120,7 @@ export async function GET(req: NextRequest) {
   const portfolioRow = portfolio as PortfolioRow;
   const holdings = (holdingRows ?? []) as HoldingRow[];
   const transactions = (transactionRows ?? []) as TransactionRow[];
+  const performanceAvailability = assessPortfolioPerformanceAvailability(transactions);
   const prices = ((currentRows ?? []) as Array<{
     ticker: string | null;
     price: number | null;
@@ -128,7 +133,7 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
   const nowMs = Date.now();
-  const currentPoint = buildCurrentPortfolioSnapshotPoint({
+  const currentPointRaw = buildCurrentPortfolioSnapshotPoint({
     portfolio: portfolioRow,
     holdings,
     currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
@@ -172,6 +177,9 @@ export async function GET(req: NextRequest) {
       currency: transaction.currency,
     })),
   });
+  const currentPoint = currentPointRaw
+    ? suppressUnavailablePortfolioPerformance(currentPointRaw, performanceAvailability)
+    : null;
   const cachedChartData = currentPoint
     ? await getLatestPortfolioChart({
         ownerId: user.id,
@@ -189,7 +197,10 @@ export async function GET(req: NextRequest) {
       summary: { holdingsCount: holdings.length },
     });
     if (health.displayable) {
-      return NextResponse.json({ chartData: cachedChartData, meta: { source: "cached-good", health } });
+      return NextResponse.json({
+        chartData: applyPortfolioPerformanceAvailabilityToChart(cachedChartData, performanceAvailability),
+        meta: { source: "cached-good", health },
+      });
     }
   }
 
@@ -214,14 +225,14 @@ export async function GET(req: NextRequest) {
   });
 
   if (snapshotChart?.health.displayable) {
-    const chartData = filterDisplayablePortfolioChartData(
+    const chartData = applyPortfolioPerformanceAvailabilityToChart(filterDisplayablePortfolioChartData(
       appendCurrentPointToPortfolioChartData({
         chartData: snapshotChart.chartData,
         currentPoint,
         portfolioCreatedAt: portfolioRow.created_at ?? null,
         nowMs,
       }),
-    );
+    ), performanceAvailability);
     const health = assessPortfolioChartHealth({
       portfolioCreatedAt: portfolioRow.created_at ?? null,
       latestInputMs,
@@ -240,12 +251,12 @@ export async function GET(req: NextRequest) {
   }
 
   const chartData = snapshotChart
-    ? filterDisplayablePortfolioChartData(appendCurrentPointToPortfolioChartData({
+    ? applyPortfolioPerformanceAvailabilityToChart(filterDisplayablePortfolioChartData(appendCurrentPointToPortfolioChartData({
         chartData: snapshotChart.chartData,
         currentPoint,
         portfolioCreatedAt: portfolioRow.created_at ?? null,
         nowMs,
-      }))
+      })), performanceAvailability)
     : {};
 
   const health = assessPortfolioChartHealth({

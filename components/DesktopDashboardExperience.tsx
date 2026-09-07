@@ -9,6 +9,10 @@ import {
   moveClassName,
 } from "@/lib/rank-history";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
+import {
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE,
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE,
+} from "@/lib/portfolio-performance-availability";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelector";
@@ -397,8 +401,12 @@ function DashboardBriefing({
         valuationState === "unavailable"
           ? "Portfolio value is temporarily unavailable because the latest prices could not be verified."
           : valuationState === "partial"
-            ? "Portfolio value is estimated while StockGPT waits for missing prices."
-            : `Portfolio total return is ${summary.totalPnl >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
+            ? "Portfolio value is unavailable while StockGPT waits for missing prices."
+            : summary.performanceAvailability.status === "unavailable"
+              ? `${PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE}. ${PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE}`
+            : summary.totalPnlPct == null
+              ? "Portfolio return percentage is unavailable for the current contribution basis."
+              : `Portfolio total return is ${summary.totalPnlPct >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
         canUsePremium && intelligence
           ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}`
           : "Portfolio status and current signals are available with an active subscription.",

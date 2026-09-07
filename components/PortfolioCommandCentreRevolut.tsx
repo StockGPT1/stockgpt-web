@@ -144,7 +144,8 @@ function num(value: number, digits = 2) {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
-function pct(value: number, digits = 1) {
+function pct(value: number | null, digits = 1) {
+  if (value == null) return "Unavailable";
   const safe = Number.isFinite(value) ? value : 0;
   return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
 }
@@ -231,13 +232,13 @@ function portfolioReturnBasis(
     "totalValue" | "totalPnl" | "totalPnlPct"
   >,
 ) {
-  const pctFraction = summary.totalPnlPct / 100;
+  const pctFraction = summary.totalPnlPct == null ? Number.NaN : summary.totalPnlPct / 100;
   if (Number.isFinite(pctFraction) && Math.abs(pctFraction) > 0.000001) {
-    const basis = summary.totalPnl / pctFraction;
+    const basis = summary.totalPnl == null ? Number.NaN : summary.totalPnl / pctFraction;
     if (Number.isFinite(basis) && basis > 0) return basis;
   }
 
-  const fallback = summary.totalValue - summary.totalPnl;
+  const fallback = summary.totalPnl == null ? Number.NaN : summary.totalValue - summary.totalPnl;
   if (Number.isFinite(fallback) && fallback > 0) return fallback;
   return Math.max(summary.totalValue, 1);
 }
@@ -588,6 +589,7 @@ function PortfolioChartHero({
     [scrubScope],
   );
   const returnBasis = useMemo(() => portfolioReturnBasis(summary), [summary]);
+  const performanceAvailable = summary.performanceAvailability.status === "available";
   const hasScrubPoint =
     scrubPoint !== null && Number.isFinite(scrubPoint.close);
   const displayedValue = hasScrubPoint ? scrubPoint.close : summary.totalValue;
@@ -595,7 +597,7 @@ function PortfolioChartHero({
     hasScrubPoint && finiteNumber(scrubPoint.pnl) ? scrubPoint.pnl : null;
   const historicalReturnPct =
     hasScrubPoint && finiteNumber(scrubPoint.pnlPct) ? scrubPoint.pnlPct : null;
-  const hasHistoricalReturn =
+  const hasHistoricalReturn = performanceAvailable &&
     historicalReturn !== null && historicalReturnPct !== null;
   const displayedReturn = hasHistoricalReturn
     ? historicalReturn
@@ -604,10 +606,10 @@ function PortfolioChartHero({
       : summary.totalPnl;
   const displayedReturnPct = hasHistoricalReturn
     ? historicalReturnPct
-    : hasScrubPoint && returnBasis > 0
+    : displayedReturn != null && hasScrubPoint && returnBasis > 0
       ? (displayedReturn / returnBasis) * 100
       : summary.totalPnlPct;
-  const isPositive = displayedReturn >= 0;
+  const isPositive = displayedReturn != null && displayedReturn >= 0;
   const valueUnavailable = valuationState.status === "unavailable";
   const valuationCopy =
     valuationState.status === "partial"
@@ -653,7 +655,7 @@ function PortfolioChartHero({
             <h1 className={`${valueUnavailable ? "text-[30px]" : "text-[42px]"} mt-3 font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]`}>
               {valueUnavailable ? "Value unavailable" : money(displayedValue, currency)}
             </h1>
-            {!valueUnavailable && <p
+            {!valueUnavailable && performanceAvailable && displayedReturn != null && <p
               className={[
                 "mt-2 text-[14px] font-black tabular-nums sm:text-[16px]",
                 isPositive ? "text-emerald-300" : "text-red-200",
@@ -662,6 +664,9 @@ function PortfolioChartHero({
               {money(displayedReturn, currency)} total return ·{" "}
               {pct(displayedReturnPct)}
             </p>}
+            {!valueUnavailable && !performanceAvailable && (
+              <p className="mt-2 text-[14px] font-black text-[#e7c56c]">Performance unavailable</p>
+            )}
             {valuationCopy && <p className="mx-auto mt-2 max-w-md text-[11px] font-semibold leading-5 text-[#e7c56c] lg:mx-0">{valuationCopy}</p>}
             <div className="mt-3 flex items-center justify-center gap-2 sm:hidden">
               <span className="rounded-full bg-[#ddb159] px-3 py-1.5 text-[10px] font-black text-[#072116]">{canUsePremium ? `Health ${summary.score}/100` : "Health locked"}</span>

@@ -92,6 +92,16 @@ begin
       or has_function_privilege('public', 'public.' || v_signature, 'execute') then
       raise exception 'Portfolio mutation RPC privilege contract is wrong for %', v_signature;
     end if;
+    if exists (
+      select 1 from pg_proc p
+      where p.oid = to_regprocedure('public.' || v_signature)
+        and (not p.prosecdef
+          or coalesce(array_to_string(p.proconfig, ','), '') not like '%search_path=""%'
+          or lower(pg_get_functiondef(p.oid)) not like '%auth.uid()%'
+          or lower(pg_get_function_arguments(p.oid)) like '%p_user_id%')
+    ) then
+      raise exception 'Portfolio RPC definer/identity contract is malformed for %', v_signature;
+    end if;
   end loop;
 
   if exists (

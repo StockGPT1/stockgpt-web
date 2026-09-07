@@ -39,6 +39,10 @@
     "test:portfolio-currency": "node scripts/verify-portfolio-currency-local.mjs && tsx scripts/portfolio-currency-checks.ts",
     "test:portfolio-write-boundaries": "node scripts/verify-portfolio-write-boundaries-local.mjs",
     "test:portfolio-cache": "tsx scripts/portfolio-cache-checks.ts && tsx scripts/verify-portfolio-cache-local.ts",
+    "test:stage05-integration": "node scripts/stage05-integration-local.mjs && tsx scripts/stage05-read-integration-local.mjs && tsx scripts/stage05-financial-read-checks.ts && tsx scripts/stage05-cache-adversarial-checks.ts",
+    "test:stage05-performance": "tsx scripts/stage05-performance-continuity-checks.ts",
+    "test:portfolio-finite-state": "node scripts/verify-portfolio-finite-state-local.mjs",
+    "test:stage05-acceptance": "node scripts/stage05-acceptance.mjs",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },

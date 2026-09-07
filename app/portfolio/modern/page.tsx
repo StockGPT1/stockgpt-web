@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { PortfolioModernWorkspace } from "@/components/PortfolioModernWorkspace";
 import { LegacyPortfolioCurrencyWorkspace } from "@/components/LegacyPortfolioCurrencyWorkspace";
@@ -226,7 +227,7 @@ export default async function ModernPortfolioPage({
 
   const [
     { data: holdingRows, error: holdingsError },
-    { data: transactionRows, error: transactionsError },
+    transactionRows,
   ] = await Promise.all([
     supabase
       .from("portfolio_holdings")
@@ -235,18 +236,10 @@ export default async function ModernPortfolioPage({
       )
       .eq("portfolio_id", selectedPortfolioId)
       .order("added_at", { ascending: false }),
-    supabase
-      .from("portfolio_transactions")
-      .select(
-        "id,portfolio_id,ticker,type,shares,price,amount,realised_pnl,currency,notes,occurred_at,created_at",
-      )
-      .eq("portfolio_id", selectedPortfolioId)
-      .order("created_at", { ascending: true })
-      .limit(1000),
+    readPortfolioLedger(supabase, selectedPortfolioId),
   ]);
 
   if (holdingsError) throw new Error("Portfolio holdings could not be loaded.");
-  if (transactionsError) throw new Error("Portfolio activity could not be loaded.");
 
   const factualHoldings = ((holdingRows ?? []) as HoldingRow[]).filter(
     (holding) => holding.ticker.trim().length > 0,
@@ -381,7 +374,11 @@ export default async function ModernPortfolioPage({
     currency: activePortfolio.currency ?? "USD",
     riskTolerance,
     holdings: enriched,
-    transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+    transactions: transactions.map((transaction) => ({
+      realisedPnl: transaction.realised_pnl,
+      type: transaction.type,
+      notes: transaction.notes,
+    })),
     cashBalance: cashBalanceUsd,
     cashDepositedTotal: cashDepositedTotalUsd,
   });
@@ -444,7 +441,10 @@ export default async function ModernPortfolioPage({
     totalValue: totalValueDisplay,
     unrealisedPnl: convertUsdToCurrency(summaryUsd.unrealisedPnl, displayCurrency, fxRates),
     realisedPnl: convertUsdToCurrency(summaryUsd.realisedPnl, displayCurrency, fxRates),
-    totalPnl: convertUsdToCurrency(summaryUsd.totalPnl, displayCurrency, fxRates),
+    totalPnl:
+      summaryUsd.totalPnl == null
+        ? null
+        : convertUsdToCurrency(summaryUsd.totalPnl, displayCurrency, fxRates),
   };
   const displayTransactions = transactions
     .map((transaction) => ({

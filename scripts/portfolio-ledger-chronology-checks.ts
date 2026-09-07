@@ -94,7 +94,8 @@ assert.match(changeFunction, /\["created_at", "createdAt"\]/u);
 assert.doesNotMatch(changeFunction, /occurred/u);
 
 const pageSource = readFileSync(resolve("app/portfolio/modern/page.tsx"), "utf8");
-assert.match(pageSource, /notes,occurred_at,created_at/u);
+assert.match(pageSource, /readPortfolioLedger\(supabase, selectedPortfolioId\)/u);
+assert.match(readFileSync("lib/portfolio-ledger-reader.ts", "utf8"), /\.select\("\*"\)/u);
 assert.match(pageSource, /occurredAt:\s*transaction\.occurred_at/u);
 assert.match(pageSource, /recordedAt:\s*transaction\.created_at/u);
 

@@ -19,6 +19,10 @@ import type {
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import {
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE,
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE,
+} from "@/lib/portfolio-performance-availability";
+import {
   formatDate,
   freshnessCopy,
   intelligenceToneClass,
@@ -103,8 +107,13 @@ export function PortfolioStage({
   const [scrubPoint, setScrubPoint] = useState<ChartPoint | null>(null);
 
   const currentValue = scrubPoint?.close ?? summary.totalValue;
-  const currentPnl = scrubPoint?.pnl ?? summary.totalPnl;
-  const currentPnlPct = scrubPoint?.pnlPct ?? summary.totalPnlPct;
+  const performanceAvailable = summary.performanceAvailability.status === "available";
+  const currentPnl = performanceAvailable
+    ? scrubPoint ? scrubPoint.pnl : summary.valuationComplete === false ? null : summary.totalPnl
+    : null;
+  const currentPnlPct = performanceAvailable
+    ? scrubPoint ? scrubPoint.pnlPct : summary.totalPnlPct
+    : null;
   const activeData = displayable[activeRange];
   const hasChart = (activeData?.length ?? 0) > 1;
 
@@ -165,11 +174,22 @@ export function PortfolioStage({
                   Current portfolio value
                 </p>
                 <h1 className="mt-2 truncate text-[clamp(42px,12vw,62px)] font-black leading-none tracking-[-0.065em] tabular-nums text-[#faf6f0] lg:text-[60px]">
-                  {money(currentValue, meta.currency)}
+                  {!scrubPoint && summary.valuationComplete === false ? "Value unavailable" : money(currentValue, meta.currency)}
                 </h1>
-                <p className={`mt-3 text-[17px] font-black tabular-nums ${toneClass(currentPnl)}`}>
-                  {signedMoney(currentPnl, meta.currency)} · {signedPct(currentPnlPct)}
-                </p>
+                {performanceAvailable ? (
+                  <p className={`mt-3 text-[17px] font-black tabular-nums ${toneClass(currentPnl)}`}>
+                    {signedMoney(currentPnl, meta.currency)} · {signedPct(currentPnlPct)}
+                  </p>
+                ) : (
+                  <div className="mt-3 max-w-2xl">
+                    <p className="text-[15px] font-black text-[#e7c56c]">
+                      {PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/46">
+                      {PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 flex flex-col items-center gap-2 lg:mt-0 lg:items-end">
@@ -287,10 +307,10 @@ export function PortfolioStage({
             </span>
             <span className="shrink-0 text-right">
               <span className="text-[14px] font-black tabular-nums text-[#faf6f0]">
-                {money(summary.totalValue, meta.currency)}
+                {summary.valuationComplete === false ? "Value unavailable" : money(summary.totalValue, meta.currency)}
               </span>
               <span className={`ml-2 text-[11px] font-black ${toneClass(summary.totalPnlPct)}`}>
-                {signedPct(summary.totalPnlPct)}
+                {performanceAvailable ? signedPct(summary.totalPnlPct) : "Performance unavailable"}
               </span>
             </span>
           </button>

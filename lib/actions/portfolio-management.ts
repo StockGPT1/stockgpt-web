@@ -10,6 +10,7 @@ import {
   type TradeOrderInput,
 } from "@/lib/trade-calculator";
 import { mutatePortfolioCash } from "@/lib/portfolio-cash-mutation";
+import { portfolioSaleOrderInput } from "@/lib/portfolio-sale-order";
 import {
   buyPortfolioHolding,
   correctPortfolioHolding,
@@ -201,10 +202,6 @@ function cleanTicker(ticker: string) {
 function moneyNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
-}
-
-function roundShares(value: number) {
-  return Math.round(value * 1_000_000) / 1_000_000;
 }
 
 function resolvedTradeOrError(input: TradeOrderInput) {
@@ -1061,28 +1058,13 @@ export async function trimHolding(
 
   const tradeHolding = holding as PortfolioHoldingTradeRow;
   const currentShares = moneyNumber(tradeHolding.shares);
-  const entryPrice = moneyNumber(tradeHolding.entry_price);
-  const fallbackPrice = moneyNumber(stock?.price, entryPrice);
-
-  if (currentShares <= 0 || fallbackPrice <= 0) {
+  if (currentShares <= 0) {
     return { success: false, error: "Could not calculate sell value." };
   }
 
-  const percentage = Number(input.percentage);
-  const hasExplicitOrder = input.value != null || input.price != null || input.shares != null;
-  const resolvedOrder = hasExplicitOrder
-    ? resolvedTradeOrError({
-        value: input.value,
-        price: input.price ?? fallbackPrice,
-        shares: input.shares,
-      })
-    : Number.isFinite(percentage) && percentage > 0 && percentage <= 100
-      ? resolvedTradeOrError({
-          value: null,
-          price: fallbackPrice,
-          shares: percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100)),
-        })
-      : { success: false as const, error: "Enter any two of value, price and shares." };
+  const resolvedOrder = resolvedTradeOrError(
+    portfolioSaleOrderInput(input, currentShares, stock?.price),
+  );
 
   if (!resolvedOrder.success) {
     return { success: false, error: resolvedOrder.error };

@@ -657,7 +657,7 @@ export function isPortfolioChartLatestPointFresh({
   maxAgeMs?: number;
 }) {
   const latestMs = latestPortfolioChartPointMs(chartData);
-  return latestMs != null && nowMs - latestMs <= maxAgeMs;
+  return latestMs != null && latestMs <= nowMs && nowMs - latestMs <= maxAgeMs;
 }
 
 function sampleSnapshotPoints(points: SnapshotChartPoint[]) {

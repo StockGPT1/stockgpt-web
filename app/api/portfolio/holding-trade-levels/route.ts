@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateTradeLevels } from "@/lib/trading-levels";
 import { createClient } from "@/utils/supabase/server";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +84,7 @@ function payload({
 
   return {
     ticker,
-    currency: portfolio?.currency ?? "USD",
+    currency: portfolio?.currency ?? null,
     entry_price: toNumber(holding.entry_price),
     risk_level_at_entry: risk,
     target_level_at_entry: target,
@@ -160,7 +161,13 @@ export async function GET(req: NextRequest) {
   if (requestedPortfolioId && !portfolioIds.includes(requestedPortfolioId)) {
     return NextResponse.json({ levels: null, reason: "Portfolio not found." }, { status: 404 });
   }
-  const scopedPortfolioIds = requestedPortfolioId ? [requestedPortfolioId] : portfolioIds;
+  const scopedPortfolioIds = portfolios
+    .filter((portfolio) => (!requestedPortfolioId || portfolio.id === requestedPortfolioId)
+      && isCanonicalUsdPortfolio(portfolio.currency))
+    .map((portfolio) => portfolio.id);
+  if (scopedPortfolioIds.length === 0) {
+    return NextResponse.json({ levels: null, reason: "portfolio_currency_basis_unresolved" });
+  }
 
   const { data: holdingsData, error: holdingError } = await supabase
     .from("portfolio_holdings")

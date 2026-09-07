@@ -25,6 +25,7 @@ import {
   type PortfolioIntelligenceView,
 } from "@/lib/portfolio-intelligence-presentation";
 import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
+import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -362,7 +363,7 @@ export async function getDashboardMainPortfolio(
   requestedPortfolioId: string | null | undefined,
   asOf: string,
 ): Promise<DashboardMainPortfolioResult> {
-  const { data: portfoliosData } = await supabase
+  const { data: portfoliosData, error: portfoliosError } = await supabase
     .from("user_portfolios")
     .select(
       "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
@@ -371,6 +372,7 @@ export async function getDashboardMainPortfolio(
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
+  if (portfoliosError) throw new Error("Dashboard portfolios could not be loaded.");
   const portfolios = ((portfoliosData ?? []) as PortfolioRow[]).map((portfolio) => ({
     ...portfolio,
     name: cleanPortfolioName(portfolio.name),
@@ -384,22 +386,16 @@ export async function getDashboardMainPortfolio(
     portfolios.find((portfolio) => portfolio.id === requestedPortfolioId) ?? portfolios[0];
   const portfolioIds = [selectedPortfolio.id];
 
-  const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
+  const [{ data: holdingsData, error: holdingsError }, transactionData] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
         "id,portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,added_at,last_reviewed_at,shares,allocation_pct,purchase_date,source,notes,risk_level_at_entry,target_level_at_entry",
       )
       .in("portfolio_id", portfolioIds),
-    supabase
-      .from("portfolio_transactions")
-      .select(
-        "id,portfolio_id,ticker,type,shares,price,amount,realised_pnl,currency,notes,created_at",
-      )
-      .in("portfolio_id", portfolioIds)
-      .order("created_at", { ascending: true })
-      .limit(1000),
+    readPortfolioLedger(supabase, selectedPortfolio.id),
   ]);
+  if (holdingsError) throw new Error("Dashboard holdings could not be loaded.");
 
   const holdingsByPortfolio = new Map<string, RawHolding[]>();
   ((holdingsData ?? []) as HoldingRow[]).forEach((holding) => {
@@ -485,7 +481,11 @@ export async function getDashboardMainPortfolio(
       currency: portfolio.currency ?? "USD",
       riskTolerance: portfolio.risk_tolerance,
       holdings: enriched,
-      transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+      transactions: transactions.map((transaction) => ({
+        realisedPnl: transaction.realised_pnl,
+        type: transaction.type,
+        notes: transaction.notes,
+      })),
       cashBalance: toNumber(portfolio.cash_balance, 0),
       cashDepositedTotal: toNumber(portfolio.cash_deposited_total, 0),
     });

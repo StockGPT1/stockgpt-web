@@ -17,6 +17,10 @@ import {
   signedPct,
   toneClass,
 } from "@/components/portfolio-workspace/utils";
+import {
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE,
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE,
+} from "@/lib/portfolio-performance-availability";
 
 function SectionHeading({
   eyebrow,
@@ -97,6 +101,7 @@ export function PortfolioOverview({
     intelligence.countsByStatus.review +
     intelligence.countsByStatus.urgent_review;
   const canonicalMonitorCount = intelligence.countsByStatus.monitor;
+  const performanceAvailable = summary.performanceAvailability.status === "available";
 
   return (
     <div className="space-y-12 lg:space-y-14">
@@ -106,14 +111,20 @@ export function PortfolioOverview({
         <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-0 lg:overflow-visible lg:px-0 lg:pb-0">
           <Metric
             label="Current value"
-            value={money(summary.totalValue, meta.currency)}
-            detail="Latest confirmed valuation"
+            value={summary.valuationComplete === false ? "Unavailable" : money(summary.totalValue, meta.currency)}
+            detail={summary.valuationComplete === false ? "Current price coverage incomplete" : "Latest confirmed valuation"}
           />
           <Metric
-            label="Total return"
-            value={`${signedMoney(summary.totalPnl, meta.currency)} · ${signedPct(summary.totalPnlPct)}`}
-            detail="Realised and unrealised"
-            tone={toneClass(summary.totalPnl)}
+            label={performanceAvailable ? "Total return" : "Realised P&L"}
+            value={
+              summary.valuationComplete === false
+                ? "Unavailable"
+                : performanceAvailable
+                  ? `${signedMoney(summary.totalPnl, meta.currency)} · ${signedPct(summary.totalPnlPct)}`
+                  : signedMoney(summary.realisedPnl, meta.currency)
+            }
+            detail={performanceAvailable ? "Realised and unrealised" : PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE}
+            tone={toneClass(performanceAvailable ? summary.totalPnl : summary.realisedPnl)}
           />
           <Metric
             label="Reviews"
@@ -131,7 +142,7 @@ export function PortfolioOverview({
           />
           <Metric
             label="Largest position"
-            value={`${summary.largestPositionPct.toFixed(1)}%`}
+            value={summary.valuationComplete === false ? "Unavailable" : `${summary.largestPositionPct.toFixed(1)}%`}
             detail={latestActivityDate ? `Activity ${formatDate(latestActivityDate)}` : "No recent activity"}
             tone={summary.largestPositionPct > 30 ? "text-[#e8bd61]" : "text-[#faf6f0]"}
           />
@@ -149,6 +160,11 @@ export function PortfolioOverview({
           <p className="mt-4 max-w-3xl text-[14px] font-semibold leading-7 text-[#faf6f0]/54">
             {intelligence.summary}
           </p>
+          {!performanceAvailable && (
+            <p className="mt-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#e7c56c]">
+              {PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE}
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap gap-2">
             {(intelligence.availability === "ready"
               ? [

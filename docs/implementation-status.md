@@ -19,7 +19,7 @@ Engineering constitution:
 | 02 | Restore green build/CI foundation | COMPLETE | `0ea2557` + `codex/02b2-environment-ci-hardening` | Node 24 aligned across web runtime/types/CI; explicit `tsx` reliability runner; full lint, typegen, standalone TypeScript, portfolio tests and production build enforced; 19 self-mutating workflows removed; environment contract restored. |
 | 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
 | 04 | Canonical portfolio intelligence engine | COMPLETE | `98dd988` + `fa1a1ad` + `e0f0851` + `6426012` + `27a2a83` + `Close canonical portfolio intelligence migration` | Portfolio, Dashboard, Ask and Notifications share one factual adapter, canonical engine and status vocabulary; active competing customer assessment paths are removed or explicitly non-authoritative. |
-| 05 | Portfolio correctness and persistence cleanup | IN PROGRESS | `05A design` through `05J page/cache/snapshot reconciliation` | Stage 05A–05J are complete; 05K final acceptance audit remains. |
+| 05 | Portfolio correctness and persistence cleanup | COMPLETE | `05A design` through `05K final acceptance` | Authoritative writes are exact-owner atomic RPCs, the ledger is append-only, accounting is canonical USD, current reads/cache behavior are reconciled, continuity-breaking tracking changes suppress aggregate performance, and the complete local acceptance gate passes. |
 | 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
 | 07 | Provider-neutral broker data model | NOT STARTED | | |
 | 08 | Broker secret/security architecture | NOT STARTED | | |
@@ -161,7 +161,16 @@ Engineering constitution:
 - The surviving Redis chart accelerator is versioned and scoped by exact owner, Portfolio and deterministic authoritative-input fingerprint. Cash, exact contribution state, holding composition/basis/dates, current prices and price timestamps, and transaction identity/recorded `created_at` evidence participate; display currency, FX and `investment_amount` do not. A fingerprint mismatch, stale/corrupt payload, cache read/write failure or unavailable Redis is a cache miss and cannot override current truth or change committed mutation success.
 - Transaction `created_at` remains the cache-change authority, so recording an older event today invalidates prior derived state regardless of historical `occurred_at`. Legacy ambiguous non-USD Portfolios remain excluded from canonical financial cache and semantic page-read writes.
 - The unused whole-page speed-cache runtime and stale fallback are retired. `portfolio_page_snapshots` remains unused derived storage with no active runtime reader/writer; the authenticated warm endpoint is retained only as a harmless retired response for scheduler compatibility. No production cache/history rows were rewritten and no schema migration was required.
-- Stage 05J page/cache/snapshot reconciliation is complete. Stage 05 remains in progress; 05K final Stage 05 acceptance audit is next.
+- Stage 05J page/cache/snapshot reconciliation is complete.
+
+### Stage 05K final acceptance
+
+- Aggregate since-inception performance now has one explicit availability contract. Holding correction, Remove from Tracking, existing-Portfolio Trading 212 replacement and equivalent neutral adjustment rewrites break accounting continuity; Portfolio, Dashboard and chart consumers suppress aggregate Total P&L/Return while retaining independently valid current value, cash, realised P&L, holding P&L and value history. This availability state is separate from the Stage 04 canonical status vocabulary.
+- The accepted continuity fixture (cash 250, net contribution 410, no remaining holdings and realised sale P&L +80) therefore presents `Realised P&L: +$80` without presenting either disputed aggregate return formula. Genuine deposits, withdrawals, buys and sales alone do not trigger the limitation. Stage 14 remains responsible for any deeper historical-performance reconstruction.
+- Forward migrations reject NULL Portfolio preferences and non-finite Portfolio financial state without rewriting unknown production rows. Existing/future holdings reject `NaN`, positive infinity and negative infinity; ledger financial values are finite; all arithmetic financial RPCs fail atomically on malformed stored state. Correction can restore valid holding facts, and Remove from Tracking remains a safe recovery path that does not interpret malformed values.
+- The other 05K repairs remain accepted: exact paginated ledger reads, unavailable rather than fabricated financial presentation, no sale-proceeds fallback from entry price, raw current-market chart valuation/fingerprinting, future-dated cache rejection and legacy-currency trade-level isolation.
+- A clean local reset and `test:stage05-acceptance` pass the canonical schema/seed/Auth/RLS checks; all Stage 05 security, ownership, ledger, cash, holding, creation, CSV, currency, write-boundary, cache, finite-state, continuity, concurrency, rollback, read-integration and migration/type-drift checks; and the permanent Stage 05 source contract. Portfolio/Stage 04 regression, Next type generation, TypeScript, lint and the guarded production build also pass without remote service access.
+- Stage 05 is complete. Stage 06 market-data and instrument infrastructure cleanup is next and remains NOT STARTED.
 
 ## Global release gates
 
@@ -194,13 +203,13 @@ Every implementation stage must pass:
 | Placeholder Supabase generated types | Stage 03 | Resolved from the canonical local schema with a repeatable local drift check. |
 | `watchlist` / `user_watchlist` mismatch | Stage 03 | Resolved in runtime code: all application queries use canonical `watchlist`; compile/source contracts guard against regression. |
 | Conflicting portfolio recommendation/status engines | Stage 04 | Resolved for active Portfolio, Dashboard, Ask and Notifications paths through one factual adapter, canonical engine and vocabulary. Inactive legacy cleanup remains Stage 19/owning-stage work. |
-| Non-atomic portfolio writes and swallowed transaction-record failures | Stage 05 | Make persistence outcomes coherent and observable. |
-| Unsafe CSV replacement behaviour | Stage 05 | Preserve the prior portfolio unless replacement succeeds as a complete operation. |
-| Trim/reinvest non-atomicity | Stage 05 | Keep holdings, cash and activity records consistent. |
-| `GET` route mutating holding trade levels | Stage 05 | Reconcile read/write semantics and persistence ownership. |
+| Non-atomic portfolio writes and swallowed transaction-record failures | Stage 05 | Resolved through exact-owner atomic financial RPCs with post-commit derived work. |
+| Unsafe CSV replacement behaviour | Stage 05 | Resolved with validated all-or-nothing exact-Portfolio replacement. |
+| Trim/reinvest non-atomicity | Stage 05 | Resolved by retiring the inactive route and using narrow atomic holding mutations. |
+| `GET` route mutating holding trade levels | Stage 05 | Resolved: the route is read-only and no longer persists compatibility levels. |
 | Current FX applied to historical data | Stage 05 / Stage 14 | Separate current display conversion from historically correct valuation. |
 | Portfolio currency accounting ambiguity | Stage 05 / Stage 14 | Define and preserve currency provenance before connected-history work. |
-| Portfolio-page snapshot cache is warmed but not read by the current page | Stage 05 | Reconcile or retire duplicated page-snapshot behaviour. |
+| Portfolio-page snapshot cache is warmed but not read by the current page | Stage 05 | Resolved: the unused whole-page cache is retired and the warm route is a harmless compatibility response. |
 | Ticker-only instrument identity | Stage 06 / Stage 07 | Separate market identity from future provider/account identity. |
 | Unsupported assets are rejected or dropped | Stage 06 / Stage 07 / Stage 13 | Preserve unsupported/tracked-only assets in connected portfolio totals. |
 | Market-snapshot cron does not persist market snapshots | Stage 06 | Align naming, storage and consumer behaviour. |

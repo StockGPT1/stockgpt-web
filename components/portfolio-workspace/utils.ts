@@ -23,12 +23,14 @@ export function money(value: number, currency: string, compact = false) {
   }).format(safe);
 }
 
-export function signedMoney(value: number, currency: string) {
+export function signedMoney(value: number | null | undefined, currency: string) {
+  if (value == null || !Number.isFinite(value)) return "Unavailable";
   const safe = Number.isFinite(value) ? value : 0;
   return `${safe >= 0 ? "+" : "−"}${money(Math.abs(safe), currency)}`;
 }
 
-export function signedPct(value: number, digits = 1) {
+export function signedPct(value: number | null | undefined, digits = 1) {
+  if (value == null || !Number.isFinite(value)) return "Unavailable";
   const safe = Number.isFinite(value) ? value : 0;
   return `${safe >= 0 ? "+" : ""}${safe.toFixed(digits)}%`;
 }
@@ -85,7 +87,8 @@ export function freshnessCopy(meta: PortfolioChartMeta) {
   return "Portfolio data available";
 }
 
-export function toneClass(value: number) {
+export function toneClass(value: number | null | undefined) {
+  if (value == null) return "text-[#faf6f0]/52";
   if (value > 0.0001) return "text-[#61d7ab]";
   if (value < -0.0001) return "text-[#f1908d]";
   return "text-[#faf6f0]/52";

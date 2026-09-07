@@ -1,7 +1,13 @@
 import type { EnrichedHolding } from "@/lib/portfolio-alerts";
+import {
+  assessPortfolioPerformanceAvailability,
+  type PortfolioPerformanceAvailability,
+} from "@/lib/portfolio-performance-availability";
 
 export type PortfolioHealthTransaction = {
   realisedPnl?: number | null;
+  type?: string | null;
+  notes?: string | null;
 };
 
 export type PortfolioHealthSummary = {
@@ -14,8 +20,10 @@ export type PortfolioHealthSummary = {
   totalValue: number;
   unrealisedPnl: number;
   realisedPnl: number;
-  totalPnl: number;
-  totalPnlPct: number;
+  totalPnl: number | null;
+  totalPnlPct: number | null;
+  valuationComplete?: boolean;
+  performanceAvailability: PortfolioPerformanceAvailability;
   weightedAvgScore: number | null;
   avgScore: number;
   sectorCount: number;
@@ -54,14 +62,14 @@ function buildExplanation(summary: {
   cashDrag: number;
   largestPositionPct: number;
   sectorCount: number;
-  totalPnlPct: number;
+  totalPnlPct: number | null;
 }) {
   const positives: string[] = [];
   const risks: string[] = [];
 
   if ((summary.weightedAvgScore ?? 0) >= 7000) positives.push("strong weighted AI score");
   if (summary.sectorCount >= 5) positives.push("reasonable sector spread");
-  if (summary.totalPnlPct > 0) positives.push("positive total return");
+  if (summary.totalPnlPct != null && summary.totalPnlPct > 0) positives.push("positive total return");
 
   if (summary.actionAlerts > 0) risks.push(`${summary.actionAlerts} action alert${summary.actionAlerts === 1 ? "" : "s"}`);
   if (summary.eventAlerts > 2) risks.push(`${summary.eventAlerts} review events`);
@@ -99,10 +107,20 @@ export function buildPortfolioHealthSummary({
   const totalValue = holdingsValue + safeCash;
   const unrealisedPnl = holdings.reduce((sum, holding) => sum + holding.totalPnLDollars, 0);
   const realisedPnl = transactions.reduce((sum, transaction) => sum + Number(transaction.realisedPnl ?? 0), 0);
-  const totalPnl = unrealisedPnl + realisedPnl;
-  const costBasis = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
-  const basis = Math.max(Number(cashDepositedTotal) || 0, costBasis, 1);
-  const totalPnlPct = (totalPnl / basis) * 100;
+  const performanceAvailability = assessPortfolioPerformanceAvailability(transactions);
+  const calculatedTotalPnl = unrealisedPnl + realisedPnl;
+  const valuationComplete = holdings.every((holding) =>
+    holding.shares <= 0 || (Number.isFinite(holding.currentPrice) && holding.currentPrice > 0),
+  );
+  // Net contribution is not gross deposits or remaining holding cost basis.
+  // A non-positive/unknown denominator cannot support this descriptive percentage.
+  const basis = cashDepositedTotal == null ? null : Number(cashDepositedTotal);
+  const totalPnl = valuationComplete && performanceAvailability.status === "available"
+    ? calculatedTotalPnl
+    : null;
+  const totalPnlPct = totalPnl != null && basis != null && Number.isFinite(basis) && basis > 0
+    ? (totalPnl / basis) * 100
+    : null;
   const sectorCount = new Set(holdings.map((holding) => holding.sector).filter(Boolean)).size;
   const actionAlerts = holdings.reduce((sum, holding) => sum + holding.actionAlerts.length, 0);
   const eventAlerts = holdings.reduce((sum, holding) => sum + holding.eventAlerts.length, 0);
@@ -134,7 +152,7 @@ export function buildPortfolioHealthSummary({
     0,
     100,
   );
-  const performanceComponent = clamp(50 + totalPnlPct * 2, 0, 100);
+  const performanceComponent = clamp(50 + (totalPnlPct ?? 0) * 2, 0, 100);
   const cashComponent = clamp(100 - Math.max(0, cashDrag - 10) * 2.4, 0, 100);
 
   const emptyPortfolioPenalty = holdings.length === 0 ? 35 : holdings.length < 3 ? 8 : 0;
@@ -163,6 +181,8 @@ export function buildPortfolioHealthSummary({
     realisedPnl,
     totalPnl,
     totalPnlPct,
+    valuationComplete,
+    performanceAvailability,
     weightedAvgScore: weightedAvgScore == null ? null : Math.round(weightedAvgScore),
     avgScore,
     sectorCount,

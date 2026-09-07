@@ -17,6 +17,10 @@ import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
+import {
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE,
+  PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE,
+} from "@/lib/portfolio-performance-availability";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
 
@@ -242,8 +246,12 @@ export function MobileDashboardExperience({
       valuationState === "unavailable"
         ? "Portfolio value is temporarily unavailable while prices refresh."
         : valuationState === "partial"
-          ? "Portfolio value is estimated while missing prices refresh."
-          : `Portfolio total return is ${summary.totalPnl >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
+          ? "Portfolio value is unavailable while missing prices refresh."
+          : summary.performanceAvailability.status === "unavailable"
+            ? `${PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE}. ${PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE}`
+          : summary.totalPnlPct == null
+            ? "Portfolio return percentage is unavailable for the current contribution basis."
+            : `Portfolio total return is ${summary.totalPnlPct >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%.`,
       canUsePremium && intelligence
         ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}`
         : "Portfolio status and current signals are available with an active subscription.",
@@ -417,21 +425,25 @@ export function MobileDashboardExperience({
                   <div className="mt-3 flex items-end justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">
-                        {valuationState === "unavailable"
+                        {valuationState === "unavailable" || valuationState === "partial"
                           ? "Value unavailable"
                           : money(summary.totalValue, summary.currency)}
                       </p>
-                      {valuationState !== "unavailable" && (
+                      {valuationState !== "unavailable" && valuationState !== "partial" && summary.performanceAvailability.status === "available" && (
                         <p
                           className={`mt-1.5 text-[13px] font-black tabular-nums ${
-                            summary.totalPnl >= 0
+                            (summary.totalPnl ?? 0) >= 0
                               ? "text-emerald-300"
                               : "text-red-200"
                           }`}
                         >
-                          {money(summary.totalPnl, summary.currency)} ·{" "}
-                          {summary.totalPnl >= 0 ? "+" : ""}
-                          {summary.totalPnlPct.toFixed(1)}%
+                          {summary.totalPnl == null ? "Performance unavailable" : money(summary.totalPnl, summary.currency)} ·{" "}
+                          {summary.totalPnlPct == null ? "Percentage unavailable" : `${summary.totalPnlPct >= 0 ? "+" : ""}${summary.totalPnlPct.toFixed(1)}%`}
+                        </p>
+                      )}
+                      {valuationState !== "unavailable" && valuationState !== "partial" && summary.performanceAvailability.status === "unavailable" && (
+                        <p className="mt-1.5 text-[11px] font-bold text-[#e7c56c]">
+                          {PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE} · Realised P&amp;L {money(summary.realisedPnl, summary.currency)}
                         </p>
                       )}
                     </div>
