@@ -487,10 +487,7 @@ export async function getDashboardMainPortfolio(
       holdings: enriched,
       transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
       cashBalance: toNumber(portfolio.cash_balance, 0),
-      cashDepositedTotal: toNumber(
-        portfolio.cash_deposited_total,
-        toNumber(portfolio.investment_amount, 0),
-      ),
+      cashDepositedTotal: toNumber(portfolio.cash_deposited_total, 0),
     });
 
     candidates.push({ portfolio, rawHoldings, enriched, transactions, summary });
@@ -512,27 +509,7 @@ export async function getDashboardMainPortfolio(
           : "partial";
 
   const heldTickers = mainPortfolio.rawHoldings.map((holding) => holding.ticker);
-  const [chartResult, rankingsResult, diagnosticsResult, universeResult] = await Promise.all([
-    buildPortfolioPageChartResult({
-      portfolio: {
-        id: mainPortfolio.portfolio.id,
-        name: mainPortfolio.portfolio.name,
-        objective: mainPortfolio.portfolio.objective ?? null,
-        risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
-        time_horizon: mainPortfolio.portfolio.time_horizon,
-        investment_amount: mainPortfolio.portfolio.investment_amount,
-        cash_balance: mainPortfolio.portfolio.cash_balance,
-        cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
-        currency: mainPortfolio.portfolio.currency ?? null,
-        created_at: mainPortfolio.portfolio.created_at ?? null,
-        user_id: userId,
-      },
-      enriched: mainPortfolio.enriched,
-      transactions: mainPortfolio.transactions,
-      summary: mainPortfolio.summary,
-      ownerId: userId,
-      allowCurrentSnapshot: missingPriceTickers.length === 0,
-    }),
+  const [rankingsResult, diagnosticsResult, universeResult] = await Promise.all([
     heldTickers.length > 0
       ? supabase
           .from("stock_rankings")
@@ -554,6 +531,32 @@ export async function getDashboardMainPortfolio(
   if (rankingsResult.error || diagnosticsResult.error || universeResult.error) {
     throw new Error("Dashboard portfolio intelligence facts could not be loaded.");
   }
+
+  const chartResult = await buildPortfolioPageChartResult({
+    portfolio: {
+      id: mainPortfolio.portfolio.id,
+      name: mainPortfolio.portfolio.name,
+      objective: mainPortfolio.portfolio.objective ?? null,
+      risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
+      time_horizon: mainPortfolio.portfolio.time_horizon,
+      investment_amount: mainPortfolio.portfolio.investment_amount,
+      cash_balance: mainPortfolio.portfolio.cash_balance,
+      cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
+      currency: mainPortfolio.portfolio.currency ?? null,
+      created_at: mainPortfolio.portfolio.created_at ?? null,
+      user_id: userId,
+    },
+    enriched: mainPortfolio.enriched,
+    transactions: mainPortfolio.transactions,
+    summary: mainPortfolio.summary,
+    ownerId: userId,
+    marketFacts: (rankingsResult.data ?? []).map((ranking) => ({
+      ticker: ranking.ticker,
+      price: ranking.price,
+      last_price_update: ranking.last_price_update,
+    })),
+    allowCurrentPoint: missingPriceTickers.length === 0,
+  });
 
   const factualHoldings = ((holdingsData ?? []) as HoldingRow[])
     .filter((holding) => holding.portfolio_id === mainPortfolio.portfolio.id)

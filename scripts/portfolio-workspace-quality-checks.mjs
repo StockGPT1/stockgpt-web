@@ -87,7 +87,7 @@ assert.match(modernPage, /portfolios\.some\(\(portfolio\) => portfolio\.id === p
 assert.match(modernPage, /buildPortfolioHealthSummary/);
 assert.match(modernPage, /buildPortfolioPageChartResult/);
 assert.match(modernPage, /currentAllocationPct:\s*totalValue > 0 \? \(currentValue \/ totalValue\) \* 100 : 0/);
-assert.match(modernPage, /allowCurrentSnapshot:\s*enriched\.every/);
+assert.match(modernPage, /allowCurrentPoint:\s*enriched\.every/);
 assert.match(visuals, /of total portfolio/);
 assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
 assert.match(stage, /filterDisplayablePortfolioChartData/);
@@ -156,7 +156,8 @@ assert.match(cashMutation, /supabase\.rpc\("mutate_portfolio_cash"/);
 assert.doesNotMatch(cashAction, /\.from\("user_portfolios"\)/);
 assert.doesNotMatch(cashAction, /\.from\("portfolio_transactions"\)/);
 assert.doesNotMatch(cashAction, /Restore the balance only when/);
-assert.match(cashAction, /invalidatePortfolioPageSnapshot/);
+assert.match(cashAction, /revalidatePath\("\/portfolio"\)/);
+assert.doesNotMatch(cashAction, /invalidatePortfolioPageSnapshot/);
 assert.match(cashAction, /Post-commit Portfolio refresh failed/);
 
 assert.match(workspace, /size-11|size-12/);

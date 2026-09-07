@@ -60,7 +60,7 @@ for (const action of [addCash, withdrawalAction]) {
   const mutationIndex = action.indexOf("mutatePortfolioCash");
   const refreshIndex = Math.max(
     action.indexOf("markPortfolioChartInputsChanged"),
-    action.indexOf("invalidatePortfolioPageSnapshot"),
+    action.indexOf("revalidatePath"),
   );
   assert(mutationIndex >= 0 && refreshIndex > mutationIndex, "Derived refresh must happen after the RPC");
   assert(action.includes("try {"), "Post-commit refresh work must be best-effort");

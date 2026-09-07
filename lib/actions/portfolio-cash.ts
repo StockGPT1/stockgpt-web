@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import { invalidatePortfolioPageSnapshot } from "@/lib/portfolio-speed-cache";
 import { mutatePortfolioCash } from "@/lib/portfolio-cash-mutation";
 
 export type PortfolioCashActionResult = {
@@ -36,7 +35,6 @@ export async function withdrawPortfolioCash({
   if (!mutation.success) return mutation;
 
   try {
-    await invalidatePortfolioPageSnapshot({ portfolioId, ownerId: user.id });
     revalidatePath("/portfolio");
     revalidatePath(`/portfolio?portfolio=${portfolioId}`);
   } catch {

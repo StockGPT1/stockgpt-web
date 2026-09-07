@@ -120,6 +120,8 @@ export type PortfolioSnapshotChartReadResult = {
 type DatedInput = {
   created_at?: string | null;
   createdAt?: string | null;
+  occurred_at?: string | null;
+  occurredAt?: string | null;
   added_at?: string | null;
   addedAt?: string | null;
   purchase_date?: string | null;
@@ -131,8 +133,6 @@ type CurrentPortfolioInput = {
   cashBalance?: unknown;
   cash_deposited_total?: unknown;
   cashDepositedTotal?: unknown;
-  investment_amount?: unknown;
-  investmentAmount?: unknown;
 };
 
 type CurrentHoldingInput = {
@@ -148,6 +148,12 @@ type CurrentHoldingInput = {
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function finiteNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function roundMoney(value: number) {
@@ -286,8 +292,7 @@ function normaliseRows(rows: PortfolioSnapshotRow[], portfolioStartMs: number) {
       value < 0 ||
       !Number.isFinite(cash) ||
       cash < 0 ||
-      !Number.isFinite(basis) ||
-      basis < 0
+      !Number.isFinite(basis)
     ) {
       stats.droppedInvalid += 1;
       return;
@@ -311,7 +316,10 @@ function normaliseRows(rows: PortfolioSnapshotRow[], portfolioStartMs: number) {
 
     const date = new Date(ms).toISOString();
     const pnl = roundMoney(toNumber(row.pnl, value - basis));
-    const pnlPct = toNumber(row.pnl_pct, basis > 0 ? (pnl / basis) * 100 : 0);
+    const storedPnlPct = finiteNumber(row.pnl_pct);
+    const pnlPct = basis > 0
+      ? (storedPnlPct ?? (pnl / basis) * 100)
+      : undefined;
     const priority = sourcePriority(source);
     const existing = byDate.get(date);
 
@@ -477,14 +485,15 @@ function fillTemporalGaps({
       }
 
       const progress = (gridMs - current.ms) / gapMs;
-      const lerp = (a: number | undefined, b: number | undefined) => {
-        const from = Number.isFinite(a) ? (a as number) : 0;
-        const to = Number.isFinite(b) ? (b as number) : from;
-        return roundMoney(from + (to - from) * progress);
-      };
-      const close = lerp(current.close, next.close);
-      const basis = lerp(current.basis, next.basis);
-      const pnl = roundMoney(close - basis);
+      const lerpRequired = (a: number, b: number) =>
+        roundMoney(a + (b - a) * progress);
+      const lerpOptional = (a: number | undefined, b: number | undefined) =>
+        Number.isFinite(a) && Number.isFinite(b)
+          ? roundMoney((a as number) + ((b as number) - (a as number)) * progress)
+          : undefined;
+      const close = lerpRequired(current.close, next.close);
+      const basis = lerpOptional(current.basis, next.basis);
+      const pnl = basis == null ? undefined : roundMoney(close - basis);
       const sourceKind =
         firstLiveSnapshotMs != null && gridMs >= firstLiveSnapshotMs ? "live" : current.sourceKind;
 
@@ -494,10 +503,10 @@ function fillTemporalGaps({
         sourceKind,
         date: new Date(gridMs).toISOString(),
         close,
-        cash: lerp(current.cash, next.cash),
+        cash: lerpOptional(current.cash, next.cash),
         basis,
         pnl,
-        pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+        pnlPct: basis != null && basis > 0 && pnl != null ? (pnl / basis) * 100 : undefined,
         synthetic: true,
       });
       used += 1;
@@ -547,7 +556,7 @@ function validateRangePoints({
     }
     if (!Number.isFinite(point.close) || point.close < 0) return false;
     if (point.cash != null && (!Number.isFinite(point.cash) || point.cash < 0)) return false;
-    if (point.basis != null && (!Number.isFinite(point.basis) || point.basis < 0)) return false;
+    if (point.basis != null && !Number.isFinite(point.basis)) return false;
 
     seen.add(point.ms);
     previousMs = point.ms;
@@ -696,22 +705,25 @@ function fillSerialisedGaps(points: SnapshotChartPoint[], range: TimeRange) {
       }
 
       const progress = (gridMs - currentMs) / gapMs;
-      const lerp = (a: number | undefined, b: number | undefined) => {
-        const from = Number.isFinite(a) ? (a as number) : 0;
-        const to = Number.isFinite(b) ? (b as number) : from;
-        return roundMoney(from + (to - from) * progress);
-      };
-      const close = lerp(current.close, next.close);
-      const basis = lerp(current.basis, next.basis);
-      const pnl = roundMoney(close - basis);
+      const lerpRequired = (a: number, b: number) =>
+        roundMoney(a + (b - a) * progress);
+      const lerpOptional = (a: number | undefined, b: number | undefined) =>
+        Number.isFinite(a) && Number.isFinite(b)
+          ? roundMoney((a as number) + ((b as number) - (a as number)) * progress)
+          : undefined;
+      const close = lerpRequired(current.close, next.close);
+      const cash = lerpOptional(current.cash, next.cash);
+      const basis = lerpOptional(current.basis, next.basis);
+      const pnl = lerpOptional(current.pnl, next.pnl);
+      const pnlPct = lerpOptional(current.pnlPct, next.pnlPct);
 
       filled.push({
         date: new Date(gridMs).toISOString(),
         close,
-        cash: lerp(current.cash, next.cash),
+        cash,
         basis,
         pnl,
-        pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+        pnlPct,
         synthetic: true,
       });
       used += 1;
@@ -1004,7 +1016,7 @@ function pointToSnapshotRow({
     !Number.isFinite(cash) ||
     cash < 0 ||
     !Number.isFinite(basis) ||
-    basis < 0
+    basis <= 0
   ) {
     return null;
   }
@@ -1019,7 +1031,7 @@ function pointToSnapshotRow({
     cash,
     basis,
     pnl,
-    pnl_pct: toNumber(point.pnlPct, basis > 0 ? (pnl / basis) * 100 : 0),
+    pnl_pct: toNumber(point.pnlPct, (pnl / basis) * 100),
     source,
   };
 }
@@ -1088,52 +1100,51 @@ export function buildCurrentPortfolioSnapshotPoint({
   holdings: CurrentHoldingInput[];
   currentPrices?: Record<string, unknown> | Map<string, unknown>;
   snapshotAt?: Date;
-}): SnapshotChartPoint {
+}): SnapshotChartPoint | null {
   const priceForTicker = (ticker: string) => {
-    if (!currentPrices) return 0;
-    if (currentPrices instanceof Map) return toNumber(currentPrices.get(ticker), 0);
-    return toNumber(currentPrices[ticker], 0);
+    if (!currentPrices) return null;
+    const value = currentPrices instanceof Map
+      ? currentPrices.get(ticker)
+      : currentPrices[ticker];
+    const parsed = finiteNumber(value);
+    return parsed != null && parsed > 0 ? parsed : null;
   };
 
-  const cash = roundMoney(Math.max(0, toNumber(portfolio.cash_balance ?? portfolio.cashBalance, 0)));
-  const cashDepositedTotal = Math.max(
-    0,
-    toNumber(
-      portfolio.cash_deposited_total ?? portfolio.cashDepositedTotal,
-      toNumber(portfolio.investment_amount ?? portfolio.investmentAmount, 0),
-    ),
+  const cashValue = finiteNumber(portfolio.cash_balance ?? portfolio.cashBalance);
+  const contributionValue = finiteNumber(
+    portfolio.cash_deposited_total ?? portfolio.cashDepositedTotal,
   );
+  if (cashValue == null || cashValue < 0 || contributionValue == null) return null;
+
+  const cash = roundMoney(cashValue);
+  const contribution = roundMoney(contributionValue);
   let holdingsValue = 0;
-  let holdingsBasis = 0;
 
-  holdings.forEach((holding) => {
+  for (const holding of holdings) {
     const ticker = cleanTicker(holding.ticker);
-    const shares = toNumber(holding.shares, 0);
-    if (!ticker || shares <= 0) return;
+    const shares = finiteNumber(holding.shares);
+    if (!ticker || shares == null || shares < 0) return null;
+    if (shares === 0) continue;
 
-    const currentValue = toNumber(holding.current_value ?? holding.currentValue, 0);
-    const entryPrice = toNumber(holding.entry_price ?? holding.entryPrice, 0);
-    const currentPrice = toNumber(
-      holding.currentPrice,
-      priceForTicker(ticker) || (currentValue > 0 ? currentValue / shares : 0) || entryPrice,
-    );
+    const holdingPrice = finiteNumber(holding.currentPrice);
+    const currentPrice = holdingPrice != null && holdingPrice > 0
+      ? holdingPrice
+      : priceForTicker(ticker);
+    if (currentPrice == null) return null;
 
-    holdingsValue += shares * Math.max(0, currentPrice);
-    holdingsBasis += shares * Math.max(0, entryPrice || currentPrice);
-  });
+    holdingsValue += shares * currentPrice;
+  }
 
   const close = roundMoney(cash + holdingsValue);
-  const returnBasis = Math.max(cashDepositedTotal, holdingsBasis, close > 0 ? 1 : 0);
-  const basis = roundMoney(returnBasis);
-  const pnl = roundMoney(returnBasis > 0 ? close - returnBasis : 0);
+  const pnl = roundMoney(close - contribution);
 
   return {
     date: snapshotAt.toISOString(),
     close,
     cash,
-    basis,
+    basis: contribution,
     pnl,
-    pnlPct: basis > 0 ? (pnl / basis) * 100 : 0,
+    ...(contribution > 0 ? { pnlPct: (pnl / contribution) * 100 } : {}),
   };
 }
 

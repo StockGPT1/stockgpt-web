@@ -1,7 +1,6 @@
+import { createHash } from "node:crypto";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
-import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
-import type { PortfolioSnapshotPayload } from "@/lib/portfolio-speed-cache";
 import { isPortfolioChartLatestPointFresh } from "@/lib/portfolio-snapshots";
 import {
   filterDisplayablePortfolioChartData,
@@ -12,42 +11,142 @@ const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Math.max(
   60,
   Number(process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 15 * 60),
 );
-const PORTFOLIO_CHART_CACHE_VERSION = "v10";
+export const PORTFOLIO_CHART_CACHE_VERSION = "v11";
+const CHART_RANGES: TimeRange[] = ["1D", "1M", "6M", "1Y", "MAX"];
 
 export type PortfolioChartData = Partial<Record<TimeRange, ChartPoint[]>>;
 
+export type PortfolioChartFingerprintInput = {
+  ownerId: string;
+  portfolioId: string;
+  accountingBasis: "canonical_usd";
+  portfolioCreatedAt: string | null;
+  cashBalance: unknown;
+  netContributedCapital: unknown;
+  holdings: Array<{
+    ticker: string;
+    shares: unknown;
+    entryPrice: unknown;
+    purchaseDate: string | null;
+    addedAt: string | null;
+    currentPrice: unknown;
+    currentPriceUpdatedAt: string | null;
+  }>;
+  transactions: Array<{
+    id: string | null;
+    createdAt: string | null;
+    ticker: string | null;
+    type: string | null;
+    shares: unknown;
+    price: unknown;
+    amount: unknown;
+    realisedPnl: unknown;
+    currency: string | null;
+  }>;
+};
+
 type PortfolioChartCachePayload = {
+  version: typeof PORTFOLIO_CHART_CACHE_VERSION;
+  ownerId: string;
+  portfolioId: string;
+  inputFingerprint: string;
   chartData: PortfolioChartData;
-  totalValue: number;
-  totalPnl: number;
-  totalPnlPct: number;
-  holdingsCount: number;
   generatedAt: string;
 };
 
-type SummaryLike = {
-  totalValue?: unknown;
-  totalPnl?: unknown;
-  totalPnlPct?: unknown;
-  holdingsCount?: unknown;
-};
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
 
-function portfolioChartKey(portfolioId: string) {
-  return `portfolio:chart:${PORTFOLIO_CHART_CACHE_VERSION}:latest:${portfolioId}`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+    .join(",")}}`;
 }
 
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+function cleanTicker(value: string | null | undefined) {
+  return String(value ?? "").trim().toUpperCase();
 }
 
-function normaliseSummary(summary: SummaryLike) {
-  return {
-    totalValue: toNumber(summary.totalValue, 0),
-    totalPnl: toNumber(summary.totalPnl, 0),
-    totalPnlPct: toNumber(summary.totalPnlPct, 0),
-    holdingsCount: Math.round(toNumber(summary.holdingsCount, 0)),
+export function buildPortfolioChartInputFingerprint(
+  input: PortfolioChartFingerprintInput,
+) {
+  const canonicalInput = {
+    version: PORTFOLIO_CHART_CACHE_VERSION,
+    ownerId: input.ownerId,
+    portfolioId: input.portfolioId,
+    accountingBasis: input.accountingBasis,
+    portfolioCreatedAt: input.portfolioCreatedAt,
+    cashBalance: input.cashBalance,
+    netContributedCapital: input.netContributedCapital,
+    holdings: input.holdings
+      .map((holding) => ({ ...holding, ticker: cleanTicker(holding.ticker) }))
+      .sort((a, b) => a.ticker.localeCompare(b.ticker)),
+    transactions: input.transactions
+      .map((transaction) => ({
+        ...transaction,
+        ticker: cleanTicker(transaction.ticker) || null,
+      }))
+      .sort((a, b) =>
+        String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")) ||
+        String(a.id ?? "").localeCompare(String(b.id ?? "")),
+      ),
   };
+
+  return createHash("sha256").update(stableJson(canonicalInput)).digest("hex");
+}
+
+function portfolioChartKey({
+  ownerId,
+  portfolioId,
+  inputFingerprint,
+}: {
+  ownerId: string;
+  portfolioId: string;
+  inputFingerprint: string;
+}) {
+  return `portfolio:chart:${PORTFOLIO_CHART_CACHE_VERSION}:${ownerId}:${portfolioId}:${inputFingerprint}`;
+}
+
+function isValidChartPoint(value: unknown): value is ChartPoint {
+  if (!value || typeof value !== "object") return false;
+  const point = value as Record<string, unknown>;
+  const timestamp = typeof point.date === "string" ? new Date(point.date).getTime() : Number.NaN;
+  if (!Number.isFinite(timestamp)) return false;
+  if (!Number.isFinite(point.close) || Number(point.close) < 0) return false;
+  for (const field of ["cash", "basis", "pnl", "pnlPct"] as const) {
+    if (point[field] != null && !Number.isFinite(point[field])) return false;
+  }
+  if (point.cash != null && Number(point.cash) < 0) return false;
+  return true;
+}
+
+export function isPortfolioChartCachePayload(
+  value: unknown,
+  expected: { ownerId: string; portfolioId: string; inputFingerprint: string },
+): value is PortfolioChartCachePayload {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as Partial<PortfolioChartCachePayload>;
+  if (
+    payload.version !== PORTFOLIO_CHART_CACHE_VERSION ||
+    payload.ownerId !== expected.ownerId ||
+    payload.portfolioId !== expected.portfolioId ||
+    payload.inputFingerprint !== expected.inputFingerprint ||
+    typeof payload.generatedAt !== "string" ||
+    !Number.isFinite(new Date(payload.generatedAt).getTime()) ||
+    !payload.chartData ||
+    typeof payload.chartData !== "object"
+  ) {
+    return false;
+  }
+
+  return Object.entries(payload.chartData).every(
+    ([range, points]) =>
+      CHART_RANGES.includes(range as TimeRange) &&
+      Array.isArray(points) &&
+      points.every(isValidChartPoint),
+  );
 }
 
 function hasUsableOneDayChart(chartData: PortfolioChartData) {
@@ -59,79 +158,60 @@ function hasUsableOneDayChart(chartData: PortfolioChartData) {
 export function hasUsablePortfolioChart(chartData: PortfolioChartData | null | undefined) {
   if (!chartData) return false;
   const displayable = filterDisplayablePortfolioChartData(chartData);
-  const hasAnyUsableRange = Object.values(displayable).some((points) => (points?.length ?? 0) > 1);
+  const hasAnyUsableRange = Object.values(displayable).some(
+    (points) => (points?.length ?? 0) > 1,
+  );
   return hasAnyUsableRange && hasUsableOneDayChart(displayable);
 }
 
-function chartMatchesSummary(payload: PortfolioChartCachePayload, summary: SummaryLike) {
-  const current = normaliseSummary(summary);
-
-  return (
-    Math.abs(payload.totalValue - current.totalValue) <= 0.01 &&
-    Math.abs(payload.totalPnl - current.totalPnl) <= 0.01 &&
-    Math.abs(payload.totalPnlPct - current.totalPnlPct) <= 0.05 &&
-    payload.holdingsCount === current.holdingsCount
-  );
-}
-
 export async function getLatestPortfolioChart({
+  ownerId,
   portfolioId,
-  summary,
+  inputFingerprint,
+  nowMs,
 }: {
+  ownerId: string;
   portfolioId: string;
-  summary: SummaryLike;
+  inputFingerprint: string;
+  nowMs?: number;
 }): Promise<PortfolioChartData | null> {
-  const payload = await getJsonCache<PortfolioChartCachePayload>(portfolioChartKey(portfolioId));
+  const expected = { ownerId, portfolioId, inputFingerprint };
+  const payload = await getJsonCache<unknown>(portfolioChartKey(expected));
 
-  if (!payload || !hasUsablePortfolioChart(payload.chartData)) return null;
-  if (!chartMatchesSummary(payload, summary)) return null;
-  if (!isPortfolioChartLatestPointFresh({ chartData: payload.chartData })) return null;
+  if (!isPortfolioChartCachePayload(payload, expected)) return null;
+  if (!hasUsablePortfolioChart(payload.chartData)) return null;
+  if (!isPortfolioChartLatestPointFresh({ chartData: payload.chartData, nowMs })) return null;
 
   return filterDisplayablePortfolioChartData(payload.chartData);
 }
 
 export async function saveLatestPortfolioChart({
+  ownerId,
   portfolioId,
-  summary,
+  inputFingerprint,
   chartData,
+  generatedAt = new Date().toISOString(),
 }: {
+  ownerId: string;
   portfolioId: string;
-  summary: PortfolioHealthSummary;
+  inputFingerprint: string;
   chartData: PortfolioChartData;
+  generatedAt?: string;
 }) {
   const displayableChartData = filterDisplayablePortfolioChartData(chartData);
   if (!hasUsablePortfolioChart(displayableChartData)) return;
 
-  const current = normaliseSummary(summary);
-  await setJsonCache<PortfolioChartCachePayload>(
-    portfolioChartKey(portfolioId),
-    {
-      chartData: displayableChartData,
-      totalValue: current.totalValue,
-      totalPnl: current.totalPnl,
-      totalPnlPct: current.totalPnlPct,
-      holdingsCount: current.holdingsCount,
-      generatedAt: new Date().toISOString(),
-    },
+  const payload: PortfolioChartCachePayload = {
+    version: PORTFOLIO_CHART_CACHE_VERSION,
+    ownerId,
+    portfolioId,
+    inputFingerprint,
+    chartData: displayableChartData,
+    generatedAt,
+  };
+  await setJsonCache(
+    portfolioChartKey({ ownerId, portfolioId, inputFingerprint }),
+    payload,
     PORTFOLIO_CHART_CACHE_TTL_SECONDS,
   );
-}
-
-export async function overlayLatestPortfolioChart({
-  portfolioId,
-  snapshot,
-}: {
-  portfolioId: string;
-  snapshot: PortfolioSnapshotPayload;
-}): Promise<PortfolioSnapshotPayload> {
-  const summary = snapshot.summary as SummaryLike | null | undefined;
-  if (!summary) return snapshot;
-
-  const chartData = await getLatestPortfolioChart({ portfolioId, summary });
-  if (!chartData) return snapshot;
-
-  return {
-    ...snapshot,
-    chartData,
-  };
 }

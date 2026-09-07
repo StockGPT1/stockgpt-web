@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import type { ChartPoint, TimeRange } from "@/components/StockChart";
-import { getJsonCache, setJsonCache } from "@/lib/redis-cache";
-import { hashPortfolioInputs } from "@/lib/portfolio-speed-cache";
+import {
+  buildPortfolioChartInputFingerprint,
+  getLatestPortfolioChart,
+  saveLatestPortfolioChart,
+} from "@/lib/portfolio-chart-cache";
 import {
   assessPortfolioChartHealth,
   filterDisplayablePortfolioChartData,
@@ -10,18 +12,13 @@ import {
   appendCurrentPointToPortfolioChartData,
   buildCurrentPortfolioSnapshotPoint,
   getPortfolioSnapshotChartDataWithHealth,
-  isPortfolioChartLatestPointFresh,
   latestPortfolioInputChangeMs,
-  saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
 import { createClient } from "@/utils/supabase/server";
+import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 20;
-
-const PORTFOLIO_CHART_CACHE_TTL_SECONDS = Number(
-  process.env.PORTFOLIO_CHART_CACHE_TTL_SECONDS ?? 60,
-);
 
 type HoldingRow = {
   ticker: string | null;
@@ -32,12 +29,14 @@ type HoldingRow = {
 };
 
 type TransactionRow = {
+  id: string;
   ticker: string | null;
   type: string | null;
   shares: number | null;
   price: number | null;
   amount: number | null;
   realised_pnl: number | null;
+  currency: string | null;
   created_at: string | null;
 };
 
@@ -48,24 +47,8 @@ type PortfolioRow = {
   cash_deposited_total?: number | null;
   investment_amount?: number | null;
   created_at?: string | null;
+  currency: string | null;
 };
-
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function portfolioChartCacheKey({
-  userId,
-  portfolioId,
-  inputHash,
-}: {
-  userId: string;
-  portfolioId: string;
-  inputHash: string;
-}) {
-  return `portfolio:chart:v9:${userId}:${portfolioId}:${inputHash}`;
-}
 
 export async function GET(req: NextRequest) {
   const portfolioId = req.nextUrl.searchParams.get("portfolioId");
@@ -80,13 +63,19 @@ export async function GET(req: NextRequest) {
 
   const { data: portfolio, error: portfolioError } = await supabase
     .from("user_portfolios")
-    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
+    .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at,currency")
     .eq("id", portfolioId)
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (portfolioError || !portfolio) {
     return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
+  }
+  if (!isCanonicalUsdPortfolio(portfolio.currency)) {
+    return NextResponse.json({
+      chartData: {},
+      meta: { source: "empty", limitation: "portfolio_currency_basis_unresolved" },
+    });
   }
 
   const [{ data: holdingRows, error: holdingsError }, { data: transactionRows, error: transactionError }] =
@@ -98,7 +87,7 @@ export async function GET(req: NextRequest) {
         .not("ticker", "is", null),
       supabase
         .from("portfolio_transactions")
-        .select("ticker,type,shares,price,amount,realised_pnl,created_at")
+        .select("id,ticker,type,shares,price,amount,realised_pnl,currency,created_at")
         .eq("portfolio_id", portfolioId)
         .order("created_at", { ascending: true })
         .limit(2000),
@@ -118,16 +107,24 @@ export async function GET(req: NextRequest) {
 
   const { data: currentRows } =
     tickers.length > 0
-      ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
+      ? await supabase
+          .from("stock_rankings")
+          .select("ticker,price,last_price_update")
+          .in("ticker", tickers)
       : { data: [] };
 
   const portfolioRow = portfolio as PortfolioRow;
   const holdings = (holdingRows ?? []) as HoldingRow[];
   const transactions = (transactionRows ?? []) as TransactionRow[];
-  const prices = ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
+  const prices = ((currentRows ?? []) as Array<{
+    ticker: string | null;
+    price: number | null;
+    last_price_update: string | null;
+  }>)
     .map((row) => ({
       ticker: String(row.ticker ?? "").toUpperCase(),
-      price: toNumber(row.price, 0),
+      price: row.price,
+      lastPriceUpdate: row.last_price_update,
     }))
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
   const nowMs = Date.now();
@@ -137,39 +134,52 @@ export async function GET(req: NextRequest) {
     currentPrices: Object.fromEntries(prices.map((row) => [row.ticker, row.price])),
     snapshotAt: new Date(nowMs),
   });
-  const currentSnapshotChart = { "1D": [currentPoint] } satisfies Partial<
-    Record<TimeRange, ChartPoint[]>
-  >;
-  const saveCurrentSnapshot = () => {
-    void saveLatestPortfolioSnapshotFromChartData({
-      supabase,
-      portfolioId,
-      userId: user.id,
-      chartData: currentSnapshotChart,
-      source: "page",
-    });
-  };
-
   const latestInputMs = latestPortfolioInputChangeMs({
     portfolioCreatedAt: portfolioRow.created_at ?? null,
     holdings,
     transactions,
   });
 
-  const chartInputHash = hashPortfolioInputs({
-    version: "portfolio-chart-v9",
-    portfolio: portfolioRow,
-    holdings,
-    transactions,
-    prices,
-  });
-  const cacheKey = portfolioChartCacheKey({
-    userId: user.id,
+  const chartInputHash = buildPortfolioChartInputFingerprint({
+    ownerId: user.id,
     portfolioId,
-    inputHash: chartInputHash,
+    accountingBasis: "canonical_usd",
+    portfolioCreatedAt: portfolioRow.created_at ?? null,
+    cashBalance: portfolioRow.cash_balance,
+    netContributedCapital: portfolioRow.cash_deposited_total,
+    holdings: holdings.map((holding) => {
+      const ticker = String(holding.ticker ?? "").trim().toUpperCase();
+      const price = prices.find((row) => row.ticker === ticker);
+      return {
+        ticker,
+        shares: holding.shares,
+        entryPrice: holding.entry_price,
+        purchaseDate: holding.purchase_date ?? null,
+        addedAt: holding.added_at ?? null,
+        currentPrice: price?.price ?? null,
+        currentPriceUpdatedAt: price?.lastPriceUpdate ?? null,
+      };
+    }),
+    transactions: transactions.map((transaction) => ({
+      id: transaction.id,
+      createdAt: transaction.created_at,
+      ticker: transaction.ticker,
+      type: transaction.type,
+      shares: transaction.shares,
+      price: transaction.price,
+      amount: transaction.amount,
+      realisedPnl: transaction.realised_pnl,
+      currency: transaction.currency,
+    })),
   });
-  const cachedChartData =
-    await getJsonCache<Partial<Record<TimeRange, ChartPoint[]>>>(cacheKey);
+  const cachedChartData = currentPoint
+    ? await getLatestPortfolioChart({
+        ownerId: user.id,
+        portfolioId,
+        inputFingerprint: chartInputHash,
+        nowMs,
+      })
+    : null;
   if (cachedChartData) {
     const health = assessPortfolioChartHealth({
       portfolioCreatedAt: portfolioRow.created_at ?? null,
@@ -178,10 +188,20 @@ export async function GET(req: NextRequest) {
       chartData: cachedChartData,
       summary: { holdingsCount: holdings.length },
     });
-    const displayableCached = filterDisplayablePortfolioChartData(cachedChartData);
-    if (health.displayable && isPortfolioChartLatestPointFresh({ chartData: displayableCached, nowMs })) {
-      return NextResponse.json({ chartData: displayableCached, meta: { source: "cached-good", health } });
+    if (health.displayable) {
+      return NextResponse.json({ chartData: cachedChartData, meta: { source: "cached-good", health } });
     }
+  }
+
+  if (!currentPoint) {
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolioRow.created_at ?? null,
+      latestInputMs,
+      nowMs,
+      chartData: {},
+      summary: { holdingsCount: holdings.length },
+    });
+    return NextResponse.json({ chartData: {}, meta: { source: "building", health } });
   }
 
   const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
@@ -194,34 +214,28 @@ export async function GET(req: NextRequest) {
   });
 
   if (snapshotChart?.health.displayable) {
-    const needsCurrentPoint =
-      snapshotChart.health.status === "stale" ||
-      !isPortfolioChartLatestPointFresh({
-        chartData: snapshotChart.chartData,
-        nowMs,
-      });
     const chartData = filterDisplayablePortfolioChartData(
-      needsCurrentPoint
-        ? appendCurrentPointToPortfolioChartData({
-            chartData: snapshotChart.chartData,
-            currentPoint,
-            portfolioCreatedAt: portfolioRow.created_at ?? null,
-            nowMs,
-          })
-        : snapshotChart.chartData,
+      appendCurrentPointToPortfolioChartData({
+        chartData: snapshotChart.chartData,
+        currentPoint,
+        portfolioCreatedAt: portfolioRow.created_at ?? null,
+        nowMs,
+      }),
     );
-    const health = needsCurrentPoint
-      ? assessPortfolioChartHealth({
-          portfolioCreatedAt: portfolioRow.created_at ?? null,
-          latestInputMs,
-          chartData,
-          summary: { holdingsCount: holdings.length },
-          nowMs,
-        })
-      : snapshotChart.health;
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolioRow.created_at ?? null,
+      latestInputMs,
+      chartData,
+      summary: { holdingsCount: holdings.length },
+      nowMs,
+    });
 
-    if (needsCurrentPoint) saveCurrentSnapshot();
-    void setJsonCache(cacheKey, chartData, PORTFOLIO_CHART_CACHE_TTL_SECONDS);
+    void saveLatestPortfolioChart({
+      ownerId: user.id,
+      portfolioId,
+      inputFingerprint: chartInputHash,
+      chartData,
+    });
     return NextResponse.json({ chartData, meta: { source: "snapshots", health } });
   }
 
@@ -234,7 +248,6 @@ export async function GET(req: NextRequest) {
       }))
     : {};
 
-  saveCurrentSnapshot();
   const health = assessPortfolioChartHealth({
     portfolioCreatedAt: portfolioRow.created_at ?? null,
     latestInputMs,

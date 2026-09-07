@@ -3,11 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import type { Portfolio } from "@/lib/portfolio";
-import { invalidatePortfolioPageSnapshot } from "@/lib/portfolio-speed-cache";
-import {
-  buildCurrentPortfolioSnapshotPoint,
-  saveLatestPortfolioSnapshotFromChartData,
-} from "@/lib/portfolio-snapshots";
 import {
   resolveTradeOrder,
   roundTradeMoney,
@@ -289,71 +284,17 @@ async function markPortfolioChartInputsChanged({
   supabase,
   portfolioId,
   userId,
-  writeCurrentSnapshot = true,
 }: {
   supabase: SupabaseClient;
   portfolioId: string;
   userId: string;
-  writeCurrentSnapshot?: boolean;
 }) {
-  await invalidatePortfolioPageSnapshot({ portfolioId, ownerId: userId });
-
-  if (!writeCurrentSnapshot) return;
-
-  try {
-    const [{ data: portfolio }, { data: holdings }] = await Promise.all([
-      supabase
-        .from("user_portfolios")
-        .select("id,user_id,cash_balance,cash_deposited_total,investment_amount,created_at")
-        .eq("id", portfolioId)
-        .eq("user_id", userId)
-        .maybeSingle(),
-      supabase
-        .from("portfolio_holdings")
-        .select("ticker,shares,entry_price,purchase_date,added_at")
-        .eq("portfolio_id", portfolioId)
-        .not("ticker", "is", null),
-    ]);
-
-    if (!portfolio) return;
-
-    const holdingRows = (holdings ?? []) as Array<{
-      ticker: string | null;
-      shares: number | null;
-      entry_price: number | null;
-      purchase_date?: string | null;
-      added_at?: string | null;
-    }>;
-    const tickers = Array.from(new Set(holdingRows.map((holding) => cleanTicker(holding.ticker ?? "")).filter(Boolean)));
-    const { data: currentRows } =
-      tickers.length > 0
-        ? await supabase.from("stock_rankings").select("ticker,price").in("ticker", tickers)
-        : { data: [] };
-    const currentPrices = Object.fromEntries(
-      ((currentRows ?? []) as Array<{ ticker: string | null; price: number | null }>)
-        .map((row) => [cleanTicker(row.ticker ?? ""), moneyNumber(row.price)] as const)
-        .filter(([ticker, price]) => Boolean(ticker) && price > 0),
-    );
-    const point = buildCurrentPortfolioSnapshotPoint({
-      portfolio: portfolio as {
-        cash_balance?: number | null;
-        cash_deposited_total?: number | null;
-        investment_amount?: number | null;
-      },
-      holdings: holdingRows,
-      currentPrices,
-    });
-
-    await saveLatestPortfolioSnapshotFromChartData({
-      supabase,
-      portfolioId,
-      userId,
-      chartData: { "1D": [point] },
-      source: "page_current_value",
-    });
-  } catch (error) {
-    console.warn("[portfolio-chart-repair] mutation current snapshot failed", error);
-  }
+  // The v11 chart cache is keyed by the exact owner, Portfolio and authoritative
+  // input fingerprint. Any committed mutation therefore produces a cache miss;
+  // page revalidation below is best-effort presentation refresh only.
+  void supabase;
+  void portfolioId;
+  void userId;
 }
 
 async function refreshAfterHoldingMutation({
@@ -885,7 +826,6 @@ export async function renamePortfolio(
       supabase,
       portfolioId: mutation.data.portfolioId,
       userId: user.id,
-      writeCurrentSnapshot: false,
     });
     revalidatePortfolio(mutation.data.portfolioId);
   } catch {
@@ -934,7 +874,6 @@ export async function updatePortfolioPreferences(
       supabase,
       portfolioId: mutation.data.portfolioId,
       userId: user.id,
-      writeCurrentSnapshot: false,
     });
     revalidatePortfolio(mutation.data.portfolioId);
   } catch {
@@ -1222,7 +1161,6 @@ export async function markReviewed(
       supabase,
       portfolioId: mutation.data.portfolioId,
       userId: user.id,
-      writeCurrentSnapshot: false,
     });
     revalidatePortfolio(mutation.data.portfolioId);
     revalidateStock(mutation.data.ticker);
@@ -1260,7 +1198,6 @@ export async function deletePortfolio(
       supabase,
       portfolioId: mutation.data.portfolioId,
       userId: user.id,
-      writeCurrentSnapshot: false,
     });
     revalidatePortfolio();
     for (const ticker of tickers) revalidateStock(ticker);

@@ -5,9 +5,8 @@ import {
   filterDisplayablePortfolioChartData,
   type PortfolioChartMeta,
 } from "@/lib/portfolio-chart-health";
-import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import type { EnrichedHolding } from "@/lib/portfolio-alerts";
 import {
+  buildPortfolioChartInputFingerprint,
   getLatestPortfolioChart,
   saveLatestPortfolioChart,
 } from "@/lib/portfolio-chart-cache";
@@ -15,9 +14,7 @@ import {
   appendCurrentPointToPortfolioChartData,
   buildCurrentPortfolioSnapshotPoint,
   getPortfolioSnapshotChartDataWithHealth,
-  isPortfolioChartLatestPointFresh,
   latestPortfolioInputChangeMs,
-  saveLatestPortfolioSnapshotFromChartData,
 } from "@/lib/portfolio-snapshots";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
@@ -53,17 +50,35 @@ type TransactionLike = {
   created_at?: string | null;
 };
 
+export type PortfolioChartMarketFact = {
+  ticker: string | null;
+  price: number | null;
+  last_price_update?: string | null;
+};
+
 export type PortfolioPageChartResult = {
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   meta: PortfolioChartMeta;
 };
 
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
+export type PortfolioChartHolding = {
+  ticker: string;
+  shares: number;
+  entryPrice: number;
+  currentPrice: number;
+  currentValue: number;
+  purchaseDate: string | null;
+  addedAt: string;
+};
 
-function holdingsForSnapshots(enriched: EnrichedHolding[]) {
+type PortfolioChartSummary = {
+  holdingsCount: number;
+  totalValue: number;
+  totalPnl?: number;
+  totalPnlPct?: number;
+};
+
+function holdingsForSnapshots(enriched: PortfolioChartHolding[]) {
   return enriched.map((holding) => ({
     ticker: holding.ticker,
     shares: holding.shares,
@@ -84,14 +99,13 @@ async function resolvePortfolioOwnerId({
   portfolio: PortfolioLike;
   ownerId?: string | null;
 }) {
-  if (ownerId) return ownerId;
-  if (portfolio.user_id) return portfolio.user_id;
-
-  const { data, error } = await supabase
+  const expectedOwnerId = ownerId ?? portfolio.user_id ?? null;
+  let query = supabase
     .from("user_portfolios")
     .select("user_id")
-    .eq("id", portfolio.id)
-    .maybeSingle();
+    .eq("id", portfolio.id);
+  if (expectedOwnerId) query = query.eq("user_id", expectedOwnerId);
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.warn("Could not resolve portfolio owner for chart snapshots", error.message ?? error);
@@ -107,14 +121,16 @@ export async function buildPortfolioPageChart({
   transactions,
   summary,
   ownerId,
-  allowCurrentSnapshot,
+  marketFacts,
+  allowCurrentPoint,
 }: {
   portfolio: PortfolioLike;
-  enriched: EnrichedHolding[];
+  enriched: PortfolioChartHolding[];
   transactions: TransactionLike[];
-  summary: PortfolioHealthSummary;
+  summary: PortfolioChartSummary;
   ownerId?: string | null;
-  allowCurrentSnapshot?: boolean;
+  marketFacts?: PortfolioChartMarketFact[];
+  allowCurrentPoint?: boolean;
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   return (
     await buildPortfolioPageChartResult({
@@ -123,7 +139,8 @@ export async function buildPortfolioPageChart({
       transactions,
       summary,
       ownerId,
-      allowCurrentSnapshot,
+      marketFacts,
+      allowCurrentPoint,
     })
   ).chartData;
 }
@@ -134,14 +151,16 @@ export async function buildPortfolioPageChartResult({
   transactions,
   summary,
   ownerId,
-  allowCurrentSnapshot = true,
+  marketFacts = [],
+  allowCurrentPoint = true,
 }: {
   portfolio: PortfolioLike;
-  enriched: EnrichedHolding[];
+  enriched: PortfolioChartHolding[];
   transactions: TransactionLike[];
-  summary: PortfolioHealthSummary;
+  summary: PortfolioChartSummary;
   ownerId?: string | null;
-  allowCurrentSnapshot?: boolean;
+  marketFacts?: PortfolioChartMarketFact[];
+  allowCurrentPoint?: boolean;
 }): Promise<PortfolioPageChartResult> {
   if (!isCanonicalUsdPortfolio(portfolio.currency)) {
     return {
@@ -150,55 +169,97 @@ export async function buildPortfolioPageChartResult({
     };
   }
   const nowMs = Date.now();
-
-  if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
-    const cachedChart = await getLatestPortfolioChart({ portfolioId: portfolio.id, summary });
-    if (cachedChart) {
-      const health = assessPortfolioChartHealth({
-        portfolioCreatedAt: portfolio.created_at ?? null,
-        nowMs,
-        chartData: cachedChart,
-        summary,
-      });
-      if (health.displayable && isPortfolioChartLatestPointFresh({ chartData: cachedChart, nowMs })) {
-        return { chartData: cachedChart, meta: { source: "cached-good", health } };
-      }
-    }
-  }
-
   const supabase = createAdminClient();
   const resolvedOwnerId = await resolvePortfolioOwnerId({ supabase, portfolio, ownerId });
   const snapshotHoldings = holdingsForSnapshots(enriched);
-  const currentPoint = buildCurrentPortfolioSnapshotPoint({
+  const marketFactsByTicker = new Map(
+    marketFacts.map((fact) => [String(fact.ticker ?? "").trim().toUpperCase(), fact]),
+  );
+  const currentPoint = allowCurrentPoint
+    ? buildCurrentPortfolioSnapshotPoint({
     portfolio: {
       cash_balance: portfolio.cash_balance,
       cash_deposited_total: portfolio.cash_deposited_total,
-      investment_amount: portfolio.investment_amount,
     },
     holdings: snapshotHoldings,
     currentPrices: Object.fromEntries(
-      enriched.map((holding) => [holding.ticker, toNumber(holding.currentPrice, 0)]),
+      enriched.map((holding) => [holding.ticker, holding.currentPrice]),
     ),
     snapshotAt: new Date(nowMs),
-  });
-  const currentSnapshotChart = { "1D": [currentPoint] } satisfies Partial<
-    Record<TimeRange, ChartPoint[]>
-  >;
-  const saveCurrentSnapshot = () => {
-    if (!resolvedOwnerId || !allowCurrentSnapshot) return;
-    void saveLatestPortfolioSnapshotFromChartData({
-      supabase,
-      portfolioId: portfolio.id,
-      userId: resolvedOwnerId,
-      chartData: currentSnapshotChart,
-      source: "page_current_value",
-    });
-  };
+  })
+    : null;
   const latestInputMs = latestPortfolioInputChangeMs({
     portfolioCreatedAt: portfolio.created_at ?? null,
     holdings: snapshotHoldings,
     transactions,
   });
+  const inputFingerprint = resolvedOwnerId
+    ? buildPortfolioChartInputFingerprint({
+        ownerId: resolvedOwnerId,
+        portfolioId: portfolio.id,
+        accountingBasis: "canonical_usd",
+        portfolioCreatedAt: portfolio.created_at ?? null,
+        cashBalance: portfolio.cash_balance,
+        netContributedCapital: portfolio.cash_deposited_total,
+        holdings: snapshotHoldings.map((holding) => {
+          const marketFact = marketFactsByTicker.get(
+            String(holding.ticker ?? "").trim().toUpperCase(),
+          );
+          return {
+            ticker: holding.ticker,
+            shares: holding.shares,
+            entryPrice: holding.entryPrice,
+            purchaseDate: holding.purchaseDate ?? null,
+            addedAt: holding.addedAt ?? null,
+            currentPrice: holding.currentPrice,
+            currentPriceUpdatedAt: marketFact?.last_price_update ?? null,
+          };
+        }),
+        transactions: transactions.map((transaction) => ({
+          id: transaction.id ?? null,
+          createdAt: transaction.created_at ?? null,
+          ticker: transaction.ticker ?? null,
+          type: transaction.type ?? null,
+          shares: transaction.shares,
+          price: transaction.price,
+          amount: transaction.amount,
+          realisedPnl: transaction.realised_pnl,
+          currency: transaction.currency ?? null,
+        })),
+      })
+    : null;
+
+  if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED && currentPoint && resolvedOwnerId && inputFingerprint) {
+    const cachedChart = await getLatestPortfolioChart({
+      ownerId: resolvedOwnerId,
+      portfolioId: portfolio.id,
+      inputFingerprint,
+      nowMs,
+    });
+    if (cachedChart) {
+      const health = assessPortfolioChartHealth({
+        portfolioCreatedAt: portfolio.created_at ?? null,
+        latestInputMs,
+        nowMs,
+        chartData: cachedChart,
+        summary,
+      });
+      if (health.displayable) {
+        return { chartData: cachedChart, meta: { source: "cached-good", health } };
+      }
+    }
+  }
+
+  if (!currentPoint) {
+    const health = assessPortfolioChartHealth({
+      portfolioCreatedAt: portfolio.created_at ?? null,
+      latestInputMs,
+      chartData: {},
+      summary,
+      nowMs,
+    });
+    return { chartData: {}, meta: { source: "building", health } };
+  }
 
   if (resolvedOwnerId) {
     const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
@@ -211,41 +272,33 @@ export async function buildPortfolioPageChartResult({
     });
 
     if (snapshotChart?.health.displayable) {
-      const needsCurrentPoint =
-        allowCurrentSnapshot &&
-        (snapshotChart.health.status === "stale" ||
-          !isPortfolioChartLatestPointFresh({
-            chartData: snapshotChart.chartData,
-            nowMs,
-          }));
       const chartData = filterDisplayablePortfolioChartData(
-        needsCurrentPoint
-          ? appendCurrentPointToPortfolioChartData({
-              chartData: snapshotChart.chartData,
-              currentPoint,
-              portfolioCreatedAt: portfolio.created_at ?? null,
-              nowMs,
-            })
-          : snapshotChart.chartData,
+        appendCurrentPointToPortfolioChartData({
+          chartData: snapshotChart.chartData,
+          currentPoint,
+          portfolioCreatedAt: portfolio.created_at ?? null,
+          nowMs,
+        }),
       );
-      const health = needsCurrentPoint
-        ? assessPortfolioChartHealth({
-            portfolioCreatedAt: portfolio.created_at ?? null,
-            latestInputMs,
-            chartData,
-            summary,
-            nowMs,
-          })
-        : snapshotChart.health;
+      const health = assessPortfolioChartHealth({
+        portfolioCreatedAt: portfolio.created_at ?? null,
+        latestInputMs,
+        chartData,
+        summary,
+        nowMs,
+      });
 
-      if (needsCurrentPoint) saveCurrentSnapshot();
-
-      if (PORTFOLIO_PAGE_CHART_CACHE_ENABLED) {
+      if (
+        PORTFOLIO_PAGE_CHART_CACHE_ENABLED &&
+        resolvedOwnerId &&
+        inputFingerprint
+      ) {
         /* cache write must not sit on the render path — the reader
            tolerates a missing/stale cache and rebuilds from snapshots */
         void saveLatestPortfolioChart({
+          ownerId: resolvedOwnerId,
           portfolioId: portfolio.id,
-          summary,
+          inputFingerprint,
           chartData,
         }).catch((error) => {
           console.warn("[portfolio-page-chart] chart cache write failed", error);
@@ -263,14 +316,12 @@ export async function buildPortfolioPageChartResult({
 
     if (snapshotChart) {
       const chartData = filterDisplayablePortfolioChartData(
-        allowCurrentSnapshot
-          ? appendCurrentPointToPortfolioChartData({
-              chartData: snapshotChart.chartData,
-              currentPoint,
-              portfolioCreatedAt: portfolio.created_at ?? null,
-              nowMs,
-            })
-          : snapshotChart.chartData,
+        appendCurrentPointToPortfolioChartData({
+          chartData: snapshotChart.chartData,
+          currentPoint,
+          portfolioCreatedAt: portfolio.created_at ?? null,
+          nowMs,
+        }),
       );
       const health = assessPortfolioChartHealth({
         portfolioCreatedAt: portfolio.created_at ?? null,
@@ -279,8 +330,6 @@ export async function buildPortfolioPageChartResult({
         summary,
         nowMs,
       });
-
-      saveCurrentSnapshot();
 
       return {
         chartData,
@@ -299,7 +348,6 @@ export async function buildPortfolioPageChartResult({
     };
   }
 
-  if (allowCurrentSnapshot) saveCurrentSnapshot();
   const health = assessPortfolioChartHealth({
     portfolioCreatedAt: portfolio.created_at ?? null,
     latestInputMs,

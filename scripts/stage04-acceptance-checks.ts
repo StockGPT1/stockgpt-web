@@ -63,8 +63,8 @@ for (const competingStatus of ["Strong contributor", "Under pressure", "Oversize
   assert.doesNotMatch(activeStatusSources, new RegExp(competingStatus));
 }
 
-assert.match(cacheWarm, /savePortfolioPageSnapshot/);
-assert.match(cacheWarm, /enrichHoldingsAdmin/);
+assert.match(cacheWarm, /retired:\s*true/);
+assert.doesNotMatch(cacheWarm, /savePortfolioPageSnapshot|enrichHoldingsAdmin/);
 for (const canonicalConsumer of [portfolioPage, dashboard, askRoute, notifications]) {
   assert.doesNotMatch(
     canonicalConsumer,

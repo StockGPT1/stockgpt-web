@@ -374,10 +374,7 @@ export default async function ModernPortfolioPage({
   const riskTolerance = (activePortfolio.risk_tolerance as RiskTolerance) ?? null;
   const enriched = await enrichHoldings(rawHoldings, riskTolerance);
   const cashBalanceUsd = n(activePortfolio.cash_balance);
-  const cashDepositedTotalUsd = n(
-    activePortfolio.cash_deposited_total,
-    n(activePortfolio.investment_amount),
-  );
+  const cashDepositedTotalUsd = n(activePortfolio.cash_deposited_total);
   const summaryUsd = buildPortfolioHealthSummary({
     id: selectedPortfolioId,
     name: activePortfolio.name ?? "Portfolio",
@@ -395,8 +392,8 @@ export default async function ModernPortfolioPage({
       risk_tolerance: activePortfolio.risk_tolerance,
       time_horizon: activePortfolio.time_horizon,
       investment_amount: n(activePortfolio.investment_amount),
-      cash_balance: cashBalanceUsd,
-      cash_deposited_total: cashDepositedTotalUsd,
+      cash_balance: activePortfolio.cash_balance,
+      cash_deposited_total: activePortfolio.cash_deposited_total,
       currency: activePortfolio.currency ?? "USD",
       created_at: activePortfolio.created_at,
     },
@@ -404,7 +401,15 @@ export default async function ModernPortfolioPage({
     transactions,
     summary: summaryUsd,
     ownerId: user.id,
-    allowCurrentSnapshot: enriched.every(
+    marketFacts: [
+      ...initialRankingRows,
+      ...(missingRankingsResult.data ?? []),
+    ].map((ranking) => ({
+      ticker: ranking.ticker,
+      price: ranking.price,
+      last_price_update: ranking.last_price_update,
+    })),
+    allowCurrentPoint: enriched.every(
       (holding) => holding.shares <= 0 || holding.currentPrice > 0,
     ),
   });

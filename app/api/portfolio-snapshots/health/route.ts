@@ -220,6 +220,10 @@ async function repairLiveSnapshots({
       holdings,
       currentPrices,
     });
+    if (!currentPoint) {
+      failed += 1;
+      continue;
+    }
 
     const ok = await saveLatestPortfolioSnapshotFromChartData({
       supabase,

@@ -265,8 +265,7 @@ function hasInvalidRows(rows: PortfolioChartSnapshotHealthRow[]) {
       value < 0 ||
       !Number.isFinite(cash) ||
       cash < 0 ||
-      !Number.isFinite(basis) ||
-      basis < 0
+      !Number.isFinite(basis)
     );
   });
 }

@@ -89,6 +89,7 @@ async function writeLiveSnapshot({
     holdings,
     currentPrices,
   });
+  if (!point) return false;
 
   return saveLatestPortfolioSnapshotFromChartData({
     supabase,

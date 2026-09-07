@@ -132,6 +132,7 @@ export async function GET(req: NextRequest) {
       holdings,
       currentPrices: portfolioPrices,
     });
+    if (!currentPoint) return false;
 
     return saveLatestPortfolioSnapshotFromChartData({
       supabase,

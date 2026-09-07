@@ -67,7 +67,6 @@ const ask = source("lib/ask-stockgpt-portfolio-context.ts");
 assert(ask.includes("monetaryFactsAvailable"), "Ask context does not suppress legacy money");
 
 for (const path of [
-  "app/api/portfolio-cache/warm/route.ts",
   "app/api/portfolio-snapshots/refresh/route.ts",
   "app/api/portfolio-snapshots/backfill/route.ts",
   "app/api/portfolio-snapshots/health/route.ts",
@@ -78,6 +77,13 @@ for (const path of [
     `${path} can derive snapshots without an accounting-basis guard`,
   );
 }
+
+const retiredPageCacheWarm = source("app/api/portfolio-cache/warm/route.ts");
+assert(retiredPageCacheWarm.includes("retired: true"), "Legacy page-cache warm route is active");
+assert(
+  !retiredPageCacheWarm.includes("buildCurrentPortfolioSnapshotPoint"),
+  "Retired page-cache warm route can still derive financial snapshots",
+);
 
 for (const path of [
   "components/ManualPortfolioBuilder.tsx",
