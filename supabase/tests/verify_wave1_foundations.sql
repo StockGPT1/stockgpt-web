@@ -58,5 +58,41 @@ begin
   ) then
     raise exception 'Broker owner-chain foreign keys are incomplete';
   end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.instrument_aliases'::regclass
+      and conname = 'instrument_aliases_no_overlapping_validity'
+      and contype = 'x'
+  ) or exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.instrument_aliases'::regclass
+      and conname = 'instrument_aliases_namespace_scope_value_key'
+  ) then
+    raise exception 'Temporal alias reuse constraint is not installed correctly';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.conrelid = 'public.broker_connections'::regclass
+      and c.conname = 'broker_connections_owner_provider_external_key'
+      and c.contype = 'u'
+      and (
+        select array_agg(a.attname order by k.ordinality)
+        from unnest(c.conkey) with ordinality as k(attnum, ordinality)
+        join pg_attribute a
+          on a.attrelid = c.conrelid and a.attnum = k.attnum
+      ) = array['user_id', 'provider_id', 'external_connection_id']::name[]
+  ) or exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.broker_connections'::regclass
+      and conname = 'broker_connections_provider_external_key'
+  ) then
+    raise exception 'Broker connection external identity is not owner/provider scoped';
+  end if;
 end;
 $wave1_catalog$;

@@ -21,6 +21,10 @@ const ids = {
   activeConnection: "72000000-0000-4000-8000-000000000001",
   activeAccount: "73000000-0000-4000-8000-000000000001",
   isolationAccount: "73000000-0000-4000-8000-000000000002",
+  sharedExternalConnections: [
+    "72000000-0000-4000-8000-000000000090",
+    "72000000-0000-4000-8000-000000000091",
+  ],
 };
 
 async function rows(client, table, select = "*") {
@@ -66,6 +70,40 @@ try {
   });
   assert(duplicateFingerprint, "Duplicate deterministic activity fingerprint was accepted");
 
+  const sharedExternalConnectionId = "connection-1";
+  const sharedProviderId = "70000000-0000-4000-8000-000000000001";
+  const sharedInstitutionId = "71000000-0000-4000-8000-000000000001";
+  const { error: sharedConnectionError } = await admin.from("broker_connections").insert([
+    {
+      id: ids.sharedExternalConnections[0],
+      user_id: ids.activeUser,
+      provider_id: sharedProviderId,
+      institution_id: sharedInstitutionId,
+      external_connection_id: sharedExternalConnectionId,
+      status: "active",
+    },
+    {
+      id: ids.sharedExternalConnections[1],
+      user_id: ids.isolationUser,
+      provider_id: sharedProviderId,
+      institution_id: sharedInstitutionId,
+      external_connection_id: sharedExternalConnectionId,
+      status: "active",
+    },
+  ]);
+  if (sharedConnectionError) throw sharedConnectionError;
+
+  const { error: duplicateOwnerConnectionError } = await admin.from("broker_connections").insert({
+    user_id: ids.activeUser,
+    provider_id: sharedProviderId,
+    institution_id: sharedInstitutionId,
+    external_connection_id: sharedExternalConnectionId,
+  });
+  assert(duplicateOwnerConnectionError, "Duplicate owner/provider connection identity was accepted");
+
+  assert((await rows(active, "broker_connections", "id,external_connection_id")).filter((row) => row.external_connection_id === sharedExternalConnectionId).length === 1, "Owner A did not see exactly their scoped duplicate external ID");
+  assert((await rows(isolation, "broker_connections", "id,external_connection_id")).filter((row) => row.external_connection_id === sharedExternalConnectionId).length === 1, "Owner B did not see exactly their scoped duplicate external ID");
+
   const before = {
     accounts: (await rows(admin, "broker_accounts", "id")).length,
     positions: (await rows(admin, "broker_positions", "id")).length,
@@ -85,6 +123,7 @@ try {
   assert(!(await rows(admin, "broker_accounts", "id")).some((row) => portfolioIds.has(row.id)), "Broker account identity collapsed into a StockGPT Portfolio");
 } finally {
   await admin.from("broker_positions").delete().eq("id", "74000000-0000-4000-8000-000000000099");
+  await admin.from("broker_connections").delete().in("id", ids.sharedExternalConnections);
   await admin.from("broker_connections").update({ status: "active", disconnected_at: null }).eq("id", ids.activeConnection);
   await Promise.all([active.auth.signOut(), isolation.auth.signOut()]);
 }

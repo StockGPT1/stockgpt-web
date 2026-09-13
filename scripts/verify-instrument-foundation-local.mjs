@@ -10,6 +10,10 @@ const status = Object.fromEntries(run(["status", "-o", "env"], { stdio: ["ignore
 const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY ?? status.SECRET_KEY, { auth: { persistSession: false } });
 const active = createClient(status.API_URL, status.ANON_KEY, { auth: { persistSession: false } });
 const free = createClient(status.API_URL, status.ANON_KEY, { auth: { persistSession: false } });
+const temporalInstrumentIds = [
+  "60000000-0000-4000-8000-000000000090",
+  "60000000-0000-4000-8000-000000000091",
+];
 
 for (const [client, email] of [[active, "active-subscriber@stockgpt.invalid"], [free, "free-user@stockgpt.invalid"]]) {
   const { error } = await client.auth.signInWithPassword({ email, password });
@@ -44,9 +48,63 @@ try {
 
   const { error: hostileWrite } = await active.from("instrument_aliases").insert({ instrument_id: "60000000-0000-4000-8000-000000000001", namespace: "hostile", value: "FORGED" });
   assert(hostileWrite, "Authenticated client forged an instrument alias");
+
+  const { error: instrumentSetupError } = await admin.from("instruments").insert([
+    { id: temporalInstrumentIds[0], display_name: "Synthetic Historical ABC Listing", exchange_mic: "XNAS", trading_currency: "USD", instrument_type: "equity" },
+    { id: temporalInstrumentIds[1], display_name: "Synthetic Current ABC Listing", exchange_mic: "XNAS", trading_currency: "USD", instrument_type: "equity" },
+  ]);
+  if (instrumentSetupError) throw instrumentSetupError;
+
+  const { error: temporalAliasError } = await admin.from("instrument_aliases").insert([
+    {
+      instrument_id: temporalInstrumentIds[0],
+      namespace: "stockgpt.ticker",
+      scope: "XNAS",
+      value: "ABC",
+      valid_from: "2020-01-01T00:00:00Z",
+      valid_to: "2026-01-01T00:00:00Z",
+    },
+    {
+      instrument_id: temporalInstrumentIds[1],
+      namespace: "stockgpt.ticker",
+      scope: "XNAS",
+      value: "ABC",
+      valid_from: "2026-01-01T00:00:00Z",
+      valid_to: null,
+    },
+    {
+      instrument_id: temporalInstrumentIds[0],
+      namespace: "stockgpt.ticker",
+      scope: "XNYS",
+      value: "ABC",
+      valid_from: "2026-01-01T00:00:00Z",
+      valid_to: null,
+    },
+  ]);
+  if (temporalAliasError) throw temporalAliasError;
+
+  const { data: temporalAliases, error: temporalReadError } = await active
+    .from("instrument_aliases")
+    .select("instrument_id,scope,valid_from,valid_to")
+    .eq("namespace", "stockgpt.ticker")
+    .eq("value", "ABC")
+    .order("valid_from");
+  if (temporalReadError) throw temporalReadError;
+  assert(temporalAliases.filter((row) => row.scope === "XNAS").length === 2, "Non-overlapping alias history did not persist");
+  assert(temporalAliases.some((row) => row.scope === "XNYS"), "Same symbol in a different scope was rejected");
+
+  const { error: overlappingAliasError } = await admin.from("instrument_aliases").insert({
+    instrument_id: temporalInstrumentIds[0],
+    namespace: "stockgpt.ticker",
+    scope: "XNAS",
+    value: "ABC",
+    valid_from: "2027-01-01T00:00:00Z",
+    valid_to: null,
+  });
+  assert(overlappingAliasError, "Overlapping current alias mapping was accepted");
 } finally {
+  await admin.from("instruments").delete().in("id", temporalInstrumentIds);
   await Promise.all([active.auth.signOut(), free.auth.signOut()]);
-  void admin;
 }
 
 console.log("Local instrument identity, coverage, entitlement and trusted-write boundary checks passed.");

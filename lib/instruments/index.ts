@@ -40,6 +40,8 @@ export function resolveInstrumentAlias(
   const value = query.value.trim();
   const asOf = Date.parse(query.asOf);
 
+  if (!Number.isFinite(asOf)) return null;
+
   const matches = aliases.filter((alias) => {
     if (
       alias.namespace.trim().toLowerCase() !== namespace
@@ -52,6 +54,5 @@ export function resolveInstrumentAlias(
     return (validFrom === null || validFrom <= asOf) && (validTo === null || asOf < validTo);
   });
 
-  const ids = new Set(matches.map((alias) => alias.instrumentId));
-  return ids.size === 1 ? [...ids][0] : null;
+  return matches.length === 1 ? matches[0].instrumentId : null;
 }

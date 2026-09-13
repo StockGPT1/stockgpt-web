@@ -29,6 +29,19 @@ assert.equal(resolveInstrumentAlias([
   { instrumentId: firstId, namespace: "ambiguous", scope: "", value: "DUP" },
   { instrumentId: secondId, namespace: "ambiguous", scope: "", value: "DUP" },
 ], { namespace: "ambiguous", value: "DUP", asOf }), null);
+assert.equal(resolveInstrumentAlias([
+  { instrumentId: firstId, namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", validTo: "2026-01-01T00:00:00Z" },
+  { instrumentId: secondId, namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", validFrom: "2026-01-01T00:00:00Z" },
+], { namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", asOf: "2025-06-01T00:00:00Z" }), firstId);
+assert.equal(resolveInstrumentAlias([
+  { instrumentId: firstId, namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", validTo: "2026-01-01T00:00:00Z" },
+  { instrumentId: secondId, namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", validFrom: "2026-01-01T00:00:00Z" },
+], { namespace: "stockgpt.ticker", scope: "XNAS", value: "ABC", asOf: "2026-06-01T00:00:00Z" }), secondId);
+assert.equal(resolveInstrumentAlias([
+  { instrumentId: firstId, namespace: "ambiguous", scope: "", value: "DUP" },
+  { instrumentId: firstId, namespace: "ambiguous", scope: "", value: "DUP" },
+], { namespace: "ambiguous", value: "DUP", asOf }), null);
+assert.equal(resolveInstrumentAlias(aliases, { namespace: "stockgpt.ticker", scope: "XNAS", value: "NEW", asOf: "not-a-date" }), null);
 
 assert.equal(classifyMarketDataCoverage({ instrumentId: firstId, hasRanking: true, hasTrackedMarketData: true }), "ranked");
 assert.equal(classifyMarketDataCoverage({ instrumentId: firstId, hasRanking: false, hasTrackedMarketData: true }), "tracked_only");
