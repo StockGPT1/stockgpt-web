@@ -7,7 +7,10 @@ do $fixture_assertions$
 declare
   expected_tables text[] := array[
     'affiliate_applications', 'alpha_waitlist', 'ask_stockgpt_messages',
-    'executive_waitlist', 'market_snapshots', 'news_articles',
+    'broker_accounts', 'broker_activities', 'broker_cash_balances',
+    'broker_connections', 'broker_positions', 'broker_providers',
+    'brokerage_institutions', 'executive_waitlist', 'instrument_aliases',
+    'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
     'notification_dismissals', 'portfolio_holdings',
     'portfolio_page_snapshots', 'portfolio_snapshots',
     'portfolio_transactions', 'premium_waitlist', 'pro_waitlist', 'profiles',
@@ -26,11 +29,11 @@ begin
   where n.nspname = 'public' and c.relkind = 'r';
 
   if actual_tables <> expected_tables then
-    raise exception 'Canonical public table set does not match the expected 26 tables';
+    raise exception 'Canonical public table set does not match the expected 36 tables';
   end if;
 
-  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 26 then
-    raise exception 'Expected RLS on all 26 public tables';
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 36 then
+    raise exception 'Expected RLS on all 36 public tables';
   end if;
 
   if to_regclass('public.watchlist') is null or to_regclass('public.user_watchlist') is not null then
@@ -65,6 +68,25 @@ begin
     or (select count(*) from public.technical_level_cache) <> 4
     or (select count(*) from public.news_articles) <> 1 then
     raise exception 'Market/reference fixture counts do not match';
+  end if;
+
+  if (select count(*) from public.instruments) <> 8
+    or (select count(*) from public.instrument_aliases) <> 11
+    or (select count(*) from public.instrument_market_data where coverage = 'ranked') <> 4
+    or (select count(*) from public.instrument_market_data where coverage = 'tracked_only') <> 1
+    or (select count(*) from public.instrument_market_data where coverage = 'unsupported') <> 1
+    or exists (select 1 from public.stock_rankings where instrument_id is null) then
+    raise exception 'Instrument identity/coverage fixture counts do not match';
+  end if;
+
+  if (select count(*) from public.broker_providers) <> 2
+    or (select count(*) from public.brokerage_institutions) <> 2
+    or (select count(*) from public.broker_connections) <> 2
+    or (select count(*) from public.broker_accounts) <> 2
+    or (select count(*) from public.broker_positions) <> 3
+    or (select count(*) from public.broker_cash_balances) <> 3
+    or (select count(*) from public.broker_activities) <> 2 then
+    raise exception 'Provider-neutral broker fixture counts do not match';
   end if;
 
   if not exists (select 1 from public.user_portfolios where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1')

@@ -121,6 +121,359 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_accounts: {
+        Row: {
+          account_type: string | null
+          base_currency: string | null
+          connection_id: string
+          created_at: string
+          external_account_id: string
+          id: string
+          institution_id: string
+          last_successful_sync_at: string | null
+          name: string
+          status: Database["public"]["Enums"]["broker_account_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string | null
+          base_currency?: string | null
+          connection_id: string
+          created_at?: string
+          external_account_id: string
+          id?: string
+          institution_id: string
+          last_successful_sync_at?: string | null
+          name: string
+          status?: Database["public"]["Enums"]["broker_account_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string | null
+          base_currency?: string | null
+          connection_id?: string
+          created_at?: string
+          external_account_id?: string
+          id?: string
+          institution_id?: string
+          last_successful_sync_at?: string | null
+          name?: string
+          status?: Database["public"]["Enums"]["broker_account_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_accounts_connection_owner_fkey"
+            columns: ["connection_id", "user_id", "institution_id"]
+            isOneToOne: false
+            referencedRelation: "broker_connections"
+            referencedColumns: ["id", "user_id", "institution_id"]
+          },
+          {
+            foreignKeyName: "broker_accounts_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "brokerage_institutions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_activities: {
+        Row: {
+          account_id: string
+          activity_type: string
+          currency: string | null
+          description: string | null
+          external_activity_id: string | null
+          fingerprint: string
+          fingerprint_version: string
+          gross_amount: number | null
+          id: string
+          instrument_id: string | null
+          net_amount: number | null
+          occurred_at: string | null
+          price: number | null
+          quantity: number | null
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          activity_type: string
+          currency?: string | null
+          description?: string | null
+          external_activity_id?: string | null
+          fingerprint: string
+          fingerprint_version?: string
+          gross_amount?: number | null
+          id?: string
+          instrument_id?: string | null
+          net_amount?: number | null
+          occurred_at?: string | null
+          price?: number | null
+          quantity?: number | null
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          activity_type?: string
+          currency?: string | null
+          description?: string | null
+          external_activity_id?: string | null
+          fingerprint?: string
+          fingerprint_version?: string
+          gross_amount?: number | null
+          id?: string
+          instrument_id?: string | null
+          net_amount?: number | null
+          occurred_at?: string | null
+          price?: number | null
+          quantity?: number | null
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_activities_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "broker_activities_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_cash_balances: {
+        Row: {
+          account_id: string
+          amount: number
+          as_of: string
+          created_at: string
+          currency: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          as_of: string
+          created_at?: string
+          currency: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          as_of?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_cash_balances_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      broker_connections: {
+        Row: {
+          connected_at: string | null
+          created_at: string
+          disconnected_at: string | null
+          external_connection_id: string
+          id: string
+          institution_id: string
+          last_attempted_sync_at: string | null
+          last_successful_sync_at: string | null
+          provider_id: string
+          status: Database["public"]["Enums"]["broker_connection_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          external_connection_id: string
+          id?: string
+          institution_id: string
+          last_attempted_sync_at?: string | null
+          last_successful_sync_at?: string | null
+          provider_id: string
+          status?: Database["public"]["Enums"]["broker_connection_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          external_connection_id?: string
+          id?: string
+          institution_id?: string
+          last_attempted_sync_at?: string | null
+          last_successful_sync_at?: string | null
+          provider_id?: string
+          status?: Database["public"]["Enums"]["broker_connection_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_connections_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "brokerage_institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_connections_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "broker_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_positions: {
+        Row: {
+          account_id: string
+          as_of: string
+          asset_type: string | null
+          created_at: string
+          description: string | null
+          external_instrument_id: string | null
+          external_position_id: string | null
+          id: string
+          instrument_id: string | null
+          market_value: number | null
+          market_value_currency: string | null
+          position_key: string
+          price: number | null
+          price_currency: string | null
+          quantity: number
+          symbol: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          as_of: string
+          asset_type?: string | null
+          created_at?: string
+          description?: string | null
+          external_instrument_id?: string | null
+          external_position_id?: string | null
+          id?: string
+          instrument_id?: string | null
+          market_value?: number | null
+          market_value_currency?: string | null
+          position_key: string
+          price?: number | null
+          price_currency?: string | null
+          quantity: number
+          symbol?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          as_of?: string
+          asset_type?: string | null
+          created_at?: string
+          description?: string | null
+          external_instrument_id?: string | null
+          external_position_id?: string | null
+          id?: string
+          instrument_id?: string | null
+          market_value?: number | null
+          market_value_currency?: string | null
+          position_key?: string
+          price?: number | null
+          price_currency?: string | null
+          quantity?: number
+          symbol?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_positions_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "broker_positions_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_providers: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          provider_key: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          provider_key: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          provider_key?: string
+        }
+        Relationships: []
+      }
+      brokerage_institutions: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       executive_waitlist: {
         Row: {
           created_at: string
@@ -145,6 +498,124 @@ export type Database = {
           joined_at?: string
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      instrument_aliases: {
+        Row: {
+          created_at: string
+          id: string
+          instrument_id: string
+          is_primary: boolean
+          namespace: string
+          scope: string
+          valid_from: string | null
+          valid_to: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instrument_id: string
+          is_primary?: boolean
+          namespace: string
+          scope?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instrument_id?: string
+          is_primary?: boolean
+          namespace?: string
+          scope?: string
+          valid_from?: string | null
+          valid_to?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_aliases_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instrument_market_data: {
+        Row: {
+          coverage: Database["public"]["Enums"]["instrument_coverage_status"]
+          current_price: number | null
+          instrument_id: string
+          limitation_code: string | null
+          price_as_of: string | null
+          price_currency: string | null
+          source_namespace: string | null
+          updated_at: string
+        }
+        Insert: {
+          coverage: Database["public"]["Enums"]["instrument_coverage_status"]
+          current_price?: number | null
+          instrument_id: string
+          limitation_code?: string | null
+          price_as_of?: string | null
+          price_currency?: string | null
+          source_namespace?: string | null
+          updated_at?: string
+        }
+        Update: {
+          coverage?: Database["public"]["Enums"]["instrument_coverage_status"]
+          current_price?: number | null
+          instrument_id?: string
+          limitation_code?: string | null
+          price_as_of?: string | null
+          price_currency?: string | null
+          source_namespace?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_market_data_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: true
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instruments: {
+        Row: {
+          created_at: string
+          display_name: string
+          exchange_mic: string | null
+          id: string
+          instrument_type: string
+          is_active: boolean
+          trading_currency: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          exchange_mic?: string | null
+          id?: string
+          instrument_type?: string
+          is_active?: boolean
+          trading_currency?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          exchange_mic?: string | null
+          id?: string
+          instrument_type?: string
+          is_active?: boolean
+          trading_currency?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -859,6 +1330,7 @@ export type Database = {
         Row: {
           company: string | null
           id: number
+          instrument_id: string | null
           last_fundamentals_update: string | null
           last_price_update: string | null
           last_ranking_update: string | null
@@ -876,6 +1348,7 @@ export type Database = {
         Insert: {
           company?: string | null
           id?: never
+          instrument_id?: string | null
           last_fundamentals_update?: string | null
           last_price_update?: string | null
           last_ranking_update?: string | null
@@ -893,6 +1366,7 @@ export type Database = {
         Update: {
           company?: string | null
           id?: never
+          instrument_id?: string | null
           last_fundamentals_update?: string | null
           last_price_update?: string | null
           last_ranking_update?: string | null
@@ -907,7 +1381,15 @@ export type Database = {
           ticker?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stock_rankings_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_feedback: {
         Row: {
@@ -1254,7 +1736,14 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      broker_account_status: "active" | "closed" | "inaccessible"
+      broker_connection_status:
+        | "pending"
+        | "active"
+        | "error"
+        | "revoked"
+        | "disconnected"
+      instrument_coverage_status: "ranked" | "tracked_only" | "unsupported"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1384,6 +1873,16 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      broker_account_status: ["active", "closed", "inaccessible"],
+      broker_connection_status: [
+        "pending",
+        "active",
+        "error",
+        "revoked",
+        "disconnected",
+      ],
+      instrument_coverage_status: ["ranked", "tracked_only", "unsupported"],
+    },
   },
 } as const

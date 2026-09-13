@@ -14,7 +14,17 @@ type ExpectedPublicTables =
   | "affiliate_applications"
   | "alpha_waitlist"
   | "ask_stockgpt_messages"
+  | "broker_accounts"
+  | "broker_activities"
+  | "broker_cash_balances"
+  | "broker_connections"
+  | "broker_positions"
+  | "broker_providers"
+  | "brokerage_institutions"
   | "executive_waitlist"
+  | "instrument_aliases"
+  | "instrument_market_data"
+  | "instruments"
   | "market_snapshots"
   | "news_articles"
   | "notification_dismissals"
@@ -44,6 +54,7 @@ type RankingRow = Database["public"]["Tables"]["stock_rankings"]["Row"];
 type DiagnosticRow = Database["public"]["Tables"]["stock_factor_diagnostics"]["Row"];
 type WatchlistInsert = Database["public"]["Tables"]["watchlist"]["Insert"];
 type RankSnapshotInsert = Database["public"]["Tables"]["stock_rank_snapshots"]["Insert"];
+type BrokerPositionInsert = Database["public"]["Tables"]["broker_positions"]["Insert"];
 
 export type PublicTableSetIsCanonical = Assert<Equal<PublicTables, ExpectedPublicTables>>;
 export type PublicFunctionSetIsCanonical = Assert<
@@ -106,4 +117,10 @@ export type WatchlistOwnerIsRequired = Assert<
 >;
 export type RankSnapshotTickerIsRequiredAndNonNull = Assert<
   Equal<RankSnapshotInsert["ticker"], string>
+>;
+export type InstrumentCoverageVocabularyIsCanonical = Assert<
+  Equal<Database["public"]["Enums"]["instrument_coverage_status"], "ranked" | "tracked_only" | "unsupported">
+>;
+export type UnmappedBrokerInstrumentIsRepresentable = Assert<
+  Equal<BrokerPositionInsert["instrument_id"], string | null | undefined>
 >;

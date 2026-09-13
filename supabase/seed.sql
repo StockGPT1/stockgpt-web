@@ -145,19 +145,63 @@ set
   consent_captured_at = '2026-01-01T09:10:00Z'
 where id = '33333333-3333-4333-8333-333333333333';
 
+-- Permanent listing identities and namespaced aliases. These UUIDs are local
+-- fixture identities, not copied provider or production identifiers.
+insert into public.instruments (
+  id, display_name, exchange_mic, trading_currency, instrument_type,
+  created_at, updated_at
+)
+values
+  ('60000000-0000-4000-8000-000000000001', 'Synthetic Apple Listing', 'XNAS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000002', 'Synthetic Microsoft Listing', 'XNAS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000003', 'Synthetic Nvidia Listing', 'XNAS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000004', 'Synthetic Amazon Listing', 'XNAS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000005', 'Synthetic Tracked Listing', 'XNYS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000006', 'Synthetic Unsupported Listing', 'XLON', 'GBP', 'fund', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000007', 'Synthetic Duplicate Name Listing', 'XNAS', 'USD', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z'),
+  ('60000000-0000-4000-8000-000000000008', 'Synthetic Duplicate Name Listing', 'XLON', 'GBP', 'equity', '2026-01-01T08:00:00Z', '2026-01-01T08:00:00Z');
+
+insert into public.instrument_aliases (
+  id, instrument_id, namespace, scope, value, valid_from, valid_to, is_primary, created_at
+)
+values
+  ('61000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', 'stockgpt.ticker', 'XNAS', 'AAPL', '2026-01-01T00:00:00Z', null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000001', 'stockgpt.ticker', 'XNAS', 'AAPLX', '2025-01-01T00:00:00Z', '2026-01-01T00:00:00Z', false, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000003', '60000000-0000-4000-8000-000000000001', 'broker.synthetic_alpha.instrument', '', 'alpha-aapl-001', null, null, false, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000004', '60000000-0000-4000-8000-000000000001', 'broker.synthetic_beta.instrument', '', 'beta-aapl-901', null, null, false, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000005', '60000000-0000-4000-8000-000000000002', 'stockgpt.ticker', 'XNAS', 'MSFT', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000006', '60000000-0000-4000-8000-000000000003', 'stockgpt.ticker', 'XNAS', 'NVDA', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000007', '60000000-0000-4000-8000-000000000004', 'stockgpt.ticker', 'XNAS', 'AMZN', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000008', '60000000-0000-4000-8000-000000000005', 'market.synthetic.symbol', 'XNYS', 'ZZTR', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000009', '60000000-0000-4000-8000-000000000006', 'broker.synthetic_alpha.instrument', '', 'unmapped-capable-asset', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000010', '60000000-0000-4000-8000-000000000007', 'market.synthetic.symbol', 'XNAS', 'DUPL', null, null, true, '2026-01-01T08:00:00Z'),
+  ('61000000-0000-4000-8000-000000000011', '60000000-0000-4000-8000-000000000008', 'market.synthetic.symbol', 'XLON', 'DUPL', null, null, true, '2026-01-01T08:00:00Z');
+
 -- Fixed, synthetic market/reference fixtures. Values are intentionally simple
 -- test data and are not statements about the named securities.
 insert into public.stock_rankings (
-  id, rank, ticker, company, sector, price, score, momentum, pe, risk,
+  id, instrument_id, rank, ticker, company, sector, price, score, momentum, pe, risk,
   updated_at, last_price_update, last_ranking_update,
   last_fundamentals_update, previous_rank
 )
 overriding system value
 values
-  (101, 1, 'AAPL', 'Synthetic Apple Research', 'Technology', 120, 88, 82, 20, 18, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 2),
-  (102, 2, 'MSFT', 'Synthetic Microsoft Research', 'Technology', 220, 84, 79, 24, 16, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 1),
-  (103, 3, 'NVDA', 'Synthetic Nvidia Research', 'Technology', 110, 80, 86, 30, 28, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 4),
-  (104, 4, 'AMZN', 'Synthetic Amazon Research', 'Consumer', 95, 76, 70, 26, 22, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 3);
+  (101, '60000000-0000-4000-8000-000000000001', 1, 'AAPL', 'Synthetic Apple Research', 'Technology', 120, 88, 82, 20, 18, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 2),
+  (102, '60000000-0000-4000-8000-000000000002', 2, 'MSFT', 'Synthetic Microsoft Research', 'Technology', 220, 84, 79, 24, 16, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 1),
+  (103, '60000000-0000-4000-8000-000000000003', 3, 'NVDA', 'Synthetic Nvidia Research', 'Technology', 110, 80, 86, 30, 28, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 4),
+  (104, '60000000-0000-4000-8000-000000000004', 4, 'AMZN', 'Synthetic Amazon Research', 'Consumer', 95, 76, 70, 26, 22, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', 3);
+
+insert into public.instrument_market_data (
+  instrument_id, coverage, current_price, price_currency, price_as_of,
+  source_namespace, limitation_code, updated_at
+)
+values
+  ('60000000-0000-4000-8000-000000000001', 'ranked', 120, 'USD', '2026-01-15T12:00:00Z', 'market.synthetic', null, '2026-01-15T12:00:00Z'),
+  ('60000000-0000-4000-8000-000000000002', 'ranked', 220, 'USD', '2026-01-15T12:00:00Z', 'market.synthetic', null, '2026-01-15T12:00:00Z'),
+  ('60000000-0000-4000-8000-000000000003', 'ranked', 110, 'USD', '2026-01-15T12:00:00Z', 'market.synthetic', null, '2026-01-15T12:00:00Z'),
+  ('60000000-0000-4000-8000-000000000004', 'ranked', 95, 'USD', '2026-01-15T12:00:00Z', 'market.synthetic', null, '2026-01-15T12:00:00Z'),
+  ('60000000-0000-4000-8000-000000000005', 'tracked_only', 42, 'USD', '2026-01-15T12:00:00Z', 'market.synthetic', 'ranking_unavailable', '2026-01-15T12:00:00Z'),
+  ('60000000-0000-4000-8000-000000000006', 'unsupported', null, null, null, null, 'market_data_unsupported', '2026-01-15T12:00:00Z');
 
 insert into public.stock_factor_diagnostics (
   ticker, updated_at, raw_score, current_score, smoothed_score,
@@ -220,6 +264,63 @@ values (
   '2026-01-14T10:00:00Z',
   '2026-01-14T10:00:00Z'
 );
+
+-- Provider-neutral broker fixtures. These contain synthetic external
+-- references only and deliberately keep connection, institution, account and
+-- StockGPT Portfolio identities separate.
+insert into public.broker_providers (id, provider_key, display_name, created_at)
+values
+  ('70000000-0000-4000-8000-000000000001', 'synthetic_alpha', 'Synthetic Connector Alpha', '2026-01-01T08:00:00Z'),
+  ('70000000-0000-4000-8000-000000000002', 'synthetic_beta', 'Synthetic Connector Beta', '2026-01-01T08:00:00Z');
+
+insert into public.brokerage_institutions (id, name, country_code, created_at)
+values
+  ('71000000-0000-4000-8000-000000000001', 'Synthetic Brokerage One', 'GB', '2026-01-01T08:00:00Z'),
+  ('71000000-0000-4000-8000-000000000002', 'Synthetic Brokerage Two', 'US', '2026-01-01T08:00:00Z');
+
+insert into public.broker_connections (
+  id, user_id, provider_id, institution_id, external_connection_id, status,
+  connected_at, last_attempted_sync_at, last_successful_sync_at, created_at, updated_at
+)
+values
+  ('72000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '70000000-0000-4000-8000-000000000001', '71000000-0000-4000-8000-000000000001', 'alpha-connection-local-001', 'active', '2026-01-10T09:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-10T09:00:00Z', '2026-01-15T12:00:00Z'),
+  ('72000000-0000-4000-8000-000000000002', '33333333-3333-4333-8333-333333333333', '70000000-0000-4000-8000-000000000002', '71000000-0000-4000-8000-000000000002', 'beta-connection-local-002', 'active', '2026-01-10T10:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-10T10:00:00Z', '2026-01-15T12:00:00Z');
+
+insert into public.broker_accounts (
+  id, user_id, connection_id, institution_id, external_account_id, name,
+  account_type, base_currency, status, last_successful_sync_at, created_at, updated_at
+)
+values
+  ('73000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '72000000-0000-4000-8000-000000000001', '71000000-0000-4000-8000-000000000001', 'alpha-account-local-001', 'Synthetic Alpha Account', 'general', 'USD', 'active', '2026-01-15T12:00:00Z', '2026-01-10T09:00:00Z', '2026-01-15T12:00:00Z'),
+  ('73000000-0000-4000-8000-000000000002', '33333333-3333-4333-8333-333333333333', '72000000-0000-4000-8000-000000000002', '71000000-0000-4000-8000-000000000002', 'beta-account-local-002', 'Synthetic Beta Account', 'retirement', 'EUR', 'active', '2026-01-15T12:00:00Z', '2026-01-10T10:00:00Z', '2026-01-15T12:00:00Z');
+
+insert into public.broker_positions (
+  id, user_id, account_id, position_key, external_position_id,
+  external_instrument_id, instrument_id, symbol, description, asset_type,
+  quantity, price, price_currency, market_value, market_value_currency,
+  as_of, created_at, updated_at
+)
+values
+  ('74000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '73000000-0000-4000-8000-000000000001', 'alpha-position-aapl', 'alpha-position-local-001', 'alpha-aapl-001', '60000000-0000-4000-8000-000000000001', 'AAPL', 'Synthetic mapped position', 'equity', 3, 121, 'USD', 363, 'USD', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z'),
+  ('74000000-0000-4000-8000-000000000002', '33333333-3333-4333-8333-333333333333', '73000000-0000-4000-8000-000000000002', 'beta-position-aapl', 'beta-position-local-002', 'beta-aapl-901', '60000000-0000-4000-8000-000000000001', 'AAPL', 'Synthetic cross-provider mapped position', 'equity', 2, 119, 'USD', 238, 'USD', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z'),
+  ('74000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', '73000000-0000-4000-8000-000000000001', 'alpha-position-unmapped', 'alpha-position-local-003', 'alpha-unmapped-003', null, 'LOCAL.UNMAPPED', 'Synthetic unmapped provider asset', 'other', 5, 7, 'GBP', 35, 'GBP', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z');
+
+insert into public.broker_cash_balances (
+  id, user_id, account_id, currency, amount, as_of, created_at, updated_at
+)
+values
+  ('75000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '73000000-0000-4000-8000-000000000001', 'USD', 100, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z'),
+  ('75000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', '73000000-0000-4000-8000-000000000001', 'GBP', 25, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z'),
+  ('75000000-0000-4000-8000-000000000003', '33333333-3333-4333-8333-333333333333', '73000000-0000-4000-8000-000000000002', 'EUR', 80, '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z');
+
+insert into public.broker_activities (
+  id, user_id, account_id, instrument_id, external_activity_id, fingerprint,
+  activity_type, occurred_at, recorded_at, quantity, price, gross_amount,
+  net_amount, currency, description
+)
+values
+  ('76000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', '73000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', 'alpha-activity-local-001', repeat('a', 64), 'trade', '2026-01-12T10:00:00Z', '2026-01-15T12:00:00Z', 1, 118, 118, 118, 'USD', 'Synthetic provider-reported activity'),
+  ('76000000-0000-4000-8000-000000000002', '33333333-3333-4333-8333-333333333333', '73000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000001', null, repeat('b', 64), 'trade', '2026-01-13T10:00:00Z', '2026-01-15T12:00:00Z', 1, 117, 117, 117, 'USD', 'Synthetic fingerprint-only provider activity');
 
 -- Active subscriber portfolio: 5,000 deposited, 4,000 invested, 1,000 cash.
 -- At the seeded market prices its current value is 5,600 and P/L is 600.

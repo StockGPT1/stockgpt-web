@@ -1,3 +1,5 @@
+import type { MarketDataCoverage } from "@/lib/instruments";
+
 export type PortfolioStatus =
   | "on_track"
   | "monitor"
@@ -8,7 +10,7 @@ export type ReasonLevel = "monitor" | "review";
 
 export type DataFreshness = "fresh" | "stale" | "missing" | "unknown";
 
-export type InstrumentCoverage = "ranked" | "tracked_only" | "unsupported";
+export type InstrumentCoverage = MarketDataCoverage;
 
 export type HoldingProvenance = "manual" | "csv" | "broker" | "unknown";
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refreshMarketSnapshots } from "@/lib/yahoo";
-import { createClient } from "@/utils/supabase/server";
+import { persistMarketSnapshots } from "@/lib/market-snapshot-persistence";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   if (!isAuthorizedCron(req)) return unauthorizedCron();
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const limit = Number(process.env.PRIORITY_MARKET_SNAPSHOT_LIMIT ?? 180);
   const { data, error } = await supabase
     .from("stock_rankings")
@@ -34,6 +35,11 @@ export async function GET(req: NextRequest) {
     batchSize: Number(process.env.PRIORITY_MARKET_SNAPSHOT_BATCH_SIZE ?? 12),
     maxTickers: limit,
   });
+  const updated = await persistMarketSnapshots(
+    supabase,
+    result.snapshots,
+    new Date().toISOString(),
+  );
 
-  return NextResponse.json({ ok: true, priority: true, ...result });
+  return NextResponse.json({ ok: true, priority: true, attempted: result.attempted, updated });
 }

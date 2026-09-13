@@ -43,6 +43,9 @@
     "test:stage05-performance": "tsx scripts/stage05-performance-continuity-checks.ts",
     "test:portfolio-finite-state": "node scripts/verify-portfolio-finite-state-local.mjs",
     "test:stage05-acceptance": "node scripts/stage05-acceptance.mjs",
+    "test:instrument-foundation": "tsx scripts/instrument-foundation-checks.ts && tsx scripts/market-snapshot-refresh-checks.ts && node scripts/verify-instrument-foundation-local.mjs",
+    "test:broker-domain": "tsx scripts/broker-domain-checks.ts && node scripts/verify-broker-domain-local.mjs",
+    "test:wave1-foundations": "supabase db query --local --file supabase/tests/verify_wave1_foundations.sql && npm run test:instrument-foundation && npm run test:broker-domain",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
   },

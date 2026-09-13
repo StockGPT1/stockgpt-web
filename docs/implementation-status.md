@@ -20,8 +20,8 @@ Engineering constitution:
 | 03 | Reconcile Supabase schema and generated types | COMPLETE | `48de3c0` + `e3d4e72` + `f699821` + `Formalize Supabase migration release workflow` | The 26-version canonical history, synthetic local Auth/RLS fixtures, generated types, typed clients, schema-reference repairs and approval-gated forward-migration runbook are complete and verified. |
 | 04 | Canonical portfolio intelligence engine | COMPLETE | `98dd988` + `fa1a1ad` + `e0f0851` + `6426012` + `27a2a83` + `Close canonical portfolio intelligence migration` | Portfolio, Dashboard, Ask and Notifications share one factual adapter, canonical engine and status vocabulary; active competing customer assessment paths are removed or explicitly non-authoritative. |
 | 05 | Portfolio correctness and persistence cleanup | COMPLETE | `05A design` through `05K final acceptance` | Authoritative writes are exact-owner atomic RPCs, the ledger is append-only, accounting is canonical USD, current reads/cache behavior are reconciled, continuity-breaking tracking changes suppress aggregate performance, and the complete local acceptance gate passes. |
-| 06 | Market-data and instrument infrastructure cleanup | NOT STARTED | | |
-| 07 | Provider-neutral broker data model | NOT STARTED | | |
+| 06 | Market-data and instrument infrastructure cleanup | COMPLETE | `Build instrument and broker data foundations` | Permanent listing UUIDs, namespaced/scoped aliases, explicit ranked/tracked-only/unsupported coverage and honest price provenance are established without rewriting legacy ticker history. |
+| 07 | Provider-neutral broker data model | COMPLETE | `Build instrument and broker data foundations` | Provider, institution, connection, account, position, multi-currency cash and durable activity entities are separate, owner-isolated and browser read-only. |
 | 08 | Broker secret/security architecture | NOT STARTED | | |
 | 09 | SnapTrade sandbox integration | NOT STARTED | | |
 | 10 | Broker sync state machine and reconciliation | NOT STARTED | | |
@@ -170,7 +170,18 @@ Engineering constitution:
 - Forward migrations reject NULL Portfolio preferences and non-finite Portfolio financial state without rewriting unknown production rows. Existing/future holdings reject `NaN`, positive infinity and negative infinity; ledger financial values are finite; all arithmetic financial RPCs fail atomically on malformed stored state. Correction can restore valid holding facts, and Remove from Tracking remains a safe recovery path that does not interpret malformed values.
 - The other 05K repairs remain accepted: exact paginated ledger reads, unavailable rather than fabricated financial presentation, no sale-proceeds fallback from entry price, raw current-market chart valuation/fingerprinting, future-dated cache rejection and legacy-currency trade-level isolation.
 - A clean local reset and `test:stage05-acceptance` pass the canonical schema/seed/Auth/RLS checks; all Stage 05 security, ownership, ledger, cash, holding, creation, CSV, currency, write-boundary, cache, finite-state, continuity, concurrency, rollback, read-integration and migration/type-drift checks; and the permanent Stage 05 source contract. Portfolio/Stage 04 regression, Next type generation, TypeScript, lint and the guarded production build also pass without remote service access.
-- Stage 05 is complete. Stage 06 market-data and instrument infrastructure cleanup is next and remains NOT STARTED.
+- Stage 05 is complete; its accounting and persistence contracts remain the regression baseline for broker-domain work.
+
+### Wave 1 — Stages 06 and 07
+
+- Stage 06 establishes `instruments.id` as StockGPT's permanent UUID for one specific tradable listing. `instrument_aliases` stores ticker and provider mappings in explicit namespace/scope pairs with validity windows, so symbol changes do not change identity and similarly named/tickered listings on different venues do not collapse.
+- Existing production-aligned ticker tables remain compatible. `stock_rankings.instrument_id` is a nullable forward link with no guessed or destructive production backfill; deterministic local ranked fixtures are linked explicitly. `instrument_market_data` records `ranked`, `tracked_only` or `unsupported` coverage and source-specific price provenance. Missing/invalid prices remain null, and account/provider position prices remain separate broker evidence rather than global market truth.
+- The authorized market-refresh routes now use the trusted backend client, process the legacy Yahoo compatibility universe in bounded batches and persist successful observations to `market_snapshots`. A failed persistence is observable rather than being reported as a successful refresh; no paid or permanent provider commitment was introduced.
+- Stage 07 separates global broker provider and brokerage institution catalogs from user-owned provider connections and broker accounts. Broker accounts are not StockGPT Portfolios and are not projected into `user_portfolios`; that remains Stage 13.
+- Provider-neutral account children preserve resolved or unresolved positions, per-currency cash balances and durable activities. External identifiers are scoped by provider connection/account, while a deterministic versioned SHA-256 fingerprint supplies idempotency when provider activity identity is absent or insufficient. No unrestricted raw provider payload or credential field is stored.
+- Composite owner foreign keys bind accounts to the exact owner's connection/institution and bind positions, cash and activities to the exact owner's account. RLS plus explicit grants allow authenticated users to read only their own normalized broker state; authenticated and anon mutation is denied, while trusted backend/service ingestion remains structurally possible for Stages 09–10.
+- Disconnect is a lifecycle status transition, not deletion. Local tests prove normalized accounts, positions and activities remain after disconnect; unknown instruments remain present with nullable `instrument_id`; and two synthetic providers can resolve different external identifiers to one permanent StockGPT instrument.
+- A clean local reset, 36-table/RLS fixture contract, Wave 1 catalog/security checks, focused instrument and broker tests, the complete Stage 05 acceptance suite, generated-type drift, Portfolio/Stage 04 regression, Next type generation, TypeScript, lint and guarded production build all pass. Stage 06 and Stage 07 are complete. Stage 08 broker secret/security architecture remains NOT STARTED and is next.
 
 ## Global release gates
 
@@ -210,10 +221,10 @@ Every implementation stage must pass:
 | Current FX applied to historical data | Stage 05 / Stage 14 | Separate current display conversion from historically correct valuation. |
 | Portfolio currency accounting ambiguity | Stage 05 / Stage 14 | Define and preserve currency provenance before connected-history work. |
 | Portfolio-page snapshot cache is warmed but not read by the current page | Stage 05 | Resolved: the unused whole-page cache is retired and the warm route is a harmless compatibility response. |
-| Ticker-only instrument identity | Stage 06 / Stage 07 | Separate market identity from future provider/account identity. |
-| Unsupported assets are rejected or dropped | Stage 06 / Stage 07 / Stage 13 | Preserve unsupported/tracked-only assets in connected portfolio totals. |
-| Market-snapshot cron does not persist market snapshots | Stage 06 | Align naming, storage and consumer behaviour. |
-| Market cron uses a session client despite subscriber-only checked-in RLS | Stage 06 / Stage 18 | Verify background-job access and least-privilege security. |
+| Ticker-only instrument identity | Stage 06 / Stage 07 | Resolved for new architecture with permanent listing UUIDs and namespaced aliases; legacy ticker joins remain compatible pending later migrations. |
+| Unsupported assets are rejected or dropped | Stage 06 / Stage 07 / Stage 13 | Provider-neutral positions now preserve unresolved instruments and explicit coverage; connected Portfolio projection/totals remain Stage 13. |
+| Market-snapshot cron does not persist market snapshots | Stage 06 | Resolved: authorized refreshes persist successful bounded observations to `market_snapshots`. |
+| Market cron uses a session client despite subscriber-only checked-in RLS | Stage 06 / Stage 18 | Resolved for market refresh: authorized cron routes use the backend-only trusted client; broader service-role review remains Stage 18. |
 | Stripe webhook lacks explicit processed-event idempotency and complete write checks | Stage 18 | Harden subscription event processing and observability. |
 | Notification infrastructure failure can become zero unread | Stage 18 / Stage 19 | Preserve failure visibility while keeping user messaging safe. |
 | Digest entitlement and 100-recipient cap differ from shared entitlement logic | Stage 19 | Reconcile customer-facing digest eligibility and batching. |

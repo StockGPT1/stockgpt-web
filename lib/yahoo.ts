@@ -201,10 +201,20 @@ export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, M
 export async function refreshMarketSnapshots(
   tickers: string[],
   options: { batchSize?: number; maxTickers?: number } = {},
-): Promise<{ attempted: number; updated: number }> {
+): Promise<{ attempted: number; snapshots: Mover[] }> {
   const tickersToRefresh = cleanTickerUniverse(tickers, options.maxTickers ?? 520);
-  const movers = (await Promise.all(tickersToRefresh.map(getOneDayMover))).filter((mover): mover is Mover => mover !== null);
-  return { attempted: tickersToRefresh.length, updated: movers.length };
+  const batchSize = Math.max(1, Math.floor(options.batchSize ?? 10));
+  const snapshots: Mover[] = [];
+
+  for (let start = 0; start < tickersToRefresh.length; start += batchSize) {
+    const batch = tickersToRefresh.slice(start, start + batchSize);
+    const movers = await Promise.all(
+      batch.map((ticker) => withTimeout(getOneDayMover(ticker), ONE_DAY_MOVE_TIMEOUT_MS, null)),
+    );
+    snapshots.push(...movers.filter((mover): mover is Mover => mover !== null));
+  }
+
+  return { attempted: tickersToRefresh.length, snapshots };
 }
 
 export async function getTopMovers(
