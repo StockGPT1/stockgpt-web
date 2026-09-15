@@ -8,7 +8,7 @@ declare
   expected_tables text[] := array[
     'affiliate_applications', 'alpha_waitlist', 'ask_stockgpt_messages',
     'broker_accounts', 'broker_activities', 'broker_cash_balances',
-    'broker_connections', 'broker_positions', 'broker_providers',
+    'broker_connections', 'broker_positions', 'broker_providers', 'broker_sync_jobs',
     'brokerage_institutions', 'executive_waitlist', 'instrument_aliases',
     'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
     'notification_dismissals', 'portfolio_holdings',
@@ -29,11 +29,11 @@ begin
   where n.nspname = 'public' and c.relkind = 'r';
 
   if actual_tables <> expected_tables then
-    raise exception 'Canonical public table set does not match the expected 36 tables';
+    raise exception 'Canonical public table set does not match the expected 37 tables';
   end if;
 
-  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 36 then
-    raise exception 'Expected RLS on all 36 public tables';
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 37 then
+    raise exception 'Expected RLS on all 37 public tables';
   end if;
 
   if to_regclass('public.watchlist') is null or to_regclass('public.user_watchlist') is not null then

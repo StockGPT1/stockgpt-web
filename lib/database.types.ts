@@ -453,6 +453,65 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_sync_jobs: {
+        Row: {
+          attempt_count: number
+          available_at: string
+          completed_at: string | null
+          connection_id: string
+          created_at: string
+          error_code: string | null
+          id: string
+          lease_expires_at: string | null
+          leased_by: string | null
+          provider_freshness_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["broker_sync_job_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          available_at?: string
+          completed_at?: string | null
+          connection_id: string
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          lease_expires_at?: string | null
+          leased_by?: string | null
+          provider_freshness_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["broker_sync_job_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          available_at?: string
+          completed_at?: string | null
+          connection_id?: string
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          lease_expires_at?: string | null
+          leased_by?: string | null
+          provider_freshness_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["broker_sync_job_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_sync_jobs_connection_owner_fkey"
+            columns: ["connection_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_connections"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       brokerage_institutions: {
         Row: {
           country_code: string | null
@@ -1561,6 +1620,35 @@ export type Database = {
           updated_existing: boolean
         }[]
       }
+      claim_broker_sync_jobs: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          available_at: string
+          completed_at: string | null
+          connection_id: string
+          created_at: string
+          error_code: string | null
+          id: string
+          lease_expires_at: string | null
+          leased_by: string | null
+          provider_freshness_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["broker_sync_job_status"]
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "broker_sync_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       correct_portfolio_holding: {
         Args: {
           p_entry_price: number
@@ -1627,6 +1715,27 @@ export type Database = {
           portfolio_id: string
         }[]
       }
+      enqueue_broker_sync: {
+        Args: { p_connection_id: string; p_user_id: string }
+        Returns: string
+      }
+      fail_broker_sync_job: {
+        Args: {
+          p_error_code: string
+          p_job_id: string
+          p_retry_after_seconds?: number
+          p_retryable: boolean
+          p_worker_id: string
+        }
+        Returns: undefined
+      }
+      get_broker_user_secret: {
+        Args: { p_provider_id: string; p_user_id: string }
+        Returns: {
+          provider_user_id: string
+          user_secret: string
+        }[]
+      }
       is_active_subscriber: { Args: { user_uuid: string }; Returns: boolean }
       log_existing_portfolio_holding: {
         Args: {
@@ -1670,6 +1779,10 @@ export type Database = {
           transaction_id: string
         }[]
       }
+      promote_broker_sync_candidate: {
+        Args: { p_candidate: Json; p_job_id: string; p_worker_id: string }
+        Returns: undefined
+      }
       remove_portfolio_holding_tracking: {
         Args: { p_portfolio_id: string; p_ticker: string }
         Returns: {
@@ -1698,6 +1811,10 @@ export type Database = {
           portfolio_id: string
         }[]
       }
+      revoke_broker_user_secret: {
+        Args: { p_provider_id: string; p_user_id: string }
+        Returns: boolean
+      }
       sell_portfolio_holding: {
         Args: {
           p_portfolio_id: string
@@ -1720,6 +1837,15 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      store_broker_user_secret: {
+        Args: {
+          p_provider_id: string
+          p_provider_user_id: string
+          p_user_id: string
+          p_user_secret: string
+        }
+        Returns: undefined
+      }
       update_owned_portfolio_preferences: {
         Args: {
           p_objective: string
@@ -1743,6 +1869,12 @@ export type Database = {
         | "error"
         | "revoked"
         | "disconnected"
+      broker_sync_job_status:
+        | "queued"
+        | "running"
+        | "succeeded"
+        | "retryable_failure"
+        | "terminal_failure"
       instrument_coverage_status: "ranked" | "tracked_only" | "unsupported"
     }
     CompositeTypes: {
@@ -1881,6 +2013,13 @@ export const Constants = {
         "error",
         "revoked",
         "disconnected",
+      ],
+      broker_sync_job_status: [
+        "queued",
+        "running",
+        "succeeded",
+        "retryable_failure",
+        "terminal_failure",
       ],
       instrument_coverage_status: ["ranked", "tracked_only", "unsupported"],
     },
