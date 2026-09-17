@@ -1,21 +1,26 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-/* iOS app shell: a native WKWebView that renders the live site, so the
-   app is always pixel-identical to stockgpt.pro and picks up every web
-   deploy instantly — no App Store re-submission needed for UI changes.
-   Navigation to hosts outside allowNavigation (e.g. Stripe checkout)
-   opens in the system browser instead of inside the shell. */
+/* iOS app shell: a native WKWebView that renders StockGPT, so the app keeps
+   the same product, auth and ranking data as the web app. Release builds use
+   the live site. For Xcode development, CAPACITOR_SERVER_URL can point the
+   shell at a local or preview deployment without editing this file. */
+const productionServerUrl = "https://stockgpt.pro/dashboard";
+const configuredServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
+const serverUrl = configuredServerUrl || productionServerUrl;
+const isCleartextDevelopmentServer = serverUrl.startsWith("http://");
+
 const config: CapacitorConfig = {
   appId: "pro.stockgpt.app",
   appName: "StockGPT",
   webDir: "capacitor-fallback",
   server: {
-    /* open straight into the product (middleware redirects signed-out
-       users to /login) — app users never need the marketing landing */
-    url: "https://stockgpt.pro/dashboard",
+    /* Signed-out users are redirected to /login by the product. A debug URL
+       can be supplied when running `npx cap sync ios`; production remains the
+       default when the environment variable is absent. */
+    url: serverUrl,
     errorPath: "error.html",
-    cleartext: false,
-    allowNavigation: ["www.stockgpt.pro", "*.supabase.co"],
+    cleartext: isCleartextDevelopmentServer,
+    allowNavigation: ["stockgpt.pro", "www.stockgpt.pro", "*.supabase.co"],
   },
   ios: {
     /* the site handles notches itself via viewport-fit=cover + env() */
