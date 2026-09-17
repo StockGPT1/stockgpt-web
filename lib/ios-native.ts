@@ -10,7 +10,9 @@ type StockGPTNativeAction =
   | { type: "haptic"; style?: NativeHapticStyle }
   | { type: "share"; title?: string; text?: string; url?: string }
   | { type: "enablePush" }
-  | { type: "authenticate"; reason?: string };
+  | { type: "authenticate"; reason?: string }
+  | { type: "appleSignIn" }
+  | { type: "oauthSession"; url: string; callbackScheme?: string };
 
 declare global {
   interface Window {
@@ -81,4 +83,12 @@ export function requestNativeAuthentication(
   reason = "Unlock StockGPT to view your portfolio and account.",
 ) {
   return postNative({ type: "authenticate", reason });
+}
+
+export function requestNativeAppleSignIn() {
+  return postNative({ type: "appleSignIn" });
+}
+
+export function requestNativeOAuthSession(url: string, callbackScheme = "stockgpt") {
+  return postNative({ type: "oauthSession", url, callbackScheme });
 }
