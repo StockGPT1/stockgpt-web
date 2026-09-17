@@ -20,7 +20,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        NotificationCenter.default.post(name: .stockGPTPushToken, object: nil, userInfo: ["token": token])
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+
+        NotificationCenter.default.post(
+            name: .stockGPTPushToken,
+            object: nil,
+            userInfo: ["token": token, "environment": environment]
+        )
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
