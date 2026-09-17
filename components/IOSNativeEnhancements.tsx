@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isStockGPTIOSApp, nativeHaptic } from "@/lib/ios-native";
 
 const PULL_THRESHOLD = 72;
@@ -22,7 +21,6 @@ function hapticStyle(element: Element) {
 }
 
 export function IOSNativeEnhancements() {
-  const router = useRouter();
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
@@ -30,10 +28,10 @@ export function IOSNativeEnhancements() {
   const pullDistanceRef = useRef(0);
   const refreshingRef = useRef(false);
 
-  function updatePullDistance(next: number) {
+  const updatePullDistance = useCallback((next: number) => {
     pullDistanceRef.current = next;
     setPullDistance(next);
-  }
+  }, []);
 
   useEffect(() => {
     refreshingRef.current = refreshing;
@@ -76,19 +74,9 @@ export function IOSNativeEnhancements() {
       }
     }
 
-    function handlePushOpen(event: Event) {
-      const path = (event as CustomEvent<{ path?: string }>).detail?.path;
-      if (!path || !path.startsWith("/")) return;
-      router.push(path);
-    }
-
     window.addEventListener("stockgpt:push-token", handlePushToken);
-    window.addEventListener("stockgpt:push-open", handlePushOpen);
-    return () => {
-      window.removeEventListener("stockgpt:push-token", handlePushToken);
-      window.removeEventListener("stockgpt:push-open", handlePushOpen);
-    };
-  }, [router]);
+    return () => window.removeEventListener("stockgpt:push-token", handlePushToken);
+  }, []);
 
   useEffect(() => {
     if (!isStockGPTIOSApp()) return;
@@ -161,7 +149,7 @@ export function IOSNativeEnhancements() {
       scrollRoot.removeEventListener("touchend", onTouchEnd);
       scrollRoot.removeEventListener("touchcancel", reset);
     };
-  }, []);
+  }, [updatePullDistance]);
 
   if (!pullDistance && !refreshing) return null;
 
