@@ -25,6 +25,8 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
         return control
     }()
 
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
 
@@ -34,12 +36,37 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
         guard let webView else { return }
         webView.isOpaque = false
         webView.backgroundColor = stockGPTBackground
+        webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.backgroundColor = stockGPTBackground
         webView.scrollView.keyboardDismissMode = .interactive
         webView.scrollView.alwaysBounceVertical = true
         webView.scrollView.scrollsToTop = true
         webView.scrollView.refreshControl = stockGPTRefreshControl
         webView.configuration.userContentController.add(self, name: "stockgptNative")
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(receivedPushToken(_:)),
+            name: .stockGPTPushToken,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(receivedPushRegistrationError(_:)),
+            name: .stockGPTPushRegistrationError,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(openPushPath(_:)),
+            name: .stockGPTPushOpenPath,
+            object: nil
+        )
+    }
+
+    deinit {
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "stockgptNative")
+        NotificationCenter.default.removeObserver(self)
     }
 
     @objc private func refreshStockGPT() {
@@ -108,8 +135,16 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
     }
 
     private func requestPushPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, error in
             DispatchQueue.main.async {
+                if let error {
+                    self?.emitEvent("stockgpt:push-registration-error", detail: ["message": error.localizedDescription])
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    return
+                }
+
+                self?.emitEvent("stockgpt:push-permission", detail: ["granted": granted])
+
                 if granted {
                     UIApplication.shared.registerForRemoteNotifications()
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -118,6 +153,34 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
                 }
             }
         }
+    }
+
+    @objc private func receivedPushToken(_ notification: Notification) {
+        guard let token = notification.userInfo?["token"] as? String else { return }
+        emitEvent("stockgpt:push-token", detail: ["token": token])
+    }
+
+    @objc private func receivedPushRegistrationError(_ notification: Notification) {
+        let message = notification.userInfo?["message"] as? String ?? "Push registration failed"
+        emitEvent("stockgpt:push-registration-error", detail: ["message": message])
+    }
+
+    @objc private func openPushPath(_ notification: Notification) {
+        guard let path = notification.userInfo?["path"] as? String,
+              path.hasPrefix("/") else { return }
+        emitEvent("stockgpt:push-open", detail: ["path": path])
+    }
+
+    private func emitEvent(_ name: String, detail: [String: Any]) {
+        guard let webView,
+              JSONSerialization.isValidJSONObject(detail),
+              let data = try? JSONSerialization.data(withJSONObject: detail),
+              let json = String(data: data, encoding: .utf8) else { return }
+
+        let escapedName = name.replacingOccurrences(of: "'", with: "\\'")
+        webView.evaluateJavaScript(
+            "window.dispatchEvent(new CustomEvent('\\(escapedName)', { detail: \\(json) }));"
+        )
     }
 }
 
