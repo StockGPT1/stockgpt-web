@@ -5,6 +5,7 @@ import Script from "next/script";
 import { AppShellMode } from "@/components/AppShellMode";
 import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
+import { IOSNativeEnhancements } from "@/components/IOSNativeEnhancements";
 import "./globals.css";
 import "./limited-time-offer.css";
 import "./mobile-overflow.css";
@@ -104,6 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <AppShellMode />
+        <IOSNativeEnhancements />
         <LimitedTimePriceOffer />
         <StockAskActionPolish />
         <Analytics />
