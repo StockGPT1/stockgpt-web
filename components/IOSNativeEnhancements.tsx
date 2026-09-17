@@ -1,10 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isStockGPTIOSApp, nativeHaptic } from "@/lib/ios-native";
+import { usePathname } from "next/navigation";
+import {
+  isStockGPTIOSApp,
+  nativeHaptic,
+  requestNativePushPermission,
+} from "@/lib/ios-native";
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL = 108;
+const PUSH_PROMPTED_KEY = "stockgpt:ios-push-prompted";
+const PUSH_STATE_KEY = "stockgpt:ios-push-state";
+const PUSH_TOKEN_KEY = "stockgpt:ios-push-token";
+const PUSH_ENVIRONMENT_KEY = "stockgpt:ios-push-environment";
 
 function hapticStyle(element: Element) {
   const value = element.getAttribute("data-native-haptic");
@@ -20,7 +29,30 @@ function hapticStyle(element: Element) {
   return "light";
 }
 
+async function syncPushTokenToAccount(token: string, environment: string) {
+  try {
+    const response = await fetch("/api/ios/push-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token,
+        platform: "ios",
+        environment: environment === "production" ? "production" : "sandbox",
+      }),
+    });
+
+    // A 401 is expected if the user granted notifications before signing in.
+    // The saved token is retried automatically after the route changes/login completes.
+    if (!response.ok && response.status !== 401) {
+      console.warn("[ios] push token sync returned", response.status);
+    }
+  } catch (error) {
+    console.warn("[ios] push token sync failed", error);
+  }
+}
+
 export function IOSNativeEnhancements() {
+  const pathname = usePathname();
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
@@ -58,25 +90,69 @@ export function IOSNativeEnhancements() {
   useEffect(() => {
     if (!isStockGPTIOSApp()) return;
 
-    async function handlePushToken(event: Event) {
-      const token = (event as CustomEvent<{ token?: string }>).detail?.token;
-      if (!token) return;
+    let promptTimer = 0;
 
-      try {
-        const response = await fetch("/api/ios/push-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, platform: "ios" }),
-        });
-        if (!response.ok) console.warn("[ios] push token sync returned", response.status);
-      } catch (error) {
-        console.warn("[ios] push token sync failed", error);
-      }
+    function onPermission(event: Event) {
+      const granted = Boolean((event as CustomEvent<{ granted?: boolean }>).detail?.granted);
+      window.localStorage.setItem(PUSH_STATE_KEY, granted ? "enabled" : "denied");
     }
 
-    window.addEventListener("stockgpt:push-token", handlePushToken);
-    return () => window.removeEventListener("stockgpt:push-token", handlePushToken);
+    async function onPushToken(event: Event) {
+      const detail = (event as CustomEvent<{ token?: string; environment?: string }>).detail;
+      const token = detail?.token?.trim().toLowerCase();
+      if (!token) return;
+
+      const environment = detail?.environment === "production" ? "production" : "sandbox";
+      window.localStorage.setItem(PUSH_STATE_KEY, "enabled");
+      window.localStorage.setItem(PUSH_TOKEN_KEY, token);
+      window.localStorage.setItem(PUSH_ENVIRONMENT_KEY, environment);
+      await syncPushTokenToAccount(token, environment);
+    }
+
+    function onRegistrationError() {
+      window.localStorage.setItem(PUSH_STATE_KEY, "error");
+    }
+
+    window.addEventListener("stockgpt:push-permission", onPermission);
+    window.addEventListener("stockgpt:push-token", onPushToken);
+    window.addEventListener("stockgpt:push-registration-error", onRegistrationError);
+
+    const prompted = window.localStorage.getItem(PUSH_PROMPTED_KEY);
+    const pushState = window.localStorage.getItem(PUSH_STATE_KEY);
+
+    if (!prompted && pushState !== "enabled" && pushState !== "denied") {
+      // Ask once on the first real app launch. iOS owns the Allow / Don't Allow UI.
+      // A short delay lets the first StockGPT screen paint before the system sheet appears.
+      window.localStorage.setItem(PUSH_PROMPTED_KEY, "true");
+      promptTimer = window.setTimeout(() => {
+        if (!requestNativePushPermission()) {
+          window.localStorage.removeItem(PUSH_PROMPTED_KEY);
+          window.localStorage.setItem(PUSH_STATE_KEY, "error");
+        }
+      }, 900);
+    }
+
+    return () => {
+      window.clearTimeout(promptTimer);
+      window.removeEventListener("stockgpt:push-permission", onPermission);
+      window.removeEventListener("stockgpt:push-token", onPushToken);
+      window.removeEventListener("stockgpt:push-registration-error", onRegistrationError);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isStockGPTIOSApp()) return;
+
+    const token = window.localStorage.getItem(PUSH_TOKEN_KEY)?.trim().toLowerCase();
+    if (!token) return;
+
+    const environment =
+      window.localStorage.getItem(PUSH_ENVIRONMENT_KEY) === "production"
+        ? "production"
+        : "sandbox";
+
+    void syncPushTokenToAccount(token, environment);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isStockGPTIOSApp()) return;
