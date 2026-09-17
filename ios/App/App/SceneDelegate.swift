@@ -18,7 +18,24 @@ private let stockGPTGold = UIColor(
     alpha: 1.0
 )
 
+private func stockGPTPath(for shortcutItem: UIApplicationShortcutItem) -> String? {
+    switch shortcutItem.type {
+    case "pro.stockgpt.app.search":
+        return "/dashboard?search=1"
+    case "pro.stockgpt.app.rankings":
+        return "/rankings"
+    case "pro.stockgpt.app.portfolio":
+        return "/portfolio"
+    case "pro.stockgpt.app.alerts":
+        return "/notifications"
+    default:
+        return nil
+    }
+}
+
 final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
+    var pendingAppPath: String?
+
     private lazy var stockGPTRefreshControl: UIRefreshControl = {
         let control = UIRefreshControl()
         control.tintColor = stockGPTGold
@@ -63,11 +80,31 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
             name: .stockGPTPushOpenPath,
             object: nil
         )
+
+        if let path = pendingAppPath {
+            pendingAppPath = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.openAppPath(path)
+            }
+        }
     }
 
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "stockgptNative")
         NotificationCenter.default.removeObserver(self)
+    }
+
+    func openAppPath(_ path: String) {
+        guard path.hasPrefix("/") else { return }
+        guard webView != nil else {
+            pendingAppPath = path
+            return
+        }
+
+        let safePath = path
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        webView?.evaluateJavaScript("window.location.assign('\(safePath)');")
     }
 
     @objc private func refreshStockGPT() {
@@ -206,7 +243,7 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
     @objc private func openPushPath(_ notification: Notification) {
         guard let path = notification.userInfo?["path"] as? String,
               path.hasPrefix("/") else { return }
-        emitEvent("stockgpt:push-open", detail: ["path": path])
+        openAppPath(path)
     }
 
     private func emitEvent(_ name: String, detail: [String: Any]) {
@@ -230,6 +267,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let appWindow = UIWindow(windowScene: windowScene)
         let bridgeViewController = StockGPTBridgeViewController()
+        if let shortcutItem = connectionOptions.shortcutItem {
+            bridgeViewController.pendingAppPath = stockGPTPath(for: shortcutItem)
+        }
 
         appWindow.backgroundColor = stockGPTBackground
         appWindow.tintColor = stockGPTGold
@@ -241,6 +281,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = appWindow
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    func windowScene(
+        _ windowScene: UIWindowScene,
+        performActionFor shortcutItem: UIApplicationShortcutItem,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        guard let path = stockGPTPath(for: shortcutItem),
+              let bridgeViewController = window?.rootViewController as? StockGPTBridgeViewController else {
+            completionHandler(false)
+            return
+        }
+
+        bridgeViewController.openAppPath(path)
+        completionHandler(true)
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
