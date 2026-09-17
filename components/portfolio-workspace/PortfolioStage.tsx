@@ -11,6 +11,7 @@ import {
   filterDisplayablePortfolioChartData,
   type PortfolioChartMeta,
 } from "@/lib/portfolio-chart-health";
+import { sanitisePortfolioChartData } from "@/lib/portfolio-chart-display";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
 import type {
   PortfolioMeta,
@@ -83,7 +84,7 @@ export function PortfolioStage({
   onManage: () => void;
 }) {
   const displayable = useMemo(
-    () => filterDisplayablePortfolioChartData(chartData),
+    () => filterDisplayablePortfolioChartData(sanitisePortfolioChartData(chartData)),
     [chartData],
   );
   const availableRanges = useMemo(
