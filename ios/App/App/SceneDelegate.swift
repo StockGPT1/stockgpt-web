@@ -179,7 +179,7 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
 
         let escapedName = name.replacingOccurrences(of: "'", with: "\\'")
         webView.evaluateJavaScript(
-            "window.dispatchEvent(new CustomEvent('\\(escapedName)', { detail: \\(json) }));"
+            "window.dispatchEvent(new CustomEvent('\(escapedName)', { detail: \(json) }));"
         )
     }
 }
@@ -193,8 +193,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let appWindow = UIWindow(windowScene: windowScene)
         let bridgeViewController = StockGPTBridgeViewController()
 
-        // Match the web product before WKWebView paints its first frame so
-        // launch/resume never flashes Apple's default white background.
         appWindow.backgroundColor = stockGPTBackground
         appWindow.tintColor = stockGPTGold
         appWindow.overrideUserInterfaceStyle = .dark
