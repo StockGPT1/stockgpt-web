@@ -98,6 +98,17 @@ export function MobileAppHeader() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (pathname !== "/dashboard") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") !== "1") return;
+
+    openSearch();
+    params.delete("search");
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
+  }, [openSearch, pathname]);
+
   if (isDashboard) {
     return (
       <header className="sg-mobile-app-header relative z-40 flex h-14 shrink-0 items-center gap-2 border-b border-[#ddb159]/14 bg-[#04180f] pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
