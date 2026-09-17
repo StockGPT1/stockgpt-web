@@ -6,6 +6,7 @@ import { AppShellMode } from "@/components/AppShellMode";
 import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import { IOSNativeEnhancements } from "@/components/IOSNativeEnhancements";
+import { IOSAppLock } from "@/components/IOSAppLock";
 import "./globals.css";
 import "./limited-time-offer.css";
 import "./mobile-overflow.css";
@@ -106,6 +107,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <AppShellMode />
         <IOSNativeEnhancements />
+        <IOSAppLock />
         <LimitedTimePriceOffer />
         <StockAskActionPolish />
         <Analytics />
