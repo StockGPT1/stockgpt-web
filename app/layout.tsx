@@ -19,6 +19,7 @@ import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
 import "./mobile-page-titles.css";
 import "./stock-ask-action.css";
+import "./ios-app.css";
 
 const iconVersion = "31";
 
