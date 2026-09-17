@@ -9,6 +9,22 @@ const configuredServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
 const serverUrl = configuredServerUrl || productionServerUrl;
 const isCleartextDevelopmentServer = serverUrl.startsWith("http://");
 
+function hostnameFor(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const configuredHostname = hostnameFor(serverUrl);
+const allowNavigation = [
+  "stockgpt.pro",
+  "www.stockgpt.pro",
+  "*.supabase.co",
+  ...(configuredHostname ? [configuredHostname] : []),
+];
+
 const config: CapacitorConfig = {
   appId: "pro.stockgpt.app",
   appName: "StockGPT",
@@ -20,7 +36,10 @@ const config: CapacitorConfig = {
     url: serverUrl,
     errorPath: "error.html",
     cleartext: isCleartextDevelopmentServer,
-    allowNavigation: ["stockgpt.pro", "www.stockgpt.pro", "*.supabase.co"],
+    /* The active preview/local hostname must be allowed as well as production;
+       otherwise WKWebView can launch correctly but refuse the development host
+       and leave only the native dark-green background visible. */
+    allowNavigation,
   },
   ios: {
     /* the site handles notches itself via viewport-fit=cover + env() */
