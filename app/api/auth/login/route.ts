@@ -44,18 +44,21 @@ export async function POST(req: NextRequest) {
 
   const ipKey = rateKey(["login-ip", getClientIp(req)]);
   const emailKey = rateKey(["login-email", email]);
+  const isDevelopment = process.env.NODE_ENV === "development";
 
+  /* Keep production throttling strict, but don't lock out local iPhone
+     testing while the app is repeatedly rebuilt/reloaded through a tunnel. */
   const [ipLimit, emailLimit] = await Promise.all([
     precheckRateLimit({
       action: "login_ip",
       key: ipKey,
-      limit: 20,
+      limit: isDevelopment ? 200 : 20,
       windowSeconds: 15 * 60,
     }),
     precheckRateLimit({
       action: "login_email",
       key: emailKey,
-      limit: 5,
+      limit: isDevelopment ? 100 : 5,
       windowSeconds: 15 * 60,
     }),
   ]);
