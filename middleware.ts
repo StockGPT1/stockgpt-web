@@ -32,8 +32,9 @@ function needsSessionRefresh(pathname: string) {
 
 /**
  * Generate a cryptographically random nonce for use in the Content-Security-Policy
- * script-src directive. This replaces the previous 'unsafe-inline' + 'unsafe-eval'
- * flags, which defeated XSS protection entirely.
+ * script-src directive. Production remains nonce-only. Next.js development tooling
+ * uses eval for its dev runtime/source maps, so unsafe-eval is enabled only while
+ * NODE_ENV=development.
  *
  * The nonce is forwarded via the x-nonce response header so server components
  * can read it via headers() and apply it to any inline <script> tags.
@@ -45,9 +46,11 @@ function generateNonce(): string {
 }
 
 function buildContentSecurityPolicy(nonce: string) {
+  const developmentEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://vercel.live`,
+    `script-src 'self' 'nonce-${nonce}'${developmentEval} https://vercel.live`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
