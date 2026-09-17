@@ -1,6 +1,7 @@
 import UIKit
 import WebKit
 import UserNotifications
+import LocalAuthentication
 import Capacitor
 
 private let stockGPTBackground = UIColor(
@@ -90,6 +91,8 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
             presentShareSheet(payload: payload)
         case "enablePush":
             requestPushPermission()
+        case "authenticate":
+            authenticate(reason: payload["reason"] as? String)
         default:
             break
         }
@@ -150,6 +153,41 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 } else {
                     UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
+            }
+        }
+    }
+
+    private func authenticate(reason: String?) {
+        let context = LAContext()
+        context.localizedCancelTitle = "Not now"
+        var error: NSError?
+        let prompt = (reason?.isEmpty == false ? reason : nil) ?? "Unlock StockGPT to view your portfolio and account."
+
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            emitEvent(
+                "stockgpt:biometric-result",
+                detail: [
+                    "success": false,
+                    "available": false,
+                    "message": error?.localizedDescription ?? "Face ID or Touch ID is not available on this device."
+                ]
+            )
+            return
+        }
+
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: prompt) { [weak self] success, authError in
+            DispatchQueue.main.async {
+                self?.emitEvent(
+                    "stockgpt:biometric-result",
+                    detail: [
+                        "success": success,
+                        "available": true,
+                        "message": authError?.localizedDescription ?? ""
+                    ]
+                )
+                if success {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             }
         }
