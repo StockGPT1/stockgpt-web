@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { AuthProviderButtons } from "@/components/AuthProviderButtons";
 import { trackClientEvent } from "@/lib/analytics/client-events";
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 import {
@@ -311,6 +312,27 @@ export default function SignupPage() {
             </AuthMessage>
           )}
 
+          <AuthProviderButtons
+            mode="signup"
+            onError={(value) => {
+              setMessageTone("error");
+              setMessage(value);
+            }}
+          />
+
+          <p className="px-1 text-center text-[9.5px] font-semibold leading-4 text-white/38">
+            By continuing with Apple or Google, you confirm you are 18 or over and agree to the{" "}
+            <Link href="/legal#terms" className="font-black !text-[#ddb159] !underline underline-offset-2">Terms</Link>{" "}
+            and{" "}
+            <Link href="/legal#privacy" className="font-black !text-[#ddb159] !underline underline-offset-2">Privacy Policy</Link>.
+          </p>
+
+          <div className="flex items-center gap-3 py-1 text-[9.5px] font-black uppercase tracking-[0.18em] text-white/30">
+            <span className="h-px min-w-0 flex-1 bg-white/10" />
+            <span className="shrink-0">or create with email</span>
+            <span className="h-px min-w-0 flex-1 bg-white/10" />
+          </div>
+
           <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
             <label className="block min-w-0">
               <span className={authLabelClass}>First name</span>
@@ -399,7 +421,7 @@ export default function SignupPage() {
 
           {message && <AuthMessage tone={messageTone}>{message}</AuthMessage>}
 
-          <button onClick={signUp} disabled={loading} className={authPrimaryButtonClass}>
+          <button onClick={signUp} disabled={loading} data-native-haptic="medium" className={authPrimaryButtonClass}>
             {loading ? "Creating..." : "Create account"}
           </button>
         </div>
