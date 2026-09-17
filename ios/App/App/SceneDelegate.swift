@@ -2,6 +2,9 @@ import UIKit
 import WebKit
 import UserNotifications
 import LocalAuthentication
+import AuthenticationServices
+import CryptoKit
+import Security
 import Capacitor
 
 private let stockGPTBackground = UIColor(
@@ -33,8 +36,16 @@ private func stockGPTPath(for shortcutItem: UIApplicationShortcutItem) -> String
     }
 }
 
-final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
+final class StockGPTBridgeViewController: CAPBridgeViewController,
+    WKScriptMessageHandler,
+    ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding,
+    ASWebAuthenticationPresentationContextProviding {
+
     var pendingAppPath: String?
+
+    private var appleSignInNonce: String?
+    private var webAuthSession: ASWebAuthenticationSession?
 
     private lazy var stockGPTRefreshControl: UIRefreshControl = {
         let control = UIRefreshControl()
@@ -130,6 +141,18 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
             requestPushPermission()
         case "authenticate":
             authenticate(reason: payload["reason"] as? String)
+        case "appleSignIn":
+            beginAppleSignIn()
+        case "oauthSession":
+            guard let urlString = payload["url"] as? String,
+                  let url = URL(string: urlString) else {
+                emitEvent("stockgpt:oauth-result", detail: ["error": "Could not open the sign-in page."])
+                return
+            }
+            beginOAuthSession(
+                url: url,
+                callbackScheme: payload["callbackScheme"] as? String ?? "stockgpt"
+            )
         default:
             break
         }
@@ -228,6 +251,152 @@ final class StockGPTBridgeViewController: CAPBridgeViewController, WKScriptMessa
                 }
             }
         }
+    }
+
+    private func beginAppleSignIn() {
+        let nonce = randomNonceString()
+        appleSignInNonce = nonce
+
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
+              let token = String(data: tokenData, encoding: .utf8),
+              let nonce = appleSignInNonce else {
+            appleSignInNonce = nil
+            emitEvent("stockgpt:apple-auth-result", detail: ["error": "Apple did not return a usable identity token."])
+            return
+        }
+
+        var detail: [String: Any] = [
+            "token": token,
+            "nonce": nonce
+        ]
+
+        if let email = credential.email, !email.isEmpty {
+            detail["email"] = email
+        }
+        if let givenName = credential.fullName?.givenName, !givenName.isEmpty {
+            detail["givenName"] = givenName
+        }
+        if let familyName = credential.fullName?.familyName, !familyName.isEmpty {
+            detail["familyName"] = familyName
+        }
+
+        appleSignInNonce = nil
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        emitEvent("stockgpt:apple-auth-result", detail: detail)
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        appleSignInNonce = nil
+        let authError = error as? ASAuthorizationError
+        let cancelled = authError?.code == .canceled
+        emitEvent(
+            "stockgpt:apple-auth-result",
+            detail: [
+                "cancelled": cancelled,
+                "error": cancelled ? "Sign in with Apple was cancelled." : error.localizedDescription
+            ]
+        )
+    }
+
+    private func beginOAuthSession(url: URL, callbackScheme: String) {
+        guard webAuthSession == nil else {
+            emitEvent("stockgpt:oauth-result", detail: ["error": "A sign-in window is already open."])
+            return
+        }
+
+        let session = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: callbackScheme
+        ) { [weak self] callbackURL, error in
+            DispatchQueue.main.async {
+                self?.webAuthSession = nil
+
+                if let callbackURL {
+                    self?.emitEvent("stockgpt:oauth-result", detail: ["url": callbackURL.absoluteString])
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    return
+                }
+
+                let authError = error as? ASWebAuthenticationSessionError
+                let cancelled = authError?.code == .canceledLogin
+                self?.emitEvent(
+                    "stockgpt:oauth-result",
+                    detail: [
+                        "cancelled": cancelled,
+                        "error": cancelled ? "Sign in was cancelled." : (error?.localizedDescription ?? "Sign in did not complete.")
+                    ]
+                )
+            }
+        }
+
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = false
+        webAuthSession = session
+
+        if !session.start() {
+            webAuthSession = nil
+            emitEvent("stockgpt:oauth-result", detail: ["error": "Could not open the secure sign-in window."])
+        }
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        presentationWindow()
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        presentationWindow()
+    }
+
+    private func presentationWindow() -> UIWindow {
+        if let window = view.window {
+            return window
+        }
+
+        if let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first,
+           let window = scene.windows.first {
+            return window
+        }
+
+        return UIWindow(frame: UIScreen.main.bounds)
+    }
+
+    private func randomNonceString() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        guard status == errSecSuccess else {
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        }
+
+        return Data(bytes)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    private func sha256(_ value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     @objc private func receivedPushToken(_ notification: Notification) {
