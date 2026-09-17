@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as {
     token?: unknown;
     platform?: unknown;
+    environment?: unknown;
   } | null;
 
   const token = typeof payload?.token === "string" ? payload.token.trim().toLowerCase() : "";
@@ -21,12 +22,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid device token" }, { status: 400 });
   }
 
+  const environment = payload?.environment === "production" ? "production" : "sandbox";
   const now = new Date().toISOString();
   const { error } = await supabase.from("ios_push_devices").upsert(
     {
       user_id: user.id,
       token,
       platform: "ios",
+      environment,
       enabled: true,
       updated_at: now,
       last_seen_at: now,
