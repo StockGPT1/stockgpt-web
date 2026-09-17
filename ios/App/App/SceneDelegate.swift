@@ -401,7 +401,11 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
 
     @objc private func receivedPushToken(_ notification: Notification) {
         guard let token = notification.userInfo?["token"] as? String else { return }
-        emitEvent("stockgpt:push-token", detail: ["token": token])
+        let environment = notification.userInfo?["environment"] as? String ?? "sandbox"
+        emitEvent(
+            "stockgpt:push-token",
+            detail: ["token": token, "environment": environment]
+        )
     }
 
     @objc private func receivedPushRegistrationError(_ notification: Notification) {
