@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { StockIcon } from "@/components/StockIcon";
 import { useAppChrome } from "@/components/AppChromeProvider";
+import { nativeShare } from "@/lib/ios-native";
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/stock/")) {
@@ -53,6 +54,30 @@ function HeaderButton({
       className="grid size-11 shrink-0 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
     >
       <StockIcon name={icon} className="size-5" />
+    </button>
+  );
+}
+
+function ShareButton({ title }: { title: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Share ${title || "StockGPT"}`}
+      data-native-haptic="medium"
+      onClick={() => {
+        void nativeShare({
+          title: title ? `${title} on StockGPT` : "StockGPT",
+          text: title ? `Research ${title} on StockGPT` : "StockGPT",
+          url: window.location.href,
+        });
+      }}
+      className="grid size-11 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+    >
+      <svg viewBox="0 0 24 24" className="size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v12" />
+        <path d="m8 7 4-4 4 4" />
+        <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+      </svg>
     </button>
   );
 }
@@ -123,7 +148,7 @@ export function MobileAppHeader() {
       </p>
 
       {isDetailPage ? (
-        <HeaderButton label="Search StockGPT" onClick={openSearch} icon="search" />
+        <ShareButton title={title} />
       ) : isSettings ? (
         <Link
           href="/dashboard"
