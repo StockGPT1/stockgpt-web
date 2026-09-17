@@ -1,7 +1,16 @@
+export type NativeHapticStyle =
+  | "light"
+  | "medium"
+  | "heavy"
+  | "success"
+  | "warning"
+  | "error";
+
 type StockGPTNativeAction =
-  | { type: "haptic"; style?: "light" | "medium" | "heavy" | "success" | "warning" | "error" }
+  | { type: "haptic"; style?: NativeHapticStyle }
   | { type: "share"; title?: string; text?: string; url?: string }
-  | { type: "enablePush" };
+  | { type: "enablePush" }
+  | { type: "authenticate"; reason?: string };
 
 declare global {
   interface Window {
@@ -28,10 +37,8 @@ function postNative(message: StockGPTNativeAction) {
   return true;
 }
 
-export function nativeHaptic(
-  style: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "light",
-) {
-  postNative({ type: "haptic", style });
+export function nativeHaptic(style: NativeHapticStyle = "light") {
+  return postNative({ type: "haptic", style });
 }
 
 export async function nativeShare({
@@ -68,4 +75,10 @@ export async function nativeShare({
 
 export function requestNativePushPermission() {
   return postNative({ type: "enablePush" });
+}
+
+export function requestNativeAuthentication(
+  reason = "Unlock StockGPT to view your portfolio and account.",
+) {
+  return postNative({ type: "authenticate", reason });
 }
