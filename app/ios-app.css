@@ -23,8 +23,10 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
 
 @media (max-width: 1023px) {
   html[data-app-shell="true"] .sg-mobile-app-header {
+    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: env(safe-area-inset-top, 0px);
     border-bottom-color: rgba(221, 177, 89, 0.12);
-    background: rgba(4, 24, 15, 0.9);
+    background: rgba(4, 24, 15, 0.91);
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025), 0 10px 34px rgba(0, 0, 0, 0.2);
     -webkit-backdrop-filter: saturate(150%) blur(22px);
     backdrop-filter: saturate(150%) blur(22px);
@@ -32,10 +34,16 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
 
   html[data-app-shell="true"] .sg-app-content {
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   html[data-app-shell="true"] .sg-app-content::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Keep form focus from triggering Safari-style viewport zoom in WKWebView. */
+  html[data-app-shell="true"] :where(input:not([type="checkbox"]):not([type="radio"]), textarea) {
+    font-size: 16px !important;
   }
 
   /* Native tab-bar treatment: full-bleed, safe-area aware and visually
@@ -83,6 +91,33 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
      page's own larger bottom padding where it already has one. */
   html[data-app-shell="true"] .sg-app-content {
     padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom, 0px))) !important;
+  }
+
+  /* Rankings: get to the actual stocks quickly. The methodology explainer is
+     still available on desktop/web but is not worth a full phone screen here. */
+  html[data-app-shell="true"] body[data-sg-path="rankings"] .sg-app-content main {
+    gap: 10px !important;
+    padding-right: 0 !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="rankings"] .sg-app-content main > section:first-child {
+    border-radius: 18px !important;
+    padding: 12px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14) !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="rankings"] .sg-app-content main > details {
+    display: none !important;
+  }
+
+  /* Portfolio: the hero is intentionally compact on-device; holdings now sit
+     immediately below the summary rather than several long editorial blocks. */
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content {
+    background: #061b12;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] [data-portfolio-section-anchor] {
+    scroll-margin-top: calc(56px + env(safe-area-inset-top, 0px));
   }
 }
 
