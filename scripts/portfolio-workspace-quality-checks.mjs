@@ -90,10 +90,16 @@ assert.match(modernPage, /allowCurrentSnapshot:\s*enriched\.every/);
 assert.match(visuals, /of total portfolio/);
 assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
 assert.match(stage, /filterDisplayablePortfolioChartData/);
+assert.match(stage, /sanitisePortfolioChartData/);
 
-assert.match(overview, /Portfolio Pulse/);
+assert.match(overview, /Portfolio [Pp]ulse/);
 assert.match(overview, /Conviction × exposure/);
 assert.match(overview, /Portfolio-fit ideas/);
+assert.match(overview, /title="Holdings"/);
+assert.ok(
+  overview.indexOf('title="Holdings"') < overview.indexOf("Portfolio pulse"),
+  "Holdings should appear before the long Portfolio pulse section on mobile",
+);
 assert.match(visuals, /ConvictionMap/);
 assert.match(visuals, /AllocationTreemap/);
 assert.match(holdings, /Search holdings/);
@@ -158,7 +164,7 @@ assert.match(workspace, /size-11|size-12/);
 assert.match(workspace, /h-12/);
 assert.match(workspace, /min-h-11/);
 
-assert.match(stage, /StockGPT only plots confirmed portfolio snapshots/);
+assert.match(stage, /StockGPT only plots confirmed portfolio (snapshots|history)/);
 assert.match(stage, /Preparing reliable chart history/);
 assert.match(stage, /Using the last reliable chart|Showing cached chart/);
 assert.match(stage, /Chart history unavailable/);
