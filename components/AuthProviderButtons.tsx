@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   isStockGPTIOSApp,
   requestNativeAppleSignIn,
@@ -9,6 +9,9 @@ import {
 
 type AuthProvider = "apple" | "google";
 type AuthMode = "login" | "signup";
+
+const FACE_ID_KEY = "stockgpt:faceid-enabled";
+const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
 
 type NativeAppleResult = {
   token?: string;
@@ -86,6 +89,13 @@ function safeNextPath(fallback: string) {
     : fallback;
 }
 
+function queueFaceIDOffer() {
+  if (!isStockGPTIOSApp()) return;
+  if (window.localStorage.getItem(FACE_ID_KEY) !== null) return;
+  window.localStorage.setItem(FACE_ID_OFFER_KEY, "true");
+  window.dispatchEvent(new CustomEvent("stockgpt:faceid-offer"));
+}
+
 export function AuthProviderButtons({
   onError,
   redirectTo = "/dashboard",
@@ -128,6 +138,7 @@ export function AuthProviderButtons({
       });
     }
 
+    queueFaceIDOffer();
     window.location.assign(safeRedirectTo);
   }
 
@@ -164,6 +175,7 @@ export function AuthProviderButtons({
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) throw exchangeError;
 
+    queueFaceIDOffer();
     window.location.assign(safeRedirectTo);
   }
 
@@ -208,7 +220,7 @@ export function AuthProviderButtons({
   const providers: Array<{
     id: AuthProvider;
     label: string;
-    icon: React.ReactNode;
+    icon: ReactNode;
     className: string;
   }> = [
     {
