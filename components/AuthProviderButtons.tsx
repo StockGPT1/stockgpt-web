@@ -96,6 +96,15 @@ function queueFaceIDOffer() {
   window.dispatchEvent(new CustomEvent("stockgpt:faceid-offer"));
 }
 
+function socialSignupMetadata() {
+  return {
+    age_confirmed_18: true,
+    terms_accepted: true,
+    email_consent: true,
+    consent_captured_at: new Date().toISOString(),
+  };
+}
+
 export function AuthProviderButtons({
   onError,
   redirectTo = "/dashboard",
@@ -127,15 +136,16 @@ export function AuthProviderButtons({
 
     if (error) throw error;
 
-    if (result.givenName || result.familyName) {
-      const fullName = [result.givenName, result.familyName].filter(Boolean).join(" ");
-      await supabase.auth.updateUser({
-        data: {
-          ...(fullName ? { full_name: fullName } : {}),
-          ...(result.givenName ? { given_name: result.givenName } : {}),
-          ...(result.familyName ? { family_name: result.familyName } : {}),
-        },
-      });
+    const fullName = [result.givenName, result.familyName].filter(Boolean).join(" ");
+    const metadata = {
+      ...(fullName ? { full_name: fullName } : {}),
+      ...(result.givenName ? { given_name: result.givenName } : {}),
+      ...(result.familyName ? { family_name: result.familyName } : {}),
+      ...(mode === "signup" ? socialSignupMetadata() : {}),
+    };
+
+    if (Object.keys(metadata).length > 0) {
+      await supabase.auth.updateUser({ data: metadata });
     }
 
     queueFaceIDOffer();
@@ -175,6 +185,10 @@ export function AuthProviderButtons({
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) throw exchangeError;
 
+    if (mode === "signup") {
+      await supabase.auth.updateUser({ data: socialSignupMetadata() });
+    }
+
     queueFaceIDOffer();
     window.location.assign(safeRedirectTo);
   }
@@ -201,10 +215,11 @@ export function AuthProviderButtons({
          it here keeps it out of the auth pages' first-load bundle. */
       const { createClient } = await import("@/utils/supabase/client");
       const origin = window.location.origin;
+      const callback = `${origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}${mode === "signup" ? "&signup=1" : ""}`;
       const { error } = await createClient().auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}`,
+          redirectTo: callback,
         },
       });
 
