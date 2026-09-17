@@ -138,7 +138,7 @@ export function PortfolioModernWorkspace({
           onManage={() => setManageOpen(true)}
         />
 
-        <div className="px-4 pt-7 sm:px-6 lg:px-0 lg:pt-9">
+        <div className="px-4 pt-4 sm:px-6 lg:px-0 lg:pt-9">
           <section
             role="tabpanel"
             aria-label={`${section[0].toUpperCase()}${section.slice(1)} portfolio section`}
