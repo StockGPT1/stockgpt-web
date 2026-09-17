@@ -223,7 +223,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
           <MoreIcon />
           <span className="sg-mobile-nav-label text-[9.5px] font-extrabold leading-none">More</span>
           {unreadCount > 0 && (
-            <span className="absolute right-[calc(50%-17px)] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[8px] font-black text-white ring-2 ring-[#04180f]">
+            <span className="absolute right-[19%] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[8px] font-black text-white ring-2 ring-[#04180f]">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
