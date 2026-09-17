@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 import {
   analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
@@ -21,9 +23,7 @@ export type WorldNewsFeed = {
   stockUniverseCount: number;
 };
 
-async function getWorldNewsFeedUncached(): Promise<WorldNewsFeed> {
-  const supabase = createAdminClient();
-
+async function buildWorldNewsFeed(supabase: SupabaseClient): Promise<WorldNewsFeed> {
   const [{ data: newsData, error: newsError }, { data: stockData, error: stockError }] =
     await Promise.all([
       supabase
@@ -66,12 +66,31 @@ async function getWorldNewsFeedUncached(): Promise<WorldNewsFeed> {
   };
 }
 
+async function getWorldNewsFeedUncached(): Promise<WorldNewsFeed> {
+  return buildWorldNewsFeed(createAdminClient());
+}
+
 const getCachedWorldNewsFeedInternal = unstable_cache(
   getWorldNewsFeedUncached,
   ["stockgpt-world-news-feed-v1"],
   { revalidate: WORLD_NEWS_CACHE_SECONDS },
 );
 
+function hasUsableServiceRoleKey() {
+  const value = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return Boolean(value && value !== "[SENSITIVE]");
+}
+
 export async function getCachedWorldNewsFeed() {
+  /* `vercel env pull` intentionally writes [SENSITIVE] for protected secrets.
+     In local iPhone development we already have an authenticated subscriber
+     session, and RLS permits that subscriber to read these two market-data
+     tables. Use that session instead of making World News depend on a local
+     service-role secret. Production keeps the cached service-role path. */
+  if (process.env.NODE_ENV === "development" && !hasUsableServiceRoleKey()) {
+    const supabase = await createServerClient();
+    return buildWorldNewsFeed(supabase);
+  }
+
   return getCachedWorldNewsFeedInternal();
 }
