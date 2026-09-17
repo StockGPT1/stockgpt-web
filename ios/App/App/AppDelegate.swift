@@ -26,11 +26,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let environment = "production"
         #endif
 
+        let userInfo = ["token": token, "environment": environment]
+
+        // The APNs callback can arrive before Capacitor/WebKit has installed its
+        // bridge listeners. Re-emit the token a few times so the web app cannot
+        // miss registration during cold launch or immediately after permission.
         NotificationCenter.default.post(
             name: .stockGPTPushToken,
             object: nil,
-            userInfo: ["token": token, "environment": environment]
+            userInfo: userInfo
         )
+
+        for delay in [1.0, 3.0, 6.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                NotificationCenter.default.post(
+                    name: .stockGPTPushToken,
+                    object: nil,
+                    userInfo: userInfo
+                )
+            }
+        }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
@@ -71,7 +86,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func applicationWillEnterForeground(_ application: UIApplication) {}
 
-    func applicationDidBecomeActive(_ application: UIApplication) {}
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Register again on launch/foreground when permission is already granted.
+        // iOS will return the current APNs device token without showing the prompt again.
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                application.registerForRemoteNotifications()
+            }
+        }
+    }
 
     func applicationWillTerminate(_ application: UIApplication) {}
 
