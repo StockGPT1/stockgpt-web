@@ -1,33 +1,44 @@
 # StockGPT iPhone app
 
-StockGPT for iPhone is a **Capacitor 8 app shell** around the same StockGPT product used on the web. The shell is native iOS/WKWebView, while the authenticated product, Supabase data and ranking output remain shared with `stockgpt.pro`.
+StockGPT for iPhone is a **Capacitor 8 iOS app shell** around the same authenticated StockGPT product used on the web. The shell is native iOS/WKWebView, while rankings, portfolio state, Supabase data and account state remain shared with `stockgpt.pro`.
 
-That architecture is deliberate: the iPhone app does not contain a second copy of the ranking engine. `stockgpt-ranking` continues to calculate/update the data used by the web product, and the app consumes that same product/data. There is one source of truth for rankings, portfolios, alerts and account state.
+That architecture is deliberate: the iPhone app does not contain a second ranking engine. `stockgpt-ranking` continues to calculate/update model data, and the app consumes the same product and data as the web experience.
 
-Inside the iOS shell the site switches to app-specific chrome: iPhone safe areas, compact top bars, a native-style bottom tab bar, and a **More** sheet for Alerts, World News and Settings. Mobile Safari keeps the normal mobile-web treatment.
+## Native iPhone behaviour
 
-## What's in the repo
+The app shell now adds iPhone-specific behaviour instead of behaving like a plain embedded website:
+
+- Safe-area-aware translucent top chrome and a full-edge iOS-style tab bar.
+- Haptic feedback on taps and stronger feedback on important actions.
+- Native iOS Share Sheet from stock/detail screens.
+- Pull to refresh.
+- WKWebView swipe-back navigation.
+- Dark native status-bar/launch treatment with no white launch flash.
+- Optional Face ID / Touch ID app lock from **Settings**. When enabled, the app locks on launch and after 30 seconds in the background.
+- Home-screen long-press shortcuts for Search, Rankings, Portfolio and Alerts.
+- APNs registration, Lock Screen/banner handling and notification deep links.
+- App-only portfolio/rankings layouts that remain separate from normal mobile Safari.
+
+The web product detects the `StockGPTApp/1.0` user-agent marker and adds `<html data-app-shell="true">`, which enables app-only presentation.
+
+## Important files
 
 | Path | Purpose |
 | --- | --- |
 | `capacitor.config.ts` | App identity, production URL and optional development-server override |
-| `ios/` | Xcode project (Capacitor 8 + Swift Package Manager; no CocoaPods) |
-| `capacitor-fallback/` | Branded loading/offline/error assets bundled with the app |
-| `components/AppShellMode.tsx` | Tags `<html data-app-shell>` when the site runs inside the app |
-| `components/MobileAppHeader.tsx` | iPhone top navigation |
-| `components/MobileBottomNav.tsx` | iPhone tab bar + More sheet |
-| `app/ios-app.css` | Styles that apply only inside the iOS app shell |
-| `ios/.../AppIcon.appiconset` | 1024×1024 App Store icon |
+| `ios/App/App/SceneDelegate.swift` | Native bridge, haptics, share, Face ID, pull-to-refresh, shortcuts and WebView behaviour |
+| `ios/App/App/AppDelegate.swift` | APNs registration and notification handling |
+| `ios/App/App/Info.plist` | Face ID description, launch configuration and app-icon shortcuts |
+| `components/IOSNativeEnhancements.tsx` | App-wide haptics, pull-to-refresh and native event handling |
+| `components/IOSAppLock.tsx` | Face ID/Touch ID app lock |
+| `components/IOSPushSetupCard.tsx` | In-app notification permission/setup UI |
+| `lib/ios-native.ts` | JavaScript → native bridge helpers |
+| `app/ios-app.css` | Styles applied only inside the iOS shell |
+| `supabase/migrations/20260917_ios_push_devices.sql` | Registered APNs devices |
+| `supabase/migrations/20260917_ios_push_delivery.sql` | APNs environment + delivery dedupe |
+| `app/api/cron/ios-push/route.ts` | Scheduled StockGPT portfolio-alert delivery |
 
-The shell appends `StockGPTApp/1.0` to the WebView user agent. The web app uses that marker to enable app-only presentation and to keep web-only purchase/marketing chrome out of the shell where required.
-
-## Run it in Xcode now
-
-You **do not need the paid Apple Developer Program to start building or testing**.
-
-- The iPhone Simulator works without a paid developer membership.
-- A real iPhone can be run from Xcode using a normal Apple Account/Personal Team for development signing.
-- The paid Apple Developer Program is needed later for TestFlight and App Store distribution (and some production capabilities).
+## Run it in Xcode
 
 On a Mac:
 
@@ -40,16 +51,18 @@ npx cap open ios
 In Xcode:
 
 1. Select the **App** scheme.
-2. Choose an iPhone Simulator and press **Run** (`⌘R`).
-3. For a plugged-in iPhone, open **Signing & Capabilities** and select your Personal Team/Apple Account.
+2. Open **App → Signing & Capabilities** and select the paid StockGPT Apple Developer Team.
+3. Keep **Automatically manage signing** enabled.
+4. Choose an iPhone Simulator or the connected iPhone.
+5. Press **Run** (`⌘R`).
 
-With no extra configuration, the app opens `https://stockgpt.pro/dashboard` and therefore uses the live product.
+With no server override, the shell opens `https://stockgpt.pro/dashboard` and therefore displays the currently deployed web product.
 
-## Test web/app changes before deploying
+## Test branch UI before production deploy
 
-`capacitor.config.ts` supports `CAPACITOR_SERVER_URL`. This is important because the production shell normally points at the live website; without an override, an undeployed branch cannot appear in Xcode.
+`capacitor.config.ts` supports `CAPACITOR_SERVER_URL`. Without an override, native Swift changes appear after an Xcode rebuild, but **undeployed React/CSS changes will not appear** because the WebView still loads production.
 
-### iPhone Simulator + local Next.js
+### Simulator + local Next.js
 
 Terminal 1:
 
@@ -64,62 +77,112 @@ CAPACITOR_SERVER_URL=http://localhost:3000/dashboard npx cap sync ios
 npx cap open ios
 ```
 
-Run the simulator from Xcode. The Capacitor user-agent marker is still present, so you are testing the actual **app-shell layout**, not ordinary mobile Safari.
+### Real iPhone + HTTPS preview
 
-When you want the Xcode project to point back to production, sync again without the override:
-
-```bash
-npx cap sync ios
-```
-
-### Real iPhone + preview deployment
-
-For a physical phone, the cleanest branch-testing workflow is an HTTPS preview deployment (for example your normal preview environment):
+A physical iPhone should normally use an HTTPS preview deployment:
 
 ```bash
 CAPACITOR_SERVER_URL=https://YOUR-PREVIEW-HOST/dashboard npx cap sync ios
 npx cap open ios
 ```
 
-Using HTTPS avoids local-network and App Transport Security differences between Macs, routers and devices. Never commit a temporary preview URL into `capacitor.config.ts`; keep it in the one-shot environment variable.
+To return the Xcode project to production later:
 
-## What gets copied from the web product
+```bash
+npx cap sync ios
+```
 
-Because the app loads the real authenticated StockGPT product, the feature set stays shared rather than being reimplemented separately:
+Never commit a temporary preview URL into `capacitor.config.ts`.
 
-- Dashboard and market overview
-- AI stock rankings and stock-detail research
-- Portfolio tools and portfolio analysis
-- Watchlist
-- Alerts/notifications
-- World News and ticker impact context
-- Search and compare flows
-- Account/settings flows
+## Enable real iPhone push alerts
 
-The iPhone navigation is intentionally adapted rather than literally duplicating the desktop sidebar: Home, Rankings, Portfolio and Watchlist are tabs; Alerts, World News and Settings live in **More**. Detail/compare/focused flows can temporarily hide the tab bar so the content gets the whole screen.
+The code for APNs device registration and scheduled delivery is in the repo, but the Apple capability, database migrations and APNs provider credentials must exist in the deployed environment.
 
-## Ship to TestFlight / the App Store
+### 1. Enable the Xcode capability
 
-When the product is ready for external beta testing:
+In Xcode open:
 
-1. Join the Apple Developer Program.
-2. In Xcode, select the **App** target → **Signing & Capabilities** → your paid Team.
-3. Use **Product → Archive**, then **Distribute App → App Store Connect**.
-4. In App Store Connect create **StockGPT** using bundle ID `pro.stockgpt.app`, add screenshots, description, privacy-policy details and App Privacy answers.
-5. Distribute through TestFlight before public review.
+**App target → Signing & Capabilities → + Capability → Push Notifications**
 
-## App Review items to finish before public submission
+Use the paid Apple Developer Team and automatic signing. Xcode should update the App ID/provisioning profile for `pro.stockgpt.app`. The repository also contains `App/App.entitlements`; if Xcode creates or selects an entitlements file, make sure the target is using the one containing `aps-environment`.
 
-Two areas need a deliberate product decision before App Store review:
+### 2. Apply the Supabase migrations
 
-- **Minimum native value.** The current shell has native packaging/presentation, but push notifications for existing price/portfolio alerts are the strongest next native capability and make the app materially more useful on iPhone.
-- **Subscriptions / purchases.** Do not casually expose the existing Stripe purchase flow inside an App Store build. Choose an App-Store-compliant subscription approach before submission (for example Apple IAP, or an eligible reader-style/external-link approach where permitted). Stripe hosts stay outside `allowNavigation`, so checkout is not silently embedded in the WKWebView.
+Apply:
 
-Treat these as release work, not blockers for simulator/device development.
+- `supabase/migrations/20260917_ios_push_devices.sql`
+- `supabase/migrations/20260917_ios_push_delivery.sql`
+
+Using the normal StockGPT migration/deployment workflow. If using the Supabase CLI for the linked production project, review the pending migrations before running the project’s normal `db push` flow.
+
+### 3. Create an APNs provider key
+
+In the Apple Developer portal create a key that can use Apple Push Notification service (APNs), then configure the production server with:
+
+```text
+APNS_TEAM_ID=YOUR_APPLE_TEAM_ID
+APNS_KEY_ID=YOUR_APNS_KEY_ID
+APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
+APNS_BUNDLE_ID=pro.stockgpt.app
+```
+
+`CRON_SECRET` should also remain configured for manual secured cron calls. Vercel Cron can use the repository's existing cron-auth path in production.
+
+The app initially stores debug/Xcode tokens as sandbox devices. The push worker retries the opposite APNs environment on `BadDeviceToken` and remembers the successful environment, so TestFlight/App Store production tokens can self-correct after a build transition.
+
+### 4. Deploy the web/server branch
+
+`vercel.json` schedules `/api/cron/ios-push` every 15 minutes. The worker:
+
+- reads enabled iPhone devices,
+- evaluates the same portfolio trim/risk/target conditions used by StockGPT Alerts,
+- skips alerts the user has already resolved,
+- deduplicates previously sent device/alert pairs,
+- sends up to three new alerts per user per run,
+- deep-links taps back into the relevant StockGPT portfolio or stock page,
+- disables APNs tokens Apple reports as unregistered.
+
+After the server pieces are deployed, open **Alerts** in the iPhone app and tap **Enable iPhone alerts**.
+
+## Portfolio and Rankings on iPhone
+
+The app-specific mobile pass deliberately changes information priority:
+
+- Portfolio performance/chart is compact rather than taking most of the first screen.
+- **Holdings now appear immediately after the compact portfolio summary**, instead of after several long analysis sections.
+- Portfolio charts expose 1D / 5D / 1M / 6M / 1Y / All and sanitise invalid/duplicate timestamps before rendering. The existing server-side sparse-history timeline rebuild remains the source of real chart points; the client does not invent movement.
+- Portfolio Pulse, exposure analysis and opportunity ideas remain available lower on the page.
+- Rankings use compact stock cards with rank movement, AI score, 1D move, price and confidence visible without opening a desktop-style table.
+- The long score-method explanation is hidden inside the app shell on small iPhones so the actual rankings arrive much sooner; it remains available on the web/desktop product.
+
+## TestFlight / App Store
+
+The paid Apple Developer membership is now the correct setup for:
+
+- APNs Push Notifications
+- TestFlight
+- App Store Connect
+- distribution signing and provisioning
+
+For external beta testing:
+
+1. Make sure the production bundle identifier is `pro.stockgpt.app`.
+2. Select the paid Team and automatic signing.
+3. **Product → Archive**.
+4. **Distribute App → App Store Connect**.
+5. Create/update StockGPT in App Store Connect, then distribute the build through TestFlight before public review.
+
+## App Review / purchase note
+
+Do not casually embed the existing Stripe checkout flow inside the App Store binary. Before public submission, use an App-Store-compliant purchase/subscription approach for any digital subscription sold from iOS. Stripe hosts remain outside the app's `allowNavigation` list.
+
+## Widget note
+
+A proper StockGPT Home Screen/Lock Screen widget requires a separate **WidgetKit extension target**, shared App Group data and its own signing/provisioning. That is intentionally not faked inside the WebView shell. Add the extension as a separate native target once the core app/alerts build is stable, then share a small snapshot (for example watchlist movers or top rankings) through an App Group.
 
 ## Day-to-day changes
 
-- **Normal product/UI changes:** deploy the web app and the production iPhone shell gets them on next load.
-- **Testing undeployed changes:** use `CAPACITOR_SERVER_URL` and re-run `npx cap sync ios`.
-- **Native-shell changes** (Capacitor settings, icons, Swift/native plugins): run `npx cap sync ios`, rebuild in Xcode, and eventually ship a new binary.
-- **Ranking logic:** stays in `stockgpt-ranking`; do not fork or duplicate it into the iOS client.
+- **Normal product/UI changes:** deploy the web app and the production iPhone shell receives them on next load.
+- **Undeployed branch UI:** use `CAPACITOR_SERVER_URL` against local development or an HTTPS preview and re-run `npx cap sync ios`.
+- **Native Swift/config changes:** rebuild the iOS binary in Xcode.
+- **Ranking logic:** remains in `stockgpt-ranking`; do not fork or duplicate it into iOS.
