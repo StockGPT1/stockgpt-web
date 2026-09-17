@@ -27,6 +27,17 @@ export function IOSNativeEnhancements() {
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
   const pulling = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const refreshingRef = useRef(false);
+
+  function updatePullDistance(next: number) {
+    pullDistanceRef.current = next;
+    setPullDistance(next);
+  }
+
+  useEffect(() => {
+    refreshingRef.current = refreshing;
+  }, [refreshing]);
 
   useEffect(() => {
     if (!isStockGPTIOSApp()) return;
@@ -54,11 +65,12 @@ export function IOSNativeEnhancements() {
       if (!token) return;
 
       try {
-        await fetch("/api/ios/push-token", {
+        const response = await fetch("/api/ios/push-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, platform: "ios" }),
         });
+        if (!response.ok) console.warn("[ios] push token sync returned", response.status);
       } catch (error) {
         console.warn("[ios] push token sync failed", error);
       }
@@ -87,15 +99,17 @@ export function IOSNativeEnhancements() {
     function reset() {
       startY.current = null;
       pulling.current = false;
-      setPullDistance(0);
+      updatePullDistance(0);
     }
 
     function onTouchStart(event: TouchEvent) {
-      if (refreshing || scrollRoot.scrollTop > 0 || event.touches.length !== 1) {
+      if (refreshingRef.current || scrollRoot.scrollTop > 0 || event.touches.length !== 1) {
         reset();
         return;
       }
-      startY.current = event.touches[0].clientY;
+      const touch = event.touches.item(0);
+      if (!touch) return;
+      startY.current = touch.clientY;
       pulling.current = true;
     }
 
@@ -106,29 +120,32 @@ export function IOSNativeEnhancements() {
         return;
       }
 
-      const raw = event.touches[0].clientY - startY.current;
+      const touch = event.touches.item(0);
+      if (!touch) return;
+      const raw = touch.clientY - startY.current;
       if (raw <= 0) {
-        setPullDistance(0);
+        updatePullDistance(0);
         return;
       }
 
       event.preventDefault();
-      setPullDistance(Math.min(MAX_PULL, raw * 0.5));
+      updatePullDistance(Math.min(MAX_PULL, raw * 0.5));
     }
 
     function onTouchEnd() {
       if (!pulling.current) return;
-      const shouldRefresh = pullDistance >= PULL_THRESHOLD;
+      const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD;
       startY.current = null;
       pulling.current = false;
 
       if (!shouldRefresh) {
-        setPullDistance(0);
+        updatePullDistance(0);
         return;
       }
 
+      refreshingRef.current = true;
       setRefreshing(true);
-      setPullDistance(PULL_THRESHOLD);
+      updatePullDistance(PULL_THRESHOLD);
       nativeHaptic("medium");
       window.setTimeout(() => window.location.reload(), 180);
     }
@@ -144,7 +161,7 @@ export function IOSNativeEnhancements() {
       scrollRoot.removeEventListener("touchend", onTouchEnd);
       scrollRoot.removeEventListener("touchcancel", reset);
     };
-  }, [pullDistance, refreshing]);
+  }, []);
 
   if (!pullDistance && !refreshing) return null;
 
