@@ -1,0 +1,97 @@
+/*
+ * StockGPT iPhone shell polish.
+ *
+ * These rules only run inside the Capacitor app (AppShellMode adds
+ * <html data-app-shell="true">). Mobile Safari keeps the existing web layout.
+ */
+
+html[data-app-shell="true"],
+html[data-app-shell="true"] body {
+  background: #04180f;
+}
+
+html[data-app-shell="true"] body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="button"]) {
+  touch-action: manipulation;
+}
+
+@media (max-width: 1023px) {
+  html[data-app-shell="true"] .sg-mobile-app-header {
+    border-bottom-color: rgba(221, 177, 89, 0.12);
+    background: rgba(4, 24, 15, 0.9);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025), 0 10px 34px rgba(0, 0, 0, 0.2);
+    -webkit-backdrop-filter: saturate(150%) blur(22px);
+    backdrop-filter: saturate(150%) blur(22px);
+  }
+
+  html[data-app-shell="true"] .sg-app-content {
+    scrollbar-width: none;
+  }
+
+  html[data-app-shell="true"] .sg-app-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Native tab-bar treatment: full-bleed, safe-area aware and visually
+     attached to the device edge rather than floating like the mobile web nav. */
+  html[data-app-shell="true"] .sg-bottom-nav {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    border-width: 1px 0 0 !important;
+    border-radius: 0 !important;
+    padding: 4px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px)) !important;
+    background: rgba(4, 24, 15, 0.92) !important;
+    box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.24) !important;
+    -webkit-backdrop-filter: saturate(160%) blur(24px);
+    backdrop-filter: saturate(160%) blur(24px);
+  }
+
+  html[data-app-shell="true"] .sg-bottom-nav[data-hidden="true"] {
+    transform: translateY(calc(100% + env(safe-area-inset-bottom, 0px))) !important;
+  }
+
+  html[data-app-shell="true"] .sg-mobile-nav-link {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 56px !important;
+    border-radius: 14px !important;
+  }
+
+  html[data-app-shell="true"] .sg-mobile-nav-link[data-active="true"] {
+    background: rgba(221, 177, 89, 0.1) !important;
+  }
+
+  html[data-app-shell="true"] .sg-mobile-more-sheet {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 28px;
+    -webkit-backdrop-filter: saturate(155%) blur(28px);
+    backdrop-filter: saturate(155%) blur(28px);
+  }
+
+  /* Keep content clear of the attached native tab bar while preserving each
+     page's own larger bottom padding where it already has one. */
+  html[data-app-shell="true"] .sg-app-content {
+    padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom, 0px))) !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: no-preference) {
+  html[data-app-shell="true"] :where(.sg-mobile-nav-link, .sg-icon-button, button, a):active {
+    transition-duration: 80ms !important;
+  }
+
+  html[data-app-shell="true"] .sg-mobile-nav-link:active {
+    transform: scale(0.96);
+  }
+}
