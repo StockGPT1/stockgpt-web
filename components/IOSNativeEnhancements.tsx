@@ -10,7 +10,7 @@ import {
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL = 108;
-const PUSH_PROMPTED_KEY = "stockgpt:ios-push-prompted";
+const PUSH_PROMPTED_KEY = "stockgpt:ios-push-prompted-v2";
 const PUSH_STATE_KEY = "stockgpt:ios-push-state";
 const PUSH_TOKEN_KEY = "stockgpt:ios-push-token";
 const PUSH_ENVIRONMENT_KEY = "stockgpt:ios-push-environment";
@@ -94,6 +94,7 @@ export function IOSNativeEnhancements() {
 
     function onPermission(event: Event) {
       const granted = Boolean((event as CustomEvent<{ granted?: boolean }>).detail?.granted);
+      window.localStorage.setItem(PUSH_PROMPTED_KEY, "true");
       window.localStorage.setItem(PUSH_STATE_KEY, granted ? "enabled" : "denied");
     }
 
@@ -103,6 +104,7 @@ export function IOSNativeEnhancements() {
       if (!token) return;
 
       const environment = detail?.environment === "production" ? "production" : "sandbox";
+      window.localStorage.setItem(PUSH_PROMPTED_KEY, "true");
       window.localStorage.setItem(PUSH_STATE_KEY, "enabled");
       window.localStorage.setItem(PUSH_TOKEN_KEY, token);
       window.localStorage.setItem(PUSH_ENVIRONMENT_KEY, environment);
@@ -110,6 +112,7 @@ export function IOSNativeEnhancements() {
     }
 
     function onRegistrationError() {
+      window.localStorage.setItem(PUSH_PROMPTED_KEY, "true");
       window.localStorage.setItem(PUSH_STATE_KEY, "error");
     }
 
@@ -122,14 +125,13 @@ export function IOSNativeEnhancements() {
 
     if (!prompted && pushState !== "enabled" && pushState !== "denied") {
       // Ask once on the first real app launch. iOS owns the Allow / Don't Allow UI.
-      // A short delay lets the first StockGPT screen paint before the system sheet appears.
-      window.localStorage.setItem(PUSH_PROMPTED_KEY, "true");
+      // Only mark the request as completed when native iOS answers, so a bridge/startup
+      // race cannot permanently suppress the notification prompt.
       promptTimer = window.setTimeout(() => {
         if (!requestNativePushPermission()) {
-          window.localStorage.removeItem(PUSH_PROMPTED_KEY);
           window.localStorage.setItem(PUSH_STATE_KEY, "error");
         }
-      }, 900);
+      }, 1200);
     }
 
     return () => {
