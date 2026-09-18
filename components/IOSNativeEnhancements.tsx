@@ -6,6 +6,7 @@ import {
   isStockGPTIOSApp,
   nativeHaptic,
   requestNativePushPermission,
+  requestNativePushToken,
 } from "@/lib/ios-native";
 
 const PULL_THRESHOLD = 72;
@@ -119,6 +120,10 @@ export function IOSNativeEnhancements() {
     window.addEventListener("stockgpt:push-permission", onPermission);
     window.addEventListener("stockgpt:push-token", onPushToken);
     window.addEventListener("stockgpt:push-registration-error", onRegistrationError);
+
+    // Ask native iOS for the last APNs token after listeners are installed.
+    // The token is persisted natively, so a cold-launch timing race cannot lose it.
+    requestNativePushToken();
 
     const prompted = window.localStorage.getItem(PUSH_PROMPTED_KEY);
     const pushState = window.localStorage.getItem(PUSH_STATE_KEY);
