@@ -137,7 +137,8 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                                        onClick={() => setMoreOpen(false)}
+                    prefetch={false}
+                    onClick={() => setMoreOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={[
                       "flex min-h-[62px] items-center gap-3 rounded-[20px] px-3 transition active:scale-[0.985]",
@@ -179,7 +180,8 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             <Link
               key={item.href}
               href={item.href}
-                            aria-label={item.label}
+              prefetch={false}
+              aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
               data-active={isActive ? "true" : "false"}
