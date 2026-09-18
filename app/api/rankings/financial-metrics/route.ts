@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFinancialMetricMap } from "@/lib/yahoo-financials";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
@@ -18,20 +18,8 @@ function tickerVariants(ticker: string) {
   return Array.from(new Set([ticker, ticker.replace(/-/g, "."), ticker.replace(/\./g, "-")].map(cleanTicker).filter(Boolean)));
 }
 
-async function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (url && serviceKey) {
-    return createSupabaseClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    }) as SupabaseClient;
-  }
-  return createServerSupabaseClient();
-}
-
-async function getDiagnostics(ticker: string) {
+async function getDiagnostics(ticker: string, supabase: SupabaseClient) {
   try {
-    const supabase = await getSupabaseClient();
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_factor_diagnostics")
@@ -40,16 +28,22 @@ async function getDiagnostics(ticker: string) {
       .order("updated_at", { ascending: false })
       .limit(1);
 
-    if (error) return null;
+    if (error) {
+      console.warn("[rankings] factor diagnostics read failed", { ticker, message: error.message });
+      return null;
+    }
     return Array.isArray(data) ? data[0] ?? null : data ?? null;
-  } catch {
+  } catch (error) {
+    console.warn("[rankings] factor diagnostics read threw", {
+      ticker,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
 
-async function getRankingRow(ticker: string) {
+async function getRankingRow(ticker: string, supabase: SupabaseClient) {
   try {
-    const supabase = await getSupabaseClient();
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_rankings")
@@ -57,9 +51,16 @@ async function getRankingRow(ticker: string) {
       .in("ticker", variants)
       .limit(1);
 
-    if (error) return null;
+    if (error) {
+      console.warn("[rankings] ranking detail read failed", { ticker, message: error.message });
+      return null;
+    }
     return Array.isArray(data) ? data[0] ?? null : data ?? null;
-  } catch {
+  } catch (error) {
+    console.warn("[rankings] ranking detail read threw", {
+      ticker,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -86,8 +87,8 @@ export async function GET(req: NextRequest) {
 
   const [metrics, diagnostics, ranking] = await Promise.all([
     getFinancialMetricMap([ticker]).then((map) => map.get(ticker) ?? null),
-    getDiagnostics(ticker),
-    getRankingRow(ticker),
+    getDiagnostics(ticker, authClient),
+    getRankingRow(ticker, authClient),
   ]);
 
   return NextResponse.json({ metrics, diagnostics, ranking });
