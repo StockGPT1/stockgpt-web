@@ -301,7 +301,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       .select("id,rank,ticker,company,sector,score,price,risk")
       .eq("ticker", ticker)
       .maybeSingle(),
-    getStockChart(ticker, ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"]),
+    getStockChart(ticker, ["1D", "5D", "1M", "1Y", "5Y", "MAX"]),
     user
       ? supabase
           .from("user_portfolios")
@@ -407,7 +407,14 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             </div>
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice isAuthenticated={isAuthenticated} />}
-          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart ticker={ticker} data={chartData} initialRange="1Y" height={320} /></div> : <div className="mt-3"><ModuleState title="Chart unavailable" description="StockGPT could not verify enough price points for a reliable chart. Try again later; no synthetic movement is shown." tone="review" /></div>}</section>
+          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart
+                  ticker={ticker}
+                  data={chartData}
+                  initialRange="1Y"
+                  height={320}
+                  rangeOrder={["1D", "5D", "1M", "1Y", "5Y", "MAX"]}
+                  showUnavailableRanges
+                /></div> : <div className="mt-3"><ModuleState title="Chart unavailable" description="StockGPT could not verify enough price points for a reliable chart. Try again later; no synthetic movement is shown." tone="review" /></div>}</section>
           <StockGPTView
             status={canSeeRankAndScore ? `Rank #${stock.rank ?? "—"} · AI score ${formatScore(stock.score)}` : "Premium research"}
             judgement={stockViewJudgement}
