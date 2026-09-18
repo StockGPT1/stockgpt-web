@@ -1,5 +1,5 @@
-import { BrandLoaderPage } from "@/components/BrandLoader";
+import { StartupLogoLoaderPage } from "@/components/BrandLoader";
 
 export default function Loading() {
-  return <BrandLoaderPage label="Warming up the terminal" />;
+  return <StartupLogoLoaderPage />;
 }
