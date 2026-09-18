@@ -46,6 +46,8 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
 
     private var appleSignInNonce: String?
     private var webAuthSession: ASWebAuthenticationSession?
+    private var stockGPTBootOverlay: UIView?
+    private var stockGPTWebProgressObservation: NSKeyValueObservation?
 
     private lazy var stockGPTRefreshControl: UIRefreshControl = {
         let control = UIRefreshControl()
@@ -55,6 +57,59 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
     }()
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = stockGPTBackground
+        installStockGPTBootOverlay()
+    }
+
+    private func installStockGPTBootOverlay() {
+        guard stockGPTBootOverlay == nil else { return }
+
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = stockGPTBackground
+        overlay.isUserInteractionEnabled = false
+
+        let logo = UIImageView(
+            image: UIImage(named: "LaunchLogo") ?? UIImage(named: "AppIcon")
+        )
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.contentMode = .scaleAspectFit
+
+        overlay.addSubview(logo)
+        view.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            logo.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            logo.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            logo.widthAnchor.constraint(equalToConstant: 88),
+            logo.heightAnchor.constraint(equalToConstant: 88),
+        ])
+
+        stockGPTBootOverlay = overlay
+    }
+
+    private func hideStockGPTBootOverlay() {
+        guard let overlay = stockGPTBootOverlay else { return }
+        stockGPTBootOverlay = nil
+        stockGPTWebProgressObservation = nil
+
+        UIView.animate(
+            withDuration: 0.18,
+            delay: 0,
+            options: [.curveEaseOut, .allowUserInteraction]
+        ) {
+            overlay.alpha = 0
+        } completion: { _ in
+            overlay.removeFromSuperview()
+        }
+    }
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -72,6 +127,24 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
         webView.scrollView.scrollsToTop = true
         webView.scrollView.refreshControl = stockGPTRefreshControl
         webView.configuration.userContentController.add(self, name: "stockgptNative")
+
+        // iOS removes LaunchScreen as soon as the native view controller is
+        // ready, which previously exposed the plain green WKWebView background
+        // while the remote app was still loading. Keep the logo overlay above
+        // the web view until its first navigation actually completes.
+        installStockGPTBootOverlay()
+        if let overlay = stockGPTBootOverlay {
+            view.bringSubviewToFront(overlay)
+        }
+        stockGPTWebProgressObservation = webView.observe(
+            \.estimatedProgress,
+            options: [.initial, .new]
+        ) { [weak self] observedWebView, _ in
+            guard observedWebView.estimatedProgress >= 1.0 else { return }
+            DispatchQueue.main.async {
+                self?.hideStockGPTBootOverlay()
+            }
+        }
 
         NotificationCenter.default.addObserver(
             self,
@@ -101,6 +174,7 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
     }
 
     deinit {
+        stockGPTWebProgressObservation = nil
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "stockgptNative")
         NotificationCenter.default.removeObserver(self)
     }
