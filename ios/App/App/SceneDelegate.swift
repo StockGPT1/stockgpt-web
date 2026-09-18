@@ -139,6 +139,8 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
             presentShareSheet(payload: payload)
         case "enablePush":
             requestPushPermission()
+        case "getPushToken":
+            emitSavedPushToken()
         case "authenticate":
             authenticate(reason: payload["reason"] as? String)
         case "appleSignIn":
@@ -195,6 +197,22 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
             popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.maxY - 40, width: 1, height: 1)
         }
         present(controller, animated: true)
+    }
+
+    private func emitSavedPushToken() {
+        let defaults = UserDefaults.standard
+        guard let token = defaults.string(forKey: stockGPTPushTokenDefaultsKey),
+              !token.isEmpty else { return }
+
+        let environment =
+            defaults.string(forKey: stockGPTPushEnvironmentDefaultsKey) == "production"
+                ? "production"
+                : "sandbox"
+
+        emitEvent(
+            "stockgpt:push-token",
+            detail: ["token": token, "environment": environment]
+        )
     }
 
     private func requestPushPermission() {
