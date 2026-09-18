@@ -457,6 +457,7 @@ export async function getDashboardMainPortfolio(
       transactions: mainPortfolio.transactions,
       summary: mainPortfolio.summary,
       ownerId: userId,
+      supabaseClient: supabase,
       allowCurrentSnapshot: missingPriceTickers.length === 0,
     }),
     buildPortfolioOpportunities(
