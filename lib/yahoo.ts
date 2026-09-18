@@ -40,7 +40,7 @@ function normalizeTicker(ticker: string) {
 }
 
 function cacheKey(ticker: string, range: TimeRange) {
-  return `v5:${normalizeTicker(ticker)}:${range}`;
+  return `v6:${normalizeTicker(ticker)}:${range}`;
 }
 
 function yahooTicker(ticker: string) {
@@ -115,24 +115,41 @@ async function fetchYahooRangeUncached(
   ticker: string,
   range: TimeRange,
 ): Promise<ChartPoint[]> {
-  let lastError: unknown = null;
+  const attempts = await Promise.allSettled(
+    YAHOO_BASES.map((base) => fetchYahooRangeFromBase(base, ticker, range)),
+  );
 
-  for (const base of YAHOO_BASES) {
-    try {
-      return await fetchYahooRangeFromBase(base, ticker, range);
-    } catch (error) {
-      lastError = error;
-    }
-  }
+  const success = attempts.find(
+    (attempt): attempt is PromiseFulfilledResult<ChartPoint[]> =>
+      attempt.status === "fulfilled" && attempt.value.length > 1,
+  );
+  if (success) return success.value;
+
+  const lastError = [...attempts]
+    .reverse()
+    .find((attempt): attempt is PromiseRejectedResult => attempt.status === "rejected")
+    ?.reason;
 
   throw lastError instanceof Error
     ? lastError
     : new Error(`Yahoo chart unavailable for ${normalizeTicker(ticker)} ${range}`);
 }
 
-const fetchYahooRange = unstable_cache(fetchYahooRangeUncached, ["stockgpt-yahoo-chart-v5"], {
-  revalidate: CACHE_REVALIDATE_SECONDS,
-});
+const fetchYahooRangeCached = unstable_cache(
+  fetchYahooRangeUncached,
+  ["stockgpt-yahoo-chart-v6"],
+  { revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
+async function fetchYahooRange(ticker: string, range: TimeRange) {
+  // Next's development cache revalidator prints a full AbortError dump when an
+  // upstream request times out. Bypass that wrapper locally; production keeps
+  // the cross-request cache.
+  if (process.env.NODE_ENV === "development") {
+    return fetchYahooRangeUncached(ticker, range);
+  }
+  return fetchYahooRangeCached(ticker, range);
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -275,10 +292,15 @@ function lastValidClose(points: ChartPoint[]) {
 
 async function getOneDayMover(ticker: string): Promise<Mover | null> {
   const normalizedTicker = normalizeTicker(ticker);
-  const data = await getStockChart(normalizedTicker, ["1D", "5D"]);
-  const points = (data["1D"]?.length ?? 0) >= 2 ? data["1D"]! : data["5D"] ?? [];
-  const first = firstValidClose(points);
-  const last = lastValidClose(points);
+  const data = await getStockChart(normalizedTicker, ["5D"]);
+  const fiveDayPoints = data["5D"] ?? [];
+  const latestDay = fiveDayPoints.at(-1)?.date.slice(0, 10);
+  const points = latestDay
+    ? fiveDayPoints.filter((point) => point.date.slice(0, 10) === latestDay)
+    : [];
+  const usablePoints = points.length >= 2 ? points : fiveDayPoints;
+  const first = firstValidClose(usablePoints);
+  const last = lastValidClose(usablePoints);
   if (first == null || last == null || first <= 0) return null;
   return { ticker: normalizedTicker, currentPrice: last, changePct: ((last - first) / first) * 100 };
 }
@@ -302,7 +324,11 @@ function cleanTickerUniverse(tickers: string[], max = 500) {
 }
 
 export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
-  const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, LIVE_MOVE_FALLBACK_LIMIT));
+  const effectiveLimit =
+    process.env.NODE_ENV === "development"
+      ? Math.min(LIVE_MOVE_FALLBACK_LIMIT, 12)
+      : LIVE_MOVE_FALLBACK_LIMIT;
+  const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, effectiveLimit));
   const movers = await Promise.all(
     tickersToCheck.map((ticker) =>
       withTimeout(getOneDayMover(ticker), ONE_DAY_MOVE_TIMEOUT_MS, null),
