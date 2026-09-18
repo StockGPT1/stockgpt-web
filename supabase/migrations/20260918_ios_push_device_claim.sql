@@ -19,7 +19,40 @@ begin
     raise exception 'Unauthorized' using errcode = '42501';
   end if;
 
-  if v_token !~ '^[a-f0-9]{32,256}$' then
+  if length(v_token) < 32 or length(v_token) > 256 or v_token !~ '^[a-f0-9]+
+
+  insert into public.ios_push_devices (
+    user_id,
+    token,
+    platform,
+    environment,
+    enabled,
+    updated_at,
+    last_seen_at
+  )
+  values (
+    v_user_id,
+    v_token,
+    'ios',
+    v_environment,
+    true,
+    now(),
+    now()
+  )
+  on conflict (token) do update
+  set
+    user_id = excluded.user_id,
+    platform = 'ios',
+    environment = excluded.environment,
+    enabled = true,
+    updated_at = now(),
+    last_seen_at = now();
+end;
+$$;
+
+revoke all on function public.claim_ios_push_device(text, text) from public;
+grant execute on function public.claim_ios_push_device(text, text) to authenticated;
+ then
     raise exception 'Invalid device token' using errcode = '22023';
   end if;
 
