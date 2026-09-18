@@ -10,15 +10,15 @@ const primaryItems = [
   { href: "/dashboard", label: "Home", icon: "dashboard" },
   { href: "/rankings", label: "Rankings", icon: "rankings" },
   { href: "/portfolio", label: "Portfolio", icon: "portfolio" },
-  { href: "/watchlist", label: "Watchlist", icon: "watchlist" },
+  { href: "/notifications", label: "Alerts", icon: "alerts" },
 ] as const;
 
 const moreItems = [
   {
-    href: "/notifications",
-    label: "Alerts",
-    description: "Price, ranking and portfolio alerts",
-    icon: "alerts",
+    href: "/watchlist",
+    label: "Watchlist",
+    description: "Stocks you're tracking",
+    icon: "watchlist",
   },
   {
     href: "/world-news",
@@ -133,14 +133,11 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             <div className="space-y-1 pb-1">
               {moreItems.map((item) => {
                 const active = isPathActive(pathname, item.href);
-                const isAlerts = item.href === "/notifications";
-
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={false}
-                    onClick={() => setMoreOpen(false)}
+                                        onClick={() => setMoreOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={[
                       "flex min-h-[62px] items-center gap-3 rounded-[20px] px-3 transition active:scale-[0.985]",
@@ -151,11 +148,6 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   >
                     <span className="relative grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#faf6f0]/6 text-[#ddb159]">
                       <StockIcon name={item.icon as StockIconName} className="size-5" />
-                      {isAlerts && unreadCount > 0 && (
-                        <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#b9504d] px-1 text-[9px] font-black text-white ring-2 ring-[#061b12]">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-black">{item.label}</span>
@@ -181,13 +173,13 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
       >
         {primaryItems.map((item) => {
           const isActive = current === item.href;
+          const isAlerts = item.href === "/notifications";
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              prefetch={false}
-              aria-label={item.label}
+                            aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
               data-active={isActive ? "true" : "false"}
@@ -198,7 +190,14 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   : "hover:bg-[#faf6f0]/7 hover:text-[#faf6f0]",
               ].join(" ")}
             >
-              <StockIcon name={item.icon as StockIconName} className="sg-mobile-nav-icon size-[19px] shrink-0" />
+              <span className="relative">
+                <StockIcon name={item.icon as StockIconName} className="sg-mobile-nav-icon size-[19px] shrink-0" />
+                {isAlerts && unreadCount > 0 && (
+                  <span className="absolute -right-2.5 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[8px] font-black text-white ring-2 ring-[#04180f]">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </span>
               <span className="sg-mobile-nav-label max-w-full truncate text-[9.5px] font-extrabold leading-none">
                 {item.label}
               </span>
@@ -222,11 +221,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         >
           <MoreIcon />
           <span className="sg-mobile-nav-label text-[9.5px] font-extrabold leading-none">More</span>
-          {unreadCount > 0 && (
-            <span className="absolute right-[19%] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[8px] font-black text-white ring-2 ring-[#04180f]">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
+
         </button>
       </nav>
     </>
