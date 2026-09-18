@@ -917,26 +917,29 @@ export async function POST(req: NextRequest) {
     const access = await requireSubscribedUser(supabase);
     if (access.response) return access.response;
 
-    // Generous for a human, but stops runaway client loops from burning
-    // the shared OpenRouter quota for every subscriber.
-    const rateLimit = await checkRateLimit({
-      action: "ask_stockgpt_question",
-      key: rateKey(["ask-stockgpt", access.userId]),
-      limit: 40,
-      windowSeconds: 60 * 60,
-    });
+    // Keep the production guardrail, but do not let the local Xcode/dev
+    // environment's placeholder service-role key block every test question.
+    // Production still enforces the normal per-subscriber hourly limit.
+    if (process.env.NODE_ENV !== "development") {
+      const rateLimit = await checkRateLimit({
+        action: "ask_stockgpt_question",
+        key: rateKey(["ask-stockgpt", access.userId]),
+        limit: 40,
+        windowSeconds: 60 * 60,
+      });
 
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          answer:
-            "You have sent a lot of questions in the last hour, so Ask StockGPT is taking a short break for your account. Please try again in a few minutes.",
-        },
-        {
-          status: 429,
-          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
-        },
-      );
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            answer:
+              "You have sent a lot of questions in the last hour, so Ask StockGPT is taking a short break for your account. Please try again in a few minutes.",
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+          },
+        );
+      }
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
