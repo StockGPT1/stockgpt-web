@@ -10,6 +10,7 @@ type StockGPTNativeAction =
   | { type: "haptic"; style?: NativeHapticStyle }
   | { type: "share"; title?: string; text?: string; url?: string }
   | { type: "enablePush" }
+  | { type: "getPushToken" }
   | { type: "authenticate"; reason?: string }
   | { type: "appleSignIn" }
   | { type: "oauthSession"; url: string; callbackScheme?: string };
@@ -77,6 +78,10 @@ export async function nativeShare({
 
 export function requestNativePushPermission() {
   return postNative({ type: "enablePush" });
+}
+
+export function requestNativePushToken() {
+  return postNative({ type: "getPushToken" });
 }
 
 export function requestNativeAuthentication(
