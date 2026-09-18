@@ -72,9 +72,7 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
         overlay.backgroundColor = stockGPTBackground
         overlay.isUserInteractionEnabled = false
 
-        let logo = UIImageView(
-            image: UIImage(named: "LaunchLogo") ?? UIImage(named: "AppIcon")
-        )
+        let logo = UIImageView(image: UIImage(named: "LaunchFlames"))
         logo.translatesAutoresizingMaskIntoConstraints = false
         logo.contentMode = .scaleAspectFit
 
