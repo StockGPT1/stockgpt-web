@@ -16,18 +16,19 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="StockGPT" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="NO" translatesAutoresizingMaskIntoConstraints="NO" id="stockgpt-wordmark">
-                                <rect key="frame" x="105" y="310" width="165" height="47"/>
-                                <fontDescription key="fontDescription" type="system" weight="heavy" pointSize="38"/>
-                                <color key="textColor" red="0.8666666667" green="0.6941176471" blue="0.3490196078" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <nil key="highlightedColor"/>
-                            </label>
+                            <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="stockgpt-logo">
+                                <rect key="frame" x="143.5" y="289.5" width="88" height="88"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="88" id="logo-width"/>
+                                    <constraint firstAttribute="height" constant="88" id="logo-height"/>
+                                </constraints>
+                            </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
                         <color key="backgroundColor" red="0.01568627451" green="0.09411764706" blue="0.05882352941" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="stockgpt-wordmark" firstAttribute="centerX" secondItem="launch-root" secondAttribute="centerX" id="wordmark-center-x"/>
-                            <constraint firstItem="stockgpt-wordmark" firstAttribute="centerY" secondItem="launch-root" secondAttribute="centerY" id="wordmark-center-y"/>
+                            <constraint firstItem="stockgpt-logo" firstAttribute="centerX" secondItem="launch-root" secondAttribute="centerX" id="logo-center-x"/>
+                            <constraint firstItem="stockgpt-logo" firstAttribute="centerY" secondItem="launch-root" secondAttribute="centerY" id="logo-center-y"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -36,4 +37,7 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    <resources>
+        <image name="LaunchLogo" width="512" height="512"/>
+    </resources>
 </document>
