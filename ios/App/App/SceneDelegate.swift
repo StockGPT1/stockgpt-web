@@ -21,6 +21,63 @@ private let stockGPTGold = UIColor(
     alpha: 1.0
 )
 
+private func stockGPTTransparentMark() -> UIImage? {
+    guard let source = UIImage(named: "LaunchLogo"),
+          let cgImage = source.cgImage else {
+        return UIImage(named: "LaunchLogo")
+    }
+
+    let width = cgImage.width
+    let height = cgImage.height
+    let bytesPerRow = width * 4
+    var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+    return pixels.withUnsafeMutableBytes { rawBuffer -> UIImage? in
+        guard let baseAddress = rawBuffer.baseAddress,
+              let context = CGContext(
+                data: baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            return source
+        }
+
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let bytes = rawBuffer.bindMemory(to: UInt8.self)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            let red = Int(bytes[offset])
+            let green = Int(bytes[offset + 1])
+            let blue = Int(bytes[offset + 2])
+
+            // Preserve the original warm gold/yellow StockGPT mark and make
+            // the dark green app-icon tile fully transparent.
+            let isGoldMark =
+                red > 55 &&
+                green > 42 &&
+                red > blue + 24 &&
+                green > blue + 10 &&
+                red >= green
+
+            if !isGoldMark {
+                bytes[offset] = 0
+                bytes[offset + 1] = 0
+                bytes[offset + 2] = 0
+                bytes[offset + 3] = 0
+            }
+        }
+
+        guard let output = context.makeImage() else { return source }
+        return UIImage(cgImage: output, scale: source.scale, orientation: source.imageOrientation)
+    }
+}
+
 private func stockGPTPath(for shortcutItem: UIApplicationShortcutItem) -> String? {
     switch shortcutItem.type {
     case "pro.stockgpt.app.search":
@@ -72,7 +129,7 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
         overlay.backgroundColor = stockGPTBackground
         overlay.isUserInteractionEnabled = false
 
-        let logo = UIImageView(image: UIImage(named: "LaunchFlames"))
+        let logo = UIImageView(image: stockGPTTransparentMark())
         logo.translatesAutoresizingMaskIntoConstraints = false
         logo.contentMode = .scaleAspectFit
 
@@ -86,8 +143,8 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
             overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             logo.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
             logo.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
-            logo.widthAnchor.constraint(equalToConstant: 88),
-            logo.heightAnchor.constraint(equalToConstant: 88),
+            logo.widthAnchor.constraint(equalToConstant: 104),
+            logo.heightAnchor.constraint(equalToConstant: 104),
         ])
 
         stockGPTBootOverlay = overlay
