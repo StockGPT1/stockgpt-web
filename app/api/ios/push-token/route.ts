@@ -23,19 +23,10 @@ export async function POST(request: Request) {
   }
 
   const environment = payload?.environment === "production" ? "production" : "sandbox";
-  const now = new Date().toISOString();
-  const { error } = await supabase.from("ios_push_devices").upsert(
-    {
-      user_id: user.id,
-      token,
-      platform: "ios",
-      environment,
-      enabled: true,
-      updated_at: now,
-      last_seen_at: now,
-    },
-    { onConflict: "token" },
-  );
+  const { error } = await supabase.rpc("claim_ios_push_device", {
+    p_token: token,
+    p_environment: environment,
+  });
 
   if (error) {
     console.error("[ios] device token registration failed", error);
