@@ -640,9 +640,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
       if (!textarea) return;
       if (window.matchMedia("(min-width: 1024px)").matches) {
         textarea.focus({ preventScroll: true });
-        return;
       }
-      textarea.focus();
     }, 120);
     return () => window.clearTimeout(timeout);
   }, [locked]);
@@ -847,7 +845,9 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
           </div>
         </div>
       )}
-      {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
+      {messages
+        .filter((message, index) => !(index === 0 && messages.length > 1 && message.content === welcomeMessage.content))
+        .map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
       {loading && !streaming && (
         <div className="flex w-full items-start gap-2.5">
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5">
