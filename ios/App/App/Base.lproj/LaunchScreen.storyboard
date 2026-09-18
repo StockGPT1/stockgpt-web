@@ -16,7 +16,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="stockgpt-logo">
+                            <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchFlames" translatesAutoresizingMaskIntoConstraints="NO" id="stockgpt-logo">
                                 <rect key="frame" x="143.5" y="289.5" width="88" height="88"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="88" id="logo-width"/>
@@ -38,6 +38,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchLogo" width="512" height="512"/>
+        <image name="LaunchFlames" width="512" height="512"/>
     </resources>
 </document>
