@@ -78,6 +78,11 @@ function safeNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function hasUsableServiceRoleKey() {
+  const value = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return Boolean(value && value !== "[SENSITIVE]");
+}
+
 function cleanPortfolioName(name: string | null | undefined, index: number) {
   return String(name ?? "").trim() || `Portfolio ${index + 1}`;
 }
@@ -272,7 +277,10 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isAuthenticated = !!user;
-  const admin = createAdminClient();
+  const marketDataClient =
+    process.env.NODE_ENV === "development" && !hasUsableServiceRoleKey()
+      ? supabase
+      : createAdminClient();
   const [
     profileResult,
     stockResult,
@@ -288,7 +296,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           .eq("id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    admin
+    marketDataClient
       .from("stock_rankings")
       .select("id,rank,ticker,company,sector,score,price,risk")
       .eq("ticker", ticker)
@@ -314,7 +322,6 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     profileResult.data?.subscription_status,
   );
   let stockData = stockResult.data as Stock | null;
-  if (canSeeRankAndScore && !stockData) notFound();
   if (!canSeeRankAndScore && stockData) {
     stockData = { ...stockData, rank: null, score: null, risk: null };
   }
@@ -322,7 +329,16 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   const chartPrice = getLatestPriceFromChart(chartData);
 
   if (!stockData) {
-    if (!chartPrice) notFound();
+    if (!chartPrice) {
+      if (stockResult.error) {
+        console.error("[stock-detail] ranking lookup failed", {
+          ticker,
+          message: stockResult.error.message,
+        });
+        throw new Error(`Stock data is temporarily unavailable for ${ticker}.`);
+      }
+      notFound();
+    }
     stockData = { id: ticker, rank: null, ticker, company: ticker, sector: null, score: null, price: chartPrice, risk: null };
   }
 
