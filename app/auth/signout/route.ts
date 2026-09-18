@@ -6,13 +6,24 @@ function signedOutDestination(request: Request) {
   return userAgent.includes("StockGPTApp") ? "/login" : "/";
 }
 
+function externalOrigin(request: Request) {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+
+  if (forwardedHost) {
+    return `${forwardedProto || "https"}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 async function signOut(request: Request) {
   const supabase = await createClient();
 
   await supabase.auth.signOut();
 
   return NextResponse.redirect(
-    new URL(signedOutDestination(request), request.url),
+    new URL(signedOutDestination(request), `${externalOrigin(request)}/`),
     { status: 303 },
   );
 }
