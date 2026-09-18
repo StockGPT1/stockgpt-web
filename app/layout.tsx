@@ -5,6 +5,8 @@ import Script from "next/script";
 import { AppShellMode } from "@/components/AppShellMode";
 import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
+import { IOSNativeEnhancements } from "@/components/IOSNativeEnhancements";
+import { IOSAppLock } from "@/components/IOSAppLock";
 import "./globals.css";
 import "./limited-time-offer.css";
 import "./mobile-overflow.css";
@@ -19,6 +21,7 @@ import "./mobile-sheets.css";
 import "./top-movers-drawer.css";
 import "./mobile-page-titles.css";
 import "./stock-ask-action.css";
+import "./ios-app.css";
 
 const iconVersion = "31";
 
@@ -103,6 +106,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <AppShellMode />
+        <IOSNativeEnhancements />
+        <IOSAppLock />
         <LimitedTimePriceOffer />
         <StockAskActionPolish />
         <Analytics />

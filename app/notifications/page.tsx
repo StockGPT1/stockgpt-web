@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ModuleState } from "@/components/ModuleState";
 import { NotificationsList } from "@/components/NotificationsList";
+import { IOSPushSetupCard } from "@/components/IOSPushSetupCard";
 import { getUserNotifications } from "@/lib/notifications";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
@@ -29,7 +30,10 @@ export default async function NotificationsPage() {
     <AppShell activePath="/notifications" askLabel="Ask about my portfolio" askContext={{ contextType: "dashboard" }}>
       <main className="h-full min-h-0 overflow-y-auto pr-1">
         {canUseAlerts ? (
-          <NotificationsContent />
+          <>
+            <IOSPushSetupCard />
+            <NotificationsContent />
+          </>
         ) : (
           <div className="grid gap-4">
             <header className="rounded-[24px] border border-[#ddb159]/24 bg-[linear-gradient(135deg,#082519,#0d3420)] p-5">

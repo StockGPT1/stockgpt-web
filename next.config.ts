@@ -26,6 +26,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /* Local iPhone testing can arrive through a temporary Cloudflare hostname.
+     Next dev treats that as a separate origin, so explicitly allow it. */
+  allowedDevOrigins: ["*.trycloudflare.com"],
+
   async headers() {
     return [
       {

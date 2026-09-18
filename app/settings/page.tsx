@@ -5,6 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import { CurrencyPreferenceSelect } from "@/components/CurrencyPreferenceSelect";
 import { NotificationPreferenceToggles } from "@/components/NotificationPreferenceToggles";
 import { SupportFeedbackForm } from "@/components/SupportFeedbackForm";
+import { IOSSecurityCard } from "@/components/IOSSecurityCard";
+import { IOSPushSetupCard } from "@/components/IOSPushSetupCard";
 import { normaliseCurrency } from "@/lib/currency";
 import { createClient } from "@/utils/supabase/server";
 import { displayPlanName, hasActiveSubscription } from "@/lib/subscription";
@@ -98,6 +100,9 @@ export default async function SettingsPage() {
               </div>
             </div>
           </section>
+
+          <IOSPushSetupCard />
+          <IOSSecurityCard />
 
           <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em]">Subscription</h2>
