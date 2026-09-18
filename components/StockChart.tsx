@@ -21,10 +21,12 @@ type Props = {
   compact?: boolean;
   color?: string;
   mobileTransparentFrame?: boolean;
+  rangeOrder?: TimeRange[];
+  showUnavailableRanges?: boolean;
   onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
 
-const RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
+const DEFAULT_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
 
 function formatPrice(n: number) {
   if (Math.abs(n) >= 1000) {
@@ -88,6 +90,8 @@ export function StockChart({
   compact = false,
   color,
   mobileTransparentFrame = false,
+  rangeOrder = DEFAULT_RANGES,
+  showUnavailableRanges = false,
   onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
@@ -95,8 +99,8 @@ export function StockChart({
   const svgRef = useRef<SVGSVGElement>(null);
 
   const availableRanges = useMemo(
-    () => RANGES.filter((r) => (data[r]?.length ?? 0) > 1),
-    [data],
+    () => rangeOrder.filter((r) => (data[r]?.length ?? 0) > 1),
+    [data, rangeOrder],
   );
 
   const resolvedRange =
@@ -491,22 +495,31 @@ export function StockChart({
         )}
       </div>
 
-      {!compact && availableRanges.length > 1 && (
+      {!compact && (showUnavailableRanges ? rangeOrder.length > 1 : availableRanges.length > 1) && (
         <div className="flex flex-wrap gap-1">
-          {availableRanges.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
-                resolvedRange === r
-                  ? "sg-metal-gold-fill"
-                  : "bg-[#072116]/40 text-[#faf6f0]/65 hover:bg-[#072116]/60 hover:text-[#faf6f0]"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+          {(showUnavailableRanges ? rangeOrder : availableRanges).map((r) => {
+            const available = (data[r]?.length ?? 0) > 1;
+            return (
+              <button
+                key={r}
+                type="button"
+                disabled={!available}
+                aria-label={available ? `Show ${r} chart` : `${r} chart temporarily unavailable`}
+                onClick={() => {
+                  if (available) setRange(r);
+                }}
+                className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
+                  resolvedRange === r
+                    ? "sg-metal-gold-fill"
+                    : available
+                      ? "bg-[#072116]/40 text-[#faf6f0]/65 hover:bg-[#072116]/60 hover:text-[#faf6f0]"
+                      : "cursor-not-allowed bg-[#072116]/20 text-[#faf6f0]/22"
+                }`}
+              >
+                {r}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
