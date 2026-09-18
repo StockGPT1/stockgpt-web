@@ -202,7 +202,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
         <StockGPTIconImage fallbackClassName="text-[11px] font-black text-[#ddb159]" />
       </span>
-      <div className="min-w-0 max-w-[calc(100%-42px)] flex-1 rounded-[22px] rounded-tl-[7px] border border-white/[0.07] bg-white/[0.055] px-4 py-3.5 text-[14px] font-medium leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.15)] [overflow-wrap:anywhere] sm:max-w-[78%]">
+      <div className="min-w-0 max-w-[calc(100%_-_42px)] flex-1 rounded-[22px] rounded-tl-[7px] border border-white/[0.07] bg-white/[0.055] px-4 py-3.5 text-[14px] font-medium leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.15)] [overflow-wrap:anywhere] sm:max-w-[78%]">
         <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
       </div>
     </div>
@@ -882,7 +882,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
 
   return (
     <div className="sg-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#04140c] text-[#f7f4ec]">
-      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.06] bg-[#04140c]/95 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top))] backdrop-blur-2xl sm:px-5">
+      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.06] bg-[#04140c]/95 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
         <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <BackButton />
 
