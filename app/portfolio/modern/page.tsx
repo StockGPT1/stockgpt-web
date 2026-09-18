@@ -281,6 +281,7 @@ export default async function ModernPortfolioPage({
     transactions,
     summary: summaryUsd,
     ownerId: user.id,
+    supabaseClient: supabase,
     allowCurrentSnapshot: enriched.every(
       (holding) => holding.shares <= 0 || holding.currentPrice > 0,
     ),
