@@ -201,18 +201,33 @@ final class StockGPTBridgeViewController: CAPBridgeViewController,
 
     private func emitSavedPushToken() {
         let defaults = UserDefaults.standard
-        guard let token = defaults.string(forKey: stockGPTPushTokenDefaultsKey),
-              !token.isEmpty else { return }
 
-        let environment =
-            defaults.string(forKey: stockGPTPushEnvironmentDefaultsKey) == "production"
-                ? "production"
-                : "sandbox"
+        if let token = defaults.string(forKey: stockGPTPushTokenDefaultsKey),
+           !token.isEmpty {
+            let environment =
+                defaults.string(forKey: stockGPTPushEnvironmentDefaultsKey) == "production"
+                    ? "production"
+                    : "sandbox"
 
-        emitEvent(
-            "stockgpt:push-token",
-            detail: ["token": token, "environment": environment]
-        )
+            emitEvent(
+                "stockgpt:push-token",
+                detail: ["token": token, "environment": environment]
+            )
+            return
+        }
+
+        // Permission may already be granted while no token has been persisted yet
+        // (for example after reinstalling or upgrading the app). Ask APNs for the
+        // current token instead of relying on launch timing.
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
     }
 
     private func requestPushPermission() {
