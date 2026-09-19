@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getLandingData } from "@/lib/landing-data";
 import { LandingClient } from "./LandingClient";
+import { MarketNoiseScrolly } from "./MarketNoiseScrolly";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function LandingPage() {
         metrics={metrics}
         topRankings={topRankings}
       />
+      <MarketNoiseScrolly />
     </>
   );
 }
