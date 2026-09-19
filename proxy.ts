@@ -46,9 +46,10 @@ function generateNonce(): string {
 }
 
 function buildContentSecurityPolicy(nonce: string) {
-  const developmentEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const developmentEval = isDevelopment ? " 'unsafe-eval'" : "";
 
-  return [
+  const directives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${developmentEval} https://vercel.live`,
     "style-src 'self' 'unsafe-inline'",
@@ -60,8 +61,17 @@ function buildContentSecurityPolicy(nonce: string) {
     "base-uri 'self'",
     "form-action 'self' https://*.stripe.com",
     "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
-  ].join("; ");
+  ];
+
+  // Local iPhone testing deliberately uses http://<Mac-LAN-IP>:3000.
+  // upgrade-insecure-requests would make Safari/WKWebView rewrite the page's
+  // own images, scripts and redirects to https://<LAN-IP>:3000, where the
+  // Next dev server is not serving TLS. Keep the directive in production only.
+  if (!isDevelopment) {
+    directives.push("upgrade-insecure-requests");
+  }
+
+  return directives.join("; ");
 }
 
 export async function proxy(request: NextRequest) {
