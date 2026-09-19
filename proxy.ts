@@ -47,11 +47,30 @@ function generateNonce(): string {
 
 function buildContentSecurityPolicy(nonce: string) {
   const isDevelopment = process.env.NODE_ENV === "development";
-  const developmentEval = isDevelopment ? " 'unsafe-eval'" : "";
 
-  const directives = [
+  if (isDevelopment) {
+    // Next's dev client needs inline bootstrap scripts, eval/source maps and
+    // ws:// HMR. A production-style nonce CSP can leave WKWebView rendering
+    // the server HTML without hydrating it, which makes client buttons appear
+    // dead. Keep local device development permissive; production stays strict.
+    return [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://vercel.live",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: http: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws: wss: http: https:",
+      "frame-src http: https:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self' http: https:",
+      "frame-ancestors 'none'",
+    ].join("; ");
+  }
+
+  return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${developmentEval} https://vercel.live`,
+    `script-src 'self' 'nonce-${nonce}' https://vercel.live`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -61,17 +80,8 @@ function buildContentSecurityPolicy(nonce: string) {
     "base-uri 'self'",
     "form-action 'self' https://*.stripe.com",
     "frame-ancestors 'none'",
-  ];
-
-  // Local iPhone testing deliberately uses http://<Mac-LAN-IP>:3000.
-  // upgrade-insecure-requests would make Safari/WKWebView rewrite the page's
-  // own images, scripts and redirects to https://<LAN-IP>:3000, where the
-  // Next dev server is not serving TLS. Keep the directive in production only.
-  if (!isDevelopment) {
-    directives.push("upgrade-insecure-requests");
-  }
-
-  return directives.join("; ");
+    "upgrade-insecure-requests",
+  ].join("; ");
 }
 
 export async function proxy(request: NextRequest) {
