@@ -111,13 +111,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <form
-        className="space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void login();
-        }}
-      >
+      <div className="space-y-4">
         {isIOSApp && (
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-[10px] font-bold text-white/52">
             <svg viewBox="0 0 24 24" className="size-4 text-[#ddb159]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -166,14 +160,15 @@ export default function LoginPage() {
         {errorMessage && <AuthMessage tone="error">{errorMessage}</AuthMessage>}
 
         <button
-          type="submit"
+          type="button"
+          onClick={() => void login()}
           disabled={loading}
           data-native-haptic="medium"
           className={authPrimaryButtonClass}
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>
-      </form>
+      </div>
     </AuthScaffold>
   );
 }
