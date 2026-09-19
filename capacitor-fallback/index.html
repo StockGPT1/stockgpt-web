@@ -7,7 +7,9 @@
     <style>
       html, body {
         margin: 0;
-        height: 100%;
+        width: 100%;
+        min-height: 100%;
+        min-height: 100dvh;
         background: #04180f;
         color: #faf6f0;
         font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
@@ -16,7 +18,7 @@
         justify-content: center;
         text-align: center;
       }
-      .wrap { padding: 32px; }
+      .wrap { box-sizing: border-box; width: 100%; padding: max(32px, env(safe-area-inset-top)) 32px max(32px, env(safe-area-inset-bottom)); }
       .ring {
         width: 54px;
         height: 54px;
