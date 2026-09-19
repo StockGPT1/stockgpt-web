@@ -75,8 +75,13 @@ export default function LoginPage() {
          the entire app before anything paints. */
       redirecting = true;
       router.push(data?.redirectTo ?? "/dashboard");
+    } catch (error) {
+      console.error("[login] request failed", error);
+      setErrorMessage(
+        "Could not reach StockGPT. Check that your iPhone is still connected to the same Wi-Fi and try again.",
+      );
     } finally {
-      /* keep the button in its "Logging in..." state while navigating */
+      /* keep the button in its "Signing in..." state while navigating */
       if (!redirecting) setLoading(false);
     }
   }
@@ -106,7 +111,13 @@ export default function LoginPage() {
         </div>
       }
     >
-      <div className="space-y-4">
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void login();
+        }}
+      >
         {isIOSApp && (
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-[10px] font-bold text-white/52">
             <svg viewBox="0 0 24 24" className="size-4 text-[#ddb159]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -136,7 +147,6 @@ export default function LoginPage() {
             autoComplete="email"
             enterKeyHint="next"
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && login()}
           />
         </label>
 
@@ -150,16 +160,20 @@ export default function LoginPage() {
             autoComplete="current-password"
             enterKeyHint="go"
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && login()}
           />
         </label>
 
         {errorMessage && <AuthMessage tone="error">{errorMessage}</AuthMessage>}
 
-        <button onClick={login} disabled={loading} data-native-haptic="medium" className={authPrimaryButtonClass}>
+        <button
+          type="submit"
+          disabled={loading}
+          data-native-haptic="medium"
+          className={authPrimaryButtonClass}
+        >
           {loading ? "Signing in…" : "Sign in"}
         </button>
-      </div>
+      </form>
     </AuthScaffold>
   );
 }
