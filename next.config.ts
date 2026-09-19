@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { networkInterfaces } from "node:os";
 
 /** Static security headers. Per-request CSP headers are set in middleware.ts. */
 const securityHeaders = [
@@ -25,10 +26,26 @@ const securityHeaders = [
   },
 ];
 
+function localLanDevOrigins() {
+  const origins = new Set<string>();
+
+  for (const entries of Object.values(networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family === "IPv4" && !entry.internal) {
+        origins.add(entry.address);
+      }
+    }
+  }
+
+  return Array.from(origins);
+}
+
 const nextConfig: NextConfig = {
-  /* Local iPhone testing can arrive through a temporary Cloudflare hostname.
-     Next dev treats that as a separate origin, so explicitly allow it. */
-  allowedDevOrigins: ["*.trycloudflare.com"],
+  /* Next 16 blocks dev-only client/HMR resources when a phone loads the
+     Network URL unless that LAN host is explicitly allowed. Discover the
+     Mac's current IPv4 addresses at dev-server startup so Wi-Fi changes do
+     not silently leave the page as inert server-rendered HTML. */
+  allowedDevOrigins: ["*.trycloudflare.com", ...localLanDevOrigins()],
 
   async headers() {
     return [
