@@ -108,6 +108,18 @@ export async function proxy(request: NextRequest) {
   // exists, prefetches are safe — Next.js will show the skeleton instantly
   // while the page renders, so we let them through.
 
+  // Keep local Next development out of the production nonce/CSP path.
+  // Next 16's dev runtime and HMR inject their own scripts and WebSocket
+  // client. Applying the production-style request CSP here can leave the
+  // server HTML visible while React never hydrates, making every control on
+  // the page look normal but ignore taps.
+  if (process.env.NODE_ENV === "development") {
+    if (!needsSessionRefresh(pathname)) {
+      return NextResponse.next();
+    }
+    return updateSession(request);
+  }
+
   const nonce = generateNonce();
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
   const requestHeaders = new Headers(request.headers);
