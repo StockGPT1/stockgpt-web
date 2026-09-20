@@ -26,6 +26,7 @@ import {
 } from "@/lib/portfolio-intelligence-presentation";
 import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
 import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
+import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -40,6 +41,8 @@ type PortfolioRow = {
   cash_deposited_total?: number | null;
   currency?: string | null;
   created_at?: string | null;
+  management_source: "manual" | "connected";
+  broker_account_id: string | null;
 };
 
 type HoldingRow = {
@@ -125,6 +128,7 @@ export type DashboardMainPortfolioResult = {
   intelligence: PortfolioIntelligenceView | null;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -366,7 +370,7 @@ export async function getDashboardMainPortfolio(
   const { data: portfoliosData, error: portfoliosError } = await supabase
     .from("user_portfolios")
     .select(
-      "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
+      "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at,management_source,broker_account_id",
     )
     .eq("user_id", userId)
     .is("archived_at", null)
@@ -379,11 +383,27 @@ export async function getDashboardMainPortfolio(
   }));
 
   if (portfolios.length === 0) {
-    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [] };
+    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null };
   }
 
   const selectedPortfolio =
     portfolios.find((portfolio) => portfolio.id === requestedPortfolioId) ?? portfolios[0];
+  if (selectedPortfolio.management_source === "connected") {
+    const connected = await loadConnectedPortfolioIntelligence(supabase, selectedPortfolio.id, asOf);
+    if (!connected) throw new Error("Dashboard connected Portfolio could not be loaded.");
+    return {
+      portfolioId: selectedPortfolio.id,
+      portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
+      summary: null,
+      chartData: {},
+      chartMeta: null,
+      tickers: connected.positions.map((position) => cleanTicker(position.ticker)).filter(Boolean),
+      intelligence: connected.intelligence,
+      valuationState: connected.totalValueUsd == null ? "unavailable" : "exact",
+      missingPriceTickers: connected.positions.filter((position) => position.currentValueUsd == null).map((position) => cleanTicker(position.ticker)).filter(Boolean),
+      connected: { name: cleanPortfolioName(selectedPortfolio.name), totalValueUsd: connected.totalValueUsd, cashValueUsd: connected.cashValueUsd, holdingCount: connected.positions.length },
+    };
+  }
   const portfolioIds = [selectedPortfolio.id];
 
   const [{ data: holdingsData, error: holdingsError }, transactionData] = await Promise.all([
@@ -462,6 +482,7 @@ export async function getDashboardMainPortfolio(
       intelligence,
       valuationState: "unavailable",
       missingPriceTickers: [],
+      connected: null,
     };
   }
 
@@ -494,7 +515,7 @@ export async function getDashboardMainPortfolio(
   }
 
   const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [] };
+  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null };
 
   const missingPriceTickers = mainPortfolio.enriched
     .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
@@ -603,5 +624,6 @@ export async function getDashboardMainPortfolio(
     intelligence,
     valuationState,
     missingPriceTickers,
+    connected: null,
   };
 }

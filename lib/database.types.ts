@@ -512,6 +512,45 @@ export type Database = {
           },
         ]
       }
+      brokerage_institution_aliases: {
+        Row: {
+          created_at: string
+          external_institution_id: string
+          id: string
+          institution_id: string
+          provider_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_institution_id: string
+          id?: string
+          institution_id: string
+          provider_id: string
+        }
+        Update: {
+          created_at?: string
+          external_institution_id?: string
+          id?: string
+          institution_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brokerage_institution_aliases_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "brokerage_institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokerage_institution_aliases_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "broker_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brokerage_institutions: {
         Row: {
           country_code: string | null
@@ -1528,12 +1567,14 @@ export type Database = {
       user_portfolios: {
         Row: {
           archived_at: string | null
+          broker_account_id: string | null
           cash_balance: number
           cash_deposited_total: number
           created_at: string
           currency: string
           id: string
           investment_amount: number | null
+          management_source: Database["public"]["Enums"]["portfolio_management_source"]
           name: string
           objective: string | null
           risk_tolerance: string | null
@@ -1543,12 +1584,14 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          broker_account_id?: string | null
           cash_balance?: number
           cash_deposited_total?: number
           created_at?: string
           currency?: string
           id?: string
           investment_amount?: number | null
+          management_source?: Database["public"]["Enums"]["portfolio_management_source"]
           name?: string
           objective?: string | null
           risk_tolerance?: string | null
@@ -1558,12 +1601,14 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          broker_account_id?: string | null
           cash_balance?: number
           cash_deposited_total?: number
           created_at?: string
           currency?: string
           id?: string
           investment_amount?: number | null
+          management_source?: Database["public"]["Enums"]["portfolio_management_source"]
           name?: string
           objective?: string | null
           risk_tolerance?: string | null
@@ -1571,7 +1616,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_portfolios_broker_account_owner_fkey"
+            columns: ["broker_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       watchlist: {
         Row: {
@@ -1679,6 +1732,13 @@ export type Database = {
           cash_deposited_total: number
           holdings_basis: number
           holdings_count: number
+          portfolio_id: string
+        }[]
+      }
+      create_connected_portfolio: {
+        Args: { p_account_id: string }
+        Returns: {
+          created: boolean
           portfolio_id: string
         }[]
       }
@@ -1876,6 +1936,7 @@ export type Database = {
         | "retryable_failure"
         | "terminal_failure"
       instrument_coverage_status: "ranked" | "tracked_only" | "unsupported"
+      portfolio_management_source: "manual" | "connected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2022,6 +2083,7 @@ export const Constants = {
         "terminal_failure",
       ],
       instrument_coverage_status: ["ranked", "tracked_only", "unsupported"],
+      portfolio_management_source: ["manual", "connected"],
     },
   },
 } as const

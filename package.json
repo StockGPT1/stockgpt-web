@@ -48,6 +48,10 @@
     "test:broker-secret-security": "node scripts/verify-broker-secret-security-local.mjs",
     "test:snaptrade-adapter": "tsx scripts/snaptrade-adapter-checks.ts",
     "test:broker-sync": "node scripts/verify-broker-sync-local.mjs && tsx scripts/verify-broker-sync-worker-local.ts && tsx scripts/broker-sync-source-checks.ts",
+    "test:broker-connections": "tsx scripts/wave3-source-checks.ts",
+    "test:connected-portfolio-intelligence": "tsx scripts/connected-portfolio-intelligence-checks.ts",
+    "test:connected-portfolios": "node scripts/verify-wave3-connected-portfolios-local.mjs",
+    "test:wave3": "npm run test:broker-connections && npm run test:connected-portfolio-intelligence && npm run test:connected-portfolios",
     "test:wave1-foundations": "supabase db query --local --file supabase/tests/verify_wave1_foundations.sql && npm run test:instrument-foundation && npm run test:broker-domain",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"

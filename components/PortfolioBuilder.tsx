@@ -226,7 +226,7 @@ export function PortfolioBuilder({
           </div>
         </header>
 
-        <section className="grid gap-3 lg:grid-cols-2">
+        <section className="grid gap-3 lg:grid-cols-3">
           <button
             type="button"
             onClick={() => setCreationMode("csv")}
@@ -249,6 +249,16 @@ export function PortfolioBuilder({
               Upload CSV
             </span>
           </button>
+          <Link
+            href="/portfolio/connections"
+            className="group min-h-[230px] rounded-3xl border border-emerald-300/20 bg-[#0b2b1d] p-5 text-left text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-emerald-300/55 focus:outline-none focus:ring-2 focus:ring-[#ddb159] focus:ring-offset-2 focus:ring-offset-[#072116] sm:p-6"
+          >
+            <span className="grid size-11 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-lg text-emerald-200">↗</span>
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-emerald-200">Read only</p>
+            <h2 className="mt-1 text-[25px] font-black tracking-[-0.04em]">Connect an account</h2>
+            <p className="mt-2 max-w-xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Discover broker accounts and add one as a read-only connected Portfolio.</p>
+            <span className="mt-5 inline-flex min-h-11 items-center rounded-full border border-emerald-200/30 px-5 text-[11px] font-black uppercase tracking-[0.1em] text-emerald-200">Manage connections</span>
+          </Link>
 
           <button
             type="button"

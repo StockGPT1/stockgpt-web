@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   buildCanonicalNotificationCandidates,
+  buildCanonicalAssessmentNotificationCandidates,
   stripNotificationDismissalKeys,
   type Notification,
 } from "@/lib/canonical-notifications";
@@ -14,10 +15,11 @@ import type {
   CurrentRankingFact,
 } from "@/lib/current-portfolio-intelligence";
 import { createClient } from "@/utils/supabase/server";
+import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 
 export type { Notification } from "@/lib/canonical-notifications";
 
-type PortfolioRow = CurrentPortfolioFact & Pick<Tables<"user_portfolios">, "name">;
+type PortfolioRow = CurrentPortfolioFact & Pick<Tables<"user_portfolios">, "name" | "management_source" | "broker_account_id">;
 type RankingRow = CurrentRankingFact & Pick<Tables<"stock_rankings">, "company">;
 
 function cleanName(name: string | null | undefined, fallback: string) {
@@ -61,7 +63,7 @@ export async function getUserNotifications({
   const { data: portfoliosData, error: portfoliosError } = await supabase
     .from("user_portfolios")
     .select(
-      "id,name,risk_tolerance,objective,time_horizon,cash_balance,currency",
+      "id,name,risk_tolerance,objective,time_horizon,cash_balance,currency,management_source,broker_account_id",
     )
     .eq("user_id", user.id)
     .is("archived_at", null)
@@ -77,7 +79,10 @@ export async function getUserNotifications({
     return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
+  const manualPortfolios = portfolios.filter((portfolio) => portfolio.management_source === "manual");
+  const connectedPortfolios = portfolios.filter((portfolio) => portfolio.management_source === "connected");
+  const portfolioIds = manualPortfolios.map((portfolio) => portfolio.id);
+  if (portfolioIds.length === 0) portfolioIds.push("00000000-0000-0000-0000-000000000000");
   const { data: holdingsData, error: holdingsError } = await supabase
     .from("portfolio_holdings")
     .select(
@@ -159,9 +164,9 @@ export async function getUserNotifications({
   const companiesByTicker = Object.fromEntries(
     rankings.map((ranking) => [tickerKey(ranking.ticker), ranking.company]),
   );
-  const candidates = buildCanonicalNotificationCandidates({
+  const manualCandidates = buildCanonicalNotificationCandidates({
     asOf,
-    portfolios: portfolios.map((portfolio, index) => ({
+    portfolios: manualPortfolios.map((portfolio, index) => ({
       portfolioName: cleanName(portfolio.name, `Portfolio ${index + 1}`),
       companiesByTicker,
       facts: {
@@ -175,6 +180,19 @@ export async function getUserNotifications({
       },
     })),
   });
+  const connectedCandidates: ReturnType<typeof buildCanonicalAssessmentNotificationCandidates> = [];
+  for (const [index, portfolio] of connectedPortfolios.entries()) {
+    const connected = await loadConnectedPortfolioIntelligence(supabase, portfolio.id, asOf);
+    if (!connected) continue;
+    connectedCandidates.push(...buildCanonicalAssessmentNotificationCandidates({
+      portfolioId: portfolio.id,
+      portfolioName: cleanName(portfolio.name, `Connected Portfolio ${index + 1}`),
+      assessment: connected.assessment,
+      view: connected.intelligence,
+      asOf,
+    }));
+  }
+  const candidates = [...manualCandidates, ...connectedCandidates];
   const isRead = (candidate: (typeof candidates)[number]) =>
     candidate.dismissalKeys.some((key) => dismissedKeys.has(key));
   const unreadCandidates = candidates.filter((candidate) => !isRead(candidate));

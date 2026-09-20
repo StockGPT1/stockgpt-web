@@ -9,7 +9,7 @@ declare
     'affiliate_applications', 'alpha_waitlist', 'ask_stockgpt_messages',
     'broker_accounts', 'broker_activities', 'broker_cash_balances',
     'broker_connections', 'broker_positions', 'broker_providers', 'broker_sync_jobs',
-    'brokerage_institutions', 'executive_waitlist', 'instrument_aliases',
+    'brokerage_institution_aliases', 'brokerage_institutions', 'executive_waitlist', 'instrument_aliases',
     'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
     'notification_dismissals', 'portfolio_holdings',
     'portfolio_page_snapshots', 'portfolio_snapshots',
@@ -29,11 +29,11 @@ begin
   where n.nspname = 'public' and c.relkind = 'r';
 
   if actual_tables <> expected_tables then
-    raise exception 'Canonical public table set does not match the expected 37 tables';
+    raise exception 'Canonical public table set does not match the expected 38 tables';
   end if;
 
-  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 37 then
-    raise exception 'Expected RLS on all 37 public tables';
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 38 then
+    raise exception 'Expected RLS on all 38 public tables';
   end if;
 
   if to_regclass('public.watchlist') is null or to_regclass('public.user_watchlist') is not null then
@@ -79,7 +79,7 @@ begin
     raise exception 'Instrument identity/coverage fixture counts do not match';
   end if;
 
-  if (select count(*) from public.broker_providers) <> 2
+  if (select count(*) from public.broker_providers) <> 3
     or (select count(*) from public.brokerage_institutions) <> 2
     or (select count(*) from public.broker_connections) <> 2
     or (select count(*) from public.broker_accounts) <> 2

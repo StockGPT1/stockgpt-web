@@ -9,10 +9,12 @@ import {
 } from "@/lib/current-portfolio-intelligence";
 import {
   ASK_STOCKGPT_SYSTEM_PROMPT,
+  buildAskConnectedPortfolioContext,
   buildAskStockGPTPortfolioContext,
 } from "@/lib/ask-stockgpt-portfolio-context";
 import { checkRateLimit, rateKey } from "@/lib/security/rate-limit";
 import { hasActiveSubscription } from "@/lib/subscription";
+import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +91,8 @@ type PortfolioRow = {
   cash_deposited_total: number;
   currency: string;
   created_at: string | null;
+  management_source: "manual" | "connected";
+  broker_account_id: string | null;
 };
 
 type PortfolioHoldingRow = {
@@ -366,7 +370,7 @@ async function buildAppContext(
       .limit(30),
     supabase
       .from("user_portfolios")
-      .select("id,name,risk_tolerance,objective,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at")
+      .select("id,name,risk_tolerance,objective,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at,management_source,broker_account_id")
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("created_at", { ascending: true }),
@@ -405,7 +409,11 @@ async function buildAppContext(
       ? portfolios.find((portfolio) => portfolio.id === requestedContext.portfolioId)
       : null) ?? portfolios[0] ?? null;
 
-  const holdingsResult = focusedPortfolio
+  const connectedPortfolio = focusedPortfolio?.management_source === "connected"
+    ? await loadConnectedPortfolioIntelligence(supabase, focusedPortfolio.id, asOf)
+    : null;
+
+  const holdingsResult = focusedPortfolio && focusedPortfolio.management_source === "manual"
     ? await supabase
         .from("portfolio_holdings")
         .select("id,portfolio_id,ticker,entry_price,score_at_entry,rank_at_entry,shares,allocation_pct,source,risk_level_at_entry,target_level_at_entry")
@@ -472,7 +480,19 @@ async function buildAppContext(
     CurrentRankingFact & { company: string | null; sector: string | null }
   >;
   const focusedContext = focusedPortfolio
-    ? buildAskStockGPTPortfolioContext({
+    ? connectedPortfolio
+      ? buildAskConnectedPortfolioContext({
+          connected: connectedPortfolio,
+          meta: {
+            id: focusedPortfolio.id,
+            name: cleanPortfolioName(focusedPortfolio.name, portfolios.indexOf(focusedPortfolio)),
+            riskTolerance: focusedPortfolio.risk_tolerance,
+            objective: focusedPortfolio.objective,
+            timeHorizon: focusedPortfolio.time_horizon,
+            createdAt: focusedPortfolio.created_at,
+          },
+        })
+      : buildAskStockGPTPortfolioContext({
         facts: {
           portfolio: {
             id: focusedPortfolio.id,
@@ -504,7 +524,7 @@ async function buildAppContext(
           sector: ranking.sector,
         })),
         asOf,
-      })
+        })
     : null;
 
   const suppliedRankings = [...rankingMap.values()].map(compactRanking);

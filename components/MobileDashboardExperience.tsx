@@ -64,6 +64,7 @@ type Props = {
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
   intelligence: PortfolioIntelligenceView | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
   rankings: MobileDashboardRanking[];
   rankingsLocked: boolean;
   marketChart: Partial<Record<TimeRange, ChartPoint[]>>;
@@ -170,6 +171,7 @@ export function MobileDashboardExperience({
   valuationState,
   missingPriceTickers,
   intelligence,
+  connected,
   rankings,
   rankingsLocked,
   marketChart,
@@ -210,7 +212,7 @@ export function MobileDashboardExperience({
   };
 
   const briefingLine = useMemo(() => {
-    if (!summary) {
+    if (!summary && !connected) {
       return topRankedTicker
         ? `${topRankedTicker} leads the rankings · build a portfolio for personal intelligence`
         : "Build or import a portfolio to unlock personal intelligence";
@@ -225,10 +227,10 @@ export function MobileDashboardExperience({
           ? " · portfolio value is estimated"
           : "";
     return `Portfolio status: ${intelligence.statusLabel} · ${intelligence.summary}${valuationNote}`;
-  }, [canUsePremium, intelligence, summary, topRankedTicker, valuationState]);
+  }, [canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
 
   const changedItems = useMemo(() => {
-    if (!summary) {
+    if (!summary && !connected) {
       return [
         "Build or import a portfolio to receive a personal daily briefing.",
         topRankedTicker
@@ -242,6 +244,13 @@ export function MobileDashboardExperience({
         intelligence.countsByStatus.urgent_review
       : 0;
     const monitorCount = intelligence?.countsByStatus.monitor ?? 0;
+    if (connected) return [
+      "Connected Portfolio performance is unavailable until broker history is supported.",
+      canUsePremium && intelligence ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}` : "Portfolio status and current signals are available with an active subscription.",
+      `${connected.holdingCount} broker position${connected.holdingCount === 1 ? "" : "s"} in the last-good normalized view.`,
+      topRankedTicker ? `${topRankedTicker} remains the highest-ranked stock in the current table.` : "The latest rankings are not available yet.",
+    ];
+    if (!summary) return [];
     return [
       valuationState === "unavailable"
         ? "Portfolio value is temporarily unavailable while prices refresh."
@@ -262,7 +271,7 @@ export function MobileDashboardExperience({
         ? `${topRankedTicker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, intelligence, summary, topRankedTicker, valuationState]);
+  }, [canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
@@ -375,7 +384,9 @@ export function MobileDashboardExperience({
               className="relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
             >
               <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
-              {summary ? (
+              {connected && intelligence ? (
+                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-6 text-3xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : money(connected.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open Portfolio →</Link></div>
+              ) : summary ? (
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

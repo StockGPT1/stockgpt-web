@@ -227,6 +227,7 @@ export default async function DashboardPage({
           valuationState={valuationState}
           missingPriceTickers={missingPriceTickers}
           intelligence={portfolioIntelligence}
+          connected={dashboardPortfolio?.connected ?? null}
           rankings={rankings}
           rankingsLocked={rankingsLocked}
           marketChart={sp500Data}
@@ -247,6 +248,7 @@ export default async function DashboardPage({
           sentiment={sentiment}
           portfolioSummary={portfolioSummary}
           portfolioIntelligence={portfolioIntelligence}
+          connectedPortfolio={dashboardPortfolio?.connected ?? null}
           portfolioChart={portfolioChart}
           portfolioChartMeta={portfolioChartMeta}
           portfolioId={portfolioId}

@@ -11,7 +11,7 @@ const output = execFileSync(process.execPath, [cli, "status", "-o", "env"], { en
 const env = Object.fromEntries(output.split(/\r?\n/u).map((line) => line.match(/^([A-Z0-9_]+)=(.*)$/u)).filter((match): match is RegExpMatchArray => match !== null).map((match) => [match[1], match[2].startsWith('"') ? JSON.parse(match[2]) : match[2]]));
 const admin = createClient<Database>(env.API_URL, env.SERVICE_ROLE_KEY ?? env.SECRET_KEY, { auth: { persistSession: false } });
 const userId = "11111111-1111-4111-8111-111111111111";
-const providerId = "70000000-0000-4000-8000-000000000099";
+let providerId = "";
 const connectionId = "72000000-0000-4000-8000-000000000099";
 const institutionId = "71000000-0000-4000-8000-000000000001";
 const asOf = "2026-09-01T00:00:00Z";
@@ -34,8 +34,9 @@ const candidate: BrokerSyncCandidate = {
 
 async function main() {
 try {
-  const provider = await admin.from("broker_providers").insert({ id: providerId, provider_key: "snaptrade", display_name: "Synthetic SnapTrade Test Provider" });
+  const provider = await admin.from("broker_providers").select("id").eq("provider_key", "snaptrade").single();
   if (provider.error) throw provider.error;
+  providerId = provider.data.id;
   const connection = await admin.from("broker_connections").insert({
     id: connectionId, user_id: userId, provider_id: providerId, institution_id: institutionId,
     external_connection_id: "worker-connection-local-099", status: "active",
@@ -78,7 +79,6 @@ try {
   assert.equal(job.data.error_code, "provider_unavailable");
 } finally {
   await admin.from("broker_connections").delete().eq("id", connectionId);
-  await admin.from("broker_providers").delete().eq("id", providerId);
 }
 
 console.log("Local injected-provider worker queue→fetch→validate→promote and failure-preserves-last-good passed.");

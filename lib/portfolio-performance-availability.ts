@@ -2,7 +2,8 @@ export type PortfolioPerformanceLimitation =
   | "holding_correction"
   | "holding_removed_from_tracking"
   | "trading212_holdings_replacement"
-  | "neutral_state_rewrite";
+  | "neutral_state_rewrite"
+  | "connected_source_history_unavailable";
 
 export type PortfolioPerformanceAvailability =
   | { status: "available"; limitations: [] }
@@ -16,6 +17,13 @@ export type PortfolioContinuityLedgerEntry = {
 export const PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE = "Performance unavailable";
 export const PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE =
   "This Portfolio includes tracking changes that prevent StockGPT from calculating a reliable since-inception return from the recorded history.";
+
+export const CONNECTED_PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE =
+  "Connected Portfolio performance will be available after broker history is supported.";
+
+export function connectedPortfolioPerformanceAvailability(): PortfolioPerformanceAvailability {
+  return { status: "unavailable", limitations: ["connected_source_history_unavailable"] };
+}
 
 const CORRECTION_NOTE = "Holding facts corrected.";
 const REMOVAL_NOTE = "Holding removed from tracking; no sale recorded.";

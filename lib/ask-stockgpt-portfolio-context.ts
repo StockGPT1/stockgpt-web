@@ -12,6 +12,7 @@ import {
   type IntelligenceReasonView,
 } from "@/lib/portfolio-intelligence-presentation";
 import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
+import type { assessConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence";
 
 export type AskPortfolioMeta = {
   id: string;
@@ -261,6 +262,77 @@ export function buildAskStockGPTPortfolioContext({
     coverage: {
       adapter_limitations: current.adapterLimitations,
       news_event_severity_in_canonical_status: false,
+    },
+  };
+}
+
+export function buildAskConnectedPortfolioContext({
+  connected,
+  meta,
+}: {
+  connected: ReturnType<typeof assessConnectedPortfolioFacts>;
+  meta: Pick<AskPortfolioMeta, "id" | "name" | "riskTolerance" | "objective" | "timeHorizon" | "createdAt">;
+}) {
+  const assessmentByKey = holdingAssessmentByKey(connected.assessment.portfolio.holdingAssessments);
+  return {
+    meta: {
+      id: meta.id, name: meta.name, risk_tolerance: meta.riskTolerance,
+      objective: meta.objective, time_horizon: meta.timeHorizon,
+      currency: "USD", investment_amount: null, cash_deposited_total: null,
+      created_at: meta.createdAt, management_source: "connected",
+    },
+    factual_summary: {
+      holdings_count: connected.positions.length,
+      valuation_state: connected.assessment.portfolio.valuation.state,
+      holdings_value: connected.assessment.portfolio.valuation.holdingsValue,
+      cash_balance: connected.cashValueUsd,
+      total_value: connected.totalValueUsd,
+      total_cost_basis: null,
+      unrealised_pnl_dollars: null,
+      unrealised_pnl_percent: null,
+      aggregate_performance_available: false,
+    },
+    canonical_assessment: {
+      version: connected.assessment.version,
+      as_of: connected.assessment.asOf,
+      availability: connected.intelligence.availability,
+      status: connected.intelligence.status,
+      status_label: connected.intelligence.statusLabel,
+      summary: connected.intelligence.summary,
+      counts_by_status: connected.intelligence.countsByStatus,
+      attention_order: connected.intelligence.attentionOrder,
+      reasons: connected.intelligence.reasons,
+    },
+    holdings: connected.input.holdings.map((holding) => {
+      const assessment = assessmentByKey.get(holding.instrumentKey);
+      const view = connected.intelligence.holdingAssessments[tickerKey(holding.ticker) || holding.instrumentKey];
+      return {
+        instrument_key: holding.instrumentKey, ticker: holding.ticker,
+        company: null, sector: null, shares: holding.shares,
+        current_price: holding.market.currentPrice, entry_price: null,
+        current_value: holding.currentValue, cost_basis: null,
+        unrealised_pnl_percent: null,
+        current_allocation_pct_of_total_portfolio: assessment?.allocation.pctOfTotalPortfolio ?? null,
+        current_allocation_pct_of_invested_assets: assessment?.allocation.pctOfInvestedAssets ?? null,
+        current_rank: holding.ranking?.currentRank ?? null,
+        current_score: holding.ranking?.currentScore ?? null,
+        rank_at_entry: null, score_at_entry: null,
+        ranking_as_of: holding.ranking?.asOf ?? null,
+        price_as_of: holding.market.priceAsOf,
+        diagnostics_as_of: holding.diagnostics?.asOf ?? null,
+        coverage: holding.coverage, provenance: "broker",
+        saved_risk_reference: null, saved_target_reference: null,
+        canonical_assessment: {
+          status: view?.status ?? null, status_label: view?.statusLabel ?? "Analysis limited",
+          attention_rank: view?.attentionRank ?? assessment?.attentionRank ?? Number.MAX_SAFE_INTEGER,
+          reasons: view?.reasons ?? [],
+        },
+      };
+    }),
+    coverage: {
+      adapter_limitations: connected.adapterLimitations,
+      news_event_severity_in_canonical_status: false,
+      broker_history_performance_available: false,
     },
   };
 }

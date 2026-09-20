@@ -182,7 +182,10 @@ export function buildPortfolioIntelligenceView({
   const currencyLimitation = adapterLimitations.find((limitation) =>
     limitation.startsWith("portfolio_currency_basis_unresolved:"),
   );
-  const availability: PortfolioIntelligenceAvailability = currencyLimitation
+  const connectedLimitation = adapterLimitations.find((limitation) =>
+    limitation.startsWith("connected_analysis_"),
+  );
+  const availability: PortfolioIntelligenceAvailability = currencyLimitation || connectedLimitation
     ? "limited"
     : "ready";
   const orderedAssessments =
@@ -220,7 +223,9 @@ export function buildPortfolioIntelligenceView({
       statusLabel: "Analysis limited",
       tone: "neutral",
       summary:
-        "Analysis is limited because this portfolio's stored currency basis cannot yet be reconciled with the market-price feed.",
+        connectedLimitation
+          ? "Analysis is limited because complete, current broker valuation facts are not available."
+          : "Analysis is limited because this portfolio's stored currency basis cannot yet be reconciled with the market-price feed.",
       holdingAssessments,
       countsByStatus: { ...EMPTY_COUNTS },
       attentionOrder: orderedAssessments.map(

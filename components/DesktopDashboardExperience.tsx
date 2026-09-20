@@ -40,6 +40,7 @@ type Props = {
   sentiment: string;
   portfolioSummary: PortfolioHealthSummary | null;
   portfolioIntelligence: PortfolioIntelligenceView | null;
+  connectedPortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
   portfolioChart: Partial<Record<TimeRange, ChartPoint[]>>;
   portfolioChartMeta: PortfolioChartMeta | null;
   portfolioId: string | null;
@@ -88,6 +89,7 @@ export function DesktopDashboardExperience({
   sentiment,
   portfolioSummary,
   portfolioIntelligence,
+  connectedPortfolio,
   portfolioChart,
   portfolioChartMeta,
   portfolioId,
@@ -134,6 +136,7 @@ export function DesktopDashboardExperience({
         <PortfolioDashboardWidget
           summary={portfolioSummary}
           intelligence={portfolioIntelligence}
+          connected={connectedPortfolio}
           chartData={portfolioChart}
           chartMeta={portfolioChartMeta}
           portfolioId={portfolioId}
@@ -145,6 +148,7 @@ export function DesktopDashboardExperience({
         <DashboardBriefing
           summary={portfolioSummary}
           intelligence={portfolioIntelligence}
+          connected={connectedPortfolio}
           topRanked={topRanked}
           canUsePremium={canUsePremium}
           valuationState={valuationState}
@@ -288,6 +292,7 @@ function PortfolioDashboardWidget({
   canUsePremium,
   valuationState,
   missingPriceTickers,
+  connected,
 }: {
   summary: PortfolioHealthSummary | null;
   intelligence: PortfolioIntelligenceView | null;
@@ -298,7 +303,12 @@ function PortfolioDashboardWidget({
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 }) {
+  if (connected && intelligence) {
+    const portfolioHref = portfolioId ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}` : "/portfolio";
+    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(connected.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href={portfolioHref} className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open Portfolio →</Link></section>;
+  }
   if (!summary) {
     return (
       <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_60%,#061b12)] p-3 text-[#faf6f0] shadow-[0_12px_30px_rgba(0,0,0,0.18)] lg:h-full lg:min-h-0">
@@ -385,18 +395,27 @@ function DashboardBriefing({
   topRanked,
   canUsePremium,
   valuationState,
+  connected,
 }: {
   summary: PortfolioHealthSummary | null;
   intelligence: PortfolioIntelligenceView | null;
   topRanked?: DashboardRanking;
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 }) {
   const reviewCount = intelligence
     ? intelligence.countsByStatus.review + intelligence.countsByStatus.urgent_review
     : 0;
   const monitorCount = intelligence?.countsByStatus.monitor ?? 0;
-  const items = summary
+  const items = connected && intelligence
+    ? [
+        "Connected Portfolio performance is unavailable until broker history is supported.",
+        canUsePremium ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}` : "Portfolio status and current signals are available with an active subscription.",
+        `${reviewCount} holding${reviewCount === 1 ? "" : "s"} for review · ${monitorCount} to monitor.`,
+        topRanked?.ticker ? `${topRanked.ticker} remains the highest-ranked stock in the current StockGPT table.` : "The latest rankings are not available yet.",
+      ]
+    : summary
     ? [
         valuationState === "unavailable"
           ? "Portfolio value is temporarily unavailable because the latest prices could not be verified."

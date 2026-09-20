@@ -24,7 +24,7 @@ export async function registerSnapTradeUser(
 
 export async function createReadOnlySnapTradePortalLink(
   admin: SupabaseClient<Database>,
-  input: { userId: string; providerId: string },
+  input: { userId: string; providerId: string; customRedirect: string; reconnect?: string },
   sdk: SnapTradeClient = createSnapTradeClient(),
 ) {
   const credential = await retrieveBrokerUserSecret(admin, input);
@@ -32,11 +32,28 @@ export async function createReadOnlySnapTradePortalLink(
     userId: credential.providerUserId,
     userSecret: credential.userSecret,
     connectionType: "read",
+    customRedirect: input.customRedirect,
+    reconnect: input.reconnect,
+    showCloseButton: true,
   });
   if (!("redirectURI" in response.data) || !response.data.redirectURI) {
     throw new Error("SnapTrade portal link unavailable");
   }
   return response.data.redirectURI;
+}
+
+export async function listSnapTradeConnections(
+  admin: SupabaseClient<Database>,
+  input: { userId: string; providerId: string },
+  sdk: SnapTradeClient = createSnapTradeClient(),
+) {
+  const credential = await retrieveBrokerUserSecret(admin, input);
+  const response = await sdk.connections.listBrokerageAuthorizations({
+    userId: credential.providerUserId,
+    userSecret: credential.userSecret,
+  });
+  if (!Array.isArray(response.data)) throw new Error("SnapTrade connections unavailable");
+  return response.data;
 }
 
 export async function rotateSnapTradeUserSecret(

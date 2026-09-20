@@ -4,12 +4,14 @@ import {
 } from "@/lib/current-portfolio-intelligence";
 import type {
   AssessmentReason,
+  PortfolioIntelligenceResult,
   PortfolioStatus,
   ReasonCode,
 } from "@/lib/portfolio-intelligence";
 import {
   buildPortfolioIntelligenceView,
   type IntelligenceReasonView,
+  type PortfolioIntelligenceView,
 } from "@/lib/portfolio-intelligence-presentation";
 
 export type NotificationKind = "canonical_review" | "saved_reference";
@@ -151,15 +153,45 @@ function buildPortfolioCandidates({
     adapterLimitations: current.adapterLimitations,
   });
 
+  const candidates = buildCanonicalAssessmentNotificationCandidates({
+    portfolioId: facts.portfolio.id,
+    portfolioName,
+    assessment: current.assessment,
+    view,
+    companiesByTicker,
+    asOf,
+  });
+
   if (view.availability !== "ready") return [];
 
-  const candidates: NotificationCandidate[] = [];
-  const assessmentByKey = new Map(
-    current.assessment.portfolio.holdingAssessments.map((assessment) => [
-      assessment.instrumentKey,
-      assessment,
-    ]),
+  const inputByTicker = new Map(
+    current.input.holdings.map((holding) => [tickerKey(holding.ticker), holding]),
   );
+  if (facts.portfolio.currency.trim().toUpperCase() === "USD") {
+    for (const holding of facts.holdings) {
+      const ticker = tickerKey(holding.ticker);
+      const target = finitePositive(holding.target_level_at_entry);
+      const input = inputByTicker.get(ticker);
+      const currentPrice = finitePositive(input?.market.currentPrice);
+      if (!ticker || target === null || currentPrice === null || currentPrice < target) continue;
+      const key = buildSavedTargetReferenceKey({ portfolioId: facts.portfolio.id, ticker, level: target });
+      candidates.push({ key, dismissalKeys: [key], kind: "saved_reference", portfolioId: facts.portfolio.id, portfolioName, ticker, company: companiesByTicker[ticker] ?? null, status: null, statusLabel: null, reasonCodes: [], reasons: [], title: `${ticker} · Saved target reference reached`, message: `Current price is $${currentPrice.toFixed(2)}, at or above the stored target reference of $${target.toFixed(2)}.`, createdAt: input?.market.priceAsOf ?? null });
+    }
+  }
+  return candidates;
+}
+
+export function buildCanonicalAssessmentNotificationCandidates({ portfolioId, portfolioName, assessment, view, companiesByTicker = {}, asOf }: {
+  portfolioId: string;
+  portfolioName: string;
+  assessment: PortfolioIntelligenceResult;
+  view: PortfolioIntelligenceView;
+  companiesByTicker?: Record<string, string | null>;
+  asOf: string;
+}): NotificationCandidate[] {
+  if (view.availability !== "ready") return [];
+  const candidates: NotificationCandidate[] = [];
+  const assessmentByKey = new Map(assessment.portfolio.holdingAssessments.map((item) => [item.instrumentKey, item]));
 
   for (const instrumentKey of view.attentionOrder) {
     const assessment = assessmentByKey.get(instrumentKey);
@@ -177,7 +209,7 @@ function buildPortfolioCandidates({
     });
     const reasonCodes = reviewReasons.map((reason) => reason.code);
     const key = buildCanonicalNotificationKey({
-      portfolioId: facts.portfolio.id,
+      portfolioId,
       instrumentKey: assessment.instrumentKey,
       status: assessment.status,
       reasonCodes,
@@ -190,7 +222,7 @@ function buildPortfolioCandidates({
       key,
       dismissalKeys: [key],
       kind: "canonical_review",
-      portfolioId: facts.portfolio.id,
+      portfolioId,
       portfolioName,
       ticker,
       company: companiesByTicker[ticker] ?? null,
@@ -202,42 +234,6 @@ function buildPortfolioCandidates({
       message: reasonMessage(reasonViews),
       createdAt: latestEvidenceTimestamp(reviewReasons),
     });
-  }
-
-  const inputByTicker = new Map(
-    current.input.holdings.map((holding) => [tickerKey(holding.ticker), holding]),
-  );
-  if (facts.portfolio.currency.trim().toUpperCase() === "USD") {
-    for (const holding of facts.holdings) {
-      const ticker = tickerKey(holding.ticker);
-      const target = finitePositive(holding.target_level_at_entry);
-      const input = inputByTicker.get(ticker);
-      const currentPrice = finitePositive(input?.market.currentPrice);
-      if (!ticker || target === null || currentPrice === null || currentPrice < target) {
-        continue;
-      }
-      const key = buildSavedTargetReferenceKey({
-        portfolioId: facts.portfolio.id,
-        ticker,
-        level: target,
-      });
-      candidates.push({
-        key,
-        dismissalKeys: [key],
-        kind: "saved_reference",
-        portfolioId: facts.portfolio.id,
-        portfolioName,
-        ticker,
-        company: companiesByTicker[ticker] ?? null,
-        status: null,
-        statusLabel: null,
-        reasonCodes: [],
-        reasons: [],
-        title: `${ticker} · Saved target reference reached`,
-        message: `Current price is $${currentPrice.toFixed(2)}, at or above the stored target reference of $${target.toFixed(2)}.`,
-        createdAt: input?.market.priceAsOf ?? null,
-      });
-    }
   }
 
   return candidates;

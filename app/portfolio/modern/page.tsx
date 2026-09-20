@@ -29,6 +29,8 @@ import {
 } from "@/lib/currency";
 import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
 import { comparePortfolioTransactionActivityDesc } from "@/lib/portfolio-transaction-chronology";
+import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
+import { ConnectedPortfolioWorkspace } from "@/components/ConnectedPortfolioWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,8 @@ type PortfolioRow = CurrentPortfolioFact & {
   investment_amount: number | null;
   cash_deposited_total: number;
   created_at: string;
+  management_source: "manual" | "connected";
+  broker_account_id: string | null;
 };
 
 type HoldingRow = CurrentHoldingFact &
@@ -153,7 +157,7 @@ export default async function ModernPortfolioPage({
       supabase
         .from("user_portfolios")
         .select(
-          "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
+          "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at,management_source,broker_account_id",
         )
         .eq("user_id", user.id)
         .is("archived_at", null)
@@ -224,6 +228,40 @@ export default async function ModernPortfolioPage({
       : portfolios[0].id;
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
+
+  if (activePortfolio.management_source === "connected") {
+    const connected = await loadConnectedPortfolioIntelligence(
+      supabase,
+      selectedPortfolioId,
+      intelligenceAsOf,
+    );
+    if (!connected) throw new Error("Connected Portfolio could not be loaded.");
+    return (
+      <AppShell
+        activePath="/portfolio"
+        askLabel="Ask about this portfolio"
+        askContext={{ contextType: "portfolio", portfolioId: selectedPortfolioId }}
+      >
+        <ConnectedPortfolioWorkspace
+          portfolio={{ id: activePortfolio.id, name: activePortfolio.name }}
+          portfolios={portfolios.map((portfolio) => ({
+            id: portfolio.id,
+            name: portfolio.name,
+            source: portfolio.management_source,
+          }))}
+          intelligence={connected.intelligence}
+          positions={connected.positions}
+          cashValueUsd={connected.cashValueUsd}
+          totalValueUsd={connected.totalValueUsd}
+          connectionState={connected.adapterLimitations.includes("connected_analysis_sync_pending")
+            ? "syncing"
+            : connected.connectionStatus === "active"
+              ? "connected"
+              : connected.connectionStatus}
+        />
+      </AppShell>
+    );
+  }
 
   const [
     { data: holdingRows, error: holdingsError },
