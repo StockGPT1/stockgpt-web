@@ -15,6 +15,7 @@ const sessionRoutePrefixes = [
   "/settings",
   "/stock",
   "/watchlist",
+  "/welcome",
   "/world-news",
 ];
 
@@ -87,12 +88,12 @@ function buildContentSecurityPolicy(nonce: string) {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  /* The iOS app shell (UA suffix "StockGPTApp") never shows the marketing
-     landing — send it straight to the product. Signed-out users are then
-     bounced to /login by the dashboard's session check. */
+  /* The iOS app shell gets a native-style welcome tour when signed out.
+     /welcome itself checks the session and sends returning users straight
+     to /dashboard, so existing users never have to swipe through onboarding. */
   if (pathname === "/" && (request.headers.get("user-agent") ?? "").includes("StockGPTApp")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/welcome";
     return NextResponse.redirect(url);
   }
 
