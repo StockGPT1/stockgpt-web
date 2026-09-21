@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
    the same product, auth and ranking data as the web app. Release builds use
    the live site. For Xcode development, CAPACITOR_SERVER_URL can point the
    shell at a local or preview deployment without editing this file. */
-const productionServerUrl = "https://stockgpt.pro/dashboard";
+const productionServerUrl = "https://stockgpt.pro/welcome";
 const configuredServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
 const serverUrl = configuredServerUrl || productionServerUrl;
 const isCleartextDevelopmentServer = serverUrl.startsWith("http://");
@@ -30,9 +30,9 @@ const config: CapacitorConfig = {
   appName: "StockGPT",
   webDir: "capacitor-fallback",
   server: {
-    /* Signed-out users are redirected to /login by the product. A debug URL
-       can be supplied when running `npx cap sync ios`; production remains the
-       default when the environment variable is absent. */
+    /* Production opens the native-style welcome route. That route immediately
+       redirects authenticated users to /dashboard, while signed-out users see
+       onboarding. A debug URL can still override this for local Xcode testing. */
     url: serverUrl,
     errorPath: "error.html",
     cleartext: isCleartextDevelopmentServer,
