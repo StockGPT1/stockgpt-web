@@ -13,10 +13,17 @@ import {
   authPrimaryButtonClass,
 } from "@/components/auth/AuthScaffold";
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
-import { isStockGPTIOSApp } from "@/lib/ios-native";
+import { isStockGPTIOSApp, requestNativeAuthentication } from "@/lib/ios-native";
 
 const FACE_ID_KEY = "stockgpt:faceid-enabled";
 const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
+const FACE_ID_UNLOCK_BYPASS_KEY = "stockgpt:faceid-just-unlocked";
+
+type BiometricResult = {
+  success?: boolean;
+  available?: boolean;
+  message?: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,6 +38,76 @@ export default function LoginPage() {
     /* Warm the dashboard shell while the user types so the post-login
        navigation only has to stream the data, not the whole route. */
     router.prefetch("/dashboard");
+  }, [router]);
+
+  useEffect(() => {
+    if (!isStockGPTIOSApp()) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("faceid") !== "1") return;
+    if (window.localStorage.getItem(FACE_ID_KEY) !== "true") return;
+
+    const next = normaliseInternalRedirect(params.get("next"));
+    let active = true;
+
+    function stopListening() {
+      window.removeEventListener("stockgpt:biometric-result", onBiometricResult);
+    }
+
+    function onBiometricResult(event: Event) {
+      if (!active) return;
+      stopListening();
+
+      const result = (event as CustomEvent<BiometricResult>).detail ?? {};
+
+      if (result.success) {
+        window.sessionStorage.setItem(FACE_ID_UNLOCK_BYPASS_KEY, "true");
+        router.replace(next);
+        return;
+      }
+
+      setErrorMessage(
+        result.available === false
+          ? "Face ID is not available on this iPhone. You can still sign in below."
+          : result.message || "Face ID was not completed. You can still sign in below.",
+      );
+    }
+
+    window.addEventListener("stockgpt:biometric-result", onBiometricResult);
+
+    void (async () => {
+      try {
+        // Biometrics can unlock a session already stored on this iPhone. If
+        // that session has expired, keep the normal login form ready instead.
+        const { createClient } = await import("@/utils/supabase/client");
+        const {
+          data: { user },
+        } = await createClient().auth.getUser();
+
+        if (!active) return;
+
+        if (!user) {
+          stopListening();
+          return;
+        }
+
+        const started = requestNativeAuthentication(
+          "Use Face ID to continue to your StockGPT account.",
+        );
+
+        if (!started) {
+          stopListening();
+          setErrorMessage("Face ID could not start. You can still sign in below.");
+        }
+      } catch {
+        stopListening();
+      }
+    })();
+
+    return () => {
+      active = false;
+      stopListening();
+    };
   }, [router]);
 
   function queueFaceIDOffer() {

@@ -140,7 +140,7 @@ export function WelcomeCarousel() {
       <div className={styles.actions}>
         <div>
           <Link href="/signup" className={styles.signup} data-native-haptic="medium">Create account</Link>
-          <Link href="/login" className={styles.login} data-native-haptic="light">Log in</Link>
+          <Link href="/login?faceid=1" className={styles.login} data-native-haptic="light">Log in</Link>
           <p>Research tools and market intelligence. Investing involves risk.</p>
         </div>
       </div>

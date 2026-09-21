@@ -6,6 +6,7 @@ import { isStockGPTIOSApp, requestNativeAuthentication } from "@/lib/ios-native"
 
 const FACE_ID_KEY = "stockgpt:faceid-enabled";
 const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
+const FACE_ID_UNLOCK_BYPASS_KEY = "stockgpt:faceid-just-unlocked";
 const BACKGROUND_LOCK_AFTER_MS = 30_000;
 
 type BiometricResult = {
@@ -15,6 +16,15 @@ type BiometricResult = {
 };
 
 type AuthPurpose = "unlock" | "offer" | null;
+
+function isPublicEntryPath(pathname: string) {
+  return (
+    pathname === "/welcome" ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/auth/")
+  );
+}
 
 export function IOSAppLock() {
   const pathname = usePathname();
@@ -62,11 +72,26 @@ export function IOSAppLock() {
 
     const storedEnabled = window.localStorage.getItem(FACE_ID_KEY) === "true";
     setEnabled(storedEnabled);
-    if (storedEnabled) {
-      setLocked(true);
-      window.setTimeout(authenticate, 220);
+
+    // Everyone sees the welcome/auth flow first. Face ID is triggered from
+    // the login choice rather than covering the welcome screen on launch.
+    if (!storedEnabled || isPublicEntryPath(pathname)) {
+      setLocked(false);
+      return;
     }
-  }, [authenticate]);
+
+    // A successful Face ID hand-off from /login should not cause an immediate
+    // second prompt when the dashboard mounts.
+    if (window.sessionStorage.getItem(FACE_ID_UNLOCK_BYPASS_KEY) === "true") {
+      window.sessionStorage.removeItem(FACE_ID_UNLOCK_BYPASS_KEY);
+      setLocked(false);
+      return;
+    }
+
+    setLocked(true);
+    const timeout = window.setTimeout(authenticate, 220);
+    return () => window.clearTimeout(timeout);
+  }, [authenticate, pathname]);
 
   useEffect(() => {
     if (!isApp || enabled) {
@@ -74,10 +99,10 @@ export function IOSAppLock() {
       return;
     }
 
-    const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname.startsWith("/auth/");
+    const isPublicEntry = isPublicEntryPath(pathname);
     const pending = window.localStorage.getItem(FACE_ID_OFFER_KEY) === "true";
 
-    if (!isAuthPage && pending) {
+    if (!isPublicEntry && pending) {
       const timeout = window.setTimeout(() => setShowOffer(true), 450);
       return () => window.clearTimeout(timeout);
     }
@@ -145,7 +170,7 @@ export function IOSAppLock() {
   }, [isApp]);
 
   useEffect(() => {
-    if (!isApp) return;
+    if (!isApp || isPublicEntryPath(pathname)) return;
 
     function onVisibilityChange() {
       if (document.visibilityState === "hidden") {
@@ -167,7 +192,7 @@ export function IOSAppLock() {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [authenticate, enabled, isApp]);
+  }, [authenticate, enabled, isApp, pathname]);
 
   if (!isApp) return null;
 
