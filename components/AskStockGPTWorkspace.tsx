@@ -61,7 +61,7 @@ type AskStockGPTWorkspaceProps = {
 const welcomeMessage: ChatMessage = {
   role: "assistant",
   content:
-    "I’m your StockGPT coach. Ask me about your portfolio, rankings, alerts, market news, stop-losses, take-profit levels, trading concepts, membership questions, or anything you want explained clearly.",
+    "Ask me anything about your portfolio, StockGPT rankings, a stock, an alert, market news, or an investing concept.",
 };
 
 const modeOptions: Array<{ mode: Mode; label: string; shortLabel: string; description: string }> = [
@@ -186,21 +186,24 @@ function BackButton() {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+
+  if (isUser) {
+    return (
+      <div className="flex w-full justify-end">
+        <div className="max-w-[86%] rounded-[22px] rounded-br-[7px] bg-[#ddb159] px-4 py-3 text-[14px] font-semibold leading-6 text-[#04140c] shadow-[0_10px_28px_rgba(0,0,0,0.16)] [overflow-wrap:anywhere] sm:max-w-[74%]">
+          {renderMessageContent(message.content)}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={["flex w-full min-w-0", isUser ? "justify-end" : "justify-start"].join(" ")}>
-      <div className={[
-        "min-w-0 max-w-[92%] overflow-hidden break-words rounded-[22px] px-3.5 py-3 text-[13px] shadow-[0_16px_40px_rgba(0,0,0,0.18)] sm:max-w-[82%] md:max-w-[78%] [overflow-wrap:anywhere]",
-        isUser ? "rounded-br-md bg-[#ddb159] text-[#07170f]" : "rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] text-[#07170f]",
-      ].join(" ")}>
-        {!isUser && (
-          <div className="mb-1.5 flex min-w-0 items-center gap-2">
-            <span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]">
-              <StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" />
-            </span>
-            <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">StockGPT Coach</span>
-          </div>
-        )}
-        <div className="min-w-0 [&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
+    <div className="flex w-full items-start gap-2.5">
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
+        <StockGPTIconImage fallbackClassName="text-[11px] font-black text-[#ddb159]" />
+      </span>
+      <div className="min-w-0 max-w-[calc(100%_-_42px)] flex-1 rounded-[22px] rounded-tl-[7px] border border-white/[0.07] bg-white/[0.055] px-4 py-3.5 text-[14px] font-medium leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.15)] [overflow-wrap:anywhere] sm:max-w-[78%]">
+        <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
       </div>
     </div>
   );
@@ -270,7 +273,10 @@ function ModeSidebar({ activeMode, setActiveMode, visibleStarters, onPrompt, onC
 
 function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setActiveMode: (mode: Mode) => void }) {
   return (
-    <nav className="grid shrink-0 grid-cols-4 gap-1 border-b border-[#ddb159]/12 bg-[#06140d] px-3 py-2 lg:hidden">
+    <nav
+      aria-label="Ask StockGPT mode"
+      className="sg-ask-mode-rail flex shrink-0 gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center"
+    >
       {modeOptions.map((option) => {
         const selected = activeMode === option.mode;
         return (
@@ -278,7 +284,13 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
             key={option.mode}
             type="button"
             onClick={() => setActiveMode(option.mode)}
-            className={["inline-flex h-9 min-w-0 items-center justify-center truncate rounded-full border px-1.5 text-[10px] font-black uppercase tracking-[0.04em] transition", selected ? "border-[#ddb159]/70 bg-[#ddb159] text-[#07170f]" : "border-[#ddb159]/18 bg-[#fbf4e5]/[0.035] text-[#fbf4e5]/70"].join(" ")}
+            aria-pressed={selected}
+            className={[
+              "inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-[11px] font-black transition active:scale-[0.98]",
+              selected
+                ? "border-[#ddb159] bg-[#ddb159] text-[#04140c] shadow-[0_8px_24px_rgba(221,177,89,0.16)]"
+                : "border-white/[0.08] bg-white/[0.035] text-[#f7f4ec]/68 hover:border-[#ddb159]/30 hover:text-[#f7f4ec]",
+            ].join(" ")}
           >
             {option.shortLabel}
           </button>
@@ -628,9 +640,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
       if (!textarea) return;
       if (window.matchMedia("(min-width: 1024px)").matches) {
         textarea.focus({ preventScroll: true });
-        return;
       }
-      textarea.focus();
     }, 120);
     return () => window.clearTimeout(timeout);
   }, [locked]);
@@ -827,101 +837,203 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
 
   const renderChatContent = (bottomRef: RefObject<HTMLDivElement | null>) => (
     <>
-      {historyLoading && <div className="flex justify-center"><div className="rounded-full border border-[#ddb159]/18 bg-[#fbf4e5]/[0.045] px-4 py-2 text-[11px] font-bold text-[#fbf4e5]/58">Loading chat log</div></div>}
-      {messages.map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
-      {loading && !streaming && <div className="flex justify-start"><div className="max-w-[92%] overflow-hidden break-words rounded-[22px] rounded-bl-md border border-[#ddb159]/20 bg-[#fbf4e5] px-3.5 py-3 text-[#07170f] shadow-[0_16px_40px_rgba(0,0,0,0.18)]"><div className="mb-1.5 flex min-w-0 items-center gap-2"><span className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-full bg-[#07170f] p-0.5 text-[9px] font-black text-[#ddb159]"><StockGPTIconImage fallbackClassName="text-[8px] font-black text-[#ddb159]" /></span><span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#07170f]/45">Connecting</span></div><div className="text-[13px] font-semibold text-[#07170f]/72">Reading the conversation and opening the response stream.</div></div></div>}
+      {historyLoading && (
+        <div className="flex justify-center py-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3.5 py-2 text-[11px] font-bold text-[#f7f4ec]/48">
+            <span className="size-1.5 animate-pulse rounded-full bg-[#ddb159]" />
+            Loading conversation
+          </div>
+        </div>
+      )}
+      {messages
+        .filter((message, index) => !(index === 0 && messages.length > 1 && message.content === welcomeMessage.content))
+        .map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
+      {loading && !streaming && (
+        <div className="flex w-full items-start gap-2.5">
+          <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5">
+            <StockGPTIconImage fallbackClassName="text-[11px] font-black text-[#ddb159]" />
+          </span>
+          <div className="inline-flex h-12 items-center gap-1.5 rounded-[20px] rounded-tl-[7px] border border-white/[0.07] bg-white/[0.055] px-4">
+            <span className="size-1.5 animate-bounce rounded-full bg-[#ddb159]/90 [animation-delay:-0.2s]" />
+            <span className="size-1.5 animate-bounce rounded-full bg-[#ddb159]/70 [animation-delay:-0.1s]" />
+            <span className="size-1.5 animate-bounce rounded-full bg-[#ddb159]/50" />
+          </div>
+        </div>
+      )}
       <div ref={bottomRef} />
     </>
   );
 
+  const activeModeLabel =
+    modeOptions.find((option) => option.mode === activeMode)?.description ?? "Market intelligence";
+
+  const contextLabel =
+    initialContext?.contextType === "stock" && initialContext.ticker
+      ? initialContext.ticker
+      : initialContext?.contextType === "holding" && initialContext.holdingTicker
+        ? initialContext.holdingTicker
+        : activeMode === "portfolio"
+          ? "Your portfolio"
+          : activeMode === "rankings"
+            ? "StockGPT rankings"
+            : activeMode === "learn"
+              ? "Learning mode"
+              : "Account help";
+
   return (
-    <div className="sg-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#020805] text-[#fbf4e5]">
-      <header className="shrink-0 border-b border-[#ddb159]/16 bg-[#04140c] px-3 py-2 sm:px-5 sm:py-3">
-        <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-3">
+    <div className="sg-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#04140c] text-[#f7f4ec]">
+      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.06] bg-[#04140c]/95 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
+        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <BackButton />
-          <div className="min-w-0 text-center"><p className="truncate text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Ask StockGPT</p><p className="mt-0.5 hidden text-[12px] font-semibold text-[#fbf4e5]/42 sm:block">{initialContext?.contextType === "stock" && initialContext.ticker ? `Research context: ${initialContext.ticker}` : initialContext?.contextType === "holding" && initialContext.holdingTicker ? `Holding context: ${initialContext.holdingTicker}` : initialContext?.contextType === "portfolio" ? "Selected portfolio context" : initialContext?.contextType === "rankings" ? "Current rankings context" : "Chat and portfolio intelligence"}</p></div>
-          <button type="button" onClick={() => void clearHistory()} className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#fbf4e5]/[0.04] px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:px-4 sm:text-[12px] sm:tracking-[0.14em]">Clear</button>
+
+          <div className="min-w-0 text-center">
+            <p className="truncate text-[17px] font-black tracking-[-0.025em] text-[#f7f4ec]">
+              Ask StockGPT
+            </p>
+            <p className="mt-0.5 truncate text-[9px] font-black uppercase tracking-[0.13em] text-[#ddb159]/70">
+              {contextLabel}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void clearHistory()}
+            aria-label="New chat"
+            className="grid size-11 place-items-center justify-self-end rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" className="size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      {locked ? <LockedExperience isAuthenticated={isAuthenticated} /> : (
+      {locked ? (
+        <LockedExperience isAuthenticated={isAuthenticated} />
+      ) : (
         <>
-          <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
+          <div className="shrink-0 border-b border-white/[0.05] bg-[#04140c]">
+            <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
 
-          {portfolioOptions.length > 1 && (
-            <div className="shrink-0 border-b border-[#ddb159]/12 bg-[#04140c] px-3 py-2 lg:hidden">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.16em] text-[#fbf4e5]/42">
-                  Focused on
+            {portfolioOptions.length > 1 && activeMode === "portfolio" && (
+              <div className="mx-auto flex max-w-4xl items-center gap-2 px-3 pb-2.5 sm:px-5">
+                <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-[#f7f4ec]/34">
+                  Portfolio
                 </span>
                 <PortfolioFocusPicker
                   portfolios={portfolioOptions}
                   selectedId={selectedPortfolioId}
                   onSelect={switchPortfolio}
-                  className="min-w-0 flex-1"
+                  className="min-w-0 flex-1 sm:max-w-[280px]"
                 />
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
-            <div className="sg-ask-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
-              <div className="grid gap-3 pb-3">
-                <IntelligencePanel activeMode={activeMode} holdings={holdingOptions} holdingsLoading={holdingLoading} onAskHolding={askAboutHolding} onAskPrompt={askPrompt} />
+          <main className="min-h-0 flex-1 overflow-hidden">
+            <div className="sg-ask-scroll h-full overflow-y-auto overflow-x-hidden">
+              <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-3 pb-5 pt-4 sm:px-5 sm:pt-6">
+                {showStarterCards ? (
+                  <section className="flex flex-1 flex-col justify-center pb-8 sm:pb-10">
+                    <div className="mx-auto w-full max-w-2xl">
+                      <div className="mx-auto grid size-14 place-items-center overflow-hidden rounded-[18px] border border-[#ddb159]/24 bg-[#092418] p-2.5 shadow-[0_18px_55px_rgba(0,0,0,0.28)]">
+                        <StockGPTIconImage fallbackClassName="text-[18px] font-black text-[#ddb159]" />
+                      </div>
 
-                <section className="grid min-w-0 gap-3 overflow-hidden rounded-[24px] border border-[#ddb159]/16 bg-[#06140d] p-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <PremiumOrb small />
-                    <div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Chat</p><p className="truncate text-[12px] font-semibold text-[#fbf4e5]/45">Ask naturally</p></div>
+                      <h1 className="mt-5 text-center text-[27px] font-black tracking-[-0.045em] text-[#f7f4ec] sm:text-[34px]">
+                        What do you want to know?
+                      </h1>
+                      <p className="mx-auto mt-2 max-w-xl text-center text-[12px] font-semibold leading-5 text-[#f7f4ec]/44 sm:text-[13px]">
+                        {activeModeLabel}. Ask naturally — StockGPT will pull in the relevant context when it needs it.
+                      </p>
+
+                      <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                        {visibleStarters.slice(0, 4).map((starter) => (
+                          <button
+                            key={starter.prompt}
+                            type="button"
+                            onClick={() => void sendQuestion(starter.prompt)}
+                            className="group min-h-[78px] rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-4 py-3.5 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/25 hover:bg-white/[0.055] active:scale-[0.99]"
+                          >
+                            <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#ddb159]/68">
+                              {starter.eyebrow}
+                            </span>
+                            <span className="mt-1.5 block text-[13px] font-bold leading-[1.35] text-[#f7f4ec]/86">
+                              {starter.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {activeMode === "portfolio" && holdingOptions.length > 0 && (
+                        <div className="mt-5">
+                          <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.13em] text-[#f7f4ec]/30">
+                            Ask about a holding
+                          </p>
+                          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {holdingOptions.slice(0, 8).map((holding) => (
+                              <button
+                                key={holding.ticker}
+                                type="button"
+                                onClick={() => askAboutHolding(holding)}
+                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.035] px-3.5 text-[11px] font-black text-[#f7f4ec]/72 transition hover:border-[#ddb159]/25 hover:text-[#ddb159]"
+                              >
+                                <span className="text-[#ddb159]">{holding.ticker}</span>
+                                <span className="text-[#f7f4ec]/30">#{holding.rank ?? "—"}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                ) : (
+                  <div className="grid gap-4 pb-4">
+                    {renderChatContent(mobileBottomRef)}
                   </div>
-                  {showStarterCards && <div className="grid grid-cols-2 gap-2">{mobileStarters.map((starter) => <button key={starter.prompt} type="button" onClick={() => void sendQuestion(starter.prompt)} className="min-h-[58px] min-w-0 overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#fbf4e5]/[0.04] px-3 py-2.5 text-left text-[11px] font-bold leading-snug text-[#fbf4e5]/80"><span className="block truncate text-[8px] font-black uppercase tracking-[0.13em] text-[#ddb159]/72">{starter.eyebrow}</span><span className="mt-1 block line-clamp-2">{starter.label}</span></button>)}</div>}
-                  <div className="grid gap-3">{renderChatContent(mobileBottomRef)}</div>
-                </section>
+                )}
               </div>
             </div>
+          </main>
 
-            <form onSubmit={handleSubmit} className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/98 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_44px] items-end gap-2 rounded-[24px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)]">
-                <textarea ref={textareaRef} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask anything..." rows={1} className="max-h-24 min-h-[44px] min-w-0 resize-none bg-transparent px-2 py-2.5 text-[14px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34" />
-                <button type="submit" aria-label="Send" disabled={!question.trim() || loading || historyLoading} className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#ddb159] text-[18px] font-black leading-none text-[#07170f] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45">↑</button>
+          <form
+            onSubmit={handleSubmit}
+            className="sg-ask-composer shrink-0 border-t border-white/[0.06] bg-[#04140c]/96 px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl sm:px-5"
+          >
+            <div className="mx-auto w-full max-w-4xl">
+              <div className="grid grid-cols-[minmax(0,1fr)_46px] items-end gap-2 rounded-[24px] border border-white/[0.09] bg-white/[0.045] p-2 shadow-[0_18px_55px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.025)] focus-within:border-[#ddb159]/38">
+                <textarea
+                  ref={textareaRef}
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && window.matchMedia("(min-width: 768px)").matches) {
+                      event.preventDefault();
+                      void sendQuestion();
+                    }
+                  }}
+                  placeholder={activeMode === "portfolio" ? "Ask about your portfolio…" : activeMode === "rankings" ? "Ask about a stock or ranking…" : activeMode === "learn" ? "Ask me to explain something…" : "Ask about your account…"}
+                  rows={1}
+                  className="max-h-28 min-h-[46px] min-w-0 resize-none bg-transparent px-2.5 py-3 text-[16px] font-medium leading-6 text-[#f7f4ec] outline-none placeholder:text-[#f7f4ec]/28"
+                />
+                <button
+                  type="submit"
+                  aria-label="Send"
+                  data-native-haptic="medium"
+                  disabled={!question.trim() || loading || historyLoading}
+                  className="grid size-[46px] place-items-center rounded-[17px] bg-[#ddb159] text-[#04140c] shadow-[0_8px_24px_rgba(221,177,89,0.14)] transition active:scale-95 disabled:opacity-30"
+                >
+                  <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m5 12 7-7 7 7" />
+                    <path d="M12 19V5" />
+                  </svg>
+                </button>
               </div>
-            </form>
-          </main>
-
-          <main className="sg-ask-desktop mx-auto hidden min-h-0 w-full max-w-[1700px] flex-1 grid-cols-[190px_minmax(0,1fr)_260px] grid-rows-[minmax(0,1fr)] gap-2 overflow-hidden p-2 lg:grid xl:grid-cols-[250px_minmax(420px,1fr)_320px] 2xl:grid-cols-[300px_minmax(480px,1fr)_390px] xl:p-3">
-            <ModeSidebar activeMode={activeMode} setActiveMode={setActiveMode} visibleStarters={visibleStarters} onPrompt={askPrompt} onClear={() => void clearHistory()} />
-
-            <section className="grid min-h-0 min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[26px] border border-[#ddb159]/18 bg-[#06140d] xl:rounded-l-[30px] xl:rounded-r-none xl:border-r-0">
-              <header className="relative shrink-0 border-b border-[#ddb159]/14 px-5 py-4">
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3"><PremiumOrb small /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ddb159]">Portfolio intelligence</p><h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#fbf4e5] xl:text-[34px]">Ask StockGPT</h1></div></div>
-                  <PortfolioFocusPicker
-                    portfolios={portfolioOptions}
-                    selectedId={selectedPortfolioId}
-                    onSelect={switchPortfolio}
-                    className="mt-1 max-w-[240px] shrink-0"
-                  />
-                </div>
-                <p className="mt-3 max-w-full text-[13px] font-medium leading-5 text-[#fbf4e5]/52">Ask naturally. Portfolio and ranking tools load only when needed.</p>
-              </header>
-
-              <main className="sg-ask-scroll min-h-0 max-w-full overflow-y-auto overflow-x-hidden px-5 py-4">
-                <div className="mx-auto grid max-w-3xl gap-3">{renderChatContent(desktopBottomRef)}</div>
-              </main>
-
-              <form onSubmit={handleSubmit} className="shrink-0 border-t border-[#ddb159]/14 bg-[#04140c]/95 p-4">
-                <div className="mx-auto max-w-3xl rounded-[26px] border border-[#ddb159]/28 bg-[#071b12] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_55px_rgba(0,0,0,0.3)]">
-                  <textarea ref={textareaRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendQuestion(); } }} placeholder="Ask naturally. Imperfect grammar is fine..." rows={2} className="max-h-28 min-h-[58px] w-full resize-none bg-transparent px-3 py-2 text-[14px] font-medium leading-relaxed text-[#fbf4e5] outline-none placeholder:text-[#fbf4e5]/34" />
-                  <div className="flex min-w-0 items-center justify-end gap-2 px-2 pb-1">
-                    <button type="button" onClick={() => { setActiveMode("portfolio"); void loadHoldings(); }} className="inline-flex h-10 items-center justify-center rounded-full border border-[#ddb159]/20 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]/75 transition hover:bg-[#ddb159]/10">Holdings</button>
-                    <button type="submit" disabled={!question.trim() || loading || historyLoading} className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[12px] font-black uppercase tracking-[0.14em] text-[#07170f] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0">{loading ? "Thinking" : "Send"}</button>
-                  </div>
-                </div>
-              </form>
-            </section>
-
-            <IntelligencePanel activeMode={activeMode} holdings={holdingOptions} holdingsLoading={holdingLoading} onAskHolding={askAboutHolding} onAskPrompt={askPrompt} desktopOnly />
-          </main>
+              <p className="mt-2 text-center text-[8.5px] font-semibold tracking-[0.01em] text-[#f7f4ec]/22">
+                StockGPT can make mistakes. Check important market information.
+              </p>
+            </div>
+          </form>
         </>
       )}
     </div>

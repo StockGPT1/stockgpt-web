@@ -154,7 +154,7 @@ export function BrandLoader({ label }: { label: string }) {
 /** Full-viewport shell shared by the loading.tsx files. */
 export function BrandLoaderPage({
   label,
-  background = "#020806",
+  background = "#072116",
 }: {
   label: string;
   background?: string;

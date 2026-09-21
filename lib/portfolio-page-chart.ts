@@ -149,6 +149,7 @@ export async function buildPortfolioPageChart({
   summary,
   ownerId,
   allowCurrentSnapshot,
+  supabaseClient,
 }: {
   portfolio: PortfolioLike;
   enriched: EnrichedHolding[];
@@ -156,6 +157,7 @@ export async function buildPortfolioPageChart({
   summary: PortfolioHealthSummary;
   ownerId?: string | null;
   allowCurrentSnapshot?: boolean;
+  supabaseClient?: ReturnType<typeof createAdminClient>;
 }): Promise<Partial<Record<TimeRange, ChartPoint[]>>> {
   return (
     await buildPortfolioPageChartResult({
@@ -165,6 +167,7 @@ export async function buildPortfolioPageChart({
       summary,
       ownerId,
       allowCurrentSnapshot,
+      supabaseClient,
     })
   ).chartData;
 }
@@ -176,6 +179,7 @@ export async function buildPortfolioPageChartResult({
   summary,
   ownerId,
   allowCurrentSnapshot = true,
+  supabaseClient,
 }: {
   portfolio: PortfolioLike;
   enriched: EnrichedHolding[];
@@ -183,6 +187,7 @@ export async function buildPortfolioPageChartResult({
   summary: PortfolioHealthSummary;
   ownerId?: string | null;
   allowCurrentSnapshot?: boolean;
+  supabaseClient?: ReturnType<typeof createAdminClient>;
 }): Promise<PortfolioPageChartResult> {
   const nowMs = Date.now();
 
@@ -205,7 +210,7 @@ export async function buildPortfolioPageChartResult({
     }
   }
 
-  const supabase = createAdminClient();
+  const supabase = supabaseClient ?? createAdminClient();
   const resolvedOwnerId = await resolvePortfolioOwnerId({ supabase, portfolio, ownerId });
   const snapshotHoldings = holdingsForSnapshots(enriched);
   const currentPrices = currentPricesForHoldings(enriched);

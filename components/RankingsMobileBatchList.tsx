@@ -39,16 +39,29 @@ function score(value: unknown) {
 
 function price(value: unknown) {
   const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? `$${number.toFixed(2)}` : "Unavailable";
+  return Number.isFinite(number) && number > 0 ? `$${number.toFixed(2)}` : "—";
 }
 
 function dailyMove(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return "1D unavailable";
+  if (value == null || !Number.isFinite(value)) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
-const glassShellClass =
-  "relative isolate overflow-hidden rounded-[22px] border border-[#ddb159]/22 bg-[linear-gradient(145deg,rgba(250,246,240,0.058)_0%,rgba(11,43,29,0.64)_34%,rgba(3,24,15,0.82)_100%)] shadow-[0_16px_38px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-xl";
+function dailyMoveTone(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return "text-[#faf6f0]/38";
+  return value >= 0 ? "text-emerald-400" : "text-red-400";
+}
+
+function rankMove(row: StableRankingRow) {
+  const rank = Number(row.rank);
+  const previous = Number(row.previous_rank);
+  if (!Number.isFinite(rank) || !Number.isFinite(previous)) return null;
+  const delta = previous - rank;
+  if (delta === 0) return { label: "—", tone: "text-[#faf6f0]/36" };
+  return delta > 0
+    ? { label: `↑${Math.abs(delta)}`, tone: "text-emerald-400" }
+    : { label: `↓${Math.abs(delta)}`, tone: "text-red-400" };
+}
 
 export function RankingsMobileBatchList({
   initialItems,
@@ -117,29 +130,39 @@ export function RankingsMobileBatchList({
 
   if (items.length === 0) {
     return (
-      <div className={`${glassShellClass} px-4 py-10 text-center`}>
+      <div className="rounded-[20px] border border-[#ddb159]/16 bg-[#081f15]/58 px-4 py-9 text-center">
         <p className="text-[13px] font-bold leading-5 text-[#faf6f0]/58">
-          No stocks match these filters in the current batch. Reset filters or load the next batch.
+          No stocks match these filters. Reset them or load another rankings batch.
         </p>
       </div>
     );
   }
 
   return (
-    <div className={glassShellClass}>
+    <div className="space-y-2.5">
       {items.map((stock) => {
         const confidence = getModelConfidence(stock);
         const rowKey = String(stock.id ?? stock.ticker ?? stock.rank ?? "ranking-row");
         const isWhyOpen = openWhyKey === rowKey;
+        const movement = rankMove(stock);
+        const rankNumber = Number(stock.rank);
+        const topRank = Number.isFinite(rankNumber) && rankNumber <= 3;
 
         return (
           <article
             key={rowKey}
             data-expanded={isWhyOpen ? "true" : "false"}
-            className="relative border-b border-[#ddb159]/12 bg-transparent px-3 py-3 transition-colors duration-150 last:border-b-0 hover:bg-[#ddb159]/[0.035] active:bg-[#ddb159]/[0.055] data-[expanded=true]:bg-[#ddb159]/[0.028]"
+            className="relative overflow-hidden rounded-[19px] border border-[#ddb159]/13 bg-[linear-gradient(145deg,rgba(11,43,29,0.78),rgba(3,24,15,0.92))] px-3.5 py-3 shadow-[0_10px_26px_rgba(0,0,0,0.16)] transition active:scale-[0.992] data-[expanded=true]:border-[#ddb159]/28"
           >
-            <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#ddb159] text-[11px] font-black tabular-nums text-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
+            <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3">
+              <span
+                className={[
+                  "grid size-9 shrink-0 place-items-center rounded-[12px] text-[12px] font-black tabular-nums",
+                  topRank
+                    ? "bg-[#ddb159] text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)]"
+                    : "border border-[#ddb159]/18 bg-[#ddb159]/7 text-[#ddb159]",
+                ].join(" ")}
+              >
                 {stock.rank ?? "—"}
               </span>
 
@@ -147,32 +170,57 @@ export function RankingsMobileBatchList({
                 href={`/stock/${stock.ticker}`}
                 className="flex min-w-0 items-center gap-2.5 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
               >
-                <StockLogo ticker={stock.ticker} company={stock.company} size={34} />
+                <StockLogo ticker={stock.ticker} company={stock.company} size={36} />
                 <span className="min-w-0">
-                  <span className="block truncate text-[14px] font-black leading-5 text-[#faf6f0]">
-                    {stock.ticker}
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="truncate text-[15px] font-black leading-5 text-[#faf6f0]">
+                      {stock.ticker}
+                    </span>
+                    {movement && (
+                      <span className={`shrink-0 text-[9px] font-black tabular-nums ${movement.tone}`}>
+                        {movement.label}
+                      </span>
+                    )}
                   </span>
-                  <span className="block truncate text-[10px] font-semibold leading-4 text-[#faf6f0]/48">
+                  <span className="block truncate text-[10px] font-semibold leading-4 text-[#faf6f0]/44">
                     {stock.company}
                   </span>
                 </span>
               </Link>
 
-              <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black tabular-nums text-[#061b12] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                {score(stock.score)}
+              <span className="shrink-0 text-right">
+                <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/32">
+                  AI score
+                </span>
+                <span className="mt-0.5 block text-[16px] font-black tabular-nums text-[#ddb159]">
+                  {score(stock.score)}
+                </span>
               </span>
             </div>
 
-            <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[#faf6f0]/56">
-              <span className="shrink-0 tabular-nums">{dailyMove(stock.dailyMove)}</span>
-              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/22">·</span>
-              <span className="shrink-0 tabular-nums">{price(stock.price)}</span>
-              <span aria-hidden="true" className="shrink-0 text-[#faf6f0]/22">·</span>
-              <span className="min-w-0 truncate">{confidence.label} confidence</span>
+            <div className="mt-3 grid grid-cols-[1fr_1fr_1.2fr] gap-2 rounded-[14px] border border-[#faf6f0]/6 bg-[#020f09]/28 px-3 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-[7.5px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/30">1D</span>
+                <span className={`mt-0.5 block text-[11px] font-black tabular-nums ${dailyMoveTone(stock.dailyMove)}`}>
+                  {dailyMove(stock.dailyMove)}
+                </span>
+              </span>
+              <span className="min-w-0 border-l border-[#faf6f0]/7 pl-2">
+                <span className="block text-[7.5px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/30">Price</span>
+                <span className="mt-0.5 block truncate text-[11px] font-black tabular-nums text-[#faf6f0]/78">
+                  {price(stock.price)}
+                </span>
+              </span>
+              <span className="min-w-0 border-l border-[#faf6f0]/7 pl-2">
+                <span className="block text-[7.5px] font-black uppercase tracking-[0.11em] text-[#faf6f0]/30">Confidence</span>
+                <span className="mt-0.5 block truncate text-[11px] font-black text-[#faf6f0]/78">
+                  {confidence.label}
+                </span>
+              </span>
             </div>
 
-            <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-              <span className="min-w-0 truncate text-[10px] font-semibold text-[#faf6f0]/44">
+            <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <span className="min-w-0 truncate text-[9.5px] font-semibold text-[#faf6f0]/38">
                 {stock.sector || "Sector unavailable"}
               </span>
               <LazyWhyRankDetails
@@ -188,20 +236,21 @@ export function RankingsMobileBatchList({
       })}
 
       {!locked && page < totalPages && (
-        <div className="border-t border-[#ddb159]/12 bg-[#02150d]/24 p-3 backdrop-blur-sm">
+        <div className="pt-1">
           <button
             type="button"
             onClick={loadNext}
             disabled={isPending}
-            className="h-12 w-full rounded-2xl bg-[#ddb159] text-[11px] font-black text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)] transition hover:brightness-105 disabled:opacity-50"
+            data-native-haptic="medium"
+            className="h-12 w-full rounded-[18px] bg-[#ddb159] text-[11px] font-black text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)] transition active:scale-[0.99] disabled:opacity-50"
           >
             {isPending ? "Loading next 50…" : "Load next 50"}
           </button>
           {error && (
             <p className="mt-2 text-center text-[11px] font-semibold text-[#e7c56c]">{error}</p>
           )}
-          <p className="mt-2 text-center text-[9px] font-semibold text-[#faf6f0]/38">
-            Loaded through page {page} of {totalPages}
+          <p className="mt-2 text-center text-[9px] font-semibold text-[#faf6f0]/34">
+            Page {page} of {totalPages}
           </p>
         </div>
       )}

@@ -1,8 +1,11 @@
 import { unstable_cache } from "next/cache";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 
-const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart/";
-const YAHOO_FETCH_TIMEOUT_MS = Number(process.env.YAHOO_FETCH_TIMEOUT_MS ?? 1_800);
+const YAHOO_BASES = [
+  "https://query1.finance.yahoo.com/v8/finance/chart/",
+  "https://query2.finance.yahoo.com/v8/finance/chart/",
+] as const;
+const YAHOO_FETCH_TIMEOUT_MS = Number(process.env.YAHOO_FETCH_TIMEOUT_MS ?? 3_500);
 const CACHE_REVALIDATE_SECONDS = 5 * 60;
 const ONE_DAY_MOVE_TIMEOUT_MS = Number(process.env.ONE_DAY_MOVE_TIMEOUT_MS ?? 1_800);
 const LIVE_MOVE_FALLBACK_LIMIT = Number(process.env.LIVE_MOVE_FALLBACK_LIMIT ?? 60);
@@ -37,7 +40,12 @@ function normalizeTicker(ticker: string) {
 }
 
 function cacheKey(ticker: string, range: TimeRange) {
-  return `v4:${normalizeTicker(ticker)}:${range}`;
+  return `v6:${normalizeTicker(ticker)}:${range}`;
+}
+
+function yahooTicker(ticker: string) {
+  // Yahoo uses hyphens for class shares such as BRK.B / BF.B.
+  return normalizeTicker(ticker).replace(/\./g, "-");
 }
 
 function finitePositiveNumber(value: unknown) {
@@ -45,10 +53,15 @@ function finitePositiveNumber(value: unknown) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-async function fetchYahooRangeUncached(ticker: string, range: TimeRange): Promise<ChartPoint[]> {
+async function fetchYahooRangeFromBase(
+  base: string,
+  ticker: string,
+  range: TimeRange,
+): Promise<ChartPoint[]> {
   const cfg = RANGE_CONFIG[range];
   const normalizedTicker = normalizeTicker(ticker);
-  const url = `${YAHOO_BASE}${encodeURIComponent(normalizedTicker)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
+  const providerTicker = yahooTicker(normalizedTicker);
+  const url = `${base}${encodeURIComponent(providerTicker)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), YAHOO_FETCH_TIMEOUT_MS);
 
@@ -58,13 +71,21 @@ async function fetchYahooRangeUncached(ticker: string, range: TimeRange): Promis
         "User-Agent": "Mozilla/5.0 (compatible; StockGPT/1.0)",
         Accept: "application/json",
       },
-      next: { revalidate: CACHE_REVALIDATE_SECONDS },
+      // Successful responses are cached by unstable_cache below. Keeping this
+      // request uncached prevents a transient Yahoo 429/timeout from becoming
+      // a five-minute "missing range".
+      cache: "no-store",
       signal: controller.signal,
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      throw new Error(`Yahoo returned ${res.status}`);
+    }
+
     const json = (await res.json()) as YahooChartResponse;
-    if (json.chart.error || !json.chart.result?.length) return [];
+    if (json.chart.error || !json.chart.result?.length) {
+      throw new Error(json.chart.error?.description || "Yahoo returned no chart result");
+    }
 
     const result = json.chart.result[0];
     const timestamps = result.timestamp ?? [];
@@ -74,22 +95,124 @@ async function fetchYahooRangeUncached(ticker: string, range: TimeRange): Promis
     for (let i = 0; i < timestamps.length; i += 1) {
       const close = finitePositiveNumber(closes[i]);
       if (close == null) continue;
-      points.push({ date: new Date(timestamps[i] * 1000).toISOString(), close: Math.round(close * 100) / 100 });
+      points.push({
+        date: new Date(timestamps[i] * 1000).toISOString(),
+        close: Math.round(close * 100) / 100,
+      });
+    }
+
+    if (points.length < 2) {
+      throw new Error("Yahoo returned fewer than two usable price points");
     }
 
     return points;
-  } catch (err) {
-    const isAbort = err instanceof Error && err.name === "AbortError";
-    if (!isAbort) console.error(`Yahoo fetch failed for ${normalizedTicker} ${range}:`, err);
-    return [];
   } finally {
     clearTimeout(timeout);
   }
 }
 
-const fetchYahooRange = unstable_cache(fetchYahooRangeUncached, ["stockgpt-yahoo-chart-v4"], {
-  revalidate: CACHE_REVALIDATE_SECONDS,
-});
+async function fetchYahooRangeUncached(
+  ticker: string,
+  range: TimeRange,
+): Promise<ChartPoint[]> {
+  const attempts = await Promise.allSettled(
+    YAHOO_BASES.map((base) => fetchYahooRangeFromBase(base, ticker, range)),
+  );
+
+  const success = attempts.find(
+    (attempt): attempt is PromiseFulfilledResult<ChartPoint[]> =>
+      attempt.status === "fulfilled" && attempt.value.length > 1,
+  );
+  if (success) return success.value;
+
+  const lastError = [...attempts]
+    .reverse()
+    .find((attempt): attempt is PromiseRejectedResult => attempt.status === "rejected")
+    ?.reason;
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Yahoo chart unavailable for ${normalizeTicker(ticker)} ${range}`);
+}
+
+const fetchYahooRangeCached = unstable_cache(
+  fetchYahooRangeUncached,
+  ["stockgpt-yahoo-chart-v6"],
+  { revalidate: CACHE_REVALIDATE_SECONDS },
+);
+
+async function fetchYahooRange(ticker: string, range: TimeRange) {
+  // Next's development cache revalidator prints a full AbortError dump when an
+  // upstream request times out. Bypass that wrapper locally; production keeps
+  // the cross-request cache.
+  if (process.env.NODE_ENV === "development") {
+    return fetchYahooRangeUncached(ticker, range);
+  }
+  return fetchYahooRangeCached(ticker, range);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function pointsWithinDays(points: ChartPoint[], days: number) {
+  if (points.length < 2) return [];
+  const latest = new Date(points.at(-1)?.date ?? "").getTime();
+  if (!Number.isFinite(latest)) return [];
+  const cutoff = latest - days * DAY_MS;
+  return points.filter((point) => {
+    const time = new Date(point.date).getTime();
+    return Number.isFinite(time) && time >= cutoff;
+  });
+}
+
+function deriveMissingRange(
+  data: Partial<Record<TimeRange, ChartPoint[]>>,
+  range: TimeRange,
+): ChartPoint[] {
+  const firstUsable = (candidates: TimeRange[], days?: number) => {
+    for (const candidate of candidates) {
+      const source = data[candidate] ?? [];
+      const derived = days == null ? source : pointsWithinDays(source, days);
+      if (derived.length > 1) return derived;
+    }
+    return [];
+  };
+
+  switch (range) {
+    case "1D": {
+      const source = data["5D"] ?? [];
+      const latestDay = source.at(-1)?.date.slice(0, 10);
+      if (!latestDay) return [];
+      return source.filter((point) => point.date.slice(0, 10) === latestDay);
+    }
+    case "5D":
+      // A daily series is an acceptable fallback when Yahoo's intraday
+      // endpoint is temporarily unavailable.
+      return firstUsable(["1M", "1Y"], 9);
+    case "1M":
+      return firstUsable(["1Y", "5Y", "MAX"], 35);
+    case "1Y":
+      return firstUsable(["5Y", "MAX"], 370);
+    case "5Y":
+      return firstUsable(["MAX"], 5 * 366);
+    default:
+      return [];
+  }
+}
+
+function fillMissingRanges(
+  data: Partial<Record<TimeRange, ChartPoint[]>>,
+  requestedRanges: TimeRange[],
+) {
+  // Work from the broadest useful fallback toward the shortest so one
+  // successful long series can repair several missing tabs.
+  const derivationOrder: TimeRange[] = ["5Y", "1Y", "1M", "5D", "1D"];
+
+  for (const range of derivationOrder) {
+    if (!requestedRanges.includes(range) || (data[range]?.length ?? 0) > 1) continue;
+    const derived = deriveMissingRange(data, range);
+    if (derived.length > 1) data[range] = derived;
+  }
+}
 
 export async function getStockChart(
   ticker: string,
@@ -108,14 +231,21 @@ export async function getStockChart(
         return;
       }
 
-      const points = await fetchYahooRange(normalizedTicker, range);
-      if (points.length > 0) {
+      try {
+        const points = await fetchYahooRange(normalizedTicker, range);
         result[range] = points;
         memoryChartCache.set(key, { data: points, fetchedAt: now });
+      } catch (error) {
+        console.warn("[yahoo-chart] range unavailable", {
+          ticker: normalizedTicker,
+          range,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }),
   );
 
+  fillMissingRanges(result, ranges);
   return result;
 }
 
@@ -162,10 +292,15 @@ function lastValidClose(points: ChartPoint[]) {
 
 async function getOneDayMover(ticker: string): Promise<Mover | null> {
   const normalizedTicker = normalizeTicker(ticker);
-  const data = await getStockChart(normalizedTicker, ["1D", "5D"]);
-  const points = (data["1D"]?.length ?? 0) >= 2 ? data["1D"]! : data["5D"] ?? [];
-  const first = firstValidClose(points);
-  const last = lastValidClose(points);
+  const data = await getStockChart(normalizedTicker, ["5D"]);
+  const fiveDayPoints = data["5D"] ?? [];
+  const latestDay = fiveDayPoints.at(-1)?.date.slice(0, 10);
+  const points = latestDay
+    ? fiveDayPoints.filter((point) => point.date.slice(0, 10) === latestDay)
+    : [];
+  const usablePoints = points.length >= 2 ? points : fiveDayPoints;
+  const first = firstValidClose(usablePoints);
+  const last = lastValidClose(usablePoints);
   if (first == null || last == null || first <= 0) return null;
   return { ticker: normalizedTicker, currentPrice: last, changePct: ((last - first) / first) * 100 };
 }
@@ -189,7 +324,11 @@ function cleanTickerUniverse(tickers: string[], max = 500) {
 }
 
 export async function getOneDayMoveMap(tickers: string[]): Promise<Map<string, Mover>> {
-  const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, LIVE_MOVE_FALLBACK_LIMIT));
+  const effectiveLimit =
+    process.env.NODE_ENV === "development"
+      ? Math.min(LIVE_MOVE_FALLBACK_LIMIT, 12)
+      : LIVE_MOVE_FALLBACK_LIMIT;
+  const tickersToCheck = cleanTickerUniverse(tickers, 500).slice(0, Math.max(0, effectiveLimit));
   const movers = await Promise.all(
     tickersToCheck.map((ticker) =>
       withTimeout(getOneDayMover(ticker), ONE_DAY_MOVE_TIMEOUT_MS, null),

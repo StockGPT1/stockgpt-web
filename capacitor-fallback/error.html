@@ -7,7 +7,9 @@
     <style>
       html, body {
         margin: 0;
-        height: 100%;
+        width: 100%;
+        min-height: 100%;
+        min-height: 100dvh;
         background: #04180f;
         color: #faf6f0;
         font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
@@ -16,7 +18,7 @@
         justify-content: center;
         text-align: center;
       }
-      .wrap { padding: 32px; max-width: 320px; }
+      .wrap { box-sizing: border-box; width: 100%; max-width: 360px; padding: max(32px, env(safe-area-inset-top)) 32px max(32px, env(safe-area-inset-bottom)); }
       .dot {
         width: 10px;
         height: 10px;
@@ -47,7 +49,7 @@
       <div class="dot"></div>
       <h1>You&rsquo;re offline</h1>
       <p>StockGPT needs a connection to load live rankings and your portfolio. Check your internet and try again.</p>
-      <button onclick="window.location.href='https://stockgpt.pro'">Retry</button>
+      <button onclick="history.back()">Retry</button>
     </div>
   </body>
 </html>

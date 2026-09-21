@@ -33,17 +33,42 @@ let disabledUntil = 0;
 let lastWarningAt = 0;
 let hasLoggedCommandError = false;
 
+function usableSecret(value: string | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return Boolean(
+    trimmed &&
+      trimmed !== "[SENSITIVE]" &&
+      trimmed !== "undefined" &&
+      trimmed !== "null",
+  );
+}
+
 function getEndpoint() {
   if (endpoint !== undefined) return endpoint;
   const raw = process.env.UPSTASH_REDIS_REST_URL?.trim();
-  endpoint = raw ? raw.replace(/\/$/, "") : null;
+
+  if (!usableSecret(raw)) {
+    endpoint = null;
+    return endpoint;
+  }
+
+  try {
+    const parsed = new URL(raw!);
+    endpoint =
+      parsed.protocol === "https:" || parsed.protocol === "http:"
+        ? raw!.replace(/\/$/, "")
+        : null;
+  } catch {
+    endpoint = null;
+  }
+
   return endpoint;
 }
 
 function getToken() {
   if (token !== undefined) return token;
   const raw = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
-  token = raw || null;
+  token = usableSecret(raw) ? raw! : null;
   return token;
 }
 

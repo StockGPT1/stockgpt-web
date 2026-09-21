@@ -32,8 +32,9 @@ function needsSessionRefresh(pathname: string) {
 
 /**
  * Generate a cryptographically random nonce for use in the Content-Security-Policy
- * script-src directive. This replaces the previous 'unsafe-inline' + 'unsafe-eval'
- * flags, which defeated XSS protection entirely.
+ * script-src directive. Production remains nonce-only. Next.js development tooling
+ * uses eval for its dev runtime/source maps, so unsafe-eval is enabled only while
+ * NODE_ENV=development.
  *
  * The nonce is forwarded via the x-nonce response header so server components
  * can read it via headers() and apply it to any inline <script> tags.
@@ -45,6 +46,28 @@ function generateNonce(): string {
 }
 
 function buildContentSecurityPolicy(nonce: string) {
+  const isDevelopment = process.env.NODE_ENV === "development";
+
+  if (isDevelopment) {
+    // Next's dev client needs inline bootstrap scripts, eval/source maps and
+    // ws:// HMR. A production-style nonce CSP can leave WKWebView rendering
+    // the server HTML without hydrating it, which makes client buttons appear
+    // dead. Keep local device development permissive; production stays strict.
+    return [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://vercel.live",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: http: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws: wss: http: https:",
+      "frame-src http: https:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self' http: https:",
+      "frame-ancestors 'none'",
+    ].join("; ");
+  }
+
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' https://vercel.live`,
@@ -61,7 +84,7 @@ function buildContentSecurityPolicy(nonce: string) {
   ].join("; ");
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /* The iOS app shell (UA suffix "StockGPTApp") never shows the marketing
@@ -84,6 +107,18 @@ export async function middleware(request: NextRequest) {
   // session refresh on every hover. Now that /stock/[ticker]/loading.tsx
   // exists, prefetches are safe — Next.js will show the skeleton instantly
   // while the page renders, so we let them through.
+
+  // Keep local Next development out of the production nonce/CSP path.
+  // Next 16's dev runtime and HMR inject their own scripts and WebSocket
+  // client. Applying the production-style request CSP here can leave the
+  // server HTML visible while React never hydrates, making every control on
+  // the page look normal but ignore taps.
+  if (process.env.NODE_ENV === "development") {
+    if (!needsSessionRefresh(pathname)) {
+      return NextResponse.next();
+    }
+    return updateSession(request);
+  }
 
   const nonce = generateNonce();
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);

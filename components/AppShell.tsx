@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
-import { NavigationWarmup } from "@/components/NavigationWarmup";
 import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { createClient } from "@/utils/supabase/server";
@@ -208,7 +207,6 @@ export async function AppShell({
   return (
     <AppChromeProvider>
       <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
-        <NavigationWarmup />
         <MobileAppHeader />
 
       <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,0.24)] lg:flex">

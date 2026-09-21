@@ -152,6 +152,9 @@ const DEFAULT_OPENROUTER_MODELS = [
   "qwen/qwen3-next-80b-a3b-instruct:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   "openai/gpt-oss-120b:free",
+  // OpenRouter maintains this router against the live free-model pool, so it
+  // remains a last-resort fallback even when a specific free provider is busy.
+  "openrouter/free",
 ];
 
 function sevenDaysAgoIso() {
@@ -716,6 +719,52 @@ async function callOpenRouter({
   return { answer: null, model: null, failures };
 }
 
+async function diagnoseOpenRouterKey(apiKey: string) {
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/key", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      return { valid: true as const, status: response.status, message: "API key accepted by OpenRouter." };
+    }
+
+    const text = await response.text().catch(() => "");
+    return {
+      valid: false as const,
+      status: response.status,
+      message: parseOpenRouterFailureText(text),
+    };
+  } catch (error) {
+    return {
+      valid: null,
+      status: undefined,
+      message: error instanceof Error ? error.message : "Could not reach OpenRouter's key endpoint.",
+    };
+  }
+}
+
+function summariseOpenRouterFailures(
+  failures: Array<{ model: string; status?: number; message: string }>,
+) {
+  const first = failures[0];
+  if (!first) return "OpenRouter did not return a model error.";
+
+  const statuses = Array.from(
+    new Set(
+      failures
+        .map((failure) => failure.status)
+        .filter((status): status is number => typeof status === "number"),
+    ),
+  );
+
+  const statusText = statuses.length > 0 ? `HTTP ${statuses.join("/")}` : "network/provider error";
+  return `${statusText}: ${first.message}`;
+}
+
 function parseOpenRouterFailureText(text: string) {
   if (!text.trim()) return "OpenRouter returned no response body.";
 
@@ -917,29 +966,32 @@ export async function POST(req: NextRequest) {
     const access = await requireSubscribedUser(supabase);
     if (access.response) return access.response;
 
-    // Generous for a human, but stops runaway client loops from burning
-    // the shared OpenRouter quota for every subscriber.
-    const rateLimit = await checkRateLimit({
-      action: "ask_stockgpt_question",
-      key: rateKey(["ask-stockgpt", access.userId]),
-      limit: 40,
-      windowSeconds: 60 * 60,
-    });
+    // Keep the production guardrail, but do not let the local Xcode/dev
+    // environment's placeholder service-role key block every test question.
+    // Production still enforces the normal per-subscriber hourly limit.
+    if (process.env.NODE_ENV !== "development") {
+      const rateLimit = await checkRateLimit({
+        action: "ask_stockgpt_question",
+        key: rateKey(["ask-stockgpt", access.userId]),
+        limit: 40,
+        windowSeconds: 60 * 60,
+      });
 
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          answer:
-            "You have sent a lot of questions in the last hour, so Ask StockGPT is taking a short break for your account. Please try again in a few minutes.",
-        },
-        {
-          status: 429,
-          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
-        },
-      );
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            answer:
+              "You have sent a lot of questions in the last hour, so Ask StockGPT is taking a short break for your account. Please try again in a few minutes.",
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+          },
+        );
+      }
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json(
         {
@@ -1029,11 +1081,48 @@ export async function POST(req: NextRequest) {
 
     if (!result.answer) {
       console.error("[ask-stockgpt] OpenRouter all models failed", result.failures);
-      const answer =
-        "Ask StockGPT could not get an AI response from the OpenRouter model stack. Check OPENROUTER_API_KEY, free-model availability, rate limits and Vercel environment variables.";
+
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const keyDiagnostic = isDevelopment ? await diagnoseOpenRouterKey(apiKey) : null;
+      const failureSummary = summariseOpenRouterFailures(result.failures);
+
+      if (keyDiagnostic) {
+        console.error("[ask-stockgpt] OpenRouter key diagnostic", {
+          valid: keyDiagnostic.valid,
+          status: keyDiagnostic.status,
+          message: keyDiagnostic.message,
+          failureSummary,
+        });
+      }
+
+      let answer =
+        "Ask StockGPT could not get an AI response right now. The AI provider is unavailable; please retry in a moment.";
+
+      if (isDevelopment) {
+        if (keyDiagnostic?.valid === false) {
+          answer =
+            `Ask StockGPT cannot authenticate with OpenRouter from this local build (HTTP ${keyDiagnostic.status ?? "error"}). The local OPENROUTER_API_KEY needs fixing.`;
+        } else if (result.failures.some((failure) => failure.status === 402)) {
+          answer =
+            "Ask StockGPT reached OpenRouter, but the current API key has no usable credit/limit for the requested models. Check the OpenRouter key limit or credit balance.";
+        } else if (result.failures.every((failure) => failure.status === 429)) {
+          answer =
+            "Ask StockGPT reached OpenRouter, but every model route is currently rate-limited. Please retry shortly.";
+        } else {
+          answer =
+            `Ask StockGPT reached OpenRouter but every model route failed. ${failureSummary}`;
+        }
+      }
 
       await storeChatMessage(supabase, access.userId, { role: "assistant", content: answer });
-      return NextResponse.json({ answer, attempted_models: openRouterModels(), failures: result.failures }, { status: 500 });
+      return NextResponse.json(
+        {
+          answer,
+          attempted_models: openRouterModels(),
+          ...(isDevelopment ? { failures: result.failures, key_diagnostic: keyDiagnostic } : {}),
+        },
+        { status: 500 },
+      );
     }
 
     await storeChatMessage(supabase, access.userId, { role: "assistant", content: result.answer });

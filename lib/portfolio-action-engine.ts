@@ -1,7 +1,7 @@
 import {
   portfolioConstructionPolicy,
   positionSizingRoom,
-} from "@/lib/portfolio-construction-policy";
+} from "./portfolio-construction-policy.ts";
 
 export type PortfolioAction = "none" | "review" | "buy_more" | "trim" | "exit";
 export type PortfolioActionConfidence = "low" | "medium" | "high";

@@ -421,7 +421,7 @@ export default function SignupPage() {
 
           {message && <AuthMessage tone={messageTone}>{message}</AuthMessage>}
 
-          <button onClick={signUp} disabled={loading} className={authPrimaryButtonClass}>
+          <button onClick={signUp} disabled={loading} data-native-haptic="medium" className={authPrimaryButtonClass}>
             {loading ? "Creating..." : "Create account"}
           </button>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   type RefObject,
@@ -10,6 +11,7 @@ import {
   filterDisplayablePortfolioChartData,
   type PortfolioChartMeta,
 } from "@/lib/portfolio-chart-health";
+import { sanitisePortfolioChartData } from "@/lib/portfolio-chart-display";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
 import type {
   PortfolioMeta,
@@ -28,6 +30,7 @@ import {
 
 const RANGE_ITEMS: Array<{ range: TimeRange; label: string }> = [
   { range: "1D", label: "1D" },
+  { range: "5D", label: "5D" },
   { range: "1M", label: "1M" },
   { range: "6M", label: "6M" },
   { range: "1Y", label: "1Y" },
@@ -81,7 +84,7 @@ export function PortfolioStage({
   onManage: () => void;
 }) {
   const displayable = useMemo(
-    () => filterDisplayablePortfolioChartData(chartData),
+    () => filterDisplayablePortfolioChartData(sanitisePortfolioChartData(chartData)),
     [chartData],
   );
   const availableRanges = useMemo(
@@ -92,10 +95,19 @@ export function PortfolioStage({
     ? "1M"
     : availableRanges[0]?.range ?? "1M";
   const [requestedRange, setRequestedRange] = useState<TimeRange>(preferredRange);
+  const [chartHeight, setChartHeight] = useState(218);
   const activeRange = availableRanges.some(({ range }) => range === requestedRange)
     ? requestedRange
     : preferredRange;
   const [scrubPoint, setScrubPoint] = useState<ChartPoint | null>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setChartHeight(query.matches ? 318 : 218);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
 
   const currentValue = scrubPoint?.close ?? summary.totalValue;
   const currentPnl = scrubPoint?.pnl ?? summary.totalPnl;
@@ -108,18 +120,18 @@ export function PortfolioStage({
       <section
         ref={stageRef}
         aria-label="Portfolio performance"
-        className="relative isolate min-h-[520px] overflow-hidden border-b border-[#ddb159]/14 px-4 pb-5 pt-5 sm:px-6 lg:mt-5 lg:min-h-[470px] lg:rounded-[28px] lg:border lg:px-8 lg:pb-7 lg:pt-7"
+        className="relative isolate overflow-hidden border-b border-[#ddb159]/14 px-4 pb-3 pt-3 sm:px-6 lg:mt-5 lg:min-h-[470px] lg:rounded-[28px] lg:border lg:px-8 lg:pb-7 lg:pt-7"
       >
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(221,177,89,0.12),transparent_34%),linear-gradient(180deg,#0a2a1d_0%,#061b12_74%)]" />
         <div className="mx-auto max-w-[1180px]">
-          <div className="flex items-start justify-between gap-3">
-            <label className="min-w-0 max-w-[72%]">
+          <div className="flex items-center justify-between gap-3">
+            <label className="min-w-0 max-w-[70%]">
               <span className="sr-only">Selected portfolio</span>
               <span className="relative block">
                 <select
                   value={portfolioId}
                   onChange={(event) => onPortfolio(event.target.value)}
-                  className="h-12 w-full appearance-none truncate rounded-full border border-[#ddb159]/26 bg-[#04140c]/62 pl-4 pr-10 text-[13px] font-black text-[#faf6f0] outline-none backdrop-blur focus:border-[#ddb159] focus-visible:ring-2 focus-visible:ring-[#ddb159]/32"
+                  className="h-11 w-full appearance-none truncate rounded-full border border-[#ddb159]/26 bg-[#04140c]/62 pl-4 pr-9 text-[12px] font-black text-[#faf6f0] outline-none backdrop-blur focus:border-[#ddb159] focus-visible:ring-2 focus-visible:ring-[#ddb159]/32 lg:h-12 lg:text-[13px]"
                 >
                   {portfolios.map((portfolio) => (
                     <option key={portfolio.id} value={portfolio.id} className="bg-[#061b12]">
@@ -138,7 +150,8 @@ export function PortfolioStage({
                 type="button"
                 onClick={onAdd}
                 aria-label="Add to portfolio"
-                className="grid size-12 place-items-center rounded-full border border-[#ddb159]/30 bg-[#ddb159] text-[#061b12] shadow-[0_10px_24px_rgba(221,177,89,0.16)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#faf6f0]"
+                data-native-haptic="medium"
+                className="grid size-11 place-items-center rounded-full border border-[#ddb159]/30 bg-[#ddb159] text-[#061b12] shadow-[0_10px_24px_rgba(221,177,89,0.16)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#faf6f0] lg:size-12"
               >
                 <PortfolioIcon name="plus" />
               </button>
@@ -146,31 +159,31 @@ export function PortfolioStage({
                 type="button"
                 onClick={onManage}
                 aria-label="Manage portfolio"
-                className="grid size-12 place-items-center rounded-full border border-[#ddb159]/24 bg-[#04140c]/62 text-[#ddb159] transition hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+                className="grid size-11 place-items-center rounded-full border border-[#ddb159]/24 bg-[#04140c]/62 text-[#ddb159] transition hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:size-12"
               >
                 <PortfolioIcon name="settings" />
               </button>
             </div>
           </div>
 
-          <div className="mt-8 text-center lg:mt-5 lg:text-left">
-            <div className="lg:flex lg:items-end lg:justify-between lg:gap-8">
+          <div className="mt-4 lg:mt-5">
+            <div className="flex items-end justify-between gap-3 lg:gap-8">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#faf6f0]/42">
-                  Current portfolio value
+                <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#faf6f0]/42 lg:text-[11px]">
+                  Portfolio value
                 </p>
-                <h1 className="mt-2 truncate text-[clamp(42px,12vw,62px)] font-black leading-none tracking-[-0.065em] tabular-nums text-[#faf6f0] lg:text-[60px]">
+                <h1 className="mt-1 truncate text-[clamp(36px,10vw,50px)] font-black leading-none tracking-[-0.06em] tabular-nums text-[#faf6f0] lg:mt-2 lg:text-[60px]">
                   {money(currentValue, meta.currency)}
                 </h1>
-                <p className={`mt-3 text-[17px] font-black tabular-nums ${toneClass(currentPnl)}`}>
+                <p className={`mt-2 text-[14px] font-black tabular-nums lg:mt-3 lg:text-[17px] ${toneClass(currentPnl)}`}>
                   {signedMoney(currentPnl, meta.currency)} · {signedPct(currentPnlPct)}
                 </p>
               </div>
 
-              <div className="mt-5 flex flex-col items-center gap-1.5 lg:mt-0 lg:items-end">
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <span
                   aria-label={`Portfolio health ${summary.score} out of 100, ${summary.label}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 py-1.5 pl-3 pr-3.5"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 py-1.5 pl-2.5 pr-3"
                 >
                   <span
                     aria-hidden="true"
@@ -182,16 +195,15 @@ export function PortfolioStage({
                           : "bg-red-400"
                     }`}
                   />
-                  <span className="text-[13px] font-black tabular-nums text-[#ddb159]">
-                    Health {summary.score}/100
+                  <span className="text-[11px] font-black tabular-nums text-[#ddb159] lg:text-[13px]">
+                    {summary.score}/100
                   </span>
-                  <span className="text-[11px] font-black text-[#faf6f0]/72">{summary.label}</span>
                 </span>
-                <p className="text-[10px] font-semibold text-[#faf6f0]/42">
+                <p className="max-w-[124px] truncate text-[9px] font-semibold text-[#faf6f0]/38 lg:max-w-none lg:text-[10px]">
                   {freshnessCopy(chartMeta)}
                 </p>
                 {scrubPoint && (
-                  <p className="text-[10px] font-semibold text-[#ddb159]">
+                  <p className="text-[9px] font-semibold text-[#ddb159] lg:text-[10px]">
                     {formatDate(scrubPoint.date, true)}
                   </p>
                 )}
@@ -199,27 +211,30 @@ export function PortfolioStage({
             </div>
           </div>
 
-          <div className="mt-4 min-h-[300px] w-full lg:mt-2">
+          <div className="mt-1 w-full lg:mt-2">
             {hasChart ? (
               <StockChart
-                key={activeRange}
+                key={`${activeRange}-${chartHeight}`}
                 ticker="Portfolio"
                 data={{ [activeRange]: activeData }}
                 initialRange={activeRange}
-                height={318}
+                height={chartHeight}
                 compact
                 color="#ddb159"
                 mobileTransparentFrame
                 onScrub={(point) => setScrubPoint(point)}
               />
             ) : (
-              <div className="flex h-[318px] items-center justify-center border-y border-[#faf6f0]/8 text-center">
+              <div
+                className="flex items-center justify-center border-y border-[#faf6f0]/8 text-center"
+                style={{ height: chartHeight }}
+              >
                 <div className="max-w-md px-6">
-                  <p className="text-[18px] font-black text-[#faf6f0]">
+                  <p className="text-[16px] font-black text-[#faf6f0] lg:text-[18px]">
                     {chartStateTitle(chartMeta)}
                   </p>
-                  <p className="mt-2 text-[12px] font-semibold leading-6 text-[#faf6f0]/48">
-                    StockGPT only plots confirmed portfolio snapshots. It will not invent movement while history is incomplete.
+                  <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/48 lg:text-[12px] lg:leading-6">
+                    StockGPT only plots confirmed portfolio history. Sparse or stale data is rebuilt before it is shown.
                   </p>
                 </div>
               </div>
@@ -228,7 +243,7 @@ export function PortfolioStage({
 
           <div
             aria-label="Portfolio chart timeframe"
-            className="mt-2 grid min-h-11 grid-cols-5 items-center gap-1"
+            className="mt-1 grid min-h-10 grid-cols-6 items-center gap-0 lg:mt-2 lg:min-h-11 lg:gap-1"
           >
             {RANGE_ITEMS.map(({ range, label }) => {
               const available = availableRanges.some((item) => item.range === range);
@@ -243,7 +258,7 @@ export function PortfolioStage({
                     setRequestedRange(range);
                     setScrubPoint(null);
                   }}
-                  className={`mx-auto grid min-h-11 min-w-11 place-items-center rounded-full px-3 text-[12px] font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] ${
+                  className={`mx-auto grid min-h-10 min-w-10 place-items-center rounded-full px-2 text-[11px] font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:min-h-11 lg:min-w-11 lg:px-3 lg:text-[12px] ${
                     active
                       ? "bg-[#faf6f0] text-[#061b12]"
                       : available
@@ -268,7 +283,7 @@ export function PortfolioStage({
           <button
             type="button"
             onClick={() => stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="flex h-[52px] w-full items-center justify-between gap-3 px-4 text-left sm:px-6 lg:px-8"
+            className="flex h-[48px] w-full items-center justify-between gap-3 px-4 text-left sm:px-6 lg:h-[52px] lg:px-8"
           >
             <span className="min-w-0 truncate text-[12px] font-black text-[#faf6f0]">
               {meta.name}
@@ -287,7 +302,7 @@ export function PortfolioStage({
         <div
           ref={sectionAnchorRef}
           data-portfolio-section-anchor
-          className="grid h-[52px] grid-cols-[1fr_auto] items-stretch px-1 sm:px-4 lg:px-8"
+          className="grid h-[48px] grid-cols-[1fr_auto] items-stretch px-1 sm:px-4 lg:h-[52px] lg:px-8"
         >
           <nav aria-label="Portfolio sections" className="grid grid-cols-3" role="tablist">
             {SECTION_ITEMS.map((item) => (

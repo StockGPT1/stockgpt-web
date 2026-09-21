@@ -36,22 +36,35 @@ export function number(value: number, digits = 4) {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
 export function formatDate(value: string | null | undefined, withTime = false) {
   if (!value) return "Date unavailable";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Date unavailable";
-  return withTime
-    ? date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = SHORT_MONTHS[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+
+  if (!withTime) return `${day} ${month} ${year}`;
+
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${day} ${month} · ${hours}:${minutes}`;
 }
 
 export function relativeFreshness(value: string | null | undefined) {

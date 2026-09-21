@@ -28,10 +28,10 @@ function SectionHeading({
   return (
     <div className="flex min-w-0 items-end justify-between gap-4">
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] lg:text-[10px]">
           {eyebrow}
         </p>
-        <h2 className="mt-1 text-[23px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] lg:text-[28px]">
+        <h2 className="mt-1 text-[21px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] lg:text-[28px]">
           {title}
         </h2>
       </div>
@@ -52,14 +52,14 @@ function Metric({
   tone?: string;
 }) {
   return (
-    <div className="w-[166px] shrink-0 snap-start border-l border-[#ddb159]/18 px-4 py-2 first:border-l-0 first:pl-0 lg:w-auto lg:first:border-l lg:first:pl-4">
-      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/36">
+    <div className="min-w-0 border-l border-[#ddb159]/16 pl-3 first:border-l-0 first:pl-0 lg:px-4 lg:first:border-l lg:first:pl-4">
+      <p className="text-[8px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/36 lg:text-[9px]">
         {label}
       </p>
-      <p className={`mt-2 truncate text-[21px] font-black tabular-nums ${tone ?? "text-[#faf6f0]"}`}>
+      <p className={`mt-1.5 truncate text-[18px] font-black tabular-nums lg:mt-2 lg:text-[21px] ${tone ?? "text-[#faf6f0]"}`}>
         {value}
       </p>
-      <p className="mt-1 truncate text-[10px] font-semibold text-[#faf6f0]/34">{detail}</p>
+      <p className="mt-0.5 truncate text-[9px] font-semibold text-[#faf6f0]/34 lg:mt-1 lg:text-[10px]">{detail}</p>
     </div>
   );
 }
@@ -93,20 +93,19 @@ export function PortfolioOverview({
   const topHoldings = sortedHoldings.slice(0, 5);
 
   return (
-    <div className="space-y-12 lg:space-y-14">
+    <div className="space-y-8 lg:space-y-14">
       <section aria-labelledby="portfolio-briefing-title">
-        <SectionHeading eyebrow="Portfolio briefing" title="At a glance" />
         <p id="portfolio-briefing-title" className="sr-only">Portfolio briefing at a glance</p>
-        <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-0 lg:overflow-visible lg:px-0 lg:pb-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] border border-[#ddb159]/12 bg-[#0a2a1d]/40 px-4 py-4 lg:grid-cols-4 lg:gap-0 lg:bg-transparent lg:px-0 lg:py-0">
           <Metric
-            label="Current value"
+            label="Value"
             value={money(summary.totalValue, meta.currency)}
-            detail="Latest confirmed valuation"
+            detail="Latest valuation"
           />
           <Metric
-            label="Total return"
-            value={`${signedMoney(summary.totalPnl, meta.currency)} · ${signedPct(summary.totalPnlPct)}`}
-            detail="Realised and unrealised"
+            label="Return"
+            value={signedPct(summary.totalPnlPct)}
+            detail={signedMoney(summary.totalPnl, meta.currency)}
             tone={toneClass(summary.totalPnl)}
           />
           <Metric
@@ -116,26 +115,73 @@ export function PortfolioOverview({
             tone={summary.actionAlerts > 0 ? "text-[#e8bd61]" : "text-[#61d7ab]"}
           />
           <Metric
-            label="Largest position"
+            label="Largest"
             value={`${summary.largestPositionPct.toFixed(1)}%`}
-            detail={latestActivityDate ? `Activity ${formatDate(latestActivityDate)}` : "No recent activity"}
+            detail={latestActivityDate ? `Active ${formatDate(latestActivityDate)}` : "No recent activity"}
             tone={summary.largestPositionPct > 30 ? "text-[#e8bd61]" : "text-[#faf6f0]"}
           />
         </div>
       </section>
 
-      <section className="border-y border-[#faf6f0]/8 py-8 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)] lg:gap-10 lg:border-y-0 lg:py-0">
+      <section>
+        <SectionHeading
+          eyebrow="Your portfolio"
+          title="Holdings"
+          action={
+            holdings.length > 0 ? (
+              <button
+                type="button"
+                onClick={onViewHoldings}
+                className="inline-flex min-h-11 items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+              >
+                View all →
+              </button>
+            ) : undefined
+          }
+        />
+        {topHoldings.length > 0 ? (
+          <div className="mt-3 overflow-hidden rounded-[20px] border border-[#faf6f0]/8 bg-[#081f15]/52 px-3 lg:mt-4 lg:rounded-none lg:border-x-0 lg:bg-transparent lg:px-0">
+            {topHoldings.map((holding) => (
+              <HoldingLedgerRow
+                key={holding.ticker}
+                holding={holding}
+                currency={meta.currency}
+                riskTolerance={meta.riskTolerance}
+                onOpen={onHolding}
+                compact
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-[20px] border border-[#ddb159]/14 bg-[#0a2a1d]/45 px-5 py-8 text-center">
+            <p className="text-[16px] font-black text-[#faf6f0]">This portfolio is ready to build</p>
+            <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
+              Add cash, log an existing holding or import a Trading 212 CSV.
+            </p>
+            <button
+              type="button"
+              onClick={onAdd}
+              data-native-haptic="medium"
+              className="mt-5 h-12 rounded-2xl bg-[#ddb159] px-6 text-[11px] font-black text-[#061b12]"
+            >
+              Add to portfolio
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-[22px] border border-[#ddb159]/14 bg-[#0a2a1d]/42 p-5 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)] lg:gap-10 lg:border-0 lg:bg-transparent lg:p-0">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-            Portfolio Pulse
+          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] lg:text-[10px]">
+            Portfolio pulse
           </p>
-          <h2 className="mt-2 max-w-3xl text-[28px] font-black leading-[1.16] tracking-[-0.045em] text-[#faf6f0] lg:text-[36px]">
-            {summary.label}, {summary.actionAlerts > 0 ? "with decisions worth reviewing." : "with no urgent action signal."}
+          <h2 className="mt-2 max-w-3xl text-[23px] font-black leading-[1.15] tracking-[-0.04em] text-[#faf6f0] lg:text-[36px]">
+            {summary.label}{summary.actionAlerts > 0 ? " · review needed" : " · no urgent action"}
           </h2>
-          <p className="mt-4 max-w-3xl text-[14px] font-semibold leading-7 text-[#faf6f0]/54">
+          <p className="mt-3 line-clamp-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#faf6f0]/54 lg:mt-4 lg:line-clamp-none lg:text-[14px] lg:leading-7">
             {summary.explanation}
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 lg:mt-6">
             {[
               `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"}`,
               `${summary.oversizedCount} oversized`,
@@ -143,41 +189,41 @@ export function PortfolioOverview({
             ].map((signal) => (
               <span
                 key={signal}
-                className="inline-flex min-h-9 items-center rounded-full border border-[#ddb159]/16 bg-[#ddb159]/6 px-3 text-[10px] font-black text-[#f2d27a]"
+                className="inline-flex min-h-8 items-center rounded-full border border-[#ddb159]/16 bg-[#ddb159]/6 px-3 text-[9px] font-black text-[#f2d27a] lg:min-h-9 lg:text-[10px]"
               >
                 {signal}
               </span>
             ))}
           </div>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:items-center lg:mt-7">
             <AskStockGPTButton
               canUseAskStockGPT={canUsePremium}
               isAuthenticated
-              label="Ask about this portfolio"
+              label="Ask StockGPT"
               context={{ contextType: "portfolio", portfolioId }}
-              className="h-12 rounded-2xl px-5"
+              className="h-11 rounded-2xl px-3 lg:h-12 lg:px-5"
             />
             <button
               type="button"
               onClick={onAnalysis}
-              className="inline-flex h-12 items-center justify-center rounded-2xl border border-[#ddb159]/22 px-5 text-[11px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#ddb159]/22 px-3 text-[10px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:h-12 lg:px-5 lg:text-[11px]"
             >
-              View full analysis
+              Full analysis
             </button>
           </div>
         </div>
 
-        <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 border-t border-[#faf6f0]/8 pt-6 lg:mt-0 lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:bg-[#0a2a1d]/45 lg:p-6">
+        <dl className="mt-5 grid grid-cols-4 gap-2 border-t border-[#faf6f0]/8 pt-4 lg:mt-0 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-6 lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:bg-[#0a2a1d]/45 lg:p-6">
           {[
             ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
-            ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}% allocation`],
-            ["AI score", summary.weightedAvgScore?.toLocaleString("en-GB") ?? "—", "Value weighted"],
+            ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}%`],
+            ["AI score", summary.weightedAvgScore?.toLocaleString("en-GB") ?? "—", "Weighted"],
             ["Health", `${summary.score}/100`, summary.label],
           ].map(([label, value, detail]) => (
-            <div key={label}>
-              <dt className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">{label}</dt>
-              <dd className="mt-2 text-[20px] font-black tabular-nums text-[#faf6f0]">{value}</dd>
-              <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/34">{detail}</p>
+            <div key={label} className="min-w-0">
+              <dt className="truncate text-[7.5px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/34 lg:text-[9px]">{label}</dt>
+              <dd className="mt-1.5 truncate text-[15px] font-black tabular-nums text-[#faf6f0] lg:mt-2 lg:text-[20px]">{value}</dd>
+              <p className="mt-0.5 truncate text-[8px] font-semibold text-[#faf6f0]/34 lg:mt-1 lg:text-[10px]">{detail}</p>
             </div>
           ))}
         </dl>
@@ -189,10 +235,10 @@ export function PortfolioOverview({
           title="Conviction × exposure"
           action={<span className="hidden text-[11px] font-semibold text-[#faf6f0]/36 sm:block">Tap a holding to investigate</span>}
         />
-        <p className="mt-3 max-w-2xl text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-          See which positions are large, which still carry strong model conviction and where concentration deserves attention.
+        <p className="mt-2 max-w-2xl text-[11px] font-semibold leading-5 text-[#faf6f0]/44 lg:mt-3 lg:text-[12px] lg:leading-6">
+          Position size versus model conviction, so concentration issues stand out quickly.
         </p>
-        <div className="mt-5">
+        <div className="mt-4 lg:mt-5">
           <PortfolioExposureView
             holdings={holdings}
             riskTolerance={meta.riskTolerance}
@@ -218,39 +264,39 @@ export function PortfolioOverview({
           }
         />
         {opportunities.length > 0 ? (
-          <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
+          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:mt-5 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
             {opportunities.slice(0, 6).map((opportunity) => (
               <article
                 key={`${opportunity.ticker}-${opportunity.category}`}
-                className="flex min-h-[232px] w-[calc(100vw-56px)] max-w-[390px] shrink-0 snap-center flex-col rounded-[20px] border border-[#ddb159]/16 bg-[#0a2a1d]/72 p-5 shadow-[0_16px_34px_rgba(0,0,0,0.18)] lg:w-auto lg:max-w-none"
+                className="flex min-h-[210px] w-[calc(100vw-56px)] max-w-[390px] shrink-0 snap-center flex-col rounded-[20px] border border-[#ddb159]/16 bg-[#0a2a1d]/72 p-4 shadow-[0_16px_34px_rgba(0,0,0,0.18)] lg:min-h-[232px] lg:w-auto lg:max-w-none lg:p-5"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[19px] font-black text-[#faf6f0]">
+                    <p className="text-[18px] font-black text-[#faf6f0] lg:text-[19px]">
                       {opportunity.ticker}
                       <span className="ml-2 font-semibold text-[#faf6f0]/38">{opportunity.company}</span>
                     </p>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#ddb159]">
+                    <p className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159] lg:text-[10px]">
                       {opportunity.category}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full border border-[#ddb159]/18 px-3 py-1 text-[10px] font-black text-[#f2d27a]">
+                  <span className="shrink-0 rounded-full border border-[#ddb159]/18 px-3 py-1 text-[9px] font-black text-[#f2d27a] lg:text-[10px]">
                     AI {Math.round(opportunity.score).toLocaleString("en-GB")}
                   </span>
                 </div>
-                <p className="mt-4 line-clamp-3 text-[12px] font-semibold leading-6 text-[#faf6f0]/58">
+                <p className="mt-3 line-clamp-3 text-[11px] font-semibold leading-5 text-[#faf6f0]/58 lg:mt-4 lg:text-[12px] lg:leading-6">
                   {opportunity.reason}
                 </p>
-                <p className="mt-3 line-clamp-2 text-[11px] font-semibold leading-5 text-[#f1908d]/72">
+                <p className="mt-2 line-clamp-2 text-[10px] font-semibold leading-5 text-[#f1908d]/72 lg:mt-3 lg:text-[11px]">
                   Risk: {opportunity.risk}
                 </p>
-                <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-                  <span className="text-[9px] font-semibold text-[#faf6f0]/30">
+                <div className="mt-auto flex items-end justify-between gap-3 pt-4 lg:pt-5">
+                  <span className="text-[8px] font-semibold text-[#faf6f0]/30 lg:text-[9px]">
                     {opportunity.updatedAt ? formatDate(opportunity.updatedAt, true) : "Freshness unavailable"}
                   </span>
                   <Link
                     href={`/stock/${opportunity.ticker}`}
-                    className="inline-flex min-h-11 items-center gap-2 text-[11px] font-black text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+                    className="inline-flex min-h-10 items-center gap-2 text-[10px] font-black text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:min-h-11 lg:text-[11px]"
                   >
                     Research <PortfolioIcon name="arrow" className="size-4" />
                   </Link>
@@ -259,57 +305,11 @@ export function PortfolioOverview({
             ))}
           </div>
         ) : (
-          <div className="mt-5 border-y border-[#faf6f0]/8 py-9 text-center">
-            <p className="text-[16px] font-black text-[#faf6f0]">No strong fit ideas right now</p>
-            <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-              StockGPT will only surface ideas when the model finds a meaningful portfolio-specific reason and a clear risk to consider.
+          <div className="mt-4 rounded-[20px] border border-[#faf6f0]/8 py-7 text-center lg:mt-5 lg:border-x-0 lg:py-9">
+            <p className="text-[15px] font-black text-[#faf6f0] lg:text-[16px]">No strong fit ideas right now</p>
+            <p className="mx-auto mt-2 max-w-lg px-4 text-[11px] font-semibold leading-5 text-[#faf6f0]/44 lg:text-[12px] lg:leading-6">
+              StockGPT only surfaces ideas when the model finds a meaningful portfolio-specific reason and a clear risk to consider.
             </p>
-          </div>
-        )}
-      </section>
-
-      <section>
-        <SectionHeading
-          eyebrow="Portfolio"
-          title="Top holdings"
-          action={
-            holdings.length > 5 ? (
-              <button
-                type="button"
-                onClick={onViewHoldings}
-                className="inline-flex min-h-11 items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
-              >
-                View all →
-              </button>
-            ) : undefined
-          }
-        />
-        {topHoldings.length > 0 ? (
-          <div className="mt-4 border-t border-[#faf6f0]/8">
-            {topHoldings.map((holding) => (
-              <HoldingLedgerRow
-                key={holding.ticker}
-                holding={holding}
-                currency={meta.currency}
-                riskTolerance={meta.riskTolerance}
-                onOpen={onHolding}
-                compact
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-5 border-y border-[#faf6f0]/8 py-10 text-center">
-            <p className="text-[16px] font-black text-[#faf6f0]">This portfolio is ready to build</p>
-            <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-              Add cash, log an existing holding or import a Trading 212 CSV.
-            </p>
-            <button
-              type="button"
-              onClick={onAdd}
-              className="mt-5 h-12 rounded-2xl bg-[#ddb159] px-6 text-[11px] font-black text-[#061b12]"
-            >
-              Add to portfolio
-            </button>
           </div>
         )}
       </section>

@@ -914,21 +914,43 @@ export async function getPortfolioSnapshotChartDataWithHealth({
   const portfolioStartMs = safeDateMs(portfolioCreatedAt) ?? 0;
 
   try {
-    const { data, error } = await supabase
-      .from("portfolio_snapshots")
-      .select("snapshot_at,value,cash,basis,pnl,pnl_pct,source")
-      .eq("portfolio_id", portfolioId)
-      .eq("user_id", userId)
-      .gte("snapshot_at", new Date(portfolioStartMs).toISOString())
-      .order("snapshot_at", { ascending: true })
-      .limit(SNAPSHOT_READ_LIMIT);
+    // Supabase/PostgREST projects commonly cap a single response at 1,000 rows.
+    // Reading only ascending rows therefore returned the *oldest* 1,000
+    // snapshots and made active portfolios look months stale. Keep both ends:
+    // enough early history for MAX plus the newest rows for freshness/1D/1M.
+    const earlyLimit = Math.min(250, Math.max(1, Math.floor(SNAPSHOT_READ_LIMIT / 4)));
+    const recentLimit = Math.max(1, SNAPSHOT_READ_LIMIT - earlyLimit);
+    const startIso = new Date(portfolioStartMs).toISOString();
 
+    const [earlyResult, recentResult] = await Promise.all([
+      supabase
+        .from("portfolio_snapshots")
+        .select("snapshot_at,value,cash,basis,pnl,pnl_pct,source")
+        .eq("portfolio_id", portfolioId)
+        .eq("user_id", userId)
+        .gte("snapshot_at", startIso)
+        .order("snapshot_at", { ascending: true })
+        .limit(earlyLimit),
+      supabase
+        .from("portfolio_snapshots")
+        .select("snapshot_at,value,cash,basis,pnl,pnl_pct,source")
+        .eq("portfolio_id", portfolioId)
+        .eq("user_id", userId)
+        .gte("snapshot_at", startIso)
+        .order("snapshot_at", { ascending: false })
+        .limit(recentLimit),
+    ]);
+
+    const error = earlyResult.error ?? recentResult.error;
     if (error) {
       console.warn("Portfolio snapshot read failed", error.message ?? error);
       return null;
     }
 
-    const rows = (data ?? []) as PortfolioSnapshotRow[];
+    const rows = [
+      ...((earlyResult.data ?? []) as PortfolioSnapshotRow[]),
+      ...((recentResult.data ?? []) as PortfolioSnapshotRow[]),
+    ];
     const result = buildPortfolioSnapshotChartDataFromRows({
       rows,
       portfolioCreatedAt,

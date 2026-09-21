@@ -1,9 +1,33 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import {
+  isStockGPTIOSApp,
+  requestNativeAppleSignIn,
+  requestNativeOAuthSession,
+} from "@/lib/ios-native";
 
 type AuthProvider = "apple" | "google";
 type AuthMode = "login" | "signup";
+
+const FACE_ID_KEY = "stockgpt:faceid-enabled";
+const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
+
+type NativeAppleResult = {
+  token?: string;
+  nonce?: string;
+  email?: string;
+  givenName?: string;
+  familyName?: string;
+  cancelled?: boolean;
+  error?: string;
+};
+
+type NativeOAuthResult = {
+  url?: string;
+  cancelled?: boolean;
+  error?: string;
+};
 
 function AppleLogo() {
   return (
@@ -27,6 +51,60 @@ function GoogleLogo() {
   );
 }
 
+function waitForNativeEvent<T>(
+  name: string,
+  start: () => boolean,
+  timeoutMs = 120_000,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let timeoutId = 0;
+
+    function cleanup() {
+      window.removeEventListener(name, onEvent);
+      window.clearTimeout(timeoutId);
+    }
+
+    function onEvent(event: Event) {
+      cleanup();
+      resolve(((event as CustomEvent<T>).detail ?? {}) as T);
+    }
+
+    window.addEventListener(name, onEvent);
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Sign in timed out. Please try again."));
+    }, timeoutMs);
+
+    if (!start()) {
+      cleanup();
+      reject(new Error("Native sign in is not available. Reopen StockGPT and try again."));
+    }
+  });
+}
+
+function safeNextPath(fallback: string) {
+  const requestedNext = new URLSearchParams(window.location.search).get("next");
+  return requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+    ? requestedNext
+    : fallback;
+}
+
+function queueFaceIDOffer() {
+  if (!isStockGPTIOSApp()) return;
+  if (window.localStorage.getItem(FACE_ID_KEY) !== null) return;
+  window.localStorage.setItem(FACE_ID_OFFER_KEY, "true");
+  window.dispatchEvent(new CustomEvent("stockgpt:faceid-offer"));
+}
+
+function socialSignupMetadata() {
+  return {
+    age_confirmed_18: true,
+    terms_accepted: true,
+    email_consent: true,
+    consent_captured_at: new Date().toISOString(),
+  };
+}
+
 export function AuthProviderButtons({
   onError,
   redirectTo = "/dashboard",
@@ -38,27 +116,111 @@ export function AuthProviderButtons({
 }) {
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
 
+  async function continueWithNativeApple(safeRedirectTo: string) {
+    const result = await waitForNativeEvent<NativeAppleResult>(
+      "stockgpt:apple-auth-result",
+      requestNativeAppleSignIn,
+    );
+
+    if (result.cancelled) throw new Error("Sign in with Apple was cancelled.");
+    if (result.error) throw new Error(result.error);
+    if (!result.token || !result.nonce) throw new Error("Apple did not return a valid sign-in token.");
+
+    const { createClient } = await import("@/utils/supabase/client");
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: "apple",
+      token: result.token,
+      nonce: result.nonce,
+    });
+
+    if (error) throw error;
+
+    const fullName = [result.givenName, result.familyName].filter(Boolean).join(" ");
+    const metadata = {
+      ...(fullName ? { full_name: fullName } : {}),
+      ...(result.givenName ? { given_name: result.givenName } : {}),
+      ...(result.familyName ? { family_name: result.familyName } : {}),
+      ...(mode === "signup" ? socialSignupMetadata() : {}),
+    };
+
+    if (Object.keys(metadata).length > 0) {
+      await supabase.auth.updateUser({ data: metadata });
+    }
+
+    queueFaceIDOffer();
+    window.location.assign(safeRedirectTo);
+  }
+
+  async function continueWithNativeGoogle(safeRedirectTo: string) {
+    const { createClient } = await import("@/utils/supabase/client");
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: "stockgpt://auth/callback",
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) throw error;
+    if (!data.url) throw new Error("Google did not return a sign-in URL.");
+
+    const result = await waitForNativeEvent<NativeOAuthResult>(
+      "stockgpt:oauth-result",
+      () => requestNativeOAuthSession(data.url!, "stockgpt"),
+    );
+
+    if (result.cancelled) throw new Error("Google sign in was cancelled.");
+    if (result.error) throw new Error(result.error);
+    if (!result.url) throw new Error("Google sign in did not return to StockGPT.");
+
+    const callbackUrl = new URL(result.url);
+    const providerError = callbackUrl.searchParams.get("error_description") ?? callbackUrl.searchParams.get("error");
+    if (providerError) throw new Error(providerError);
+
+    const code = callbackUrl.searchParams.get("code");
+    if (!code) throw new Error("Google sign in did not return an authorization code.");
+
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw exchangeError;
+
+    if (mode === "signup") {
+      await supabase.auth.updateUser({ data: socialSignupMetadata() });
+    }
+
+    queueFaceIDOffer();
+    window.location.assign(safeRedirectTo);
+  }
+
   async function continueWithProvider(provider: AuthProvider) {
     if (loadingProvider) return;
 
     setLoadingProvider(provider);
     onError("");
+    const safeRedirectTo = safeNextPath(redirectTo);
 
     try {
-      /* supabase-js is only needed once the user actually clicks, keeping
-         it out of the auth pages' initial bundle. */
+      if (isStockGPTIOSApp()) {
+        if (provider === "apple") {
+          await continueWithNativeApple(safeRedirectTo);
+          return;
+        }
+
+        await continueWithNativeGoogle(safeRedirectTo);
+        return;
+      }
+
+      /* supabase-js is only needed once the user actually clicks — loading
+         it here keeps it out of the auth pages' first-load bundle. */
       const { createClient } = await import("@/utils/supabase/client");
       const origin = window.location.origin;
-      const requestedNext = new URLSearchParams(window.location.search).get("next");
-      const safeRedirectTo =
-        requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
-          ? requestedNext
-          : redirectTo;
       const callback = `${origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}${mode === "signup" ? "&signup=1" : ""}`;
-
       const { error } = await createClient().auth.signInWithOAuth({
         provider,
-        options: { redirectTo: callback },
+        options: {
+          redirectTo: callback,
+        },
       });
 
       if (error) throw error;
@@ -91,9 +253,7 @@ export function AuthProviderButtons({
   ];
 
   return (
-    /* OAuth provider buttons are web-only on main. The native iOS branch
-       supplies native Apple/Google authentication inside the app shell. */
-    <div className="sg-web-only grid w-full min-w-0 gap-2.5">
+    <div className="grid w-full min-w-0 gap-2.5">
       {providers.map((provider) => {
         const isLoading = loadingProvider === provider.id;
         const disabled = Boolean(loadingProvider);
@@ -105,6 +265,7 @@ export function AuthProviderButtons({
             onClick={() => continueWithProvider(provider.id)}
             disabled={disabled}
             aria-label={provider.label}
+            data-native-haptic="medium"
             className={`flex h-[52px] min-w-0 items-center justify-center gap-2.5 rounded-2xl border px-4 text-[14px] font-black shadow-[0_10px_26px_rgba(0,0,0,0.18)] transition active:scale-[0.985] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${provider.className}`}
           >
             <span className="flex h-5 w-5 shrink-0 items-center justify-center">

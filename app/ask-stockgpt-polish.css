@@ -1,8 +1,8 @@
-/* Ask StockGPT route-specific layout guardrails. */
+/* Ask StockGPT is a dedicated full-screen workspace. */
 
 body:has(.sg-ask-workspace) {
   overflow: hidden;
-  background: #020805;
+  background: #04140c;
 }
 
 .sg-ask-workspace,
@@ -10,7 +10,6 @@ body:has(.sg-ask-workspace) {
 .sg-ask-workspace *::before,
 .sg-ask-workspace *::after {
   box-sizing: border-box;
-  min-width: 0;
 }
 
 .sg-ask-workspace {
@@ -19,152 +18,44 @@ body:has(.sg-ask-workspace) {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(221, 177, 89, 0.08), transparent 30%),
+    #04140c;
 }
 
 .sg-ask-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(218, 176, 91, 0.58) rgba(250, 246, 240, 0.06);
+  scrollbar-color: rgba(221, 177, 89, 0.34) transparent;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sg-ask-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
 }
 
 .sg-ask-scroll::-webkit-scrollbar-track {
-  background: rgba(250, 246, 240, 0.06);
+  background: transparent;
 }
 
 .sg-ask-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid rgba(250, 246, 240, 0.06);
   border-radius: 999px;
-  background: linear-gradient(180deg, #f3d98b, #caa24b 54%, #8f6b27);
+  background: rgba(221, 177, 89, 0.34);
 }
 
-.sg-ask-sidebar-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(218, 176, 91, 0.48) rgba(250, 246, 240, 0.04);
-  overscroll-behavior: contain;
+.sg-ask-mode-rail {
+  -webkit-overflow-scrolling: touch;
 }
 
-.sg-ask-sidebar-scroll::-webkit-scrollbar {
-  width: 7px;
+.sg-ask-composer {
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.18);
 }
 
-.sg-ask-sidebar-scroll::-webkit-scrollbar-track {
-  background: rgba(250, 246, 240, 0.04);
-}
-
-.sg-ask-sidebar-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid rgba(250, 246, 240, 0.04);
-  border-radius: 999px;
-  background: rgba(218, 176, 91, 0.64);
-}
-
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .sg-ask-workspace {
-    display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr);
-    min-height: 100svh;
-    position: fixed;
-    inset: 0;
-  }
-
-  .sg-ask-workspace > header {
-    flex: 0 0 auto;
-  }
-
-  .sg-ask-desktop {
-    flex: 1 1 0%;
-    align-self: stretch;
-    min-height: 0;
-    height: auto !important;
-    max-height: none !important;
-    align-items: stretch;
-    grid-template-columns: minmax(180px, 210px) minmax(0, 1fr) minmax(248px, 280px) !important;
-  }
-
-  .sg-ask-desktop > aside,
-  .sg-ask-desktop > section {
-    align-self: stretch;
-    height: auto !important;
-    min-height: 0;
-    max-height: none !important;
-  }
-
-  .sg-ask-desktop > aside > *,
-  .sg-ask-desktop > section > * {
-    min-height: 0;
-  }
-}
-
-@media (min-width: 1280px) {
-  .sg-ask-desktop {
-    grid-template-columns:
-      minmax(230px, 270px)
-      minmax(420px, 1fr)
-      minmax(300px, 330px) !important;
-  }
-}
-
-@media (min-width: 1536px) {
-  .sg-ask-desktop {
-    grid-template-columns:
-      minmax(300px, 330px)
-      minmax(480px, 1fr)
-      minmax(340px, 390px) !important;
-  }
-}
-
-@media (min-width: 1024px) and (max-width: 1279px), (max-height: 860px) and (min-width: 1024px) {
-  .sg-ask-sidebar-secondary {
-    display: none;
-  }
-}
-
-@media (min-width: 1024px) and (max-height: 760px) {
-  .sg-ask-desktop {
-    gap: 0.4rem;
-    padding: 0.4rem !important;
-  }
-
-  .sg-ask-desktop > section > header {
-    padding-block: 0.75rem !important;
-  }
-
-  .sg-ask-desktop > section > header p:last-child {
-    margin-top: 0.45rem;
-  }
-
-  .sg-ask-desktop > section > form {
-    padding: 0.75rem !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .sg-ask-desktop > aside:first-child > div:first-child {
-    padding: 1rem 0.875rem 0.75rem !important;
-  }
-
-  .sg-ask-desktop > aside:first-child > div:nth-child(2) {
-    padding-inline: 0.75rem !important;
-  }
-
-  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child {
-    padding: 0.85rem !important;
-  }
-
-  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child button {
-    padding-inline: 0.85rem !important;
-  }
-
-  .sg-ask-desktop > aside:first-child > div:nth-child(2) > div:first-child button p:last-child {
-    display: -webkit-box;
-    overflow: hidden;
-    text-overflow: clip;
-    white-space: normal !important;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(221, 177, 89, 0.09), transparent 28%),
+      radial-gradient(circle at 15% 100%, rgba(39, 112, 73, 0.08), transparent 30%),
+      #04140c;
   }
 }
