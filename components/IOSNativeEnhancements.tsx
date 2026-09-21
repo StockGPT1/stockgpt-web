@@ -166,6 +166,10 @@ export function IOSNativeEnhancements() {
 
     const scrollRoot = document.querySelector<HTMLElement>(".sg-app-content");
     if (!scrollRoot) return;
+    // Capture the narrowed element in a non-null local before the event
+    // handlers close over it. TypeScript cannot preserve querySelector's
+    // null-check narrowing across nested callbacks.
+    const root = scrollRoot;
 
     function reset() {
       startY.current = null;
@@ -174,7 +178,7 @@ export function IOSNativeEnhancements() {
     }
 
     function onTouchStart(event: TouchEvent) {
-      if (refreshingRef.current || scrollRoot.scrollTop > 0 || event.touches.length !== 1) {
+      if (refreshingRef.current || root.scrollTop > 0 || event.touches.length !== 1) {
         reset();
         return;
       }
@@ -186,7 +190,7 @@ export function IOSNativeEnhancements() {
 
     function onTouchMove(event: TouchEvent) {
       if (!pulling.current || startY.current == null || event.touches.length !== 1) return;
-      if (scrollRoot.scrollTop > 0) {
+      if (root.scrollTop > 0) {
         reset();
         return;
       }
@@ -221,16 +225,16 @@ export function IOSNativeEnhancements() {
       window.setTimeout(() => window.location.reload(), 180);
     }
 
-    scrollRoot.addEventListener("touchstart", onTouchStart, { passive: true });
-    scrollRoot.addEventListener("touchmove", onTouchMove, { passive: false });
-    scrollRoot.addEventListener("touchend", onTouchEnd, { passive: true });
-    scrollRoot.addEventListener("touchcancel", reset, { passive: true });
+    root.addEventListener("touchstart", onTouchStart, { passive: true });
+    root.addEventListener("touchmove", onTouchMove, { passive: false });
+    root.addEventListener("touchend", onTouchEnd, { passive: true });
+    root.addEventListener("touchcancel", reset, { passive: true });
 
     return () => {
-      scrollRoot.removeEventListener("touchstart", onTouchStart);
-      scrollRoot.removeEventListener("touchmove", onTouchMove);
-      scrollRoot.removeEventListener("touchend", onTouchEnd);
-      scrollRoot.removeEventListener("touchcancel", reset);
+      root.removeEventListener("touchstart", onTouchStart);
+      root.removeEventListener("touchmove", onTouchMove);
+      root.removeEventListener("touchend", onTouchEnd);
+      root.removeEventListener("touchcancel", reset);
     };
   }, [updatePullDistance]);
 
