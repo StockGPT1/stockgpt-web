@@ -88,20 +88,85 @@ export function WelcomeCarousel() {
   const [active, setActive] = useState(0);
 
   const syncActive = useCallback(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const index = Math.max(0, Math.min(slides.length - 1, Math.round(el.scrollLeft / Math.max(1, el.clientWidth))));
-    setActive(index);
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const slideElements = Array.from(
+      scroller.querySelectorAll<HTMLElement>("[data-welcome-slide]"),
+    );
+    if (slideElements.length === 0) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const viewportCenter = scrollerRect.left + scrollerRect.width / 2;
+
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    slideElements.forEach((slide, index) => {
+      const rect = slide.getBoundingClientRect();
+      const slideCenter = rect.left + rect.width / 2;
+      const distance = Math.abs(slideCenter - viewportCenter);
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+
+    setActive(nearestIndex);
   }, []);
 
-  useEffect(() => () => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-  }, []);
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
 
-  function onScroll() {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(syncActive);
-  }
+    function scheduleSync() {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(syncActive);
+    }
+
+    // Use native scroll listeners as well as React state so iOS WKWebView
+    // updates the indicator continuously during momentum/snap scrolling.
+    scroller.addEventListener("scroll", scheduleSync, { passive: true });
+    scroller.addEventListener("scrollend", scheduleSync);
+    window.addEventListener("resize", scheduleSync);
+
+    const slideElements = Array.from(
+      scroller.querySelectorAll<HTMLElement>("[data-welcome-slide]"),
+    );
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            (entries) => {
+              const mostVisible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+              if (!mostVisible || mostVisible.intersectionRatio < 0.5) return;
+
+              const index = Number(
+                (mostVisible.target as HTMLElement).dataset.welcomeSlide,
+              );
+              if (Number.isInteger(index)) setActive(index);
+            },
+            {
+              root: scroller,
+              threshold: [0.5, 0.65, 0.8, 0.95],
+            },
+          );
+
+    slideElements.forEach((slide) => observer?.observe(slide));
+    scheduleSync();
+
+    return () => {
+      scroller.removeEventListener("scroll", scheduleSync);
+      scroller.removeEventListener("scrollend", scheduleSync);
+      window.removeEventListener("resize", scheduleSync);
+      observer?.disconnect();
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [syncActive]);
 
   function goTo(index: number) {
     const el = scrollerRef.current;
@@ -117,9 +182,9 @@ export function WelcomeCarousel() {
         <span className={styles.hint}>Swipe to explore <b>›</b></span>
       </header>
 
-      <div ref={scrollerRef} className={styles.scroller} onScroll={onScroll} aria-label="StockGPT feature tour">
+      <div ref={scrollerRef} className={styles.scroller} aria-label="StockGPT feature tour">
         {slides.map((slide, index) => (
-          <section key={slide.id} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
+          <section key={slide.id} data-welcome-slide={index} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
             <div className={[styles.demoWrap, active === index ? styles.active : ""].join(" ")}><Demo id={slide.id}/></div>
             <div className={styles.copy}>
               <p className={styles.eyebrow}>{slide.eyebrow}</p>
