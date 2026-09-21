@@ -111,10 +111,9 @@ assert.match(orchestrator, /overflow-x-hidden/);
 assert.doesNotMatch(orchestrator, /overflow-y-auto/);
 assert.match(orchestrator, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(orchestrator, /max-w-\[1480px\]/);
-assert.match(loading, /aria-label="Loading portfolio"/);
-assert.match(loading, /aria-busy="true"/);
+assert.match(loading, /BrandLoaderPage/);
+assert.match(loading, /label="Weighing your holdings"/);
 assert.doesNotMatch(loading, /overflow-y-auto/);
-assert.match(loading, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 
 assert.match(overview, /snap-x snap-mandatory/);
 assert.match(workspace, /overflow-x-auto/);
