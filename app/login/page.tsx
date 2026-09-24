@@ -17,7 +17,6 @@ import { isStockGPTIOSApp, requestNativeAuthentication } from "@/lib/ios-native"
 
 const FACE_ID_KEY = "stockgpt:faceid-enabled";
 const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
-const FACE_ID_UNLOCK_BYPASS_KEY = "stockgpt:faceid-just-unlocked";
 
 type BiometricResult = {
   success?: boolean;
@@ -61,7 +60,6 @@ export default function LoginPage() {
       const result = (event as CustomEvent<BiometricResult>).detail ?? {};
 
       if (result.success) {
-        window.sessionStorage.setItem(FACE_ID_UNLOCK_BYPASS_KEY, "true");
         router.replace(next);
         return;
       }
