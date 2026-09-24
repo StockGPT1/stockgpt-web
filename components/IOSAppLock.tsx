@@ -1,17 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { isStockGPTIOSApp, requestNativeAuthentication } from "@/lib/ios-native";
+import { isStockGPTIOSApp } from "@/lib/ios-native";
 
 const FACE_ID_KEY = "stockgpt:faceid-enabled";
 const FACE_ID_OFFER_KEY = "stockgpt:faceid-offer-pending";
-
-type BiometricResult = {
-  success?: boolean;
-  available?: boolean;
-  message?: string;
-};
 
 function isPublicEntryPath(pathname: string) {
   return (
@@ -26,26 +20,7 @@ export function IOSAppLock() {
   const pathname = usePathname();
   const [isApp, setIsApp] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [authenticating, setAuthenticating] = useState(false);
   const [showOffer, setShowOffer] = useState(false);
-  const [message, setMessage] = useState("");
-  const isOfferingFaceID = useRef(false);
-
-  const enableWithBiometrics = useCallback(() => {
-    isOfferingFaceID.current = true;
-    setAuthenticating(true);
-    setMessage("");
-
-    const started = requestNativeAuthentication(
-      "Use Face ID to sign in to StockGPT on this iPhone.",
-    );
-
-    if (!started) {
-      isOfferingFaceID.current = false;
-      setAuthenticating(false);
-      setMessage("Face ID could not start. You can enable it later in Settings.");
-    }
-  }, []);
 
   useEffect(() => {
     const app = isStockGPTIOSApp();
@@ -75,55 +50,32 @@ export function IOSAppLock() {
   useEffect(() => {
     if (!isApp) return;
 
-    function onBiometricResult(event: Event) {
-      if (!isOfferingFaceID.current) return;
-
-      isOfferingFaceID.current = false;
-      setAuthenticating(false);
-
-      const result = (event as CustomEvent<BiometricResult>).detail ?? {};
-
-      if (result.success) {
-        window.localStorage.setItem(FACE_ID_KEY, "true");
-        window.localStorage.removeItem(FACE_ID_OFFER_KEY);
-        setEnabled(true);
-        setShowOffer(false);
-        setMessage("");
-        window.dispatchEvent(
-          new CustomEvent("stockgpt:faceid-setting", {
-            detail: { enabled: true },
-          }),
-        );
-        return;
-      }
-
-      setMessage(
-        result.available === false
-          ? "Face ID is not available on this iPhone. You can continue without it."
-          : result.message ||
-              "Face ID was not enabled. You can try again or do it later in Settings.",
-      );
-    }
-
     function onSetting(event: Event) {
       const nextEnabled = Boolean(
         (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled,
       );
       setEnabled(nextEnabled);
-      if (!nextEnabled) {
-        setMessage("");
-      }
     }
 
-    window.addEventListener("stockgpt:biometric-result", onBiometricResult);
     window.addEventListener("stockgpt:faceid-setting", onSetting);
     return () => {
-      window.removeEventListener("stockgpt:biometric-result", onBiometricResult);
       window.removeEventListener("stockgpt:faceid-setting", onSetting);
     };
   }, [isApp]);
 
   if (!isApp || !showOffer || enabled) return null;
+
+  function enableFaceIDLogin() {
+    window.localStorage.setItem(FACE_ID_KEY, "true");
+    window.localStorage.removeItem(FACE_ID_OFFER_KEY);
+    setEnabled(true);
+    setShowOffer(false);
+    window.dispatchEvent(
+      new CustomEvent("stockgpt:faceid-setting", {
+        detail: { enabled: true },
+      }),
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[225] flex items-end justify-center bg-black/55 px-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-[8px]">
@@ -147,24 +99,17 @@ export function IOSAppLock() {
           Sign in with Face ID
         </h2>
         <p className="mx-auto mt-2 max-w-[330px] text-[12px] font-semibold leading-5 text-[#061b12]/55">
-          Use Face ID from the login screen for quick access to your StockGPT
-          account. Moving between tabs will not ask you to authenticate again.
+          Enable Face ID for future logins on this iPhone. Face ID will only
+          be requested from the login screen, not when moving between tabs.
         </p>
-
-        {message && (
-          <p className="mt-3 rounded-xl bg-[#8e6a28]/8 px-3 py-2 text-[10px] font-bold leading-5 text-[#7b5b22]">
-            {message}
-          </p>
-        )}
 
         <button
           type="button"
-          onClick={enableWithBiometrics}
-          disabled={authenticating}
+          onClick={enableFaceIDLogin}
           data-native-haptic="medium"
-          className="mt-5 min-h-[52px] w-full rounded-2xl bg-[#061b12] px-5 text-[13px] font-black text-white shadow-[0_12px_28px_rgba(6,27,18,0.2)] active:scale-[0.985] disabled:opacity-60"
+          className="mt-5 min-h-[52px] w-full rounded-2xl bg-[#061b12] px-5 text-[13px] font-black text-white shadow-[0_12px_28px_rgba(6,27,18,0.2)] active:scale-[0.985]"
         >
-          {authenticating ? "Checking Face ID…" : "Use Face ID"}
+          Enable Face ID
         </button>
         <button
           type="button"
@@ -172,7 +117,6 @@ export function IOSAppLock() {
             window.localStorage.setItem(FACE_ID_KEY, "false");
             window.localStorage.removeItem(FACE_ID_OFFER_KEY);
             setShowOffer(false);
-            setMessage("");
           }}
           className="mt-2 min-h-11 w-full px-4 text-[11px] font-black text-[#061b12]/48"
         >
