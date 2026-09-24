@@ -89,31 +89,17 @@ export function WelcomeCarousel() {
 
   const syncActive = useCallback(() => {
     const scroller = scrollerRef.current;
-    if (!scroller) return;
+    if (!scroller || scroller.clientWidth <= 0) return;
 
-    const slideElements = Array.from(
-      scroller.querySelectorAll<HTMLElement>("[data-welcome-slide]"),
+    // WKWebView can report stale slide bounding boxes while momentum/snap
+    // scrolling. scrollLeft is tied directly to the scroll view, so derive the
+    // page from horizontal progress instead.
+    const nextIndex = Math.min(
+      slides.length - 1,
+      Math.max(0, Math.round(scroller.scrollLeft / scroller.clientWidth)),
     );
-    if (slideElements.length === 0) return;
 
-    const scrollerRect = scroller.getBoundingClientRect();
-    const viewportCenter = scrollerRect.left + scrollerRect.width / 2;
-
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    slideElements.forEach((slide, index) => {
-      const rect = slide.getBoundingClientRect();
-      const slideCenter = rect.left + rect.width / 2;
-      const distance = Math.abs(slideCenter - viewportCenter);
-
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = index;
-      }
-    });
-
-    setActive(nearestIndex);
+    setActive((current) => (current === nextIndex ? current : nextIndex));
   }, []);
 
   useEffect(() => {
@@ -131,47 +117,31 @@ export function WelcomeCarousel() {
     scroller.addEventListener("scrollend", scheduleSync);
     window.addEventListener("resize", scheduleSync);
 
-    const slideElements = Array.from(
-      scroller.querySelectorAll<HTMLElement>("[data-welcome-slide]"),
-    );
-    const observer =
-      typeof IntersectionObserver === "undefined"
-        ? null
-        : new IntersectionObserver(
-            (entries) => {
-              const mostVisible = entries
-                .filter((entry) => entry.isIntersecting)
-                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-              if (!mostVisible || mostVisible.intersectionRatio < 0.5) return;
-
-              const index = Number(
-                (mostVisible.target as HTMLElement).dataset.welcomeSlide,
-              );
-              if (Number.isInteger(index)) setActive(index);
-            },
-            {
-              root: scroller,
-              threshold: [0.5, 0.65, 0.8, 0.95],
-            },
-          );
-
-    slideElements.forEach((slide) => observer?.observe(slide));
+    scroller.addEventListener("touchend", scheduleSync, { passive: true });
     scheduleSync();
 
     return () => {
       scroller.removeEventListener("scroll", scheduleSync);
       scroller.removeEventListener("scrollend", scheduleSync);
+      scroller.removeEventListener("touchend", scheduleSync);
       window.removeEventListener("resize", scheduleSync);
-      observer?.disconnect();
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [syncActive]);
 
   function goTo(index: number) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollTo({ left: el.clientWidth * index, behavior: "smooth" });
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const slide = scroller.querySelector<HTMLElement>(
+      `[data-welcome-slide="${index}"]`,
+    );
+
+    setActive(index);
+    scroller.scrollTo({
+      left: slide?.offsetLeft ?? scroller.clientWidth * index,
+      behavior: "smooth",
+    });
   }
 
   return (
