@@ -1,4 +1,5 @@
 export type BrokerCandidateAvailability = "complete" | "incomplete" | "unavailable";
+export type BrokerActivityTimingPrecision = "exact" | "date_only" | "unknown";
 
 export type BrokerPositionCandidate = {
   positionKey: string;
@@ -29,6 +30,7 @@ export type BrokerActivityCandidate = {
   instrumentId: string | null;
   activityType: string;
   occurredAt: string | null;
+  occurredAtPrecision: BrokerActivityTimingPrecision;
   quantity: number | null;
   price: number | null;
   grossAmount: number | null;
@@ -100,6 +102,9 @@ export function validateBrokerSyncCandidate(candidate: BrokerSyncCandidate): Bro
     }
     for (const activity of account.activities.items) {
       if (!/^[0-9a-f]{64}$/u.test(activity.fingerprint) || !activity.activityType ||
+          !["exact", "date_only", "unknown"].includes(activity.occurredAtPrecision) ||
+          (activity.occurredAtPrecision !== "unknown" && !activity.occurredAt) ||
+          (activity.occurredAt !== null && !Number.isFinite(Date.parse(activity.occurredAt))) ||
           !isFiniteNumber(activity.quantity) || !isFiniteNumber(activity.price) ||
           !isFiniteNumber(activity.grossAmount) || !isFiniteNumber(activity.netAmount)) {
         return { ok: false, retryable: false, errorCode: "candidate_activity_invalid" };

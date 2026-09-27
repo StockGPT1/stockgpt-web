@@ -16,6 +16,11 @@ export type PortfolioExternalFlow = {
   currency: string | null;
   direction: "inflow" | "outflow" | "internal" | "unknown";
   sourceId: string;
+  timingPrecision: "exact" | "date_only" | "unknown";
+  exactBoundary?: {
+    beforeValue: number;
+    afterValue: number;
+  };
 };
 
 export type HistoricalFxRate = {
@@ -34,7 +39,6 @@ export type PortfolioPerformanceResult = {
 };
 
 const DAY_MS = 86_400_000;
-const NEARBY_FLOW_BOUNDARY_MS = DAY_MS;
 export const SIGNIFICANT_ESTIMATED_FLOW_RATIO = 0.1;
 
 function finite(value: unknown) {
@@ -80,11 +84,14 @@ export function calculatePortfolioPerformance({
   flows,
 }: {
   points: Array<{ at: string; value: number }>;
-  flows: Array<{ at: string | null; amount: number | null; direction: PortfolioExternalFlow["direction"] }>;
+  flows: Array<Pick<PortfolioExternalFlow, "at" | "amount" | "direction" | "timingPrecision" | "exactBoundary">>;
 }): PortfolioPerformanceResult {
-  const ordered = points
-    .map((point) => ({ ...point, ms: Date.parse(point.at), value: finite(point.value) }))
-    .filter((point): point is { at: string; ms: number; value: number } => Number.isFinite(point.ms) && point.value != null && point.value > 0)
+  const normalized = points.map((point) => ({ ...point, ms: Date.parse(point.at), value: finite(point.value) }));
+  if (normalized.some((point) => !Number.isFinite(point.ms) || point.value == null || point.value < 0)) {
+    return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["invalid_value_history"] };
+  }
+  const ordered = normalized
+    .map((point) => ({ at: point.at, ms: point.ms, value: point.value! }))
     .sort((a, b) => a.ms - b.ms);
   if (ordered.length < 2) return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["insufficient_value_history"] };
 
@@ -92,42 +99,73 @@ export function calculatePortfolioPerformance({
   if (flows.some((flow) => flow.direction === "unknown")) {
     return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["unclassified_external_flow"] };
   }
-  if (external.some((flow) => flow.at == null || finite(flow.amount) == null)) {
+  if (external.some((flow) => flow.at == null || finite(flow.amount) == null || finite(flow.amount)! < 0 || flow.timingPrecision === "unknown")) {
     return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["external_flow_evidence_incomplete"] };
   }
 
   const start = ordered[0];
   const end = ordered.at(-1)!;
+  if (start.value <= 0) {
+    return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["performance_opening_value_invalid"] };
+  }
   const timedFlows = external
     .map((flow) => ({
-      ms: Date.parse(flow.at!),
+      ...flow,
+      ms: flow.timingPrecision === "date_only"
+        ? Date.parse(`${flow.at!.slice(0, 10)}T12:00:00.000Z`)
+        : Date.parse(flow.at!),
       signedAmount: flow.direction === "inflow" ? finite(flow.amount)! : -finite(flow.amount)!,
     }))
     .filter((flow) => Number.isFinite(flow.ms) && flow.ms >= start.ms && flow.ms <= end.ms);
-  const hasNearbyBoundaries = timedFlows.every((flow) =>
-    ordered.some((point) => Math.abs(point.ms - flow.ms) <= NEARBY_FLOW_BOUNDARY_MS),
-  );
 
-  if (hasNearbyBoundaries) {
+  if (timedFlows.length === 0) {
+    return {
+      status: "available",
+      method: "time_weighted",
+      quality: "exact",
+      returnPct: ((end.value / start.value) - 1) * 100,
+      limitations: [],
+    };
+  }
+
+  const hasExactBoundaries = timedFlows.every((flow) =>
+    flow.timingPrecision === "exact" && flow.exactBoundary !== undefined,
+  );
+  if (hasExactBoundaries) {
     let factor = 1;
-    for (let index = 1; index < ordered.length; index += 1) {
-      const previous = ordered[index - 1];
-      const current = ordered[index];
-      const intervalFlow = timedFlows
-        .filter((flow) => flow.ms > previous.ms && flow.ms <= current.ms)
-        .reduce((sum, flow) => sum + flow.signedAmount, 0);
-      const intervalReturn = (current.value - intervalFlow) / previous.value;
-      if (!Number.isFinite(intervalReturn) || intervalReturn <= 0) {
-        return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["time_weighted_denominator_invalid"] };
+    let segmentOpeningValue = start.value;
+    for (const flow of timedFlows.sort((left, right) => left.ms - right.ms)) {
+      const beforeValue = finite(flow.exactBoundary!.beforeValue);
+      const afterValue = finite(flow.exactBoundary!.afterValue);
+      if (beforeValue == null || afterValue == null || beforeValue < 0 || afterValue < 0 || segmentOpeningValue <= 0) {
+        return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["time_weighted_boundary_invalid"] };
       }
-      factor *= intervalReturn;
+      const expectedAfter = beforeValue + flow.signedAmount;
+      const tolerance = Math.max(0.01, Math.abs(flow.signedAmount) * 0.000001);
+      if (Math.abs(afterValue - expectedAfter) > tolerance) {
+        return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["time_weighted_boundary_inconsistent"] };
+      }
+      factor *= beforeValue / segmentOpeningValue;
+      segmentOpeningValue = afterValue;
     }
+    if (segmentOpeningValue <= 0) {
+      return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["time_weighted_denominator_invalid"] };
+    }
+    factor *= end.value / segmentOpeningValue;
     return { status: "available", method: "time_weighted", quality: "exact", returnPct: (factor - 1) * 100, limitations: [] };
   }
 
-  const significantUnbounded = timedFlows.some((flow) => Math.abs(flow.signedAmount) / start.value >= SIGNIFICANT_ESTIMATED_FLOW_RATIO);
-  if (significantUnbounded) {
-    return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["significant_flow_without_boundary_valuation"] };
+  for (const flow of timedFlows.filter((candidate) => candidate.timingPrecision === "date_only")) {
+    const relevant = ordered
+      .map((point) => ({ point, distance: Math.abs(point.ms - flow.ms) }))
+      .filter(({ point, distance }) => distance <= DAY_MS && point.value > 0)
+      .sort((left, right) => left.distance - right.distance)[0]?.point;
+    if (!relevant) {
+      return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["flow_relevant_value_unavailable"] };
+    }
+    if (Math.abs(flow.signedAmount) / relevant.value >= SIGNIFICANT_ESTIMATED_FLOW_RATIO) {
+      return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["significant_flow_without_boundary_valuation"] };
+    }
   }
   const duration = end.ms - start.ms;
   if (duration <= 0) return { status: "unavailable", method: null, quality: "unavailable", returnPct: null, limitations: ["invalid_history_window"] };

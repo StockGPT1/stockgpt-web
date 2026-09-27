@@ -32,7 +32,7 @@ const position = {
 };
 const activity = {
   externalActivityId: "wave2-activity-1", fingerprint: "f".repeat(64), fingerprintVersion: "sha256-v1",
-  instrumentId: null, activityType: "dividend", occurredAt: fetchedAt, quantity: null, price: null,
+  instrumentId: null, activityType: "dividend", occurredAt: fetchedAt, occurredAtPrecision: "date_only", quantity: null, price: null,
   grossAmount: 2, netAmount: 2, currency: "USD", description: "Synthetic dividend",
 };
 const candidate = {
@@ -131,7 +131,9 @@ try {
   assert.equal(newPositions[0].instrument_id, null);
   assert.equal(newBalances.length, 2);
   assert.equal(newBalances.find((row) => row.currency === "USD")?.amount, 123);
-  assert.equal((await rows("broker_activities")).length, before.activities.length + 1);
+  const promotedActivities = await rows("broker_activities");
+  assert.equal(promotedActivities.length, before.activities.length + 1);
+  assert.equal(promotedActivities.find((row) => row.fingerprint === activity.fingerprint)?.occurred_at_precision, "date_only", "Activity timing precision was lost during sync promotion");
   const promotedPositionId = newPositions[0].id;
   const promotedUsdBalanceId = newBalances.find((row) => row.currency === "USD").id;
   assert.equal((await admin.from("broker_sync_jobs").select("status").eq("id", jobId).single()).data?.status, "succeeded");

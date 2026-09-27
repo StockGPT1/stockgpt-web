@@ -6,6 +6,7 @@ export type BrokerConnectionStatus =
   | "disconnected";
 
 export type BrokerAccountStatus = "active" | "closed" | "inaccessible";
+export type BrokerActivityTimingPrecision = "exact" | "date_only" | "unknown";
 
 export type BrokerProvider = {
   id: string;
@@ -78,6 +79,7 @@ export type BrokerActivity = {
   fingerprintVersion: string;
   activityType: string;
   occurredAt: string | null;
+  occurredAtPrecision: BrokerActivityTimingPrecision;
   recordedAt: string;
   quantity: number | null;
   price: number | null;

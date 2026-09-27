@@ -242,6 +242,7 @@ export type Database = {
           instrument_id: string | null
           net_amount: number | null
           occurred_at: string | null
+          occurred_at_precision: string
           price: number | null
           quantity: number | null
           recorded_at: string
@@ -260,6 +261,7 @@ export type Database = {
           instrument_id?: string | null
           net_amount?: number | null
           occurred_at?: string | null
+          occurred_at_precision?: string
           price?: number | null
           quantity?: number | null
           recorded_at?: string
@@ -278,6 +280,7 @@ export type Database = {
           instrument_id?: string | null
           net_amount?: number | null
           occurred_at?: string | null
+          occurred_at_precision?: string
           price?: number | null
           quantity?: number | null
           recorded_at?: string

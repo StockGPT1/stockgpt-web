@@ -11,68 +11,118 @@ export type AllInvestmentsPortfolio = {
   source: "manual" | "connected";
 };
 
+export type AllInvestmentsSourceFacts = AllInvestmentsPortfolio & {
+  availability: "ready" | "unavailable";
+  valueUsd: number | null;
+  cashUsd: number | null;
+  holdingCount: number | null;
+  holdings: HoldingIntelligenceInput[];
+  limitations: string[];
+};
+
+export function buildAllInvestmentsFromSources(
+  sourceFacts: AllInvestmentsSourceFacts[],
+  asOf: string,
+) {
+  const limitations = new Set<string>(["canonical_event_severity_source_unmapped"]);
+  const holdings: HoldingIntelligenceInput[] = [];
+  let cashValue = 0;
+  let allCashKnown = true;
+  let allValuesKnown = true;
+
+  for (const source of sourceFacts) {
+    source.limitations.forEach((limitation) => limitations.add(limitation));
+    if (source.availability === "unavailable") {
+      limitations.add(`all_investments_source_unavailable:${source.id}`);
+    }
+    if (source.cashUsd == null) allCashKnown = false;
+    else cashValue += source.cashUsd;
+    if (source.valueUsd == null) allValuesKnown = false;
+    source.holdings.forEach((holding) => holdings.push({
+      ...holding,
+      instrumentKey: `${source.id}:${holding.instrumentKey}`,
+    }));
+  }
+
+  const aggregateComplete = allCashKnown && allValuesKnown;
+  const input = {
+    asOf,
+    portfolio: { id: "all-investments", riskTolerance: null, objective: null, timeHorizon: null, cashValue: allCashKnown ? cashValue : 0 },
+    holdings: aggregateComplete ? holdings : holdings.map((holding) => ({ ...holding, currentValue: null })),
+  };
+  const assessment = assessPortfolioIntelligence(input);
+  const totalValueUsd = allValuesKnown
+    ? sourceFacts.reduce((sum, source) => sum + source.valueUsd!, 0)
+    : null;
+  if (!allCashKnown) limitations.add("all_investments_cash_incomplete");
+  if (!allValuesKnown) limitations.add("all_investments_valuation_incomplete");
+  return {
+    input,
+    assessment,
+    intelligence: buildPortfolioIntelligenceView({ result: assessment, adapterLimitations: [...limitations] }),
+    sources: sourceFacts.map((source) => ({
+      id: source.id,
+      name: source.name,
+      source: source.source,
+      availability: source.availability,
+      valueUsd: source.valueUsd,
+      cashUsd: source.cashUsd,
+      holdingCount: source.holdingCount,
+    })),
+    totalValueUsd,
+    cashValueUsd: allCashKnown ? cashValue : null,
+    adapterLimitations: [...limitations],
+  };
+}
+
 export async function loadAllInvestments(
   supabase: SupabaseClient<Database>,
   userId: string,
   portfolios: AllInvestmentsPortfolio[],
   asOf: string,
 ) {
-  const sources = [] as Array<{
-    id: string;
-    name: string;
-    source: "manual" | "connected";
-    valueUsd: number | null;
-    cashUsd: number | null;
-    holdingCount: number;
-  }>;
-  const holdings: HoldingIntelligenceInput[] = [];
-  const limitations = new Set<string>(["canonical_event_severity_source_unmapped"]);
-  let cashValue = 0;
-  let allCashKnown = true;
+  const sourceFacts: AllInvestmentsSourceFacts[] = [];
 
   for (const portfolio of portfolios) {
     if (portfolio.source === "connected") {
       const result = await loadConnectedPortfolioIntelligence(supabase, portfolio.id, asOf);
-      if (!result) continue;
-      result.input.holdings.forEach((holding) => holdings.push({
-        ...holding,
-        instrumentKey: `${portfolio.id}:${holding.instrumentKey}`,
-      }));
-      if (result.cashValueUsd == null) allCashKnown = false;
-      else cashValue += result.cashValueUsd;
-      result.adapterLimitations.forEach((limitation) => limitations.add(limitation));
-      sources.push({ id: portfolio.id, name: portfolio.name, source: portfolio.source, valueUsd: result.totalValueUsd, cashUsd: result.cashValueUsd, holdingCount: result.positions.length });
+      sourceFacts.push(result ? {
+        ...portfolio,
+        availability: "ready",
+        valueUsd: result.totalValueUsd,
+        cashUsd: result.cashValueUsd,
+        holdingCount: result.positions.length,
+        holdings: result.input.holdings,
+        limitations: result.adapterLimitations,
+      } : {
+        ...portfolio,
+        availability: "unavailable",
+        valueUsd: null,
+        cashUsd: null,
+        holdingCount: null,
+        holdings: [],
+        limitations: [],
+      });
     } else {
       const result = await loadCurrentPortfolioIntelligenceFromClient({ supabase, userId, portfolioId: portfolio.id, asOf });
-      if (result.status !== "ready") continue;
-      result.input.holdings.forEach((holding) => holdings.push({
-        ...holding,
-        instrumentKey: `${portfolio.id}:${holding.instrumentKey}`,
-      }));
-      cashValue += result.input.portfolio.cashValue;
-      result.adapterLimitations.forEach((limitation) => limitations.add(limitation));
-      sources.push({ id: portfolio.id, name: portfolio.name, source: portfolio.source, valueUsd: result.assessment.portfolio.valuation.totalValue, cashUsd: result.input.portfolio.cashValue, holdingCount: result.input.holdings.length });
+      sourceFacts.push(result.status === "ready" ? {
+        ...portfolio,
+        availability: "ready",
+        valueUsd: result.assessment.portfolio.valuation.totalValue,
+        cashUsd: result.input.portfolio.cashValue,
+        holdingCount: result.input.holdings.length,
+        holdings: result.input.holdings,
+        limitations: result.adapterLimitations,
+      } : {
+        ...portfolio,
+        availability: "unavailable",
+        valueUsd: null,
+        cashUsd: null,
+        holdingCount: null,
+        holdings: [],
+        limitations: result.adapterLimitations,
+      });
     }
   }
-
-  const input = {
-    asOf,
-    portfolio: { id: "all-investments", riskTolerance: null, objective: null, timeHorizon: null, cashValue: allCashKnown ? cashValue : 0 },
-    holdings: allCashKnown ? holdings : holdings.map((holding) => ({ ...holding, currentValue: null })),
-  };
-  const assessment = assessPortfolioIntelligence(input);
-  const totalValueUsd = sources.every((source) => source.valueUsd != null)
-    ? sources.reduce((sum, source) => sum + (source.valueUsd ?? 0), 0)
-    : null;
-  if (!allCashKnown) limitations.add("all_investments_cash_incomplete");
-  if (totalValueUsd == null) limitations.add("all_investments_valuation_incomplete");
-  return {
-    input,
-    assessment,
-    intelligence: buildPortfolioIntelligenceView({ result: assessment, adapterLimitations: [...limitations] }),
-    sources,
-    totalValueUsd,
-    cashValueUsd: allCashKnown ? cashValue : null,
-    adapterLimitations: [...limitations],
-  };
+  return buildAllInvestmentsFromSources(sourceFacts, asOf);
 }

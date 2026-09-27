@@ -28,6 +28,10 @@ function chartRanges(points: ChartPoint[]) {
   }, {});
 }
 
+function timingPrecision(value: string): "exact" | "date_only" | "unknown" {
+  return value === "exact" || value === "date_only" ? value : "unknown";
+}
+
 export async function loadConnectedPortfolioHistory(
   supabase: SupabaseClient<Database>,
   accountId: string,
@@ -38,7 +42,7 @@ export async function loadConnectedPortfolioHistory(
       .eq("account_id", accountId)
       .order("value_at", { ascending: true }),
     supabase.from("broker_activities")
-      .select("id,activity_type,occurred_at,gross_amount,net_amount,currency")
+      .select("id,activity_type,occurred_at,occurred_at_precision,gross_amount,net_amount,currency")
       .eq("account_id", accountId)
       .order("occurred_at", { ascending: true }),
   ]);
@@ -89,7 +93,12 @@ export async function loadConnectedPortfolioHistory(
     const amount = raw == null || !row.currency || !row.occurred_at
       ? null
       : convertHistoricalValue(Math.abs(Number(raw)), row.currency, "USD", row.occurred_at, allRates);
-    return { at: row.occurred_at, amount, direction };
+    return {
+      at: row.occurred_at,
+      amount,
+      direction,
+      timingPrecision: timingPrecision(row.occurred_at_precision),
+    };
   });
   const performance: PortfolioPerformanceResult = conversionComplete
     ? calculatePortfolioPerformance({

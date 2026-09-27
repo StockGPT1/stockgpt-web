@@ -7,6 +7,7 @@ const base = {
   externalAccountId: "account-1",
   activityType: "trade",
   occurredAt: "2026-01-10T10:00:00Z",
+  occurredAtPrecision: "exact",
   externalInstrumentId: "instrument-1",
   quantity: "2",
   price: "10.25",

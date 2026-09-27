@@ -54,6 +54,7 @@ assert.equal(normalized.positions.items[1].price, null);
 assert.equal(normalized.positions.items[1].marketValue, null);
 assert.deepEqual(normalized.balances.items.map((item) => item.currency), ["USD", "GBP"]);
 assert.equal(normalized.activities.items.length, 1);
+assert.equal(normalized.activities.items[0].occurredAtPrecision, "exact");
 assert.match(normalized.activities.items[0].fingerprint, /^[0-9a-f]{64}$/u);
 assert.deepEqual(validateBrokerSyncCandidate({ fetchedAt: asOf, providerFreshnessAt: asOf, accounts: [normalized] }), { ok: true });
 
@@ -75,6 +76,14 @@ const explicitEmpty = normalizeSnapTradeAccount({ ...source, positions: { result
 assert.equal(explicitEmpty.positions.state, "complete");
 assert.equal(explicitEmpty.positions.items.length, 0);
 assert.equal(validateBrokerSyncCandidate({ fetchedAt: asOf, providerFreshnessAt: asOf, accounts: [explicitEmpty] }).ok, true);
+
+const dateOnly = normalizeSnapTradeAccount({
+  ...source,
+  activities: [{ ...activities[0], id: "activity-date-only", trade_date: "2026-01-14" }],
+}, aliases, asOf);
+assert.equal(dateOnly.activities.items[0].occurredAt, "2026-01-14T00:00:00.000Z");
+assert.equal(dateOnly.activities.items[0].occurredAtPrecision, "date_only");
+assert.notEqual(dateOnly.activities.items[0].occurredAtPrecision, "exact", "Provider calendar date was silently upgraded to exact time");
 
 const service = readFileSync("lib/brokerage/providers/snaptrade/service.ts", "utf8");
 const client = readFileSync("lib/brokerage/providers/snaptrade/client.ts", "utf8");

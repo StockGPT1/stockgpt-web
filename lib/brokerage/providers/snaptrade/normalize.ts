@@ -23,6 +23,20 @@ const finite = (value: number | string | null | undefined) => {
 };
 const currency = (value: string | null | undefined) => value && /^[A-Z]{3}$/u.test(value.toUpperCase()) ? value.toUpperCase() : null;
 const evidence = (value: string | null | undefined) => value?.trim() || null;
+const activityTiming = (value: string | null | undefined) => {
+  const raw = value?.trim();
+  if (!raw) return { occurredAt: null, occurredAtPrecision: "unknown" as const };
+  if (/^\d{4}-\d{2}-\d{2}$/u.test(raw)) {
+    const occurredAt = iso(`${raw}T00:00:00.000Z`);
+    return occurredAt
+      ? { occurredAt, occurredAtPrecision: "date_only" as const }
+      : { occurredAt: null, occurredAtPrecision: "unknown" as const };
+  }
+  const occurredAt = iso(raw);
+  return occurredAt
+    ? { occurredAt, occurredAtPrecision: "exact" as const }
+    : { occurredAt: null, occurredAtPrecision: "unknown" as const };
+};
 
 export function snapTradeProviderUserId(stockgptUserId: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(stockgptUserId)) {
@@ -107,7 +121,7 @@ export function normalizeSnapTradeAccount(
   const activities: BrokerActivityCandidate[] = source.activities?.map((activity) => {
     const externalInstrumentId = evidence(activity.symbol?.id ?? activity.option_symbol?.id);
     const activityCurrency = currency(activity.currency?.code);
-    const occurredAt = iso(activity.trade_date);
+    const { occurredAt, occurredAtPrecision } = activityTiming(activity.trade_date);
     const quantity = finite(activity.units);
     const price = finite(activity.price);
     const amount = finite(activity.amount);
@@ -132,6 +146,7 @@ export function normalizeSnapTradeAccount(
       instrumentId: resolve(externalInstrumentId, "", aliases, occurredAt ?? fetchedAt),
       activityType,
       occurredAt,
+      occurredAtPrecision,
       quantity,
       price: price !== null && price > 0 ? price : null,
       grossAmount: amount,
