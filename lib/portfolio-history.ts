@@ -53,9 +53,25 @@ function day(value: string) {
 
 export function classifyBrokerActivityFlow(activityType: string): PortfolioExternalFlow["direction"] {
   const type = activityType.trim().toLowerCase().replace(/[\s-]+/gu, "_");
-  if (["deposit", "cash_deposit", "contribution", "transfer_in", "external_transfer_in"].includes(type)) return "inflow";
-  if (["withdrawal", "cash_withdrawal", "distribution", "transfer_out", "external_transfer_out"].includes(type)) return "outflow";
-  if (["buy", "sell", "trade", "dividend", "interest", "fee", "tax", "split"].includes(type)) return "internal";
+  if (["deposit", "cash_deposit", "contribution", "cash_contribution", "external_contribution"].includes(type)) return "inflow";
+  if (["withdrawal", "cash_withdrawal"].includes(type)) return "outflow";
+  if ([
+    "buy",
+    "sell",
+    "trade",
+    "dividend",
+    "substitute_dividend",
+    "rei",
+    "stock_dividend",
+    "interest",
+    "fee",
+    "tax",
+    "rebate",
+    "return_of_capital",
+    "distribution",
+    "split",
+    "reverse_split",
+  ].includes(type)) return "internal";
   return "unknown";
 }
 

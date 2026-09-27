@@ -26,15 +26,12 @@ const evidence = (value: string | null | undefined) => value?.trim() || null;
 const activityTiming = (value: string | null | undefined) => {
   const raw = value?.trim();
   if (!raw) return { occurredAt: null, occurredAtPrecision: "unknown" as const };
-  if (/^\d{4}-\d{2}-\d{2}$/u.test(raw)) {
-    const occurredAt = iso(`${raw}T00:00:00.000Z`);
-    return occurredAt
-      ? { occurredAt, occurredAtPrecision: "date_only" as const }
-      : { occurredAt: null, occurredAtPrecision: "unknown" as const };
-  }
-  const occurredAt = iso(raw);
+  const occurredAt = /^\d{4}-\d{2}-\d{2}$/u.test(raw)
+    ? iso(`${raw}T00:00:00.000Z`)
+    : iso(raw);
   return occurredAt
-    ? { occurredAt, occurredAtPrecision: "exact" as const }
+    // SnapTrade's timestamp shape does not establish brokerage-level intraday precision.
+    ? { occurredAt, occurredAtPrecision: "date_only" as const }
     : { occurredAt: null, occurredAtPrecision: "unknown" as const };
 };
 

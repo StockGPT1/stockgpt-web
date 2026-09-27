@@ -69,10 +69,39 @@ assert.equal(significant.status, "unavailable");
 assert(significant.limitations.includes("significant_flow_without_boundary_valuation"));
 assert.equal(calculatePortfolioPerformance({ points, flows: [{ at: null, amount: 2, direction: "inflow", timingPrecision: "unknown" }] }).status, "unavailable");
 assert.equal(calculatePortfolioPerformance({ points, flows: [{ at: "2026-01-10T12:00:00Z", amount: 2, direction: "unknown", timingPrecision: "exact" }] }).status, "unavailable");
-assert.equal(classifyBrokerActivityFlow("deposit"), "inflow");
-assert.equal(classifyBrokerActivityFlow("withdrawal"), "outflow");
-assert.equal(classifyBrokerActivityFlow("buy"), "internal");
-assert.equal(classifyBrokerActivityFlow("mystery"), "unknown");
+for (const type of ["deposit", "cash deposit", "contribution"]) assert.equal(classifyBrokerActivityFlow(type), "inflow");
+for (const type of ["withdrawal", "cash withdrawal"]) assert.equal(classifyBrokerActivityFlow(type), "outflow");
+for (const type of [
+  "buy",
+  "sell",
+  "fee",
+  "tax",
+  "distribution",
+  "dividend",
+  "substitute dividend",
+  "interest",
+  "rebate",
+  "return of capital",
+  "rei",
+  "stock dividend",
+  "split",
+  "reverse split",
+]) assert.equal(classifyBrokerActivityFlow(type), "internal", `${type} must remain an internal investment event`);
+for (const type of ["transfer", "transfer_in", "transfer_out", "external transfer in", "external transfer out", "adjustment", "mystery"]) {
+  assert.equal(classifyBrokerActivityFlow(type), "unknown", `${type} lacks sufficient external-flow evidence`);
+}
+
+const distributionPerformance = calculatePortfolioPerformance({
+  points,
+  flows: [{
+    at: "2026-01-10T00:00:00Z",
+    amount: 50,
+    direction: classifyBrokerActivityFlow("distribution"),
+    timingPrecision: "date_only",
+  }],
+});
+assert.equal(distributionPerformance.method, "time_weighted");
+assert.equal(Math.round(distributionPerformance.returnPct ?? 0), 10, "Distribution income must not be neutralized as an external withdrawal");
 
 const rates = [{ baseCurrency: "GBP", quoteCurrency: "USD", effectiveDate: "2026-01-01", rate: 1.25 }];
 assert.equal(convertHistoricalValue(80, "GBP", "USD", "2026-01-01T12:00:00Z", rates), 100);
