@@ -18,6 +18,7 @@ import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelector";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
 
 export type DashboardRanking = {
   id: string | number;
@@ -40,7 +41,7 @@ type Props = {
   sentiment: string;
   portfolioSummary: PortfolioHealthSummary | null;
   portfolioIntelligence: PortfolioIntelligenceView | null;
-  connectedPortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
+  connectedPortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
   portfolioChart: Partial<Record<TimeRange, ChartPoint[]>>;
   portfolioChartMeta: PortfolioChartMeta | null;
   portfolioId: string | null;
@@ -303,11 +304,11 @@ function PortfolioDashboardWidget({
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
 }) {
   if (connected && intelligence) {
     const portfolioHref = portfolioId ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}` : "/portfolio";
-    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(connected.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href={portfolioHref} className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open Portfolio →</Link></section>;
+    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-[#faf6f0]/55">Connection · {connected.connectionPresentation.label}</p><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(connected.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href={portfolioHref} className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open Portfolio →</Link></section>;
   }
   if (!summary) {
     return (
@@ -402,7 +403,7 @@ function DashboardBriefing({
   topRanked?: DashboardRanking;
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
 }) {
   const reviewCount = intelligence
     ? intelligence.countsByStatus.review + intelligence.countsByStatus.urgent_review

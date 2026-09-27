@@ -27,6 +27,7 @@ import {
 import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-basis";
 import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
+import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -128,7 +129,7 @@ export type DashboardMainPortfolioResult = {
   intelligence: PortfolioIntelligenceView | null;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -401,7 +402,7 @@ export async function getDashboardMainPortfolio(
       intelligence: connected.intelligence,
       valuationState: connected.totalValueUsd == null ? "unavailable" : "exact",
       missingPriceTickers: connected.positions.filter((position) => position.currentValueUsd == null).map((position) => cleanTicker(position.ticker)).filter(Boolean),
-      connected: { name: cleanPortfolioName(selectedPortfolio.name), totalValueUsd: connected.totalValueUsd, cashValueUsd: connected.cashValueUsd, holdingCount: connected.positions.length },
+      connected: { name: cleanPortfolioName(selectedPortfolio.name), totalValueUsd: connected.totalValueUsd, cashValueUsd: connected.cashValueUsd, holdingCount: connected.positions.length, connectionPresentation: connected.connectionPresentation },
     };
   }
   const portfolioIds = [selectedPortfolio.id];

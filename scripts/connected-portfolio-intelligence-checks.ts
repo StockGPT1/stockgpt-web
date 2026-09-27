@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { Database } from "../lib/database.types";
 import { assessConnectedPortfolioFacts, type ConnectedPortfolioFacts } from "../lib/connected-portfolio-intelligence-map";
+import { deriveBrokerConnectionPresentation } from "../lib/brokerage/connection-presentation-state";
 
 const asOf = "2026-01-15T12:00:00Z";
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -62,6 +63,13 @@ assert.equal(multiCurrency.totalValueUsd, 350);
 
 const disconnected = assessConnectedPortfolioFacts(facts({ connection: { id: "connection-1", status: "disconnected", last_successful_sync_at: asOf } }), asOf);
 assert.equal(disconnected.totalValueUsd, complete.totalValueUsd, "Disconnected state discarded last-good normalized facts");
+
+const failedLastGood = assessConnectedPortfolioFacts(facts(), asOf);
+const retryableFailure = deriveBrokerConnectionPresentation({ lifecycleStatus: "active", latestSyncJobStatus: "retryable_failure", lastSuccessfulSyncAt: asOf });
+assert.equal(retryableFailure.state, "stale_error");
+assert.equal(failedLastGood.totalValueUsd, 250, "Sync failure presentation must not erase last-good positions or cash");
+assert.equal(failedLastGood.positions[0].currentValueUsd, 200, "Sync failure presentation must preserve last-good position value");
+assert.equal(failedLastGood.cashValueUsd, 50, "Sync failure presentation must preserve last-good cash");
 
 const pending = assessConnectedPortfolioFacts(facts({ account: { id: "account-1", name: "Broker account", status: "active", base_currency: "USD", last_successful_sync_at: null, connection_id: "connection-1" }, cashBalances: [] }), asOf);
 assert.equal(pending.cashValueUsd, null);

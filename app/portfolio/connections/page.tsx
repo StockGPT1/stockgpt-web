@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { brokerConnectionsEnabled } from "@/lib/brokerage/capability";
+import { deriveBrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
+import type { Database } from "@/lib/database.types";
 
 export default async function BrokerConnectionsPage() {
   const supabase = await createClient();
@@ -15,7 +17,7 @@ export default async function BrokerConnectionsPage() {
     supabase.from("broker_sync_jobs").select("connection_id,status,error_code").order("created_at", { ascending: false }),
   ]);
   const portfolioByAccount = new Map((portfolios.data ?? []).map((row) => [row.broker_account_id, row.id]));
-  const latestJob = new Map<string, { status: string; error_code: string | null }>();
+  const latestJob = new Map<string, Pick<Database["public"]["Tables"]["broker_sync_jobs"]["Row"], "status" | "error_code">>();
   for (const job of jobs.data ?? []) if (!latestJob.has(job.connection_id)) latestJob.set(job.connection_id, job);
 
   return <main className="mx-auto min-h-screen max-w-4xl px-5 py-10 text-white">
@@ -32,9 +34,13 @@ export default async function BrokerConnectionsPage() {
       <div className="space-y-4">
         {(connections.data ?? []).map((connection) => {
           const job = latestJob.get(connection.id);
-          const state = connection.status === "active" ? "Connected" : connection.status === "disconnected" ? "Disconnected" : job?.status === "running" ? "Syncing" : job?.status === "terminal_failure" || job?.status === "retryable_failure" ? "Stale / error" : "Awaiting discovery";
+          const presentation = deriveBrokerConnectionPresentation({
+            lifecycleStatus: connection.status,
+            latestSyncJobStatus: job?.status ?? null,
+            lastSuccessfulSyncAt: connection.last_successful_sync_at,
+          });
           return <section key={connection.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-medium">{connection.brokerage_institutions.name}</h2><p className="text-sm text-white/55">{state}</p></div>{connection.status === "disconnected" && <form action="/api/broker/connections/start" method="post"><input type="hidden" name="connectionId" value={connection.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Reconnect</button></form>}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-medium">{connection.brokerage_institutions.name}</h2><p className="text-sm text-white/55">{presentation.label}</p></div>{connection.status === "disconnected" && <form action="/api/broker/connections/start" method="post"><input type="hidden" name="connectionId" value={connection.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Reconnect</button></form>}</div>
             <div className="mt-4 space-y-3">{(accounts.data ?? []).filter((account) => account.connection_id === connection.id).map((account) => {
               const portfolioId = portfolioByAccount.get(account.id);
               return <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/20 p-4"><div><p className="font-medium">{account.name}</p><p className="text-xs text-white/50">{account.account_type ?? "Investment account"} · {account.base_currency ?? "Currency unavailable"} · {account.last_successful_sync_at ? "Synced" : "Sync pending"}</p></div>{portfolioId ? <Link className="text-sm text-white/75" href={`/portfolio/modern?portfolio=${portfolioId}`}>View Portfolio</Link> : account.last_successful_sync_at ? <form action="/api/broker/portfolios" method="post"><input type="hidden" name="accountId" value={account.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Add to StockGPT</button></form> : <span className="text-xs text-white/45">Waiting for initial sync</span>}</div>;

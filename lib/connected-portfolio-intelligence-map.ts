@@ -55,7 +55,6 @@ export function assessConnectedPortfolioFacts(facts: ConnectedPortfolioFacts, as
   const assessment = assessPortfolioIntelligence(input);
   return {
     input, assessment, intelligence: buildPortfolioIntelligenceView({ result: assessment, adapterLimitations: limitations }), adapterLimitations: limitations,
-    connectionStatus: facts.connection.status,
     positions: mapped.map(({ position, quantity, providerPrice, currentValue, ranking }) => ({ id: position.id, instrumentId: position.instrument_id, ticker: ranking?.ticker ?? position.symbol, description: position.description, quantity, currentPriceUsd: providerPrice, currentValueUsd: currentValue, sourceCurrency: position.market_value_currency ?? position.price_currency, asOf: position.as_of })),
     cashValueUsd: cashComplete ? cashValues.reduce((sum, value) => sum + (value ?? 0), 0) : null,
     totalValueUsd: valuationComplete ? mapped.reduce((sum, row) => sum + (row.currentValue ?? 0), 0) + cashValues.reduce((sum, value) => sum + (value ?? 0), 0) : null,

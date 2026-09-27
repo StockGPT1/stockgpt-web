@@ -253,11 +253,7 @@ export default async function ModernPortfolioPage({
           positions={connected.positions}
           cashValueUsd={connected.cashValueUsd}
           totalValueUsd={connected.totalValueUsd}
-          connectionState={connected.adapterLimitations.includes("connected_analysis_sync_pending")
-            ? "syncing"
-            : connected.connectionStatus === "active"
-              ? "connected"
-              : connected.connectionStatus}
+          connectionPresentation={connected.connectionPresentation}
         />
       </AppShell>
     );

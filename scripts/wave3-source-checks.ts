@@ -10,8 +10,12 @@ const service = read("lib/brokerage/providers/snaptrade/service.ts");
 const discovery = read("lib/brokerage/connection-service.ts");
 const connected = read("lib/connected-portfolio-intelligence.ts");
 const connectedMap = read("lib/connected-portfolio-intelligence-map.ts");
+const connectionPresentation = read("lib/brokerage/connection-presentation-state.ts");
 const portfolio = read("app/portfolio/modern/page.tsx");
 const dashboard = read("lib/dashboard-portfolio.ts");
+const desktopDashboard = read("components/DesktopDashboardExperience.tsx");
+const mobileDashboard = read("components/MobileDashboardExperience.tsx");
+const connectedWorkspace = read("components/ConnectedPortfolioWorkspace.tsx");
 const ask = read("app/api/ask-stockgpt/route.ts");
 const notifications = read("lib/notifications.ts");
 
@@ -29,19 +33,30 @@ assert.match(discovery, /brokerage_institution_aliases/u);
 assert(!/brokerage\?\.(?:name|display_name).*eq\(/u.test(discovery), "Institution is matched by name");
 assert.match(page, /broker_connections/u);
 assert(!/SnapTrade|listBrokerageAuthorizations|createReadOnlySnapTradePortalLink/u.test(page), "Onboarding render calls provider");
+assert.match(page, /deriveBrokerConnectionPresentation/u);
+assert(!/connection\.status === "active" \? "Connected"/u.test(page), "Onboarding bypasses shared sync-health precedence");
 assert.match(connected, /broker_positions/u);
 assert.match(connected, /broker_cash_balances/u);
+assert.match(connected, /broker_sync_jobs/u);
+assert.match(connected, /deriveBrokerConnectionPresentation/u);
 assert(!/portfolio_holdings|portfolio_transactions/u.test(connected), "Connected adapter reads manual financial truth");
+assert.match(connectionPresentation, /retryable_failure[\s\S]*terminal_failure/u);
+assert.match(connectionPresentation, /lifecycleStatus === "disconnected"[\s\S]*lifecycleStatus === "revoked"/u);
 assert.match(connectedMap, /currentValue: valuationComplete \? currentValue : null/u);
 assert.match(connectedMap, /cashValueUsd: cashComplete[^\n]+: null/u);
 assert.match(portfolio, /management_source === "connected"/u);
 assert.match(dashboard, /management_source === "connected"/u);
+assert.match(desktopDashboard, /connectionPresentation\.label/u);
+assert.match(mobileDashboard, /connectionPresentation\.label/u);
 assert.match(ask, /management_source === "connected"/u);
 assert.match(notifications, /management_source === "connected"/u);
 for (const source of [portfolio, dashboard, ask, notifications]) {
   assert(!/SnapTrade|listBrokerageAuthorizations|fetchSnapTrade/u.test(source), "Ordinary canonical read imports provider API");
 }
-assert(!/buy|sell|trim|add.more|reinvest/iu.test(read("components/ConnectedPortfolioWorkspace.tsx")), "Connected Portfolio presents transaction direction");
+for (const source of [page, connected, connectedWorkspace, desktopDashboard, mobileDashboard]) {
+  assert(!/SnapTrade|listBrokerageAuthorizations|fetchSnapTrade/u.test(source), "Connection-health rendering imports provider API");
+}
+assert(!/buy|sell|trim|add.more|reinvest/iu.test(connectedWorkspace), "Connected Portfolio presents transaction direction");
 assert.match(read("lib/portfolio-performance-availability.ts"), /connected_source_history_unavailable/u);
 assert.match(read("lib/brokerage/capability.ts"), /=== "true"/u);
 assert.match(start, /hasActiveSubscription/u);

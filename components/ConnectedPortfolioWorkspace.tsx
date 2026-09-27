@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import { CONNECTED_PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE } from "@/lib/portfolio-performance-availability";
+import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
 
 type Position = {
   id: string;
@@ -18,17 +19,8 @@ function money(value: number | null) {
   return value == null ? "Unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 }
 
-const connectionStateLabel = {
-  syncing: "Initial sync in progress",
-  connected: "Connected and showing last successfully normalized broker facts",
-  pending: "Connection discovery is pending; showing the latest available normalized facts",
-  error: "Connection needs attention; showing last-good normalized broker facts",
-  revoked: "Connection access was revoked; showing last-good normalized broker facts",
-  disconnected: "Connection is disconnected; showing last-good normalized broker facts",
-} as const;
-
 export function ConnectedPortfolioWorkspace({
-  portfolio, portfolios, intelligence, positions, cashValueUsd, totalValueUsd, connectionState,
+  portfolio, portfolios, intelligence, positions, cashValueUsd, totalValueUsd, connectionPresentation,
 }: {
   portfolio: { id: string; name: string };
   portfolios: { id: string; name: string; source: "manual" | "connected" }[];
@@ -36,12 +28,12 @@ export function ConnectedPortfolioWorkspace({
   positions: Position[];
   cashValueUsd: number | null;
   totalValueUsd: number | null;
-  connectionState: keyof typeof connectionStateLabel;
+  connectionPresentation: BrokerConnectionPresentation;
 }) {
   return <main className="h-full overflow-y-auto px-5 py-8 text-white lg:px-10">
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="text-xs uppercase tracking-[0.18em] text-white/45">Connected Portfolio · read only</p><h1 className="mt-2 text-3xl font-semibold">{portfolio.name}</h1><p className="mt-2 text-sm text-white/55">{connectionStateLabel[connectionState]}</p></div>
+        <div><p className="text-xs uppercase tracking-[0.18em] text-white/45">Connected Portfolio · read only</p><h1 className="mt-2 text-3xl font-semibold">{portfolio.name}</h1><p className="mt-2 text-sm text-white/65">Connection · {connectionPresentation.label}</p><p className="mt-1 text-sm text-white/50">{connectionPresentation.detail}</p></div>
         <div className="flex flex-wrap gap-3"><Link href="/portfolio/connections" className="rounded-full border border-white/15 px-4 py-2 text-sm">Manage connection</Link>{portfolios.filter((item) => item.id !== portfolio.id).slice(0, 2).map((item) => <Link key={item.id} href={`/portfolio/modern?portfolio=${item.id}`} className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60">{item.name}</Link>)}</div>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-3">

@@ -22,6 +22,7 @@ import {
   PORTFOLIO_PERFORMANCE_UNAVAILABLE_TITLE,
 } from "@/lib/portfolio-performance-availability";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
 import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
 
 export type MobileDashboardRanking = {
@@ -64,7 +65,7 @@ type Props = {
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
   intelligence: PortfolioIntelligenceView | null;
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
   rankings: MobileDashboardRanking[];
   rankingsLocked: boolean;
   marketChart: Partial<Record<TimeRange, ChartPoint[]>>;
@@ -385,7 +386,7 @@ export function MobileDashboardExperience({
             >
               <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
               {connected && intelligence ? (
-                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-6 text-3xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : money(connected.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open Portfolio →</Link></div>
+                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-white/55">Connection · {connected.connectionPresentation.label}</p><p className="mt-6 text-3xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : money(connected.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open Portfolio →</Link></div>
               ) : summary ? (
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">
