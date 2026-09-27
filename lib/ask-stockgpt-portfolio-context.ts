@@ -13,6 +13,7 @@ import {
 } from "@/lib/portfolio-intelligence-presentation";
 import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 import type { assessConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence";
+import type { loadAllInvestments } from "@/lib/all-investments";
 
 export type AskPortfolioMeta = {
   id: string;
@@ -31,6 +32,23 @@ export type AskHoldingMetadata = {
   company: string | null;
   sector: string | null;
 };
+
+export function buildAskAllInvestmentsContext(
+  aggregate: Awaited<ReturnType<typeof loadAllInvestments>>,
+) {
+  const assessmentByKey = holdingAssessmentByKey(aggregate.assessment.portfolio.holdingAssessments);
+  return {
+    meta: { id: "all-investments", name: "All Investments", risk_tolerance: null, objective: null, time_horizon: null, currency: "USD", investment_amount: null, cash_deposited_total: null, created_at: null },
+    factual_summary: { holdings_count: aggregate.input.holdings.length, valuation_state: aggregate.assessment.portfolio.valuation.state, holdings_value: aggregate.assessment.portfolio.valuation.holdingsValue, cash_balance: aggregate.cashValueUsd, total_value: aggregate.totalValueUsd, total_cost_basis: null, unrealised_pnl_dollars: null, unrealised_pnl_percent: null },
+    canonical_assessment: { version: aggregate.assessment.version, as_of: aggregate.assessment.asOf, availability: aggregate.intelligence.availability, status: aggregate.intelligence.status, status_label: aggregate.intelligence.statusLabel, summary: aggregate.intelligence.summary, counts_by_status: aggregate.intelligence.countsByStatus, attention_order: aggregate.intelligence.attentionOrder, reasons: aggregate.intelligence.reasons },
+    holdings: aggregate.input.holdings.map((holding) => {
+      const assessment = assessmentByKey.get(holding.instrumentKey);
+      return { instrument_key: holding.instrumentKey, ticker: holding.ticker, company: null, sector: null, shares: holding.shares, current_price: holding.market.currentPrice, entry_price: null, current_value: holding.currentValue, cost_basis: null, unrealised_pnl_percent: null, current_allocation_pct_of_total_portfolio: assessment?.allocation.pctOfTotalPortfolio ?? null, current_allocation_pct_of_invested_assets: assessment?.allocation.pctOfInvestedAssets ?? null, current_rank: holding.ranking?.currentRank ?? null, current_score: holding.ranking?.currentScore ?? null, rank_at_entry: holding.ranking?.rankAtEntry ?? null, score_at_entry: holding.ranking?.scoreAtEntry ?? null, ranking_as_of: holding.ranking?.asOf ?? null, price_as_of: holding.market.priceAsOf, diagnostics_as_of: holding.diagnostics?.asOf ?? null, coverage: holding.coverage, provenance: holding.provenance, saved_risk_reference: null, saved_target_reference: null, canonical_assessment: { status: assessment?.status ?? null, status_label: assessment?.status ?? "Analysis limited", attention_rank: assessment?.attentionRank ?? null, reasons: assessment?.reasons ?? [] } };
+    }),
+    source_portfolios: aggregate.sources.map((source) => ({ id: source.id, name: source.name, source: source.source, value_usd: source.valueUsd })),
+    limitations: aggregate.adapterLimitations,
+  };
+}
 
 type CompactReasonEvidence = {
   metric: string;

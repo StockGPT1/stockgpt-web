@@ -31,6 +31,9 @@ import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-bas
 import { comparePortfolioTransactionActivityDesc } from "@/lib/portfolio-transaction-chronology";
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 import { ConnectedPortfolioWorkspace } from "@/components/ConnectedPortfolioWorkspace";
+import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
+import { loadAllInvestments } from "@/lib/all-investments";
+import { AllInvestmentsWorkspace } from "@/components/AllInvestmentsWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -222,10 +225,28 @@ export default async function ModernPortfolioPage({
     );
   }
 
-  const selectedPortfolioId =
-    params.portfolio && portfolios.some((portfolio) => portfolio.id === params.portfolio)
-      ? params.portfolio
-      : portfolios[0].id;
+  const selectedContext = await resolveOwnedPortfolioContext(
+    supabase,
+    user.id,
+    params.portfolio,
+    portfolios.map((portfolio) => ({
+      id: portfolio.id,
+      name: portfolio.name,
+      source: portfolio.management_source,
+      createdAt: portfolio.created_at,
+    })),
+  );
+  if (!selectedContext) throw new Error("Portfolio context could not be resolved.");
+  if (selectedContext.kind === "all_investments") {
+    const allInvestments = await loadAllInvestments(
+      supabase,
+      user.id,
+      portfolios.map((portfolio) => ({ id: portfolio.id, name: portfolio.name, source: portfolio.management_source })),
+      intelligenceAsOf,
+    );
+    return <AppShell activePath="/portfolio" askLabel="Ask about all investments" askContext={{ contextType: "portfolio", portfolioId: "all-investments" }}><AllInvestmentsWorkspace intelligence={allInvestments.intelligence} totalValueUsd={allInvestments.totalValueUsd} cashValueUsd={allInvestments.cashValueUsd} sources={allInvestments.sources} /></AppShell>;
+  }
+  const selectedPortfolioId = selectedContext.portfolioId;
   const activePortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ?? portfolios[0];
 
@@ -254,6 +275,7 @@ export default async function ModernPortfolioPage({
           cashValueUsd={connected.cashValueUsd}
           totalValueUsd={connected.totalValueUsd}
           connectionPresentation={connected.connectionPresentation}
+          history={connected.history}
         />
       </AppShell>
     );
@@ -514,11 +536,11 @@ export default async function ModernPortfolioPage({
     >
       <PortfolioModernWorkspace
         portfolioId={selectedPortfolioId}
-        portfolios={portfolios.map((portfolio) => ({
+        portfolios={[{ id: "all-investments", name: "All Investments", createdAt: null }, ...portfolios.map((portfolio) => ({
           id: portfolio.id,
           name: portfolio.name ?? "Portfolio",
           createdAt: portfolio.created_at,
-        }))}
+        }))]}
         portfolioMeta={{
           name: activePortfolio.name ?? "Portfolio",
           objective: activePortfolio.objective,

@@ -121,6 +121,53 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_account_value_history: {
+        Row: {
+          account_id: string
+          cash_value: number
+          currency: string
+          id: string
+          quality: string
+          recorded_at: string
+          source: string
+          total_value: number
+          user_id: string
+          value_at: string
+        }
+        Insert: {
+          account_id: string
+          cash_value: number
+          currency: string
+          id?: string
+          quality: string
+          recorded_at?: string
+          source: string
+          total_value: number
+          user_id: string
+          value_at: string
+        }
+        Update: {
+          account_id?: string
+          cash_value?: number
+          currency?: string
+          id?: string
+          quality?: string
+          recorded_at?: string
+          source?: string
+          total_value?: number
+          user_id?: string
+          value_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_account_value_history_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "broker_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       broker_accounts: {
         Row: {
           account_type: string | null
@@ -599,6 +646,39 @@ export type Database = {
         }
         Relationships: []
       }
+      historical_fx_rates: {
+        Row: {
+          base_currency: string
+          effective_date: string
+          id: string
+          quality: string
+          quote_currency: string
+          rate: number
+          recorded_at: string
+          source: string
+        }
+        Insert: {
+          base_currency: string
+          effective_date: string
+          id?: string
+          quality: string
+          quote_currency: string
+          rate: number
+          recorded_at?: string
+          source: string
+        }
+        Update: {
+          base_currency?: string
+          effective_date?: string
+          id?: string
+          quality?: string
+          quote_currency?: string
+          rate?: number
+          recorded_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       instrument_aliases: {
         Row: {
           created_at: string
@@ -803,6 +883,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      portfolio_context_preferences: {
+        Row: {
+          context_kind: string
+          portfolio_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          context_kind: string
+          portfolio_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          context_kind?: string
+          portfolio_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_context_preferences_owned_portfolio_fkey"
+            columns: ["portfolio_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "user_portfolios"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       portfolio_holdings: {
         Row: {
@@ -1702,6 +1811,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      clear_default_portfolio_context: { Args: never; Returns: undefined }
       correct_portfolio_holding: {
         Args: {
           p_entry_price: number
@@ -1893,6 +2003,13 @@ export type Database = {
           shares: number
           ticker: string
           transaction_id: string
+        }[]
+      }
+      set_default_portfolio_context: {
+        Args: { p_context_kind: string; p_portfolio_id?: string }
+        Returns: {
+          context_kind: string
+          portfolio_id: string
         }[]
       }
       show_limit: { Args: never; Returns: number }

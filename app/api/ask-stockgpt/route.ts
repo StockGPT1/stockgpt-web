@@ -9,12 +9,15 @@ import {
 } from "@/lib/current-portfolio-intelligence";
 import {
   ASK_STOCKGPT_SYSTEM_PROMPT,
+  buildAskAllInvestmentsContext,
   buildAskConnectedPortfolioContext,
   buildAskStockGPTPortfolioContext,
 } from "@/lib/ask-stockgpt-portfolio-context";
 import { checkRateLimit, rateKey } from "@/lib/security/rate-limit";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
+import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
+import { loadAllInvestments } from "@/lib/all-investments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -404,10 +407,18 @@ async function buildAppContext(
      their first portfolio). Only that portfolio is loaded in full; the
      rest are listed by name so the model can point the user at the
      picker instead of guessing about unloaded holdings. */
-  const focusedPortfolio =
-    (requestedContext?.portfolioId
-      ? portfolios.find((portfolio) => portfolio.id === requestedContext.portfolioId)
-      : null) ?? portfolios[0] ?? null;
+  const resolvedContext = await resolveOwnedPortfolioContext(
+    supabase,
+    userId,
+    requestedContext?.portfolioId,
+    portfolios.map((portfolio, index) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name, index), source: portfolio.management_source, createdAt: portfolio.created_at ?? "" })),
+  );
+  const focusedPortfolio = resolvedContext?.kind === "portfolio"
+    ? portfolios.find((portfolio) => portfolio.id === resolvedContext.portfolioId) ?? null
+    : null;
+  const allInvestments = resolvedContext?.kind === "all_investments"
+    ? await loadAllInvestments(supabase, userId, portfolios.map((portfolio, index) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name, index), source: portfolio.management_source })), asOf)
+    : null;
 
   const connectedPortfolio = focusedPortfolio?.management_source === "connected"
     ? await loadConnectedPortfolioIntelligence(supabase, focusedPortfolio.id, asOf)
@@ -479,7 +490,9 @@ async function buildAppContext(
   const heldRankings = (heldRankingsResult.data ?? []) as Array<
     CurrentRankingFact & { company: string | null; sector: string | null }
   >;
-  const focusedContext = focusedPortfolio
+  const focusedContext = allInvestments
+    ? buildAskAllInvestmentsContext(allInvestments)
+    : focusedPortfolio
     ? connectedPortfolio
       ? buildAskConnectedPortfolioContext({
           connected: connectedPortfolio,

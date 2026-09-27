@@ -7,11 +7,11 @@ do $fixture_assertions$
 declare
   expected_tables text[] := array[
     'affiliate_applications', 'alpha_waitlist', 'ask_stockgpt_messages',
-    'broker_accounts', 'broker_activities', 'broker_cash_balances',
+    'broker_account_value_history', 'broker_accounts', 'broker_activities', 'broker_cash_balances',
     'broker_connections', 'broker_positions', 'broker_providers', 'broker_sync_jobs',
-    'brokerage_institution_aliases', 'brokerage_institutions', 'executive_waitlist', 'instrument_aliases',
-    'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
-    'notification_dismissals', 'portfolio_holdings',
+    'brokerage_institution_aliases', 'brokerage_institutions', 'executive_waitlist', 'historical_fx_rates',
+    'instrument_aliases', 'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
+    'notification_dismissals', 'portfolio_context_preferences', 'portfolio_holdings',
     'portfolio_page_snapshots', 'portfolio_snapshots',
     'portfolio_transactions', 'premium_waitlist', 'pro_waitlist', 'profiles',
     'security_audit_events', 'security_rate_limits', 'stock_chart_cache',
@@ -29,11 +29,11 @@ begin
   where n.nspname = 'public' and c.relkind = 'r';
 
   if actual_tables <> expected_tables then
-    raise exception 'Canonical public table set does not match the expected 38 tables';
+    raise exception 'Canonical public table set does not match the expected 41 tables';
   end if;
 
-  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 38 then
-    raise exception 'Expected RLS on all 38 public tables';
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 41 then
+    raise exception 'Expected RLS on all 41 public tables';
   end if;
 
   if to_regclass('public.watchlist') is null or to_regclass('public.user_watchlist') is not null then

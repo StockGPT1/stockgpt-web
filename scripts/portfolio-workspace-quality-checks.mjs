@@ -82,7 +82,7 @@ assert.match(orchestrator, /params\.set\("section", next\.section\)/);
 assert.match(orchestrator, /params\.set\("portfolio", next\.portfolio\)/);
 assert.match(orchestrator, /sectionAnchorRef\.current\?\.scrollIntoView/);
 assert.match(modernPage, /params\.section === "holdings" \|\| params\.section === "activity"/);
-assert.match(modernPage, /portfolios\.some\(\(portfolio\) => portfolio\.id === params\.portfolio\)/);
+assert.match(modernPage, /resolveOwnedPortfolioContext\([\s\S]{0,160}params\.portfolio/);
 
 assert.match(modernPage, /buildPortfolioHealthSummary/);
 assert.match(modernPage, /buildPortfolioPageChartResult/);

@@ -156,6 +156,11 @@ export default async function DashboardPage({
   const marketValue = getLatestPriceFromChart(sp500Data);
   const marketChangePct = getChartChangePct(sp500Data, "1D");
   const portfolioId = dashboardPortfolio?.portfolioId ?? null;
+  const dashboardPortfolios = dashboardPortfolio?.portfolios?.some((portfolio) => portfolio.id === "all-investments")
+    ? dashboardPortfolio.portfolios
+    : dashboardPortfolio?.portfolios?.length
+      ? [{ id: "all-investments", name: "All Investments" }, ...dashboardPortfolio.portfolios]
+      : [];
   const valuationState = dashboardPortfolio?.valuationState ?? "empty";
   const missingPriceTickers = dashboardPortfolio?.missingPriceTickers ?? [];
   const portfolioChartMeta = dashboardPortfolio?.chartMeta ?? null;
@@ -215,7 +220,7 @@ export default async function DashboardPage({
           isAuthenticated
           canUsePremium={hasSubscription}
           portfolioId={portfolioId}
-          portfolios={dashboardPortfolio?.portfolios ?? []}
+          portfolios={dashboardPortfolios}
           summary={portfolioSummary}
           portfolioChart={portfolioChart}
           portfolioChartState={{
@@ -228,6 +233,7 @@ export default async function DashboardPage({
           missingPriceTickers={missingPriceTickers}
           intelligence={portfolioIntelligence}
           connected={dashboardPortfolio?.connected ?? null}
+          aggregate={dashboardPortfolio?.aggregate ?? null}
           rankings={rankings}
           rankingsLocked={rankingsLocked}
           marketChart={sp500Data}
@@ -249,10 +255,11 @@ export default async function DashboardPage({
           portfolioSummary={portfolioSummary}
           portfolioIntelligence={portfolioIntelligence}
           connectedPortfolio={dashboardPortfolio?.connected ?? null}
+          aggregatePortfolio={dashboardPortfolio?.aggregate ?? null}
           portfolioChart={portfolioChart}
           portfolioChartMeta={portfolioChartMeta}
           portfolioId={portfolioId}
-          portfolios={dashboardPortfolio?.portfolios ?? []}
+          portfolios={dashboardPortfolios}
           canUsePremium={hasSubscription}
           valuationState={valuationState}
           missingPriceTickers={missingPriceTickers}

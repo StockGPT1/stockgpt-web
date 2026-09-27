@@ -28,6 +28,9 @@ import { classifyPortfolioAccountingBasis } from "@/lib/portfolio-accounting-bas
 import { readPortfolioLedger } from "@/lib/portfolio-ledger-reader";
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
+import type { PortfolioPerformanceResult } from "@/lib/portfolio-history";
+import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
+import { loadAllInvestments } from "@/lib/all-investments";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -129,7 +132,8 @@ export type DashboardMainPortfolioResult = {
   intelligence: PortfolioIntelligenceView | null;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation; performance: PortfolioPerformanceResult; historyPointCount: number } | null;
+  aggregate: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -384,11 +388,21 @@ export async function getDashboardMainPortfolio(
   }));
 
   if (portfolios.length === 0) {
-    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null };
+    return { portfolioId: null, portfolios: [], summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null, aggregate: null };
   }
 
-  const selectedPortfolio =
-    portfolios.find((portfolio) => portfolio.id === requestedPortfolioId) ?? portfolios[0];
+  const context = await resolveOwnedPortfolioContext(supabase, userId, requestedPortfolioId, portfolios.map((portfolio) => ({ id: portfolio.id, name: portfolio.name, source: portfolio.management_source, createdAt: portfolio.created_at ?? "" })));
+  if (context?.kind === "all_investments") {
+    const aggregate = await loadAllInvestments(supabase, userId, portfolios.map((portfolio) => ({ id: portfolio.id, name: portfolio.name, source: portfolio.management_source })), asOf);
+    return {
+      portfolioId: "all-investments",
+      portfolios: [{ id: "all-investments", name: "All Investments" }, ...portfolios.map((portfolio) => ({ id: portfolio.id, name: portfolio.name }))],
+      summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: aggregate.intelligence,
+      valuationState: aggregate.totalValueUsd == null ? "unavailable" : "exact", missingPriceTickers: [], connected: null,
+      aggregate: { name: "All Investments", totalValueUsd: aggregate.totalValueUsd, cashValueUsd: aggregate.cashValueUsd, holdingCount: aggregate.input.holdings.length },
+    };
+  }
+  const selectedPortfolio = portfolios.find((portfolio) => portfolio.id === context?.portfolioId) ?? portfolios[0];
   if (selectedPortfolio.management_source === "connected") {
     const connected = await loadConnectedPortfolioIntelligence(supabase, selectedPortfolio.id, asOf);
     if (!connected) throw new Error("Dashboard connected Portfolio could not be loaded.");
@@ -396,13 +410,13 @@ export async function getDashboardMainPortfolio(
       portfolioId: selectedPortfolio.id,
       portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
       summary: null,
-      chartData: {},
+      chartData: connected.history.chartData,
       chartMeta: null,
       tickers: connected.positions.map((position) => cleanTicker(position.ticker)).filter(Boolean),
       intelligence: connected.intelligence,
       valuationState: connected.totalValueUsd == null ? "unavailable" : "exact",
       missingPriceTickers: connected.positions.filter((position) => position.currentValueUsd == null).map((position) => cleanTicker(position.ticker)).filter(Boolean),
-      connected: { name: cleanPortfolioName(selectedPortfolio.name), totalValueUsd: connected.totalValueUsd, cashValueUsd: connected.cashValueUsd, holdingCount: connected.positions.length, connectionPresentation: connected.connectionPresentation },
+      connected: { name: cleanPortfolioName(selectedPortfolio.name), totalValueUsd: connected.totalValueUsd, cashValueUsd: connected.cashValueUsd, holdingCount: connected.positions.length, connectionPresentation: connected.connectionPresentation, performance: connected.history.performance, historyPointCount: connected.history.pointCount }, aggregate: null,
     };
   }
   const portfolioIds = [selectedPortfolio.id];
@@ -483,7 +497,7 @@ export async function getDashboardMainPortfolio(
       intelligence,
       valuationState: "unavailable",
       missingPriceTickers: [],
-      connected: null,
+      connected: null, aggregate: null,
     };
   }
 
@@ -516,7 +530,7 @@ export async function getDashboardMainPortfolio(
   }
 
   const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null };
+  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], intelligence: null, valuationState: "empty", missingPriceTickers: [], connected: null, aggregate: null };
 
   const missingPriceTickers = mainPortfolio.enriched
     .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
@@ -625,6 +639,6 @@ export async function getDashboardMainPortfolio(
     intelligence,
     valuationState,
     missingPriceTickers,
-    connected: null,
+    connected: null, aggregate: null,
   };
 }

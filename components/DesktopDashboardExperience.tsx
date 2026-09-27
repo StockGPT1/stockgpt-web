@@ -19,6 +19,7 @@ import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelec
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
+import type { PortfolioPerformanceResult } from "@/lib/portfolio-history";
 
 export type DashboardRanking = {
   id: string | number;
@@ -41,7 +42,8 @@ type Props = {
   sentiment: string;
   portfolioSummary: PortfolioHealthSummary | null;
   portfolioIntelligence: PortfolioIntelligenceView | null;
-  connectedPortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
+  connectedPortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation; performance: PortfolioPerformanceResult; historyPointCount: number } | null;
+  aggregatePortfolio: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
   portfolioChart: Partial<Record<TimeRange, ChartPoint[]>>;
   portfolioChartMeta: PortfolioChartMeta | null;
   portfolioId: string | null;
@@ -91,6 +93,7 @@ export function DesktopDashboardExperience({
   portfolioSummary,
   portfolioIntelligence,
   connectedPortfolio,
+  aggregatePortfolio,
   portfolioChart,
   portfolioChartMeta,
   portfolioId,
@@ -138,6 +141,7 @@ export function DesktopDashboardExperience({
           summary={portfolioSummary}
           intelligence={portfolioIntelligence}
           connected={connectedPortfolio}
+          aggregate={aggregatePortfolio}
           chartData={portfolioChart}
           chartMeta={portfolioChartMeta}
           portfolioId={portfolioId}
@@ -150,6 +154,7 @@ export function DesktopDashboardExperience({
           summary={portfolioSummary}
           intelligence={portfolioIntelligence}
           connected={connectedPortfolio}
+          aggregate={aggregatePortfolio}
           topRanked={topRanked}
           canUsePremium={canUsePremium}
           valuationState={valuationState}
@@ -294,6 +299,7 @@ function PortfolioDashboardWidget({
   valuationState,
   missingPriceTickers,
   connected,
+  aggregate,
 }: {
   summary: PortfolioHealthSummary | null;
   intelligence: PortfolioIntelligenceView | null;
@@ -304,11 +310,15 @@ function PortfolioDashboardWidget({
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation; performance: PortfolioPerformanceResult; historyPointCount: number } | null;
+  aggregate: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 }) {
+  if (aggregate && intelligence) {
+    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Derived context</p><h2 className="mt-1 text-lg font-black">All Investments</h2><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{aggregate.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(aggregate.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{aggregate.holdingCount} source holdings · aggregate performance unavailable</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href="/portfolio?portfolio=all-investments" className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open All Investments →</Link></section>;
+  }
   if (connected && intelligence) {
     const portfolioHref = portfolioId ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}` : "/portfolio";
-    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-[#faf6f0]/55">Connection · {connected.connectionPresentation.label}</p><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(connected.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href={portfolioHref} className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open Portfolio →</Link></section>;
+    return <section className="relative rounded-2xl border border-[#ddb159]/24 bg-[linear-gradient(135deg,#0d3420,#082519_58%,#061b12)] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-[#faf6f0]/55">Connection · {connected.connectionPresentation.label}</p><div className="mt-4 flex items-end justify-between gap-3"><div><p className="text-2xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(connected.totalValueUsd)}</p><p className="mt-1 text-xs text-[#faf6f0]/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · {connected.performance.status === "available" ? `${connected.performance.returnPct?.toFixed(2)}% ${connected.performance.method === "time_weighted" ? "TWR" : "estimated Dietz"}` : "performance unavailable"}</p></div><span className="rounded-full border border-[#ddb159]/24 px-3 py-1 text-xs">{canUsePremium ? intelligence.statusLabel : "Intelligence locked"}</span></div><Link href={portfolioHref} className="mt-4 inline-block text-xs font-bold text-[#ddb159]">Open Portfolio →</Link></section>;
   }
   if (!summary) {
     return (
@@ -397,19 +407,28 @@ function DashboardBriefing({
   canUsePremium,
   valuationState,
   connected,
+  aggregate,
 }: {
   summary: PortfolioHealthSummary | null;
   intelligence: PortfolioIntelligenceView | null;
   topRanked?: DashboardRanking;
   canUsePremium: boolean;
   valuationState: "exact" | "partial" | "unavailable" | "empty";
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation; performance: PortfolioPerformanceResult; historyPointCount: number } | null;
+  aggregate: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
 }) {
   const reviewCount = intelligence
     ? intelligence.countsByStatus.review + intelligence.countsByStatus.urgent_review
     : 0;
   const monitorCount = intelligence?.countsByStatus.monitor ?? 0;
-  const items = connected && intelligence
+  const items = aggregate && intelligence
+    ? [
+        "All Investments is a derived current view; aggregate historical return is unavailable.",
+        canUsePremium ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}` : "Portfolio status and current signals are available with an active subscription.",
+        `${reviewCount} holding${reviewCount === 1 ? "" : "s"} for review · ${monitorCount} to monitor.`,
+        topRanked?.ticker ? `${topRanked.ticker} remains the highest-ranked stock in the current StockGPT table.` : "The latest rankings are not available yet.",
+      ]
+    : connected && intelligence
     ? [
         "Connected Portfolio performance is unavailable until broker history is supported.",
         canUsePremium ? `Portfolio status: ${intelligence.statusLabel}. ${intelligence.summary}` : "Portfolio status and current signals are available with an active subscription.",

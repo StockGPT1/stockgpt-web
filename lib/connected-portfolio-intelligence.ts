@@ -3,6 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { getUsdFxQuote } from "@/lib/fx-rates";
 import { assessConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence-map";
 import { deriveBrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
+import { loadConnectedPortfolioHistory } from "@/lib/connected-portfolio-history";
 export { assessConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence-map";
 export type { ConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence-map";
 
@@ -39,8 +40,10 @@ export async function loadConnectedPortfolioIntelligence(
     diagnostics: diagnostics.data ?? [], rankedUniverseSize: universe.count ?? 0,
     fxQuote: await getUsdFxQuote(),
   }, asOf);
+  const history = await loadConnectedPortfolioHistory(supabase, account.data.id);
   return {
     ...connected,
+    history,
     connectionPresentation: deriveBrokerConnectionPresentation({
       lifecycleStatus: connection.data.status,
       latestSyncJobStatus: latestSyncJob.data?.status ?? null,

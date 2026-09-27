@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
+import { loadAllInvestments } from "@/lib/all-investments";
+import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 
 export const dynamic = "force-dynamic";
 
@@ -42,24 +45,37 @@ export async function GET(request: Request) {
      decides which holdings load. */
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
-    .select("id,name")
+    .select("id,name,management_source,created_at")
     .eq("user_id", user.id)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
-  const portfolios = ((portfoliosData ?? []) as Array<{ id: string; name: string | null }>).map(
+  const sourcePortfolios = ((portfoliosData ?? []) as Array<{ id: string; name: string | null; management_source: "manual" | "connected"; created_at: string }>).map(
     (portfolio, index) => ({
       id: portfolio.id,
       name: String(portfolio.name ?? "").trim() || `Portfolio ${index + 1}`,
+      source: portfolio.management_source,
+      createdAt: portfolio.created_at,
     }),
   );
+  const portfolios = sourcePortfolios.length ? [{ id: "all-investments", name: "All Investments" }, ...sourcePortfolios.map(({ id, name }) => ({ id, name }))] : [];
 
   if (portfolios.length === 0) {
     return NextResponse.json({ portfolios: [], portfolioId: null, holdings: [] });
   }
 
   const requestedId = new URL(request.url).searchParams.get("portfolioId")?.trim() ?? "";
-  const portfolio = portfolios.find((item) => item.id === requestedId) ?? portfolios[0];
+  const context = await resolveOwnedPortfolioContext(supabase, user.id, requestedId, sourcePortfolios);
+  if (!context) return NextResponse.json({ portfolios: [], portfolioId: null, holdings: [] });
+  if (context.kind === "all_investments") {
+    const aggregate = await loadAllInvestments(supabase, user.id, sourcePortfolios, new Date().toISOString());
+    return NextResponse.json({ portfolios, portfolioId: "all-investments", holdings: aggregate.input.holdings.map((holding) => ({ ticker: holding.ticker ?? holding.instrumentKey, company: null, sector: null, rank: holding.ranking?.currentRank ?? null, score: holding.ranking?.currentScore ?? null, shares: holding.shares ?? null, currentValue: holding.currentValue })) });
+  }
+  const portfolio = sourcePortfolios.find((item) => item.id === context.portfolioId)!;
+  if (portfolio.source === "connected") {
+    const connected = await loadConnectedPortfolioIntelligence(supabase, portfolio.id, new Date().toISOString());
+    return NextResponse.json({ portfolios, portfolioId: portfolio.id, holdings: (connected?.input.holdings ?? []).map((holding) => ({ ticker: holding.ticker ?? holding.instrumentKey, company: null, sector: null, rank: holding.ranking?.currentRank ?? null, score: holding.ranking?.currentScore ?? null, shares: holding.shares ?? null, currentValue: holding.currentValue })) });
+  }
 
   const { data: holdingsData } = await supabase
     .from("portfolio_holdings")

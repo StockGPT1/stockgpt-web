@@ -23,6 +23,7 @@ import {
 } from "@/lib/portfolio-performance-availability";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
+import type { PortfolioPerformanceResult } from "@/lib/portfolio-history";
 import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
 
 export type MobileDashboardRanking = {
@@ -65,7 +66,8 @@ type Props = {
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
   intelligence: PortfolioIntelligenceView | null;
-  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation } | null;
+  connected: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number; connectionPresentation: BrokerConnectionPresentation; performance: PortfolioPerformanceResult; historyPointCount: number } | null;
+  aggregate: { name: string; totalValueUsd: number | null; cashValueUsd: number | null; holdingCount: number } | null;
   rankings: MobileDashboardRanking[];
   rankingsLocked: boolean;
   marketChart: Partial<Record<TimeRange, ChartPoint[]>>;
@@ -173,6 +175,7 @@ export function MobileDashboardExperience({
   missingPriceTickers,
   intelligence,
   connected,
+  aggregate,
   rankings,
   rankingsLocked,
   marketChart,
@@ -213,7 +216,7 @@ export function MobileDashboardExperience({
   };
 
   const briefingLine = useMemo(() => {
-    if (!summary && !connected) {
+    if (!summary && !connected && !aggregate) {
       return topRankedTicker
         ? `${topRankedTicker} leads the rankings · build a portfolio for personal intelligence`
         : "Build or import a portfolio to unlock personal intelligence";
@@ -228,10 +231,10 @@ export function MobileDashboardExperience({
           ? " · portfolio value is estimated"
           : "";
     return `Portfolio status: ${intelligence.statusLabel} · ${intelligence.summary}${valuationNote}`;
-  }, [canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
+  }, [aggregate, canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
 
   const changedItems = useMemo(() => {
-    if (!summary && !connected) {
+    if (!summary && !connected && !aggregate) {
       return [
         "Build or import a portfolio to receive a personal daily briefing.",
         topRankedTicker
@@ -272,7 +275,7 @@ export function MobileDashboardExperience({
         ? `${topRankedTicker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
+  }, [aggregate, canUsePremium, connected, intelligence, summary, topRankedTicker, valuationState]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
@@ -385,8 +388,10 @@ export function MobileDashboardExperience({
               className="relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
             >
               <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
-              {connected && intelligence ? (
-                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-white/55">Connection · {connected.connectionPresentation.label}</p><p className="mt-6 text-3xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : money(connected.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · performance unavailable</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open Portfolio →</Link></div>
+              {aggregate && intelligence ? (
+                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Derived context</p><h2 className="mt-1 text-lg font-black">All Investments</h2><p className="mt-6 text-3xl font-black">{aggregate.totalValueUsd == null ? "Value unavailable" : money(aggregate.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{aggregate.holdingCount} source holdings · aggregate performance unavailable</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open All Investments →</Link></div>
+              ) : connected && intelligence ? (
+                <div className="relative flex h-full flex-col"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Connected Portfolio · read only</p><h2 className="mt-1 text-lg font-black">{connected.name}</h2><p className="mt-1 text-xs text-white/55">Connection · {connected.connectionPresentation.label}</p><p className="mt-6 text-3xl font-black">{connected.totalValueUsd == null ? "Value unavailable" : money(connected.totalValueUsd, "USD")}</p><span className="mt-4 w-fit rounded-full border border-[#ddb159]/28 px-3 py-1 text-xs">Status · {canUsePremium ? intelligence.statusLabel : "Locked"}</span><p className="mt-4 text-sm text-white/55">{connected.holdingCount} broker position{connected.holdingCount === 1 ? "" : "s"} · {connected.performance.status === "available" ? `${connected.performance.returnPct?.toFixed(2)}% ${connected.performance.method === "time_weighted" ? "TWR" : "estimated Dietz"}` : "performance unavailable"}</p><Link href={portfolioHref} className="mt-auto text-sm font-bold text-[#ddb159]">Open Portfolio →</Link></div>
               ) : summary ? (
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">

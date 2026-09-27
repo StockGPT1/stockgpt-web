@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
+import { PortfolioContextDefaultControls } from "@/components/PortfolioContextDefaultControls";
 
 export function DashboardPortfolioSelector({
   value,
@@ -14,7 +15,7 @@ export function DashboardPortfolioSelector({
   if (portfolios.length <= 1) return null;
 
   return (
-    <label className="block min-w-0">
+    <div className="space-y-1.5"><label className="block min-w-0">
       <span className="sr-only">Choose dashboard portfolio</span>
       <span className="relative block max-w-[210px]">
         <select
@@ -33,6 +34,6 @@ export function DashboardPortfolioSelector({
           className="pointer-events-none absolute right-3.5 top-1/2 size-3.5 -translate-y-1/2 text-[#ddb159]"
         />
       </span>
-    </label>
+    </label><PortfolioContextDefaultControls value={value} /></div>
   );
 }
