@@ -1,0 +1,29 @@
+.legal-page,
+.affiliate-page {
+  position: relative !important;
+  isolation: isolate !important;
+}
+
+.legal-page > .pointer-events-none,
+.affiliate-page > .pointer-events-none {
+  z-index: 0 !important;
+}
+
+.legal-page > header,
+.legal-page > section,
+.legal-page > footer,
+.legal-page > div:not(.pointer-events-none),
+.affiliate-page > header,
+.affiliate-page > section,
+.affiliate-page > footer,
+.affiliate-page > div:not(.pointer-events-none) {
+  position: relative !important;
+  z-index: 10 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.legal-page > header,
+.affiliate-page > header {
+  z-index: 40 !important;
+}
