@@ -2052,7 +2052,7 @@ export type Database = {
           p_subscription_id?: string
           p_user_id?: string
         }
-        Returns: boolean
+        Returns: Json
       }
       promote_broker_sync_candidate: {
         Args: { p_candidate: Json; p_job_id: string; p_worker_id: string }

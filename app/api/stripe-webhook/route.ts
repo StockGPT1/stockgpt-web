@@ -4,22 +4,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { sendCoreSubscriptionActivatedEmail, sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/transactional-email";
 import { stripe } from "@/lib/stripe";
+import {
+  buildStripeEntitlementPlan,
+  parseStripeEntitlementProcessingResult,
+  shouldSendStripeEntitlementEmail,
+  type StripeEntitlementPlan,
+} from "@/lib/stripe-entitlement";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 type SupabaseAdminClient = SupabaseClient<Database>;
-type EntitlementAction = "activate_basic" | "ensure_basic" | "end_access" | "observe_only" | "ignore";
-
-const KEEPING_ACCESS = new Set<Stripe.Subscription.Status>(["active", "trialing", "past_due"]);
-const ENDING_ACCESS = new Set<Stripe.Subscription.Status>(["canceled", "unpaid", "incomplete_expired"]);
 
 async function getProfileEmail(admin: SupabaseAdminClient, column: "id" | "stripe_customer_id", value: string) {
   const { data, error } = await admin.from("profiles").select("email").eq(column, value).maybeSingle();
   if (error) throw error;
   return data?.email ?? null;
-}
-
-function customerId(value: string | Stripe.Customer | Stripe.DeletedCustomer | null) {
-  return typeof value === "string" ? value : value?.id ?? null;
 }
 
 function safeErrorCode(error: unknown) {
@@ -42,61 +40,33 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  let action: EntitlementAction = "ignore";
-  let userId: string | null = null;
-  let stripeCustomerId: string | null = null;
-  let subscriptionId: string | null = null;
-  let emailKind: "activated" | "cancelled" | "payment_failed" | null = null;
-  let explicitEmail: string | null = null;
-
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    userId = session.metadata?.user_id ?? null;
-    stripeCustomerId = customerId(session.customer);
-    subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
-    action = "activate_basic";
-    emailKind = "activated";
-    explicitEmail = session.customer_details?.email ?? session.customer_email ?? null;
-  } else if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as Stripe.Subscription;
-    stripeCustomerId = customerId(subscription.customer);
-    subscriptionId = subscription.id;
-    action = KEEPING_ACCESS.has(subscription.status)
-      ? "ensure_basic"
-      : ENDING_ACCESS.has(subscription.status) ? "end_access" : "observe_only";
-  } else if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-    stripeCustomerId = customerId(subscription.customer);
-    subscriptionId = subscription.id;
-    action = "end_access";
-    emailKind = "cancelled";
-  } else if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object as Stripe.Invoice;
-    stripeCustomerId = customerId(invoice.customer);
-    action = "observe_only";
-    emailKind = "payment_failed";
-  }
+  let plan: StripeEntitlementPlan | null = null;
 
   try {
+    plan = await buildStripeEntitlementPlan(
+      event,
+      (subscriptionId) => stripe.subscriptions.retrieve(subscriptionId),
+    );
     const { data: applied, error } = await admin.rpc("process_stripe_entitlement_event", {
       p_event_id: event.id,
       p_event_type: event.type,
-      p_action: action,
-      p_user_id: userId ?? undefined,
-      p_customer_id: stripeCustomerId ?? undefined,
-      p_subscription_id: subscriptionId ?? undefined,
+      p_action: plan.action,
+      p_user_id: plan.userId ?? undefined,
+      p_customer_id: plan.customerId ?? undefined,
+      p_subscription_id: plan.subscriptionId ?? undefined,
     });
     if (error) throw error;
+    const result = parseStripeEntitlementProcessingResult(applied);
 
-    if (applied && emailKind) {
-      const email = explicitEmail ?? (userId
-        ? await getProfileEmail(admin, "id", userId)
-        : stripeCustomerId ? await getProfileEmail(admin, "stripe_customer_id", stripeCustomerId) : null);
+    if (shouldSendStripeEntitlementEmail(plan.emailKind, result)) {
+      const email = plan.explicitEmail ?? (plan.userId
+        ? await getProfileEmail(admin, "id", plan.userId)
+        : plan.customerId ? await getProfileEmail(admin, "stripe_customer_id", plan.customerId) : null);
       if (email) {
         try {
-          if (emailKind === "activated") await sendCoreSubscriptionActivatedEmail(email);
-          if (emailKind === "cancelled") await sendSubscriptionCancelledEmail(email);
-          if (emailKind === "payment_failed") await sendPaymentFailedEmail(email);
+          if (plan.emailKind === "activated") await sendCoreSubscriptionActivatedEmail(email);
+          if (plan.emailKind === "cancelled") await sendSubscriptionCancelledEmail(email);
+          if (plan.emailKind === "payment_failed") await sendPaymentFailedEmail(email);
         } catch (emailError) {
           console.warn("[stripe-webhook] customer email failed", {
             eventId: event.id,
@@ -106,15 +76,15 @@ export async function POST(request: Request) {
         }
       }
     }
-    return NextResponse.json({ received: true, applied: Boolean(applied) });
+    return NextResponse.json({ received: true, applied: result.processed });
   } catch (error) {
     const errorCode = safeErrorCode(error);
     const failure = await admin.rpc("record_stripe_webhook_failure", {
       p_event_id: event.id,
       p_event_type: event.type,
       p_error_code: errorCode,
-      p_customer_id: stripeCustomerId ?? undefined,
-      p_subscription_id: subscriptionId ?? undefined,
+      p_customer_id: plan?.customerId ?? undefined,
+      p_subscription_id: plan?.subscriptionId ?? undefined,
     });
     if (failure.error) console.error("[stripe-webhook] failure state unavailable", { eventId: event.id });
     console.error("[stripe-webhook] processing failed", { eventId: event.id, eventType: event.type, errorCode });

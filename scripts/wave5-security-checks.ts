@@ -35,6 +35,9 @@ const stripe = source("app/api/stripe-webhook/route.ts");
 assert.ok(stripe.indexOf("stripe.webhooks.constructEvent") < stripe.indexOf("const admin = createAdminClient"));
 assert.match(stripe, /process_stripe_entitlement_event/);
 assert.match(stripe, /record_stripe_webhook_failure/);
+assert.match(stripe, /stripe\.subscriptions\.retrieve/);
+assert.match(stripe, /buildStripeEntitlementPlan/);
+assert.doesNotMatch(stripe, /event\.created/);
 assert.doesNotMatch(stripe, /\.from\(["']profiles["']\)\s*\.update/s);
 
 console.log("Wave 5 trusted-service source checks passed.");
