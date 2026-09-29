@@ -9,14 +9,15 @@ declare
     'affiliate_applications', 'alpha_waitlist', 'ask_stockgpt_messages',
     'broker_account_value_history', 'broker_accounts', 'broker_activities', 'broker_cash_balances',
     'broker_connections', 'broker_positions', 'broker_providers', 'broker_sync_jobs',
-    'brokerage_institution_aliases', 'brokerage_institutions', 'executive_waitlist', 'historical_fx_rates',
+    'brokerage_institution_aliases', 'brokerage_institutions', 'email_digest_deliveries',
+    'executive_waitlist', 'historical_fx_rates',
     'instrument_aliases', 'instrument_market_data', 'instruments', 'market_snapshots', 'news_articles',
     'notification_dismissals', 'portfolio_context_preferences', 'portfolio_holdings',
     'portfolio_page_snapshots', 'portfolio_snapshots',
     'portfolio_transactions', 'premium_waitlist', 'pro_waitlist', 'profiles',
     'security_audit_events', 'security_rate_limits', 'stock_chart_cache',
     'stock_factor_diagnostics', 'stock_factor_diagnostics_history',
-    'stock_rank_snapshots', 'stock_rankings', 'support_feedback',
+    'stock_rank_snapshots', 'stock_rankings', 'stripe_webhook_events', 'support_feedback',
     'technical_level_cache', 'user_notification_summaries',
     'user_portfolios', 'watchlist'
   ];
@@ -29,11 +30,11 @@ begin
   where n.nspname = 'public' and c.relkind = 'r';
 
   if actual_tables <> expected_tables then
-    raise exception 'Canonical public table set does not match the expected 41 tables';
+    raise exception 'Canonical public table set does not match the expected 43 tables';
   end if;
 
-  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 41 then
-    raise exception 'Expected RLS on all 41 public tables';
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity) <> 43 then
+    raise exception 'Expected RLS on all 43 public tables';
   end if;
 
   if to_regclass('public.watchlist') is null or to_regclass('public.user_watchlist') is not null then

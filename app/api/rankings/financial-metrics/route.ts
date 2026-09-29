@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFinancialMetricMap } from "@/lib/yahoo-financials";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
@@ -19,20 +19,8 @@ function tickerVariants(ticker: string) {
   return Array.from(new Set([ticker, ticker.replace(/-/g, "."), ticker.replace(/\./g, "-")].map(cleanTicker).filter(Boolean)));
 }
 
-async function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (url && serviceKey) {
-    return createSupabaseClient<Database>(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-  return createServerSupabaseClient();
-}
-
-async function getDiagnostics(ticker: string) {
+async function getDiagnostics(supabase: SupabaseClient<Database>, ticker: string) {
   try {
-    const supabase = await getSupabaseClient();
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_factor_diagnostics")
@@ -48,9 +36,8 @@ async function getDiagnostics(ticker: string) {
   }
 }
 
-async function getRankingRow(ticker: string) {
+async function getRankingRow(supabase: SupabaseClient<Database>, ticker: string) {
   try {
-    const supabase = await getSupabaseClient();
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_rankings")
@@ -87,8 +74,8 @@ export async function GET(req: NextRequest) {
 
   const [metrics, diagnostics, ranking] = await Promise.all([
     getFinancialMetricMap([ticker]).then((map) => map.get(ticker) ?? null),
-    getDiagnostics(ticker),
-    getRankingRow(ticker),
+    getDiagnostics(authClient, ticker),
+    getRankingRow(authClient, ticker),
   ]);
 
   return NextResponse.json({ metrics, diagnostics, ranking });

@@ -8,6 +8,7 @@ import { MobileSheet } from "@/components/MobileSheet";
 import { WatchlistToggle } from "@/components/WatchlistToggle";
 import { StockIcon } from "@/components/StockIcon";
 import { useIsDesktop } from "@/components/useIsDesktop";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 
 type PortfolioOption = {
   id: string;
@@ -41,6 +42,7 @@ export function AddToPortfolioButton({
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const upperTicker = ticker.toUpperCase();
   const titleId = `add-${upperTicker.toLowerCase()}-to-portfolio`;
+  useBlockingOverlay(open);
 
   useEffect(() => {
     if (!open) return;
@@ -51,12 +53,8 @@ export function AddToPortfolioButton({
 
     document.addEventListener("keydown", onKeyDown);
 
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = originalOverflow;
     };
   }, [open]);
 

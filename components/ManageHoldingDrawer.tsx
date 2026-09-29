@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { StockLogo } from "@/components/StockLogo";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import type { HoldingReferenceLevels } from "@/components/portfolio-workspace/types";
 import type { HoldingIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
 import { intelligenceToneClass } from "@/components/portfolio-workspace/utils";
@@ -103,6 +104,7 @@ export function ManageHoldingDrawer({
   const [isPending, startTransition] = useTransition();
 
   useFocusedFlow(`manage-holding-${portfolioId}-${holding.ticker}`, true);
+  useBlockingOverlay(true);
 
   const writeRate =
     Number.isFinite(usdToWriteRate) && Number(usdToWriteRate) > 0
@@ -137,9 +139,6 @@ export function ManageHoldingDrawer({
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     const dialog = dialogRef.current;
     const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
       'button:not([disabled]),a[href],input:not([disabled]),[tabindex]:not([tabindex="-1"])',
@@ -168,7 +167,6 @@ export function ManageHoldingDrawer({
     document.addEventListener("keydown", onKeyDown);
     window.setTimeout(() => focusable()[0]?.focus({ preventScroll: true }), 0);
     return () => {
-      document.body.style.overflow = originalOverflow;
       document.removeEventListener("keydown", onKeyDown);
       previous?.focus?.({ preventScroll: true });
     };

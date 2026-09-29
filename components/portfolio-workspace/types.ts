@@ -1,5 +1,5 @@
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import type { PortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 import type {
   AffectedStockInsight,
   EnrichedNewsArticle,
@@ -64,6 +65,7 @@ function ArticleModal({
   ticker: string;
   onClose: () => void;
 }) {
+  useBlockingOverlay(true);
   const insight = article.affectedStocks.find(
     (stock) => stock.ticker.toUpperCase() === ticker.toUpperCase(),
   ) as AffectedStockInsight | undefined;
@@ -75,16 +77,9 @@ function ArticleModal({
       if (event.key === "Escape") onClose();
     }
 
-    const originalOverflow = document.body.style.overflow;
-    const originalOverscrollBehavior = document.body.style.overscrollBehavior;
-
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscrollBehavior;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose]);

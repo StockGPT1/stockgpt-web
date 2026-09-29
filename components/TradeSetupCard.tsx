@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 import type { TradeLevels, TradeTrigger } from "@/lib/trading-levels";
 
 type ExplanationModal = {
@@ -13,27 +14,27 @@ type ExplanationModal = {
   tone?: "neutral" | "positive" | "negative";
 };
 
-function recommendationStyle(rec: TradeLevels["recommendation"]) {
+function researchStateStyle(rec: TradeLevels["researchState"]) {
   switch (rec) {
-    case "Strong Buy":
+    case "Strong evidence":
       return {
         bg: "bg-emerald-500",
         text: "text-white",
         glow: "bg-emerald-500/20",
       };
-    case "Buy":
+    case "Constructive evidence":
       return {
         bg: "bg-emerald-400",
         text: "text-[#072116]",
         glow: "bg-emerald-400/20",
       };
-    case "Hold / Watch":
+    case "Mixed evidence":
       return {
         bg: "bg-[#ddb159]",
         text: "text-[#072116]",
         glow: "bg-[#ddb159]/20",
       };
-    case "Avoid":
+    case "Limited evidence":
       return {
         bg: "bg-red-500",
         text: "text-white",
@@ -170,7 +171,7 @@ function factorMeaning(label: string) {
   }
 
   if (key === "technical target") {
-    return "Technical target is the price area the trade plan is aiming for, usually based on resistance, measured moves or medium-term extension potential.";
+    return "Technical target is an analytical price reference based on resistance, measured moves or medium-term extension potential.";
   }
 
   if (key === "sector") {
@@ -181,7 +182,7 @@ function factorMeaning(label: string) {
     return "Recent news measures whether linked articles over the recent period are positive, negative or neutral for the stock. It helps the model avoid ignoring fresh catalysts.";
   }
 
-  return "This factor is one of the inputs StockGPT uses to explain why the trade plan looks attractive, risky or worth waiting on.";
+  return "This factor is one input StockGPT uses to explain the strength and limitations of the research evidence.";
 }
 
 function factorReasoning(label: string, value: string, note: string) {
@@ -208,7 +209,7 @@ function factorReasoning(label: string, value: string, note: string) {
   }
 
   if (key === "sector") {
-    return `The sector is ${value}. StockGPT describes this as “${note}”, which affects how much normal volatility the trade plan allows before the setup is considered invalid.`;
+    return `The sector is ${value}. StockGPT describes this as “${note}”, which affects how much normal volatility the research framework allows before the thesis warrants review.`;
   }
 
   if (key === "recent news") {
@@ -220,11 +221,11 @@ function factorReasoning(label: string, value: string, note: string) {
 
 function triggerMeaning(trigger: TradeTrigger) {
   if (trigger.type === "take_profit") {
-    return "A take-profit trigger is the level or situation where the plan would consider locking in gains rather than continuing to hold the full position.";
+    return "This upside checkpoint marks where the current valuation and price evidence should be reassessed.";
   }
 
   if (trigger.type === "stop_loss") {
-    return "A stop-loss trigger is the point where the original trade thesis is considered broken and the plan suggests cutting or reducing exposure.";
+    return "This downside checkpoint marks where the original research thesis is considered weakened or invalidated.";
   }
 
   if (trigger.type === "score_drop") {
@@ -235,7 +236,7 @@ function triggerMeaning(trigger: TradeTrigger) {
     return "A rank-drop trigger watches whether the stock is losing strength compared with other opportunities in the ranked universe.";
   }
 
-  return "A review trigger is a scheduled check-in. It helps avoid holding a position without reassessing the latest price action, ranking, news and market conditions.";
+  return "A review checkpoint is a scheduled research check-in covering price, ranking, news and market conditions.";
 }
 
 function ClickHint() {
@@ -253,6 +254,7 @@ function ExplanationPortal({
   modal: ExplanationModal;
   onClose: () => void;
 }) {
+  useBlockingOverlay(true);
   const styles = modalToneStyle(modal.tone);
 
   useEffect(() => {
@@ -260,16 +262,9 @@ function ExplanationPortal({
       if (event.key === "Escape") onClose();
     }
 
-    const originalOverflow = document.body.style.overflow;
-    const originalOverscroll = document.body.style.overscrollBehavior;
-
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscroll;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose]);
@@ -295,7 +290,7 @@ function ExplanationPortal({
           <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-[#ddb159]/14 bg-[#04140c] p-4 pb-3 sm:p-6 sm:pb-4">
             <div className="min-w-0">
               <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-[#ddb159] sm:text-[9px]">
-                Trade Plan Explainer
+                Research framework explainer
               </p>
 
               <h3 className="mt-1 line-clamp-2 text-[20px] font-black leading-tight tracking-[-0.04em] sm:text-[24px]">
@@ -369,8 +364,8 @@ export function TradeSetupCard({
 }) {
   const [modal, setModal] = useState<ExplanationModal | null>(null);
 
-  const recStyle = recommendationStyle(levels.recommendation);
-  const showLevels = levels.recommendation !== "Avoid";
+  const recStyle = researchStateStyle(levels.researchState);
+  const showLevels = levels.researchState !== "Limited evidence";
 
   return (
     <div className="relative max-w-full overflow-hidden rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
@@ -381,11 +376,11 @@ export function TradeSetupCard({
       <div className="relative flex min-w-0 items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-            AI Trade Plan
+            Research framework
           </p>
 
           <h3 className="mt-0.5 text-[20px] font-black tracking-[-0.03em]">
-            Suggested Levels
+            Analytical reference levels
           </h3>
         </div>
 
@@ -393,28 +388,28 @@ export function TradeSetupCard({
           type="button"
           onClick={() =>
             setModal({
-              title: "AI Recommendation",
-              value: levels.recommendation,
+              title: "Research state",
+              value: levels.researchState,
               meaning:
-                "The recommendation is StockGPT’s overall trade stance after combining rank, score, news flow, technical structure and risk/reward.",
+                "The research state summarises the available rank, score, news, technical and risk/reward evidence.",
               reasoning:
-                levels.recommendation === "Avoid"
-                  ? "The model does not see enough signal strength to suggest trade levels, so it recommends waiting for a cleaner setup."
-                  : `The current recommendation is ${levels.recommendation}. This reflects the strength of the AI signal and whether the planned upside is attractive enough compared with the downside risk.`,
+                levels.researchState === "Limited evidence"
+                  ? "The currently covered evidence is not strong enough to support detailed reference levels."
+                  : `The current evidence state is ${levels.researchState}. It reflects model strength and the balance between upside and downside reference levels.`,
               detail:
-                "This should be used as an educational planning tool, not as personal financial advice.",
+                "This is educational research context, not a personalised transaction decision.",
               tone:
-                levels.recommendation === "Strong Buy" ||
-                levels.recommendation === "Buy"
+                levels.researchState === "Strong evidence" ||
+                levels.researchState === "Constructive evidence"
                   ? "positive"
-                  : levels.recommendation === "Avoid"
+                  : levels.researchState === "Limited evidence"
                     ? "negative"
                     : "neutral",
             })
           }
           className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider transition hover:scale-[1.02] ${recStyle.bg} ${recStyle.text}`}
         >
-          {levels.recommendation}
+          {levels.researchState}
         </button>
       </div>
 
@@ -425,15 +420,15 @@ export function TradeSetupCard({
               type="button"
               onClick={() =>
                 setModal({
-                  title: "Entry",
+                  title: "Price reference",
                   value: `${currency}${levels.entry.toFixed(2)}`,
                   meaning:
-                    "Entry is the suggested price area where the trade plan starts. It is the reference point used to calculate downside risk and upside target.",
-                  reasoning: `StockGPT’s suggested entry is ${currency}${levels.entry.toFixed(
+                    "This price reference is the centre point used to compare downside and upside evidence.",
+                  reasoning: `The current price reference is ${currency}${levels.entry.toFixed(
                     2,
-                  )}. The stop loss and take-profit levels are calculated from this entry area, so it acts as the centre point of the trade plan.`,
+                  )}. The downside and upside reference levels are measured from this point.`,
                   detail:
-                    "A real market price can move quickly. The entry level is a planning reference, not a guaranteed execution price.",
+                    "Market prices move quickly. This is an analytical reference, not an execution instruction.",
                   tone: "neutral",
                 })
               }
@@ -442,7 +437,7 @@ export function TradeSetupCard({
               <ClickHint />
 
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#072116]/45">
-                Entry
+                Price reference
               </p>
 
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em]">
@@ -451,7 +446,7 @@ export function TradeSetupCard({
               </p>
 
               <p className="mt-1 text-[10px] font-semibold text-[#072116]/50">
-                Suggested
+                Current basis
               </p>
             </button>
 
@@ -459,15 +454,15 @@ export function TradeSetupCard({
               type="button"
               onClick={() =>
                 setModal({
-                  title: "Stop Loss",
+                  title: "Downside reference",
                   value: `${currency}${levels.stopLoss.toFixed(2)}`,
                   meaning:
-                    "Stop loss is the downside level where the trade idea is considered wrong or too risky to continue holding.",
-                  reasoning: `The stop loss is set at ${currency}${levels.stopLoss.toFixed(
+                    "The downside reference marks where the current research thesis would need renewed investigation.",
+                  reasoning: `The downside reference is ${currency}${levels.stopLoss.toFixed(
                     2,
-                  )}, which is ${levels.stopPct}% below the suggested entry. This level is designed to define the risk before entering the trade.`,
+                  )}, which is ${levels.stopPct}% below the price reference.`,
                   detail:
-                    "A stop loss is not a prediction that the stock will fall. It is a risk-control boundary that says where the plan should be reviewed or exited.",
+                    "This is not a prediction or an instruction. It is a structured thesis-risk reference.",
                   tone: "negative",
                 })
               }
@@ -476,7 +471,7 @@ export function TradeSetupCard({
               <ClickHint />
 
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-red-700/70">
-                Stop Loss
+                Downside reference
               </p>
 
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em] text-red-700">
@@ -493,13 +488,13 @@ export function TradeSetupCard({
               type="button"
               onClick={() =>
                 setModal({
-                  title: "Take Profit",
+                  title: "Upside reference",
                   value: `${currency}${levels.takeProfit.toFixed(2)}`,
                   meaning:
-                    "Take profit is the upside target where the plan would consider locking in gains or reducing the position.",
-                  reasoning: `The take-profit level is ${currency}${levels.takeProfit.toFixed(
+                    "The upside reference is a modelled checkpoint derived from market structure and measured-move evidence.",
+                  reasoning: `The upside reference is ${currency}${levels.takeProfit.toFixed(
                     2,
-                  )}, which is ${levels.targetPct}% above the suggested entry. This is the reward side of the trade plan.`,
+                  )}, which is ${levels.targetPct}% above the price reference.`,
                   detail:
                     "The target is usually based on a mix of risk/reward, resistance areas and medium-term measured move potential.",
                   tone: "positive",
@@ -510,7 +505,7 @@ export function TradeSetupCard({
               <ClickHint />
 
               <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-emerald-700/70">
-                Take Profit
+                Upside reference
               </p>
 
               <p className="mt-1 text-[22px] font-black leading-none tracking-[-0.03em] text-emerald-700">
@@ -531,8 +526,8 @@ export function TradeSetupCard({
                 title: "Risk / Reward",
                 value: `1 : ${levels.riskReward}`,
                 meaning:
-                  "Risk/reward compares how much upside the plan is targeting versus how much downside it is risking to the stop loss.",
-                reasoning: `The current risk/reward is 1:${levels.riskReward}. This means the planned reward is about ${levels.riskReward} times the planned risk from entry to stop loss.`,
+                  "Risk/reward compares the modelled upside reference with the downside thesis-risk reference.",
+                reasoning: `The current risk/reward is 1:${levels.riskReward}. The modelled upside is about ${levels.riskReward} times the downside distance from the price reference.`,
                 detail:
                   "Higher risk/reward can be attractive, but it does not guarantee success. It simply means the target is meaningfully larger than the defined downside.",
                 tone: "neutral",
@@ -610,24 +605,24 @@ export function TradeSetupCard({
                   type="button"
                   onClick={() =>
                     setModal({
-                      title: "Hold Period",
-                      value: levels.plan!.recommendedHoldPeriod,
+                      title: "Review window",
+                      value: levels.plan!.reviewWindow,
                       meaning:
-                        "Hold period is the rough amount of time the trade plan expects the thesis may need to develop.",
-                      reasoning: `The recommended hold period is ${levels.plan!.recommendedHoldPeriod}. StockGPT uses this to frame the trade as a medium-term setup rather than a quick intraday move.`,
+                        "The review window is the rough period over which the modelled thesis evidence may develop.",
+                      reasoning: `The current review window is ${levels.plan!.reviewWindow}. It frames the evidence as medium-term rather than intraday.`,
                       detail:
-                        "The hold period should be reviewed if the AI score, rank, news flow or price structure changes materially.",
+                        "Review sooner if score, rank, news or price structure changes materially.",
                       tone: "neutral",
                     })
                   }
                   className="rounded-lg border border-transparent p-1 text-left transition hover:border-[#ddb159]/35 hover:bg-white/60"
                 >
                   <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#072116]/45">
-                    Hold Period
+                    Review window
                   </p>
 
                   <p className="mt-0.5 text-[14px] font-black tracking-[-0.02em]">
-                    {levels.plan.recommendedHoldPeriod}
+                    {levels.plan.reviewWindow}
                   </p>
                 </button>
               </div>
@@ -639,7 +634,7 @@ export function TradeSetupCard({
                     title: "AI Thesis",
                     value: "Medium-term setup",
                     meaning:
-                      "The thesis is the plain-English explanation of why the trade plan exists.",
+                      "The thesis is the plain-English explanation of the current research framework.",
                     reasoning: levels.plan!.thesis,
                     detail:
                       "This combines model confidence, rank, score, sector behaviour, target, stop level and risk/reward into one summary.",
@@ -655,7 +650,7 @@ export function TradeSetupCard({
 
               <div className="mt-4">
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#072116]/55">
-                  AI Action Plan — If This, Then That
+                  Evidence checkpoints
                 </p>
 
                 <div className="mt-2 grid gap-2">
@@ -669,11 +664,11 @@ export function TradeSetupCard({
                         onClick={() =>
                           setModal({
                             title: trigger.condition,
-                            value: trigger.action,
+                            value: trigger.observation,
                             meaning: triggerMeaning(trigger),
-                            reasoning: `Condition: ${trigger.condition}. Suggested action: ${trigger.action}.`,
+                            reasoning: `Condition: ${trigger.condition}. Research implication: ${trigger.observation}.`,
                             detail:
-                              "This trigger is designed to make the plan easier to follow by defining what to do before the event happens.",
+                              "This checkpoint highlights what evidence warrants renewed investigation.",
                             tone: trigger.tone,
                           })
                         }
@@ -691,7 +686,7 @@ export function TradeSetupCard({
                           </p>
 
                           <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/60">
-                            → {trigger.action}
+                            → {trigger.observation}
                           </p>
                         </div>
                       </button>
@@ -707,12 +702,12 @@ export function TradeSetupCard({
           type="button"
           onClick={() =>
             setModal({
-              title: "No Trade Levels Suggested",
-              value: "Avoid",
+              title: "Detailed references unavailable",
+              value: "Limited evidence",
               meaning:
-                "When StockGPT marks a setup as Avoid, it means the model does not currently see enough signal strength to justify suggesting entry, stop and target levels.",
+                "The model does not currently have enough signal strength to present detailed price reference levels.",
               reasoning:
-                "The AI recommends waiting for a better setup rather than forcing a trade with weak model support.",
+                "Further research is warranted before relying on a detailed analytical framework.",
               detail:
                 "This can happen when rank, score, technical structure, recent news or risk/reward are not strong enough.",
               tone: "negative",
@@ -721,11 +716,11 @@ export function TradeSetupCard({
           className="relative mt-5 w-full rounded-xl border border-red-200 bg-red-50/50 p-4 text-center transition hover:-translate-y-0.5 hover:border-red-300"
         >
           <p className="text-[13px] font-bold text-red-700">
-            Insufficient signal strength to suggest entry levels.
+            Insufficient signal strength for detailed reference levels.
           </p>
 
           <p className="mt-1 text-[11px] font-semibold text-red-700/70">
-            The AI recommends waiting for a better setup.
+            Review the underlying evidence as it changes.
           </p>
         </button>
       )}
@@ -747,7 +742,7 @@ export function TradeSetupCard({
                   meaning: factorMeaning(f.label),
                   reasoning: factorReasoning(f.label, f.value, f.note),
                   detail:
-                    "This box is part of the explanation layer behind the AI Trade Plan. It helps show why the model produced the current setup rather than only showing a final number.",
+                    "This box explains the evidence behind the research framework rather than presenting only a final number.",
                   tone:
                     f.label.toLowerCase() === "risk/reward" ||
                     f.label.toLowerCase() === "ai score" ||
@@ -777,8 +772,8 @@ export function TradeSetupCard({
       </div>
 
       <p className="relative mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/45">
-        AI-generated trade plan based on quantitative factors. Not financial
-        advice. Past performance does not guarantee future results.
+        AI-generated research references based on quantitative factors. These
+        are not transaction instructions or financial advice.
       </p>
 
       {modal && (

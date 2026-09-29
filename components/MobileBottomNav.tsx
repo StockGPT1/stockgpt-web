@@ -19,7 +19,7 @@ function activeHref(pathname: string) {
     ?.href;
 }
 
-export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
+export function MobileBottomNav({ unreadCount }: { unreadCount: number | null }) {
   const pathname = usePathname();
   const { focusedFlowCount, keyboardOpen } = useAppChrome();
   const focusedPath =
@@ -61,10 +61,13 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             <span className={isActive ? "truncate text-[11px] font-black" : "sr-only"}>
               {item.label}
             </span>
-            {isAlerts && unreadCount > 0 && (
+            {isAlerts && unreadCount != null && unreadCount > 0 && (
               <span className="absolute -right-0.5 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[9px] font-black text-white ring-2 ring-[#04180f]">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
+            )}
+            {isAlerts && unreadCount == null && (
+              <span aria-label="Notification count unavailable" className="absolute -right-0.5 top-0 grid size-4 place-items-center rounded-full bg-[#7d7465] text-[9px] font-black text-white ring-2 ring-[#04180f]">!</span>
             )}
           </Link>
         );

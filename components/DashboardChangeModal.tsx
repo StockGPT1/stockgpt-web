@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 import { StockLogo } from "@/components/StockLogo";
 
 type DailyChangeItem = {
@@ -216,6 +217,8 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
     if (!remoteItems && !loading) void loadMovers();
   }
 
+  useBlockingOverlay(open);
+
   useEffect(() => {
     if (!open) return;
 
@@ -223,16 +226,9 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
       if (event.key === "Escape") setOpen(false);
     }
 
-    const originalOverflow = document.body.style.overflow;
-    const originalOverscroll = document.body.style.overscrollBehavior;
-
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscroll;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);

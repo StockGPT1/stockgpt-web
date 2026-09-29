@@ -53,28 +53,28 @@ export function PortfolioOpportunitiesWidget({
       <div className="flex min-w-0 shrink-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">
-            StockGPT opportunities
+            StockGPT research
           </p>
           <h3 className="mt-0.5 truncate text-[17px] font-black leading-none tracking-[-0.04em]">
-            Portfolio-fit ideas
+            Ranked evidence to explore
           </h3>
         </div>
         <Link
           href="/rankings"
           className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159] transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]/50"
         >
-          Review ideas →
+          Explore rankings →
         </Link>
       </div>
 
       {opportunities.length === 0 ? (
         <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.045] p-3">
           <p className="text-[12px] font-black text-[#faf6f0]">
-            No strong portfolio-fit ideas right now.
+            No additional ranked research is highlighted right now.
           </p>
           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#faf6f0]/52">
-            StockGPT is not forcing a recommendation because current data does
-            not show a strong enough setup.
+            Explore the full rankings for general research without a
+            personalised transaction instruction.
           </p>
         </div>
       ) : (
@@ -86,7 +86,7 @@ export function PortfolioOpportunitiesWidget({
               : "overflow-visible",
           ].join(" ")}
           tabIndex={constrained ? 0 : undefined}
-          aria-label="Portfolio-fit opportunities list"
+          aria-label="Ranked research list"
         >
           <div className="grid min-w-0 gap-2">
             {opportunities.map((item) => (

@@ -3,25 +3,23 @@
 import { useEffect, useRef } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { useAppChrome, useFocusedFlow } from "@/components/AppChromeProvider";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 
 export function GlobalSearchOverlay({ showRankingData }: { showRankingData: boolean }) {
   const { searchOpen, closeSearch } = useAppChrome();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   useFocusedFlow("global-search", searchOpen);
+  useBlockingOverlay(searchOpen);
 
   useEffect(() => {
     if (!searchOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") closeSearch();
     }
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = originalOverflow;
       document.removeEventListener("keydown", onKeyDown);
       previous?.focus?.({ preventScroll: true });
     };

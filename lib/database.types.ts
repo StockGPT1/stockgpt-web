@@ -622,6 +622,42 @@ export type Database = {
         }
         Relationships: []
       }
+      email_digest_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          digest_key: string
+          last_error_code: string | null
+          provider_message_id: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          digest_key: string
+          last_error_code?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          digest_key?: string
+          last_error_code?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       executive_waitlist: {
         Row: {
           created_at: string
@@ -1601,6 +1637,45 @@ export type Database = {
           },
         ]
       }
+      stripe_webhook_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          customer_id: string | null
+          event_id: string
+          event_type: string
+          last_error_code: string | null
+          processed_at: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          event_id: string
+          event_type: string
+          last_error_code?: string | null
+          processed_at?: string | null
+          status: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          event_id?: string
+          event_type?: string
+          last_error_code?: string | null
+          processed_at?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       support_feedback: {
         Row: {
           category: string
@@ -1814,7 +1889,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_email_digest_delivery: {
+        Args: { p_digest_key: string; p_user_id: string }
+        Returns: boolean
+      }
       clear_default_portfolio_context: { Args: never; Returns: undefined }
+      complete_email_digest_delivery: {
+        Args: {
+          p_digest_key: string
+          p_provider_message_id?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       correct_portfolio_holding: {
         Args: {
           p_entry_price: number
@@ -1902,6 +1989,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      fail_email_digest_delivery: {
+        Args: { p_digest_key: string; p_error_code: string; p_user_id: string }
+        Returns: undefined
+      }
       get_broker_user_secret: {
         Args: { p_provider_id: string; p_user_id: string }
         Returns: {
@@ -1952,8 +2043,29 @@ export type Database = {
           transaction_id: string
         }[]
       }
+      process_stripe_entitlement_event: {
+        Args: {
+          p_action: string
+          p_customer_id?: string
+          p_event_id: string
+          p_event_type: string
+          p_subscription_id?: string
+          p_user_id?: string
+        }
+        Returns: boolean
+      }
       promote_broker_sync_candidate: {
         Args: { p_candidate: Json; p_job_id: string; p_worker_id: string }
+        Returns: undefined
+      }
+      record_stripe_webhook_failure: {
+        Args: {
+          p_customer_id?: string
+          p_error_code: string
+          p_event_id: string
+          p_event_type: string
+          p_subscription_id?: string
+        }
         Returns: undefined
       }
       remove_portfolio_holding_tracking: {

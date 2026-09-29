@@ -1,6 +1,6 @@
 "use client";
 
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import { HoldingLedgerRow, PortfolioExposureView } from "@/components/portfolio-workspace/PortfolioHoldingsVisuals";

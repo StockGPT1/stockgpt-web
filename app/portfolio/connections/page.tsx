@@ -14,10 +14,10 @@ export default async function BrokerConnectionsPage() {
     supabase.from("broker_connections").select("id,institution_id,status,last_attempted_sync_at,last_successful_sync_at,brokerage_institutions(name)").order("created_at"),
     supabase.from("broker_accounts").select("id,connection_id,name,account_type,base_currency,status,last_successful_sync_at,brokerage_institutions(name)").order("created_at"),
     supabase.from("user_portfolios").select("id,broker_account_id").eq("management_source", "connected"),
-    supabase.from("broker_sync_jobs").select("connection_id,status,error_code").order("created_at", { ascending: false }),
+    supabase.from("broker_sync_jobs").select("connection_id,status").order("created_at", { ascending: false }),
   ]);
   const portfolioByAccount = new Map((portfolios.data ?? []).map((row) => [row.broker_account_id, row.id]));
-  const latestJob = new Map<string, Pick<Database["public"]["Tables"]["broker_sync_jobs"]["Row"], "status" | "error_code">>();
+  const latestJob = new Map<string, Pick<Database["public"]["Tables"]["broker_sync_jobs"]["Row"], "status">>();
   for (const job of jobs.data ?? []) if (!latestJob.has(job.connection_id)) latestJob.set(job.connection_id, job);
 
   return <main className="mx-auto min-h-screen max-w-4xl px-5 py-10 text-white">

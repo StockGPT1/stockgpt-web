@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAuthorizedCron, unauthorizedCron } from "@/lib/security/cron";
+import { hasActiveSubscription } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+const RECIPIENT_PAGE_SIZE = 100;
+const SEND_BATCH_SIZE = 20;
 
 type Subscriber = {
   id: string;
@@ -481,10 +484,12 @@ async function sendEmail({
   to,
   subject,
   html,
+  idempotencyKey,
 }: {
   to: string;
   subject: string;
   html: string;
+  idempotencyKey: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.DIGEST_FROM_EMAIL;
@@ -502,6 +507,7 @@ async function sendEmail({
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify({
       from,
@@ -521,6 +527,28 @@ async function sendEmail({
   return data;
 }
 
+async function loadEligibleSubscribers(admin: ReturnType<typeof createAdminClient>, todayKey: string) {
+  const subscribers: Subscriber[] = [];
+  for (let from = 0; ; from += RECIPIENT_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id,email,subscription_status,email_news_digests,email_digest_last_sent_on")
+      .eq("email_news_digests", true)
+      .not("email", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + RECIPIENT_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as Subscriber[];
+    subscribers.push(...page.filter((subscriber) =>
+      Boolean(subscriber.email) &&
+      hasActiveSubscription(subscriber.subscription_status) &&
+      subscriber.email_digest_last_sent_on !== todayKey,
+    ));
+    if (page.length < RECIPIENT_PAGE_SIZE) break;
+  }
+  return subscribers;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorizedCron(req)) {
     return unauthorizedCron();
@@ -532,21 +560,8 @@ export async function GET(req: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stockgpt.pro";
 
   try {
-    const [
-      { data: subscribersData, error: subscribersError },
-      { data: newsData },
-      { data: rankingsData },
-    ] = await Promise.all([
-      admin
-        .from("profiles")
-        .select(
-          "id,email,subscription_status,email_news_digests,email_digest_last_sent_on",
-        )
-        .eq("subscription_status", "basic")
-        .eq("email_news_digests", true)
-        .not("email", "is", null)
-        .limit(100),
-
+    const [subscribers, { data: newsData }, { data: rankingsData }] = await Promise.all([
+      loadEligibleSubscribers(admin, todayKey),
       admin
         .from("news_articles")
         .select(
@@ -562,23 +577,6 @@ export async function GET(req: NextRequest) {
         .order("rank", { ascending: true })
         .limit(25),
     ]);
-
-    if (subscribersError) {
-      console.error("[weekly digest] Subscriber query error", subscribersError);
-
-      return NextResponse.json(
-        { error: "Could not fetch subscribers." },
-        { status: 500 },
-      );
-    }
-
-    const subscribers = ((subscribersData ?? []) as Subscriber[]).filter(
-      (subscriber) =>
-        subscriber.email &&
-        subscriber.email_news_digests &&
-        subscriber.subscription_status === "basic" &&
-        subscriber.email_digest_last_sent_on !== todayKey,
-    );
 
     const news = (newsData ?? []) as NewsArticle[];
     const rankings = (rankingsData ?? []) as Ranking[];
@@ -607,43 +605,59 @@ export async function GET(req: NextRequest) {
 
     const subject = `StockGPT Weekly Brief — ${getWeeklySubjectDate()}`;
 
-    const results: Array<{
-      email: string;
-      status: "sent" | "failed";
-      error?: string;
-    }> = [];
+    const results: Array<{ userId: string; status: "sent" | "failed" | "skipped" }> = [];
+    const digestKey = `weekly:${todayKey}`;
 
-    for (const subscriber of subscribers) {
-      if (!subscriber.email) continue;
-
-      try {
-        await sendEmail({
-          to: subscriber.email,
-          subject,
-          html,
+    for (let index = 0; index < subscribers.length; index += SEND_BATCH_SIZE) {
+      const batch = subscribers.slice(index, index + SEND_BATCH_SIZE);
+      await Promise.all(batch.map(async (subscriber) => {
+        if (!subscriber.email) return;
+        const { data: claimed, error: claimError } = await admin.rpc("claim_email_digest_delivery", {
+          p_digest_key: digestKey,
+          p_user_id: subscriber.id,
         });
+        if (claimError) throw claimError;
+        if (!claimed) {
+          results.push({ userId: subscriber.id, status: "skipped" });
+          return;
+        }
 
-        await admin
-          .from("profiles")
-          .update({
-            email_digest_last_sent_on: todayKey,
-            email_digest_last_sent_at: new Date().toISOString(),
-          })
-          .eq("id", subscriber.id);
-
-        results.push({
-          email: subscriber.email,
-          status: "sent",
-        });
-      } catch (error) {
-        console.error("[weekly digest] Failed subscriber", subscriber.email, error);
-
-        results.push({
-          email: subscriber.email,
-          status: "failed",
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+        try {
+          const providerResult = await sendEmail({
+            to: subscriber.email,
+            subject,
+            html,
+            idempotencyKey: `${digestKey}:${subscriber.id}`,
+          });
+          const { error: profileError } = await admin
+            .from("profiles")
+            .update({
+              email_digest_last_sent_on: todayKey,
+              email_digest_last_sent_at: new Date().toISOString(),
+            })
+            .eq("id", subscriber.id);
+          if (profileError) throw profileError;
+          const providerMessageId = providerResult && typeof providerResult === "object" && "id" in providerResult
+            ? String(providerResult.id)
+            : null;
+          const { error: completeError } = await admin.rpc("complete_email_digest_delivery", {
+            p_digest_key: digestKey,
+            p_user_id: subscriber.id,
+            p_provider_message_id: providerMessageId ?? undefined,
+          });
+          if (completeError) throw completeError;
+          results.push({ userId: subscriber.id, status: "sent" });
+        } catch (error) {
+          const errorCode = error instanceof Error ? error.name : "unknown_error";
+          await admin.rpc("fail_email_digest_delivery", {
+            p_digest_key: digestKey,
+            p_user_id: subscriber.id,
+            p_error_code: errorCode,
+          });
+          console.error("[weekly digest] recipient failed", { userId: subscriber.id, errorCode });
+          results.push({ userId: subscriber.id, status: "failed" });
+        }
+      }));
     }
 
     return NextResponse.json({
@@ -652,7 +666,7 @@ export async function GET(req: NextRequest) {
       week: weekLabel,
       sent: results.filter((r) => r.status === "sent").length,
       failed: results.filter((r) => r.status === "failed").length,
-      results,
+      skipped: results.filter((r) => r.status === "skipped").length,
     });
   } catch (error) {
     console.error("[weekly digest]", error);

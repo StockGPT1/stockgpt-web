@@ -45,7 +45,7 @@ export async function saveUnreadNotificationSummary(userId: string, unreadCount:
 
   try {
     const supabase = createAdminClient();
-    await supabase.from("user_notification_summaries").upsert(
+    const { error } = await supabase.from("user_notification_summaries").upsert(
       {
         user_id: userId,
         unread_count: normalised,
@@ -53,22 +53,28 @@ export async function saveUnreadNotificationSummary(userId: string, unreadCount:
       },
       { onConflict: "user_id" },
     );
+    if (error) throw error;
   } catch (err) {
     console.warn("Could not persist notification summary", err);
   }
 }
 
-export async function getUnreadNotificationCountFast(): Promise<number> {
+export type FastNotificationSummary =
+  | { status: "ok"; count: number }
+  | { status: "unavailable"; count: null }
+  | { status: "unauthenticated"; count: 0 };
+
+export async function getUnreadNotificationCountFast(): Promise<FastNotificationSummary> {
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return 0;
+    if (!user) return { status: "unauthenticated", count: 0 };
 
     const redisCount = await getJsonCache<number>(notificationCountKey(user.id));
-    if (typeof redisCount === "number") return normaliseCount(redisCount);
+    if (typeof redisCount === "number") return { status: "ok", count: normaliseCount(redisCount) };
 
     const { data, error } = await supabase
       .from("user_notification_summaries")
@@ -76,10 +82,10 @@ export async function getUnreadNotificationCountFast(): Promise<number> {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (error || !data) return 0;
+    if (error || !data) return { status: "unavailable", count: null };
 
     const row = data as NotificationSummaryRow;
-    if (!isFresh(row.updated_at)) return 0;
+    if (!isFresh(row.updated_at)) return { status: "unavailable", count: null };
 
     const count = normaliseCount(row.unread_count);
     await setJsonCache(
@@ -87,8 +93,8 @@ export async function getUnreadNotificationCountFast(): Promise<number> {
       count,
       NOTIFICATION_SUMMARY_TTL_SECONDS,
     );
-    return count;
+    return { status: "ok", count };
   } catch {
-    return 0;
+    return { status: "unavailable", count: null };
   }
 }

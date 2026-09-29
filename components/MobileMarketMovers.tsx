@@ -11,6 +11,7 @@ import {
   type TouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 import { StockLogo } from "@/components/StockLogo";
 
 type MoverMode = "gainers" | "losers";
@@ -229,15 +230,10 @@ function MoversSheet({
   movers: MarketMover[];
   onClose: () => void;
 }) {
+  useBlockingOverlay(open);
+
   useEffect(() => {
     if (!open) return;
-
-    const appContent = document.querySelector<HTMLElement>(".sg-app-content");
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalAppOverflow = appContent?.style.overflow ?? "";
-
-    document.body.style.overflow = "hidden";
-    if (appContent) appContent.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -245,8 +241,6 @@ function MoversSheet({
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.body.style.overflow = originalBodyOverflow;
-      if (appContent) appContent.style.overflow = originalAppOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose, open]);

@@ -172,11 +172,12 @@ export async function AppShell({
   const supabase = await createClient();
 
   const [
-    unreadCount,
+    notificationSummary,
     {
       data: { user },
     },
   ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser()]);
+  const unreadCount = notificationSummary.count;
 
   let canUseAskStockGPT = false;
 
@@ -257,10 +258,13 @@ export async function AppShell({
               <path d="M10 21h4" />
             </svg>
 
-            {unreadCount > 0 && (
+            {unreadCount != null && unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white ring-2 ring-[#04180f]">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
+            )}
+            {unreadCount == null && (
+              <span aria-label="Notification count unavailable" className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-[#7d7465] text-[10px] font-black text-white ring-2 ring-[#04180f]">!</span>
             )}
           </Link>
 
@@ -322,10 +326,13 @@ export async function AppShell({
 
                   <span className="truncate">{item.label}</span>
 
-                  {isAlerts && unreadCount > 0 && (
+                  {isAlerts && unreadCount != null && unreadCount > 0 && (
                     <span className="ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
+                  )}
+                  {isAlerts && unreadCount == null && (
+                    <span aria-label="Notification count unavailable" className="ml-auto grid size-5 place-items-center rounded-full bg-[#7d7465] text-[10px] font-black text-white">!</span>
                   )}
                 </Link>
               );

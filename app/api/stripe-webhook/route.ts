@@ -1,195 +1,123 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import {
-  sendCoreSubscriptionActivatedEmail,
-  sendPaymentFailedEmail,
-  sendSubscriptionCancelledEmail,
-} from "@/lib/transactional-email";
-import { hasActiveSubscription } from "@/lib/subscription";
+import { sendCoreSubscriptionActivatedEmail, sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/transactional-email";
 import { stripe } from "@/lib/stripe";
-
-type ProfileRow = {
-  email: string | null;
-  subscription_status: string | null;
-};
+import { createAdminClient } from "@/utils/supabase/admin";
 
 type SupabaseAdminClient = SupabaseClient<Database>;
+type EntitlementAction = "activate_basic" | "ensure_basic" | "end_access" | "observe_only" | "ignore";
 
-// Stripe subscription statuses that should not remove app access.
-// "past_due" is included on purpose: Stripe keeps retrying the payment
-// (smart retries) and most involuntary failures recover. Access is only
-// removed once Stripe gives up and the subscription is deleted/canceled.
-const STRIPE_STATUSES_KEEPING_ACCESS = new Set<Stripe.Subscription.Status>([
-  "active",
-  "trialing",
-  "past_due",
-]);
+const KEEPING_ACCESS = new Set<Stripe.Subscription.Status>(["active", "trialing", "past_due"]);
+const ENDING_ACCESS = new Set<Stripe.Subscription.Status>(["canceled", "unpaid", "incomplete_expired"]);
 
-const STRIPE_STATUSES_ENDING_ACCESS = new Set<Stripe.Subscription.Status>([
-  "canceled",
-  "unpaid",
-  "incomplete_expired",
-]);
-
-async function getProfileEmail(
-  supabaseAdmin: SupabaseAdminClient,
-  userId: string,
-) {
-  const { data } = await supabaseAdmin
-    .from("profiles")
-    .select("email")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const profile = data as Pick<ProfileRow, "email"> | null;
-
-  return profile?.email ?? null;
+async function getProfileEmail(admin: SupabaseAdminClient, column: "id" | "stripe_customer_id", value: string) {
+  const { data, error } = await admin.from("profiles").select("email").eq(column, value).maybeSingle();
+  if (error) throw error;
+  return data?.email ?? null;
 }
 
-async function getProfileByStripeCustomer(
-  supabaseAdmin: SupabaseAdminClient,
-  customerId: string,
-) {
-  const { data } = await supabaseAdmin
-    .from("profiles")
-    .select("email,subscription_status")
-    .eq("stripe_customer_id", customerId)
-    .maybeSingle();
+function customerId(value: string | Stripe.Customer | Stripe.DeletedCustomer | null) {
+  return typeof value === "string" ? value : value?.id ?? null;
+}
 
-  return (data as ProfileRow | null) ?? null;
+function safeErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "code" in error) return String(error.code).slice(0, 100);
+  return error instanceof Error ? error.name.replace(/[^a-z0-9_-]/gi, "_").slice(0, 100) : "unknown_error";
 }
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!webhookSecret) return NextResponse.json({ error: "Webhook unavailable" }, { status: 500 });
 
-  if (!webhookSecret || !supabaseUrl || !serviceRole) {
-    return NextResponse.json(
-      { error: "Missing webhook environment variables" },
-      { status: 500 },
-    );
-  }
-
-  const supabaseAdmin = createClient<Database>(supabaseUrl, serviceRole);
-
-  const body = await request.text();
   const signature = request.headers.get("stripe-signature");
-
-  if (!signature) {
-    return NextResponse.json({ error: "No signature" }, { status: 400 });
-  }
+  if (!signature) return NextResponse.json({ error: "No signature" }, { status: 400 });
 
   let event: Stripe.Event;
-
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(await request.text(), signature, webhookSecret);
   } catch {
     return NextResponse.json({ error: "Invalid webhook" }, { status: 400 });
   }
 
+  const admin = createAdminClient();
+  let action: EntitlementAction = "ignore";
+  let userId: string | null = null;
+  let stripeCustomerId: string | null = null;
+  let subscriptionId: string | null = null;
+  let emailKind: "activated" | "cancelled" | "payment_failed" | null = null;
+  let explicitEmail: string | null = null;
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const userId = session.metadata?.user_id;
-    const customerId =
-      typeof session.customer === "string" ? session.customer : null;
-
-    if (userId) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({
-          subscription_status: "basic",
-          stripe_customer_id: customerId,
-        })
-        .eq("id", userId);
-
-      const email =
-        session.customer_details?.email ??
-        session.customer_email ??
-        (await getProfileEmail(supabaseAdmin, userId));
-
-      if (email) {
-        await sendCoreSubscriptionActivatedEmail(email);
-      }
-    }
-  }
-
-  if (event.type === "customer.subscription.updated") {
+    userId = session.metadata?.user_id ?? null;
+    stripeCustomerId = customerId(session.customer);
+    subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+    action = "activate_basic";
+    emailKind = "activated";
+    explicitEmail = session.customer_details?.email ?? session.customer_email ?? null;
+  } else if (event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
-    const customerId =
-      typeof subscription.customer === "string" ? subscription.customer : null;
-
-    if (customerId) {
-      if (STRIPE_STATUSES_KEEPING_ACCESS.has(subscription.status)) {
-        // Reinstate lapsed profiles — e.g. Stripe recovered a previously
-        // failed payment, or a subscription resumed after being paused.
-        // Profiles that already hold an active plan (including manually
-        // granted tiers like "alpha") are left untouched so this event
-        // never downgrades a plan name.
-        const profile = await getProfileByStripeCustomer(
-          supabaseAdmin,
-          customerId,
-        );
-
-        if (profile && !hasActiveSubscription(profile.subscription_status)) {
-          await supabaseAdmin
-            .from("profiles")
-            .update({ subscription_status: "basic" })
-            .eq("stripe_customer_id", customerId);
-        }
-      } else if (STRIPE_STATUSES_ENDING_ACCESS.has(subscription.status)) {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ subscription_status: "none" })
-          .eq("stripe_customer_id", customerId);
-      }
-    }
-  }
-
-  if (event.type === "customer.subscription.deleted") {
+    stripeCustomerId = customerId(subscription.customer);
+    subscriptionId = subscription.id;
+    action = KEEPING_ACCESS.has(subscription.status)
+      ? "ensure_basic"
+      : ENDING_ACCESS.has(subscription.status) ? "end_access" : "observe_only";
+  } else if (event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
-    const customerId =
-      typeof subscription.customer === "string" ? subscription.customer : null;
-
-    if (customerId) {
-      const profile = await getProfileByStripeCustomer(
-        supabaseAdmin,
-        customerId,
-      );
-
-      await supabaseAdmin
-        .from("profiles")
-        .update({ subscription_status: "none" })
-        .eq("stripe_customer_id", customerId);
-
-      if (profile?.email) {
-        await sendSubscriptionCancelledEmail(profile.email);
-      }
-    }
-  }
-
-  if (event.type === "invoice.payment_failed") {
+    stripeCustomerId = customerId(subscription.customer);
+    subscriptionId = subscription.id;
+    action = "end_access";
+    emailKind = "cancelled";
+  } else if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice;
-    const customerId =
-      typeof invoice.customer === "string" ? invoice.customer : null;
-
-    // Notify the customer but keep their access: Stripe retries failed
-    // payments automatically and the subscription moves to "past_due".
-    // If every retry fails, Stripe cancels the subscription and the
-    // customer.subscription.deleted handler above removes access.
-    if (customerId) {
-      const profile = await getProfileByStripeCustomer(
-        supabaseAdmin,
-        customerId,
-      );
-
-      if (profile?.email) {
-        await sendPaymentFailedEmail(profile.email);
-      }
-    }
+    stripeCustomerId = customerId(invoice.customer);
+    action = "observe_only";
+    emailKind = "payment_failed";
   }
 
-  return NextResponse.json({ received: true });
+  try {
+    const { data: applied, error } = await admin.rpc("process_stripe_entitlement_event", {
+      p_event_id: event.id,
+      p_event_type: event.type,
+      p_action: action,
+      p_user_id: userId ?? undefined,
+      p_customer_id: stripeCustomerId ?? undefined,
+      p_subscription_id: subscriptionId ?? undefined,
+    });
+    if (error) throw error;
+
+    if (applied && emailKind) {
+      const email = explicitEmail ?? (userId
+        ? await getProfileEmail(admin, "id", userId)
+        : stripeCustomerId ? await getProfileEmail(admin, "stripe_customer_id", stripeCustomerId) : null);
+      if (email) {
+        try {
+          if (emailKind === "activated") await sendCoreSubscriptionActivatedEmail(email);
+          if (emailKind === "cancelled") await sendSubscriptionCancelledEmail(email);
+          if (emailKind === "payment_failed") await sendPaymentFailedEmail(email);
+        } catch (emailError) {
+          console.warn("[stripe-webhook] customer email failed", {
+            eventId: event.id,
+            eventType: event.type,
+            errorCode: safeErrorCode(emailError),
+          });
+        }
+      }
+    }
+    return NextResponse.json({ received: true, applied: Boolean(applied) });
+  } catch (error) {
+    const errorCode = safeErrorCode(error);
+    const failure = await admin.rpc("record_stripe_webhook_failure", {
+      p_event_id: event.id,
+      p_event_type: event.type,
+      p_error_code: errorCode,
+      p_customer_id: stripeCustomerId ?? undefined,
+      p_subscription_id: subscriptionId ?? undefined,
+    });
+    if (failure.error) console.error("[stripe-webhook] failure state unavailable", { eventId: event.id });
+    console.error("[stripe-webhook] processing failed", { eventId: event.id, eventType: event.type, errorCode });
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
 }

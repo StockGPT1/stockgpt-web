@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 
 type MobileSheetVariant = "bottom" | "full" | "confirm";
 
@@ -37,6 +38,7 @@ export function MobileSheet({
     labelledById ?? `${flowId}-title`;
 
   useFocusedFlow(flowId, open);
+  useBlockingOverlay(open);
 
   useEffect(() => {
     if (!open) return;
@@ -89,11 +91,6 @@ export function MobileSheet({
       }
     }
 
-    const originalOverflow = document.body.style.overflow;
-    const originalOverscroll = document.body.style.overscrollBehavior;
-
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
     document.addEventListener("keydown", onKeyDown);
     const focusTimer = window.setTimeout(() => {
       const preferred = dialog?.querySelector<HTMLElement>("[data-sheet-initial-focus]");
@@ -101,8 +98,6 @@ export function MobileSheet({
     }, 0);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscroll;
       document.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(focusTimer);
       inertState.forEach(({ node, inert, ariaHidden }) => {

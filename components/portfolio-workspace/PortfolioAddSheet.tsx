@@ -10,7 +10,7 @@ import type {
   PortfolioMeta,
   StockOption,
 } from "@/components/portfolio-workspace/types";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import {
   addCash,

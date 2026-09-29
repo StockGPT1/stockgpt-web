@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normaliseCurrency } from "@/lib/currency";
-import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
@@ -24,12 +23,10 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const admin = createAdminClient();
-    const { error } = await admin
+    const { error } = await supabase
       .from("profiles")
       .update({
         preferred_currency: currency,
-        email: user.email ?? null,
       })
       .eq("id", user.id);
 

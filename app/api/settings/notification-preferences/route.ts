@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,14 +25,12 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const admin = createAdminClient();
-    const { error } = await admin
+    const { error } = await supabase
       .from("profiles")
       .update({
         email_news_digests: booleanOrDefault(body?.digest, false),
         email_portfolio_alerts: booleanOrDefault(body?.portfolioAlerts, true),
         email_watchlist_alerts: booleanOrDefault(body?.watchlistAlerts, true),
-        email: user.email ?? null,
       })
       .eq("id", user.id);
 

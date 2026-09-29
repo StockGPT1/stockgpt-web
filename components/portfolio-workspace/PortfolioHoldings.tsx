@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import { StockLogo } from "@/components/StockLogo";
 import { HoldingLedgerRow, PortfolioExposureView } from "@/components/portfolio-workspace/PortfolioHoldingsVisuals";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";

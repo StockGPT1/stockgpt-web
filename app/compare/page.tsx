@@ -98,7 +98,7 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
         <section className="rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.025),rgba(221,177,89,0.06))] p-4 shadow-[0_16px_38px_rgba(0,0,0,0.2)]">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">StockGPT comparison</p>
           <h1 className="mt-1 text-[32px] font-black leading-none tracking-[-0.055em] text-[#faf6f0]">Compare two stocks</h1>
-          <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Start typing a ticker or company name, then compare ranking metrics, AI trade-plan levels and expected return side by side.</p>
+          <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#faf6f0]/58">Start typing a ticker or company name, then compare ranking metrics and research reference levels side by side.</p>
           <form className="mt-4 grid gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#02150d]/62 p-2 sm:grid-cols-[1fr_1fr_auto]">
             <input list="compare-stock-options" name="a" defaultValue={leftTicker} placeholder="First ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
             <input list="compare-stock-options" name="b" defaultValue={rightTicker} placeholder="Second ticker" className="h-11 min-w-0 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 text-[13px] font-black uppercase text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/35" />
@@ -124,10 +124,10 @@ export default async function ComparePage({ searchParams }: { searchParams?: Pro
               <MetricRow label="Target" left={`${money(left.trade.takeProfit)} (${pct(left.trade.targetPct)})`} right={`${money(right.trade.takeProfit)} (${pct(right.trade.targetPct)})`} leftScore={left.trade.targetPct} rightScore={right.trade.targetPct} />
               <MetricRow label="Risk/reward" left={`1:${left.trade.riskReward.toFixed(1)}`} right={`1:${right.trade.riskReward.toFixed(1)}`} leftScore={left.trade.riskReward} rightScore={right.trade.riskReward} />
               <MetricRow label="Expected" left={left.trade.plan ? `${left.trade.plan.expectedAnnualReturn.toFixed(1)}%/yr` : "—"} right={right.trade.plan ? `${right.trade.plan.expectedAnnualReturn.toFixed(1)}%/yr` : "—"} leftScore={left.trade.plan?.expectedAnnualReturn ?? null} rightScore={right.trade.plan?.expectedAnnualReturn ?? null} />
-              <MetricRow label="Hold" left={left.trade.plan?.recommendedHoldPeriod ?? "—"} right={right.trade.plan?.recommendedHoldPeriod ?? "—"} />
-              <MetricRow label="Rating" left={left.trade.recommendation} right={right.trade.recommendation} />
+              <MetricRow label="Review window" left={left.trade.plan?.reviewWindow ?? "—"} right={right.trade.plan?.reviewWindow ?? "—"} />
+              <MetricRow label="Research state" left={left.trade.researchState} right={right.trade.researchState} />
             </div>
-            <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40">Comparison uses current StockGPT ranking data and generated trade-plan levels. It is a research tool, not financial advice.</p>
+            <p className="px-2 text-[10px] font-medium leading-relaxed text-[#faf6f0]/40">Comparison uses current StockGPT ranking data and analytical reference levels. It is research context, not a transaction instruction.</p>
           </section>
         )}
       </main>

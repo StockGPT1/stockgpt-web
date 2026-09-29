@@ -55,6 +55,10 @@
     "test:wave3": "npm run test:broker-connection-state && npm run test:broker-connections && npm run test:connected-portfolio-intelligence && npm run test:connected-portfolios",
     "test:portfolio-history-context": "tsx scripts/wave4-history-context-checks.ts",
     "test:wave4": "npm run test:portfolio-history-context && node scripts/verify-wave4-local.mjs",
+    "test:wave5-experience": "tsx scripts/wave5-experience-checks.ts",
+    "test:wave5-security": "tsx scripts/wave5-security-checks.ts && node scripts/verify-wave5-security-local.mjs",
+    "test:wave5-customer": "tsx scripts/wave5-customer-checks.ts",
+    "test:wave5": "npm run test:wave5-experience && npm run test:wave5-security && npm run test:wave5-customer",
     "test:wave1-foundations": "supabase db query --local --file supabase/tests/verify_wave1_foundations.sql && npm run test:instrument-foundation && npm run test:broker-domain",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"

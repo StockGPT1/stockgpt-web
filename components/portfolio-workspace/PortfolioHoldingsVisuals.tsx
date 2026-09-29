@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StockLogo } from "@/components/StockLogo";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import type { ExposureView } from "@/components/portfolio-workspace/types";
 import {
   holdingIntelligenceForTicker,

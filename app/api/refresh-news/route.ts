@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
+import { createAdminClient } from "@/utils/supabase/admin";
 import {
   analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
@@ -35,22 +34,6 @@ const NEWS_QUERIES = [
   "mega cap stocks earnings guidance analyst upgrade downgrade",
   "tariffs sanctions regulation stocks market impact",
 ];
-
-function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  return createSupabaseAdmin<Database>(supabaseUrl, serviceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 function decodeHtml(value: string) {
   return value
@@ -290,7 +273,7 @@ export async function GET(request: NextRequest) {
     return unauthorizedCron();
   }
 
-  const supabase = getAdminClient();
+  const supabase = createAdminClient();
 
   const { data: stockData, error: stockError } = await supabase
     .from("stock_rankings")

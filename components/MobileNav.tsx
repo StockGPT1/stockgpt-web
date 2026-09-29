@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 
 type NavItem = {
   href: string;
@@ -13,7 +14,7 @@ type NavItem = {
 type Props = {
   navItems: readonly NavItem[];
   activePath: string;
-  unreadCount: number;
+  unreadCount: number | null;
 };
 
 function iconForLabel(label: string): StockIconName {
@@ -29,6 +30,7 @@ function iconForLabel(label: string): StockIconName {
 
 export function MobileNav({ navItems, activePath, unreadCount }: Props) {
   const [open, setOpen] = useState(false);
+  useBlockingOverlay(open);
 
   // Close on route change
   useEffect(() => {
@@ -36,14 +38,13 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
     return () => window.clearTimeout(timeout);
   }, [activePath]);
 
-  // Lock body scroll when menu is open
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   return (
@@ -57,10 +58,13 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
         <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
-        {unreadCount > 0 && (
+        {unreadCount != null && unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white ring-2 ring-[#04180f]">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
+        )}
+        {unreadCount == null && (
+          <span aria-label="Notification count unavailable" className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-[#7d7465] text-[9px] font-black text-white ring-2 ring-[#04180f]">!</span>
         )}
       </button>
 
@@ -74,6 +78,11 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
 
       {/* Drawer panel */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        aria-hidden={!open}
+        inert={!open}
         className={`fixed inset-y-0 left-0 z-50 w-[280px] transform bg-[#061b12] transition-transform duration-200 lg:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -112,10 +121,13 @@ export function MobileNav({ navItems, activePath, unreadCount }: Props) {
                     <StockIcon name={iconForLabel(item.label)} className="size-[18px]" />
                   </span>
                   <span className="truncate">{item.label}</span>
-                  {isAlerts && unreadCount > 0 && (
+                  {isAlerts && unreadCount != null && unreadCount > 0 && (
                     <span className="ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
+                  )}
+                  {isAlerts && unreadCount == null && (
+                    <span aria-label="Notification count unavailable" className="ml-auto grid size-5 place-items-center rounded-full bg-[#7d7465] text-[10px] font-black text-white">!</span>
                   )}
                 </Link>
               );

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
+import type { ExtendedHolding } from "@/lib/portfolio-holding-view";
 import { PortfolioExportLink } from "@/components/portfolio-workspace/PortfolioExportLink";
 import { PortfolioSheet } from "@/components/portfolio-workspace/PortfolioSheet";
 import type {

@@ -114,7 +114,7 @@ async function calculateTransientTradeLevels({
     sector: ranking.sector ?? null,
   });
 
-  if (!tradeLevels || tradeLevels.recommendation === "Avoid") return null;
+  if (!tradeLevels || tradeLevels.researchState === "Limited evidence") return null;
 
   const riskLevel = tradeLevels.stopLoss;
   const targetLevel = tradeLevels.takeProfit;

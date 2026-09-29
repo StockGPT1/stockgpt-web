@@ -108,12 +108,12 @@ export type DashboardPortfolioOpportunity = {
   company: string | null;
   sector: string;
   category:
-    | "High-conviction fit"
-    | "Diversification fit"
-    | "Add-more candidate"
-    | "Alternative to review"
-    | "Review existing holding"
-    | "Watchlist idea";
+    | "High-ranked research"
+    | "Sector research"
+    | "Existing holding research"
+    | "Comparison research"
+    | "Holding evidence"
+    | "Ranking research";
   score: number;
   rank: number | null;
   recentMovePct: number | null;
@@ -243,7 +243,7 @@ export async function buildPortfolioOpportunities(
       if (!ticker || !Number.isFinite(score) || score < 6500 || !Number.isFinite(price) || price <= 0) return null;
       if (!isFreshEnough(updatedAt)) return null;
 
-      let category: DashboardPortfolioOpportunity["category"] = "Watchlist idea";
+      let category: DashboardPortfolioOpportunity["category"] = "Ranking research";
       let fitScore = score / 100;
       const rank = stock.rank;
 
@@ -257,47 +257,47 @@ export async function buildPortfolioOpportunities(
           sectorExposurePct: exposure,
         });
         if (holdingAction.action === "review" || holdingAction.action === "trim" || holdingAction.action === "exit") {
-          category = "Review existing holding";
+          category = "Holding evidence";
           fitScore += holdingAction.action === "exit" ? 7 : 5;
         } else {
           const target = held.targetAllocationPct ?? held.currentAllocationPct;
           if (held.currentAllocationPct >= target - 1 || summary.cashDrag < 2 || exposure > sectorCap * 0.9) return null;
-          category = "Add-more candidate";
+          category = "Existing holding research";
           fitScore += Math.max(0, target - held.currentAllocationPct) * 1.6;
         }
       } else if (weakSameSector && score >= weakSameSector.score + 900) {
         if (exposure > sectorCap * 1.15) return null;
-        category = "Alternative to review";
+        category = "Comparison research";
         fitScore += 14;
       } else if (exposure <= 3 && score >= 7200) {
-        category = "Diversification fit";
+        category = "Sector research";
         fitScore += 12;
       } else if (score >= 8000 && (rank ?? 9999) <= 50 && exposure <= sectorCap * 0.6) {
-        category = "High-conviction fit";
+        category = "High-ranked research";
         fitScore += 8;
       } else if (score < 7200 || exposure > sectorCap * 0.75) {
         return null;
       }
 
-      if (!held && exposure > sectorCap && category !== "Alternative to review") return null;
+      if (!held && exposure > sectorCap && category !== "Comparison research") return null;
 
       fitScore += objectiveBonus(portfolio.objective, { score, rank, sector });
       fitScore -= Math.max(0, exposure - sectorCap) * 1.2;
 
       const reason =
-        category === "Add-more candidate"
-          ? `${ticker} is already held but remains below target with a strong current StockGPT score.`
-          : category === "Review existing holding"
+        category === "Existing holding research"
+          ? `${ticker} is already held and has a strong current StockGPT score; allocation context is shown for research only.`
+          : category === "Holding evidence"
             ? `${ticker} is already in the portfolio and has a review signal, so this is not a diversification idea.`
-          : category === "Alternative to review"
-            ? `${ticker} screens stronger than ${weakSameSector?.ticker ?? "a weaker same-sector holding"} and may be worth comparing as an alternative.`
-            : category === "Diversification fit"
-              ? `${ticker} adds exposure outside the portfolio's current main sectors while retaining strong AI conviction.`
+          : category === "Comparison research"
+            ? `${ticker} screens stronger than ${weakSameSector?.ticker ?? "a weaker same-sector holding"} and provides useful comparative evidence.`
+            : category === "Sector research"
+              ? `${ticker} provides research exposure outside the portfolio's current main sectors with strong model evidence.`
               : `${ticker} combines strong AI conviction with a reasonable portfolio fit.`;
       const risk =
         exposure > 0
-          ? `${sector} exposure is already ${exposure.toFixed(1)}%, so sizing should stay controlled.`
-          : "New sector exposure should still be sized conservatively and reviewed against current news.";
+          ? `${sector} exposure is already ${exposure.toFixed(1)}%; concentration remains relevant context.`
+          : "Sector evidence should be reviewed alongside current valuation and news coverage.";
       const opportunity: DashboardPortfolioOpportunity = {
         ticker,
         company: stock.company,

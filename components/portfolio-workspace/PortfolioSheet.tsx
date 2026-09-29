@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 
 const FOCUSABLE =
   'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -33,6 +34,7 @@ export function PortfolioSheet({
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const subtitleId = useId();
+  useBlockingOverlay(open);
 
   const requestClose = useCallback(() => {
     if (closeConfirmation && !window.confirm(closeConfirmation)) return;
@@ -42,11 +44,6 @@ export function PortfolioSheet({
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
-    const originalOverflow = document.body.style.overflow;
-    const originalOverscroll = document.body.style.overscrollBehavior;
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-
     const focusable = () =>
       Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter(
         (node) => node.offsetParent !== null,
@@ -81,8 +78,6 @@ export function PortfolioSheet({
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = originalOverflow;
-      document.body.style.overscrollBehavior = originalOverscroll;
       previous?.focus?.({ preventScroll: true });
     };
   }, [open, requestClose]);

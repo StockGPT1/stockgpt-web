@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
 import { hasActiveSubscription } from "@/lib/subscription";
 import {
   checkRateLimit,
@@ -71,7 +70,7 @@ export async function GET(req: NextRequest) {
         .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
         .order("ticker", { ascending: true, nullsFirst: false })
         .limit(8)
-    : await createAdminClient()
+    : await supabase
         .from("stock_rankings")
         .select("ticker, company, sector")
         .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)

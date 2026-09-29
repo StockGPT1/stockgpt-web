@@ -2,7 +2,7 @@ import { getStockChart } from "@/lib/yahoo";
 import { createClient } from "@/utils/supabase/server";
 
 export type TradeLevels = {
-  recommendation: "Strong Buy" | "Buy" | "Hold / Watch" | "Avoid";
+  researchState: "Strong evidence" | "Constructive evidence" | "Mixed evidence" | "Limited evidence";
   entry: number;
   stopLoss: number;
   takeProfit: number;
@@ -19,7 +19,7 @@ export type TradePlan = {
   expectedMonthsToTarget: number;
   expectedTargetDate: string;
   reviewDate: string;
-  recommendedHoldPeriod: string;
+  reviewWindow: string;
   thesis: string;
   triggers: TradeTrigger[];
 };
@@ -28,7 +28,7 @@ export type TradeTrigger = {
   type: "take_profit" | "stop_loss" | "score_drop" | "rank_drop" | "review";
   icon: "target" | "shield" | "warning" | "calendar";
   condition: string;
-  action: string;
+  observation: string;
   tone: "positive" | "negative" | "neutral";
 };
 
@@ -344,7 +344,7 @@ function buildTradePlan({
 
   const holdMin = Math.max(6, Math.round(expectedMonthsToTarget * 0.65));
   const holdMax = Math.max(12, Math.round(expectedMonthsToTarget * 1.25));
-  const recommendedHoldPeriod = `${holdMin}–${holdMax} months`;
+  const reviewWindow = `${holdMin}–${holdMax} months`;
 
   const sectorDesc = sector
     ? `${sector} ${describeVolatility(SECTOR_VOLATILITY[sector] ?? 1.0)}`
@@ -369,7 +369,7 @@ function buildTradePlan({
     newsSignal.earningsSignal,
   ].filter(Boolean).slice(0, 4).join("; ");
 
-  const thesis = `Medium-term plan: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}). Stock-specific evidence: ${evidence || `${sectorDesc} with limited technical confirmation`}. The setup targets $${takeProfit.toFixed(2)} against invalidation at $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk invalidated ${stopReason}.`;
+  const thesis = `Medium-term research: ${ticker} has a ${confidenceDesc} AI signal (rank #${rank ?? "—"}, score ${score.toLocaleString()}). Stock-specific evidence: ${evidence || `${sectorDesc} with limited technical confirmation`}. The upside reference is $${takeProfit.toFixed(2)} and thesis-risk reference is $${stopLoss.toFixed(2)}. Risk/reward is about 1:${riskReward.toFixed(1)}, with risk evidence ${stopReason}.`;
 
   const targetReason = technical.resistance
     ? `first checkpoint is prior resistance around $${technical.resistance.toFixed(2)}, but the medium-term target uses a measured extension beyond it`
@@ -379,22 +379,22 @@ function buildTradePlan({
     {
       type: "take_profit", icon: "target", tone: "positive",
       condition: `If ${ticker} approaches $${takeProfit.toFixed(2)}`,
-      action: `Medium-term take-profit zone (${targetReason}; +${targetPct}%) — likely by ${formatMonth(targetDate)}`,
+      observation: `Upside reference zone (${targetReason}; +${targetPct}%) — model horizon ${formatMonth(targetDate)}`,
     },
     {
       type: "stop_loss", icon: "shield", tone: "negative",
       condition: `If ${ticker} breaks $${stopLoss.toFixed(2)}`,
-      action: `Cut or trim (${stopReason}; −${stopPct}%). This is the thesis invalidation level, not a short-term noise stop.`,
+      observation: `Thesis-risk reference (${stopReason}; −${stopPct}%). Crossing it warrants renewed research.`,
     },
     {
       type: "score_drop", icon: "warning", tone: "neutral",
       condition: `If AI score drops by 25% from current`,
-      action: `Reassess thesis — model conviction has weakened`,
+      observation: `Reassess thesis — model conviction has weakened`,
     },
     {
       type: "review", icon: "calendar", tone: "neutral",
       condition: `Every 3 months`,
-      action: `Review price structure, RSI/MACD, AI rank, earnings/news, and whether support/resistance has shifted`,
+      observation: `Review price structure, RSI/MACD, AI rank, earnings/news, and whether support/resistance has shifted`,
     },
   ];
 
@@ -403,7 +403,7 @@ function buildTradePlan({
     expectedMonthsToTarget,
     expectedTargetDate: formatMonth(targetDate),
     reviewDate: formatMonth(reviewDate),
-    recommendedHoldPeriod,
+    reviewWindow,
     thesis,
     triggers,
   };
@@ -506,11 +506,11 @@ export async function calculateTradeLevels({
   const targetPct = ((adjustedTakeProfit - entry) / entry) * 100;
   const riskReward = targetPct / Math.max(stopPct, 0.1);
 
-  let recommendation: TradeLevels["recommendation"];
-  if (confidence >= 0.75) recommendation = "Strong Buy";
-  else if (confidence >= 0.55) recommendation = "Buy";
-  else if (confidence >= 0.35) recommendation = "Hold / Watch";
-  else recommendation = "Avoid";
+  let researchState: TradeLevels["researchState"];
+  if (confidence >= 0.75) researchState = "Strong evidence";
+  else if (confidence >= 0.55) researchState = "Constructive evidence";
+  else if (confidence >= 0.35) researchState = "Mixed evidence";
+  else researchState = "Limited evidence";
 
   const technicalStopLabel = stopSource === "support" && technical.support
     ? `$${technical.support.toFixed(2)}`
@@ -579,7 +579,7 @@ export async function calculateTradeLevels({
   const roundedTargetPct = round(targetPct, 1);
   const roundedRiskReward = round(riskReward, 1);
 
-  const plan = recommendation !== "Avoid" ? buildTradePlan({
+  const plan = researchState !== "Limited evidence" ? buildTradePlan({
     ticker,
     confidence,
     entry: roundedEntry,
@@ -597,7 +597,7 @@ export async function calculateTradeLevels({
   }) : null;
 
   return {
-    recommendation,
+    researchState,
     entry: roundedEntry,
     stopLoss: roundedStop,
     takeProfit: roundedTarget,

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { useBlockingOverlay } from "@/components/useBlockingOverlay";
 import {
   importTrading212Csv,
   previewTrading212Csv,
@@ -405,11 +406,10 @@ function ImportModal({
   portfolioId?: string | null;
   onClose: () => void;
 }) {
+  useBlockingOverlay(open);
+
   useEffect(() => {
     if (!open) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -418,7 +418,6 @@ function ImportModal({
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, open]);

@@ -138,7 +138,8 @@ assert.doesNotMatch(actions, /invalidatePortfolioPageSnapshot|saveLatestPortfoli
 assert.match(actions, /revalidatePath\(["']\/portfolio["']/);
 const opportunities = readSource("lib/dashboard-portfolio.ts");
 assert.match(opportunities, /buildPortfolioOpportunities/);
-assert.match(opportunities, /Review existing holding/);
+assert.match(opportunities, /Holding evidence/);
+assert.doesNotMatch(opportunities, /Add-more candidate|Alternative to review|Review existing holding/);
 assert.match(opportunities, /targetAllocationPct/);
 assert.match(opportunities, /getOneDayMoveMap/);
 

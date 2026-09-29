@@ -110,7 +110,7 @@ export function DesktopPortfolioOpportunitiesCarousel({
             No strong portfolio-fit ideas right now.
           </p>
           <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/52">
-            StockGPT is not forcing a recommendation when the current setup is not strong enough.
+            Explore general ranking evidence when no additional research item is highlighted.
           </p>
         </div>
       ) : (
