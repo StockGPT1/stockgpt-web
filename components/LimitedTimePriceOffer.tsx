@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { offerSeatsLeft } from "@/lib/limited-offer";
 
 const ORIGINAL_PRICE = "£18.99";
@@ -90,20 +91,12 @@ function applyOffer(root: ParentNode) {
 }
 
 export function LimitedTimePriceOffer() {
+  const pathname = usePathname();
+
   useEffect(() => {
-    applyOffer(document.body);
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLElement) applyOffer(node);
-        }
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
+    const frame = window.requestAnimationFrame(() => applyOffer(document.body));
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname]);
 
   return null;
 }

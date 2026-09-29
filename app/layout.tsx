@@ -98,6 +98,8 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const telemetryEnabled = process.env.STOCKGPT_EXTERNAL_NETWORK_DISABLED !== "true";
+
   return (
     <html lang="en">
       <body>
@@ -105,8 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AppShellMode />
         <LimitedTimePriceOffer />
         <StockAskActionPolish />
-        <Analytics />
-        <SpeedInsights />
+        {telemetryEnabled ? <Analytics /> : null}
+        {telemetryEnabled ? <SpeedInsights /> : null}
         <Script id="stockgpt-structured-data" type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",

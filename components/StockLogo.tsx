@@ -84,8 +84,10 @@ export function StockLogo({
   const symbol = cleanTicker(ticker);
   const fallback = initialsFrom(ticker, company);
   const failed = failedSymbol === symbol;
+  const externalImagesDisabled =
+    process.env.NEXT_PUBLIC_STOCKGPT_EXTERNAL_NETWORK_DISABLED === "true";
 
-  if (!symbol || failed) {
+  if (!symbol || failed || externalImagesDisabled) {
     return (
       <span
         className={[

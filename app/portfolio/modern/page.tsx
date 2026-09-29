@@ -154,7 +154,6 @@ export default async function ModernPortfolioPage({
     { data: portfolioRows, error: portfoliosError },
     { data: profile, error: profileError },
     fxQuote,
-    { data: stockRows, error: stocksError },
   ] =
     await Promise.all([
       supabase
@@ -171,13 +170,6 @@ export default async function ModernPortfolioPage({
         .eq("id", user.id)
         .maybeSingle(),
       getUsdFxQuote(),
-      supabase
-        .from("stock_rankings")
-        .select(
-          "ticker,company,sector,rank,score,price,last_price_update,last_ranking_update",
-        )
-        .order("rank", { ascending: true })
-        .limit(500),
     ]);
 
   if (portfoliosError) throw new Error("Portfolio list could not be loaded.");
@@ -190,21 +182,29 @@ export default async function ModernPortfolioPage({
   }));
   const displayCurrency = normaliseCurrency(profile?.preferred_currency);
   const usdToWriteRate = writeSafeRateForCurrency(displayCurrency, fxQuote);
-  const stocks = ((stockRows ?? []) as StockRow[])
-    .filter((stock) => stock.ticker)
-    .map((stock) => ({
-      ticker: String(stock.ticker).toUpperCase(),
-      company: stock.company,
-      sector: stock.sector,
-      rank: stock.rank,
-      score: stock.score,
-      price:
-        stock.price == null
-          ? null
-          : convertUsdToCurrency(n(stock.price), displayCurrency, fxRates),
-    }));
 
   if (params.builder === "1" || portfolios.length === 0) {
+    const { data: builderStockRows, error: builderStocksError } = await supabase
+      .from("stock_rankings")
+      .select("ticker,company,sector,rank,score,price")
+      .order("rank", { ascending: true })
+      .limit(500);
+    if (builderStocksError) {
+      throw new Error("Portfolio builder stock universe could not be loaded.");
+    }
+    const builderStocks = ((builderStockRows ?? []) as StockRow[])
+      .filter((stock) => stock.ticker)
+      .map((stock) => ({
+        ticker: String(stock.ticker).toUpperCase(),
+        company: stock.company,
+        sector: stock.sector,
+        rank: stock.rank,
+        score: stock.score,
+        price:
+          stock.price == null
+            ? null
+            : convertUsdToCurrency(n(stock.price), displayCurrency, fxRates),
+      }));
     return (
       <AppShell activePath="/portfolio">
         <main className="h-full min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(112px+env(safe-area-inset-bottom))] lg:pb-10">
@@ -213,7 +213,7 @@ export default async function ModernPortfolioPage({
               id: portfolio.id,
               name: portfolio.name ?? "Portfolio",
             }))}
-            stockOptions={stocks}
+            stockOptions={builderStocks}
             displayCurrency={displayCurrency}
             usdToWriteRate={usdToWriteRate}
             initialMode={
@@ -333,18 +333,16 @@ export default async function ModernPortfolioPage({
       factualHoldings.map((holding) => holding.ticker.trim().toUpperCase()),
     ),
   ];
-  if (stocksError && heldTickers.length > 0) {
-    throw new Error("Portfolio ranking facts could not be loaded.");
-  }
-  const initialRankingRows = (stockRows ?? []) as StockRow[];
-  const loadedRankingTickers = new Set(
-    initialRankingRows
-      .map((ranking) => String(ranking.ticker ?? "").trim().toUpperCase())
-      .filter(Boolean),
-  );
-  const missingHeldTickers = heldTickers.filter(
-    (ticker) => !loadedRankingTickers.has(ticker),
-  );
+  const rankingsPromise =
+    heldTickers.length > 0
+      ? supabase
+          .from("stock_rankings")
+          .select(
+            "ticker,company,sector,score,rank,price,last_price_update,last_ranking_update",
+          )
+          .in("ticker", heldTickers)
+          .order("ticker", { ascending: true })
+      : Promise.resolve({ data: [] as StockRow[], error: null });
   const diagnosticsPromise =
     heldTickers.length > 0
       ? supabase
@@ -360,41 +358,29 @@ export default async function ModernPortfolioPage({
           .select("rank", { count: "exact", head: true })
           .not("rank", "is", null)
       : Promise.resolve({ count: null as number | null, error: null });
-  const missingRankingsPromise =
-    missingHeldTickers.length > 0
-      ? supabase
-          .from("stock_rankings")
-          .select(
-            "ticker,score,rank,price,last_price_update,last_ranking_update",
-          )
-          .in("ticker", missingHeldTickers)
-          .order("ticker", { ascending: true })
-      : Promise.resolve({ data: [] as CurrentRankingFact[], error: null });
-  const [diagnosticsResult, universeResult, missingRankingsResult] =
+  const [rankingsResult, diagnosticsResult, universeResult] =
     await Promise.all([
+      rankingsPromise,
       diagnosticsPromise,
       universePromise,
-      missingRankingsPromise,
     ]);
 
+  if (rankingsResult.error) {
+    throw new Error("Held ranking facts could not be loaded.");
+  }
   if (diagnosticsResult.error) {
     throw new Error("Portfolio diagnostic facts could not be loaded.");
   }
   if (universeResult.error) {
     throw new Error("Portfolio ranking universe could not be counted.");
   }
-  if (missingRankingsResult.error) {
-    throw new Error("Held ranking facts could not be loaded.");
-  }
+  const heldRankingRows = (rankingsResult.data ?? []) as StockRow[];
 
   const currentIntelligence = assessCurrentPortfolioIntelligenceFacts(
     {
       portfolio: activePortfolio,
       holdings: factualHoldings,
-      rankings: [
-        ...initialRankingRows,
-        ...(missingRankingsResult.data ?? []),
-      ],
+      rankings: heldRankingRows,
       diagnostics: diagnosticsResult.data ?? [],
       rankingUniverseSize: universeResult.count,
     },
@@ -454,10 +440,7 @@ export default async function ModernPortfolioPage({
     transactions,
     summary: summaryUsd,
     ownerId: user.id,
-    marketFacts: [
-      ...initialRankingRows,
-      ...(missingRankingsResult.data ?? []),
-    ].map((ranking) => ({
+    marketFacts: heldRankingRows.map((ranking) => ({
       ticker: ranking.ticker,
       price: ranking.price,
       last_price_update: ranking.last_price_update,
@@ -467,6 +450,17 @@ export default async function ModernPortfolioPage({
     ),
   });
   const canUsePremium = hasActiveSubscription(profile?.subscription_status);
+  const heldStockOptions = heldRankingRows.map((stock) => ({
+    ticker: String(stock.ticker).toUpperCase(),
+    company: stock.company,
+    sector: stock.sector,
+    rank: stock.rank,
+    score: stock.score,
+    price:
+      stock.price == null
+        ? null
+        : convertUsdToCurrency(n(stock.price), displayCurrency, fxRates),
+  }));
 
   const totalValueDisplay = convertUsdToCurrency(summaryUsd.totalValue, displayCurrency, fxRates);
   const displayHoldings = enriched.map((holding) =>
@@ -559,7 +553,7 @@ export default async function ModernPortfolioPage({
         holdingReferenceLevels={holdingReferenceLevels}
         summary={displaySummary}
         holdings={displayHoldings}
-        stockOptions={stocks}
+        stockOptions={heldStockOptions}
         transactions={displayTransactions}
         chartData={convertChart(chartResult.chartData, displayCurrency, fxRates)}
         chartMeta={chartResult.meta}

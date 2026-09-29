@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run test:portfolio && next build",
+    "build:app": "next build",
     "start": "next start",
     "lint": "eslint",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
@@ -61,6 +62,11 @@
     "test:stripe-checkout-identity": "tsx scripts/stripe-checkout-identity-checks.ts",
     "test:wave5-customer": "tsx scripts/wave5-customer-checks.ts",
     "test:wave5": "npm run test:wave5-experience && npm run test:wave5-security && npm run test:wave5-customer",
+    "test:acceptance:static": "npm run db:migrations:check && npm run test:db-migrations && npm run test:database-contract && npm run test:portfolio && npm run test:snaptrade-adapter && npm run test:broker-connections && npm run test:broker-connection-state && npm run test:connected-portfolio-intelligence && npm run test:portfolio-history-context && npm run test:wave5-experience && npm run test:wave5-customer && npm run test:stripe-checkout-identity && tsx scripts/wave6-performance-checks.ts",
+    "test:acceptance:database": "node scripts/verify-local-supabase-fixtures.mjs && npm run test:stage05-acceptance && npm run test:wave1-foundations && npm run test:broker-secret-security && npm run test:broker-sync && npm run test:connected-portfolios && npm run test:wave4 && npm run test:stripe-entitlement && npm run test:wave5-security && npm run db:types:check",
+    "test:acceptance:browser": "node scripts/run-browser-acceptance.mjs",
+    "test:performance": "tsx scripts/wave6-performance-checks.ts && node scripts/verify-wave6-broker-load-local.mjs",
+    "test:acceptance": "node scripts/run-wave6-acceptance.mjs",
     "test:wave1-foundations": "supabase db query --local --file supabase/tests/verify_wave1_foundations.sql && npm run test:instrument-foundation && npm run test:broker-domain",
     "db:migrations:check": "node scripts/check-supabase-migration-safety.mjs",
     "test:db-migrations": "node scripts/check-supabase-migration-safety.test.mjs"
@@ -80,6 +86,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.0",
+    "@playwright/test": "1.55.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
     "@types/react": "^19",

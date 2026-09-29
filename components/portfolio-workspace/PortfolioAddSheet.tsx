@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trading212CsvImport } from "@/components/Trading212CsvImport";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
@@ -182,6 +182,7 @@ export function PortfolioAddSheet({
   const [price, setPrice] = useState("");
   const [funding, setFunding] = useState<FundingSource>("external");
   const [holdingReview, setHoldingReview] = useState(false);
+  const [searchOptions, setSearchOptions] = useState<StockOption[]>([]);
   const [isPending, startTransition] = useTransition();
 
   const writeRate =
@@ -189,17 +190,78 @@ export function PortfolioAddSheet({
       ? Number(usdToWriteRate)
       : null;
   const normalizedTicker = ticker.trim().toUpperCase();
+  const availableStockOptions = useMemo(() => {
+    const byTicker = new Map<string, StockOption>();
+    for (const stock of [...stockOptions, ...searchOptions]) {
+      byTicker.set(stock.ticker.toUpperCase(), stock);
+    }
+    return [...byTicker.values()];
+  }, [searchOptions, stockOptions]);
   const selectedStock =
-    stockOptions.find((stock) => stock.ticker === normalizedTicker) ?? null;
+    availableStockOptions.find((stock) => stock.ticker === normalizedTicker) ?? null;
   const matches = useMemo(() => {
     const query = ticker.trim().toLowerCase();
     if (!query || selectedStock) return [];
-    return stockOptions
+    return availableStockOptions
       .filter((stock) =>
         `${stock.ticker} ${stock.company ?? ""}`.toLowerCase().includes(query),
       )
       .slice(0, 7);
-  }, [selectedStock, stockOptions, ticker]);
+  }, [availableStockOptions, selectedStock, ticker]);
+
+  useEffect(() => {
+    const query = ticker.trim();
+    if (!open || mode !== "holding" || query.length < 1 || selectedStock) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const rows = (await response.json()) as Array<{
+          ticker?: string;
+          company?: string;
+          sector?: string;
+          rank?: number | null;
+          score?: number | string | null;
+          price?: number | null;
+        }>;
+        setSearchOptions(
+          rows
+            .filter((row) => typeof row.ticker === "string" && row.ticker.length > 0)
+            .map((row) => ({
+              ticker: String(row.ticker).toUpperCase(),
+              company: row.company ?? null,
+              sector: row.sector ?? null,
+              rank: typeof row.rank === "number" ? row.rank : null,
+              score:
+                typeof row.score === "number"
+                  ? row.score
+                  : Number.isFinite(Number(row.score))
+                    ? Number(row.score)
+                    : null,
+              price:
+                typeof row.price === "number" && writeRate != null
+                  ? row.price * writeRate
+                  : null,
+            })),
+        );
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setSearchOptions([]);
+        }
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [mode, open, selectedStock, ticker, writeRate]);
 
   const order = resolveTradeOrder({ value, price, shares });
   const orderReady = Boolean(selectedStock) && order.error == null;
@@ -240,6 +302,7 @@ export function PortfolioAddSheet({
     setPrice("");
     setFunding("external");
     setHoldingReview(false);
+    setSearchOptions([]);
   }
 
   function chooseStock(stock: StockOption) {
@@ -525,7 +588,9 @@ export function PortfolioAddSheet({
             <input
               value={ticker}
               onChange={(event) => {
-                setTicker(event.target.value.toUpperCase());
+                const nextTicker = event.target.value.toUpperCase();
+                setTicker(nextTicker);
+                if (!nextTicker.trim()) setSearchOptions([]);
                 setMessage(null);
               }}
               placeholder="Ticker or company"

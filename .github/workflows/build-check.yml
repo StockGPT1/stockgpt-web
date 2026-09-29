@@ -9,9 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  static:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -25,23 +25,98 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Static and domain acceptance
+        env:
+          STOCKGPT_EXTERNAL_NETWORK_DISABLED: "true"
+          STOCKGPT_BROKER_CONNECTIONS_ENABLED: "false"
+          STOCKGPT_USD_FX_RATES_JSON: '{"USD":1,"GBP":0.8,"EUR":0.9,"CHF":0.85}'
+        run: npm run test:acceptance:static
+
+      - name: Generate and check application types
+        run: |
+          npx next typegen
+          npx tsc --noEmit
+
       - name: Lint
         run: npm run lint
 
-      - name: Generate Next.js types
-        run: npx next typegen
-
-      - name: Type check
-        run: npx tsc --noEmit
-
-      - name: Check database and migration contracts
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Start and reset local Supabase
         run: |
-          npm run test:database-contract
-          npm run db:migrations:check
-          npm run test:db-migrations
+          npx supabase start
+          npx supabase db reset --local
+      - name: Database, security and ownership acceptance
+        env:
+          STOCKGPT_EXTERNAL_NETWORK_DISABLED: "true"
+          STOCKGPT_BROKER_CONNECTIONS_ENABLED: "false"
+          STOCKGPT_USD_FX_RATES_JSON: '{"USD":1,"GBP":0.8,"EUR":0.9,"CHF":0.85}'
+        run: npm run test:acceptance:database
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop
 
-      - name: Test portfolio reliability
-        run: npm run test:portfolio
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx supabase start
+          npx supabase db reset --local
+      - name: Deterministic load and bounded-work acceptance
+        env:
+          STOCKGPT_EXTERNAL_NETWORK_DISABLED: "true"
+          STOCKGPT_USD_FX_RATES_JSON: '{"USD":1,"GBP":0.8,"EUR":0.9,"CHF":0.85}'
+        run: npm run test:performance
+      - if: always()
+        run: npx supabase stop
 
-      - name: Build
-        run: npm run build
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          npx supabase start
+          npx supabase db reset --local
+      - name: Critical browser journeys
+        run: npm run test:acceptance:browser
+      - if: always()
+        run: npx supabase stop
+
+  build:
+    needs: [static, database, performance, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Production build
+        env:
+          STOCKGPT_EXTERNAL_NETWORK_DISABLED: "true"
+          STOCKGPT_USD_FX_RATES_JSON: '{"USD":1,"GBP":0.8,"EUR":0.9,"CHF":0.85}'
+        run: npm run build:app

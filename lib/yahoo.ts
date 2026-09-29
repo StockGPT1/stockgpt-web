@@ -46,6 +46,7 @@ function finitePositiveNumber(value: unknown) {
 }
 
 async function fetchYahooRangeUncached(ticker: string, range: TimeRange): Promise<ChartPoint[]> {
+  if (process.env.STOCKGPT_EXTERNAL_NETWORK_DISABLED === "true") return [];
   const cfg = RANGE_CONFIG[range];
   const normalizedTicker = normalizeTicker(ticker);
   const url = `${YAHOO_BASE}${encodeURIComponent(normalizedTicker)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;

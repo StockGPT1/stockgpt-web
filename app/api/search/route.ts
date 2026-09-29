@@ -22,6 +22,7 @@ type PublicTickerResult = {
 type SubscriberTickerResult = PublicTickerResult & {
   rank: number | null;
   score: number | string | null;
+  price: number | null;
 };
 
 function cleanSearchQuery(value: string) {
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   const result = hasAccess
     ? await supabase
         .from("stock_rankings")
-        .select("ticker, company, sector, rank, score")
+        .select("ticker, company, sector, rank, score, price")
         .or(`ticker.ilike.${q}%,company.ilike.%${q}%`)
         .order("ticker", { ascending: true, nullsFirst: false })
         .limit(8)
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
     sector: string | null;
     rank?: number | null;
     score?: number | string | null;
+    price?: number | null;
   }>;
   const tickers: Array<PublicTickerResult | SubscriberTickerResult> = rows
     .filter((row) => typeof row.ticker === "string" && row.ticker.length > 0)
@@ -107,6 +109,7 @@ export async function GET(req: NextRequest) {
               typeof row.score === "number" || typeof row.score === "string"
                 ? row.score
                 : null,
+            price: typeof row.price === "number" ? row.price : null,
           }
         : {}),
     }));
