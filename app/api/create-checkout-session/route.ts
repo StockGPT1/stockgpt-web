@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
+import { hasActiveSubscription } from "@/lib/subscription";
+import { resolveStripeCheckoutIdentity } from "@/lib/stripe-checkout-identity";
 import { createClient } from "@/utils/supabase/server";
 import { stripe } from "@/lib/stripe";
 
 const LEGAL_VERSION = "2026-05-17";
 
 type BillingPlan = "monthly" | "annual";
+type BillingProfile = {
+  stripe_customer_id: string | null;
+  subscription_status: string | null;
+};
 const APPROVED_OFFER = "50PORTFOLIO2026";
 const LIMITED_TIME_MONTHLY_PRICE_ID =
   process.env.STRIPE_CORE_LIMITED_OFFER_PRICE_ID ??
@@ -112,6 +118,38 @@ async function createCheckoutSession(request: Request) {
     });
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("stripe_customer_id,subscription_status")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    console.error("Stripe checkout billing identity could not be loaded");
+    return NextResponse.redirect(
+      new URL(
+        `/checkout/confirm?plan=${plan}${offer ? `&offer=${offer}` : ""}&checkout=failed`,
+        request.url,
+      ),
+      { status: 303 },
+    );
+  }
+
+  const billingProfile = profile as BillingProfile;
+  const checkoutIdentity = resolveStripeCheckoutIdentity({
+    email: user.email,
+    hasActiveEntitlement: hasActiveSubscription(
+      billingProfile.subscription_status,
+    ),
+    stripeCustomerId: billingProfile.stripe_customer_id,
+  });
+
+  if (checkoutIdentity.kind === "manage_existing") {
+    return NextResponse.redirect(new URL("/subscription", request.url), {
+      status: 303,
+    });
+  }
+
   const legalMetadata = {
     user_id: user.id,
     plan: `core_${plan}`,
@@ -132,7 +170,7 @@ async function createCheckoutSession(request: Request) {
   try {
     session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: user.email,
+      ...checkoutIdentity.customerParameters,
       ...(promotionCodeId
         ? { discounts: [{ promotion_code: promotionCodeId }] }
         : plan === "annual"

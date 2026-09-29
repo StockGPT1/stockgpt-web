@@ -58,6 +58,7 @@
     "test:wave5-experience": "tsx scripts/wave5-experience-checks.ts",
     "test:wave5-security": "tsx scripts/wave5-security-checks.ts && node scripts/verify-wave5-security-local.mjs",
     "test:stripe-entitlement": "tsx scripts/stripe-entitlement-order-checks.ts && node scripts/verify-wave5-security-local.mjs",
+    "test:stripe-checkout-identity": "tsx scripts/stripe-checkout-identity-checks.ts",
     "test:wave5-customer": "tsx scripts/wave5-customer-checks.ts",
     "test:wave5": "npm run test:wave5-experience && npm run test:wave5-security && npm run test:wave5-customer",
     "test:wave1-foundations": "supabase db query --local --file supabase/tests/verify_wave1_foundations.sql && npm run test:instrument-foundation && npm run test:broker-domain",
