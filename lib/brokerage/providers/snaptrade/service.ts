@@ -24,7 +24,13 @@ export async function registerSnapTradeUser(
 
 export async function createReadOnlySnapTradePortalLink(
   admin: SupabaseClient<Database>,
-  input: { userId: string; providerId: string; customRedirect: string; reconnect?: string },
+  input: {
+    userId: string;
+    providerId: string;
+    customRedirect: string;
+    reconnect?: string;
+    broker?: "SANDBOX";
+  },
   sdk: SnapTradeClient = createSnapTradeClient(),
 ) {
   const credential = await retrieveBrokerUserSecret(admin, input);
@@ -32,6 +38,7 @@ export async function createReadOnlySnapTradePortalLink(
     userId: credential.providerUserId,
     userSecret: credential.userSecret,
     connectionType: "read",
+    broker: input.broker,
     customRedirect: input.customRedirect,
     reconnect: input.reconnect,
     showCloseButton: true,
