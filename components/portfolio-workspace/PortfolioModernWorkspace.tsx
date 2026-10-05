@@ -38,15 +38,20 @@ export function PortfolioModernWorkspace({
   const stageRef = useRef<HTMLElement>(null);
   const sectionAnchorRef = useRef<HTMLDivElement>(null);
   const requestedSection = searchParams.get("section");
-  const section: PortfolioSection =
+  const requestedPortfolioSection: PortfolioSection =
     requestedSection === "holdings" || requestedSection === "activity"
       ? requestedSection
       : initialSection;
+  const [section, setSection] = useState<PortfolioSection>(requestedPortfolioSection);
   const [stageVisible, setStageVisible] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+
+  useEffect(() => {
+    setSection(requestedPortfolioSection);
+  }, [portfolioId, requestedPortfolioSection]);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -103,15 +108,24 @@ export function PortfolioModernWorkspace({
     );
   }, [holdings, transactions]);
 
-  function updateUrl(next: { section?: PortfolioSection; portfolio?: string }) {
+  function choosePortfolio(nextPortfolioId: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.section) params.set("section", next.section);
-    if (next.portfolio) params.set("portfolio", next.portfolio);
+    params.set("portfolio", nextPortfolioId);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   function chooseSection(next: PortfolioSection) {
-    updateUrl({ section: next });
+    setSection(next);
+
+    const params = new URLSearchParams(window.location.search);
+    params.set("section", next);
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query ? `${pathname}?${query}` : pathname,
+    );
+
     window.requestAnimationFrame(() => {
       sectionAnchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
@@ -133,7 +147,7 @@ export function PortfolioModernWorkspace({
           stageVisible={stageVisible}
           section={section}
           onSection={chooseSection}
-          onPortfolio={(nextPortfolioId) => updateUrl({ portfolio: nextPortfolioId })}
+          onPortfolio={choosePortfolio}
           onAdd={() => setAddOpen(true)}
           onManage={() => setManageOpen(true)}
         />
