@@ -301,7 +301,15 @@ export function ManageHoldingDrawer({
         className="stockgpt-manage-holding-dialog relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden border-[#ddb159]/24 bg-[#061b12] lg:h-[calc(100dvh-2rem)] lg:max-w-[1040px] lg:rounded-[30px] lg:border"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[#ddb159]/16 bg-[#04140c] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:p-5">
-          <StockLogo ticker={holding.ticker} company={holding.company} size={42} />
+          <Link
+            href={`/stock/${holding.ticker}`}
+            aria-label={`Open ${holding.company || holding.ticker} stock page`}
+            title={`View ${holding.ticker} stock page`}
+            data-native-haptic="light"
+            className="shrink-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]"
+          >
+            <StockLogo ticker={holding.ticker} company={holding.company} size={42} />
+          </Link>
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#ddb159]">Manage holding</p>
             <h2 id="manage-holding-title" className="truncate text-[22px] font-black tracking-[-0.04em]">{holding.ticker} <span className="text-[#faf6f0]/46">{holding.company}</span></h2>
