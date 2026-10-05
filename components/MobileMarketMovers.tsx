@@ -270,7 +270,7 @@ function MoversSheet({
         <header className="flex items-start justify-between gap-4 border-b border-[#ddb159]/12 px-5 pb-4 pt-5">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
-              Daily market movement
+              Today vs previous close
             </p>
             <h2
               id="mobile-market-movers-sheet-title"

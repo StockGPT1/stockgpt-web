@@ -278,31 +278,60 @@ export type Mover = {
   changePct: number;
 };
 
-function firstValidClose(points: ChartPoint[]) {
-  return points.find((point) => Number.isFinite(point.close) && point.close > 0)?.close ?? null;
-}
+function latestSessionMove(points: ChartPoint[]) {
+  const valid = points
+    .filter(
+      (point) =>
+        Number.isFinite(point.close) &&
+        point.close > 0 &&
+        Number.isFinite(new Date(point.date).getTime()),
+    )
+    .slice()
+    .sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
 
-function lastValidClose(points: ChartPoint[]) {
-  for (let i = points.length - 1; i >= 0; i -= 1) {
-    const close = points[i]?.close;
-    if (Number.isFinite(close) && close > 0) return close;
+  if (valid.length < 2) return null;
+
+  const latestPoint = valid.at(-1);
+  if (!latestPoint) return null;
+
+  const latestSessionDate = latestPoint.date.slice(0, 10);
+  let previousClose: number | null = null;
+
+  // Standard equity "day change" is current/latest price versus the close of
+  // the previous trading session — not versus today's opening/intraday quote.
+  // Looking for the last point from a different session naturally crosses
+  // weekends and market holidays (Monday -> Friday, post-holiday -> prior
+  // session) without relying on calendar-day arithmetic.
+  for (let i = valid.length - 2; i >= 0; i -= 1) {
+    const point = valid[i];
+    if (point.date.slice(0, 10) !== latestSessionDate) {
+      previousClose = point.close;
+      break;
+    }
   }
-  return null;
+
+  if (previousClose == null || previousClose <= 0) return null;
+
+  return {
+    currentPrice: latestPoint.close,
+    previousClose,
+    changePct: ((latestPoint.close - previousClose) / previousClose) * 100,
+  };
 }
 
 async function getOneDayMover(ticker: string): Promise<Mover | null> {
   const normalizedTicker = normalizeTicker(ticker);
   const data = await getStockChart(normalizedTicker, ["5D"]);
-  const fiveDayPoints = data["5D"] ?? [];
-  const latestDay = fiveDayPoints.at(-1)?.date.slice(0, 10);
-  const points = latestDay
-    ? fiveDayPoints.filter((point) => point.date.slice(0, 10) === latestDay)
-    : [];
-  const usablePoints = points.length >= 2 ? points : fiveDayPoints;
-  const first = firstValidClose(usablePoints);
-  const last = lastValidClose(usablePoints);
-  if (first == null || last == null || first <= 0) return null;
-  return { ticker: normalizedTicker, currentPrice: last, changePct: ((last - first) / first) * 100 };
+  const move = latestSessionMove(data["5D"] ?? []);
+  if (!move) return null;
+
+  return {
+    ticker: normalizedTicker,
+    currentPrice: move.currentPrice,
+    changePct: move.changePct,
+  };
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
