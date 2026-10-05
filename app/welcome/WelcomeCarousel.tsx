@@ -84,11 +84,24 @@ function Demo({ id }: { id: (typeof slides)[number]["id"] }) {
 }
 
 export function WelcomeCarousel() {
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [active, setActive] = useState(0);
 
-  function goTo(index: number) {
-    setActive(Math.min(slides.length - 1, Math.max(0, index)));
+  function scrollToSlide(index: number, behavior: ScrollBehavior = "smooth") {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const safeIndex = Math.min(slides.length - 1, Math.max(0, index));
+    const slide = scroller.querySelector<HTMLElement>(
+      `[data-welcome-slide="${safeIndex}"]`,
+    );
+
+    setActive(safeIndex);
+    scroller.scrollTo({
+      left: slide?.offsetLeft ?? scroller.clientWidth * safeIndex,
+      behavior,
+    });
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
@@ -105,27 +118,22 @@ export function WelcomeCarousel() {
 
     const deltaX = start.x - touch.clientX;
     const deltaY = start.y - touch.clientY;
-
-    // Make the active page the source of truth instead of trying to infer it
-    // from WKWebView's scrollLeft/scroll events. A deliberate horizontal swipe
-    // advances exactly one page, which keeps the slide and indicator locked
-    // together on iOS.
     if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
-    setActive((current) =>
-      Math.min(
-        slides.length - 1,
-        Math.max(0, current + (deltaX > 0 ? 1 : -1)),
-      ),
-    );
+
+    // Keep WKWebView's native horizontal scrolling, but make the swipe choose
+    // the destination page explicitly. The visible slide and highlighted dot
+    // therefore share the same target instead of inferring state from iOS
+    // scroll events after momentum/snap has finished.
+    scrollToSlide(active + (deltaX > 0 ? 1 : -1));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      goTo(active + 1);
+      scrollToSlide(active + 1);
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
-      goTo(active - 1);
+      scrollToSlide(active - 1);
     }
   }
 
@@ -138,6 +146,7 @@ export function WelcomeCarousel() {
       </header>
 
       <div
+        ref={scrollerRef}
         className={styles.scroller}
         aria-label="StockGPT feature tour"
         tabIndex={0}
@@ -146,27 +155,22 @@ export function WelcomeCarousel() {
         onTouchCancel={() => { touchStartRef.current = null; }}
         onKeyDown={handleKeyDown}
       >
-        <div
-          className={styles.track}
-          style={{ transform: `translate3d(-${active * 100}%, 0, 0)` }}
-        >
-          {slides.map((slide, index) => (
-            <section key={slide.id} data-welcome-slide={index} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
-              <div className={[styles.demoWrap, active === index ? styles.active : ""].join(" ")}><Demo id={slide.id}/></div>
-              <div className={styles.copy}>
-                <p className={styles.eyebrow}>{slide.eyebrow}</p>
-                <h1>{slide.title.split("\n").map(line => <span key={line}>{line}</span>)}</h1>
-                <p className={styles.body}>{slide.body}</p>
-              </div>
-            </section>
-          ))}
-        </div>
+        {slides.map((slide, index) => (
+          <section key={slide.id} data-welcome-slide={index} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
+            <div className={[styles.demoWrap, active === index ? styles.active : ""].join(" ")}><Demo id={slide.id}/></div>
+            <div className={styles.copy}>
+              <p className={styles.eyebrow}>{slide.eyebrow}</p>
+              <h1>{slide.title.split("\n").map(line => <span key={line}>{line}</span>)}</h1>
+              <p className={styles.body}>{slide.body}</p>
+            </div>
+          </section>
+        ))}
       </div>
 
       <nav className={styles.dots} aria-label="Choose feature slide">
         {slides.map((slide, index) => (
           <button key={slide.id} type="button" aria-label={"Show " + slide.eyebrow} aria-current={active === index ? "true" : undefined}
-            className={active === index ? styles.dotActive : styles.dot} onClick={() => goTo(index)} />
+            className={active === index ? styles.dotActive : styles.dot} onClick={() => scrollToSlide(index)} />
         ))}
       </nav>
 
