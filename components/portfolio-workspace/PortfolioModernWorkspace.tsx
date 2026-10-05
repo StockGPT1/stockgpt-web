@@ -37,21 +37,12 @@ export function PortfolioModernWorkspace({
   const searchParams = useSearchParams();
   const stageRef = useRef<HTMLElement>(null);
   const sectionAnchorRef = useRef<HTMLDivElement>(null);
-  const requestedSection = searchParams.get("section");
-  const requestedPortfolioSection: PortfolioSection =
-    requestedSection === "holdings" || requestedSection === "activity"
-      ? requestedSection
-      : initialSection;
-  const [section, setSection] = useState<PortfolioSection>(requestedPortfolioSection);
+  const [section, setSection] = useState<PortfolioSection>(initialSection);
   const [stageVisible, setStageVisible] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-
-  useEffect(() => {
-    setSection(requestedPortfolioSection);
-  }, [portfolioId, requestedPortfolioSection]);
 
   useEffect(() => {
     const node = stageRef.current;
