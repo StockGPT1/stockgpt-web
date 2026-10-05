@@ -158,9 +158,9 @@ function TopMoversDialog({
         <section role="dialog" aria-modal="true" aria-labelledby="stockgpt-top-movers-title" className="stockgpt-top-movers-drawer grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden border-l border-[#ddb159]/20 bg-[#061b12] shadow-[0_28px_90px_rgba(0,0,0,0.62)] lg:rounded-l-[30px]">
           <header className="flex min-w-0 shrink-0 items-start justify-between gap-3 border-b border-[#ddb159]/14 bg-[#04140c] px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:px-5 lg:px-6 lg:pt-6">
             <div className="min-w-0">
-              <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Daily market movement</p>
+              <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Today vs previous close</p>
               <h3 id="stockgpt-top-movers-title" className="mt-2 text-[32px] font-black leading-none tracking-[-0.055em] text-[#faf6f0]">Top Movers</h3>
-              <p className="mt-2 text-[13px] font-semibold leading-5 text-[#faf6f0]/58">Today&apos;s biggest moves across tracked stocks.</p>
+              <p className="mt-2 text-[13px] font-semibold leading-5 text-[#faf6f0]/58">Current price versus the previous trading session&apos;s close.</p>
             </div>
             <button ref={closeRef} type="button" onClick={onClose} className="grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159]/18 bg-[#faf6f0]/[0.045] text-[18px] font-black leading-none text-[#ddb159] transition hover:border-[#ddb159]/45 hover:bg-[#ddb159]/10" aria-label="Close top movers">
               X
@@ -246,7 +246,7 @@ export function DashboardChangeModal({ items }: { items: DailyChangeItem[] }) {
       <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#062018] p-3 text-[#f8f4e8] shadow-[0_12px_30px_rgba(0,0,0,0.18)] transition hover:border-[#ddb159]/28 hover:bg-[#062018] sm:p-4 lg:h-full lg:min-h-0 lg:p-[clamp(11px,1vw,15px)]">
         <button type="button" onClick={openDialog} className="min-w-0 shrink-0 text-left">
           <h2 className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[22px] font-black leading-none tracking-[-0.05em] text-[#f8f4e8] sm:text-[26px] lg:text-[clamp(20px,1.72vw,26px)]">Today&apos;s top movers <span className="text-[#ddb159]">&gt;</span></h2>
-          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/78">1D - S&amp;P 500</p>
+          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]/78">Today · vs previous close</p>
         </button>
         <div className="mt-3 grid grid-cols-2 rounded-full bg-white/8 p-1">
           {(["gainers", "losers"] as const).map((tab) => (
