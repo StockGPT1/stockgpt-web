@@ -139,7 +139,7 @@ The app initially stores debug/Xcode tokens as sandbox devices. The push worker 
 - deep-links taps back into the relevant StockGPT portfolio or stock page,
 - disables APNs tokens Apple reports as unregistered.
 
-After the server pieces are deployed, open **Alerts** in the iPhone app and tap **Enable iPhone alerts**. Once enabled, use **Send test notification** to verify the registered device, APNs credentials and Apple delivery path end to end.
+After the server pieces are deployed, open **Alerts** in the iPhone app and tap **Enable iPhone alerts**.
 
 ## Portfolio and Rankings on iPhone
 
