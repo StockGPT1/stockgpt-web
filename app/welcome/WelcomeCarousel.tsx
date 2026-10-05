@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import styles from "./welcome.module.css";
 
 const slides = [
@@ -83,65 +83,49 @@ function Demo({ id }: { id: (typeof slides)[number]["id"] }) {
 }
 
 export function WelcomeCarousel() {
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [active, setActive] = useState(0);
 
-  const syncActive = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller || scroller.clientWidth <= 0) return;
-
-    // WKWebView can report stale slide bounding boxes while momentum/snap
-    // scrolling. scrollLeft is tied directly to the scroll view, so derive the
-    // page from horizontal progress instead.
-    const nextIndex = Math.min(
-      slides.length - 1,
-      Math.max(0, Math.round(scroller.scrollLeft / scroller.clientWidth)),
-    );
-
-    setActive((current) => (current === nextIndex ? current : nextIndex));
-  }, []);
-
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    function scheduleSync() {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(syncActive);
-    }
-
-    // Use native scroll listeners as well as React state so iOS WKWebView
-    // updates the indicator continuously during momentum/snap scrolling.
-    scroller.addEventListener("scroll", scheduleSync, { passive: true });
-    scroller.addEventListener("scrollend", scheduleSync);
-    window.addEventListener("resize", scheduleSync);
-
-    scroller.addEventListener("touchend", scheduleSync, { passive: true });
-    scheduleSync();
-
-    return () => {
-      scroller.removeEventListener("scroll", scheduleSync);
-      scroller.removeEventListener("scrollend", scheduleSync);
-      scroller.removeEventListener("touchend", scheduleSync);
-      window.removeEventListener("resize", scheduleSync);
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [syncActive]);
-
   function goTo(index: number) {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
+    setActive(Math.min(slides.length - 1, Math.max(0, index)));
+  }
 
-    const slide = scroller.querySelector<HTMLElement>(
-      `[data-welcome-slide="${index}"]`,
+  function handleTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = start.x - touch.clientX;
+    const deltaY = start.y - touch.clientY;
+
+    // Make the active page the source of truth instead of trying to infer it
+    // from WKWebView's scrollLeft/scroll events. A deliberate horizontal swipe
+    // advances exactly one page, which keeps the slide and indicator locked
+    // together on iOS.
+    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+    setActive((current) =>
+      Math.min(
+        slides.length - 1,
+        Math.max(0, current + (deltaX > 0 ? 1 : -1)),
+      ),
     );
+  }
 
-    setActive(index);
-    scroller.scrollTo({
-      left: slide?.offsetLeft ?? scroller.clientWidth * index,
-      behavior: "smooth",
-    });
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goTo(active + 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goTo(active - 1);
+    }
   }
 
   return (
@@ -152,17 +136,30 @@ export function WelcomeCarousel() {
         <span className={styles.hint}>Swipe to explore <b>›</b></span>
       </header>
 
-      <div ref={scrollerRef} className={styles.scroller} aria-label="StockGPT feature tour">
-        {slides.map((slide, index) => (
-          <section key={slide.id} data-welcome-slide={index} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
-            <div className={[styles.demoWrap, active === index ? styles.active : ""].join(" ")}><Demo id={slide.id}/></div>
-            <div className={styles.copy}>
-              <p className={styles.eyebrow}>{slide.eyebrow}</p>
-              <h1>{slide.title.split("\n").map(line => <span key={line}>{line}</span>)}</h1>
-              <p className={styles.body}>{slide.body}</p>
-            </div>
-          </section>
-        ))}
+      <div
+        className={styles.scroller}
+        aria-label="StockGPT feature tour"
+        tabIndex={0}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartRef.current = null; }}
+        onKeyDown={handleKeyDown}
+      >
+        <div
+          className={styles.track}
+          style={{ transform: `translate3d(-${active * 100}%, 0, 0)` }}
+        >
+          {slides.map((slide, index) => (
+            <section key={slide.id} data-welcome-slide={index} className={styles.slide} aria-label={String(index + 1) + " of " + String(slides.length) + ": " + slide.eyebrow}>
+              <div className={[styles.demoWrap, active === index ? styles.active : ""].join(" ")}><Demo id={slide.id}/></div>
+              <div className={styles.copy}>
+                <p className={styles.eyebrow}>{slide.eyebrow}</p>
+                <h1>{slide.title.split("\n").map(line => <span key={line}>{line}</span>)}</h1>
+                <p className={styles.body}>{slide.body}</p>
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
 
       <nav className={styles.dots} aria-label="Choose feature slide">
