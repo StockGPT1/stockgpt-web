@@ -76,9 +76,15 @@ assert.doesNotMatch(stage, /SECTION_ITEMS[\s\S]{0,400}label: "Manage"/);
 assert.match(orchestrator, /setAddOpen\(true\)/);
 assert.match(orchestrator, /setManageOpen\(true\)/);
 
-assert.match(orchestrator, /searchParams\.get\("section"\)/);
-assert.match(orchestrator, /params\.set\("section", next\.section\)/);
-assert.match(orchestrator, /params\.set\("portfolio", next\.portfolio\)/);
+assert.match(orchestrator, /useState<PortfolioSection>\(initialSection\)/);
+assert.match(orchestrator, /params\.set\("section", next\)/);
+assert.match(orchestrator, /window\.history\.replaceState/);
+assert.match(orchestrator, /params\.set\("portfolio", nextPortfolioId\)/);
+assert.doesNotMatch(
+  orchestrator,
+  /function chooseSection[\s\S]{0,700}router\.replace/,
+  "section switching must stay client-side and must not refetch the dynamic portfolio page",
+);
 assert.match(orchestrator, /sectionAnchorRef\.current\?\.scrollIntoView/);
 assert.match(modernPage, /params\.section === "holdings" \|\| params\.section === "activity"/);
 assert.match(modernPage, /portfolios\.some\(\(portfolio\) => portfolio\.id === params\.portfolio\)/);
