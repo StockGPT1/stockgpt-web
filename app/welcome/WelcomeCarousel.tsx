@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import type { KeyboardEvent, TouchEvent } from "react";
 import styles from "./welcome.module.css";
 
 const slides = [
@@ -90,13 +91,13 @@ export function WelcomeCarousel() {
     setActive(Math.min(slides.length - 1, Math.max(0, index)));
   }
 
-  function handleTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+  function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
     const touch = event.touches[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
-  function handleTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+  function handleTouchEnd(event: TouchEvent<HTMLDivElement>) {
     const start = touchStartRef.current;
     const touch = event.changedTouches[0];
     touchStartRef.current = null;
@@ -118,7 +119,7 @@ export function WelcomeCarousel() {
     );
   }
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "ArrowRight") {
       event.preventDefault();
       goTo(active + 1);
