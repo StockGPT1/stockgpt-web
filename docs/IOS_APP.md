@@ -128,17 +128,18 @@ The app initially stores debug/Xcode tokens as sandbox devices. The push worker 
 
 ### 4. Deploy the web/server branch
 
-`vercel.json` schedules `/api/cron/ios-push` every 15 minutes. The worker:
+`vercel.json` schedules `/api/cron/ios-push` every minute. The worker:
 
 - reads enabled iPhone devices,
 - evaluates the same portfolio trim/risk/target conditions used by StockGPT Alerts,
 - skips alerts the user has already resolved,
 - deduplicates previously sent device/alert pairs,
 - sends up to three new alerts per user per run,
+- uses the service-role alert evaluator so background delivery does not depend on a browser session,
 - deep-links taps back into the relevant StockGPT portfolio or stock page,
 - disables APNs tokens Apple reports as unregistered.
 
-After the server pieces are deployed, open **Alerts** in the iPhone app and tap **Enable iPhone alerts**.
+After the server pieces are deployed, open **Alerts** in the iPhone app and tap **Enable iPhone alerts**. Once enabled, use **Send test notification** to verify the registered device, APNs credentials and Apple delivery path end to end.
 
 ## Portfolio and Rankings on iPhone
 
