@@ -60,39 +60,35 @@ With no server override, the shell opens `https://stockgpt.pro/dashboard` and th
 
 ## Test branch UI before production deploy
 
-`capacitor.config.ts` supports `CAPACITOR_SERVER_URL`. Without an override, native Swift changes appear after an Xcode rebuild, but **undeployed React/CSS changes will not appear** because the WebView still loads production.
+The native iOS controller deliberately defaults to `https://stockgpt.pro/welcome` on every Xcode build. This prevents a stale, generated `ios/App/App/capacitor.config.json` from leaving the app pointed at localhost or an expired preview URL.
+
+For an intentional development override, set the `STOCKGPT_SERVER_URL` environment variable in **Xcode → Product → Scheme → Edit Scheme → Run → Arguments → Environment Variables**. The override is accepted only in Debug builds.
 
 ### Simulator + local Next.js
 
-Terminal 1:
+Terminal:
 
 ```bash
 npm run dev
+npx cap sync ios
+npx cap open ios
 ```
 
-Terminal 2:
+Then set this Xcode scheme environment variable:
 
-```bash
-CAPACITOR_SERVER_URL=http://localhost:3000/dashboard npx cap sync ios
-npx cap open ios
+```text
+STOCKGPT_SERVER_URL=http://localhost:3000/welcome
 ```
 
 ### Real iPhone + HTTPS preview
 
-A physical iPhone should normally use an HTTPS preview deployment:
+Use an HTTPS preview URL in the same Xcode scheme environment variable:
 
-```bash
-CAPACITOR_SERVER_URL=https://YOUR-PREVIEW-HOST/dashboard npx cap sync ios
-npx cap open ios
+```text
+STOCKGPT_SERVER_URL=https://YOUR-PREVIEW-HOST/welcome
 ```
 
-To return the Xcode project to production later:
-
-```bash
-npx cap sync ios
-```
-
-Never commit a temporary preview URL into `capacitor.config.ts`.
+Remove or disable `STOCKGPT_SERVER_URL` to return immediately to production. You do not need to resync Capacitor just to clear an old development server URL.
 
 ## Enable real iPhone push alerts
 
