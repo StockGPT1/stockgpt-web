@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/utils/supabase/admin";
 import {
-  enrichHoldings,
+  enrichHoldingsAdmin,
   type AlertSeverity,
   type HoldingAlert,
   type RiskTolerance,
@@ -100,7 +100,7 @@ export async function getIOSPushCandidates(userId: string): Promise<IOSPushCandi
       );
       if (portfolioHoldings.length === 0) return;
 
-      const enriched = await enrichHoldings(
+      const enriched = await enrichHoldingsAdmin(
         portfolioHoldings.map((holding) => ({
           ticker: String(holding.ticker).toUpperCase(),
           entry_price: holding.entry_price,
