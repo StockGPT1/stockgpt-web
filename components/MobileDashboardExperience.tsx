@@ -316,23 +316,23 @@ export function MobileDashboardExperience({
 
   return (
     <div className="min-w-0 pb-[calc(8rem+env(safe-area-inset-bottom))] lg:hidden">
-      <section className="relative overflow-hidden border-b border-[#ddb159]/15 px-1 pb-4 pt-1">
-        <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-[#ddb159]/10 blur-3xl" />
+      <section className="sg-dashboard-briefing relative overflow-hidden border-b border-[#f2c35f]/22 px-1 pb-4 pt-1">
+        <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-[#f2c35f]/10 blur-3xl" />
         <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-luxury text-[12px] font-semibold text-[#ddb159]">
+              <p className="font-luxury text-[12px] font-semibold text-[#f2c35f]">
                 {greeting}
               </p>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/18 bg-[#072116]/55 px-2 py-1 text-[9px] font-bold text-[#faf6f0]/62">
-                <span className="size-1.5 rounded-full bg-[#faf6f0]/38" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f2c35f]/18 bg-[#062016]/55 px-2 py-1 text-[9px] font-bold text-[#fffaf2]/62">
+                <span className="size-1.5 rounded-full bg-[#fffaf2]/38" />
                 {market}
               </span>
             </div>
-            <h1 className="mt-2 text-[22px] font-black leading-[1.02] tracking-[-0.045em] text-[#faf6f0] min-[390px]:text-[24px]">
+            <h1 className="mt-2 text-[22px] font-black leading-[1.02] tracking-[-0.045em] text-[#fffaf2] min-[390px]:text-[24px]">
               Today at a glance
             </h1>
-            <p className="mt-1.5 max-w-[31rem] text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/56">
+            <p className="mt-1.5 max-w-[31rem] text-[11px] font-semibold leading-[1.45] text-[#fffaf2]/56">
               {briefingLine}
             </p>
           </div>
@@ -364,14 +364,14 @@ export function MobileDashboardExperience({
               aria-roledescription="slide"
               aria-label="1 of 3, Portfolio"
               style={PANEL_CLIP_STYLE}
-              className="relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/24 bg-[linear-gradient(145deg,rgba(15,57,37,0.9),rgba(6,28,19,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
+              className="sg-dashboard-card relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#f2c35f]/30 bg-[radial-gradient(circle_at_82%_0%,rgba(255,232,157,0.14),transparent_34%),linear-gradient(145deg,rgba(16,67,44,0.94),rgba(7,34,23,0.97))] p-4 text-[#fffaf2] shadow-[0_20px_42px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.055)] min-[390px]:h-[310px]"
             >
-              <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#ddb159]/13 blur-3xl" />
+              <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#f2c35f]/13 blur-3xl" />
               {summary ? (
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
                         Your portfolio
                       </p>
                       {/* the selector already names the portfolio — no
@@ -389,7 +389,7 @@ export function MobileDashboardExperience({
                         </h2>
                       )}
                     </div>
-                    <span className="shrink-0 rounded-full bg-[#ddb159] px-2.5 py-1 text-[10px] font-black text-[#072116]">
+                    <span className="shrink-0 rounded-full bg-[#f2c35f] px-2.5 py-1 text-[10px] font-black text-[#062016]">
                       {canUsePremium
                         ? `Health ${summary.score}/100`
                         : "Health locked"}
@@ -428,7 +428,7 @@ export function MobileDashboardExperience({
                     </div>
                     <Link
                       href={portfolioHref}
-                      className="shrink-0 rounded-full border border-[#ddb159]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+                      className="shrink-0 rounded-full border border-[#f2c35f]/22 bg-[#061b12]/55 px-3 py-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#f2c35f]"
                     >
                       Open →
                     </Link>
@@ -445,14 +445,14 @@ export function MobileDashboardExperience({
                       />
                     ) : (
                       <div className="relative flex h-[94px] items-center overflow-hidden px-4">
-                        <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#ddb159]/24" />
+                        <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#f2c35f]/24" />
                         <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
                           <p className="text-[10px] font-black text-[#e7c56c]">
                             {portfolioChartState.displayState === "error_no_cache"
                               ? "Chart temporarily unavailable"
                               : "Building reliable chart history"}
                           </p>
-                          <p className="mt-0.5 text-[9px] font-semibold text-[#faf6f0]/45">
+                          <p className="mt-0.5 text-[9px] font-semibold text-[#fffaf2]/45">
                             Only confirmed snapshots will be shown.
                           </p>
                         </div>
@@ -460,7 +460,7 @@ export function MobileDashboardExperience({
                     )}
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/42">
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#fffaf2]/42">
                     <span>
                       {summary.holdingsCount} holdings · {summary.sectorCount} sectors
                     </span>
@@ -475,20 +475,20 @@ export function MobileDashboardExperience({
               ) : (
                 <div className="relative flex h-full flex-col justify-between">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
                       Your portfolio
                     </p>
                     <h2 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em]">
                       Build your first portfolio
                     </h2>
-                    <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
+                    <p className="mt-3 max-w-[18rem] text-[12px] font-semibold leading-5 text-[#fffaf2]/58">
                       Add holdings or import a Trading 212 CSV to unlock personal value,
                       risk and opportunity intelligence.
                     </p>
                   </div>
                   <Link
                     href="/portfolio?builder=1"
-                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#ddb159] px-5 text-[11px] font-black text-[#072116]"
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-[#f2c35f] px-5 text-[11px] font-black text-[#062016]"
                   >
                     Build portfolio
                   </Link>
@@ -501,11 +501,11 @@ export function MobileDashboardExperience({
               aria-roledescription="slide"
               aria-label="2 of 3, What changed"
               style={PANEL_CLIP_STYLE}
-              className="isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(150deg,rgba(10,45,30,0.84),rgba(5,26,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
+              className="sg-dashboard-card isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#f2c35f]/24 bg-[linear-gradient(150deg,rgba(13,58,39,0.90),rgba(6,31,21,0.97))] p-4 text-[#fffaf2] shadow-[0_20px_42px_rgba(0,0,0,0.17),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
                     Daily briefing
                   </p>
                   <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
@@ -514,11 +514,11 @@ export function MobileDashboardExperience({
                 </div>
                 <FreshnessLabel value={topRanked?.updated_at} compact />
               </div>
-              <ul className="mt-3 divide-y divide-[#ddb159]/10">
+              <ul className="mt-3 divide-y divide-[#f2c35f]/10">
                 {changedItems.slice(0, 4).map((item) => (
                   <li
                     key={item}
-                    className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#faf6f0]/66"
+                    className="py-2.5 text-[11px] font-semibold leading-[1.45] text-[#fffaf2]/66"
                   >
                     {item}
                   </li>
@@ -526,7 +526,7 @@ export function MobileDashboardExperience({
               </ul>
               <Link
                 href="/notifications"
-                className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+                className="mt-2 inline-flex min-h-10 items-center text-[10px] font-black uppercase tracking-[0.09em] text-[#f2c35f]"
               >
                 Review alerts →
               </Link>
@@ -537,11 +537,11 @@ export function MobileDashboardExperience({
               aria-roledescription="slide"
               aria-label="3 of 3, Opportunities"
               style={PANEL_CLIP_STYLE}
-              className="isolate flex h-[318px] w-full shrink-0 snap-start snap-always flex-col overflow-hidden rounded-[1.65rem] border border-[#ddb159]/20 bg-[linear-gradient(145deg,rgba(13,50,33,0.84),rgba(5,25,17,0.94))] p-4 text-[#faf6f0] shadow-[0_18px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] min-[390px]:h-[310px]"
+              className="sg-dashboard-card isolate flex h-[318px] w-full shrink-0 snap-start snap-always flex-col overflow-hidden rounded-[1.65rem] border border-[#f2c35f]/24 bg-[linear-gradient(145deg,rgba(14,61,41,0.90),rgba(6,30,20,0.97))] p-4 text-[#fffaf2] shadow-[0_20px_42px_rgba(0,0,0,0.17),inset_0_1px_0_rgba(255,255,255,0.045)] min-[390px]:h-[310px]"
             >
               <div className="flex shrink-0 items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
                     Portfolio intelligence
                   </p>
                   <h2 className="mt-1 text-[22px] font-black tracking-[-0.045em]">
@@ -550,7 +550,7 @@ export function MobileDashboardExperience({
                 </div>
                 <Link
                   href="/rankings"
-                  className="shrink-0 rounded-full border border-[#ddb159]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+                  className="shrink-0 rounded-full border border-[#f2c35f]/20 px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#f2c35f]"
                 >
                   Review all →
                 </Link>
@@ -558,43 +558,43 @@ export function MobileDashboardExperience({
 
               <div className="mt-3 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
                 {!canUsePremium ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                  <div className="rounded-2xl border border-[#f2c35f]/14 bg-[#061b12]/55 p-4">
                     <p className="text-[13px] font-black">Premium analysis locked</p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#fffaf2]/55">
                       Unlock portfolio-fit research and health analysis.
                     </p>
                     <Link
                       href="/subscription"
-                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#f2c35f] px-4 text-[10px] font-black text-[#062016]"
                     >
                       View plans
                     </Link>
                   </div>
                 ) : !summary ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                  <div className="rounded-2xl border border-[#f2c35f]/14 bg-[#061b12]/55 p-4">
                     <p className="text-[13px] font-black">Build a portfolio first</p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#fffaf2]/55">
                       Portfolio-fit opportunities need your holdings and allocation context.
                     </p>
                     <Link
                       href="/portfolio?builder=1"
-                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black text-[#072116]"
+                      className="mt-4 inline-flex h-10 items-center rounded-full bg-[#f2c35f] px-4 text-[10px] font-black text-[#062016]"
                     >
                       Build portfolio
                     </Link>
                   </div>
                 ) : opportunities.length === 0 ? (
-                  <div className="rounded-2xl border border-[#ddb159]/14 bg-[#061b12]/55 p-4">
+                  <div className="rounded-2xl border border-[#f2c35f]/14 bg-[#061b12]/55 p-4">
                     <p className="text-[13px] font-black">
                       No strong opportunities right now
                     </p>
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/55">
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-[#fffaf2]/55">
                       StockGPT is not forcing an idea when the current setup is not strong
                       enough.
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-[#ddb159]/10 pb-2">
+                  <div className="divide-y divide-[#f2c35f]/10 pb-2">
                     {opportunities.slice(0, 2).map((item) => (
                       <Link
                         key={`${item.category}-${item.ticker}`}
@@ -610,23 +610,23 @@ export function MobileDashboardExperience({
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="truncate text-[14px] font-black">
                               {item.ticker}{" "}
-                              <span className="text-[10px] text-[#faf6f0]/42">
+                              <span className="text-[10px] text-[#fffaf2]/42">
                                 {item.company}
                               </span>
                             </p>
-                            <span className="shrink-0 text-[10px] font-black tabular-nums text-[#ddb159]">
+                            <span className="shrink-0 text-[10px] font-black tabular-nums text-[#f2c35f]">
                               {score(item.score)}
                             </span>
                           </div>
-                          <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                          <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#f2c35f]">
                             {item.category}
                           </p>
-                          <p className="mt-1 text-[10px] font-semibold leading-[1.45] text-[#faf6f0]/60">
+                          <p className="mt-1 text-[10px] font-semibold leading-[1.45] text-[#fffaf2]/60">
                             {item.reason}
                           </p>
                           <p
                             suppressHydrationWarning
-                            className="mt-1 text-[8.5px] font-bold text-[#faf6f0]/38"
+                            className="mt-1 text-[8.5px] font-bold text-[#fffaf2]/38"
                           >
                             {opportunityUpdated(item.updatedAt)}
                           </p>
@@ -653,8 +653,8 @@ export function MobileDashboardExperience({
               onClick={() => showPanel(index)}
               className={`h-2 rounded-full transition-[width,background-color] duration-200 ${
                 activePanel === index
-                  ? "w-6 bg-[#ddb159]"
-                  : "w-2 bg-[#faf6f0]/20"
+                  ? "w-6 bg-[#f2c35f]"
+                  : "w-2 bg-[#fffaf2]/20"
               }`}
             />
           ))}
@@ -667,16 +667,16 @@ export function MobileDashboardExperience({
       <section className="mt-6 min-w-0">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
               AI rankings
             </p>
-            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#fffaf2]">
               Top ranked today
             </h2>
           </div>
           <Link
             href={rankingsLocked ? "/pricing?feature=rankings" : "/rankings"}
-            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#f2c35f]"
           >
             {rankingsLocked ? "Unlock →" : "View all →"}
           </Link>
@@ -693,13 +693,13 @@ export function MobileDashboardExperience({
                 <Link
                   key={item.id}
                   href={destination}
-                  className="w-[164px] shrink-0 snap-start rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/62 p-3 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
+                  className="sg-dashboard-mini-card w-[164px] shrink-0 snap-start rounded-2xl border border-[#f2c35f]/22 bg-[#0d3927]/72 p-3 text-[#fffaf2] shadow-[0_10px_28px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="grid size-8 place-items-center rounded-full bg-[#ddb159] text-[12px] font-black text-[#072116]">
+                    <span className="grid size-8 place-items-center rounded-full bg-[#f2c35f] text-[12px] font-black text-[#062016]">
                       {item.rank ?? "—"}
                     </span>
-                    <span className="rounded-full bg-[#ddb159]/14 px-2 py-1 text-[9px] font-black tabular-nums text-[#ddb159]">
+                    <span className="rounded-full bg-[#f2c35f]/14 px-2 py-1 text-[9px] font-black tabular-nums text-[#f2c35f]">
                       {rankingsLocked ? "Locked" : score(item.score)}
                     </span>
                   </div>
@@ -713,19 +713,19 @@ export function MobileDashboardExperience({
                       <p className="truncate text-[13px] font-black">
                         {item.ticker ?? "—"}
                       </p>
-                      <p className="truncate text-[9px] font-semibold text-[#faf6f0]/42">
+                      <p className="truncate text-[9px] font-semibold text-[#fffaf2]/42">
                         {item.company ?? "—"}
                       </p>
                     </div>
                   </div>
-                  <p className="mt-3 text-[10px] font-bold tabular-nums text-[#faf6f0]/62">
+                  <p className="mt-3 text-[10px] font-bold tabular-nums text-[#fffaf2]/62">
                     {price(item.price)}
                   </p>
                 </Link>
               );
             })
           ) : (
-            <div className="w-full rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
+            <div className="w-full rounded-2xl border border-[#f2c35f]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#fffaf2]/52">
               Rankings are not available yet.
             </div>
           )}
@@ -735,14 +735,14 @@ export function MobileDashboardExperience({
       <section className="mt-6 min-w-0">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
               Market snapshot
             </p>
             <div className="mt-1 flex items-end gap-2">
-              <h2 className="text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+              <h2 className="text-[20px] font-black tracking-[-0.04em] text-[#fffaf2]">
                 S&amp;P 500
               </h2>
-              <span className="pb-0.5 text-[11px] font-black tabular-nums text-[#faf6f0]/52">
+              <span className="pb-0.5 text-[11px] font-black tabular-nums text-[#fffaf2]/52">
                 {indexValue(marketValue)}
               </span>
             </div>
@@ -760,7 +760,7 @@ export function MobileDashboardExperience({
             </span>
           )}
         </div>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#071d14]/55 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-[#f2c35f]/22 bg-[#0a3323]/64 p-2 shadow-[0_12px_30px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.04)]">
           {chartHasData(marketChart) ? (
             <StockChart
               ticker="S&P 500"
@@ -770,7 +770,7 @@ export function MobileDashboardExperience({
               compact
             />
           ) : (
-            <div className="flex h-[122px] items-center justify-center text-[11px] font-semibold text-[#faf6f0]/45">
+            <div className="flex h-[122px] items-center justify-center text-[11px] font-semibold text-[#fffaf2]/45">
               Market chart temporarily unavailable
             </div>
           )}
@@ -780,30 +780,30 @@ export function MobileDashboardExperience({
       <section className="mt-7 min-w-0">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
               World news
             </p>
-            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#faf6f0]">
+            <h2 className="mt-1 text-[20px] font-black tracking-[-0.04em] text-[#fffaf2]">
               Latest market stories
             </h2>
           </div>
           <Link
             href="/world-news"
-            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]"
+            className="min-h-10 shrink-0 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#f2c35f]"
           >
             View all →
           </Link>
         </div>
 
         {newsStatus === "locked" ? (
-          <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[#faf6f0]">
+          <div className="mt-3 rounded-2xl border border-[#f2c35f]/14 bg-[#0b2b1d]/52 p-4 text-[#fffaf2]">
             <p className="text-[12px] font-black">World news is a premium feature.</p>
-            <Link href="/subscription" className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+            <Link href="/subscription" className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.08em] text-[#f2c35f]">
               View plans →
             </Link>
           </div>
         ) : newsStatus === "error" || news.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
+          <div className="mt-3 rounded-2xl border border-[#f2c35f]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#fffaf2]/52">
             Latest world news is temporarily unavailable. The full news page will refresh automatically.
           </div>
         ) : (
@@ -814,7 +814,7 @@ export function MobileDashboardExperience({
                 href={article.url ?? "/world-news"}
                 target={article.url ? "_blank" : undefined}
                 rel={article.url ? "noopener noreferrer" : undefined}
-                className="group flex h-[244px] w-[184px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#0b2b1d]/62 text-[#faf6f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
+                className="group flex h-[244px] w-[184px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-[#f2c35f]/18 bg-[#0b2b1d]/62 text-[#fffaf2] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-sm"
               >
                 <div className="h-[92px] shrink-0 overflow-hidden bg-[#061b12]">
                   <img
@@ -832,12 +832,12 @@ export function MobileDashboardExperience({
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-[8.5px] font-black uppercase tracking-[0.1em] text-[#ddb159]">
+                    <p className="min-w-0 truncate text-[8.5px] font-black uppercase tracking-[0.1em] text-[#f2c35f]">
                       {article.source ?? "Market source"}
                     </p>
                     <span
                       suppressHydrationWarning
-                      className="shrink-0 text-[8px] font-bold text-[#faf6f0]/38"
+                      className="shrink-0 text-[8px] font-bold text-[#fffaf2]/38"
                     >
                       {newsAge(article.publishedAt)}
                     </span>
@@ -850,7 +850,7 @@ export function MobileDashboardExperience({
                       {article.affectedTickers.slice(0, 2).map((ticker) => (
                         <span
                           key={ticker}
-                          className="rounded-full bg-[#ddb159]/12 px-2 py-0.5 text-[8px] font-black text-[#ddb159]"
+                          className="rounded-full bg-[#f2c35f]/12 px-2 py-0.5 text-[8px] font-black text-[#f2c35f]"
                         >
                           {ticker}
                         </span>
@@ -864,18 +864,18 @@ export function MobileDashboardExperience({
         )}
       </section>
 
-      <section className="mx-1 mt-7 border-t border-[#ddb159]/14 pt-5 text-[#faf6f0]">
-        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+      <section className="mx-1 mt-7 border-t border-[#f2c35f]/14 pt-5 text-[#fffaf2]">
+        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
           Educational research only
         </p>
-        <p className="mt-2 max-w-[34rem] text-[10px] font-semibold leading-[1.55] text-[#faf6f0]/48">
+        <p className="mt-2 max-w-[34rem] text-[10px] font-semibold leading-[1.55] text-[#fffaf2]/48">
           StockGPT uses AI models and third-party data to organise research. Rankings,
           scores, portfolio views and news summaries are informational only, may be
           delayed or inaccurate, and are not financial advice or broker instructions.
         </p>
         <Link
           href="/legal#disclaimer"
-          className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#ddb159]/24 bg-[#0b2b1d]/52 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#ddb159]"
+          className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#f2c35f]/24 bg-[#0b2b1d]/52 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#f2c35f]"
         >
           About &amp; disclaimer →
         </Link>
