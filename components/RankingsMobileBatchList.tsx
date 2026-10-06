@@ -152,7 +152,7 @@ export function RankingsMobileBatchList({
 
         function openStockFromCard(event: MouseEvent<HTMLElement>) {
           const target = event.target as HTMLElement;
-          if (target.closest("a,button,input,select,textarea")) return;
+          if (target.closest("a,button,input,select,textarea,[data-ranking-why]")) return;
           if (!stock.ticker) return;
           router.push(`/stock/${stock.ticker}`);
         }
