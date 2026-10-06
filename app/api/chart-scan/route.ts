@@ -69,8 +69,8 @@ type OpenRouterResponse = {
 };
 
 const MAX_IMAGE_BYTES = 3_200_000;
-const MAX_IMAGE_COUNT = 3;
-const MAX_TOTAL_IMAGE_BYTES = 8_000_000;
+const MAX_IMAGE_COUNT = 2;
+const MAX_TOTAL_IMAGE_BYTES = 3_600_000;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VISION_MODELS = [
   "google/gemini-2.5-flash",
@@ -186,7 +186,11 @@ function boxCenterInside(inner: PctBox | null, outer: PctBox | null) {
 
 function yInsideBox(y: number | null, box: PctBox | null) {
   if (y === null || !box) return false;
-  return y >= box.y_pct && y <= box.y_pct + box.height_pct;
+  const edgeMargin = Math.min(3, Math.max(1.25, box.height_pct * 0.06));
+  return (
+    y >= box.y_pct + edgeMargin &&
+    y <= box.y_pct + box.height_pct - edgeMargin
+  );
 }
 
 function confidence(value: unknown) {
@@ -457,7 +461,7 @@ export async function POST(req: NextRequest) {
 
     if (images.length > MAX_IMAGE_COUNT) {
       return NextResponse.json(
-        { error: "Use up to three chart photos for one scan." },
+        { error: "Use the main chart plus one supporting photo for one scan." },
         { status: 400 },
       );
     }
