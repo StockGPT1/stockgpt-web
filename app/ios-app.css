@@ -284,6 +284,18 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     border-bottom-color: transparent !important;
   }
 
+  /* Cancel the stage's 22px inset so the performance chart reaches both screen edges. */
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage-chart {
+    width: auto;
+    margin-left: -22px;
+    margin-right: -22px;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage-chart .sg-stock-chart-frame {
+    border-radius: 0;
+    background: transparent;
+  }
+
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage-backdrop {
     background:
       radial-gradient(circle at 50% -2%, rgba(255, 224, 138, 0.16), transparent 31%),

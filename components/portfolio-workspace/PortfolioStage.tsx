@@ -210,7 +210,7 @@ export function PortfolioStage({
             </div>
           </div>
 
-          <div className="mt-1 w-full lg:mt-2">
+          <div className="sg-portfolio-stage-chart mt-1 w-full lg:mt-2">
             {hasChart ? (
               <StockChart
                 key={`${activeRange}-${chartHeight}`}
