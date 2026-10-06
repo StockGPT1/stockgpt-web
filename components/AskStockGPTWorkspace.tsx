@@ -108,44 +108,40 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   });
 }
 
-function renderMessageContent(content: string) {
-  const lines = content.replace(/\r/g, "").split("\n").map((line) => line.trimEnd());
+function renderMessageContent(content: string, cleanAssistantFormatting = false) {
+  const lines = content.replace(/\r/g, "").split("\n");
   const blocks: ReactNode[] = [];
-  let bullets: string[] = [];
-
-  function flushBullets() {
-    if (bullets.length === 0) return;
-    blocks.push(
-      <ul key={`bullets-${blocks.length}`} className="mt-2 grid gap-1.5 pl-4">
-        {bullets.map((item, index) => (
-          <li key={`${item}-${index}`} className="list-disc text-[13px] leading-relaxed">
-            {renderInlineMarkdown(item)}
-          </li>
-        ))}
-      </ul>,
-    );
-    bullets = [];
-  }
 
   lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      flushBullets();
-      return;
+    let text = line.trim();
+    if (!text) return;
+
+    if (cleanAssistantFormatting) {
+      if (/^(---+|\*\*\*+|___+)$/.test(text)) return;
+      text = text
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/^[-*•]\s+/, "")
+        .trim();
     }
-    if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-      bullets.push(trimmed.replace(/^[-•]\s+/, ""));
-      return;
-    }
-    flushBullets();
-    if (trimmed.startsWith("### ")) {
-      blocks.push(<p key={`heading-${index}`} className="mt-3 text-[12px] font-black uppercase tracking-[0.14em] text-[#ddb159]">{trimmed.replace(/^###\s+/, "")}</p>);
-      return;
-    }
-    blocks.push(<p key={`paragraph-${index}`} className="mt-2 text-[13px] leading-relaxed">{renderInlineMarkdown(trimmed)}</p>);
+
+    if (!text) return;
+
+    const compactLabel = cleanAssistantFormatting &&
+      text.length <= 52 &&
+      text.endsWith(":");
+
+    blocks.push(
+      <p
+        key={`paragraph-${index}`}
+        className={compactLabel
+          ? "mt-4 text-[11px] font-black uppercase tracking-[0.11em] text-[#e8c66f]"
+          : "mt-2.5 text-[14px] leading-[1.65] text-[#f7f4ec]/88"}
+      >
+        {renderInlineMarkdown(text)}
+      </p>,
+    );
   });
 
-  flushBullets();
   return <>{blocks}</>;
 }
 
@@ -190,20 +186,22 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   if (isUser) {
     return (
       <div className="flex w-full justify-end">
-        <div className="max-w-[86%] rounded-[22px] rounded-br-[7px] bg-[#ddb159] px-4 py-3 text-[14px] font-semibold leading-6 text-[#04140c] shadow-[0_10px_28px_rgba(0,0,0,0.16)] [overflow-wrap:anywhere] sm:max-w-[74%]">
-          {renderMessageContent(message.content)}
+        <div className="max-w-[88%] rounded-[22px] rounded-br-[8px] border border-white/[0.07] bg-[#10261b]/92 px-4 py-3 text-[14px] font-semibold leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.18)] [overflow-wrap:anywhere] sm:max-w-[72%]">
+          <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full items-start gap-2.5">
-      <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
+    <div className="flex w-full items-start gap-3">
+      <span className="mt-1 grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[#ddb159]/26 bg-[#0a2418] p-1.5 shadow-[0_0_24px_rgba(221,177,89,0.10)]">
         <StockGPTIconImage fallbackClassName="text-[11px] font-black text-[#ddb159]" />
       </span>
-      <div className="min-w-0 max-w-[calc(100%_-_42px)] flex-1 rounded-[22px] rounded-tl-[7px] border border-white/[0.07] bg-white/[0.055] px-4 py-3.5 text-[14px] font-medium leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.15)] [overflow-wrap:anywhere] sm:max-w-[78%]">
-        <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
+      <div className="min-w-0 max-w-[calc(100%_-_44px)] flex-1 px-1 py-0.5 font-medium [overflow-wrap:anywhere] sm:max-w-[82%]">
+        <div className="[&>p:first-child]:mt-0">
+          {renderMessageContent(message.content, true)}
+        </div>
       </div>
     </div>
   );
@@ -288,8 +286,8 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
             className={[
               "inline-flex h-9 shrink-0 items-center justify-center rounded-full border px-4 text-[11px] font-black transition active:scale-[0.98]",
               selected
-                ? "border-[#ddb159] bg-[#ddb159] text-[#04140c] shadow-[0_8px_24px_rgba(221,177,89,0.16)]"
-                : "border-white/[0.08] bg-white/[0.035] text-[#f7f4ec]/68 hover:border-[#ddb159]/30 hover:text-[#f7f4ec]",
+                ? "border-[#ddb159]/70 bg-[#ddb159]/14 text-[#f3d57f] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_24px_rgba(221,177,89,0.08)]"
+                : "border-white/[0.07] bg-black/15 text-[#f7f4ec]/50 hover:border-[#ddb159]/28 hover:text-[#f7f4ec]/78",
             ].join(" ")}
           >
             {option.shortLabel}
@@ -881,8 +879,8 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
               : "Account help";
 
   return (
-    <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#04140c] text-[#f7f4ec]">
-      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.06] bg-[#04140c]/95 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
+    <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]">
+      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
         <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <BackButton />
 
@@ -912,7 +910,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
         <LockedExperience isAuthenticated={isAuthenticated} />
       ) : (
         <>
-          <div className="shrink-0 border-b border-white/[0.05] bg-[#04140c]">
+          <div className="shrink-0 border-b border-white/[0.035] bg-black/5 backdrop-blur-xl">
             <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
 
             {portfolioOptions.length > 1 && activeMode === "portfolio" && (
@@ -936,15 +934,15 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                 {showStarterCards ? (
                   <section className="flex flex-1 flex-col justify-center pb-8 sm:pb-10">
                     <div className="mx-auto w-full max-w-2xl">
-                      <div className="mx-auto grid size-14 place-items-center overflow-hidden rounded-[18px] border border-[#ddb159]/24 bg-[#092418] p-2.5 shadow-[0_18px_55px_rgba(0,0,0,0.28)]">
+                      <div className="mx-auto grid size-16 place-items-center overflow-hidden rounded-full border border-[#ddb159]/30 bg-[radial-gradient(circle_at_36%_28%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(145deg,#103724,#07150e)] p-3 shadow-[0_0_50px_rgba(221,177,89,0.12),0_22px_70px_rgba(0,0,0,0.42)]">
                         <StockGPTIconImage fallbackClassName="text-[18px] font-black text-[#ddb159]" />
                       </div>
 
                       <h1 className="mt-5 text-center text-[27px] font-black tracking-[-0.045em] text-[#f7f4ec] sm:text-[34px]">
-                        What do you want to know?
+                        Your market copilot.
                       </h1>
                       <p className="mx-auto mt-2 max-w-xl text-center text-[12px] font-semibold leading-5 text-[#f7f4ec]/44 sm:text-[13px]">
-                        {activeModeLabel}. Ask naturally — StockGPT will pull in the relevant context when it needs it.
+                        {activeModeLabel}. Ask naturally. StockGPT already has the context.
                       </p>
 
                       <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
@@ -953,7 +951,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                             key={starter.prompt}
                             type="button"
                             onClick={() => void sendQuestion(starter.prompt)}
-                            className="group min-h-[78px] rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-4 py-3.5 text-left transition hover:-translate-y-0.5 hover:border-[#ddb159]/25 hover:bg-white/[0.055] active:scale-[0.99]"
+                            className="group min-h-[78px] rounded-[20px] border border-white/[0.055] bg-black/15 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/22 hover:bg-[#0b2016]/58 active:scale-[0.99]"
                           >
                             <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#ddb159]/68">
                               {starter.eyebrow}
@@ -998,10 +996,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
 
           <form
             onSubmit={handleSubmit}
-            className="sg-ask-composer shrink-0 border-t border-white/[0.06] bg-[#04140c]/96 px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl sm:px-5"
+            className="sg-ask-composer shrink-0 bg-[linear-gradient(180deg,transparent,rgba(2,6,4,0.94)_30%)] px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 sm:px-5"
           >
             <div className="mx-auto w-full max-w-4xl">
-              <div className="grid grid-cols-[minmax(0,1fr)_46px] items-end gap-2 rounded-[24px] border border-white/[0.09] bg-white/[0.045] p-2 shadow-[0_18px_55px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.025)] focus-within:border-[#ddb159]/38">
+              <div className="grid grid-cols-[minmax(0,1fr)_46px] items-end gap-2 rounded-[27px] border border-white/[0.10] bg-[#0a1710]/88 p-2 shadow-[0_22px_70px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04),0_0_34px_rgba(221,177,89,0.045)] backdrop-blur-2xl focus-within:border-[#ddb159]/42">
                 <textarea
                   ref={textareaRef}
                   value={question}
@@ -1021,7 +1019,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                   aria-label="Send"
                   data-native-haptic="medium"
                   disabled={!question.trim() || loading || historyLoading}
-                  className="grid size-[46px] place-items-center rounded-[17px] bg-[#ddb159] text-[#04140c] shadow-[0_8px_24px_rgba(221,177,89,0.14)] transition active:scale-95 disabled:opacity-30"
+                  className="grid size-[46px] place-items-center rounded-full bg-[#ddb159] text-[#04140c] shadow-[0_8px_28px_rgba(221,177,89,0.20)] transition active:scale-95 disabled:opacity-30"
                 >
                   <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m5 12 7-7 7 7" />
