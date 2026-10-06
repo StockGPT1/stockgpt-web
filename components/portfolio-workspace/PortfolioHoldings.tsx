@@ -145,7 +145,7 @@ export function PortfolioHoldings({
         <SummaryMetric label="Price coverage" value={missingCount === 0 ? "Complete" : `${missingCount} missing`} detail={missingCount === 0 ? "All positions valued" : "Review unavailable prices"} />
       </section>
 
-      <section className="mt-8 border-y border-[#faf6f0]/8 py-4">
+      <section className="sg-portfolio-holdings-controls mt-8 border-y border-[#faf6f0]/8 py-4">
         <label className="flex h-12 items-center gap-3 rounded-2xl border border-[#ddb159]/16 bg-[#04140c]/58 px-4 focus-within:border-[#ddb159]/52 focus-within:ring-2 focus-within:ring-[#ddb159]/10">
           <PortfolioIcon name="search" className="size-4 shrink-0 text-[#ddb159]" />
           <span className="sr-only">Search holdings</span>
