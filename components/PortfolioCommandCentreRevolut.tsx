@@ -16,6 +16,7 @@ import {
   type ChartPoint,
   type TimeRange,
 } from "@/components/StockChart";
+import { RouletteNumber } from "@/components/RouletteNumber";
 import { StockGPTSelect } from "@/components/StockGPTSelect";
 import { StockLogo } from "@/components/StockLogo";
 import { PortfolioOpportunitiesWidget } from "@/components/PortfolioOpportunitiesWidget";
@@ -657,7 +658,7 @@ function PortfolioChartHero({
               </p>
             )}
             <h1 className={`${valueUnavailable ? "text-[30px]" : "text-[42px]"} mt-3 font-black leading-none tracking-[-0.07em] sm:text-[58px] lg:text-[64px]`}>
-              {valueUnavailable ? "Value unavailable" : money(displayedValue, currency)}
+              {valueUnavailable ? "Value unavailable" : <RouletteNumber value={money(displayedValue, currency)} />}
             </h1>
             {!valueUnavailable && <p
               className={[
@@ -665,8 +666,7 @@ function PortfolioChartHero({
                 isPositive ? "text-emerald-300" : "text-red-200",
               ].join(" ")}
             >
-              {money(displayedReturn, currency)} total return ·{" "}
-              {pct(displayedReturnPct)}
+              <RouletteNumber value={`${money(displayedReturn, currency)} total return · ${pct(displayedReturnPct)}`} />
             </p>}
             {valuationCopy && <p className="mx-auto mt-2 max-w-md text-[11px] font-semibold leading-5 text-[#e7c56c] lg:mx-0">{valuationCopy}</p>}
             <div className="mt-3 flex items-center justify-center gap-2 sm:hidden">
