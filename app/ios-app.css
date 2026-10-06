@@ -33,8 +33,18 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
   html[data-app-shell="true"] .sg-app-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Keep the original 12px resting inset on page content, but leave the
+     scroll viewport itself edge-to-edge so horizontally moving elements can
+     travel through that gutter and disappear at the physical screen edge. */
+  html[data-app-shell="true"] .sg-route-content {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   html[data-app-shell="true"] .sg-app-content::-webkit-scrollbar {
