@@ -88,7 +88,7 @@ export function PortfolioActivity({
         </p>
       </section>
 
-      <nav aria-label="Activity filters" className="sg-native-edge-portfolio -mx-4 mt-7 flex gap-2 overflow-x-auto border-y border-[#faf6f0]/8 px-4 py-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+      <nav aria-label="Activity filters" className="sg-portfolio-activity-filters sg-native-edge-portfolio -mx-4 mt-7 flex gap-2 overflow-x-auto border-y border-[#faf6f0]/8 px-4 py-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
         {FILTERS.map((item) => (
           <button
             key={item.value}

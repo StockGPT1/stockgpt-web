@@ -96,7 +96,7 @@ export function PortfolioOverview({
     <div className="space-y-8 lg:space-y-14">
       <section aria-labelledby="portfolio-briefing-title">
         <p id="portfolio-briefing-title" className="sr-only">Portfolio briefing at a glance</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] border border-[#ddb159]/12 bg-[#0a2a1d]/40 px-4 py-4 lg:grid-cols-4 lg:gap-0 lg:bg-transparent lg:px-0 lg:py-0">
+        <div className="sg-portfolio-overview-metrics grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] border border-[#ddb159]/12 bg-[#0a2a1d]/40 px-4 py-4 lg:grid-cols-4 lg:gap-0 lg:bg-transparent lg:px-0 lg:py-0">
           <Metric
             label="Value"
             value={money(summary.totalValue, meta.currency)}
@@ -140,7 +140,7 @@ export function PortfolioOverview({
           }
         />
         {topHoldings.length > 0 ? (
-          <div className="mt-3 overflow-hidden rounded-[20px] border border-[#faf6f0]/8 bg-[#081f15]/52 px-3 lg:mt-4 lg:rounded-none lg:border-x-0 lg:bg-transparent lg:px-0">
+          <div className="sg-portfolio-overview-holdings mt-3 overflow-hidden rounded-[20px] border border-[#faf6f0]/8 bg-[#081f15]/52 px-3 lg:mt-4 lg:rounded-none lg:border-x-0 lg:bg-transparent lg:px-0">
             {topHoldings.map((holding) => (
               <HoldingLedgerRow
                 key={holding.ticker}
@@ -170,7 +170,7 @@ export function PortfolioOverview({
         )}
       </section>
 
-      <section className="rounded-[22px] border border-[#ddb159]/14 bg-[#0a2a1d]/42 p-5 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)] lg:gap-10 lg:border-0 lg:bg-transparent lg:p-0">
+      <section className="sg-portfolio-pulse rounded-[22px] border border-[#ddb159]/14 bg-[#0a2a1d]/42 p-5 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)] lg:gap-10 lg:border-0 lg:bg-transparent lg:p-0">
         <div className="min-w-0">
           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] lg:text-[10px]">
             Portfolio pulse
@@ -213,7 +213,7 @@ export function PortfolioOverview({
           </div>
         </div>
 
-        <dl className="mt-5 grid grid-cols-4 gap-2 border-t border-[#faf6f0]/8 pt-4 lg:mt-0 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-6 lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:bg-[#0a2a1d]/45 lg:p-6">
+        <dl className="sg-portfolio-pulse-metrics mt-5 grid grid-cols-4 gap-2 border-t border-[#faf6f0]/8 pt-4 lg:mt-0 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-6 lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:bg-[#0a2a1d]/45 lg:p-6">
           {[
             ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
             ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}%`],
@@ -314,7 +314,7 @@ export function PortfolioOverview({
         )}
       </section>
 
-      <details className="border-y border-[#faf6f0]/8 py-1">
+      <details className="sg-portfolio-diagnostics border-y border-[#faf6f0]/8 py-1">
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 text-[12px] font-black text-[#faf6f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]">
           Portfolio diagnostics
           <span className="text-[#ddb159]">View details</span>
