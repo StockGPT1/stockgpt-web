@@ -274,14 +274,13 @@ export function StockChart({
   );
 
   useEffect(() => {
-    setHoverIdx(null);
     return () => {
       if (moveFrameRef.current != null) {
         window.cancelAnimationFrame(moveFrameRef.current);
         moveFrameRef.current = null;
       }
     };
-  }, [resolvedRange]);
+  }, []);
 
   const handlePointerLeave = useCallback(() => {
     pendingClientXRef.current = null;
@@ -540,7 +539,15 @@ export function StockChart({
                 disabled={!available}
                 aria-label={available ? `Show ${r} chart` : `${r} chart temporarily unavailable`}
                 onClick={() => {
-                  if (available) setRange(r);
+                  if (!available) return;
+                  pendingClientXRef.current = null;
+                  if (moveFrameRef.current != null) {
+                    window.cancelAnimationFrame(moveFrameRef.current);
+                    moveFrameRef.current = null;
+                  }
+                  setHoverIdx(null);
+                  onScrub?.(null, { range: r });
+                  setRange(r);
                 }}
                 className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
                   resolvedRange === r
