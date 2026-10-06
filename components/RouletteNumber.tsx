@@ -18,8 +18,8 @@ type Frame = {
 export function RouletteNumber({
   value,
   className = "",
-  spinMs = 96,
-  minUpdateMs = 92,
+  spinMs = 118,
+  minUpdateMs = 104,
 }: {
   value: string;
   className?: string;
@@ -34,6 +34,8 @@ export function RouletteNumber({
   const latestValueRef = useRef(value);
   const lastCommitRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+  const [spinning, setSpinning] = useState(false);
 
   useEffect(() => {
     latestValueRef.current = value;
@@ -59,9 +61,27 @@ export function RouletteNumber({
   }, [frame.current, minUpdateMs, value]);
 
   useEffect(() => {
+    if (frame.sequence === 0) return;
+
+    setSpinning(true);
+    if (settleTimerRef.current != null) {
+      window.clearTimeout(settleTimerRef.current);
+    }
+
+    const maxDigitDelay = Math.min(Math.max(frame.current.length - 1, 0), 10) * 2;
+    settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null;
+      setSpinning(false);
+    }, spinMs + maxDigitDelay + 18);
+  }, [frame.current.length, frame.sequence, spinMs]);
+
+  useEffect(() => {
     return () => {
       if (timerRef.current != null) {
         window.clearTimeout(timerRef.current);
+      }
+      if (settleTimerRef.current != null) {
+        window.clearTimeout(settleTimerRef.current);
       }
     };
   }, []);
@@ -70,7 +90,7 @@ export function RouletteNumber({
 
   return (
     <span className={`sg-roulette-number ${className}`} aria-label={frame.current}>
-      {Array.from(frame.current).map((character, index) => {
+      {!spinning ? frame.current : Array.from(frame.current).map((character, index) => {
         const previousCharacter = sameLength ? frame.previous[index] : null;
         const isDigit = /^\d$/.test(character);
         const previousIsDigit = previousCharacter != null && /^\d$/.test(previousCharacter);
