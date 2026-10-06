@@ -127,7 +127,9 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
     if (appContent) appContent.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMoreOpen(false);
+      if (event.key !== "Escape") return;
+      setMoreOpen(false);
+      setVisualCurrent(current);
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -135,7 +137,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
       document.removeEventListener("keydown", handleKeyDown);
       if (appContent) appContent.style.overflow = previousOverflow;
     };
-  }, [moreOpen]);
+  }, [current, moreOpen]);
 
   return (
     <>
@@ -217,7 +219,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
               transform: `translateX(${Math.max(0, bubbleIndex) * 100}%)`,
             }}
           />
-        {primaryItems.map((item) => {
+          {primaryItems.map((item) => {
           const isActive = current === item.href;
           const isVisualActive = visualDestination === item.href;
           const isAlerts = item.href === "/notifications";
