@@ -81,7 +81,8 @@ function isNativeApp(req: NextRequest) {
 function text(value: unknown, max = 220) {
   if (typeof value !== "string") return null;
   const cleaned = value.replace(/\s+/g, " ").trim();
-  return cleaned ? cleaned.slice(0, max) : null;
+  if (!cleaned || /^(null|unknown|n\/a|none)$/i.test(cleaned)) return null;
+  return cleaned.slice(0, max);
 }
 
 function pct(value: unknown) {
