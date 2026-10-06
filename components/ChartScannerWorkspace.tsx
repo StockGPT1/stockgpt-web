@@ -107,28 +107,41 @@ async function prepareImage(file: File) {
   }
 
   const image = await imageFromFile(file);
-  const maxDimension = 1600;
-  const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
-  const scale = largestSide > maxDimension ? maxDimension / largestSide : 1;
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const targetBytes = 1_650_000;
+  const attempts = [
+    { maxDimension: 1500, quality: 0.8 },
+    { maxDimension: 1320, quality: 0.7 },
+    { maxDimension: 1160, quality: 0.62 },
+  ];
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  let latestBlob: Blob | null = null;
 
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context) throw new Error("Could not prepare that image.");
+  for (const attempt of attempts) {
+    const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+    const scale = largestSide > attempt.maxDimension ? attempt.maxDimension / largestSide : 1;
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
 
-  context.drawImage(image, 0, 0, width, height);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
 
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.82);
-  });
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Could not prepare that image.");
 
-  if (!blob) throw new Error("Could not prepare that image.");
+    context.drawImage(image, 0, 0, width, height);
 
-  return new File([blob], "stockgpt-chart-scan.jpg", {
+    latestBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", attempt.quality);
+    });
+
+    if (!latestBlob) throw new Error("Could not prepare that image.");
+    if (latestBlob.size <= targetBytes) break;
+  }
+
+  if (!latestBlob) throw new Error("Could not prepare that image.");
+
+  return new File([latestBlob], "stockgpt-chart-scan.jpg", {
     type: "image/jpeg",
     lastModified: Date.now(),
   });
@@ -313,7 +326,7 @@ export function ChartScannerWorkspace() {
     nativeHaptic("medium");
 
     const formData = new FormData();
-    files.slice(0, 3).forEach((file) => formData.append("image", file));
+    files.slice(0, 2).forEach((file) => formData.append("image", file));
 
     try {
       const response = await fetch("/api/chart-scan", {
@@ -371,8 +384,8 @@ export function ChartScannerWorkspace() {
     event.target.value = "";
     if (!selected || !scanFile) return;
 
-    if (supportingFiles.length >= 2) {
-      setError("StockGPT can combine up to three chart photos in one scan.");
+    if (supportingFiles.length >= 1) {
+      setError("StockGPT can combine the main chart with one supporting photo.");
       nativeHaptic("warning");
       return;
     }
@@ -386,10 +399,10 @@ export function ChartScannerWorkspace() {
         throw new Error("That image is still too large. Try a tighter screenshot.");
       }
 
-      const nextSupportingFiles = [...supportingFiles, prepared].slice(0, 2);
+      const nextSupportingFiles = [...supportingFiles, prepared].slice(0, 1);
       const nextPreview = URL.createObjectURL(prepared);
       setSupportingFiles(nextSupportingFiles);
-      setSupportingPreviewUrls((current) => [...current, nextPreview].slice(0, 2));
+      setSupportingPreviewUrls((current) => [...current, nextPreview].slice(0, 1));
       await runScan([scanFile, ...nextSupportingFiles]);
     } catch (prepareError) {
       setError(prepareError instanceof Error ? prepareError.message : "Could not prepare that extra chart image.");
@@ -738,7 +751,7 @@ export function ChartScannerWorkspace() {
                 <div className="flex min-w-0 items-center justify-between gap-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#f2d786]">One more view would help</p>
                   <span className="shrink-0 rounded-full bg-[#f2c35f]/10 px-2.5 py-1 text-[9px] font-black text-[#f2d786]">
-                    {1 + supportingFiles.length}/3 photos
+                    {1 + supportingFiles.length}/2 photos
                   </span>
                 </div>
                 <p className="mt-2 break-words text-[15px] font-black leading-5 text-[#fffaf2]">
@@ -758,24 +771,32 @@ export function ChartScannerWorkspace() {
                   </div>
                 )}
 
-                <div className="mt-4 grid min-w-0 gap-2.5 sm:grid-cols-2">
+                {supportingFiles.length === 0 ? (
+                  <div className="mt-4 grid min-w-0 gap-2.5 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => contextCameraInputRef.current?.click()}
+                      className="h-12 min-w-0 rounded-[17px] bg-[#f2c35f] px-3 text-[12px] font-black text-[#092116] transition active:scale-[0.985]"
+                    >
+                      Add requested photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => contextLibraryInputRef.current?.click()}
+                      className="h-12 min-w-0 rounded-[17px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[12px] font-black text-[#fffaf2]/76 transition active:scale-[0.985]"
+                    >
+                      Add screenshot
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => contextCameraInputRef.current?.click()}
-                    disabled={supportingFiles.length >= 2}
-                    className="h-12 min-w-0 rounded-[17px] bg-[#f2c35f] px-3 text-[12px] font-black text-[#092116] transition active:scale-[0.985] disabled:opacity-40"
+                    onClick={reset}
+                    className="mt-4 h-12 w-full min-w-0 rounded-[17px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[12px] font-black text-[#fffaf2]/76 transition active:scale-[0.985]"
                   >
-                    Add requested photo
+                    Start over with a clearer chart
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => contextLibraryInputRef.current?.click()}
-                    disabled={supportingFiles.length >= 2}
-                    className="h-12 min-w-0 rounded-[17px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[12px] font-black text-[#fffaf2]/76 transition active:scale-[0.985] disabled:opacity-40"
-                  >
-                    Add screenshot
-                  </button>
-                </div>
+                )}
               </div>
             )}
 
