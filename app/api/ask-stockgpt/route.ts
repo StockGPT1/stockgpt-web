@@ -364,12 +364,32 @@ async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: st
   }
 }
 
+function cleanAssistantFormatting(content: string) {
+  return content
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trimEnd();
+      if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(trimmed)) return "";
+      return trimmed
+        .replace(/^\s*#{1,6}\s*/, "")
+        .replace(/^\s*[-*•]\s+/, "");
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, message: ChatMessage) {
   try {
+    const content = message.role === "assistant"
+      ? cleanAssistantFormatting(message.content)
+      : message.content;
+
     await supabase.from("ask_stockgpt_messages").insert({
       user_id: userId,
       role: message.role,
-      content: message.content.slice(0, 6000),
+      content: content.slice(0, 6000),
     });
   } catch (error) {
     console.warn("[ask-stockgpt] Could not store chat message", error);
@@ -658,9 +678,12 @@ Boundaries:
 
 Style:
 - Direct, confident, beginner-friendly. Explain jargon in passing rather than avoiding it.
-- Short headings and bullets for multi-part answers; plain prose for simple ones.
-- Concise but complete — a good answer usually fits in a few short paragraphs or one tight list.
-- Tables: maximum 5 columns, only the figures that drive the decision — fold everything else into prose. A finished tight answer always beats an exhaustive one that risks truncation.
+- Default to clean conversational prose: usually 2–5 short paragraphs with the verdict first.
+- Do NOT use Markdown headings or heading markers (#, ##, ###). Do NOT use hyphen, asterisk or bullet-character lists unless the user explicitly asks for a list.
+- When an answer has several parts, use short natural paragraph labels such as "What matters:" or "Next step:" rather than Markdown structure.
+- Avoid decorative separators, repeated dashes, excessive bolding, and template-like formatting. The answer should read like a polished native chat message.
+- Concise but complete. A finished tight answer always beats an exhaustive one that risks truncation.
+- Tables are exceptional: use one only when the user explicitly asks for a comparison that genuinely benefits from rows and columns, maximum 5 columns.
 `.trim();
 
 async function callOpenRouter({
