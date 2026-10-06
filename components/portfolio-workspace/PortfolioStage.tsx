@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
+import { RouletteNumber } from "@/components/RouletteNumber";
 import {
   filterDisplayablePortfolioChartData,
   type PortfolioChartMeta,
@@ -171,10 +172,10 @@ export function PortfolioStage({
                   Portfolio value
                 </p>
                 <h1 className="mt-1 truncate text-[clamp(38px,10.5vw,52px)] font-black leading-none tracking-[-0.065em] tabular-nums text-[#fffaf2] drop-shadow-[0_6px_24px_rgba(242,195,95,0.08)] lg:mt-2 lg:text-[62px]">
-                  {money(currentValue, meta.currency)}
+                  <RouletteNumber value={money(currentValue, meta.currency)} />
                 </h1>
                 <p className={`mt-2 text-[14px] font-black tabular-nums lg:mt-3 lg:text-[17px] ${toneClass(currentPnl)}`}>
-                  {signedMoney(currentPnl, meta.currency)} · {signedPct(currentPnlPct)}
+                  <RouletteNumber value={`${signedMoney(currentPnl, meta.currency)} · ${signedPct(currentPnlPct)}`} />
                 </p>
               </div>
 

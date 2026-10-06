@@ -865,6 +865,60 @@ html[data-app-shell="true"] a {
   animation: sgChartIn 230ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+
+.sg-roulette-number {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-roulette-slot {
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+  overflow: hidden;
+  line-height: 1em;
+  vertical-align: -0.055em;
+}
+
+.sg-roulette-reel {
+  display: flex;
+  flex-direction: column;
+  width: 1ch;
+  transform: translateY(-11em);
+  animation: sgRouletteDigit var(--sg-roulette-duration, 96ms)
+    cubic-bezier(0.16, 0.82, 0.24, 1) var(--sg-roulette-delay, 0ms) both;
+  will-change: transform, filter;
+}
+
+.sg-roulette-reel > span {
+  display: block;
+  width: 1ch;
+  height: 1em;
+  min-height: 1em;
+  line-height: 1em;
+  text-align: center;
+}
+
+@keyframes sgRouletteDigit {
+  0% {
+    transform: translateY(0);
+    filter: blur(0);
+  }
+
+  20% {
+    filter: blur(0.45px);
+  }
+
+  78% {
+    filter: blur(0.28px);
+  }
+
+  100% {
+    transform: translateY(-11em);
+    filter: blur(0);
+  }
+}
+
 @keyframes sgChartIn {
   from {
     opacity: 0.25;
@@ -914,6 +968,12 @@ html[data-app-shell="true"] .sg-bottom-nav {
 @media (prefers-reduced-motion: reduce) {
   .sg-stock-chart-canvas {
     animation: none;
+  }
+
+  .sg-roulette-reel {
+    animation: none !important;
+    transform: translateY(-11em) !important;
+    filter: none !important;
   }
 
   .sg-mobile-nav-link,
