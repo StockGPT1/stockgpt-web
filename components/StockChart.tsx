@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { RouletteNumber } from "@/components/RouletteNumber";
 
 export type ChartPoint = {
   date: string;
@@ -347,7 +348,9 @@ export function StockChart({
             </p>
 
             <p className="mt-0.5 text-[24px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
-              {formatPrice(hoverPoint ? hoverPoint.close : summary.last)}
+              <RouletteNumber
+                value={formatPrice(hoverPoint ? hoverPoint.close : summary.last)}
+              />
             </p>
 
             {hoverPoint ? (
@@ -360,10 +363,9 @@ export function StockChart({
                   summary.change >= 0 ? "text-emerald-400" : "text-red-400"
                 }`}
               >
-                {summary.change >= 0 ? "+" : ""}
-                {formatPrice(summary.change)} (
-                {summary.changePct >= 0 ? "+" : ""}
-                {summary.changePct.toFixed(2)}%)
+                <RouletteNumber
+                  value={`${summary.change >= 0 ? "+" : ""}${formatPrice(summary.change)} (${summary.changePct >= 0 ? "+" : ""}${summary.changePct.toFixed(2)}%)`}
+                />
               </p>
             )}
           </div>
@@ -513,7 +515,7 @@ export function StockChart({
                 compact ? "mt-0.5 text-[12px]" : "mt-0.5 text-[14px]",
               ].join(" ")}
             >
-              {formatPrice(hoverPoint.close)}
+              <RouletteNumber value={formatPrice(hoverPoint.close)} />
             </p>
           </div>
         )}
