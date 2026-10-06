@@ -388,7 +388,7 @@ export function LazyWhyRankDetails({
 
   if (isInline) {
     return (
-      <div className="contents">
+      <div className="contents" data-ranking-why>
         <button
           type="button"
           onClick={toggleDetails}
