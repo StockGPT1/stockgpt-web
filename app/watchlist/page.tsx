@@ -154,7 +154,7 @@ export default async function WatchlistPage() {
                     <Link
                       href={`/stock/${stock.ticker}`}
                       prefetch={false}
-                      className="block p-4 pr-13"
+                      className="block p-4 pr-14"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <StockLogo ticker={stock.ticker} company={stock.company} size={42} />
@@ -164,7 +164,7 @@ export default async function WatchlistPage() {
                               {stock.ticker}
                             </p>
                             {stock.rank != null && (
-                              <span className="shrink-0 rounded-full border border-[#ddb159]/18 bg-[#ddb159]/9 px-2 py-0.5 text-[9px] font-black text-[#ddb159]">
+                              <span className="shrink-0 rounded-full border border-[#ddb159]/18 bg-[#ddb159]/10 px-2 py-0.5 text-[9px] font-black text-[#ddb159]">
                                 #{stock.rank}
                               </span>
                             )}
