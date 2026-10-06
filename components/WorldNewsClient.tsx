@@ -702,13 +702,13 @@ export function WorldNewsClient({
               {topStory ? <ArticleCard article={topStory} onOpen={setSelectedArticle} featured /> : null}
 
               <div className="grid gap-3">
-                {visibleArticles.length > 0 ? (
-                  visibleArticles.map((article) => (
-                    <ArticleCard key={article.id} article={article} onOpen={setSelectedArticle} />
-                  ))
-                ) : (
-                  <EmptyBriefing onReset={resetFilters} scope={scope} />
-                )}
+                {visibleArticles.length > 0
+                  ? visibleArticles.map((article) => (
+                      <ArticleCard key={article.id} article={article} onOpen={setSelectedArticle} />
+                    ))
+                  : filteredArticles.length === 0
+                    ? <EmptyBriefing onReset={resetFilters} scope={scope} />
+                    : null}
               </div>
 
               {visibleArticles.length < filteredArticles.length ? (
