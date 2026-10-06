@@ -680,6 +680,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationTitle, setActiveConversationTitle] = useState("New conversation");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>(
     initialContext?.contextType === "rankings" ? "rankings" : "portfolio",
   );
@@ -746,22 +750,69 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   useEffect(() => {
     if (locked) return;
     let cancelled = false;
+
     async function loadHistory() {
       setHistoryLoading(true);
       try {
-        const response = await fetch("/api/ask-stockgpt", { method: "GET", headers: { Accept: "application/json" } });
-        const data = (await response.json().catch(() => null)) as { messages?: ChatMessage[] } | null;
+        const response = await fetch("/api/ask-stockgpt", {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        const data = (await response.json().catch(() => null)) as {
+          conversations?: ChatConversation[];
+          active_conversation_id?: string | null;
+          messages?: ChatMessage[];
+        } | null;
+
         if (cancelled) return;
-        const saved = Array.isArray(data?.messages) ? data.messages.filter((message): message is ChatMessage => message !== null && typeof message === "object" && (message.role === "user" || message.role === "assistant") && typeof message.content === "string" && message.content.trim().length > 0) : [];
-        setMessages(saved.length > 0 ? saved : [welcomeMessage]);
+
+        const savedConversations = Array.isArray(data?.conversations)
+          ? data.conversations.filter(
+              (conversation): conversation is ChatConversation =>
+                conversation !== null &&
+                typeof conversation === "object" &&
+                typeof conversation.id === "string" &&
+                typeof conversation.title === "string" &&
+                typeof conversation.updatedAt === "string" &&
+                Array.isArray(conversation.messages),
+            )
+          : [];
+
+        if (savedConversations.length > 0) {
+          const preferredId =
+            typeof data?.active_conversation_id === "string"
+              ? data.active_conversation_id
+              : savedConversations[0].id;
+          const active =
+            savedConversations.find((conversation) => conversation.id === preferredId) ??
+            savedConversations[0];
+
+          setConversations(savedConversations);
+          setActiveConversationId(active.id);
+          setActiveConversationTitle(active.title);
+          setMessages(active.messages.length > 0 ? active.messages : [welcomeMessage]);
+        } else {
+          setConversations([]);
+          setActiveConversationId(makeClientConversationId());
+          setActiveConversationTitle("New conversation");
+          setMessages([welcomeMessage]);
+        }
       } catch {
-        if (!cancelled) setMessages([welcomeMessage]);
+        if (!cancelled) {
+          setConversations([]);
+          setActiveConversationId(makeClientConversationId());
+          setActiveConversationTitle("New conversation");
+          setMessages([welcomeMessage]);
+        }
       } finally {
         if (!cancelled) setHistoryLoading(false);
       }
     }
+
     void loadHistory();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [locked]);
 
   useEffect(() => {
@@ -813,10 +864,70 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked, holdingsLoaded, holdingLoading]);
 
-  async function clearHistory() {
+  function startNewConversation() {
+    setActiveConversationId(makeClientConversationId());
+    setActiveConversationTitle("New conversation");
     setMessages([welcomeMessage]);
-    try { await fetch("/api/ask-stockgpt", { method: "DELETE" }); } catch {}
+    setQuestion("");
+    setHistoryOpen(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
   }
+
+  function selectConversation(conversation: ChatConversation) {
+    setActiveConversationId(conversation.id);
+    setActiveConversationTitle(conversation.title);
+    setMessages(conversation.messages.length > 0 ? conversation.messages : [welcomeMessage]);
+    setQuestion("");
+    setHistoryOpen(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
+  }
+
+  async function clearHistory() {
+    setConversations([]);
+    startNewConversation();
+    try {
+      await fetch("/api/ask-stockgpt", { method: "DELETE" });
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!activeConversationId || loading || streaming) return;
+
+    const saved = meaningfulMessages(messages);
+    if (!saved.some((message) => message.role === "user")) return;
+
+    const title =
+      activeConversationTitle === "New conversation"
+        ? conversationTitleFromQuestion(
+            saved.find((message) => message.role === "user")?.content ?? "",
+          )
+        : activeConversationTitle;
+    const updatedAt = new Date().toISOString();
+
+    if (title !== activeConversationTitle) setActiveConversationTitle(title);
+
+    setConversations((current) => {
+      const nextConversation: ChatConversation = {
+        id: activeConversationId,
+        title,
+        updatedAt,
+        messages: saved,
+      };
+
+      return [
+        nextConversation,
+        ...current.filter((conversation) => conversation.id !== activeConversationId),
+      ];
+    });
+  }, [
+    activeConversationId,
+    activeConversationTitle,
+    loading,
+    messages,
+    streaming,
+  ]);
 
   async function sendQuestion(nextQuestion?: string) {
     if (locked) return;
@@ -828,8 +939,17 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     forceNextScrollRef.current = true;
     shouldAutoScrollRef.current = true;
     const userMessage: ChatMessage = { role: "user", content: text };
-    const nextMessages = [...messages, userMessage];
+    const conversationId = activeConversationId ?? makeClientConversationId();
+    const conversationTitle =
+      activeConversationTitle === "New conversation"
+        ? conversationTitleFromQuestion(text)
+        : activeConversationTitle;
+    const nextMessages = [...meaningfulMessages(messages), userMessage];
+
+    setActiveConversationId(conversationId);
+    setActiveConversationTitle(conversationTitle);
     setMessages(nextMessages);
+
     try {
       const response = await fetch("/api/ask-stockgpt", {
         method: "POST",
@@ -846,6 +966,8 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             ? { ...(initialContext ?? { contextType: "portfolio" }), portfolioId: selectedPortfolioId }
             : initialContext,
           messages: nextMessages.slice(-14),
+          conversation_id: conversationId,
+          conversation_title: conversationTitle,
           stream: true,
         }),
       });
