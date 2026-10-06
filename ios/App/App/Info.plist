@@ -35,6 +35,10 @@
   </array>
   <key>NSFaceIDUsageDescription</key>
   <string>Use Face ID to protect your StockGPT portfolio and account on this iPhone.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Take photos of stock charts so StockGPT can analyse visible chart patterns and levels.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Choose stock chart screenshots for StockGPT to analyse.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key>
