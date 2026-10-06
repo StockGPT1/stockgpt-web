@@ -61,7 +61,6 @@ export function PortfolioStage({
   chartMeta,
   stageRef,
   sectionAnchorRef,
-  stageVisible,
   section,
   onSection,
   onPortfolio,
@@ -76,7 +75,6 @@ export function PortfolioStage({
   chartMeta: PortfolioChartMeta;
   stageRef: RefObject<HTMLElement | null>;
   sectionAnchorRef: RefObject<HTMLDivElement | null>;
-  stageVisible: boolean;
   section: PortfolioSection;
   onSection: (section: PortfolioSection) => void;
   onPortfolio: (portfolioId: string) => void;
@@ -274,31 +272,7 @@ export function PortfolioStage({
         </div>
       </section>
 
-      <div
-        className={`sticky top-0 z-40 border-b border-[#f2c35f]/18 bg-[#08281b]/92 backdrop-blur-xl transition ${
-          stageVisible ? "" : "shadow-[0_14px_32px_rgba(0,0,0,0.24)]"
-        }`}
-      >
-        {!stageVisible && (
-          <button
-            type="button"
-            onClick={() => stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="flex h-[48px] w-full items-center justify-between gap-3 px-4 text-left sm:px-6 lg:h-[52px] lg:px-8"
-          >
-            <span className="min-w-0 truncate text-[12px] font-black text-[#faf6f0]">
-              {meta.name}
-            </span>
-            <span className="shrink-0 text-right">
-              <span className="text-[14px] font-black tabular-nums text-[#faf6f0]">
-                {money(summary.totalValue, meta.currency)}
-              </span>
-              <span className={`ml-2 text-[11px] font-black ${toneClass(summary.totalPnlPct)}`}>
-                {signedPct(summary.totalPnlPct)}
-              </span>
-            </span>
-          </button>
-        )}
-
+      <div className="border-b border-[#f2c35f]/18 bg-[#08281b]/92 backdrop-blur-xl">
         <div
           ref={sectionAnchorRef}
           data-portfolio-section-anchor
