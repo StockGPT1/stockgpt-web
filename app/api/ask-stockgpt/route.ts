@@ -998,10 +998,12 @@ function streamOpenRouterAnswer({
   response,
   supabase,
   userId,
+  conversation,
 }: {
   response: Response;
   supabase: ServerSupabaseClient;
   userId: string;
+  conversation: ConversationMeta;
 }) {
   const encoder = new TextEncoder();
 
@@ -1013,7 +1015,7 @@ function streamOpenRouterAnswer({
         const answer =
           "Ask StockGPT could not open the AI response stream. Please retry.";
         controller.enqueue(encoder.encode(answer));
-        await storeChatMessage(supabase, userId, { role: "assistant", content: answer });
+        await storeChatMessage(supabase, userId, { role: "assistant", content: answer }, conversation);
         controller.close();
         return;
       }
@@ -1028,7 +1030,7 @@ function streamOpenRouterAnswer({
         await storeChatMessage(supabase, userId, {
           role: "assistant",
           content: finalAnswer,
-        });
+        }, conversation);
       }
 
       try {
@@ -1080,7 +1082,7 @@ function streamOpenRouterAnswer({
           await storeChatMessage(supabase, userId, {
             role: "assistant",
             content: `${answer.trim()}${interruption}`,
-          });
+          }, conversation);
         } else {
           const failure =
             "Ask StockGPT could not stream a response. Please retry, or email sales@stockgpt.pro if this relates to membership or billing.";
@@ -1088,7 +1090,7 @@ function streamOpenRouterAnswer({
           await storeChatMessage(supabase, userId, {
             role: "assistant",
             content: failure,
-          });
+          }, conversation);
         }
       } finally {
         controller.close();
@@ -1103,9 +1105,15 @@ export async function GET() {
   if (access.response) return access.response;
 
   await deleteOldChatMessages(supabase, access.userId);
-  const messages = await readRecentChatMessages(supabase, access.userId);
+  const conversations = await readRecentChatConversations(supabase, access.userId);
+  const active = conversations[0] ?? null;
 
-  return NextResponse.json({ messages, retained_days: CHAT_LOG_DAYS });
+  return NextResponse.json({
+    conversations,
+    active_conversation_id: active?.id ?? null,
+    messages: active?.messages ?? [],
+    retained_days: CHAT_LOG_DAYS,
+  });
 }
 
 export async function DELETE() {
@@ -1183,7 +1191,17 @@ export async function POST(req: NextRequest) {
     }
 
     await deleteOldChatMessages(supabase, access.userId);
-    const storedHistory = await readRecentChatMessages(supabase, access.userId);
+
+    const conversation: ConversationMeta = {
+      id: cleanConversationId(body?.conversation_id) || makeConversationId(),
+      title:
+        cleanConversationTitle(body?.conversation_title) ||
+        titleFromQuestion(question),
+    };
+
+    const conversations = await readRecentChatConversations(supabase, access.userId);
+    const storedHistory =
+      conversations.find((item) => item.id === conversation.id)?.messages ?? [];
     const fallbackHistory = cleanHistory(body?.messages).filter((message, index, arr) => {
       const isLast = index === arr.length - 1;
       return !(isLast && message.role === "user" && message.content.trim().toLowerCase() === question.trim().toLowerCase());
@@ -1191,7 +1209,12 @@ export async function POST(req: NextRequest) {
 
     const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
 
-    await storeChatMessage(supabase, access.userId, { role: "user", content: question });
+    await storeChatMessage(
+      supabase,
+      access.userId,
+      { role: "user", content: question },
+      conversation,
+    );
 
     const context = await buildAppContext(
       supabase,
@@ -1226,6 +1249,7 @@ export async function POST(req: NextRequest) {
             response: streamResult.response,
             supabase,
             userId: access.userId,
+            conversation,
           }),
           {
             status: 200,
@@ -1235,6 +1259,7 @@ export async function POST(req: NextRequest) {
               "X-Accel-Buffering": "no",
               "X-StockGPT-Stream": "1",
               "X-StockGPT-Model": streamResult.model ?? "",
+              "X-StockGPT-Conversation": conversation.id,
             },
           },
         );
@@ -1280,7 +1305,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await storeChatMessage(supabase, access.userId, { role: "assistant", content: answer });
+      await storeChatMessage(
+        supabase,
+        access.userId,
+        { role: "assistant", content: answer },
+        conversation,
+      );
       return NextResponse.json(
         {
           answer,
@@ -1291,10 +1321,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await storeChatMessage(supabase, access.userId, { role: "assistant", content: result.answer });
+    await storeChatMessage(
+      supabase,
+      access.userId,
+      { role: "assistant", content: result.answer },
+      conversation,
+    );
 
     return NextResponse.json({
       answer: result.answer,
+      conversation_id: conversation.id,
+      conversation_title: conversation.title,
       model_used: result.model,
       attempted_models: [result.model, ...result.failures.map((failure) => failure.model)].filter(Boolean),
     });
