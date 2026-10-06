@@ -120,7 +120,7 @@ export function PortfolioStage({
         aria-label="Portfolio performance"
         className="sg-portfolio-stage relative isolate overflow-hidden border-b border-[#f2c35f]/20 px-4 pb-3 pt-3 sm:px-6 lg:mt-5 lg:min-h-[470px] lg:rounded-[30px] lg:border lg:px-8 lg:pb-7 lg:pt-7"
       >
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-2%,rgba(255,224,138,0.18),transparent_31%),radial-gradient(circle_at_12%_46%,rgba(52,211,153,0.10),transparent_34%),linear-gradient(180deg,#0d3a27_0%,#082b1d_60%,#062117_100%)]" />
+        <div className="sg-portfolio-stage-backdrop pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-2%,rgba(255,224,138,0.18),transparent_31%),radial-gradient(circle_at_12%_46%,rgba(52,211,153,0.10),transparent_34%),linear-gradient(180deg,#0d3a27_0%,#082b1d_60%,#062117_100%)]" />
         <div className="mx-auto max-w-[1180px]">
           <div className="flex items-center justify-between gap-3">
             <label className="min-w-0 max-w-[70%]">
@@ -272,7 +272,7 @@ export function PortfolioStage({
         </div>
       </section>
 
-      <div className="border-b border-[#f2c35f]/18 bg-[#08281b]/92 backdrop-blur-xl">
+      <div className="sg-portfolio-section-nav border-b border-[#f2c35f]/18 bg-[#08281b]/92 backdrop-blur-xl">
         <div
           ref={sectionAnchorRef}
           data-portfolio-section-anchor
