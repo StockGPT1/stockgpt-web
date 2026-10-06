@@ -260,12 +260,6 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
 
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-mobile-app-header {
-    border-bottom-color: transparent !important;
-    background: #0d3a27 !important;
-    box-shadow: none !important;
-  }
-
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content {
     padding-top: 0 !important;
   }
