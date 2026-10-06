@@ -330,6 +330,18 @@ export function ChartScannerWorkspace() {
   const tone = result ? verdictTone(result.verdict) : null;
   const box = result?.overlay.pattern_box;
   const hasBox = box && box.x_pct !== null && box.y_pct !== null && box.width_pct !== null && box.height_pct !== null;
+  const verdictWord = result
+    ? result.verdict === "bullish"
+      ? "BULLISH"
+      : result.verdict === "bearish"
+        ? "BEARISH"
+        : "INCONCLUSIVE"
+    : "";
+  const verdictTextClass = result?.verdict === "bullish"
+    ? "text-emerald-300"
+    : result?.verdict === "bearish"
+      ? "text-rose-300"
+      : "text-[#f2d786]";
 
   return (
     <main className="sg-chart-scanner mx-auto min-h-full w-full max-w-[760px] pb-8 pt-2">
@@ -490,7 +502,7 @@ export function ChartScannerWorkspace() {
 
             {hasBox && (
               <span
-                className="pointer-events-none absolute rounded-[14px] border border-[#f2c35f]/70 bg-[#f2c35f]/[0.035] shadow-[0_0_30px_rgba(242,195,95,0.10)]"
+                className="pointer-events-none absolute rounded-[14px] border border-dashed border-[#f2c35f]/45 bg-[#f2c35f]/[0.025]"
                 style={{
                   left: box.x_pct + "%",
                   top: box.y_pct + "%",
@@ -500,6 +512,40 @@ export function ChartScannerWorkspace() {
               />
             )}
 
+            {result.signals.map((signal, index) => {
+              const signalBox = signal.box;
+              const visibleBox =
+                signalBox &&
+                signalBox.x_pct !== null &&
+                signalBox.y_pct !== null &&
+                signalBox.width_pct !== null &&
+                signalBox.height_pct !== null;
+              if (!visibleBox) return null;
+              const signalStyle = signalTone(signal.bias);
+
+              return (
+                <span
+                  key={signal.name + index}
+                  className={"pointer-events-none absolute rounded-[12px] border-2 " + signalStyle.border + " " + signalStyle.bg}
+                  style={{
+                    left: signalBox.x_pct + "%",
+                    top: signalBox.y_pct + "%",
+                    width: signalBox.width_pct + "%",
+                    height: signalBox.height_pct + "%",
+                  }}
+                >
+                  <span
+                    className={
+                      "absolute left-1 top-1 max-w-[150px] truncate rounded-full border border-black/20 bg-[#031009]/88 px-2 py-1 text-[8px] font-black uppercase tracking-[0.08em] backdrop-blur " +
+                      signalStyle.text
+                    }
+                  >
+                    {index + 1} · {signal.name}
+                  </span>
+                </span>
+              );
+            })}
+
             <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full border border-white/10 bg-[#04180f]/82 px-3 py-1.5 backdrop-blur-xl">
               <span className="size-1.5 rounded-full bg-[#f2c35f]" />
               <span className="text-[9px] font-black uppercase tracking-[0.13em] text-[#fffaf2]/72">AI visual read</span>
@@ -507,25 +553,121 @@ export function ChartScannerWorkspace() {
           </div>
 
           <div className={"relative -mt-2 rounded-t-[30px] bg-[#061b12] px-1 pt-5 " + tone.glow}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className={"inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.13em] " + tone.badge}>
+            <div className="border-b border-[#fffaf2]/[0.055] pb-5">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#fffaf2]/34">Chart verdict</p>
+              <div className="mt-1 flex items-end justify-between gap-4">
+                <h1 className={"text-[46px] font-black leading-none tracking-[-0.065em] " + verdictTextClass}>
+                  {verdictWord}
+                </h1>
+                <div className="shrink-0 pb-1 text-right">
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#fffaf2]/34">Confidence</p>
+                  <p className="mt-0.5 text-[28px] font-black leading-none tracking-[-0.045em] text-[#f2d786]">{result.confidence}%</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className={"inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] " + tone.badge}>
                   <span className={"size-1.5 rounded-full " + tone.dot} />
                   {result.label}
                 </div>
-                <h1 className="mt-3 text-[31px] font-black leading-none tracking-[-0.045em] text-[#fffaf2]">{result.pattern}</h1>
-                <p className="mt-2 text-[12px] font-bold text-[#fffaf2]/42">
-                  {[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Ticker/timeframe not confidently visible"}
-                </p>
-              </div>
-
-              <div className="shrink-0 text-right">
-                <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#fffaf2]/34">Pattern confidence</p>
-                <p className="mt-1 text-[36px] font-black leading-none tracking-[-0.055em] text-[#f2d786]">{result.confidence}%</p>
+                {result.current_price && (
+                  <div className="rounded-full border border-[#fffaf2]/8 bg-[#fffaf2]/[0.045] px-3 py-1.5 text-[10px] font-black text-[#fffaf2]/72">
+                    Current {result.current_price}
+                  </div>
+                )}
               </div>
             </div>
 
-            <p className="mt-5 max-w-[42rem] text-[14px] font-medium leading-6 text-[#fffaf2]/66">{result.summary}</p>
+            <div className="pt-5">
+              <h2 className="text-[29px] font-black leading-none tracking-[-0.045em] text-[#fffaf2]">{result.pattern}</h2>
+              <p className="mt-2 text-[12px] font-bold text-[#fffaf2]/42">
+                {[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Ticker/timeframe not confidently visible"}
+              </p>
+              <p className="mt-4 max-w-[42rem] text-[14px] font-medium leading-6 text-[#fffaf2]/66">{result.summary}</p>
+            </div>
+
+            {result.retake_required && (
+              <div className="mt-5 rounded-[24px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-200">Price not readable · retake needed</p>
+                <p className="mt-2 text-[15px] font-black leading-5 text-[#fffaf2]">
+                  {result.retake_reason || "Retake with the full chart and current price clearly visible."}
+                </p>
+                <p className="mt-2 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">
+                  StockGPT will not guess a stop-loss or take-profit without a readable current price and price scale.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="mt-4 h-11 w-full rounded-[16px] bg-rose-200 px-4 text-[12px] font-black text-[#2c090e] transition active:scale-[0.985]"
+                >
+                  Retake with camera
+                </button>
+              </div>
+            )}
+
+            {!result.retake_required && (
+              <div className="mt-5 rounded-[24px] border border-[#fffaf2]/7 bg-[#081f16] p-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/70">Technical trade map</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#fffaf2]/38">Based only on the visible chart structure</p>
+                  </div>
+                  {result.trade_plan.risk_reward && (
+                    <div className="rounded-full bg-[#f2c35f]/10 px-3 py-1.5 text-[11px] font-black text-[#f2d786]">
+                      R:R {result.trade_plan.risk_reward}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 divide-x divide-y divide-[#fffaf2]/[0.055] border-y border-[#fffaf2]/[0.055]">
+                  <div className="pr-4"><Level label="Current price" value={result.current_price} /></div>
+                  <div className="pl-4"><Level label="Entry / trigger" value={result.trade_plan.entry} /></div>
+                  <div className="pr-4"><Level label="Suggested stop loss" value={result.trade_plan.stop_loss} /></div>
+                  <div className="pl-4"><Level label="Suggested take profit" value={result.trade_plan.take_profit} /></div>
+                </div>
+
+                {result.trade_plan.rationale && (
+                  <p className="mt-3 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">{result.trade_plan.rationale}</p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-5">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/34">Signals detected</p>
+                  <p className="mt-1 text-[13px] font-black text-[#fffaf2]">
+                    {result.signals.length > 0 ? result.signals.length + " visible signals" : "No strong secondary signals"}
+                  </p>
+                </div>
+                <p className="text-[9px] font-bold text-[#fffaf2]/28">Boxes match the chart above</p>
+              </div>
+
+              {result.signals.length > 0 && (
+                <div className="mt-3 space-y-2.5">
+                  {result.signals.map((signal, index) => {
+                    const signalStyle = signalTone(signal.bias);
+                    return (
+                      <div key={signal.name + index} className="rounded-[18px] border border-[#fffaf2]/7 bg-[#fffaf2]/[0.035] p-3.5">
+                        <div className="flex items-center gap-3">
+                          <span className={"grid size-8 shrink-0 place-items-center rounded-full border text-[11px] font-black " + signalStyle.border + " " + signalStyle.bg + " " + signalStyle.text}>
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="truncate text-[13px] font-black text-[#fffaf2]">{signal.name}</p>
+                              <span className={"shrink-0 text-[9px] font-black uppercase tracking-[0.1em] " + signalStyle.text}>
+                                {signal.bias} · {signal.confidence}%
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[11.5px] font-semibold leading-4 text-[#fffaf2]/46">{signal.evidence}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-[#fffaf2]/[0.055] border-y border-[#fffaf2]/[0.055]">
               <div className="pr-4"><Level label="Breakout" value={result.levels.breakout} /></div>
@@ -585,11 +727,11 @@ export function ChartScannerWorkspace() {
             </div>
 
             <p className="mt-4 text-center text-[10px] leading-4 text-[#fffaf2]/28">
-              Confidence scores the visual pattern read, not the chance of profit. V1 is image-only and can be wrong.
+              Stop/target levels are visual technical references from the photo, not live-market verification or guaranteed outcomes.
             </p>
           </div>
         </section>
-      )}
+      )}      )}
     </main>
   );
 }
