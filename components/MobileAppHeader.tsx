@@ -89,7 +89,7 @@ function AskHeaderButton({ href }: { href: string }) {
       prefetch={false}
       aria-label="Ask StockGPT"
       data-native-haptic="light"
-      className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-[#ffe7a2]/65 bg-[linear-gradient(180deg,#ffeaa3,#f2c35f_55%,#d9a233)] px-3 text-[9px] font-black tracking-[-0.01em] text-[#062016] shadow-[0_8px_24px_rgba(242,195,95,0.20),inset_0_1px_0_rgba(255,255,255,0.55)] transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff3c4] min-[390px]:px-3.5 min-[390px]:text-[10px]"
+      className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-[#ffe7a2]/55 bg-[#f2c35f] px-3.5 text-[11px] font-black tracking-[-0.025em] text-black shadow-[0_7px_20px_rgba(242,195,95,0.16),inset_0_1px_0_rgba(255,255,255,0.42)] transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff3c4] min-[390px]:px-4"
     >
       AskStockGPT
     </Link>
