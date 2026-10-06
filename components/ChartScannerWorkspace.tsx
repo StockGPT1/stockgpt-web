@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StockIcon } from "@/components/StockIcon";
 import { nativeHaptic } from "@/lib/ios-native";
 import { buildAskHref } from "@/lib/ask-context";
