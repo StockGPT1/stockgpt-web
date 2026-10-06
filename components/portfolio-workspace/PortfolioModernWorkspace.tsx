@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ManageHoldingDrawer } from "@/components/ManageHoldingDrawer";
 import { buildPortfolioTrimRecommendation } from "@/lib/portfolio-trim-recommendation";
@@ -38,22 +38,10 @@ export function PortfolioModernWorkspace({
   const stageRef = useRef<HTMLElement>(null);
   const sectionAnchorRef = useRef<HTMLDivElement>(null);
   const [section, setSection] = useState<PortfolioSection>(initialSection);
-  const [stageVisible, setStageVisible] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-
-  useEffect(() => {
-    const node = stageRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setStageVisible(entry.isIntersecting),
-      { rootMargin: "-72px 0px 0px 0px", threshold: 0.08 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [portfolioId]);
 
   const holdingMap = useMemo(
     () => new Map(holdings.map((holding) => [holding.ticker.toUpperCase(), holding])),
@@ -135,7 +123,6 @@ export function PortfolioModernWorkspace({
           chartMeta={chartMeta}
           stageRef={stageRef}
           sectionAnchorRef={sectionAnchorRef}
-          stageVisible={stageVisible}
           section={section}
           onSection={chooseSection}
           onPortfolio={choosePortfolio}
