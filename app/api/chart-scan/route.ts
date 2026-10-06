@@ -22,6 +22,9 @@ type RawScanResult = {
   current_price?: unknown;
   retake_required?: unknown;
   retake_reason?: unknown;
+  needs_more_info?: unknown;
+  more_info_prompt?: unknown;
+  price_series_type?: unknown;
   signals?: unknown;
   trade_plan?: {
     entry?: unknown;
@@ -39,6 +42,12 @@ type RawScanResult = {
   overlay?: {
     resistance_y_pct?: unknown;
     support_y_pct?: unknown;
+    price_plot_box?: {
+      x_pct?: unknown;
+      y_pct?: unknown;
+      width_pct?: unknown;
+      height_pct?: unknown;
+    } | null;
     pattern_box?: {
       x_pct?: unknown;
       y_pct?: unknown;
@@ -60,6 +69,8 @@ type OpenRouterResponse = {
 };
 
 const MAX_IMAGE_BYTES = 3_200_000;
+const MAX_IMAGE_COUNT = 2;
+const MAX_TOTAL_IMAGE_BYTES = 3_600_000;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VISION_MODELS = [
   "google/gemini-2.5-flash",
@@ -68,39 +79,50 @@ const VISION_MODELS = [
 
 const SYSTEM_PROMPT = [
   "You are StockGPT Chart Scanner V1, a visual technical-analysis assistant inside an investing app.",
-  "Analyse only what is visible in the supplied stock chart image. This version is NOT connected to live market data.",
-  "Your job is to aggressively look for useful technical signals while never inventing prices, indicators or certainty.",
+  "Analyse only what is visible in the supplied chart image(s). This version is NOT connected to live market data.",
+  "The FIRST image is always the primary chart. Any later images are supplementary context that must be pieced together with the first image.",
+  "Never invent prices, indicators, chart geometry or certainty.",
   "",
-  "Signal catalogue to check when visible:",
+  "FIRST: identify the actual PRICE PLOT AREA in the first image.",
+  "- The usable plot area must contain visible candlesticks/wicks or a continuous plotted price line.",
+  "- Exclude TradingView/app headers, ticker/title text, toolbars, watchlist rows, legends, watermarks, status bars, price-scale labels themselves, indicator titles and empty margins.",
+  "- Do not treat horizontal UI separators, title underlines, toolbar edges or text baselines as support/resistance.",
+  "- All overlay coordinates refer to the FIRST image only.",
+  "",
+  "Signal catalogue to check when genuinely visible:",
   "- trend direction, higher highs/lows, lower highs/lows, trendline breaks, channels and channel breaks",
   "- horizontal support/resistance, support-resistance flips, range breaks, failed breaks, retests and rejection",
   "- ascending/descending/symmetrical triangles, wedges, flags, pennants, rectangles and compression",
   "- double/triple tops, double/triple bottoms, head-and-shoulders, inverse head-and-shoulders",
   "- cup-and-handle, inverse cup-and-handle, rounding bottom/top, V reversals and base structures",
   "- gaps, gap fills, breakaway/continuation/exhaustion gaps when clearly visible",
-  "- candlestick signals such as engulfing, pin bars/hammers, shooting stars, doji clusters and morning/evening stars when candle detail is actually readable",
+  "- candlestick signals such as engulfing, pin bars/hammers, shooting stars, doji clusters and morning/evening stars when candle detail is readable",
   "- moving-average crosses, price vs moving averages, RSI divergence/overbought/oversold, MACD crosses/divergence, Bollinger squeezes/expansions and volume confirmation ONLY when those indicators are visibly present",
   "- momentum continuation, exhaustion, divergence, breakout volume, failed momentum and confluence across visible signals",
   "",
   "Return one JSON object and nothing else with exactly these fields:",
-  '{ "verdict": "bullish|bearish|inconclusive", "label": "short setup label", "pattern": "primary pattern name or No clear pattern", "confidence": 0, "ticker": "ticker or null", "timeframe": "timeframe or null", "current_price": "visible current/latest price or null", "retake_required": false, "retake_reason": "short reason or null", "summary": "1-2 short sentences", "confirmation": "what visible price action would confirm the setup", "invalidation": "what visible price action would invalidate it", "watch_for": "one concise thing to watch next", "observations": ["max 4 concise observations"], "signals": [{ "name": "signal name", "bias": "bullish|bearish|neutral", "confidence": 0, "evidence": "why this is visible", "box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } }], "trade_plan": { "entry": "visible/reference entry or null", "stop_loss": "technical stop level or null", "take_profit": "technical take-profit level or null", "risk_reward": "e.g. 2.1:1 or null", "rationale": "short structure-based rationale or null" }, "levels": { "support": "visible level or null", "resistance": "visible level or null", "breakout": "visible level or null", "invalidation": "visible level or null" }, "overlay": { "resistance_y_pct": 0, "support_y_pct": 0, "pattern_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } } }',
+  '{ "verdict": "bullish|bearish|inconclusive", "label": "short setup label", "pattern": "primary pattern name or No clear pattern", "confidence": 0, "ticker": "ticker or null", "timeframe": "timeframe or null", "current_price": "visible current/latest price or null", "price_series_type": "candles|price_line|unsupported|unknown", "retake_required": false, "retake_reason": "short reason or null", "needs_more_info": false, "more_info_prompt": "specific extra photo requested or null", "summary": "1-2 short sentences", "confirmation": "what visible price action would confirm the setup", "invalidation": "what visible price action would invalidate it", "watch_for": "one concise thing to watch next", "observations": ["max 4 concise observations"], "signals": [{ "name": "signal name", "bias": "bullish|bearish|neutral", "confidence": 0, "evidence": "why this is visible", "box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } }], "trade_plan": { "entry": "price only or null", "stop_loss": "price only or null", "take_profit": "price only or null", "risk_reward": "e.g. 2.1:1 or null", "rationale": "short structure-based rationale or null" }, "levels": { "support": "price only or null", "resistance": "price only or null", "breakout": "price only or null", "invalidation": "price only or null" }, "overlay": { "resistance_y_pct": 0, "support_y_pct": 0, "price_plot_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 }, "pattern_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } } }',
   "",
   "Rules:",
   "- Confidence means confidence in the VISUAL PATTERN READ, not probability of profit.",
-  "- Find up to 6 genuinely visible signals. Do not pad the list with weak or imaginary signals.",
-  "- Verdict should reflect the visible signal confluence. Make Bullish or Bearish clear when evidence supports it; use inconclusive when signals conflict or the chart is unreadable.",
-  "- Only identify ticker or timeframe if clearly readable; otherwise use null.",
-  "- current_price means the latest/current price printed on the chart or clearly inferable from a labelled latest candle. If it is not clearly readable, use null.",
-  "- If current_price is null, set retake_required true and explain that the user should retake with the full chart, right-side price scale/current price and relevant indicators visible.",
-  "- Never invent stop-loss or take-profit. Only provide trade_plan entry/stop_loss/take_profit when current_price AND the relevant visible price scale/structure are readable. Otherwise use null for those fields.",
-  "- Stop-loss should sit beyond a visible technical invalidation structure, not at an arbitrary percentage. Take-profit should reference the next visible resistance/support, measured move or clear structure target.",
-  "- risk_reward may only be supplied when entry, stop and target are all readable enough to compare.",
-  "- Only output numeric/price levels if reasonably readable from visible chart labels; otherwise use null.",
-  "- Every signal box should tightly surround the visual evidence for that signal using 0-100 image percentages. Use null box fields if positioning is unreliable.",
-  "- resistance_y_pct and support_y_pct are approximate vertical positions from the TOP of the image, 0 to 100. Use null if not reliable.",
-  "- pattern_box is an approximate 0-100 percentage box around the primary formation. Use null if no coherent formation is visible.",
-  "- Prefer Bullish, Bearish, or Inconclusive language. Never say guaranteed, easy money, sure thing, BUY NOW, or SELL NOW.",
-  "- If the image is not a financial price chart, return an inconclusive result, require a retake and say no usable chart was detected.",
+  "- Find up to 6 genuinely visible signals. Do not pad the list.",
+  "- Verdict reflects visible signal confluence. Use inconclusive when evidence conflicts or is weak.",
+  "- price_series_type MUST be candles or price_line for a usable primary chart. If neither is visible, set retake_required true, verdict inconclusive and request a new full-chart photo.",
+  "- price_plot_box must tightly bound only the primary candlestick/price-line plotting region in the FIRST image.",
+  "- Every signal box must sit inside price_plot_box and surround actual candle/wick/price-line evidence. Never put signal boxes over titles, headers, toolbars, legends or text-only regions.",
+  "- A support/resistance line is allowed ONLY when actual candles/wicks or the plotted price line visibly react around that price inside price_plot_box. Never infer a level from a header, title, UI line or empty space.",
+  "- resistance_y_pct and support_y_pct are full-image Y percentages but MUST fall inside price_plot_box. Use null if that cannot be verified.",
+  "- pattern_box must sit inside price_plot_box. Use null if no coherent formation is visible.",
+  "- Only identify ticker/timeframe/current_price when clearly readable.",
+  "- If the primary chart is usable but current price, price scale, timeframe, indicator panel or another key detail is missing, prefer needs_more_info=true rather than discarding the first image.",
+  "- more_info_prompt must ask for ONE specific helpful photo, e.g. a close-up of the latest candles + right-side price scale, or a full view including RSI/MACD. The next image will be analysed together with the first.",
+  "- Never invent stop-loss or take-profit. Only provide entry/stop_loss/take_profit after current price and the relevant structure/scale are readable across the supplied images.",
+  "- If you cannot produce BOTH a defensible stop_loss and take_profit from the supplied views, set needs_more_info=true and request the exact additional view needed (usually a wider chart or clearer price scale).",
+  "- entry, stop_loss, take_profit and level fields should contain concise price strings only; put explanation in rationale/confirmation/invalidation.",
+  "- Stop-loss must sit beyond visible technical invalidation. Take-profit must reference visible support/resistance, a measured move or another clear structure target.",
+  "- risk_reward may only be supplied when entry, stop and target are all sufficiently readable.",
+  "- If supplementary images disagree with the primary chart, say inconclusive rather than forcing a verdict.",
+  "- Never say guaranteed, easy money, sure thing, BUY NOW, or SELL NOW.",
   "- Keep the answer punchy and beginner-friendly.",
 ].join("\n");
 
@@ -119,6 +141,61 @@ function pct(value: unknown) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, Number(n.toFixed(1))));
+}
+
+type PctBox = {
+  x_pct: number;
+  y_pct: number;
+  width_pct: number;
+  height_pct: number;
+};
+
+function normaliseBox(value: unknown): PctBox | null {
+  if (!value || typeof value !== "object") return null;
+  const box = value as {
+    x_pct?: unknown;
+    y_pct?: unknown;
+    width_pct?: unknown;
+    height_pct?: unknown;
+  };
+  const x = pct(box.x_pct);
+  const y = pct(box.y_pct);
+  const width = pct(box.width_pct);
+  const height = pct(box.height_pct);
+  if (x === null || y === null || width === null || height === null) return null;
+  if (width < 2 || height < 2) return null;
+  return {
+    x_pct: x,
+    y_pct: y,
+    width_pct: Math.min(width, 100 - x),
+    height_pct: Math.min(height, 100 - y),
+  };
+}
+
+function normalisePricePlotBox(value: unknown) {
+  const box = normaliseBox(value);
+  if (!box) return null;
+  if (box.width_pct < 35 || box.height_pct < 20) return null;
+  return box;
+}
+
+function boxInside(inner: PctBox | null, outer: PctBox | null) {
+  if (!inner || !outer) return false;
+  return (
+    inner.x_pct >= outer.x_pct &&
+    inner.y_pct >= outer.y_pct &&
+    inner.x_pct + inner.width_pct <= outer.x_pct + outer.width_pct &&
+    inner.y_pct + inner.height_pct <= outer.y_pct + outer.height_pct
+  );
+}
+
+function yInsideBox(y: number | null, box: PctBox | null) {
+  if (y === null || !box) return false;
+  const edgeMargin = Math.min(3, Math.max(1.25, box.height_pct * 0.06));
+  return (
+    y >= box.y_pct + edgeMargin &&
+    y <= box.y_pct + box.height_pct - edgeMargin
+  );
 }
 
 function confidence(value: unknown) {
@@ -162,9 +239,28 @@ function parseJsonObject(content: string): RawScanResult | null {
 function normaliseResult(raw: RawScanResult) {
   const rawObservations = Array.isArray(raw.observations) ? raw.observations : [];
   const rawSignals = Array.isArray(raw.signals) ? raw.signals : [];
-  const box = raw.overlay?.pattern_box;
   const currentPrice = text(raw.current_price, 50);
-  const mustRetake = bool(raw.retake_required) || !currentPrice;
+  const seriesTypeRaw = String(raw.price_series_type ?? "").toLowerCase();
+  const priceSeriesType =
+    seriesTypeRaw === "candles" || seriesTypeRaw === "price_line"
+      ? seriesTypeRaw
+      : seriesTypeRaw === "unsupported"
+        ? "unsupported"
+        : "unknown";
+  const pricePlotBox = normalisePricePlotBox(raw.overlay?.price_plot_box);
+  const hasSupportedPriceSeries =
+    priceSeriesType === "candles" || priceSeriesType === "price_line";
+  const mustRetake =
+    bool(raw.retake_required) ||
+    !hasSupportedPriceSeries ||
+    !pricePlotBox;
+  const rawEntry = text(raw.trade_plan?.entry, 40);
+  const rawStopLoss = text(raw.trade_plan?.stop_loss, 40);
+  const rawTakeProfit = text(raw.trade_plan?.take_profit, 40);
+  const needsTradeContext = !rawStopLoss || !rawTakeProfit;
+  const needsMoreInfo =
+    !mustRetake &&
+    (bool(raw.needs_more_info) || !currentPrice || needsTradeContext);
 
   const signals = rawSignals
     .map((item) => {
@@ -174,48 +270,51 @@ function normaliseResult(raw: RawScanResult) {
         bias?: unknown;
         confidence?: unknown;
         evidence?: unknown;
-        box?: {
-          x_pct?: unknown;
-          y_pct?: unknown;
-          width_pct?: unknown;
-          height_pct?: unknown;
-        } | null;
+        box?: unknown;
       };
       const name = text(signal.name, 80);
       if (!name) return null;
-      const signalBox = signal.box;
+      const signalBox = normaliseBox(signal.box);
+      if (!boxInside(signalBox, pricePlotBox)) return null;
 
       return {
         name,
         bias: signalBias(signal.bias),
         confidence: confidence(signal.confidence),
         evidence: text(signal.evidence, 180) ?? "Visible chart structure supports this signal.",
-        box: signalBox
-          ? {
-              x_pct: pct(signalBox.x_pct),
-              y_pct: pct(signalBox.y_pct),
-              width_pct: pct(signalBox.width_pct),
-              height_pct: pct(signalBox.height_pct),
-            }
-          : null,
+        box: signalBox,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .slice(0, 6);
 
+  const resistanceY = pct(raw.overlay?.resistance_y_pct);
+  const supportY = pct(raw.overlay?.support_y_pct);
+  const patternBox = normaliseBox(raw.overlay?.pattern_box);
+  const withholdTradePlan = mustRetake || needsMoreInfo;
+
   return {
-    verdict: verdict(raw.verdict),
+    verdict: mustRetake ? "inconclusive" as const : verdict(raw.verdict),
     label: text(raw.label, 70) ?? "Inconclusive setup",
     pattern: text(raw.pattern, 90) ?? "No clear pattern",
     confidence: confidence(raw.confidence),
     ticker: text(raw.ticker, 14)?.toUpperCase() ?? null,
     timeframe: text(raw.timeframe, 24) ?? null,
     current_price: currentPrice,
+    price_series_type: priceSeriesType,
     retake_required: mustRetake,
     retake_reason:
       text(raw.retake_reason, 220) ??
       (mustRetake
-        ? "Retake the photo with the full chart and the current price / right-side price scale clearly visible."
+        ? "Retake the full chart so StockGPT can clearly see the candlesticks or plotted price line."
+        : null),
+    needs_more_info: needsMoreInfo,
+    more_info_prompt:
+      text(raw.more_info_prompt, 220) ??
+      (needsMoreInfo
+        ? !currentPrice
+          ? "Add one more photo showing the latest candles and the current price / right-side price scale clearly."
+          : "Add one wider chart photo showing the nearby support/resistance structure and right-side price scale so StockGPT can set a defensible stop and target."
         : null),
     summary: text(raw.summary, 420) ?? "The chart image does not show enough reliable structure for a strong read.",
     confirmation: text(raw.confirmation, 260) ?? "Wait for clearer price confirmation before treating the setup as valid.",
@@ -227,34 +326,28 @@ function normaliseResult(raw: RawScanResult) {
       .slice(0, 4),
     signals,
     trade_plan: {
-      entry: mustRetake ? null : text(raw.trade_plan?.entry, 50),
-      stop_loss: mustRetake ? null : text(raw.trade_plan?.stop_loss, 50),
-      take_profit: mustRetake ? null : text(raw.trade_plan?.take_profit, 50),
-      risk_reward: mustRetake ? null : text(raw.trade_plan?.risk_reward, 30),
-      rationale: mustRetake ? null : text(raw.trade_plan?.rationale, 220),
+      entry: withholdTradePlan ? null : rawEntry,
+      stop_loss: withholdTradePlan ? null : rawStopLoss,
+      take_profit: withholdTradePlan ? null : rawTakeProfit,
+      risk_reward: withholdTradePlan ? null : text(raw.trade_plan?.risk_reward, 24),
+      rationale: withholdTradePlan ? null : text(raw.trade_plan?.rationale, 220),
     },
     levels: {
-      support: text(raw.levels?.support, 50),
-      resistance: text(raw.levels?.resistance, 50),
-      breakout: text(raw.levels?.breakout, 50),
-      invalidation: text(raw.levels?.invalidation, 50),
+      support: text(raw.levels?.support, 40),
+      resistance: text(raw.levels?.resistance, 40),
+      breakout: text(raw.levels?.breakout, 40),
+      invalidation: text(raw.levels?.invalidation, 40),
     },
     overlay: {
-      resistance_y_pct: pct(raw.overlay?.resistance_y_pct),
-      support_y_pct: pct(raw.overlay?.support_y_pct),
-      pattern_box: box
-        ? {
-            x_pct: pct(box.x_pct),
-            y_pct: pct(box.y_pct),
-            width_pct: pct(box.width_pct),
-            height_pct: pct(box.height_pct),
-          }
-        : null,
+      price_plot_box: pricePlotBox,
+      resistance_y_pct: yInsideBox(resistanceY, pricePlotBox) ? resistanceY : null,
+      support_y_pct: yInsideBox(supportY, pricePlotBox) ? supportY : null,
+      pattern_box: boxInside(patternBox, pricePlotBox) ? patternBox : null,
     },
   };
 }
 
-async function analyseImage(apiKey: string, dataUrl: string) {
+async function analyseImages(apiKey: string, dataUrls: string[]) {
   const failures: Array<{ model: string; status?: number; message: string }> = [];
 
   for (const model of VISION_MODELS) {
@@ -279,12 +372,15 @@ async function analyseImage(apiKey: string, dataUrl: string) {
               content: [
                 {
                   type: "text",
-                  text: "Scan this chart deeply. Check the full signal catalogue, identify every genuinely visible bullish/bearish signal, locate each signal on the image, read the visible current price if possible, and only then form the verdict and technical stop/target. Return only the requested JSON.",
+                  text:
+                    dataUrls.length > 1
+                      ? "Analyse these images together. The first image is the primary chart and all overlay coordinates must refer to it. Later images are supporting views only. First isolate the real candle/price-line plot area, then analyse signals and risk levels. Return only the requested JSON."
+                      : "Scan this chart deeply. First isolate the real candlestick/price-line plotting area and ignore all headers/toolbars/text. Then identify genuinely visible signals and risk levels. If one missing detail would materially improve the read, request one additional photo. Return only the requested JSON.",
                 },
-                {
-                  type: "image_url",
-                  image_url: { url: dataUrl },
-                },
+                ...dataUrls.map((url) => ({
+                  type: "image_url" as const,
+                  image_url: { url },
+                })),
               ],
             },
           ],
@@ -360,29 +456,53 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const image = formData.get("image");
+    const images = formData
+      .getAll("image")
+      .filter((item): item is File => item instanceof File);
 
-    if (!(image instanceof File)) {
+    if (images.length === 0) {
       return NextResponse.json({ error: "Choose a chart image first." }, { status: 400 });
     }
 
-    if (!ALLOWED_IMAGE_TYPES.has(image.type)) {
+    if (images.length > MAX_IMAGE_COUNT) {
       return NextResponse.json(
-        { error: "Use a JPEG, PNG or WebP chart image." },
-        { status: 415 },
+        { error: "Use the main chart plus one supporting photo for one scan." },
+        { status: 400 },
       );
     }
 
-    if (image.size <= 0 || image.size > MAX_IMAGE_BYTES) {
+    let totalBytes = 0;
+    for (const image of images) {
+      if (!ALLOWED_IMAGE_TYPES.has(image.type)) {
+        return NextResponse.json(
+          { error: "Use JPEG, PNG or WebP chart images." },
+          { status: 415 },
+        );
+      }
+
+      if (image.size <= 0 || image.size > MAX_IMAGE_BYTES) {
+        return NextResponse.json(
+          { error: "One of those images is too large. Retake it or choose a smaller screenshot." },
+          { status: 413 },
+        );
+      }
+      totalBytes += image.size;
+    }
+
+    if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: "That image is too large. Retake it or choose a smaller screenshot." },
+        { error: "Those photos are too large together. Use fewer or tighter screenshots." },
         { status: 413 },
       );
     }
 
-    const bytes = Buffer.from(await image.arrayBuffer());
-    const dataUrl = "data:" + image.type + ";base64," + bytes.toString("base64");
-    const analysis = await analyseImage(apiKey, dataUrl);
+    const dataUrls = await Promise.all(
+      images.map(async (image) => {
+        const bytes = Buffer.from(await image.arrayBuffer());
+        return "data:" + image.type + ";base64," + bytes.toString("base64");
+      }),
+    );
+    const analysis = await analyseImages(apiKey, dataUrls);
 
     if (!analysis.result) {
       console.error("[chart-scan] all vision models failed", analysis.failures);
@@ -395,7 +515,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       result: analysis.result,
       model_used: analysis.model,
-      analysis_scope: "image_only",
+      analysis_scope: images.length > 1 ? "image_bundle" : "image_only",
+      image_count: images.length,
     });
   } catch (error) {
     console.error("[chart-scan]", error);
