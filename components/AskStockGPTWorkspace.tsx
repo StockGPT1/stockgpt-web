@@ -12,6 +12,13 @@ type ChatMessage = {
   content: string;
 };
 
+type ChatConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
+
 type Mode = "portfolio" | "rankings" | "learn" | "account";
 
 type StarterPrompt = {
@@ -63,6 +70,38 @@ const welcomeMessage: ChatMessage = {
   content:
     "Ask me anything about your portfolio, StockGPT rankings, a stock, an alert, market news, or an investing concept.",
 };
+
+function makeClientConversationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `chat-${crypto.randomUUID()}`;
+  }
+  return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function conversationTitleFromQuestion(question: string) {
+  const cleaned = question.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "New conversation";
+  return cleaned.length > 52 ? `${cleaned.slice(0, 49).trim()}…` : cleaned;
+}
+
+function conversationTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function meaningfulMessages(messages: ChatMessage[]) {
+  return messages.filter(
+    (message, index) =>
+      !(index === 0 &&
+        message.role === "assistant" &&
+        message.content === welcomeMessage.content),
+  );
+}
 
 const modeOptions: Array<{ mode: Mode; label: string; shortLabel: string; description: string }> = [
   { mode: "portfolio", label: "Portfolio", shortLabel: "Portfolio", description: "Holdings, alerts, P&L" },
@@ -495,6 +534,100 @@ function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding
       {activeMode === "learn" && <LearnPanel onAskPrompt={onAskPrompt} />}
       {activeMode === "account" && <AccountPanel onAskPrompt={onAskPrompt} />}
     </aside>
+  );
+}
+
+function ConversationHistoryDrawer({
+  open,
+  conversations,
+  activeId,
+  onClose,
+  onSelect,
+  onNew,
+  onClearAll,
+}: {
+  open: boolean;
+  conversations: ChatConversation[];
+  activeId: string | null;
+  onClose: () => void;
+  onSelect: (conversation: ChatConversation) => void;
+  onNew: () => void;
+  onClearAll: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="Conversation history">
+      <button
+        type="button"
+        aria-label="Close conversation history"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/62 backdrop-blur-[2px]"
+      />
+      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-white/[0.07] bg-[linear-gradient(180deg,#09150f,#030705_72%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.55)]">
+        <div className="flex items-center justify-between gap-3 px-4">
+          <div className="min-w-0">
+            <p className="text-[15px] font-black tracking-[-0.025em] text-[#f7f4ec]">Chats</p>
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#ddb159]/58">Last 7 days</p>
+          </div>
+          <button
+            type="button"
+            onClick={onNew}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#ffe6a0]/60 bg-[#f2c35f] px-3 text-[10px] font-black text-[#06170f] shadow-[0_8px_24px_rgba(242,195,95,0.16)]"
+          >
+            <span className="text-[15px] leading-none">+</span>
+            New chat
+          </button>
+        </div>
+
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
+          {conversations.length === 0 ? (
+            <div className="mx-2 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+              <p className="text-[12px] font-bold text-[#f7f4ec]/72">No previous conversations yet.</p>
+              <p className="mt-1 text-[11px] font-medium leading-5 text-[#f7f4ec]/34">Your recent Ask StockGPT chats will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid gap-1">
+              {conversations.map((conversation) => {
+                const active = conversation.id === activeId;
+                return (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    onClick={() => onSelect(conversation)}
+                    className={[
+                      "group flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition",
+                      active
+                        ? "bg-white/[0.075] text-[#f7f4ec]"
+                        : "text-[#f7f4ec]/70 hover:bg-white/[0.045] hover:text-[#f7f4ec]",
+                    ].join(" ")}
+                  >
+                    <span className={[
+                      "size-1.5 shrink-0 rounded-full",
+                      active ? "bg-[#f2c35f] shadow-[0_0_12px_rgba(242,195,95,0.65)]" : "bg-white/16",
+                    ].join(" ")} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] font-bold">{conversation.title}</span>
+                      <span className="mt-0.5 block text-[9px] font-semibold text-[#f7f4ec]/28">{conversationTime(conversation.updatedAt)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-4 mt-3 border-t border-white/[0.055] pt-3">
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="h-9 text-[10px] font-bold text-[#f7f4ec]/38 transition hover:text-red-200"
+          >
+            Clear all conversations
+          </button>
+        </div>
+      </aside>
+    </div>
   );
 }
 
