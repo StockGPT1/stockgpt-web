@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
+import { RouletteNumber } from "@/components/RouletteNumber";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 
 function money(value: number, currency = "USD") {
@@ -54,7 +55,7 @@ export function DashboardPortfolioHoverWidget({
       <div className="flex min-w-0 flex-col justify-between py-1">
         <div>
           <p className="truncate text-[23px] font-black leading-none tracking-[-0.06em] xl:text-[27px]">
-            {valueUnavailable ? "Value unavailable" : money(displayValue, summary.currency)}
+            {valueUnavailable ? "Value unavailable" : <RouletteNumber value={money(displayValue, summary.currency)} />}
           </p>
           {!valueUnavailable && <p
             className={[
@@ -62,7 +63,7 @@ export function DashboardPortfolioHoverWidget({
               isPositive ? "text-emerald-300" : "text-red-200",
             ].join(" ")}
           >
-            {money(displayPnl, summary.currency)} · {pct(displayPnlPct)}
+            <RouletteNumber value={`${money(displayPnl, summary.currency)} · ${pct(displayPnlPct)}`} />
           </p>}
           {valuationState === "partial" && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Estimated · latest price coverage is partial</p>}
           {valueUnavailable && <p className="mt-1 text-[10px] font-bold text-[#e7c56c]">Latest prices failed; zero is not being shown.</p>}
