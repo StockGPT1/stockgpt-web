@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 import { useAppChrome } from "@/components/AppChromeProvider";
 
@@ -66,6 +66,7 @@ function MoreIcon({ className = "size-[19px]" }: { className?: string }) {
 
 export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { focusedFlowCount, keyboardOpen } = useAppChrome();
   const [moreOpen, setMoreOpen] = useState(false);
   const focusedPath =
@@ -74,10 +75,28 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
     pathname.includes("/fullscreen");
   const hidden = focusedPath || focusedFlowCount > 0 || keyboardOpen;
   const current = activeDestination(pathname);
+  const [visualCurrent, setVisualCurrent] = useState(current);
+  const visualDestination = moreOpen ? "more" : visualCurrent;
+  const primaryBubbleIndex = primaryItems.findIndex(
+    (item) => item.href === visualDestination,
+  );
+  const bubbleIndex =
+    visualDestination === "more" ? 4 : primaryBubbleIndex >= 0 ? primaryBubbleIndex : -1;
 
   useEffect(() => {
+    setVisualCurrent(current);
     setMoreOpen(false);
-  }, [pathname]);
+  }, [current, pathname]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      for (const item of [...primaryItems, ...moreItems]) {
+        if (!isPathActive(pathname, item.href)) router.prefetch(item.href);
+      }
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [pathname, router]);
 
   useEffect(() => {
     if (hidden) setMoreOpen(false);
@@ -137,7 +156,8 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={false}
+                    prefetch={true}
+                    onPointerDown={() => setVisualCurrent("more")}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={[
@@ -169,9 +189,18 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         aria-label="Primary mobile navigation"
         aria-hidden={hidden}
         data-hidden={hidden ? "true" : "false"}
-        className="sg-bottom-nav fixed left-[clamp(12px,5.5vw,24px)] right-[clamp(12px,5.5vw,24px)] z-30 mx-auto grid h-[68px] max-w-[430px] grid-cols-5 items-center gap-1 rounded-[26px] border px-2 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
+        className="sg-bottom-nav fixed left-1/2 z-30 h-[66px] w-[calc(100%-42px)] max-w-[380px] -translate-x-1/2 rounded-full border p-1.5 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}
       >
+        <div className="relative grid h-full w-full grid-cols-5 items-center">
+          <span
+            aria-hidden="true"
+            data-visible={bubbleIndex >= 0 ? "true" : "false"}
+            className="sg-mobile-nav-bubble pointer-events-none absolute inset-y-0 left-0 z-0 w-1/5 rounded-full"
+            style={{
+              transform: `translateX(${Math.max(0, bubbleIndex) * 100}%)`,
+            }}
+          />
         {primaryItems.map((item) => {
           const isActive = current === item.href;
           const isAlerts = item.href === "/notifications";
@@ -180,16 +209,17 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             <Link
               key={item.href}
               href={item.href}
-              prefetch={false}
+              prefetch={true}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
               data-active={isActive ? "true" : "false"}
+              onPointerDown={() => setVisualCurrent(item.href)}
               className={[
-                "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
+                "sg-mobile-nav-link relative z-10 flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-full px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#f2c35f]",
                 isActive
-                  ? "text-[#062016]"
-                  : "hover:bg-[#faf6f0]/7 hover:text-[#fffaf2]",
+                  ? "text-[#fffaf2]"
+                  : "hover:text-[#fffaf2]",
               ].join(" ")}
             >
               <span className="relative">
@@ -209,22 +239,24 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
 
         <button
           type="button"
+          onPointerDown={() => setVisualCurrent("more")}
           onClick={() => setMoreOpen((open) => !open)}
           aria-label="More"
           aria-expanded={moreOpen}
           tabIndex={hidden ? -1 : undefined}
           data-active={current === "more" || moreOpen ? "true" : "false"}
           className={[
-            "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
+            "sg-mobile-nav-link relative z-10 flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-full px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#f2c35f]",
             current === "more" || moreOpen
-              ? "text-[#062016]"
-              : "hover:bg-[#faf6f0]/7 hover:text-[#fffaf2]",
+              ? "text-[#fffaf2]"
+              : "hover:text-[#fffaf2]",
           ].join(" ")}
         >
           <MoreIcon />
           <span className="sg-mobile-nav-label text-[9.5px] font-extrabold leading-none">More</span>
 
         </button>
+        </div>
       </nav>
     </>
   );
