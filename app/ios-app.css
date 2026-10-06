@@ -402,3 +402,49 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     transform: scale(0.96);
   }
 }
+
+
+/* Chart Scanner V1: app-only discovery and focused camera analysis flow. */
+@keyframes sg-chart-scan-sweep {
+  0% { top: 8%; opacity: 0; }
+  12% { opacity: 1; }
+  50% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 92%; opacity: 0; }
+}
+
+html[data-app-shell="true"] .sg-app-only {
+  display: flex !important;
+}
+
+html[data-app-shell="true"] .sg-chart-scan-laser {
+  top: 8%;
+  animation: sg-chart-scan-sweep 1.75s ease-in-out infinite alternate;
+}
+
+@media (max-width: 1023px) {
+  html[data-app-shell="true"] body[data-sg-path="chart-scan"] .sg-app-content {
+    padding-top: 0 !important;
+    background:
+      radial-gradient(circle at 50% -8%, rgba(242, 195, 95, 0.09), transparent 30%),
+      linear-gradient(180deg, #071f15 0%, #04120c 58%, #030a07 100%) !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="chart-scan"] .sg-route-content {
+    min-height: 100%;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="chart-scan"] .sg-mobile-app-header {
+    border-bottom-color: rgba(242, 195, 95, 0.08);
+    background: rgba(4, 18, 12, 0.88);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-app-shell="true"] .sg-chart-scan-laser {
+    animation: none;
+    top: 50%;
+  }
+}
