@@ -572,8 +572,8 @@ export function WorldNewsClient({
   );
 
   return (
-    <main className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+    <main className="sg-native-world-news-shell flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="sg-native-world-news-scroll min-h-0 flex-1 overflow-y-auto pr-1">
         <div className="grid min-w-0 gap-4 pb-8">
           <section className="rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,#061b12,#0b2b1d_58%,#061b12)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)] sm:p-5">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -664,7 +664,7 @@ export function WorldNewsClient({
                   </button>
                 </div>
 
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                <div className="sg-native-edge-news-scopes mt-3 flex gap-2 overflow-x-auto pb-1">
                   {NEWS_SCOPES.map((chip) => (
                     <button
                       key={chip}

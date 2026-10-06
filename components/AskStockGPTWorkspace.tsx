@@ -275,7 +275,7 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
   return (
     <nav
       aria-label="Ask StockGPT mode"
-      className="sg-ask-mode-rail flex shrink-0 gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center"
+      className="sg-ask-mode-rail sg-native-edge-ask-modes flex shrink-0 gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center"
     >
       {modeOptions.map((option) => {
         const selected = activeMode === option.mode;
@@ -881,7 +881,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
               : "Account help";
 
   return (
-    <div className="sg-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#04140c] text-[#f7f4ec]">
+    <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#04140c] text-[#f7f4ec]">
       <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.06] bg-[#04140c]/95 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
         <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <BackButton />
@@ -931,7 +931,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
           </div>
 
           <main className="min-h-0 flex-1 overflow-hidden">
-            <div className="sg-ask-scroll h-full overflow-y-auto overflow-x-hidden">
+            <div className="sg-ask-scroll sg-native-ask-scroll h-full overflow-y-auto overflow-x-hidden">
               <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-3 pb-5 pt-4 sm:px-5 sm:pt-6">
                 {showStarterCards ? (
                   <section className="flex flex-1 flex-col justify-center pb-8 sm:pb-10">
@@ -970,7 +970,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                           <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.13em] text-[#f7f4ec]/30">
                             Ask about a holding
                           </p>
-                          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          <div className="sg-native-edge-ask-holdings flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {holdingOptions.slice(0, 8).map((holding) => (
                               <button
                                 key={holding.ticker}

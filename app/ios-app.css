@@ -51,6 +51,89 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     display: none;
   }
 
+
+  /* Horizontal rails should keep their normal resting inset but use the
+     physical screen edge as their clipping boundary while swiping. */
+  html[data-app-shell="true"] .sg-native-edge-alert-filters {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    scroll-padding-left: 12px;
+    scroll-padding-right: 12px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-ask-modes {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    scroll-padding-left: 24px;
+    scroll-padding-right: 24px;
+  }
+
+  html[data-app-shell="true"] .sg-native-ask-workspace {
+    overflow: visible !important;
+  }
+
+  html[data-app-shell="true"] .sg-native-ask-scroll {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-ask-holdings {
+    margin-left: -24px !important;
+    margin-right: -24px !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    scroll-padding-left: 24px;
+    scroll-padding-right: 24px;
+  }
+
+  html[data-app-shell="true"] .sg-native-world-news-shell {
+    overflow: visible !important;
+  }
+
+  html[data-app-shell="true"] .sg-native-world-news-scroll {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding-left: 12px !important;
+    padding-right: 16px !important;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-news-scopes {
+    margin-left: -16px !important;
+    margin-right: -16px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    scroll-padding-left: 16px;
+    scroll-padding-right: 16px;
+  }
+
+  html[data-app-shell="true"] .sg-native-portfolio-shell {
+    overflow-x: visible !important;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-portfolio {
+    margin-left: -28px !important;
+    margin-right: -28px !important;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+    scroll-padding-left: 28px;
+    scroll-padding-right: 28px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-freshness {
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    scroll-padding-left: 12px;
+    scroll-padding-right: 12px;
+  }
+
   /* Keep form focus from triggering Safari-style viewport zoom in WKWebView. */
   html[data-app-shell="true"] :where(input:not([type="checkbox"]):not([type="radio"]), textarea) {
     font-size: 16px !important;
@@ -167,6 +250,56 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
 
   html[data-app-shell="true"] body[data-sg-path="portfolio"] [data-portfolio-section-anchor] {
     scroll-margin-top: calc(56px + env(safe-area-inset-top, 0px));
+  }
+}
+
+
+@media (max-width: 639px) {
+  html[data-app-shell="true"] .sg-native-edge-portfolio-phone {
+    margin-left: -28px !important;
+    margin-right: -28px !important;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+    scroll-padding-left: 28px;
+    scroll-padding-right: 28px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  html[data-app-shell="true"] .sg-native-edge-ask-holdings {
+    margin-left: -32px !important;
+    margin-right: -32px !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+    scroll-padding-left: 32px;
+    scroll-padding-right: 32px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-news-scopes {
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    scroll-padding-left: 20px;
+    scroll-padding-right: 20px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-portfolio {
+    margin-left: -36px !important;
+    margin-right: -36px !important;
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+    scroll-padding-left: 36px;
+    scroll-padding-right: 36px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-freshness {
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    scroll-padding-left: 20px;
+    scroll-padding-right: 20px;
   }
 }
 

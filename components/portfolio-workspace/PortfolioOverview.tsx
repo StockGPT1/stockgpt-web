@@ -264,7 +264,7 @@ export function PortfolioOverview({
           }
         />
         {opportunities.length > 0 ? (
-          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:mt-5 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
+          <div className="sg-native-edge-portfolio -mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:mt-5 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
             {opportunities.slice(0, 6).map((opportunity) => (
               <article
                 key={`${opportunity.ticker}-${opportunity.category}`}
