@@ -117,6 +117,7 @@ const SYSTEM_PROMPT = [
   "- If the primary chart is usable but current price, price scale, timeframe, indicator panel or another key detail is missing, prefer needs_more_info=true rather than discarding the first image.",
   "- more_info_prompt must ask for ONE specific helpful photo, e.g. a close-up of the latest candles + right-side price scale, or a full view including RSI/MACD. The next image will be analysed together with the first.",
   "- Never invent stop-loss or take-profit. Only provide entry/stop_loss/take_profit after current price and the relevant structure/scale are readable across the supplied images.",
+  "- If you cannot produce BOTH a defensible stop_loss and take_profit from the supplied views, set needs_more_info=true and request the exact additional view needed (usually a wider chart or clearer price scale).",
   "- entry, stop_loss, take_profit and level fields should contain concise price strings only; put explanation in rationale/confirmation/invalidation.",
   "- Stop-loss must sit beyond visible technical invalidation. Take-profit must reference visible support/resistance, a measured move or another clear structure target.",
   "- risk_reward may only be supplied when entry, stop and target are all sufficiently readable.",
@@ -242,8 +243,13 @@ function normaliseResult(raw: RawScanResult) {
     bool(raw.retake_required) ||
     priceSeriesType === "unsupported" ||
     !pricePlotBox;
+  const rawEntry = text(raw.trade_plan?.entry, 40);
+  const rawStopLoss = text(raw.trade_plan?.stop_loss, 40);
+  const rawTakeProfit = text(raw.trade_plan?.take_profit, 40);
+  const needsTradeContext = !rawStopLoss || !rawTakeProfit;
   const needsMoreInfo =
-    !mustRetake && (bool(raw.needs_more_info) || !currentPrice);
+    !mustRetake &&
+    (bool(raw.needs_more_info) || !currentPrice || needsTradeContext);
 
   const signals = rawSignals
     .map((item) => {
@@ -295,7 +301,9 @@ function normaliseResult(raw: RawScanResult) {
     more_info_prompt:
       text(raw.more_info_prompt, 220) ??
       (needsMoreInfo
-        ? "Add one more photo showing the latest candles and the current price / right-side price scale clearly."
+        ? !currentPrice
+          ? "Add one more photo showing the latest candles and the current price / right-side price scale clearly."
+          : "Add one wider chart photo showing the nearby support/resistance structure and right-side price scale so StockGPT can set a defensible stop and target."
         : null),
     summary: text(raw.summary, 420) ?? "The chart image does not show enough reliable structure for a strong read.",
     confirmation: text(raw.confirmation, 260) ?? "Wait for clearer price confirmation before treating the setup as valid.",
@@ -307,9 +315,9 @@ function normaliseResult(raw: RawScanResult) {
       .slice(0, 4),
     signals,
     trade_plan: {
-      entry: withholdTradePlan ? null : text(raw.trade_plan?.entry, 40),
-      stop_loss: withholdTradePlan ? null : text(raw.trade_plan?.stop_loss, 40),
-      take_profit: withholdTradePlan ? null : text(raw.trade_plan?.take_profit, 40),
+      entry: withholdTradePlan ? null : rawEntry,
+      stop_loss: withholdTradePlan ? null : rawStopLoss,
+      take_profit: withholdTradePlan ? null : rawTakeProfit,
       risk_reward: withholdTradePlan ? null : text(raw.trade_plan?.risk_reward, 24),
       rationale: withholdTradePlan ? null : text(raw.trade_plan?.rationale, 220),
     },
