@@ -872,20 +872,31 @@ html[data-app-shell="true"] a {
 }
 
 .sg-roulette-slot {
-  display: inline-block;
+  display: inline-grid;
+  grid-template-areas: "digit";
   width: 1ch;
   height: 1em;
   overflow: hidden;
   line-height: 1em;
-  vertical-align: -0.055em;
+  vertical-align: baseline;
+}
+
+.sg-roulette-slot::after {
+  content: "0";
+  grid-area: digit;
+  visibility: hidden;
+  width: 1ch;
+  height: 1em;
+  line-height: 1em;
 }
 
 .sg-roulette-reel {
+  grid-area: digit;
   display: flex;
   flex-direction: column;
   width: 1ch;
   transform: translateY(-11em);
-  animation: sgRouletteDigit var(--sg-roulette-duration, 96ms)
+  animation: sgRouletteDigit var(--sg-roulette-duration, 118ms)
     cubic-bezier(0.16, 0.82, 0.24, 1) var(--sg-roulette-delay, 0ms) both;
   will-change: transform, filter;
 }
