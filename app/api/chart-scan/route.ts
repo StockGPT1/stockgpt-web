@@ -387,7 +387,7 @@ export async function POST(req: NextRequest) {
     if (!analysis.result) {
       console.error("[chart-scan] all vision models failed", analysis.failures);
       return NextResponse.json(
-        { error: "StockGPT could not read that chart clearly. Try a tighter, sharper photo." },
+        { error: "StockGPT could not read that chart clearly. Retake it with the full chart, latest candle and current price scale visible." },
         { status: 502 },
       );
     }
