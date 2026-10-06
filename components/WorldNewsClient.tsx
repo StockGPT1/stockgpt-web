@@ -233,7 +233,7 @@ function ArticleCard({
       type="button"
       onClick={() => onOpen(article)}
       className={[
-        "group grid w-full min-w-0 gap-3 rounded-[24px] border border-[#ddb159]/14 bg-[#071f15]/82 p-3 text-left shadow-[0_16px_34px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/42 hover:bg-[#0b2b1d]",
+        "sg-world-news-card group grid w-full min-w-0 gap-3 rounded-[22px] border border-white/[0.055] bg-[#071d15]/72 p-3 text-left shadow-[0_12px_28px_rgba(0,0,0,0.15)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/32 hover:bg-[#0a281c] sm:rounded-[24px] sm:border-[#ddb159]/14 sm:bg-[#071f15]/82 sm:shadow-[0_16px_34px_rgba(0,0,0,0.18)]",
         featured ? "sm:grid-cols-[150px_minmax(0,1fr)] sm:p-4" : "sm:grid-cols-[116px_minmax(0,1fr)]",
       ].join(" ")}
     >
@@ -266,7 +266,7 @@ function ArticleCard({
             {style.label}
           </span>
           {topStock ? (
-            <span className="rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-[#ddb159]">
+            <span className="hidden rounded-full border border-[#ddb159]/24 bg-[#ddb159]/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-[#ddb159] sm:inline-flex">
               StockGPT relevance: {topStock.impactRating >= 8 ? "High" : topStock.impactRating >= 5 ? "Medium" : "Context"}
             </span>
           ) : null}
@@ -276,7 +276,7 @@ function ArticleCard({
           {article.title ?? "Untitled article"}
         </h3>
 
-        <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#faf6f0]/58">
+        <p className="mt-2 line-clamp-3 text-[12px] font-semibold leading-5 text-[#faf6f0]/58 sm:line-clamp-2">
           {displaySummary(article)}
         </p>
 
@@ -572,21 +572,38 @@ export function WorldNewsClient({
   );
 
   return (
-    <main className="sg-native-world-news-shell flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="sg-native-world-news-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-        <div className="grid min-w-0 gap-4 pb-8">
-          <section className="rounded-[28px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,#061b12,#0b2b1d_58%,#061b12)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)] sm:p-5">
+    <main className="sg-native-world-news-shell min-h-full lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+      <div className="sg-native-world-news-scroll lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+        <div className="grid min-w-0 gap-3 pb-8 lg:gap-4">
+          <section className="sg-world-news-hero relative overflow-hidden rounded-[24px] border border-[#ddb159]/16 bg-[radial-gradient(circle_at_88%_0%,rgba(242,195,95,0.10),transparent_34%),linear-gradient(145deg,#0a281c,#071d15_58%,#061711)] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.20)] sm:p-5 lg:rounded-[28px] lg:border-[#ddb159]/20 lg:shadow-[0_22px_70px_rgba(0,0,0,0.24)]">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">
-                  StockGPT Market Briefing
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#ddb159] lg:text-[10px]">
+                  Market pulse
                 </p>
-                <h1 className="mt-1 text-[30px] font-black leading-none tracking-[-0.05em] text-[#faf6f0] sm:text-[40px]">
-                  World News
+                <h1 className="mt-1 text-[21px] font-black leading-tight tracking-[-0.035em] text-[#faf6f0] lg:text-[40px] lg:leading-none lg:tracking-[-0.05em]">
+                  <span className="lg:hidden">What matters right now</span>
+                  <span className="hidden lg:inline">World News</span>
                 </h1>
-                <p className="mt-2 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/55">
-                  AI-linked market stories, affected stocks, and plain-English context. Educational research only, not financial advice.
+                <p className="mt-2 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/52">
+                  AI-linked market stories and the stocks they could actually move.
                 </p>
+                <div className="mt-4 lg:hidden">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-bold text-[#faf6f0]/40">
+                      Latest {relativeTime(latestPublishedAt)}
+                    </span>
+                    <FreshnessLabel value={latestPublishedAt} staleAfterMinutes={360} compact />
+                  </div>
+                  <div className="mt-2">
+                    <ImpactMeter positive={counts.positive} neutral={counts.neutral} negative={counts.negative} />
+                  </div>
+                  <div className="mt-2 flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.1em]">
+                    <span className="text-emerald-300">{counts.positive} positive</span>
+                    <span className="text-[#faf6f0]/38">{counts.neutral} neutral</span>
+                    <span className="text-red-300">{counts.negative} negative</span>
+                  </div>
+                </div>
               </div>
 
               <div className="hidden grid-cols-3 gap-2 lg:grid lg:w-[430px]">
@@ -625,9 +642,7 @@ export function WorldNewsClient({
 
           <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="grid min-w-0 gap-3">
-              {topStory ? <ArticleCard article={topStory} onOpen={setSelectedArticle} featured /> : null}
-
-              <div className="sticky top-0 z-10 rounded-[24px] border border-[#ddb159]/16 bg-[#061b12]/92 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+              <div className="sg-world-news-controls rounded-[22px] border border-white/[0.055] bg-[#061b12]/72 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.16)] backdrop-blur-xl lg:sticky lg:top-0 lg:z-10 lg:rounded-[24px] lg:border-[#ddb159]/16 lg:bg-[#061b12]/92 lg:shadow-[0_12px_34px_rgba(0,0,0,0.24)]">
                 <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
                   <label className="col-span-2 flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-[#ddb159]/14 bg-[#faf6f0]/[0.04] px-3 transition focus-within:border-[#ddb159]/50 sm:col-span-1">
                     <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[#ddb159]">
@@ -684,14 +699,16 @@ export function WorldNewsClient({
                 <div className="mt-3 hidden lg:block">{FilterControls}</div>
               </div>
 
+              {topStory ? <ArticleCard article={topStory} onOpen={setSelectedArticle} featured /> : null}
+
               <div className="grid gap-3">
-                {visibleArticles.length > 0 ? (
-                  visibleArticles.map((article) => (
-                    <ArticleCard key={article.id} article={article} onOpen={setSelectedArticle} />
-                  ))
-                ) : (
-                  <EmptyBriefing onReset={resetFilters} scope={scope} />
-                )}
+                {visibleArticles.length > 0
+                  ? visibleArticles.map((article) => (
+                      <ArticleCard key={article.id} article={article} onOpen={setSelectedArticle} />
+                    ))
+                  : filteredArticles.length === 0
+                    ? <EmptyBriefing onReset={resetFilters} scope={scope} />
+                    : null}
               </div>
 
               {visibleArticles.length < filteredArticles.length ? (

@@ -103,24 +103,13 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     scroll-padding-right: 24px;
   }
 
-  html[data-app-shell="true"] .sg-native-world-news-shell {
-    overflow: visible !important;
-  }
-
-  html[data-app-shell="true"] .sg-native-world-news-scroll {
-    margin-left: -12px !important;
-    margin-right: -12px !important;
-    padding-left: 12px !important;
-    padding-right: 16px !important;
-  }
-
   html[data-app-shell="true"] .sg-native-edge-news-scopes {
-    margin-left: -16px !important;
-    margin-right: -16px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    scroll-padding-left: 16px;
-    scroll-padding-right: 16px;
+    margin-left: -24px !important;
+    margin-right: -24px !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    scroll-padding-left: 24px;
+    scroll-padding-right: 24px;
   }
 
   html[data-app-shell="true"] .sg-native-portfolio-shell {
@@ -377,12 +366,12 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
   html[data-app-shell="true"] .sg-native-edge-news-scopes {
-    margin-left: -20px !important;
-    margin-right: -20px !important;
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-    scroll-padding-left: 20px;
-    scroll-padding-right: 20px;
+    margin-left: -24px !important;
+    margin-right: -24px !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    scroll-padding-left: 24px;
+    scroll-padding-right: 24px;
   }
 
   html[data-app-shell="true"] .sg-native-edge-portfolio {

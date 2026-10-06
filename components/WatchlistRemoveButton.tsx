@@ -3,7 +3,13 @@
 import { useTransition } from "react";
 import { removeFromWatchlist } from "@/lib/actions/watchlist";
 
-export function WatchlistRemoveButton({ ticker }: { ticker: string }) {
+export function WatchlistRemoveButton({
+  ticker,
+  variant = "light",
+}: {
+  ticker: string;
+  variant?: "light" | "dark";
+}) {
   const [isPending, startTransition] = useTransition();
 
   function handleClick(e: React.MouseEvent) {
@@ -21,7 +27,12 @@ export function WatchlistRemoveButton({ ticker }: { ticker: string }) {
       disabled={isPending}
       aria-label={`Remove ${ticker} from watchlist`}
       title="Remove from watchlist"
-      className="grid size-7 place-items-center rounded-full text-[#072116]/30 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+      className={[
+        "grid size-8 place-items-center rounded-full border transition disabled:opacity-50",
+        variant === "dark"
+          ? "border-white/[0.07] bg-black/10 text-[#faf6f0]/34 hover:border-red-300/20 hover:bg-red-400/10 hover:text-red-200"
+          : "border-transparent text-[#072116]/30 hover:bg-red-50 hover:text-red-500",
+      ].join(" ")}
     >
       <svg
         viewBox="0 0 24 24"
