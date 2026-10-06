@@ -138,7 +138,7 @@ export function PortfolioHoldings({
         </p>
       </section>
 
-      <section className="-mx-4 mt-7 flex gap-0 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0 lg:pb-0">
+      <section className="sg-native-edge-portfolio -mx-4 mt-7 flex gap-0 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0 lg:pb-0">
         <SummaryMetric label="Invested" value={money(invested, meta.currency)} detail={`${holdings.length} holdings`} />
         <SummaryMetric label="Cash" value={money(meta.cashBalance, meta.currency)} detail="Available balance" />
         <SummaryMetric label="Largest" value={`${largest.toFixed(1)}%`} detail="Of total portfolio" />
@@ -206,7 +206,7 @@ export function PortfolioHoldings({
           <div className="mt-4 grid gap-4 border-t border-[#faf6f0]/8 pt-4 lg:grid-cols-[minmax(0,1fr)_240px_auto] lg:items-end">
             <div>
               <p className="mb-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">Position state</p>
-              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+              <div className="sg-native-edge-portfolio-phone -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
                 {FILTERS.map((item) => (
                   <button
                     key={item.value}
