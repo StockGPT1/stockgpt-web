@@ -369,6 +369,7 @@ export function ChartScannerWorkspace() {
         chartTakeProfit: result.trade_plan.take_profit,
         chartProjectedHorizon: result.trade_plan.projected_horizon,
         chartProjectedBars: result.trade_plan.projected_bars,
+        chartTradePlan: result.trade_plan.plan,
       },
     });
   }, [result]);
