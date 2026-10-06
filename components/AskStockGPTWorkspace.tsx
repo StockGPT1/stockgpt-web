@@ -546,7 +546,7 @@ function ConversationHistoryDrawer({
         onClick={onClose}
         className="absolute inset-0 bg-black/62 backdrop-blur-[2px]"
       />
-      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-white/[0.07] bg-[linear-gradient(180deg,#09150f,#030705_72%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.55)]">
+      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-[#ddb159]/10 bg-[linear-gradient(180deg,#10261b_0%,#0b1d15_46%,#08150f_100%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.48),inset_-1px_0_0_rgba(255,255,255,0.025)]">
         <div className="flex items-center justify-between gap-3 px-4">
           <div className="min-w-0">
             <p className="text-[15px] font-black tracking-[-0.025em] text-[#f7f4ec]">Chats</p>
@@ -1124,7 +1124,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             type="button"
             onClick={() => setHistoryOpen(true)}
             aria-label="Open previous chats"
-            className="justify-self-start rounded-full px-2 py-2 text-[12px] font-black tracking-[-0.01em] text-[#f7f4ec]/72 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-[0.98]"
+            className="inline-flex h-9 items-center justify-center justify-self-start rounded-full border border-white/[0.10] bg-white/[0.045] px-3 text-[11px] font-black tracking-[-0.01em] text-[#f7f4ec]/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_6px_18px_rgba(0,0,0,0.14)] backdrop-blur-xl transition hover:border-[#ddb159]/24 hover:bg-white/[0.065] hover:text-[#f7f4ec] active:scale-[0.97]"
           >
             Chats
           </button>
@@ -1145,7 +1145,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
               else router.push("/dashboard");
             }}
             aria-label="Exit Ask StockGPT"
-            className="grid size-10 place-items-center justify-self-end rounded-full text-[28px] font-light leading-none text-[#f7f4ec]/72 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-95"
+            className="grid size-9 place-items-center justify-self-end rounded-full border border-white/[0.10] bg-white/[0.045] text-[24px] font-light leading-none text-[#f7f4ec]/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_6px_18px_rgba(0,0,0,0.14)] backdrop-blur-xl transition hover:border-[#ddb159]/24 hover:bg-white/[0.065] hover:text-[#f7f4ec] active:scale-95"
           >
             <span aria-hidden="true">×</span>
           </button>
