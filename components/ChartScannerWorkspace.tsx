@@ -22,6 +22,9 @@ type ScanResult = {
   current_price: string | null;
   retake_required: boolean;
   retake_reason: string | null;
+  needs_more_info: boolean;
+  more_info_prompt: string | null;
+  price_series_type: "candles" | "price_line" | "unsupported" | "unknown";
   signals: Array<{
     name: string;
     bias: "bullish" | "bearish" | "neutral";
@@ -50,6 +53,12 @@ type ScanResult = {
   overlay: {
     resistance_y_pct: number | null;
     support_y_pct: number | null;
+    price_plot_box: {
+      x_pct: number;
+      y_pct: number;
+      width_pct: number;
+      height_pct: number;
+    } | null;
     pattern_box: {
       x_pct: number | null;
       y_pct: number | null;
@@ -206,7 +215,39 @@ function Level({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="min-w-0 py-3">
       <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">{label}</p>
-      <p className="mt-1 truncate text-[15px] font-black tracking-[-0.02em] text-[#faf6f0]">{value ?? "Not clear"}</p>
+      <p className="mt-1 break-words text-[15px] font-black tracking-[-0.02em] text-[#faf6f0]">{value ?? "Not clear"}</p>
+    </div>
+  );
+}
+
+function TradeLevelCard({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: string | null;
+  tone: "stop" | "target";
+  hint: string;
+}) {
+  const isStop = tone === "stop";
+  return (
+    <div
+      className={
+        "min-w-0 overflow-hidden rounded-[22px] border p-4 " +
+        (isStop
+          ? "border-rose-300/20 bg-rose-300/[0.075]"
+          : "border-emerald-300/20 bg-emerald-300/[0.075]")
+      }
+    >
+      <p className={"text-[10px] font-black uppercase tracking-[0.15em] " + (isStop ? "text-rose-200" : "text-emerald-200")}>
+        {label}
+      </p>
+      <p className={"mt-2 break-all text-[clamp(28px,9vw,40px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
+        {value ?? "Not clear"}
+      </p>
+      <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/40">{hint}</p>
     </div>
   );
 }
@@ -214,8 +255,12 @@ function Level({ label, value }: { label: string; value: string | null }) {
 export function ChartScannerWorkspace() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const contextCameraInputRef = useRef<HTMLInputElement>(null);
+  const contextLibraryInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scanFile, setScanFile] = useState<File | null>(null);
+  const [supportingFiles, setSupportingFiles] = useState<File[]>([]);
+  const [supportingPreviewUrls, setSupportingPreviewUrls] = useState<string[]>([]);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [status, setStatus] = useState<"idle" | "preparing" | "analyzing" | "result" | "error">("idle");
   const [error, setError] = useState("");
@@ -260,14 +305,15 @@ export function ChartScannerWorkspace() {
     });
   }, [result]);
 
-  async function runScan(file: File) {
+  async function runScan(files: File[]) {
+    if (files.length === 0) return;
     setError("");
     setResult(null);
     setStatus("analyzing");
     nativeHaptic("medium");
 
     const formData = new FormData();
-    formData.set("image", file);
+    files.slice(0, 3).forEach((file) => formData.append("image", file));
 
     try {
       const response = await fetch("/api/chart-scan", {
@@ -308,8 +354,11 @@ export function ChartScannerWorkspace() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       const nextPreview = URL.createObjectURL(prepared);
       setPreviewUrl(nextPreview);
+      supportingPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+      setSupportingFiles([]);
+      setSupportingPreviewUrls([]);
       setScanFile(prepared);
-      await runScan(prepared);
+      await runScan([prepared]);
     } catch (prepareError) {
       setError(prepareError instanceof Error ? prepareError.message : "Could not prepare that chart image.");
       setStatus("error");
@@ -317,10 +366,46 @@ export function ChartScannerWorkspace() {
     }
   }
 
+  async function handleAdditionalImage(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    event.target.value = "";
+    if (!selected || !scanFile) return;
+
+    if (supportingFiles.length >= 2) {
+      setError("StockGPT can combine up to three chart photos in one scan.");
+      nativeHaptic("warning");
+      return;
+    }
+
+    setStatus("preparing");
+    setError("");
+
+    try {
+      const prepared = await prepareImage(selected);
+      if (prepared.size > 3_200_000) {
+        throw new Error("That image is still too large. Try a tighter screenshot.");
+      }
+
+      const nextSupportingFiles = [...supportingFiles, prepared].slice(0, 2);
+      const nextPreview = URL.createObjectURL(prepared);
+      setSupportingFiles(nextSupportingFiles);
+      setSupportingPreviewUrls((current) => [...current, nextPreview].slice(0, 2));
+      await runScan([scanFile, ...nextSupportingFiles]);
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : "Could not prepare that extra chart image.");
+      setStatus("error");
+      nativeHaptic("error");
+    }
+  }
+
+
   function reset() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    supportingPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrl(null);
     setScanFile(null);
+    setSupportingFiles([]);
+    setSupportingPreviewUrls([]);
     setResult(null);
     setError("");
     setStatus("idle");
@@ -329,6 +414,7 @@ export function ChartScannerWorkspace() {
 
   const tone = result ? verdictTone(result.verdict) : null;
   const box = result?.overlay.pattern_box;
+  const pricePlotBox = result?.overlay.price_plot_box;
   const hasBox = box && box.x_pct !== null && box.y_pct !== null && box.width_pct !== null && box.height_pct !== null;
   const verdictWord = result
     ? result.verdict === "bullish"
