@@ -172,15 +172,20 @@ function normaliseBox(value: unknown): PctBox | null {
   };
 }
 
-function boxCenterInside(inner: PctBox | null, outer: PctBox | null) {
+function normalisePricePlotBox(value: unknown) {
+  const box = normaliseBox(value);
+  if (!box) return null;
+  if (box.width_pct < 35 || box.height_pct < 20) return null;
+  return box;
+}
+
+function boxInside(inner: PctBox | null, outer: PctBox | null) {
   if (!inner || !outer) return false;
-  const centerX = inner.x_pct + inner.width_pct / 2;
-  const centerY = inner.y_pct + inner.height_pct / 2;
   return (
-    centerX >= outer.x_pct &&
-    centerX <= outer.x_pct + outer.width_pct &&
-    centerY >= outer.y_pct &&
-    centerY <= outer.y_pct + outer.height_pct
+    inner.x_pct >= outer.x_pct &&
+    inner.y_pct >= outer.y_pct &&
+    inner.x_pct + inner.width_pct <= outer.x_pct + outer.width_pct &&
+    inner.y_pct + inner.height_pct <= outer.y_pct + outer.height_pct
   );
 }
 
@@ -242,7 +247,7 @@ function normaliseResult(raw: RawScanResult) {
       : seriesTypeRaw === "unsupported"
         ? "unsupported"
         : "unknown";
-  const pricePlotBox = normaliseBox(raw.overlay?.price_plot_box);
+  const pricePlotBox = normalisePricePlotBox(raw.overlay?.price_plot_box);
   const hasSupportedPriceSeries =
     priceSeriesType === "candles" || priceSeriesType === "price_line";
   const mustRetake =
@@ -270,7 +275,7 @@ function normaliseResult(raw: RawScanResult) {
       const name = text(signal.name, 80);
       if (!name) return null;
       const signalBox = normaliseBox(signal.box);
-      if (!boxCenterInside(signalBox, pricePlotBox)) return null;
+      if (!boxInside(signalBox, pricePlotBox)) return null;
 
       return {
         name,
@@ -337,7 +342,7 @@ function normaliseResult(raw: RawScanResult) {
       price_plot_box: pricePlotBox,
       resistance_y_pct: yInsideBox(resistanceY, pricePlotBox) ? resistanceY : null,
       support_y_pct: yInsideBox(supportY, pricePlotBox) ? supportY : null,
-      pattern_box: boxCenterInside(patternBox, pricePlotBox) ? patternBox : null,
+      pattern_box: boxInside(patternBox, pricePlotBox) ? patternBox : null,
     },
   };
 }
