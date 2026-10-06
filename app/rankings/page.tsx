@@ -395,7 +395,7 @@ export default async function RankingsPage({
                       <Link
                         href={`/stock/${stock.ticker}`}
                         aria-label={`Open ${stock.company ?? stock.ticker ?? "stock"} stock page`}
-                        className="absolute inset-0 z-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#b98b2f]"
+                        className="absolute inset-0 z-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#b98b2f]"
                       />
                       <div className={`pointer-events-none relative z-10 grid ${gridCols} items-center text-[12px] text-[#072116]`}>
                         <div className="px-4 py-2.5 font-bold text-[#072116]/70">{stock.rank ?? "—"}</div>
