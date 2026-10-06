@@ -731,7 +731,7 @@ export function ChartScannerWorkspace() {
             </p>
           </div>
         </section>
-      )}      )}
+      )}
     </main>
   );
 }
