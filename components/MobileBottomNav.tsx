@@ -99,8 +99,24 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
   }, [pathname, router]);
 
   useEffect(() => {
-    if (hidden) setMoreOpen(false);
-  }, [hidden]);
+    if (!hidden) return;
+    setMoreOpen(false);
+    setVisualCurrent(current);
+  }, [current, hidden]);
+
+  function closeMore() {
+    setMoreOpen(false);
+    setVisualCurrent(current);
+  }
+
+  function toggleMore() {
+    if (moreOpen) {
+      closeMore();
+      return;
+    }
+    setVisualCurrent("more");
+    setMoreOpen(true);
+  }
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -128,7 +144,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
           <button
             type="button"
             aria-label="Close more menu"
-            onClick={() => setMoreOpen(false)}
+            onClick={closeMore}
             className="absolute inset-0 bg-[#010604]/65 backdrop-blur-[2px]"
           />
 
@@ -141,7 +157,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
               </div>
               <button
                 type="button"
-                onClick={() => setMoreOpen(false)}
+                onClick={closeMore}
                 aria-label="Close more menu"
                 className="grid size-11 place-items-center rounded-full bg-[#faf6f0]/6 text-[#faf6f0]/72 transition active:scale-95"
               >
@@ -189,7 +205,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         aria-label="Primary mobile navigation"
         aria-hidden={hidden}
         data-hidden={hidden ? "true" : "false"}
-        className="sg-bottom-nav fixed left-1/2 z-30 h-[66px] w-[calc(100%-42px)] max-w-[380px] -translate-x-1/2 rounded-full border p-1.5 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
+        className="sg-bottom-nav fixed left-1/2 z-30 h-[66px] w-[calc(100%_-_42px)] max-w-[380px] -translate-x-1/2 rounded-full border p-1.5 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}
       >
         <div className="relative grid h-full w-full grid-cols-5 items-center">
@@ -203,6 +219,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
           />
         {primaryItems.map((item) => {
           const isActive = current === item.href;
+          const isVisualActive = visualDestination === item.href;
           const isAlerts = item.href === "/notifications";
 
           return (
@@ -213,11 +230,11 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
-              data-active={isActive ? "true" : "false"}
+              data-active={isVisualActive ? "true" : "false"}
               onPointerDown={() => setVisualCurrent(item.href)}
               className={[
                 "sg-mobile-nav-link relative z-10 flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-full px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#f2c35f]",
-                isActive
+                isVisualActive
                   ? "text-[#fffaf2]"
                   : "hover:text-[#fffaf2]",
               ].join(" ")}
@@ -240,14 +257,14 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         <button
           type="button"
           onPointerDown={() => setVisualCurrent("more")}
-          onClick={() => setMoreOpen((open) => !open)}
+          onClick={toggleMore}
           aria-label="More"
           aria-expanded={moreOpen}
           tabIndex={hidden ? -1 : undefined}
-          data-active={current === "more" || moreOpen ? "true" : "false"}
+          data-active={visualDestination === "more" ? "true" : "false"}
           className={[
             "sg-mobile-nav-link relative z-10 flex h-full min-w-0 flex-col items-center justify-center gap-1 rounded-full px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#f2c35f]",
-            current === "more" || moreOpen
+            visualDestination === "more"
               ? "text-[#fffaf2]"
               : "hover:text-[#fffaf2]",
           ].join(" ")}
