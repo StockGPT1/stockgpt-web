@@ -187,7 +187,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={true}
+                    prefetch={item.appOnly ? false : true}
                     onPointerDown={() => setVisualCurrent("more")}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active ? "page" : undefined}
