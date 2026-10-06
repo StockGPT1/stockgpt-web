@@ -1136,7 +1136,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   return (
     <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]">
       <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
-        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
+        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-1">
           <BackButton />
 
           <div className="min-w-0 text-center">
@@ -1148,18 +1148,40 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void clearHistory()}
-            aria-label="New chat"
-            className="grid size-11 place-items-center justify-self-end rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
-          >
-            <svg viewBox="0 0 24 24" className="size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
+          <div className="flex items-center justify-end gap-0.5">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Conversation history"
+              className="grid size-10 place-items-center rounded-full text-[#f7f4ec]/60 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-95"
+            >
+              <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 6h16M4 12h12M4 18h9" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              aria-label="New chat"
+              className="grid size-10 place-items-center rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
+            >
+              <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
+
+      <ConversationHistoryDrawer
+        open={historyOpen}
+        conversations={conversations}
+        activeId={activeConversationId}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={selectConversation}
+        onNew={startNewConversation}
+        onClearAll={() => void clearHistory()}
+      />
 
       {locked ? (
         <LockedExperience isAuthenticated={isAuthenticated} />
