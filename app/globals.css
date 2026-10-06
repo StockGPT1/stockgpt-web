@@ -754,6 +754,7 @@ html[data-app-shell="true"] a {
 }
 
 .sg-bottom-nav {
+  overflow: hidden;
   border-color: rgba(242, 195, 95, 0.34) !important;
   border-radius: 9999px !important;
   background:
@@ -776,6 +777,7 @@ html[data-app-shell="true"] a {
 }
 
 .sg-mobile-nav-bubble {
+  box-sizing: border-box;
   border: 1px solid rgba(255, 240, 191, 0.30);
   background:
     radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.18), transparent 58%),
@@ -963,5 +965,17 @@ html[data-app-shell="true"] .sg-bottom-nav {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+
+@media (max-width: 360px) {
+  .sg-bottom-nav {
+    left: 10px !important;
+    right: 10px !important;
+  }
+
+  .sg-mobile-nav-label {
+    font-size: 9px !important;
   }
 }
