@@ -391,16 +391,21 @@ export default async function RankingsPage({
                   const confidence = getModelConfidence(stock);
 
                   return (
-                    <div key={stock.id} className="border-b border-[#072116]/8">
-                      <div className={`grid ${gridCols} items-center text-[12px] text-[#072116] transition hover:bg-[#ddb159]/8`}>
+                    <div key={stock.id} className="relative cursor-pointer border-b border-[#072116]/8 transition hover:bg-[#ddb159]/8">
+                      <Link
+                        href={`/stock/${stock.ticker}`}
+                        aria-label={`Open ${stock.company ?? stock.ticker ?? "stock"} stock page`}
+                        className="absolute inset-0 z-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#b98b2f]"
+                      />
+                      <div className={`pointer-events-none relative z-10 grid ${gridCols} items-center text-[12px] text-[#072116]`}>
                         <div className="px-4 py-2.5 font-bold text-[#072116]/70">{stock.rank ?? "—"}</div>
                         <div className="px-4 py-2.5"><span title={move.title} className={["inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
-                        <Link href={`/stock/${stock.ticker}`} className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></Link>
+                        <div className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></div>
                         <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
-                        <div className="px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
+                        <div className="pointer-events-auto px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
                       </div>
                     </div>
                   );
