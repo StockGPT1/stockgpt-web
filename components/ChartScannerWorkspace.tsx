@@ -19,6 +19,28 @@ type ScanResult = {
   invalidation: string;
   watch_for: string;
   observations: string[];
+  current_price: string | null;
+  retake_required: boolean;
+  retake_reason: string | null;
+  signals: Array<{
+    name: string;
+    bias: "bullish" | "bearish" | "neutral";
+    confidence: number;
+    evidence: string;
+    box: {
+      x_pct: number | null;
+      y_pct: number | null;
+      width_pct: number | null;
+      height_pct: number | null;
+    } | null;
+  }>;
+  trade_plan: {
+    entry: string | null;
+    stop_loss: string | null;
+    take_profit: string | null;
+    risk_reward: string | null;
+    rationale: string | null;
+  };
   levels: {
     support: string | null;
     resistance: string | null;
@@ -43,9 +65,12 @@ type ScanResponse = {
 };
 
 const analysisSteps = [
-  "Finding chart structure",
-  "Reading support and resistance",
-  "Scoring the setup",
+  "Reading current price",
+  "Mapping support and resistance",
+  "Scanning chart patterns",
+  "Checking visible indicators",
+  "Building risk levels",
+  "Scoring signal confluence",
 ];
 
 async function imageFromFile(file: File) {
@@ -120,6 +145,31 @@ function verdictTone(verdict: ScanResult["verdict"]) {
   return {
     badge: "border-[#f2c35f]/22 bg-[#f2c35f]/8 text-[#f2d786]",
     glow: "shadow-[0_0_50px_rgba(242,195,95,0.08)]",
+    dot: "bg-[#f2c35f]",
+  };
+}
+
+function signalTone(bias: "bullish" | "bearish" | "neutral") {
+  if (bias === "bullish") {
+    return {
+      border: "border-emerald-300/85",
+      bg: "bg-emerald-300/10",
+      text: "text-emerald-200",
+      dot: "bg-emerald-300",
+    };
+  }
+  if (bias === "bearish") {
+    return {
+      border: "border-rose-300/85",
+      bg: "bg-rose-300/10",
+      text: "text-rose-200",
+      dot: "bg-rose-300",
+    };
+  }
+  return {
+    border: "border-[#f2c35f]/75",
+    bg: "bg-[#f2c35f]/10",
+    text: "text-[#f2d786]",
     dot: "bg-[#f2c35f]",
   };
 }
@@ -202,6 +252,10 @@ export function ChartScannerWorkspace() {
         chartConfidence: result.confidence,
         chartConfirmation: result.confirmation,
         chartInvalidation: result.invalidation,
+        chartCurrentPrice: result.current_price,
+        chartSignals: result.signals.map((signal) => signal.name).join(", "),
+        chartStopLoss: result.trade_plan.stop_loss,
+        chartTakeProfit: result.trade_plan.take_profit,
       },
     });
   }, [result]);
@@ -305,13 +359,28 @@ export function ChartScannerWorkspace() {
               Spot the setup in seconds.
             </h1>
             <p className="mt-3 max-w-[36rem] text-[14px] font-medium leading-6 text-[#fffaf2]/56">
-              Point your iPhone at a stock chart or use a screenshot. StockGPT reads the visible pattern, key levels and what would confirm or kill the setup.
+              Point your iPhone at a stock chart or use a screenshot. StockGPT scans the structure, patterns, visible indicators and risk levels it can actually read.
             </p>
           </div>
 
           <ScannerTarget />
 
-          <div className="mt-6 grid gap-2.5">
+          <div className="mt-5 rounded-[22px] border border-[#f2c35f]/14 bg-[#f2c35f]/[0.055] p-4">
+            <div className="flex items-center gap-2">
+              <span className="grid size-7 place-items-center rounded-full bg-[#f2c35f]/12 text-[13px] font-black text-[#f2d786]">!</span>
+              <p className="text-[11px] font-black uppercase tracking-[0.13em] text-[#f2d786]">Before you take the photo</p>
+            </div>
+            <p className="mt-2 text-[13px] font-black leading-5 text-[#fffaf2]">
+              Get the full chart in — especially the current price and right-side price scale.
+            </p>
+            <div className="mt-3 grid gap-2 text-[11.5px] font-semibold leading-4 text-[#fffaf2]/55">
+              <p>• Keep the latest candle and current price label visible.</p>
+              <p>• Include ticker + timeframe if they are on screen.</p>
+              <p>• If you want RSI, MACD, volume or moving averages analysed, keep those panels visible too.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-2.5">
             <button
               type="button"
               data-native-haptic="medium"
@@ -370,7 +439,7 @@ export function ChartScannerWorkspace() {
           <div className="rounded-[26px] border border-rose-300/12 bg-rose-300/[0.045] p-5">
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-rose-200/65">Scan failed</p>
             <p className="mt-2 text-[19px] font-black tracking-[-0.025em] text-[#fffaf2]">{error}</p>
-            <p className="mt-2 text-[12px] leading-5 text-[#fffaf2]/45">A tighter crop with visible candles and price levels usually works best.</p>
+            <p className="mt-2 text-[12px] leading-5 text-[#fffaf2]/45">Retake it with the full chart, latest candle, current price and right-side price scale visible.</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2.5">
             <button
