@@ -162,15 +162,15 @@ export function RankingsMobileBatchList({
             key={rowKey}
             data-expanded={isWhyOpen ? "true" : "false"}
             onClick={openStockFromCard}
-            className="relative cursor-pointer overflow-hidden rounded-[19px] border border-[#ddb159]/13 bg-[linear-gradient(145deg,rgba(11,43,29,0.78),rgba(3,24,15,0.92))] px-3.5 py-3 shadow-[0_10px_26px_rgba(0,0,0,0.16)] transition active:scale-[0.992] data-[expanded=true]:border-[#ddb159]/28"
+            className="sg-ranking-card relative cursor-pointer overflow-hidden rounded-[19px] border border-[#f2c35f]/18 bg-[linear-gradient(145deg,rgba(13,57,39,0.88),rgba(5,29,20,0.95))] px-3.5 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition active:scale-[0.992] data-[expanded=true]:border-[#f2c35f]/34"
           >
             <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3">
               <span
                 className={[
                   "grid size-9 shrink-0 place-items-center rounded-[12px] text-[12px] font-black tabular-nums",
                   topRank
-                    ? "bg-[#ddb159] text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)]"
-                    : "border border-[#ddb159]/18 bg-[#ddb159]/7 text-[#ddb159]",
+                    ? "bg-[#f2c35f] text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)]"
+                    : "border border-[#ddb159]/18 bg-[#f2c35f]/7 text-[#f2c35f]",
                 ].join(" ")}
               >
                 {stock.rank ?? "—"}
@@ -202,7 +202,7 @@ export function RankingsMobileBatchList({
                 <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/32">
                   AI score
                 </span>
-                <span className="mt-0.5 block text-[16px] font-black tabular-nums text-[#ddb159]">
+                <span className="mt-0.5 block text-[16px] font-black tabular-nums text-[#f2c35f]">
                   {score(stock.score)}
                 </span>
               </span>
@@ -252,7 +252,7 @@ export function RankingsMobileBatchList({
             onClick={loadNext}
             disabled={isPending}
             data-native-haptic="medium"
-            className="h-12 w-full rounded-[18px] bg-[#ddb159] text-[11px] font-black text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)] transition active:scale-[0.99] disabled:opacity-50"
+            className="h-12 w-full rounded-[18px] bg-[#f2c35f] text-[11px] font-black text-[#061b12] shadow-[0_8px_20px_rgba(221,177,89,0.14)] transition active:scale-[0.99] disabled:opacity-50"
           >
             {isPending ? "Loading next 50…" : "Load next 50"}
           </button>
