@@ -239,9 +239,11 @@ function normaliseResult(raw: RawScanResult) {
         ? "unsupported"
         : "unknown";
   const pricePlotBox = normaliseBox(raw.overlay?.price_plot_box);
+  const hasSupportedPriceSeries =
+    priceSeriesType === "candles" || priceSeriesType === "price_line";
   const mustRetake =
     bool(raw.retake_required) ||
-    priceSeriesType === "unsupported" ||
+    !hasSupportedPriceSeries ||
     !pricePlotBox;
   const rawEntry = text(raw.trade_plan?.entry, 40);
   const rawStopLoss = text(raw.trade_plan?.stop_loss, 40);
