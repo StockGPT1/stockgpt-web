@@ -348,7 +348,7 @@ export function MobileDashboardExperience({
       </section>
 
       <section aria-label="Dashboard intelligence" className="mt-4 min-w-0">
-        <div className="overflow-hidden rounded-[1.65rem]">
+        <div className="-mx-3">
           <div
             ref={carouselRef}
             role="region"
@@ -357,7 +357,7 @@ export function MobileDashboardExperience({
             tabIndex={0}
             onScroll={updateActivePanel}
             onKeyDown={handleCarouselKey}
-            className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth px-3 scroll-px-3 [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
           >
             <article
               role="group"
@@ -681,7 +681,7 @@ export function MobileDashboardExperience({
             {rankingsLocked ? "Unlock →" : "View all →"}
           </Link>
         </div>
-        <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pr-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-3 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pl-3 pr-10 scroll-px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {rankings.length > 0 ? (
             rankings.slice(0, 6).map((item) => {
               const destination = rankingsLocked
@@ -807,7 +807,7 @@ export function MobileDashboardExperience({
             Latest world news is temporarily unavailable. The full news page will refresh automatically.
           </div>
         ) : (
-          <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pr-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-3 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pl-3 pr-10 scroll-px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {news.slice(0, 3).map((article) => (
               <a
                 key={article.id}
