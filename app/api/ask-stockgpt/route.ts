@@ -15,6 +15,24 @@ type ChatMessage = {
   content: string;
 };
 
+type StoredChatRow = {
+  role: unknown;
+  content: unknown;
+  created_at: string | null;
+};
+
+type ChatConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
+
+type ConversationMeta = {
+  id: string;
+  title: string;
+};
+
 type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -139,7 +157,9 @@ type EnrichedHoldingContext = {
 };
 
 const CHAT_LOG_DAYS = 7;
-const MAX_STORED_MESSAGES = 80;
+const MAX_STORED_MESSAGES = 240;
+const CONVERSATION_MARKER_PREFIX = "__STOCKGPT_CONVERSATION__:";
+const LEGACY_CONVERSATION_ID = "legacy";
 
 /* Strongest model first — answer quality is the product here, and the
    chain only moves down when a model errors or is unavailable. The
@@ -164,6 +184,107 @@ function sevenDaysAgoIso() {
 function cleanQuestion(value: unknown) {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, 2400);
+}
+
+function cleanConversationId(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+}
+
+function cleanConversationTitle(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim().slice(0, 72);
+}
+
+function titleFromQuestion(question: string) {
+  const cleaned = question.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "New conversation";
+  return cleaned.length > 52 ? `${cleaned.slice(0, 49).trim()}…` : cleaned;
+}
+
+function conversationMarker(meta: ConversationMeta) {
+  return `${CONVERSATION_MARKER_PREFIX}${JSON.stringify(meta)}`;
+}
+
+function parseConversationMarker(content: string): ConversationMeta | null {
+  if (!content.startsWith(CONVERSATION_MARKER_PREFIX)) return null;
+
+  try {
+    const parsed = JSON.parse(content.slice(CONVERSATION_MARKER_PREFIX.length)) as {
+      id?: unknown;
+      title?: unknown;
+    };
+    const id = cleanConversationId(parsed.id);
+    if (!id) return null;
+    return {
+      id,
+      title: cleanConversationTitle(parsed.title) || "Conversation",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildConversations(rows: StoredChatRow[]): ChatConversation[] {
+  const conversations = new Map<string, ChatConversation>();
+  let activeMeta: ConversationMeta = {
+    id: LEGACY_CONVERSATION_ID,
+    title: "Previous conversation",
+  };
+
+  function ensure(meta: ConversationMeta, updatedAt = "") {
+    const existing = conversations.get(meta.id);
+    if (existing) {
+      if (meta.title && existing.title === "Conversation") existing.title = meta.title;
+      if (updatedAt && updatedAt > existing.updatedAt) existing.updatedAt = updatedAt;
+      return existing;
+    }
+
+    const created: ChatConversation = {
+      id: meta.id,
+      title: meta.title || "Conversation",
+      updatedAt,
+      messages: [],
+    };
+    conversations.set(meta.id, created);
+    return created;
+  }
+
+  for (const row of rows) {
+    const content = typeof row.content === "string" ? row.content.trim() : "";
+    if (!content) continue;
+
+    const marker = parseConversationMarker(content);
+    if (marker) {
+      activeMeta = marker;
+      ensure(marker, row.created_at ?? "");
+      continue;
+    }
+
+    if (row.role !== "user" && row.role !== "assistant") continue;
+
+    const conversation = ensure(activeMeta, row.created_at ?? "");
+    conversation.messages.push({
+      role: row.role,
+      content,
+    });
+
+    if (
+      conversation.id === LEGACY_CONVERSATION_ID &&
+      conversation.title === "Previous conversation" &&
+      row.role === "user"
+    ) {
+      conversation.title = titleFromQuestion(content);
+    }
+  }
+
+  return Array.from(conversations.values())
+    .filter((conversation) => conversation.messages.length > 0)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function makeConversationId() {
+  return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function cleanHistory(value: unknown): ChatMessage[] {
@@ -332,14 +453,17 @@ async function deleteOldChatMessages(supabase: ServerSupabaseClient, userId: str
   }
 }
 
-async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: string): Promise<ChatMessage[]> {
+async function readStoredChatRows(
+  supabase: ServerSupabaseClient,
+  userId: string,
+): Promise<StoredChatRow[]> {
   try {
     const { data, error } = await supabase
       .from("ask_stockgpt_messages")
       .select("role,content,created_at")
       .eq("user_id", userId)
       .gte("created_at", sevenDaysAgoIso())
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(MAX_STORED_MESSAGES);
 
     if (error) {
@@ -347,21 +471,18 @@ async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: st
       return [];
     }
 
-    return ((data ?? []) as Array<{ role: unknown; content: unknown }>)
-      .filter(
-        (row) =>
-          (row.role === "user" || row.role === "assistant") &&
-          typeof row.content === "string" &&
-          row.content.trim().length > 0,
-      )
-      .map((row) => ({
-        role: row.role as "user" | "assistant",
-        content: String(row.content).trim(),
-      }));
+    return ((data ?? []) as StoredChatRow[]).reverse();
   } catch (error) {
     console.warn("[ask-stockgpt] Chat history unavailable", error);
     return [];
   }
+}
+
+async function readRecentChatConversations(
+  supabase: ServerSupabaseClient,
+  userId: string,
+) {
+  return buildConversations(await readStoredChatRows(supabase, userId));
 }
 
 function cleanAssistantFormatting(content: string) {
@@ -380,17 +501,39 @@ function cleanAssistantFormatting(content: string) {
     .trim();
 }
 
-async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, message: ChatMessage) {
+async function storeChatMessage(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  message: ChatMessage,
+  conversation?: ConversationMeta,
+) {
   try {
     const content = message.role === "assistant"
       ? cleanAssistantFormatting(message.content)
       : message.content;
 
-    await supabase.from("ask_stockgpt_messages").insert({
-      user_id: userId,
-      role: message.role,
-      content: content.slice(0, 6000),
-    });
+    const rows = conversation
+      ? [
+          {
+            user_id: userId,
+            role: "user",
+            content: conversationMarker(conversation),
+          },
+          {
+            user_id: userId,
+            role: message.role,
+            content: content.slice(0, 6000),
+          },
+        ]
+      : [
+          {
+            user_id: userId,
+            role: message.role,
+            content: content.slice(0, 6000),
+          },
+        ];
+
+    await supabase.from("ask_stockgpt_messages").insert(rows);
   } catch (error) {
     console.warn("[ask-stockgpt] Could not store chat message", error);
   }
@@ -855,10 +998,12 @@ function streamOpenRouterAnswer({
   response,
   supabase,
   userId,
+  conversation,
 }: {
   response: Response;
   supabase: ServerSupabaseClient;
   userId: string;
+  conversation: ConversationMeta;
 }) {
   const encoder = new TextEncoder();
 
@@ -870,7 +1015,7 @@ function streamOpenRouterAnswer({
         const answer =
           "Ask StockGPT could not open the AI response stream. Please retry.";
         controller.enqueue(encoder.encode(answer));
-        await storeChatMessage(supabase, userId, { role: "assistant", content: answer });
+        await storeChatMessage(supabase, userId, { role: "assistant", content: answer }, conversation);
         controller.close();
         return;
       }
@@ -885,7 +1030,7 @@ function streamOpenRouterAnswer({
         await storeChatMessage(supabase, userId, {
           role: "assistant",
           content: finalAnswer,
-        });
+        }, conversation);
       }
 
       try {
@@ -937,7 +1082,7 @@ function streamOpenRouterAnswer({
           await storeChatMessage(supabase, userId, {
             role: "assistant",
             content: `${answer.trim()}${interruption}`,
-          });
+          }, conversation);
         } else {
           const failure =
             "Ask StockGPT could not stream a response. Please retry, or email sales@stockgpt.pro if this relates to membership or billing.";
@@ -945,7 +1090,7 @@ function streamOpenRouterAnswer({
           await storeChatMessage(supabase, userId, {
             role: "assistant",
             content: failure,
-          });
+          }, conversation);
         }
       } finally {
         controller.close();
@@ -960,9 +1105,15 @@ export async function GET() {
   if (access.response) return access.response;
 
   await deleteOldChatMessages(supabase, access.userId);
-  const messages = await readRecentChatMessages(supabase, access.userId);
+  const conversations = await readRecentChatConversations(supabase, access.userId);
+  const active = conversations[0] ?? null;
 
-  return NextResponse.json({ messages, retained_days: CHAT_LOG_DAYS });
+  return NextResponse.json({
+    conversations,
+    active_conversation_id: active?.id ?? null,
+    messages: active?.messages ?? [],
+    retained_days: CHAT_LOG_DAYS,
+  });
 }
 
 export async function DELETE() {
@@ -1040,7 +1191,17 @@ export async function POST(req: NextRequest) {
     }
 
     await deleteOldChatMessages(supabase, access.userId);
-    const storedHistory = await readRecentChatMessages(supabase, access.userId);
+
+    const conversation: ConversationMeta = {
+      id: cleanConversationId(body?.conversation_id) || makeConversationId(),
+      title:
+        cleanConversationTitle(body?.conversation_title) ||
+        titleFromQuestion(question),
+    };
+
+    const conversations = await readRecentChatConversations(supabase, access.userId);
+    const storedHistory =
+      conversations.find((item) => item.id === conversation.id)?.messages ?? [];
     const fallbackHistory = cleanHistory(body?.messages).filter((message, index, arr) => {
       const isLast = index === arr.length - 1;
       return !(isLast && message.role === "user" && message.content.trim().toLowerCase() === question.trim().toLowerCase());
@@ -1048,7 +1209,12 @@ export async function POST(req: NextRequest) {
 
     const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
 
-    await storeChatMessage(supabase, access.userId, { role: "user", content: question });
+    await storeChatMessage(
+      supabase,
+      access.userId,
+      { role: "user", content: question },
+      conversation,
+    );
 
     const context = await buildAppContext(
       supabase,
@@ -1083,6 +1249,7 @@ export async function POST(req: NextRequest) {
             response: streamResult.response,
             supabase,
             userId: access.userId,
+            conversation,
           }),
           {
             status: 200,
@@ -1092,6 +1259,7 @@ export async function POST(req: NextRequest) {
               "X-Accel-Buffering": "no",
               "X-StockGPT-Stream": "1",
               "X-StockGPT-Model": streamResult.model ?? "",
+              "X-StockGPT-Conversation": conversation.id,
             },
           },
         );
@@ -1137,7 +1305,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await storeChatMessage(supabase, access.userId, { role: "assistant", content: answer });
+      await storeChatMessage(
+        supabase,
+        access.userId,
+        { role: "assistant", content: answer },
+        conversation,
+      );
       return NextResponse.json(
         {
           answer,
@@ -1148,10 +1321,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await storeChatMessage(supabase, access.userId, { role: "assistant", content: result.answer });
+    await storeChatMessage(
+      supabase,
+      access.userId,
+      { role: "assistant", content: result.answer },
+      conversation,
+    );
 
     return NextResponse.json({
       answer: result.answer,
+      conversation_id: conversation.id,
+      conversation_title: conversation.title,
       model_used: result.model,
       attempted_models: [result.model, ...result.failures.map((failure) => failure.model)].filter(Boolean),
     });

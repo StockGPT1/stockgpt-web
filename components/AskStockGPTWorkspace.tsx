@@ -12,6 +12,13 @@ type ChatMessage = {
   content: string;
 };
 
+type ChatConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
+
 type Mode = "portfolio" | "rankings" | "learn" | "account";
 
 type StarterPrompt = {
@@ -63,6 +70,38 @@ const welcomeMessage: ChatMessage = {
   content:
     "Ask me anything about your portfolio, StockGPT rankings, a stock, an alert, market news, or an investing concept.",
 };
+
+function makeClientConversationId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `chat-${crypto.randomUUID()}`;
+  }
+  return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function conversationTitleFromQuestion(question: string) {
+  const cleaned = question.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "New conversation";
+  return cleaned.length > 52 ? `${cleaned.slice(0, 49).trim()}…` : cleaned;
+}
+
+function conversationTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function meaningfulMessages(messages: ChatMessage[]) {
+  return messages.filter(
+    (message, index) =>
+      !(index === 0 &&
+        message.role === "assistant" &&
+        message.content === welcomeMessage.content),
+  );
+}
 
 const modeOptions: Array<{ mode: Mode; label: string; shortLabel: string; description: string }> = [
   { mode: "portfolio", label: "Portfolio", shortLabel: "Portfolio", description: "Holdings, alerts, P&L" },
@@ -498,6 +537,100 @@ function IntelligencePanel({ activeMode, holdings, holdingsLoading, onAskHolding
   );
 }
 
+function ConversationHistoryDrawer({
+  open,
+  conversations,
+  activeId,
+  onClose,
+  onSelect,
+  onNew,
+  onClearAll,
+}: {
+  open: boolean;
+  conversations: ChatConversation[];
+  activeId: string | null;
+  onClose: () => void;
+  onSelect: (conversation: ChatConversation) => void;
+  onNew: () => void;
+  onClearAll: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Conversation history">
+      <button
+        type="button"
+        aria-label="Close conversation history"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/62 backdrop-blur-[2px]"
+      />
+      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-white/[0.07] bg-[linear-gradient(180deg,#09150f,#030705_72%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.55)]">
+        <div className="flex items-center justify-between gap-3 px-4">
+          <div className="min-w-0">
+            <p className="text-[15px] font-black tracking-[-0.025em] text-[#f7f4ec]">Chats</p>
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#ddb159]/58">Last 7 days</p>
+          </div>
+          <button
+            type="button"
+            onClick={onNew}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#ffe6a0]/60 bg-[#f2c35f] px-3 text-[10px] font-black text-[#06170f] shadow-[0_8px_24px_rgba(242,195,95,0.16)]"
+          >
+            <span className="text-[15px] leading-none">+</span>
+            New chat
+          </button>
+        </div>
+
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
+          {conversations.length === 0 ? (
+            <div className="mx-2 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+              <p className="text-[12px] font-bold text-[#f7f4ec]/72">No previous conversations yet.</p>
+              <p className="mt-1 text-[11px] font-medium leading-5 text-[#f7f4ec]/34">Your recent Ask StockGPT chats will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid gap-1">
+              {conversations.map((conversation) => {
+                const active = conversation.id === activeId;
+                return (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    onClick={() => onSelect(conversation)}
+                    className={[
+                      "group flex min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition",
+                      active
+                        ? "bg-white/[0.075] text-[#f7f4ec]"
+                        : "text-[#f7f4ec]/70 hover:bg-white/[0.045] hover:text-[#f7f4ec]",
+                    ].join(" ")}
+                  >
+                    <span className={[
+                      "size-1.5 shrink-0 rounded-full",
+                      active ? "bg-[#f2c35f] shadow-[0_0_12px_rgba(242,195,95,0.65)]" : "bg-white/16",
+                    ].join(" ")} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] font-bold">{conversation.title}</span>
+                      <span className="mt-0.5 block text-[9px] font-semibold text-[#f7f4ec]/28">{conversationTime(conversation.updatedAt)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-4 mt-3 border-t border-white/[0.055] pt-3">
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="h-9 text-[10px] font-bold text-[#f7f4ec]/38 transition hover:text-red-200"
+          >
+            Clear all conversations
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 /* Chooses which single portfolio the chat is focused on. Hidden when
    the user has fewer than two portfolios — there is nothing to choose. */
 function PortfolioFocusPicker({
@@ -547,6 +680,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationTitle, setActiveConversationTitle] = useState("New conversation");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<Mode>(
     initialContext?.contextType === "rankings" ? "rankings" : "portfolio",
   );
@@ -613,22 +750,69 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   useEffect(() => {
     if (locked) return;
     let cancelled = false;
+
     async function loadHistory() {
       setHistoryLoading(true);
       try {
-        const response = await fetch("/api/ask-stockgpt", { method: "GET", headers: { Accept: "application/json" } });
-        const data = (await response.json().catch(() => null)) as { messages?: ChatMessage[] } | null;
+        const response = await fetch("/api/ask-stockgpt", {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        const data = (await response.json().catch(() => null)) as {
+          conversations?: ChatConversation[];
+          active_conversation_id?: string | null;
+          messages?: ChatMessage[];
+        } | null;
+
         if (cancelled) return;
-        const saved = Array.isArray(data?.messages) ? data.messages.filter((message): message is ChatMessage => message !== null && typeof message === "object" && (message.role === "user" || message.role === "assistant") && typeof message.content === "string" && message.content.trim().length > 0) : [];
-        setMessages(saved.length > 0 ? saved : [welcomeMessage]);
+
+        const savedConversations = Array.isArray(data?.conversations)
+          ? data.conversations.filter(
+              (conversation): conversation is ChatConversation =>
+                conversation !== null &&
+                typeof conversation === "object" &&
+                typeof conversation.id === "string" &&
+                typeof conversation.title === "string" &&
+                typeof conversation.updatedAt === "string" &&
+                Array.isArray(conversation.messages),
+            )
+          : [];
+
+        if (savedConversations.length > 0) {
+          const preferredId =
+            typeof data?.active_conversation_id === "string"
+              ? data.active_conversation_id
+              : savedConversations[0].id;
+          const active =
+            savedConversations.find((conversation) => conversation.id === preferredId) ??
+            savedConversations[0];
+
+          setConversations(savedConversations);
+          setActiveConversationId(active.id);
+          setActiveConversationTitle(active.title);
+          setMessages(active.messages.length > 0 ? active.messages : [welcomeMessage]);
+        } else {
+          setConversations([]);
+          setActiveConversationId(makeClientConversationId());
+          setActiveConversationTitle("New conversation");
+          setMessages([welcomeMessage]);
+        }
       } catch {
-        if (!cancelled) setMessages([welcomeMessage]);
+        if (!cancelled) {
+          setConversations([]);
+          setActiveConversationId(makeClientConversationId());
+          setActiveConversationTitle("New conversation");
+          setMessages([welcomeMessage]);
+        }
       } finally {
         if (!cancelled) setHistoryLoading(false);
       }
     }
+
     void loadHistory();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [locked]);
 
   useEffect(() => {
@@ -680,10 +864,70 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked, holdingsLoaded, holdingLoading]);
 
-  async function clearHistory() {
+  function startNewConversation() {
+    setActiveConversationId(makeClientConversationId());
+    setActiveConversationTitle("New conversation");
     setMessages([welcomeMessage]);
-    try { await fetch("/api/ask-stockgpt", { method: "DELETE" }); } catch {}
+    setQuestion("");
+    setHistoryOpen(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
   }
+
+  function selectConversation(conversation: ChatConversation) {
+    setActiveConversationId(conversation.id);
+    setActiveConversationTitle(conversation.title);
+    setMessages(conversation.messages.length > 0 ? conversation.messages : [welcomeMessage]);
+    setQuestion("");
+    setHistoryOpen(false);
+    forceNextScrollRef.current = true;
+    shouldAutoScrollRef.current = true;
+  }
+
+  async function clearHistory() {
+    setConversations([]);
+    startNewConversation();
+    try {
+      await fetch("/api/ask-stockgpt", { method: "DELETE" });
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!activeConversationId || loading || streaming) return;
+
+    const saved = meaningfulMessages(messages);
+    if (!saved.some((message) => message.role === "user")) return;
+
+    const title =
+      activeConversationTitle === "New conversation"
+        ? conversationTitleFromQuestion(
+            saved.find((message) => message.role === "user")?.content ?? "",
+          )
+        : activeConversationTitle;
+    const updatedAt = new Date().toISOString();
+
+    if (title !== activeConversationTitle) setActiveConversationTitle(title);
+
+    setConversations((current) => {
+      const nextConversation: ChatConversation = {
+        id: activeConversationId,
+        title,
+        updatedAt,
+        messages: saved,
+      };
+
+      return [
+        nextConversation,
+        ...current.filter((conversation) => conversation.id !== activeConversationId),
+      ];
+    });
+  }, [
+    activeConversationId,
+    activeConversationTitle,
+    loading,
+    messages,
+    streaming,
+  ]);
 
   async function sendQuestion(nextQuestion?: string) {
     if (locked) return;
@@ -695,8 +939,17 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
     forceNextScrollRef.current = true;
     shouldAutoScrollRef.current = true;
     const userMessage: ChatMessage = { role: "user", content: text };
-    const nextMessages = [...messages, userMessage];
+    const conversationId = activeConversationId ?? makeClientConversationId();
+    const conversationTitle =
+      activeConversationTitle === "New conversation"
+        ? conversationTitleFromQuestion(text)
+        : activeConversationTitle;
+    const nextMessages = [...meaningfulMessages(messages), userMessage];
+
+    setActiveConversationId(conversationId);
+    setActiveConversationTitle(conversationTitle);
     setMessages(nextMessages);
+
     try {
       const response = await fetch("/api/ask-stockgpt", {
         method: "POST",
@@ -713,6 +966,8 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             ? { ...(initialContext ?? { contextType: "portfolio" }), portfolioId: selectedPortfolioId }
             : initialContext,
           messages: nextMessages.slice(-14),
+          conversation_id: conversationId,
+          conversation_title: conversationTitle,
           stream: true,
         }),
       });
@@ -881,7 +1136,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   return (
     <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]">
       <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
-        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
+        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-1">
           <BackButton />
 
           <div className="min-w-0 text-center">
@@ -893,18 +1148,40 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void clearHistory()}
-            aria-label="New chat"
-            className="grid size-11 place-items-center justify-self-end rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
-          >
-            <svg viewBox="0 0 24 24" className="size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
+          <div className="flex items-center justify-end gap-0.5">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Conversation history"
+              className="grid size-10 place-items-center rounded-full text-[#f7f4ec]/60 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-95"
+            >
+              <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 6h16M4 12h12M4 18h9" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              aria-label="New chat"
+              className="grid size-10 place-items-center rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
+            >
+              <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
+
+      <ConversationHistoryDrawer
+        open={historyOpen}
+        conversations={conversations}
+        activeId={activeConversationId}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={selectConversation}
+        onNew={startNewConversation}
+        onClearAll={() => void clearHistory()}
+      />
 
       {locked ? (
         <LockedExperience isAuthenticated={isAuthenticated} />
