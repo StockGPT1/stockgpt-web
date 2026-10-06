@@ -113,7 +113,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             className="absolute inset-0 bg-[#010604]/65 backdrop-blur-[2px]"
           />
 
-          <section className="sg-mobile-more-sheet absolute inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] mx-auto max-w-[430px] overflow-hidden rounded-[28px] border border-[#ddb159]/28 bg-[#061b12]/[0.98] p-2 shadow-[0_28px_80px_rgba(0,0,0,0.62)] backdrop-blur-2xl">
+          <section className="sg-mobile-more-sheet absolute inset-x-3 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] mx-auto max-w-[430px] overflow-hidden rounded-[28px] border p-2 shadow-[0_28px_80px_rgba(0,0,0,0.54)] backdrop-blur-2xl">
             <div className="mx-auto mb-1 mt-1 h-1 w-10 rounded-full bg-[#faf6f0]/18" />
             <div className="flex items-center justify-between px-3 pb-2 pt-1">
               <div>
@@ -169,7 +169,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         aria-label="Primary mobile navigation"
         aria-hidden={hidden}
         data-hidden={hidden ? "true" : "false"}
-        className="sg-bottom-nav fixed left-[clamp(12px,5.5vw,24px)] right-[clamp(12px,5.5vw,24px)] z-30 mx-auto grid h-[68px] max-w-[430px] grid-cols-5 items-center gap-1 rounded-[26px] border border-[#ddb159]/28 bg-[#04180f]/96 px-2 shadow-[0_16px_45px_rgba(0,0,0,0.5),0_0_0_1px_rgba(221,177,89,0.05)] backdrop-blur-md transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
+        className="sg-bottom-nav fixed left-[clamp(12px,5.5vw,24px)] right-[clamp(12px,5.5vw,24px)] z-30 mx-auto grid h-[68px] max-w-[430px] grid-cols-5 items-center gap-1 rounded-[26px] border px-2 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}
       >
         {primaryItems.map((item) => {
@@ -186,10 +186,10 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
               tabIndex={hidden ? -1 : undefined}
               data-active={isActive ? "true" : "false"}
               className={[
-                "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#faf6f0]/58 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
+                "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
                 isActive
-                  ? "bg-[#ddb159]/12 text-[#ddb159]"
-                  : "hover:bg-[#faf6f0]/7 hover:text-[#faf6f0]",
+                  ? "text-[#062016]"
+                  : "hover:bg-[#faf6f0]/7 hover:text-[#fffaf2]",
               ].join(" ")}
             >
               <span className="relative">
@@ -215,10 +215,10 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
           tabIndex={hidden ? -1 : undefined}
           data-active={current === "more" || moreOpen ? "true" : "false"}
           className={[
-            "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#faf6f0]/58 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
+            "sg-mobile-nav-link relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[#fffaf2]/66 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddb159]",
             current === "more" || moreOpen
-              ? "bg-[#ddb159]/12 text-[#ddb159]"
-              : "hover:bg-[#faf6f0]/7 hover:text-[#faf6f0]",
+              ? "text-[#062016]"
+              : "hover:bg-[#faf6f0]/7 hover:text-[#fffaf2]",
           ].join(" ")}
         >
           <MoreIcon />
