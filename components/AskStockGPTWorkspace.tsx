@@ -201,24 +201,6 @@ function PremiumOrb({ small = false }: { small?: boolean }) {
   );
 }
 
-function BackButton() {
-  const router = useRouter();
-  return (
-    <button
-      type="button"
-      aria-label="Back"
-      onClick={() => {
-        if (typeof window !== "undefined" && window.history.length > 1) router.back();
-        else router.push("/portfolio");
-      }}
-      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#ddb159]/24 bg-[#fbf4e5]/[0.04] text-[18px] font-black leading-none text-[#ddb159] transition hover:bg-[#ddb159]/10 sm:w-auto sm:gap-2 sm:px-4 sm:text-[12px] sm:uppercase sm:tracking-[0.14em]"
-    >
-      <span aria-hidden="true">←</span>
-      <span className="hidden sm:inline">Back</span>
-    </button>
-  );
-}
-
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
 
@@ -675,6 +657,7 @@ function PortfolioFocusPicker({
 }
 
 export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initialContext = null }: AskStockGPTWorkspaceProps) {
+  const router = useRouter();
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
@@ -1136,8 +1119,15 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
   return (
     <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]">
       <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
-        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-1">
-          <BackButton />
+        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[64px_minmax(0,1fr)_64px] items-center">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            aria-label="Open previous chats"
+            className="justify-self-start rounded-full px-2 py-2 text-[12px] font-black tracking-[-0.01em] text-[#f7f4ec]/72 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-[0.98]"
+          >
+            Chats
+          </button>
 
           <div className="min-w-0 text-center">
             <p className="truncate text-[17px] font-black tracking-[-0.025em] text-[#f7f4ec]">
@@ -1148,28 +1138,17 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-0.5">
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              aria-label="Conversation history"
-              className="grid size-10 place-items-center rounded-full text-[#f7f4ec]/60 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-95"
-            >
-              <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 6h16M4 12h12M4 18h9" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={startNewConversation}
-              aria-label="New chat"
-              className="grid size-10 place-items-center rounded-full text-[#ddb159] transition hover:bg-white/[0.05] active:scale-95"
-            >
-              <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) router.back();
+              else router.push("/dashboard");
+            }}
+            aria-label="Exit Ask StockGPT"
+            className="grid size-10 place-items-center justify-self-end rounded-full text-[28px] font-light leading-none text-[#f7f4ec]/72 transition hover:bg-white/[0.05] hover:text-[#f7f4ec] active:scale-95"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
       </header>
 
