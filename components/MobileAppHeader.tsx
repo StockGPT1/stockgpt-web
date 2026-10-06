@@ -13,6 +13,7 @@ function pageTitle(pathname: string) {
     return decodeURIComponent(pathname.split("/")[2] ?? "Stock").toUpperCase();
   }
   if (pathname.startsWith("/compare")) return "Compare";
+  if (pathname.startsWith("/chart-scan")) return "Chart Scan";
   if (pathname.startsWith("/rankings")) return "Rankings";
   if (pathname.startsWith("/portfolio")) return "Portfolio";
   if (pathname.startsWith("/notifications")) return "Alerts";
@@ -26,6 +27,7 @@ function pageTitle(pathname: string) {
 function routeKey(pathname: string) {
   if (pathname.startsWith("/stock/")) return "stock";
   if (pathname.startsWith("/compare")) return "compare";
+  if (pathname.startsWith("/chart-scan")) return "chart-scan";
   if (pathname.startsWith("/rankings")) return "rankings";
   if (pathname.startsWith("/portfolio")) return "portfolio";
   if (pathname.startsWith("/notifications")) return "notifications";
@@ -103,6 +105,8 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
   const title = pageTitle(pathname);
   const isDashboard = pathname === "/dashboard";
   const isDetailPage = pathname.startsWith("/stock/") || pathname.startsWith("/compare");
+  const isChartScan = pathname.startsWith("/chart-scan");
+  const usesBackButton = isDetailPage || isChartScan;
 
   useEffect(() => {
     document.body.dataset.sgPath = routeKey(pathname);
@@ -147,7 +151,7 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
 
   return (
     <header className="sg-mobile-app-header relative z-40 grid h-14 shrink-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-1 border-b border-[#f2c35f]/24 bg-transparent pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
-      {isDetailPage ? (
+      {usesBackButton ? (
         <button
           type="button"
           onClick={() => router.back()}
@@ -164,7 +168,7 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
         {title}
       </p>
 
-      {isDetailPage ? <ShareButton title={title} /> : <AskHeaderButton href={askHref} />}
+      {isDetailPage ? <ShareButton title={title} /> : isChartScan ? <span className="size-11" aria-hidden="true" /> : <AskHeaderButton href={askHref} />}
     </header>
   );
 }

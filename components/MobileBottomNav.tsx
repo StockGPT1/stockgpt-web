@@ -15,22 +15,32 @@ const primaryItems = [
 
 const moreItems = [
   {
+    href: "/chart-scan",
+    label: "Chart Scanner",
+    description: "AI pattern and level scan",
+    icon: "camera",
+    appOnly: true,
+  },
+  {
     href: "/watchlist",
     label: "Watchlist",
     description: "Stocks you're tracking",
     icon: "watchlist",
+    appOnly: false,
   },
   {
     href: "/world-news",
     label: "World News",
     description: "Market-moving stories and ticker impact",
     icon: "news",
+    appOnly: false,
   },
   {
     href: "/settings",
     label: "Settings",
     description: "Account, preferences and subscription",
     icon: "settings",
+    appOnly: false,
   },
 ] as const;
 
@@ -71,6 +81,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const focusedPath =
     pathname.startsWith("/ask-stockgpt") ||
+    pathname.startsWith("/chart-scan") ||
     pathname.startsWith("/compare") ||
     pathname.includes("/fullscreen");
   const hidden = focusedPath || focusedFlowCount > 0 || keyboardOpen;
@@ -90,7 +101,9 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      const nativeShell = document.documentElement.dataset.appShell === "true";
       for (const item of [...primaryItems, ...moreItems]) {
+        if ("appOnly" in item && item.appOnly && !nativeShell) continue;
         if (!isPathActive(pathname, item.href)) router.prefetch(item.href);
       }
     }, 650);
@@ -174,22 +187,30 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={true}
+                    prefetch={item.appOnly ? false : true}
                     onPointerDown={() => setVisualCurrent("more")}
                     onClick={() => setMoreOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={[
+                      item.appOnly ? "sg-app-only hidden" : "",
                       "flex min-h-[62px] items-center gap-3 rounded-[20px] px-3 transition active:scale-[0.985]",
                       active
                         ? "bg-[#ddb159]/14 text-[#ddb159]"
-                        : "text-[#faf6f0] hover:bg-[#faf6f0]/6",
+                        : item.href === "/chart-scan"
+                          ? "bg-[linear-gradient(90deg,rgba(242,195,95,0.10),rgba(242,195,95,0.035))] text-[#faf6f0]"
+                          : "text-[#faf6f0] hover:bg-[#faf6f0]/6",
                     ].join(" ")}
                   >
                     <span className="relative grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#faf6f0]/6 text-[#ddb159]">
                       <StockIcon name={item.icon as StockIconName} className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-black">{item.label}</span>
+                      <span className="flex items-center gap-2 text-[13px] font-black">
+                        {item.label}
+                        {item.href === "/chart-scan" && (
+                          <span className="rounded-full bg-[#f2c35f]/14 px-1.5 py-0.5 text-[7.5px] font-black uppercase tracking-[0.12em] text-[#f2d786]">New</span>
+                        )}
+                      </span>
                       <span className="mt-0.5 block truncate text-[10.5px] font-medium text-[#faf6f0]/48">
                         {item.description}
                       </span>

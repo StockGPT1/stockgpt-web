@@ -7,6 +7,7 @@ import { updateSession } from "@/utils/supabase/middleware";
 
 const sessionRoutePrefixes = [
   "/ask-stockgpt",
+  "/chart-scan",
   "/dashboard",
   "/notifications",
   "/portfolio",

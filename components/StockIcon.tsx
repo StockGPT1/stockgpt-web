@@ -4,6 +4,7 @@ export type StockIconName =
   | "account"
   | "alerts"
   | "ask"
+  | "camera"
   | "check"
   | "chevron-down"
   | "clock"
@@ -70,6 +71,9 @@ export function StockIcon({
   }
   if (name === "total") {
     return <svg {...common}><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="4" cy="6" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r=".8" fill="currentColor" stroke="none" /></svg>;
+  }
+  if (name === "camera") {
+    return <svg {...common}><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h2l1.2-1.8h4.6L15.5 6h2A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z" /><circle cx="12" cy="12.5" r="3.2" /></svg>;
   }
   if (name === "clock") {
     return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
