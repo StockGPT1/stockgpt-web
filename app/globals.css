@@ -753,6 +753,37 @@ html[data-app-shell="true"] a {
   -webkit-backdrop-filter: blur(18px) saturate(130%);
 }
 
+
+.sg-ask-header-pill {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 239, 184, 0.76) !important;
+  background:
+    linear-gradient(180deg, #ffeaa0 0%, #f5cb62 48%, #dca43b 100%) !important;
+  color: #020805 !important;
+  box-shadow:
+    0 8px 22px rgba(242, 195, 95, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(93, 55, 5, 0.18) !important;
+  text-shadow: none !important;
+}
+
+.sg-ask-header-pill::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 1px 7px auto;
+  height: 42%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0));
+  opacity: 0.62;
+}
+
+.sg-ask-header-pill:hover,
+.sg-ask-header-pill:visited {
+  color: #020805 !important;
+}
+
 .sg-bottom-nav {
   overflow: hidden;
   border-color: rgba(242, 195, 95, 0.34) !important;
