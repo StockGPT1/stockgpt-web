@@ -211,7 +211,6 @@ export default async function DashboardPage({
       <main className="sg-dashboard-main min-h-full overflow-visible">
         <MobileDashboardExperience
           firstName={firstName}
-          isAuthenticated
           canUsePremium={hasSubscription}
           portfolioId={portfolioId}
           portfolios={dashboardPortfolio?.portfolios ?? []}

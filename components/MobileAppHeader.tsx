@@ -82,7 +82,7 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
-export function MobileAppHeader() {
+export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { openSearch } = useAppChrome();
@@ -128,12 +128,13 @@ export function MobileAppHeader() {
         <HeaderButton label="Search StockGPT" onClick={openSearch} icon="search" />
 
         <Link
-          href="/settings"
+          href={askHref}
           prefetch={false}
-          aria-label="Account settings"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
+          aria-label="Ask StockGPT"
+          data-native-haptic="light"
+          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 bg-[#f2c35f]/8 text-[#f2c35f] shadow-[0_0_22px_rgba(242,195,95,0.08)] transition-colors hover:bg-[#f2c35f]/14 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
-          <StockIcon name="settings" className="size-5" />
+          <StockIcon name="ask" className="size-5" />
         </Link>
       </header>
     );
@@ -171,12 +172,13 @@ export function MobileAppHeader() {
         </Link>
       ) : (
         <Link
-          href="/settings"
+          href={askHref}
           prefetch={false}
-          aria-label="Account settings"
-          className="grid size-11 place-items-center rounded-full border border-[#f2c35f]/34 text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
+          aria-label="Ask StockGPT"
+          data-native-haptic="light"
+          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 bg-[#f2c35f]/8 text-[#f2c35f] shadow-[0_0_22px_rgba(242,195,95,0.08)] transition-colors hover:bg-[#f2c35f]/14 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
-          <StockIcon name="settings" className="size-5" />
+          <StockIcon name="ask" className="size-5" />
         </Link>
       )}
     </header>

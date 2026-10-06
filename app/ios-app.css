@@ -249,6 +249,32 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
 
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-mobile-app-header {
+    border-bottom-color: transparent !important;
+    background: #0d3a27 !important;
+    box-shadow: none !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content {
+    padding-top: 0 !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: -5;
+    opacity: 0.16;
+    background-image:
+      linear-gradient(rgba(242, 195, 95, 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(242, 195, 95, 0.10) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent 76%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent 76%);
+  }
+
+
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-route-content,
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-native-portfolio-shell {
     background: #061b12;

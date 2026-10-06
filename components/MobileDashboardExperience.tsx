@@ -10,7 +10,6 @@ import {
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
-import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { DashboardPortfolioSelector } from "@/components/DashboardPortfolioSelector";
 import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
@@ -48,7 +47,6 @@ type PortfolioChartState = {
 
 type Props = {
   firstName?: string;
-  isAuthenticated: boolean;
   canUsePremium: boolean;
   portfolioId: string | null;
   portfolios: Array<{ id: string; name: string }>;
@@ -161,7 +159,6 @@ function chartHasData(data: Partial<Record<TimeRange, ChartPoint[]>>) {
 
 export function MobileDashboardExperience({
   firstName,
-  isAuthenticated,
   canUsePremium,
   portfolioId,
   portfolios,
@@ -199,11 +196,6 @@ export function MobileDashboardExperience({
   const portfolioHref = portfolioId
     ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}`
     : "/portfolio";
-  const askContext = {
-    contextType: "dashboard" as const,
-    ...(portfolioId ? { portfolioId } : {}),
-  };
-
   const briefingLine = useMemo(() => {
     if (!summary) {
       return topRanked?.ticker
@@ -318,7 +310,7 @@ export function MobileDashboardExperience({
     <div className="min-w-0 pb-[calc(8rem+env(safe-area-inset-bottom))] lg:hidden">
       <section className="sg-dashboard-briefing relative overflow-hidden border-b border-[#f2c35f]/22 px-1 pb-4 pt-1">
         <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-[#f2c35f]/10 blur-3xl" />
-        <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="relative">
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-luxury text-[12px] font-semibold text-[#f2c35f]">
@@ -336,14 +328,6 @@ export function MobileDashboardExperience({
               {briefingLine}
             </p>
           </div>
-          <AskStockGPTButton
-            canUseAskStockGPT={canUsePremium}
-            isAuthenticated={isAuthenticated}
-            label="Ask StockGPT"
-            context={askContext}
-            compact
-            className="mt-0.5 h-10 px-3 text-[10px] hover:!translate-y-0 max-[350px]:px-2 max-[350px]:text-[9px]"
-          />
         </div>
       </section>
 
