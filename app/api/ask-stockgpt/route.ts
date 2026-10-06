@@ -157,7 +157,7 @@ type EnrichedHoldingContext = {
 };
 
 const CHAT_LOG_DAYS = 7;
-const MAX_STORED_MESSAGES = 120;
+const MAX_STORED_MESSAGES = 240;
 const CONVERSATION_MARKER_PREFIX = "__STOCKGPT_CONVERSATION__:";
 const LEGACY_CONVERSATION_ID = "legacy";
 
@@ -463,7 +463,7 @@ async function readStoredChatRows(
       .select("role,content,created_at")
       .eq("user_id", userId)
       .gte("created_at", sevenDaysAgoIso())
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(MAX_STORED_MESSAGES);
 
     if (error) {
@@ -471,7 +471,7 @@ async function readStoredChatRows(
       return [];
     }
 
-    return (data ?? []) as StoredChatRow[];
+    return ((data ?? []) as StoredChatRow[]).reverse();
   } catch (error) {
     console.warn("[ask-stockgpt] Chat history unavailable", error);
     return [];
