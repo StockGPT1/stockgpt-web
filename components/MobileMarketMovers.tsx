@@ -601,7 +601,7 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchCancel}
-          className="mt-3 overflow-hidden touch-pan-y"
+          className="mt-3 touch-pan-y"
         >
           <div
             className="flex w-[200%] items-start will-change-transform motion-reduce:transition-none"
@@ -612,10 +612,10 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
                 : "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            <div className="w-1/2 shrink-0 pr-1">
+            <div className="w-1/2 shrink-0">
               <MoverPreviewPanel movers={gainers} mode="gainers" />
             </div>
-            <div className="w-1/2 shrink-0 pl-1">
+            <div className="w-1/2 shrink-0">
               <MoverPreviewPanel movers={losers} mode="losers" />
             </div>
           </div>
