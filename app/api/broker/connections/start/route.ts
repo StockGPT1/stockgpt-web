@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { brokerConnectionsEnabled, brokerReturnUrl } from "@/lib/brokerage/capability";
+import { brokerConnectionsEnabled, brokerPortalSandboxRestriction, brokerReturnUrl } from "@/lib/brokerage/capability";
 import { ensureSnapTradeRegistration } from "@/lib/brokerage/connection-service";
 import { createReadOnlySnapTradePortalLink } from "@/lib/brokerage/providers/snaptrade/service";
 
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       userId: user.id,
       providerId: provider.data.id,
       customRedirect: brokerReturnUrl(),
+      broker: brokerPortalSandboxRestriction(),
       reconnect,
     });
     return NextResponse.redirect(redirect, 303);

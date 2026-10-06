@@ -4,6 +4,10 @@ export function brokerConnectionsEnabled() {
   return process.env.STOCKGPT_BROKER_CONNECTIONS_ENABLED === "true";
 }
 
+export function brokerPortalSandboxRestriction(): "SANDBOX" | undefined {
+  return process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX === "true" ? "SANDBOX" : undefined;
+}
+
 export function brokerReturnUrl() {
   const origin = process.env.NEXT_PUBLIC_SITE_URL;
   if (!origin) throw new Error("Broker connection configuration unavailable");

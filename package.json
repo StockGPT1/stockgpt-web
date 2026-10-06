@@ -51,7 +51,7 @@
     "test:snaptrade-sandbox:harness": "tsx scripts/snaptrade-sandbox-proof-checks.ts",
     "test:snaptrade-sandbox": "node --conditions=react-server --import tsx scripts/snaptrade-sandbox-proof.ts",
     "test:broker-sync": "node scripts/verify-broker-sync-local.mjs && tsx scripts/verify-broker-sync-worker-local.ts && tsx scripts/broker-sync-source-checks.ts",
-    "test:broker-connections": "tsx scripts/wave3-source-checks.ts",
+    "test:broker-connections": "tsx scripts/wave3-source-checks.ts && node --conditions=react-server --import tsx scripts/broker-sandbox-portal-checks.ts",
     "test:broker-connection-state": "tsx scripts/broker-connection-presentation-state-checks.ts",
     "test:connected-portfolio-intelligence": "tsx scripts/connected-portfolio-intelligence-checks.ts",
     "test:connected-portfolios": "node scripts/verify-wave3-connected-portfolios-local.mjs",
