@@ -206,10 +206,10 @@ export async function AppShell({
 
   return (
     <AppChromeProvider>
-      <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
+      <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden text-[#fffaf2]">
         <MobileAppHeader />
 
-      <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,0.24)] lg:flex">
+      <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#f2c35f]/24 bg-[linear-gradient(180deg,#0b3423,#08281b)] px-5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] lg:flex">
         <Link
           href="/dashboard"
           prefetch={false}
@@ -331,7 +331,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
+        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
