@@ -117,12 +117,12 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
   html[data-app-shell="true"] .sg-native-edge-portfolio {
-    margin-left: -28px !important;
-    margin-right: -28px !important;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
-    scroll-padding-left: 28px;
-    scroll-padding-right: 28px;
+    margin-left: -22px !important;
+    margin-right: -22px !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    scroll-padding-left: 22px;
+    scroll-padding-right: 22px;
   }
 
   html[data-app-shell="true"] .sg-native-edge-freshness {
@@ -248,6 +248,76 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     background: #061b12;
   }
 
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-route-content,
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-native-portfolio-shell {
+    background: #061b12;
+  }
+
+  /* One continuous mobile portfolio canvas: the hero can stay rich, but the
+     body below it should not look like a stack of differently coloured boxes. */
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage {
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    border-bottom-color: transparent !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage-backdrop {
+    background:
+      radial-gradient(circle at 50% -2%, rgba(255, 224, 138, 0.16), transparent 31%),
+      radial-gradient(circle at 12% 46%, rgba(52, 211, 153, 0.08), transparent 34%),
+      linear-gradient(180deg, #0d3a27 0%, #082b1d 58%, #061b12 100%) !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-section-nav {
+    margin-left: -12px;
+    margin-right: -12px;
+    border-bottom-color: transparent !important;
+    background: #061b12 !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-body {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-overview-metrics {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-overview-holdings {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-pulse {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 2px 0 0 !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-pulse-metrics {
+    border-top-color: rgba(250, 246, 240, 0.045) !important;
+  }
+
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-diagnostics,
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-holdings-controls,
+  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-activity-filters {
+    border-color: rgba(250, 246, 240, 0.045) !important;
+  }
+
   html[data-app-shell="true"] body[data-sg-path="portfolio"] [data-portfolio-section-anchor] {
     scroll-margin-top: calc(56px + env(safe-area-inset-top, 0px));
   }
@@ -256,12 +326,12 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
 
 @media (max-width: 639px) {
   html[data-app-shell="true"] .sg-native-edge-portfolio-phone {
-    margin-left: -28px !important;
-    margin-right: -28px !important;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
-    scroll-padding-left: 28px;
-    scroll-padding-right: 28px;
+    margin-left: -22px !important;
+    margin-right: -22px !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    scroll-padding-left: 22px;
+    scroll-padding-right: 22px;
   }
 }
 
@@ -285,12 +355,12 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 
   html[data-app-shell="true"] .sg-native-edge-portfolio {
-    margin-left: -36px !important;
-    margin-right: -36px !important;
-    padding-left: 36px !important;
-    padding-right: 36px !important;
-    scroll-padding-left: 36px;
-    scroll-padding-right: 36px;
+    margin-left: -22px !important;
+    margin-right: -22px !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    scroll-padding-left: 22px;
+    scroll-padding-right: 22px;
   }
 
   html[data-app-shell="true"] .sg-native-edge-freshness {
