@@ -43,6 +43,9 @@ type ScanResult = {
     stop_loss: string | null;
     take_profit: string | null;
     risk_reward: string | null;
+    projected_bars: string | null;
+    projected_horizon: string | null;
+    plan: string | null;
     rationale: string | null;
   };
   levels: {
@@ -80,7 +83,8 @@ const analysisSteps = [
   "Scanning chart patterns",
   "Checking visible indicators",
   "Building risk levels",
-  "Scoring signal confluence",
+  "Estimating trade horizon",
+  "Cross-checking directional bias",
 ];
 
 async function imageFromFile(file: File) {
@@ -363,6 +367,8 @@ export function ChartScannerWorkspace() {
         chartSignals: result.signals.map((signal) => signal.name).join(", "),
         chartStopLoss: result.trade_plan.stop_loss,
         chartTakeProfit: result.trade_plan.take_profit,
+        chartProjectedHorizon: result.trade_plan.projected_horizon,
+        chartProjectedBars: result.trade_plan.projected_bars,
       },
     });
   }, [result]);
@@ -860,8 +866,10 @@ export function ChartScannerWorkspace() {
               <div className="mt-5 min-w-0 overflow-hidden rounded-[24px] border border-[#fffaf2]/7 bg-[#081f16] p-4">
                 <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/70">Technical trade map</p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#fffaf2]/38">Visual structure only · not live-market verified</p>
+                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/70">Technical trade plan</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#fffaf2]/38">
+                      Built from the visible {result.timeframe ? result.timeframe + " chart" : "chart timeframe"} · not live-market verified
+                    </p>
                   </div>
                   {result.trade_plan.risk_reward && (
                     <div className="shrink-0 rounded-full bg-[#f2c35f]/10 px-3 py-1.5 text-[11px] font-black text-[#f2d786]">
@@ -889,6 +897,30 @@ export function ChartScannerWorkspace() {
                     hint="Technical target from the visible resistance/support or measured move."
                   />
                 </div>
+
+                {(result.trade_plan.projected_horizon || result.trade_plan.projected_bars) && (
+                  <div className="mt-4 min-w-0 rounded-[20px] border border-[#f2c35f]/12 bg-[#f2c35f]/[0.045] p-4">
+                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Projected trade horizon</p>
+                    <p className="mt-1.5 break-words text-[22px] font-black tracking-[-0.035em] text-[#fffaf2]">
+                      {result.trade_plan.projected_horizon ?? result.trade_plan.projected_bars}
+                    </p>
+                    {result.trade_plan.projected_bars && result.trade_plan.projected_horizon && (
+                      <p className="mt-1 text-[11px] font-bold text-[#fffaf2]/38">
+                        Approx. {result.trade_plan.projected_bars} on the visible {result.timeframe ?? "chart"} timeframe
+                      </p>
+                    )}
+                    <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/34">
+                      Scenario estimate from the visible swing cadence and target distance, not a guaranteed arrival time.
+                    </p>
+                  </div>
+                )}
+
+                {result.trade_plan.plan && (
+                  <div className="mt-4 min-w-0 border-t border-[#fffaf2]/[0.055] pt-4">
+                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Plan</p>
+                    <p className="mt-1.5 break-words text-[13px] font-semibold leading-5 text-[#fffaf2]/72">{result.trade_plan.plan}</p>
+                  </div>
+                )}
 
                 {result.trade_plan.rationale && (
                   <p className="mt-4 break-words text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">{result.trade_plan.rationale}</p>
