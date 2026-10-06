@@ -116,7 +116,7 @@ function getRiskIndicator(value: unknown) {
     score <= 3
       ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
       : score <= 6
-        ? "border-[#ddb159]/36 bg-[#ddb159]/14 text-[#f2d27a]"
+        ? "border-[#ddb159]/36 bg-[#f2c35f]/14 text-[#f2d27a]"
         : "border-red-400/30 bg-red-400/12 text-red-200";
 
   return { score, label, className };
@@ -125,7 +125,7 @@ function getRiskIndicator(value: unknown) {
 function RiskIndicatorBadge({ risk, unlocked }: { risk: unknown; unlocked: boolean }) {
   if (!unlocked) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#f2c35f]">
         Risk · Locked
       </span>
     );
@@ -165,12 +165,12 @@ function SubscriberLockNotice({ isAuthenticated }: { isAuthenticated: boolean })
     <div className="relative max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/22 bg-[#04180f]/78 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18)]">
       <div className="relative flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">Members-only research layer</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">Members-only research layer</p>
           <p className="mt-1 max-w-2xl text-[12px] font-semibold leading-5 text-[#faf6f0]/54">The chart and stock overview remain available. Rank, score, trade plans and StockGPT analysis require an active subscription.</p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <Link href={isAuthenticated ? "/subscription" : "/signup"} className="inline-flex h-9 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105">{isAuthenticated ? "Unlock research" : "Create account"}</Link>
-          {!isAuthenticated && <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-full border border-[#ddb159]/35 px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#ddb159] transition hover:bg-[#ddb159]/10">Log in</Link>}
+          <Link href={isAuthenticated ? "/subscription" : "/signup"} className="inline-flex h-9 items-center justify-center rounded-full bg-[#f2c35f] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116] transition hover:brightness-105">{isAuthenticated ? "Unlock research" : "Create account"}</Link>
+          {!isAuthenticated && <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-full border border-[#ddb159]/35 px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#f2c35f] transition hover:bg-[#f2c35f]/10">Log in</Link>}
         </div>
       </div>
     </div>
@@ -181,11 +181,11 @@ function QuickActions({ ticker, sector, isAuthenticated, canUseAskStockGPT }: { 
   const gatedHref = isAuthenticated ? null : "/login";
   return (
     <section className="grid min-w-0 gap-2 rounded-2xl border border-[#ddb159]/16 bg-[#04180f]/70 p-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)] sm:grid-cols-3">
-      <div className="min-w-0 [&>button]:h-11 [&>button]:w-full [&>button]:justify-center [&>button]:rounded-2xl [&>button]:bg-[#ddb159] [&>button]:px-4 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-black [&>button]:uppercase [&>button]:tracking-[0.1em] [&>button]:text-[#072116]">
+      <div className="min-w-0 [&>button]:h-11 [&>button]:w-full [&>button]:justify-center [&>button]:rounded-2xl [&>button]:bg-[#f2c35f] [&>button]:px-4 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-black [&>button]:uppercase [&>button]:tracking-[0.1em] [&>button]:text-[#072116]">
         <AskStockGPTButton canUseAskStockGPT={canUseAskStockGPT} isAuthenticated={isAuthenticated} label={`Ask about ${ticker}`} context={{ contextType: "stock", ticker }} />
       </div>
-      <Link href={gatedHref ?? `/compare?a=${encodeURIComponent(ticker)}`} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10">Compare stock</Link>
-      <Link href={gatedHref ?? (sector ? `/rankings?sector=${encodeURIComponent(sector)}` : "/rankings")} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#ddb159] transition hover:bg-[#ddb159]/10">View peers</Link>
+      <Link href={gatedHref ?? `/compare?a=${encodeURIComponent(ticker)}`} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#f2c35f] transition hover:bg-[#f2c35f]/10">Compare stock</Link>
+      <Link href={gatedHref ?? (sector ? `/rankings?sector=${encodeURIComponent(sector)}` : "/rankings")} className="grid h-11 min-w-0 place-items-center rounded-2xl border border-[#ddb159]/20 px-4 text-center text-[11px] font-black uppercase tracking-[0.1em] text-[#f2c35f] transition hover:bg-[#f2c35f]/10">View peers</Link>
     </section>
   );
 }
@@ -199,7 +199,7 @@ function StyleResearchCard({ tags, unlocked }: { tags: string[]; unlocked: boole
     <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/18 bg-[#0a2a1d] p-4 text-[#faf6f0]">
       <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">Built from</p>
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#f2c35f]">Built from</p>
           <h2 className="text-[20px] font-black tracking-[-0.03em]">Research inputs</h2>
         </div>
         <p className="max-w-sm text-[11px] font-semibold leading-5 text-[#faf6f0]/48">Compact model, technical and risk context. Research only, not an instruction.</p>
@@ -208,7 +208,7 @@ function StyleResearchCard({ tags, unlocked }: { tags: string[]; unlocked: boole
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {visibleTags.map((tag) => (
           <div key={tag} className="rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] px-3 py-3">
-            <p className="text-[11px] font-black text-[#ddb159]"><LockedValue unlocked={unlocked} placeholder="Locked">{tag}</LockedValue></p>
+            <p className="text-[11px] font-black text-[#f2c35f]"><LockedValue unlocked={unlocked} placeholder="Locked">{tag}</LockedValue></p>
             <p className="mt-1 text-[11px] font-semibold leading-5 text-[#faf6f0]/58">{unlocked ? STYLE_EXPLANATIONS[tag] ?? STYLE_EXPLANATIONS["Research watchlist"] : "Unlock the model input and its plain-English context."}</p>
           </div>
         ))}
@@ -232,7 +232,7 @@ function LockedTradePlanCard({ ticker }: { ticker: string }) {
       </div>
       <p className="mt-4 text-[10px] font-medium leading-relaxed text-[#072116]/45">Create an account to view {ticker} trade levels, risk controls and action summary.</p>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <Link href="/signup" className="inline-flex h-10 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116]">Create account</Link>
+        <Link href="/signup" className="inline-flex h-10 items-center justify-center rounded-full bg-[#f2c35f] px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116]">Create account</Link>
         <Link href="/login" className="inline-flex h-10 items-center justify-center rounded-full border border-[#072116]/14 px-4 text-[11px] font-black uppercase tracking-[0.12em] text-[#072116]">Log in</Link>
       </div>
     </div>
@@ -248,7 +248,7 @@ function PeersCard({ peers, sector, unlocked }: { peers: Peer[]; sector: string 
         <div className="mt-3 rounded-xl border border-[#072116]/10 bg-white p-3">
           <p className="text-[13px] font-black tracking-[-0.02em] text-[#072116]">Peer intelligence locked</p>
           <p className="mt-1 text-[11px] font-semibold leading-5 text-[#072116]/56">Create an account to compare this stock against ranked sector peers.</p>
-          <Link href="/signup" className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-full bg-[#ddb159] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#072116]">Create account</Link>
+          <Link href="/signup" className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-full bg-[#f2c35f] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#072116]">Create account</Link>
         </div>
       </aside>
     );
@@ -263,7 +263,7 @@ function PeersCard({ peers, sector, unlocked }: { peers: Peer[]; sector: string 
         {peers.map((peer) => (
           <Link key={peer.ticker} href={`/stock/${peer.ticker}`} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[#072116]/8 bg-white px-2.5 py-1.5 transition hover:border-[#ddb159]">
             <div className="min-w-0"><p className="text-[12px] font-black tracking-[-0.01em] text-[#072116]">{peer.ticker}</p><p className="truncate text-[10px] font-semibold text-[#072116]/55">{peer.company}</p></div>
-            <div className="shrink-0 text-right"><p className="text-[10px] font-bold text-[#072116]/65">#<LockedValue unlocked={unlocked} placeholder="Locked">{peer.rank}</LockedValue></p><span className="mt-1 inline-flex rounded-full bg-[#ddb159] px-2 py-0.5 text-[9px] font-black text-[#072116]"><LockedValue unlocked={unlocked} placeholder="Locked">{formatScore(peer.score)}</LockedValue></span></div>
+            <div className="shrink-0 text-right"><p className="text-[10px] font-bold text-[#072116]/65">#<LockedValue unlocked={unlocked} placeholder="Locked">{peer.rank}</LockedValue></p><span className="mt-1 inline-flex rounded-full bg-[#f2c35f] px-2 py-0.5 text-[9px] font-black text-[#072116]"><LockedValue unlocked={unlocked} placeholder="Locked">{formatScore(peer.score)}</LockedValue></span></div>
           </Link>
         ))}
       </div>
@@ -395,19 +395,19 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     <AppShell activePath="/stock" askLabel={`Ask about ${ticker}`} askContext={{ contextType: "stock", ticker, ownsStock: ownedPositions.length > 0 }}>
       <main className="h-full min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <div className="grid w-full min-w-0 max-w-full gap-3 overflow-x-hidden">
-          <section className="relative max-w-full overflow-hidden rounded-3xl border border-[#ddb159]/30 bg-[linear-gradient(135deg,#082519,#0d3420,#082519)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.3)]">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#ddb159]/12 blur-3xl" />
+          <section className="sg-stock-hero relative max-w-full overflow-hidden rounded-3xl border border-[#f2c35f]/32 bg-[radial-gradient(circle_at_16%_0%,rgba(255,232,157,0.13),transparent_30%),linear-gradient(135deg,#0d3a27,#10442d_52%,#092f20)] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
+            <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#f2c35f]/12 blur-3xl" />
             <div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-bold text-[#ddb159]/70"><Link href="/rankings" className="hover:text-[#ddb159]">← Rankings</Link>{canSeeRankAndScore ? <><span>·</span><span>Rank #{stock.rank ?? "—"}</span></> : <><span>·</span><span>Rank locked</span></>}{stock.sector && <><span>·</span><span>{stock.sector}</span></>}</div>
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] font-bold text-[#f2c35f]/70"><Link href="/rankings" className="hover:text-[#f2c35f]">← Rankings</Link>{canSeeRankAndScore ? <><span>·</span><span>Rank #{stock.rank ?? "—"}</span></> : <><span>·</span><span>Rank locked</span></>}{stock.sector && <><span>·</span><span>{stock.sector}</span></>}</div>
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-3"><StockLogo ticker={stock.ticker} company={stock.company} size={42} /><div className="min-w-0"><h1 className="text-[34px] font-black leading-none tracking-[-0.04em] text-[#faf6f0]">{stock.ticker}</h1><p className="mt-1 break-words text-[16px] font-bold leading-snug text-[#faf6f0]/70">{stock.company ?? "—"}</p></div></div>
-                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3"><p className="text-[30px] font-black tabular-nums tracking-[-0.04em] text-[#faf6f0]">{formatMoney(livePrice)}</p>{dailyMove != null && <span className={`text-[13px] font-black ${dailyMove >= 0 ? "text-emerald-300" : "text-red-200"}`}>{dailyMove >= 0 ? "+" : ""}{dailyMove.toFixed(1)}% today</span>}<span className="inline-flex items-center gap-1.5 rounded-full bg-[#ddb159] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#072116]">AI Score · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatScore(stock.score)}</LockedValue></span><RiskIndicatorBadge risk={stock.risk} unlocked={canSeeRankAndScore} /><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ddb159]">Days at top · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatDays(daysAtTop)}</LockedValue></span></div>
+                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3"><p className="text-[30px] font-black tabular-nums tracking-[-0.04em] text-[#faf6f0]">{formatMoney(livePrice)}</p>{dailyMove != null && <span className={`text-[13px] font-black ${dailyMove >= 0 ? "text-emerald-300" : "text-red-200"}`}>{dailyMove >= 0 ? "+" : ""}{dailyMove.toFixed(1)}% today</span>}<span className="inline-flex items-center gap-1.5 rounded-full bg-[#f2c35f] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#072116]">AI Score · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatScore(stock.score)}</LockedValue></span><RiskIndicatorBadge risk={stock.risk} unlocked={canSeeRankAndScore} /><span className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#072116]/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#f2c35f]">Days at top · <LockedValue unlocked={canSeeRankAndScore} placeholder="Locked">{formatDays(daysAtTop)}</LockedValue></span></div>
               </div>
               <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center xl:justify-end"><WatchlistToggle ticker={ticker} initialInWatchlist={!!watchlistEntry} isAuthenticated={isAuthenticated} /></div>
             </div>
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice isAuthenticated={isAuthenticated} />}
-          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#ddb159]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart
+          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#f2c35f]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart
                   ticker={ticker}
                   data={chartData}
                   initialRange="1Y"
@@ -423,7 +423,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             updatedAt={latestChartPoint?.date}
             locked={!canSeeRankAndScore}
           />
-          {ownedPositions.length > 0 && <section className="rounded-2xl border border-[#ddb159]/20 bg-[#0a2a1d] p-4 text-[#faf6f0]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Your holding</p><h2 className="mt-1 text-[18px] font-black">Held in {ownedPositions.length} portfolio{ownedPositions.length === 1 ? "" : "s"}</h2></div></div><div className="mt-3 grid gap-2">{ownedPositions.map((position) => <Link key={position.portfolioId} href={`/portfolio?portfolio=${encodeURIComponent(position.portfolioId)}`} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] p-3"><span className="min-w-0"><span className="block truncate text-[12px] font-black">{position.portfolioName}</span><span className="mt-1 block text-[10px] font-semibold text-[#faf6f0]/45">{position.shares.toLocaleString(undefined, { maximumFractionDigits: 6 })} shares</span></span><span className="text-right"><span className="block text-[13px] font-black">{formatMoney(position.currentValue)}</span><span className={`mt-1 block text-[10px] font-black ${position.pnl >= 0 ? "text-emerald-300" : "text-red-200"}`}>{formatMoney(position.pnl)} · {position.pnlPct >= 0 ? "+" : ""}{position.pnlPct.toFixed(1)}%</span><span className="mt-1 block text-[9px] font-black text-[#ddb159]">Manage holding</span></span></Link>)}</div></section>}
+          {ownedPositions.length > 0 && <section className="rounded-2xl border border-[#ddb159]/20 bg-[#0a2a1d] p-4 text-[#faf6f0]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#f2c35f]">Your holding</p><h2 className="mt-1 text-[18px] font-black">Held in {ownedPositions.length} portfolio{ownedPositions.length === 1 ? "" : "s"}</h2></div></div><div className="mt-3 grid gap-2">{ownedPositions.map((position) => <Link key={position.portfolioId} href={`/portfolio?portfolio=${encodeURIComponent(position.portfolioId)}`} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.035] p-3"><span className="min-w-0"><span className="block truncate text-[12px] font-black">{position.portfolioName}</span><span className="mt-1 block text-[10px] font-semibold text-[#faf6f0]/45">{position.shares.toLocaleString(undefined, { maximumFractionDigits: 6 })} shares</span></span><span className="text-right"><span className="block text-[13px] font-black">{formatMoney(position.currentValue)}</span><span className={`mt-1 block text-[10px] font-black ${position.pnl >= 0 ? "text-emerald-300" : "text-red-200"}`}>{formatMoney(position.pnl)} · {position.pnlPct >= 0 ? "+" : ""}{position.pnlPct.toFixed(1)}%</span><span className="mt-1 block text-[9px] font-black text-[#f2c35f]">Manage holding</span></span></Link>)}</div></section>}
           <QuickActions ticker={ticker} sector={stock.sector} isAuthenticated={isAuthenticated} canUseAskStockGPT={canSeeRankAndScore} />
           <StyleResearchCard tags={styleTags} unlocked={canSeeRankAndScore} />
           <div className="grid w-full min-w-0 max-w-full gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -433,7 +433,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
                 : <LockedTradePlanCard ticker={ticker} />}
               {ownedPositions.length === 0 && <section className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#ddb159]/20 bg-[#061b12]/72 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#f2c35f]">
                     Continue your research
                   </p>
                   <h2 className="mt-1 text-[18px] font-black tracking-[-0.03em] text-[#faf6f0]">
@@ -458,7 +458,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
               <div className="min-w-0 max-w-full overflow-hidden"><StockRelatedNews ticker={ticker} articles={relevantNews} /></div>
             </div>
             <aside className="grid content-start gap-3">
-              <section className="rounded-2xl border border-[#ddb159]/18 bg-[#0a2a1d] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ddb159]">Research snapshot</p><dl className="mt-3 grid grid-cols-2 gap-3 text-[11px]"><div><dt className="text-[#faf6f0]/40">AI score</dt><dd className="mt-1 font-black text-[#ddb159]">{canSeeRankAndScore ? formatScore(stock.score) : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Rank</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? `#${stock.rank ?? "—"}` : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Risk</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? getRiskIndicator(stock.risk)?.label ?? "Unavailable" : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Days at top</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? formatDays(daysAtTop) : "Locked"}</dd></div></dl></section>
+              <section className="rounded-2xl border border-[#ddb159]/18 bg-[#0a2a1d] p-4 text-[#faf6f0]"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#f2c35f]">Research snapshot</p><dl className="mt-3 grid grid-cols-2 gap-3 text-[11px]"><div><dt className="text-[#faf6f0]/40">AI score</dt><dd className="mt-1 font-black text-[#f2c35f]">{canSeeRankAndScore ? formatScore(stock.score) : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Rank</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? `#${stock.rank ?? "—"}` : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Risk</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? getRiskIndicator(stock.risk)?.label ?? "Unavailable" : "Locked"}</dd></div><div><dt className="text-[#faf6f0]/40">Days at top</dt><dd className="mt-1 font-black">{canSeeRankAndScore ? formatDays(daysAtTop) : "Locked"}</dd></div></dl></section>
               <PeersCard peers={peers} sector={stock.sector} unlocked={canSeeRankAndScore} />
             </aside>
           </div>
