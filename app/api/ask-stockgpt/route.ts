@@ -15,6 +15,24 @@ type ChatMessage = {
   content: string;
 };
 
+type StoredChatRow = {
+  role: unknown;
+  content: unknown;
+  created_at: string | null;
+};
+
+type ChatConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
+
+type ConversationMeta = {
+  id: string;
+  title: string;
+};
+
 type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -139,7 +157,9 @@ type EnrichedHoldingContext = {
 };
 
 const CHAT_LOG_DAYS = 7;
-const MAX_STORED_MESSAGES = 80;
+const MAX_STORED_MESSAGES = 120;
+const CONVERSATION_MARKER_PREFIX = "__STOCKGPT_CONVERSATION__:";
+const LEGACY_CONVERSATION_ID = "legacy";
 
 /* Strongest model first — answer quality is the product here, and the
    chain only moves down when a model errors or is unavailable. The
@@ -164,6 +184,107 @@ function sevenDaysAgoIso() {
 function cleanQuestion(value: unknown) {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, 2400);
+}
+
+function cleanConversationId(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+}
+
+function cleanConversationTitle(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim().slice(0, 72);
+}
+
+function titleFromQuestion(question: string) {
+  const cleaned = question.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "New conversation";
+  return cleaned.length > 52 ? `${cleaned.slice(0, 49).trim()}…` : cleaned;
+}
+
+function conversationMarker(meta: ConversationMeta) {
+  return `${CONVERSATION_MARKER_PREFIX}${JSON.stringify(meta)}`;
+}
+
+function parseConversationMarker(content: string): ConversationMeta | null {
+  if (!content.startsWith(CONVERSATION_MARKER_PREFIX)) return null;
+
+  try {
+    const parsed = JSON.parse(content.slice(CONVERSATION_MARKER_PREFIX.length)) as {
+      id?: unknown;
+      title?: unknown;
+    };
+    const id = cleanConversationId(parsed.id);
+    if (!id) return null;
+    return {
+      id,
+      title: cleanConversationTitle(parsed.title) || "Conversation",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildConversations(rows: StoredChatRow[]): ChatConversation[] {
+  const conversations = new Map<string, ChatConversation>();
+  let activeMeta: ConversationMeta = {
+    id: LEGACY_CONVERSATION_ID,
+    title: "Previous conversation",
+  };
+
+  function ensure(meta: ConversationMeta, updatedAt = "") {
+    const existing = conversations.get(meta.id);
+    if (existing) {
+      if (meta.title && existing.title === "Conversation") existing.title = meta.title;
+      if (updatedAt && updatedAt > existing.updatedAt) existing.updatedAt = updatedAt;
+      return existing;
+    }
+
+    const created: ChatConversation = {
+      id: meta.id,
+      title: meta.title || "Conversation",
+      updatedAt,
+      messages: [],
+    };
+    conversations.set(meta.id, created);
+    return created;
+  }
+
+  for (const row of rows) {
+    const content = typeof row.content === "string" ? row.content.trim() : "";
+    if (!content) continue;
+
+    const marker = parseConversationMarker(content);
+    if (marker) {
+      activeMeta = marker;
+      ensure(marker, row.created_at ?? "");
+      continue;
+    }
+
+    if (row.role !== "user" && row.role !== "assistant") continue;
+
+    const conversation = ensure(activeMeta, row.created_at ?? "");
+    conversation.messages.push({
+      role: row.role,
+      content,
+    });
+
+    if (
+      conversation.id === LEGACY_CONVERSATION_ID &&
+      conversation.title === "Previous conversation" &&
+      row.role === "user"
+    ) {
+      conversation.title = titleFromQuestion(content);
+    }
+  }
+
+  return Array.from(conversations.values())
+    .filter((conversation) => conversation.messages.length > 0)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function makeConversationId() {
+  return `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function cleanHistory(value: unknown): ChatMessage[] {
@@ -332,7 +453,10 @@ async function deleteOldChatMessages(supabase: ServerSupabaseClient, userId: str
   }
 }
 
-async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: string): Promise<ChatMessage[]> {
+async function readStoredChatRows(
+  supabase: ServerSupabaseClient,
+  userId: string,
+): Promise<StoredChatRow[]> {
   try {
     const { data, error } = await supabase
       .from("ask_stockgpt_messages")
@@ -347,21 +471,18 @@ async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: st
       return [];
     }
 
-    return ((data ?? []) as Array<{ role: unknown; content: unknown }>)
-      .filter(
-        (row) =>
-          (row.role === "user" || row.role === "assistant") &&
-          typeof row.content === "string" &&
-          row.content.trim().length > 0,
-      )
-      .map((row) => ({
-        role: row.role as "user" | "assistant",
-        content: String(row.content).trim(),
-      }));
+    return (data ?? []) as StoredChatRow[];
   } catch (error) {
     console.warn("[ask-stockgpt] Chat history unavailable", error);
     return [];
   }
+}
+
+async function readRecentChatConversations(
+  supabase: ServerSupabaseClient,
+  userId: string,
+) {
+  return buildConversations(await readStoredChatRows(supabase, userId));
 }
 
 function cleanAssistantFormatting(content: string) {
@@ -380,17 +501,39 @@ function cleanAssistantFormatting(content: string) {
     .trim();
 }
 
-async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, message: ChatMessage) {
+async function storeChatMessage(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  message: ChatMessage,
+  conversation?: ConversationMeta,
+) {
   try {
     const content = message.role === "assistant"
       ? cleanAssistantFormatting(message.content)
       : message.content;
 
-    await supabase.from("ask_stockgpt_messages").insert({
-      user_id: userId,
-      role: message.role,
-      content: content.slice(0, 6000),
-    });
+    const rows = conversation
+      ? [
+          {
+            user_id: userId,
+            role: "user",
+            content: conversationMarker(conversation),
+          },
+          {
+            user_id: userId,
+            role: message.role,
+            content: content.slice(0, 6000),
+          },
+        ]
+      : [
+          {
+            user_id: userId,
+            role: message.role,
+            content: content.slice(0, 6000),
+          },
+        ];
+
+    await supabase.from("ask_stockgpt_messages").insert(rows);
   } catch (error) {
     console.warn("[ask-stockgpt] Could not store chat message", error);
   }
