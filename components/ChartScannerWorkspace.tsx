@@ -25,6 +25,7 @@ type ScanResult = {
   needs_more_info: boolean;
   more_info_prompt: string | null;
   price_series_type: "candles" | "price_line" | "unsupported" | "unknown";
+  chart_coverage: "full" | "partial" | "unclear";
   signals: Array<{
     name: string;
     bias: "bullish" | "bearish" | "neutral";
@@ -147,6 +148,33 @@ async function prepareImage(file: File) {
   });
 }
 
+function resetIOSViewportAfterPicker() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
+
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  if (!viewport) return;
+
+  const normalViewport = "width=device-width, initial-scale=1, viewport-fit=cover";
+  const resetViewport =
+    "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+
+  viewport.setAttribute("content", resetViewport);
+
+  const restore = () => {
+    viewport.setAttribute("content", normalViewport);
+    document.documentElement.style.setProperty("-webkit-text-size-adjust", "100%");
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(restore);
+  });
+  window.setTimeout(restore, 320);
+}
+
 function verdictTone(verdict: ScanResult["verdict"]) {
   if (verdict === "bullish") {
     return {
@@ -257,7 +285,7 @@ function TradeLevelCard({
       <p className={"text-[10px] font-black uppercase tracking-[0.15em] " + (isStop ? "text-rose-200" : "text-emerald-200")}>
         {label}
       </p>
-      <p className={"mt-2 break-all text-[clamp(28px,9vw,40px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
+      <p className={"mt-2 break-words text-[clamp(28px,9vw,40px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
         {value ?? "Not clear"}
       </p>
       <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/40">{hint}</p>
@@ -297,6 +325,27 @@ export function ChartScannerWorkspace() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    const resetAfterReturn = () => {
+      window.setTimeout(resetIOSViewportAfterPicker, 40);
+      window.setTimeout(resetIOSViewportAfterPicker, 360);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") resetAfterReturn();
+    };
+
+    window.addEventListener("orientationchange", resetAfterReturn);
+    window.addEventListener("pageshow", resetAfterReturn);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("orientationchange", resetAfterReturn);
+      window.removeEventListener("pageshow", resetAfterReturn);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const askHref = useMemo(() => {
     if (!result) return "/ask-stockgpt";
@@ -353,6 +402,8 @@ export function ChartScannerWorkspace() {
   async function handleImage(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0];
     event.target.value = "";
+    resetIOSViewportAfterPicker();
+    window.setTimeout(resetIOSViewportAfterPicker, 260);
     if (!selected) return;
 
     setStatus("preparing");
@@ -382,6 +433,8 @@ export function ChartScannerWorkspace() {
   async function handleAdditionalImage(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0];
     event.target.value = "";
+    resetIOSViewportAfterPicker();
+    window.setTimeout(resetIOSViewportAfterPicker, 260);
     if (!selected || !scanFile) return;
 
     if (supportingFiles.length >= 1) {
@@ -441,6 +494,9 @@ export function ChartScannerWorkspace() {
     : result?.verdict === "bearish"
       ? "text-rose-300"
       : "text-[#f2d786]";
+  const hasCompleteTradePlan = Boolean(
+    result?.trade_plan.stop_loss && result?.trade_plan.take_profit,
+  );
 
   return (
     <main className="sg-chart-scanner mx-auto min-h-full w-full max-w-[760px] overflow-x-hidden pb-8 pt-2">
@@ -800,7 +856,7 @@ export function ChartScannerWorkspace() {
               </div>
             )}
 
-            {!result.retake_required && !result.needs_more_info && (
+            {!result.retake_required && !result.needs_more_info && hasCompleteTradePlan && (
               <div className="mt-5 min-w-0 overflow-hidden rounded-[24px] border border-[#fffaf2]/7 bg-[#081f16] p-4">
                 <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
                   <div className="min-w-0">
@@ -837,6 +893,18 @@ export function ChartScannerWorkspace() {
                 {result.trade_plan.rationale && (
                   <p className="mt-4 break-words text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">{result.trade_plan.rationale}</p>
                 )}
+              </div>
+            )}
+
+            {!result.retake_required && !result.needs_more_info && !hasCompleteTradePlan && (
+              <div className="mt-5 min-w-0 overflow-hidden rounded-[22px] border border-[#fffaf2]/7 bg-[#fffaf2]/[0.035] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/42">Risk levels</p>
+                <p className="mt-2 text-[14px] font-black leading-5 text-[#fffaf2]">
+                  No defensible stop/target pair from this chart.
+                </p>
+                <p className="mt-1.5 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/45">
+                  The chart is already usable, so StockGPT is not asking you to take another photo just to force a number.
+                </p>
               </div>
             )}
 

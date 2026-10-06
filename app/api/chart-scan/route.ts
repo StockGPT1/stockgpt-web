@@ -25,6 +25,7 @@ type RawScanResult = {
   needs_more_info?: unknown;
   more_info_prompt?: unknown;
   price_series_type?: unknown;
+  chart_coverage?: unknown;
   signals?: unknown;
   trade_plan?: {
     entry?: unknown;
@@ -101,7 +102,7 @@ const SYSTEM_PROMPT = [
   "- momentum continuation, exhaustion, divergence, breakout volume, failed momentum and confluence across visible signals",
   "",
   "Return one JSON object and nothing else with exactly these fields:",
-  '{ "verdict": "bullish|bearish|inconclusive", "label": "short setup label", "pattern": "primary pattern name or No clear pattern", "confidence": 0, "ticker": "ticker or null", "timeframe": "timeframe or null", "current_price": "visible current/latest price or null", "price_series_type": "candles|price_line|unsupported|unknown", "retake_required": false, "retake_reason": "short reason or null", "needs_more_info": false, "more_info_prompt": "specific extra photo requested or null", "summary": "1-2 short sentences", "confirmation": "what visible price action would confirm the setup", "invalidation": "what visible price action would invalidate it", "watch_for": "one concise thing to watch next", "observations": ["max 4 concise observations"], "signals": [{ "name": "signal name", "bias": "bullish|bearish|neutral", "confidence": 0, "evidence": "why this is visible", "box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } }], "trade_plan": { "entry": "price only or null", "stop_loss": "price only or null", "take_profit": "price only or null", "risk_reward": "e.g. 2.1:1 or null", "rationale": "short structure-based rationale or null" }, "levels": { "support": "price only or null", "resistance": "price only or null", "breakout": "price only or null", "invalidation": "price only or null" }, "overlay": { "resistance_y_pct": 0, "support_y_pct": 0, "price_plot_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 }, "pattern_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } } }',
+  '{ "verdict": "bullish|bearish|inconclusive", "label": "short setup label", "pattern": "primary pattern name or No clear pattern", "confidence": 0, "ticker": "ticker or null", "timeframe": "timeframe or null", "current_price": "visible current/latest price or null", "price_series_type": "candles|price_line|unsupported|unknown", "chart_coverage": "full|partial|unclear", "retake_required": false, "retake_reason": "short reason or null", "needs_more_info": false, "more_info_prompt": "specific extra photo requested or null", "summary": "1-2 short sentences", "confirmation": "what visible price action would confirm the setup", "invalidation": "what visible price action would invalidate it", "watch_for": "one concise thing to watch next", "observations": ["max 4 concise observations"], "signals": [{ "name": "signal name", "bias": "bullish|bearish|neutral", "confidence": 0, "evidence": "why this is visible", "box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } }], "trade_plan": { "entry": "price only or null", "stop_loss": "price only or null", "take_profit": "price only or null", "risk_reward": "e.g. 2.1:1 or null", "rationale": "short structure-based rationale or null" }, "levels": { "support": "price only or null", "resistance": "price only or null", "breakout": "price only or null", "invalidation": "price only or null" }, "overlay": { "resistance_y_pct": 0, "support_y_pct": 0, "price_plot_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 }, "pattern_box": { "x_pct": 0, "y_pct": 0, "width_pct": 0, "height_pct": 0 } } }',
   "",
   "Rules:",
   "- Confidence means confidence in the VISUAL PATTERN READ, not probability of profit.",
@@ -114,10 +115,15 @@ const SYSTEM_PROMPT = [
   "- resistance_y_pct and support_y_pct are full-image Y percentages but MUST fall inside price_plot_box. Use null if that cannot be verified.",
   "- pattern_box must sit inside price_plot_box. Use null if no coherent formation is visible.",
   "- Only identify ticker/timeframe/current_price when clearly readable.",
-  "- If the primary chart is usable but current price, price scale, timeframe, indicator panel or another key detail is missing, prefer needs_more_info=true rather than discarding the first image.",
-  "- more_info_prompt must ask for ONE specific helpful photo, e.g. a close-up of the latest candles + right-side price scale, or a full view including RSI/MACD. The next image will be analysed together with the first.",
-  "- Never invent stop-loss or take-profit. Only provide entry/stop_loss/take_profit after current price and the relevant structure/scale are readable across the supplied images.",
-  "- If you cannot produce BOTH a defensible stop_loss and take_profit from the supplied views, set needs_more_info=true and request the exact additional view needed (usually a wider chart or clearer price scale).",
+  "- chart_coverage describes the PRIMARY chart view: full means the visible plotting history, latest candles and relevant price scale are already substantially present; partial means meaningful left/right chart structure is cropped; unclear means you cannot tell.",
+  "- Be CONSERVATIVE about needs_more_info. Do NOT ask for another photo just to be thorough, to improve confidence slightly, or merely because stop_loss/take_profit are null.",
+  "- If chart_coverage is full and current_price is readable, set needs_more_info=false. Finish the analysis from the supplied chart even if some optional indicator or risk level is unavailable.",
+  "- Set needs_more_info=true only when a SPECIFIC missing view materially blocks the analysis: current/latest price or price scale is unreadable, OR chart_coverage is genuinely partial/cropped and the missing history would materially affect the verdict/risk map.",
+  "- Never request a wider chart when chart_coverage is full.",
+  "- Do not request RSI/MACD/volume or any indicator panel unless it is already visible; simply omit signals that are not shown.",
+  "- more_info_prompt must ask for ONE specific missing view and explain exactly what is absent. The next image will be analysed together with the first.",
+  "- Never invent stop-loss or take-profit. Only provide entry/stop_loss/take_profit when current price and the relevant visible structure/scale are readable across the supplied images.",
+  "- If a defensible stop_loss or take_profit cannot be derived from a full readable chart, leave that field null and finish the analysis; do NOT ask for another photo solely to fill that field.",
   "- entry, stop_loss, take_profit and level fields should contain concise price strings only; put explanation in rationale/confirmation/invalidation.",
   "- Stop-loss must sit beyond visible technical invalidation. Take-profit must reference visible support/resistance, a measured move or another clear structure target.",
   "- risk_reward may only be supplied when entry, stop and target are all sufficiently readable.",
@@ -257,10 +263,15 @@ function normaliseResult(raw: RawScanResult) {
   const rawEntry = text(raw.trade_plan?.entry, 40);
   const rawStopLoss = text(raw.trade_plan?.stop_loss, 40);
   const rawTakeProfit = text(raw.trade_plan?.take_profit, 40);
-  const needsTradeContext = !rawStopLoss || !rawTakeProfit;
+  const coverageRaw = String(raw.chart_coverage ?? "").toLowerCase();
+  const chartCoverage =
+    coverageRaw === "full" || coverageRaw === "partial"
+      ? coverageRaw
+      : "unclear";
+  const modelRequestsMoreInfo = bool(raw.needs_more_info);
   const needsMoreInfo =
     !mustRetake &&
-    (bool(raw.needs_more_info) || !currentPrice || needsTradeContext);
+    (!currentPrice || (modelRequestsMoreInfo && chartCoverage === "partial"));
 
   const signals = rawSignals
     .map((item) => {
@@ -302,6 +313,7 @@ function normaliseResult(raw: RawScanResult) {
     timeframe: text(raw.timeframe, 24) ?? null,
     current_price: currentPrice,
     price_series_type: priceSeriesType,
+    chart_coverage: chartCoverage,
     retake_required: mustRetake,
     retake_reason:
       text(raw.retake_reason, 220) ??
@@ -313,8 +325,8 @@ function normaliseResult(raw: RawScanResult) {
       text(raw.more_info_prompt, 220) ??
       (needsMoreInfo
         ? !currentPrice
-          ? "Add one more photo showing the latest candles and the current price / right-side price scale clearly."
-          : "Add one wider chart photo showing the nearby support/resistance structure and right-side price scale so StockGPT can set a defensible stop and target."
+          ? "Add one close-up showing the latest candles and the current price / right-side price scale clearly."
+          : "The primary chart is materially cropped. Add one wider view that includes the missing price history and the current price scale."
         : null),
     summary: text(raw.summary, 420) ?? "The chart image does not show enough reliable structure for a strong read.",
     confirmation: text(raw.confirmation, 260) ?? "Wait for clearer price confirmation before treating the setup as valid.",
