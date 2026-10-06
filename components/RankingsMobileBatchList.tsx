@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition, type MouseEvent } from "react";
 import { StockLogo } from "@/components/StockLogo";
 import { LazyWhyRankDetails } from "@/components/LazyWhyRankDetails";
 import {
@@ -76,6 +77,7 @@ export function RankingsMobileBatchList({
   filters: Filters;
   locked: boolean;
 }) {
+  const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [page, setPage] = useState(initialPage);
   const [error, setError] = useState<string | null>(null);
@@ -148,11 +150,19 @@ export function RankingsMobileBatchList({
         const rankNumber = Number(stock.rank);
         const topRank = Number.isFinite(rankNumber) && rankNumber <= 3;
 
+        function openStockFromCard(event: MouseEvent<HTMLElement>) {
+          const target = event.target as HTMLElement;
+          if (target.closest("a,button,input,select,textarea")) return;
+          if (!stock.ticker) return;
+          router.push(`/stock/${stock.ticker}`);
+        }
+
         return (
           <article
             key={rowKey}
             data-expanded={isWhyOpen ? "true" : "false"}
-            className="relative overflow-hidden rounded-[19px] border border-[#ddb159]/13 bg-[linear-gradient(145deg,rgba(11,43,29,0.78),rgba(3,24,15,0.92))] px-3.5 py-3 shadow-[0_10px_26px_rgba(0,0,0,0.16)] transition active:scale-[0.992] data-[expanded=true]:border-[#ddb159]/28"
+            onClick={openStockFromCard}
+            className="relative cursor-pointer overflow-hidden rounded-[19px] border border-[#ddb159]/13 bg-[linear-gradient(145deg,rgba(11,43,29,0.78),rgba(3,24,15,0.92))] px-3.5 py-3 shadow-[0_10px_26px_rgba(0,0,0,0.16)] transition active:scale-[0.992] data-[expanded=true]:border-[#ddb159]/28"
           >
             <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3">
               <span
