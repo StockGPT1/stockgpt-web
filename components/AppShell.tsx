@@ -333,7 +333,7 @@ export async function AppShell({
 
         <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
           <PageBackdrop activePath={activePath} />
-          <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
+          <div key={activePath} className="sg-route-content relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}
             <AppLegalDisclaimer />
           </div>
