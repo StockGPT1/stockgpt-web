@@ -268,12 +268,9 @@ function normaliseResult(raw: RawScanResult) {
         ? "unsupported"
         : "unknown";
   const pricePlotBox = normalisePricePlotBox(raw.overlay?.price_plot_box);
-  const hasSupportedPriceSeries =
-    priceSeriesType === "candles" || priceSeriesType === "price_line";
   const mustRetake =
     bool(raw.retake_required) ||
-    !hasSupportedPriceSeries ||
-    !pricePlotBox;
+    priceSeriesType === "unsupported";
   const rawEntry = text(raw.trade_plan?.entry, 40);
   const rawStopLoss = text(raw.trade_plan?.stop_loss, 40);
   const rawTakeProfit = text(raw.trade_plan?.take_profit, 40);
@@ -300,14 +297,14 @@ function normaliseResult(raw: RawScanResult) {
       const name = text(signal.name, 80);
       if (!name) return null;
       const signalBox = normaliseBox(signal.box);
-      if (!boxInside(signalBox, pricePlotBox)) return null;
+      const safeSignalBox = boxInside(signalBox, pricePlotBox) ? signalBox : null;
 
       return {
         name,
         bias: signalBias(signal.bias),
         confidence: confidence(signal.confidence),
         evidence: text(signal.evidence, 180) ?? "Visible chart structure supports this signal.",
-        box: signalBox,
+        box: safeSignalBox,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -318,11 +315,51 @@ function normaliseResult(raw: RawScanResult) {
   const patternBox = normaliseBox(raw.overlay?.pattern_box);
   const withholdTradePlan = mustRetake || needsMoreInfo;
 
+  const rawVerdict = verdict(raw.verdict);
+  const rawConfidence = confidence(raw.confidence);
+  const bullishSignals = signals.filter((signal) => signal.bias === "bullish");
+  const bearishSignals = signals.filter((signal) => signal.bias === "bearish");
+  const bullishWeight = bullishSignals.reduce((sum, signal) => sum + signal.confidence, 0);
+  const bearishWeight = bearishSignals.reduce((sum, signal) => sum + signal.confidence, 0);
+
+  let resolvedVerdict: Verdict = rawVerdict;
+  if (!mustRetake && rawVerdict === "inconclusive") {
+    const enoughDirectionalEvidence = bullishSignals.length + bearishSignals.length >= 2;
+    if (
+      enoughDirectionalEvidence &&
+      bullishSignals.length >= 2 &&
+      bullishWeight >= bearishWeight * 1.45 + 20
+    ) {
+      resolvedVerdict = "bullish";
+    } else if (
+      enoughDirectionalEvidence &&
+      bearishSignals.length >= 2 &&
+      bearishWeight >= bullishWeight * 1.45 + 20
+    ) {
+      resolvedVerdict = "bearish";
+    }
+  }
+
+  const matchingSignals =
+    resolvedVerdict === "bullish"
+      ? bullishSignals
+      : resolvedVerdict === "bearish"
+        ? bearishSignals
+        : [];
+  const matchingAverage =
+    matchingSignals.length > 0
+      ? matchingSignals.reduce((sum, signal) => sum + signal.confidence, 0) / matchingSignals.length
+      : 0;
+  const calibratedConfidence =
+    resolvedVerdict !== "inconclusive" && matchingSignals.length >= 2 && rawConfidence < 30
+      ? Math.max(rawConfidence, Math.min(82, Math.round(matchingAverage * 0.72)))
+      : rawConfidence;
+
   return {
-    verdict: mustRetake ? "inconclusive" as const : verdict(raw.verdict),
+    verdict: mustRetake ? "inconclusive" as const : resolvedVerdict,
     label: text(raw.label, 70) ?? "Inconclusive setup",
     pattern: text(raw.pattern, 90) ?? "No clear pattern",
-    confidence: confidence(raw.confidence),
+    confidence: calibratedConfidence,
     ticker: text(raw.ticker, 14)?.toUpperCase() ?? null,
     timeframe: text(raw.timeframe, 24) ?? null,
     current_price: currentPrice,
@@ -380,7 +417,7 @@ type NormalisedScanResult = ReturnType<typeof normaliseResult>;
 
 function resultStrength(result: NormalisedScanResult) {
   if (result.retake_required) return -100;
-  const decisiveBonus = result.verdict === "inconclusive" ? 0 : 28;
+  const decisiveBonus = result.verdict === "inconclusive" ? -18 : 40;
   const signalBonus = Math.min(24, result.signals.length * 5);
   const patternBonus = /no clear pattern/i.test(result.pattern) ? 0 : 12;
   const planBonus = result.trade_plan.stop_loss && result.trade_plan.take_profit ? 8 : 0;
