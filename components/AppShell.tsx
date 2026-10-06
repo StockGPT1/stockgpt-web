@@ -14,7 +14,7 @@ import { MobileAppHeader } from "@/components/MobileAppHeader";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { GlobalSearchOverlay } from "@/components/GlobalSearchOverlay";
 import { CommandPalette } from "@/components/CommandPalette";
-import type { AskContext } from "@/lib/ask-context";
+import { buildAskHref, type AskContext } from "@/lib/ask-context";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -203,11 +203,17 @@ export async function AppShell({
       : activePath === "/portfolio"
         ? "Ask about this portfolio"
         : "Ask StockGPT");
+  const mobileAskTarget = buildAskHref(inferredAskContext);
+  const mobileAskHref = canUseAskStockGPT
+    ? mobileAskTarget
+    : user
+      ? "/subscription"
+      : `/login?next=${encodeURIComponent(mobileAskTarget)}`;
 
   return (
     <AppChromeProvider>
       <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden text-[#fffaf2]">
-        <MobileAppHeader />
+        <MobileAppHeader askHref={mobileAskHref} />
 
       <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#f2c35f]/24 bg-[linear-gradient(180deg,#0b3423,#08281b)] px-5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] lg:flex">
         <Link
