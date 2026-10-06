@@ -207,7 +207,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
         aria-label="Primary mobile navigation"
         aria-hidden={hidden}
         data-hidden={hidden ? "true" : "false"}
-        className="sg-bottom-nav fixed left-1/2 z-30 h-[66px] w-[calc(100%_-_42px)] max-w-[380px] -translate-x-1/2 rounded-full border p-1.5 backdrop-blur-xl transition duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
+        className="sg-bottom-nav fixed inset-x-[14px] z-30 mx-auto h-[70px] w-auto max-w-[410px] rounded-full border p-1.5 backdrop-blur-xl transition-[transform,opacity] duration-200 data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-[calc(100%+32px)] data-[hidden=true]:opacity-0 lg:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)" }}
       >
         <div className="relative grid h-full w-full grid-cols-5 items-center">
