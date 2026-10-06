@@ -253,6 +253,56 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   }
 }
 
+
+@media (max-width: 639px) {
+  html[data-app-shell="true"] .sg-native-edge-portfolio-phone {
+    margin-left: -28px !important;
+    margin-right: -28px !important;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+    scroll-padding-left: 28px;
+    scroll-padding-right: 28px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  html[data-app-shell="true"] .sg-native-edge-ask-holdings {
+    margin-left: -32px !important;
+    margin-right: -32px !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+    scroll-padding-left: 32px;
+    scroll-padding-right: 32px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-news-scopes {
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    scroll-padding-left: 20px;
+    scroll-padding-right: 20px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-portfolio {
+    margin-left: -36px !important;
+    margin-right: -36px !important;
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+    scroll-padding-left: 36px;
+    scroll-padding-right: 36px;
+  }
+
+  html[data-app-shell="true"] .sg-native-edge-freshness {
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    scroll-padding-left: 20px;
+    scroll-padding-right: 20px;
+  }
+}
+
 @media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: no-preference) {
   html[data-app-shell="true"] :where(.sg-mobile-nav-link, .sg-icon-button, button, a):active {
     transition-duration: 80ms !important;
