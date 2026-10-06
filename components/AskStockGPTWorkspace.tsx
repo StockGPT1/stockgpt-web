@@ -557,7 +557,7 @@ function ConversationHistoryDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="Conversation history">
+    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Conversation history">
       <button
         type="button"
         aria-label="Close conversation history"
