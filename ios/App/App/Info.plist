@@ -39,6 +39,8 @@
   <string>Take photos of stock charts so StockGPT can analyse visible chart patterns and levels.</string>
   <key>NSPhotoLibraryUsageDescription</key>
   <string>Choose stock chart screenshots for StockGPT to analyse.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Allow StockGPT camera capture to use iPhone media controls while taking chart photos.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key>
