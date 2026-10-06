@@ -219,7 +219,7 @@ export function NotificationsList({
         </div>
       </header>
 
-      <nav aria-label="Alert filters" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav aria-label="Alert filters" className="sg-native-edge-alert-filters -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {filters.map((item) => (
           <button
             key={item.id}
