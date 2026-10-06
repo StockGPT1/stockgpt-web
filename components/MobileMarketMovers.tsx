@@ -335,9 +335,61 @@ function MoversSheet({
   );
 }
 
+function MoverPreviewPanel({
+  movers,
+  mode,
+}: {
+  movers: MarketMover[];
+  mode: MoverMode;
+}) {
+  const preview = movers.slice(0, 3);
+  const maxMove = Math.max(
+    0.01,
+    ...preview.map((item) => Math.abs(parseMove(item.dailyMoveLabel) ?? 0)),
+  );
+
+  if (preview.length === 0) {
+    return (
+      <div className="rounded-[1.4rem] border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
+        No valid {mode} are available for the latest session.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MoverRow
+        item={preview[0]}
+        position={1}
+        mode={mode}
+        maxMove={maxMove}
+        featured
+      />
+      {preview.length > 1 && (
+        <div className="mt-1 divide-y divide-[#ddb159]/10 px-1">
+          {preview.slice(1).map((item, index) => (
+            <MoverRow
+              key={`${mode}-${item.ticker}-${item.dailyMoveLabel}`}
+              item={item}
+              position={index + 2}
+              mode={mode}
+              maxMove={maxMove}
+            />
+          ))}
+        </div>
+      )}
+      <p className="mt-1 px-1 text-[8px] font-bold text-[#faf6f0]/25">
+        Swipe the list to switch between gainers and losers.
+      </p>
+    </>
+  );
+}
+
 function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const [mode, setMode] = useState<MoverMode>("gainers");
   const [items, setItems] = useState<MarketMover[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -398,28 +450,64 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
     return () => observer.disconnect();
   }, [canUsePremium, loadMovers, loadState]);
 
-  const activeMovers = useMemo(
-    () => sortedMovers(items, mode),
-    [items, mode],
-  );
-  const preview = activeMovers.slice(0, 3);
-  const maxMove = Math.max(
-    0.01,
-    ...preview.map((item) => Math.abs(parseMove(item.dailyMoveLabel) ?? 0)),
-  );
+  const gainers = useMemo(() => sortedMovers(items, "gainers"), [items]);
+  const losers = useMemo(() => sortedMovers(items, "losers"), [items]);
+  const activeMovers = mode === "gainers" ? gainers : losers;
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
-    touchStartX.current = event.touches[0]?.clientX ?? null;
+    const point = event.touches[0];
+    if (!point) return;
+    touchStart.current = { x: point.clientX, y: point.clientY };
+    setDragX(0);
+    setDragging(true);
+  }
+
+  function handleTouchMove(event: TouchEvent<HTMLDivElement>) {
+    const start = touchStart.current;
+    const point = event.touches[0];
+    if (!start || !point) return;
+
+    const dx = point.clientX - start.x;
+    const dy = point.clientY - start.y;
+
+    if (Math.abs(dx) < Math.abs(dy)) return;
+
+    const atStart = mode === "gainers" && dx > 0;
+    const atEnd = mode === "losers" && dx < 0;
+    const resisted = atStart || atEnd ? dx * 0.28 : dx;
+    const width = sectionRef.current?.clientWidth ?? 360;
+    const limit = Math.max(72, width * 0.72);
+    setDragX(Math.max(-limit, Math.min(limit, resisted)));
   }
 
   function handleTouchEnd(event: TouchEvent<HTMLDivElement>) {
-    if (touchStartX.current == null) return;
-    const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
-    const distance = endX - touchStartX.current;
-    touchStartX.current = null;
+    const start = touchStart.current;
+    const point = event.changedTouches[0];
+    touchStart.current = null;
+    setDragging(false);
 
-    if (Math.abs(distance) < 55) return;
-    setMode(distance < 0 ? "losers" : "gainers");
+    if (!start || !point) {
+      setDragX(0);
+      return;
+    }
+
+    const distance = point.clientX - start.x;
+    const width = sectionRef.current?.clientWidth ?? 360;
+    const threshold = Math.max(48, width * 0.14);
+
+    if (distance <= -threshold && mode === "gainers") {
+      setMode("losers");
+    } else if (distance >= threshold && mode === "losers") {
+      setMode("gainers");
+    }
+
+    setDragX(0);
+  }
+
+  function handleTouchCancel() {
+    touchStart.current = null;
+    setDragging(false);
+    setDragX(0);
   }
 
   return (
@@ -454,7 +542,11 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
               key={tab}
               type="button"
               aria-pressed={mode === tab}
-              onClick={() => setMode(tab)}
+              onClick={() => {
+                setDragging(false);
+                setDragX(0);
+                setMode(tab);
+              }}
               className={`min-h-9 rounded-full px-3 text-[10px] font-black capitalize transition-colors ${
                 mode === tab
                   ? "bg-[#ddb159] text-[#072116]"
@@ -503,40 +595,30 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
             Try again →
           </button>
         </div>
-      ) : preview.length === 0 ? (
-        <div className="mt-3 rounded-[1.4rem] border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[11px] font-semibold text-[#faf6f0]/52">
-          No valid {mode} are available for the latest session.
-        </div>
       ) : (
         <div
-          key={mode}
           onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="mt-3 motion-safe:animate-[fadeIn_180ms_ease-out]"
+          onTouchCancel={handleTouchCancel}
+          className="mt-3 overflow-hidden touch-pan-y"
         >
-          <MoverRow
-            item={preview[0]}
-            position={1}
-            mode={mode}
-            maxMove={maxMove}
-            featured
-          />
-          {preview.length > 1 && (
-            <div className="mt-1 divide-y divide-[#ddb159]/10 px-1">
-              {preview.slice(1).map((item, index) => (
-                <MoverRow
-                  key={`${mode}-${item.ticker}-${item.dailyMoveLabel}`}
-                  item={item}
-                  position={index + 2}
-                  mode={mode}
-                  maxMove={maxMove}
-                />
-              ))}
+          <div
+            className="flex w-[200%] items-start will-change-transform motion-reduce:transition-none"
+            style={{
+              transform: `translate3d(calc(${mode === "gainers" ? "0%" : "-50%"} + ${dragX}px), 0, 0)`,
+              transition: dragging
+                ? "none"
+                : "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            <div className="w-1/2 shrink-0 pr-1">
+              <MoverPreviewPanel movers={gainers} mode="gainers" />
             </div>
-          )}
-          <p className="mt-1 px-1 text-[8px] font-bold text-[#faf6f0]/25">
-            Swipe the list to switch between gainers and losers.
-          </p>
+            <div className="w-1/2 shrink-0 pl-1">
+              <MoverPreviewPanel movers={losers} mode="losers" />
+            </div>
+          </div>
         </div>
       )}
 
