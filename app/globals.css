@@ -755,33 +755,23 @@ html[data-app-shell="true"] a {
 
 
 .sg-ask-header-pill {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(255, 239, 184, 0.76) !important;
+  border: 1px solid rgba(255, 232, 155, 0.52) !important;
   background:
-    linear-gradient(180deg, #ffeaa0 0%, #f5cb62 48%, #dca43b 100%) !important;
-  color: #020805 !important;
+    linear-gradient(180deg, #f7d879 0%, #e9bd52 100%) !important;
+  color: #050704 !important;
   box-shadow:
-    0 8px 22px rgba(242, 195, 95, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 -1px 0 rgba(93, 55, 5, 0.18) !important;
+    0 7px 18px rgba(0, 0, 0, 0.20),
+    0 2px 10px rgba(242, 195, 95, 0.10),
+    inset 0 1px 0 rgba(255, 250, 225, 0.42),
+    inset 0 -1px 0 rgba(111, 73, 8, 0.14) !important;
   text-shadow: none !important;
-}
-
-.sg-ask-header-pill::after {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 1px 7px auto;
-  height: 42%;
-  border-radius: 9999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0));
-  opacity: 0.62;
 }
 
 .sg-ask-header-pill:hover,
 .sg-ask-header-pill:visited {
-  color: #020805 !important;
+  color: #050704 !important;
+  background:
+    linear-gradient(180deg, #f9dd84 0%, #edc35b 100%) !important;
 }
 
 .sg-bottom-nav {
