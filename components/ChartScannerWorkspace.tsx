@@ -165,7 +165,7 @@ function resetIOSViewportAfterPicker() {
 
   const restore = () => {
     viewport.setAttribute("content", normalViewport);
-    document.documentElement.style.webkitTextSizeAdjust = "100%";
+    document.documentElement.style.setProperty("-webkit-text-size-adjust", "100%");
     window.dispatchEvent(new Event("resize"));
   };
 
