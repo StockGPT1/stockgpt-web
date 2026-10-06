@@ -82,6 +82,20 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
+function AskHeaderButton({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      aria-label="Ask StockGPT"
+      data-native-haptic="light"
+      className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-[#ffe7a2]/65 bg-[linear-gradient(180deg,#ffeaa3,#f2c35f_55%,#d9a233)] px-3 text-[9px] font-black tracking-[-0.01em] text-[#062016] shadow-[0_8px_24px_rgba(242,195,95,0.20),inset_0_1px_0_rgba(255,255,255,0.55)] transition active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff3c4] min-[390px]:px-3.5 min-[390px]:text-[10px]"
+    >
+      AskStockGPT
+    </Link>
+  );
+}
+
 export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: string }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -89,7 +103,6 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
   const title = pageTitle(pathname);
   const isDashboard = pathname === "/dashboard";
   const isDetailPage = pathname.startsWith("/stock/") || pathname.startsWith("/compare");
-  const isSettings = pathname.startsWith("/settings");
 
   useEffect(() => {
     document.body.dataset.sgPath = routeKey(pathname);
@@ -127,21 +140,13 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
 
         <HeaderButton label="Search StockGPT" onClick={openSearch} icon="search" />
 
-        <Link
-          href={askHref}
-          prefetch={false}
-          aria-label="Ask StockGPT"
-          data-native-haptic="light"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 bg-[#f2c35f]/8 text-[#f2c35f] shadow-[0_0_22px_rgba(242,195,95,0.08)] transition-colors hover:bg-[#f2c35f]/14 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
-        >
-          <StockIcon name="ask" className="size-5" />
-        </Link>
+        <AskHeaderButton href={askHref} />
       </header>
     );
   }
 
   return (
-    <header className="sg-mobile-app-header relative z-40 grid h-14 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b border-[#f2c35f]/24 bg-transparent pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
+    <header className="sg-mobile-app-header relative z-40 grid h-14 shrink-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-1 border-b border-[#f2c35f]/24 bg-transparent pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
       {isDetailPage ? (
         <button
           type="button"
@@ -159,28 +164,7 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
         {title}
       </p>
 
-      {isDetailPage ? (
-        <ShareButton title={title} />
-      ) : isSettings ? (
-        <Link
-          href="/dashboard"
-          prefetch={false}
-          aria-label="Go to dashboard"
-          className="grid size-11 place-items-center rounded-full text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
-        >
-          <StockIcon name="dashboard" className="size-5" />
-        </Link>
-      ) : (
-        <Link
-          href={askHref}
-          prefetch={false}
-          aria-label="Ask StockGPT"
-          data-native-haptic="light"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 bg-[#f2c35f]/8 text-[#f2c35f] shadow-[0_0_22px_rgba(242,195,95,0.08)] transition-colors hover:bg-[#f2c35f]/14 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
-        >
-          <StockIcon name="ask" className="size-5" />
-        </Link>
-      )}
+      {isDetailPage ? <ShareButton title={title} /> : <AskHeaderButton href={askHref} />}
     </header>
   );
 }
