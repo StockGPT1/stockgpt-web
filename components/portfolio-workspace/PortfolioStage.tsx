@@ -120,9 +120,9 @@ export function PortfolioStage({
       <section
         ref={stageRef}
         aria-label="Portfolio performance"
-        className="relative isolate overflow-hidden border-b border-[#ddb159]/14 px-4 pb-3 pt-3 sm:px-6 lg:mt-5 lg:min-h-[470px] lg:rounded-[28px] lg:border lg:px-8 lg:pb-7 lg:pt-7"
+        className="sg-portfolio-stage relative isolate overflow-hidden border-b border-[#f2c35f]/20 px-4 pb-3 pt-3 sm:px-6 lg:mt-5 lg:min-h-[470px] lg:rounded-[30px] lg:border lg:px-8 lg:pb-7 lg:pt-7"
       >
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(221,177,89,0.12),transparent_34%),linear-gradient(180deg,#0a2a1d_0%,#061b12_74%)]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-2%,rgba(255,224,138,0.18),transparent_31%),radial-gradient(circle_at_12%_46%,rgba(52,211,153,0.10),transparent_34%),linear-gradient(180deg,#0d3a27_0%,#082b1d_60%,#062117_100%)]" />
         <div className="mx-auto max-w-[1180px]">
           <div className="flex items-center justify-between gap-3">
             <label className="min-w-0 max-w-[70%]">
@@ -131,7 +131,7 @@ export function PortfolioStage({
                 <select
                   value={portfolioId}
                   onChange={(event) => onPortfolio(event.target.value)}
-                  className="h-11 w-full appearance-none truncate rounded-full border border-[#ddb159]/26 bg-[#04140c]/62 pl-4 pr-9 text-[12px] font-black text-[#faf6f0] outline-none backdrop-blur focus:border-[#ddb159] focus-visible:ring-2 focus-visible:ring-[#ddb159]/32 lg:h-12 lg:text-[13px]"
+                  className="h-11 w-full appearance-none truncate rounded-full border border-[#f2c35f]/32 bg-[#052218]/72 pl-4 pr-9 text-[12px] font-black text-[#fffaf2] outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur focus:border-[#f2c35f] focus-visible:ring-2 focus-visible:ring-[#f2c35f]/32 lg:h-12 lg:text-[13px]"
                 >
                   {portfolios.map((portfolio) => (
                     <option key={portfolio.id} value={portfolio.id} className="bg-[#061b12]">
@@ -151,7 +151,7 @@ export function PortfolioStage({
                 onClick={onAdd}
                 aria-label="Add to portfolio"
                 data-native-haptic="medium"
-                className="grid size-11 place-items-center rounded-full border border-[#ddb159]/30 bg-[#ddb159] text-[#061b12] shadow-[0_10px_24px_rgba(221,177,89,0.16)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#faf6f0] lg:size-12"
+                className="grid size-11 place-items-center rounded-full border border-[#ffe6a0]/55 bg-[linear-gradient(180deg,#ffeaa3,#f2c35f_52%,#d99f2f)] text-[#062016] shadow-[0_10px_26px_rgba(242,195,95,0.24),inset_0_1px_0_rgba(255,255,255,0.52)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fffaf2] lg:size-12"
               >
                 <PortfolioIcon name="plus" />
               </button>
@@ -159,7 +159,7 @@ export function PortfolioStage({
                 type="button"
                 onClick={onManage}
                 aria-label="Manage portfolio"
-                className="grid size-11 place-items-center rounded-full border border-[#ddb159]/24 bg-[#04140c]/62 text-[#ddb159] transition hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:size-12"
+                className="grid size-11 place-items-center rounded-full border border-[#f2c35f]/28 bg-[#052218]/72 text-[#f2c35f] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[#f2c35f]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f] lg:size-12"
               >
                 <PortfolioIcon name="settings" />
               </button>
@@ -172,7 +172,7 @@ export function PortfolioStage({
                 <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#faf6f0]/42 lg:text-[11px]">
                   Portfolio value
                 </p>
-                <h1 className="mt-1 truncate text-[clamp(36px,10vw,50px)] font-black leading-none tracking-[-0.06em] tabular-nums text-[#faf6f0] lg:mt-2 lg:text-[60px]">
+                <h1 className="mt-1 truncate text-[clamp(38px,10.5vw,52px)] font-black leading-none tracking-[-0.065em] tabular-nums text-[#fffaf2] drop-shadow-[0_6px_24px_rgba(242,195,95,0.08)] lg:mt-2 lg:text-[62px]">
                   {money(currentValue, meta.currency)}
                 </h1>
                 <p className={`mt-2 text-[14px] font-black tabular-nums lg:mt-3 lg:text-[17px] ${toneClass(currentPnl)}`}>
@@ -183,7 +183,7 @@ export function PortfolioStage({
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <span
                   aria-label={`Portfolio health ${summary.score} out of 100, ${summary.label}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#ddb159]/30 bg-[#ddb159]/10 py-1.5 pl-2.5 pr-3"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#f2c35f]/34 bg-[#f2c35f]/12 py-1.5 pl-2.5 pr-3 shadow-[0_8px_20px_rgba(242,195,95,0.08)]"
                 >
                   <span
                     aria-hidden="true"
@@ -195,7 +195,7 @@ export function PortfolioStage({
                           : "bg-red-400"
                     }`}
                   />
-                  <span className="text-[11px] font-black tabular-nums text-[#ddb159] lg:text-[13px]">
+                  <span className="text-[11px] font-black tabular-nums text-[#f7cd72] lg:text-[13px]">
                     {summary.score}/100
                   </span>
                 </span>
@@ -220,7 +220,7 @@ export function PortfolioStage({
                 initialRange={activeRange}
                 height={chartHeight}
                 compact
-                color="#ddb159"
+                color="#f2c35f"
                 mobileTransparentFrame
                 onScrub={(point) => setScrubPoint(point)}
               />
@@ -260,7 +260,7 @@ export function PortfolioStage({
                   }}
                   className={`mx-auto grid min-h-10 min-w-10 place-items-center rounded-full px-2 text-[11px] font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:min-h-11 lg:min-w-11 lg:px-3 lg:text-[12px] ${
                     active
-                      ? "bg-[#faf6f0] text-[#061b12]"
+                      ? "bg-[linear-gradient(180deg,#fff0b5,#f2c35f)] text-[#062016] shadow-[0_7px_18px_rgba(242,195,95,0.18)]"
                       : available
                         ? "text-[#faf6f0]/56 hover:bg-[#faf6f0]/5 hover:text-[#faf6f0]"
                         : "cursor-not-allowed text-[#faf6f0]/18"
@@ -275,7 +275,7 @@ export function PortfolioStage({
       </section>
 
       <div
-        className={`sticky top-0 z-40 border-b border-[#ddb159]/14 bg-[#061b12]/94 backdrop-blur-xl transition ${
+        className={`sticky top-0 z-40 border-b border-[#f2c35f]/18 bg-[#08281b]/92 backdrop-blur-xl transition ${
           stageVisible ? "" : "shadow-[0_14px_32px_rgba(0,0,0,0.24)]"
         }`}
       >
@@ -320,7 +320,7 @@ export function PortfolioStage({
               >
                 {item.label}
                 {section === item.value && (
-                  <span className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-[#ddb159]" />
+                  <span className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-[#f2c35f] shadow-[0_0_12px_rgba(242,195,95,0.45)]" />
                 )}
               </button>
             ))}

@@ -51,7 +51,7 @@ function HeaderButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid size-11 shrink-0 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+      className="grid size-11 shrink-0 place-items-center rounded-full text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
     >
       <StockIcon name={icon} className="size-5" />
     </button>
@@ -71,7 +71,7 @@ function ShareButton({ title }: { title: string }) {
           url: window.location.href,
         });
       }}
-      className="grid size-11 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+      className="grid size-11 place-items-center rounded-full text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
     >
       <svg viewBox="0 0 24 24" className="size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 3v12" />
@@ -111,7 +111,7 @@ export function MobileAppHeader() {
 
   if (isDashboard) {
     return (
-      <header className="sg-mobile-app-header relative z-40 flex h-14 shrink-0 items-center gap-2 border-b border-[#ddb159]/14 bg-[#04180f] pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
+      <header className="sg-mobile-app-header relative z-40 flex h-14 shrink-0 items-center gap-2 border-b border-[#f2c35f]/24 bg-transparent pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
         <Link href="/dashboard" aria-label="StockGPT home" className="relative h-10 w-[118px] shrink-0">
           <Image
             src="/logo.png"
@@ -131,7 +131,7 @@ export function MobileAppHeader() {
           href="/settings"
           prefetch={false}
           aria-label="Account settings"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#ddb159]/28 text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+          className="grid size-11 shrink-0 place-items-center rounded-full border border-[#f2c35f]/34 text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
           <StockIcon name="settings" className="size-5" />
         </Link>
@@ -140,13 +140,13 @@ export function MobileAppHeader() {
   }
 
   return (
-    <header className="sg-mobile-app-header relative z-40 grid h-14 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b border-[#ddb159]/14 bg-[#04180f] pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
+    <header className="sg-mobile-app-header relative z-40 grid h-14 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b border-[#f2c35f]/24 bg-transparent pl-[max(12px,env(safe-area-inset-left))] pr-[max(12px,env(safe-area-inset-right))] lg:hidden">
       {isDetailPage ? (
         <button
           type="button"
           onClick={() => router.back()}
           aria-label="Go back"
-          className="grid size-11 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+          className="grid size-11 place-items-center rounded-full text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
           <span aria-hidden="true" className="text-[22px] leading-none">←</span>
         </button>
@@ -154,7 +154,7 @@ export function MobileAppHeader() {
         <HeaderButton label="Search StockGPT" onClick={openSearch} icon="search" />
       )}
 
-      <p className="min-w-0 truncate px-2 text-center font-sans text-[21px] font-extrabold leading-none tracking-[-0.025em] text-[#faf6f0]">
+      <p className="min-w-0 truncate px-2 text-center font-sans text-[21px] font-extrabold leading-none tracking-[-0.025em] text-[#fffaf2] drop-shadow-[0_1px_10px_rgba(242,195,95,0.08)]">
         {title}
       </p>
 
@@ -165,7 +165,7 @@ export function MobileAppHeader() {
           href="/dashboard"
           prefetch={false}
           aria-label="Go to dashboard"
-          className="grid size-11 place-items-center rounded-full text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+          className="grid size-11 place-items-center rounded-full text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
           <StockIcon name="dashboard" className="size-5" />
         </Link>
@@ -174,7 +174,7 @@ export function MobileAppHeader() {
           href="/settings"
           prefetch={false}
           aria-label="Account settings"
-          className="grid size-11 place-items-center rounded-full border border-[#ddb159]/28 text-[#ddb159] transition-colors hover:bg-[#ddb159]/8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
+          className="grid size-11 place-items-center rounded-full border border-[#f2c35f]/34 text-[#f2c35f] transition-colors hover:bg-[#f2c35f]/12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f]"
         >
           <StockIcon name="settings" className="size-5" />
         </Link>

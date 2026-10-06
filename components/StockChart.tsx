@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 
 export type ChartPoint = {
   date: string;
@@ -97,6 +97,8 @@ export function StockChart({
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const moveFrameRef = useRef<number | null>(null);
+  const pendingClientXRef = useRef<number | null>(null);
 
   const availableRanges = useMemo(
     () => rangeOrder.filter((r) => (data[r]?.length ?? 0) > 1),
@@ -257,7 +259,35 @@ export function StockChart({
     [points, svgWidth, pointXs, onScrub, resolvedRange],
   );
 
+  const scheduleMove = useCallback(
+    (clientX: number) => {
+      pendingClientXRef.current = clientX;
+      if (moveFrameRef.current != null) return;
+
+      moveFrameRef.current = window.requestAnimationFrame(() => {
+        moveFrameRef.current = null;
+        const pendingClientX = pendingClientXRef.current;
+        if (pendingClientX != null) handleMove(pendingClientX);
+      });
+    },
+    [handleMove],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (moveFrameRef.current != null) {
+        window.cancelAnimationFrame(moveFrameRef.current);
+        moveFrameRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePointerLeave = useCallback(() => {
+    pendingClientXRef.current = null;
+    if (moveFrameRef.current != null) {
+      window.cancelAnimationFrame(moveFrameRef.current);
+      moveFrameRef.current = null;
+    }
     setHoverIdx(null);
     onScrub?.(null, { range: resolvedRange });
   }, [onScrub, resolvedRange]);
@@ -342,17 +372,18 @@ export function StockChart({
 
       <div
         className={[
-          "relative overflow-hidden",
+          "sg-stock-chart-frame relative overflow-hidden",
           mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
         ].join(" ")}
         style={{ height: `${height}px` }}
       >
         <svg
+          key={resolvedRange}
           ref={svgRef}
           viewBox={`0 0 ${svgWidth} ${height}`}
           preserveAspectRatio="none"
-          className="h-full w-full touch-none"
-          onPointerMove={(e) => handleMove(e.clientX)}
+          className="sg-stock-chart-canvas h-full w-full touch-none"
+          onPointerMove={(e) => scheduleMove(e.clientX)}
           onPointerDown={(e) => handleMove(e.clientX)}
           onPointerLeave={handlePointerLeave}
           onPointerCancel={handlePointerLeave}
@@ -394,15 +425,17 @@ export function StockChart({
               );
             })}
 
-          <path d={areaD} fill={fillColor} />
+          <path className="sg-stock-chart-area" d={areaD} fill={fillColor} />
 
           <path
+            className="sg-stock-chart-line"
             d={pathD}
             fill="none"
             stroke={lineColor}
             strokeWidth={lineStrokeWidth}
             strokeLinejoin="round"
             strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 7px ${lineColor}66)` }}
           />
 
           {hoverPoint && (
@@ -506,7 +539,15 @@ export function StockChart({
                 disabled={!available}
                 aria-label={available ? `Show ${r} chart` : `${r} chart temporarily unavailable`}
                 onClick={() => {
-                  if (available) setRange(r);
+                  if (!available) return;
+                  pendingClientXRef.current = null;
+                  if (moveFrameRef.current != null) {
+                    window.cancelAnimationFrame(moveFrameRef.current);
+                    moveFrameRef.current = null;
+                  }
+                  setHoverIdx(null);
+                  onScrub?.(null, { range: r });
+                  setRange(r);
                 }}
                 className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
                   resolvedRange === r

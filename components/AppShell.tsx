@@ -206,10 +206,10 @@ export async function AppShell({
 
   return (
     <AppChromeProvider>
-      <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden bg-[#072116] text-[#faf6f0]">
+      <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden text-[#fffaf2]">
         <MobileAppHeader />
 
-      <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#ddb159]/18 bg-[#04180f] px-5 shadow-[0_8px_28px_rgba(0,0,0,0.24)] lg:flex">
+      <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#f2c35f]/24 bg-[linear-gradient(180deg,#0b3423,#08281b)] px-5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] lg:flex">
         <Link
           href="/dashboard"
           prefetch={false}
@@ -288,7 +288,7 @@ export async function AppShell({
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="sg-sidebar hidden h-full w-[178px] shrink-0 border-r border-[#ddb159]/16 bg-[#061b12] px-3 py-4 lg:block">
+        <aside className="sg-sidebar hidden h-full w-[178px] shrink-0 border-r border-[#f2c35f]/20 bg-[linear-gradient(180deg,#092f20,#062117)] px-3 py-4 lg:block">
           <nav className="space-y-2">
             {navItems.map((item) => {
               const isActive = activePath === item.href;
@@ -303,18 +303,18 @@ export async function AppShell({
                   className={[
                     "sg-side-nav-link group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl border px-3 text-[12px] font-bold transition duration-300",
                     isActive
-                      ? "border-[#ddb159] bg-[#ddb159]/12 text-[#faf6f0] shadow-[0_0_22px_rgba(221,177,89,0.08)]"
-                      : "border-transparent text-[#faf6f0]/78 hover:-translate-y-0.5 hover:border-[#ddb159]/45 hover:bg-[#ddb159]/8 hover:text-[#faf6f0]",
+                      ? "border-[#f2c35f] bg-[#f2c35f]/14 text-[#fffaf2] shadow-[0_0_24px_rgba(242,195,95,0.10)]"
+                      : "border-transparent text-[#fffaf2]/78 hover:-translate-y-0.5 hover:border-[#f2c35f]/48 hover:bg-[#f2c35f]/9 hover:text-[#fffaf2]",
                   ].join(" ")}
                 >
                   <span
                     className={[
-                      "absolute inset-y-2 left-0 w-[2px] rounded-r-full bg-[#ddb159] transition",
+                      "absolute inset-y-2 left-0 w-[2px] rounded-r-full bg-[#f2c35f] transition",
                       isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70",
                     ].join(" ")}
                   />
 
-                  <span className="w-5 text-center text-base text-[#ddb159] transition duration-300 group-hover:scale-110">
+                  <span className="w-5 text-center text-base text-[#f2c35f] transition duration-300 group-hover:scale-110">
                     <StockIcon name={item.icon as StockIconName} className="size-[18px]" />
                   </span>
 
@@ -331,7 +331,7 @@ export async function AppShell({
           </nav>
         </aside>
 
-        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,#072116,#051a11)] p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
+        <section className="sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3">
           <PageBackdrop activePath={activePath} />
           <div className="relative z-10 min-h-full lg:h-full lg:min-h-0">
             {children}

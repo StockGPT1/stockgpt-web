@@ -133,7 +133,7 @@ function FilterSelect({
 }) {
   return (
     <label className="relative flex h-11 min-w-0 items-center rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-3 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
-      <span className="pointer-events-none absolute left-4 top-1 text-[8px] font-black uppercase tracking-[0.14em] text-[#ddb159]/70">
+      <span className="pointer-events-none absolute left-4 top-1 text-[8px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/70">
         {label}
       </span>
       <select
@@ -149,7 +149,7 @@ function FilterSelect({
       </select>
       <StockIcon
         name="chevron-down"
-        className="pointer-events-none absolute right-4 size-3 text-[#ddb159]/70"
+        className="pointer-events-none absolute right-4 size-3 text-[#f2c35f]/70"
       />
     </label>
   );
@@ -167,7 +167,7 @@ function ScoreMethodCard() {
 
   return (
     <details className="relative overflow-hidden rounded-[22px] border border-[#ddb159]/18 bg-[#04180f]/70 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-      <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
+      <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">
         How the AI score works
       </summary>
       <p className="mt-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#faf6f0]/58">
@@ -299,11 +299,11 @@ export default async function RankingsPage({
   return (
     <AppShell activePath="/rankings" askLabel="Ask about rankings" askContext={{ contextType: "rankings", activeFilters: { q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter } }}>
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
-        <section className="relative shrink-0 overflow-hidden rounded-[24px] border border-[#ddb159]/20 bg-[linear-gradient(135deg,rgba(250,246,240,0.07),rgba(250,246,240,0.022)_46%,rgba(221,177,89,0.06))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-4">
+        <section className="sg-rankings-hero relative shrink-0 overflow-hidden rounded-[24px] border border-[#f2c35f]/24 bg-[radial-gradient(circle_at_12%_0%,rgba(255,232,157,0.10),transparent_30%),linear-gradient(135deg,rgba(255,250,242,0.075),rgba(255,250,242,0.025)_46%,rgba(242,195,95,0.09))] p-3 shadow-[0_16px_38px_rgba(0,0,0,0.17)] backdrop-blur-xl sm:p-4">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#ddb159] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                <span className="size-1.5 rounded-full bg-[#ddb159] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ddb159]/24 bg-[#072116]/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f2c35f] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <span className="size-1.5 rounded-full bg-[#f2c35f] shadow-[0_0_12px_rgba(221,177,89,0.8)]" />
                 AI Ranking Engine
               </div>
               <h1 className="text-[28px] font-black leading-none tracking-[-0.055em] text-[#faf6f0] sm:text-[34px]">
@@ -318,7 +318,7 @@ export default async function RankingsPage({
             </div>
 
             {rankingsLocked && (
-              <Link href="/pricing" className="group relative w-fit overflow-hidden rounded-full bg-[#ddb159] px-5 py-3 text-[12px] font-black text-[#072116] shadow-[0_14px_30px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(221,177,89,0.32)]">
+              <Link href="/pricing" className="group relative w-fit overflow-hidden rounded-full bg-[#f2c35f] px-5 py-3 text-[12px] font-black text-[#072116] shadow-[0_14px_30px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(221,177,89,0.32)]">
                 <span className="relative">Unlock full rankings →</span>
               </Link>
             )}
@@ -337,23 +337,23 @@ export default async function RankingsPage({
 
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(260px,1fr)_auto_auto]">
               <label className="group flex h-11 min-w-0 items-center gap-3 rounded-2xl border border-[#faf6f0]/8 bg-[#faf6f0]/[0.055] px-4 transition focus-within:border-[#ddb159]/70 focus-within:bg-[#faf6f0]/[0.075] focus-within:shadow-[0_0_0_3px_rgba(221,177,89,0.10)]">
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#ddb159]/12 text-[#ddb159] transition group-focus-within:bg-[#ddb159] group-focus-within:text-[#072116]">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#f2c35f]/12 text-[#f2c35f] transition group-focus-within:bg-[#f2c35f] group-focus-within:text-[#072116]">
                   <StockIcon name="search" className="size-4" />
                 </span>
                 <input name="q" defaultValue={params.q ?? ""} placeholder="Search ticker or company" className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-[#faf6f0] outline-none placeholder:text-[#faf6f0]/34" />
               </label>
 
-              <button type="submit" className="h-11 rounded-2xl bg-[#ddb159] px-6 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:brightness-105">
+              <button type="submit" className="h-11 rounded-2xl bg-[#f2c35f] px-6 text-[13px] font-black text-[#072116] shadow-[0_10px_22px_rgba(221,177,89,0.22)] transition hover:-translate-y-0.5 hover:brightness-105">
                 Apply
               </button>
 
-              <Link href="/rankings" className="grid h-11 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-6 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#ddb159]/10 hover:text-[#ddb159]">
+              <Link href="/rankings" className="grid h-11 place-items-center rounded-2xl border border-[#faf6f0]/10 bg-[#faf6f0]/[0.035] px-6 text-[13px] font-black text-[#faf6f0]/70 transition hover:border-[#ddb159]/40 hover:bg-[#f2c35f]/10 hover:text-[#f2c35f]">
                 Reset
               </Link>
             </div>
 
             <details open={advancedFiltersActive} className="mt-2 rounded-2xl border border-[#ddb159]/12 bg-[#faf6f0]/[0.025] p-2">
-              <summary className="cursor-pointer list-none rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#ddb159]">
+              <summary className="cursor-pointer list-none rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#f2c35f]">
                 Advanced filters {advancedFiltersActive ? "active" : "optional"}
                 <StockIcon name="chevron-down" className="ml-1 inline size-3" />
               </summary>
@@ -391,7 +391,7 @@ export default async function RankingsPage({
                   const confidence = getModelConfidence(stock);
 
                   return (
-                    <div key={stock.id} className="relative cursor-pointer border-b border-[#072116]/8 transition hover:bg-[#ddb159]/8">
+                    <div key={stock.id} className="sg-ranking-row relative cursor-pointer border-b border-[#072116]/8 transition hover:bg-[#f2c35f]/10">
                       <Link
                         href={`/stock/${stock.ticker}`}
                         aria-label={`Open ${stock.company ?? stock.ticker ?? "stock"} stock page`}
@@ -404,7 +404,7 @@ export default async function RankingsPage({
                         <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
                         <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
-                        <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#ddb159] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
+                        <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#f2c35f] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
                         <div className="pointer-events-auto px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
                       </div>
                     </div>
@@ -425,7 +425,7 @@ export default async function RankingsPage({
             {hasPreviousPage ? (
               <Link
                 href={rankingsPageHref(params, currentPage - 1)}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/28 px-4 text-[11px] font-black text-[#ddb159]"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddb159]/28 px-4 text-[11px] font-black text-[#f2c35f]"
               >
                 Previous
               </Link>
@@ -438,7 +438,7 @@ export default async function RankingsPage({
             {hasNextPage ? (
               <Link
                 href={rankingsPageHref(params, currentPage + 1)}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#ddb159] px-4 text-[11px] font-black text-[#072116]"
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#f2c35f] px-4 text-[11px] font-black text-[#072116]"
               >
                 Next 50
               </Link>
