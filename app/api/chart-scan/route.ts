@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { isChartAnalysis, parseScanJson, runGroundedChartScan, type ChartLayout } from "@/lib/chart-scanner";
+import { positivePrice } from "@/lib/chart-scan-scenario";
 import { CHART_LAYOUT_PROMPT, CHART_ANALYSIS_PROMPT, CHART_REVIEW_INSTRUCTION } from "@/lib/chart-scanner-prompts";
 
 export const runtime = "nodejs";
@@ -44,7 +45,7 @@ async function requestVision(
         "X-Title": "StockGPT Chart Scanner",
       },
       body: JSON.stringify({
-        model, temperature: 0.1, max_tokens: stage === "layout" ? 1800 : 3600,
+        model, temperature: 0.1, max_tokens: stage === "layout" ? 2400 : 4400,
         reasoning: { exclude: true },
         messages: [
           { role: "system", content: system },
@@ -69,7 +70,7 @@ async function requestVision(
   }
 }
 
-async function analyseImages(apiKey: string, dataUrls: string[]) {
+async function analyseImages(apiKey: string, dataUrls: string[], referencePrice: number | null) {
   const failures: VisionFailure[] = [];
   let requests = 0;
   let analysisModel = PRIMARY_VISION_MODEL;
@@ -77,7 +78,7 @@ async function analyseImages(apiKey: string, dataUrls: string[]) {
     requests += 1;
     return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures);
   };
-  const inventory = (layout: ChartLayout) => "Chart region inventory (check against images):\n" + JSON.stringify(layout);
+  const inventory = (layout: ChartLayout) => "Chart region inventory (check against images):\n" + JSON.stringify(layout) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
   const scan = await runGroundedChartScan({
     locate: () => ask(PRIMARY_VISION_MODEL, CHART_LAYOUT_PROMPT,
       "Map the real primary price plot and inventory every visible indicator in these images. Return JSON.", "layout"),
@@ -91,7 +92,7 @@ async function analyseImages(apiKey: string, dataUrls: string[]) {
     review: (layout, candidate) => ask(analysisModel === PRIMARY_VISION_MODEL ? REVIEW_VISION_MODEL : PRIMARY_VISION_MODEL, CHART_ANALYSIS_PROMPT,
       inventory(layout) + "\nCandidate analysis (untrusted until independently checked):\n" +
       JSON.stringify(candidate) + "\n" + CHART_REVIEW_INSTRUCTION, "review"),
-  }, dataUrls.length);
+  }, dataUrls.length, referencePrice);
   if (failures.length > 0) console.error("[chart-scan] vision pass failed", failures);
   return { result: scan?.result ?? null, model: scan?.model ?? null, passes: requests, failures };
 }
@@ -120,6 +121,11 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
+    const referenceInput = formData.get("reference_price");
+    const referencePrice = referenceInput ? positivePrice(referenceInput) : null;
+    if (referenceInput && referencePrice === null) {
+      return NextResponse.json({ error: "Enter a positive reference price, such as 125.50." }, { status: 400 });
+    }
     const images = formData
       .getAll("image")
       .filter((item): item is File => item instanceof File);
@@ -166,7 +172,7 @@ export async function POST(req: NextRequest) {
         return "data:" + image.type + ";base64," + bytes.toString("base64");
       }),
     );
-    const analysis = await analyseImages(apiKey, dataUrls);
+    const analysis = await analyseImages(apiKey, dataUrls, referencePrice);
 
     if (!analysis.result) {
       console.error("[chart-scan] all vision models failed", analysis.failures);

@@ -9,7 +9,9 @@ import {
 const plot = { x_pct: 5, y_pct: 18, width_pct: 85, height_pct: 42 };
 const candleBox = { x_pct: 61, y_pct: 28, width_pct: 8, height_pct: 16 };
 const rsiPanel = { x_pct: 5, y_pct: 65, width_pct: 85, height_pct: 14 };
+const axis = { scale: "linear", ticks: [{ price: 110, y_pct: 25 }, { price: 100, y_pct: 43 }, { price: 95, y_pct: 52 }] };
 const rawLayout = {
+  price_axis: axis,
   price_series_type: "candles", price_plot_box: plot,
   indicators: [{ name: "RSI", placement: "panel", source_image: 0, readable: true, box: rsiPanel }],
   exclusions: [{ x_pct: 5, y_pct: 18, width_pct: 18, height_pct: 3 }],
@@ -34,7 +36,7 @@ const scan = {
   price_series_type: "candles", chart_coverage: "full", current_price: "$100", timeframe: "1h",
   signals: [priceSignal, indicatorSignal],
   indicator_checks: [{ id: "indicator-1", status: "readable", finding: "RSI rises through 50." }],
-  overlay: { price_plot_confirmed: true, price_plot_box: plot, levels_confirmed: true, support_y_pct: 52, resistance_y_pct: 25 },
+  overlay: { price_axis_confirmed: true, price_axis: axis, price_plot_confirmed: true, price_plot_box: plot, levels_confirmed: true, support_y_pct: 52, resistance_y_pct: 25 },
   levels: { support: "95", resistance: "110" },
   trade_plan: { price_scale_readable: true, entry: "100", stop_loss: "95", take_profit: "110", projected_bars: "6–12 bars", projected_horizon: "6–12 hours" },
 };
@@ -132,12 +134,14 @@ test("invalid source indices and placements are removed from inventory", () => {
   assert.equal(normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], placement: "toolbar" }] }, 1).indicators.length, 0);
 });
 
-test("unreviewed reads expose review status and withhold all geometry and plans", () => {
+test("unreviewed reads expose status, withhold geometry and reduce estimated plan confidence", () => {
   const result = read({}, layout, false);
   assert.equal(result.verification_status, "unavailable");
   assert.ok(result.signals.every(signal => signal.box === null));
   assert.equal(result.overlay.price_plot_box, null);
-  assert.equal(result.trade_plan.take_profit, null);
+  assert.equal(result.trade_plan.take_profit, "110.00");
+  assert.equal(result.trade_plan.status, "estimated");
+  assert.ok(result.stockgpt_score.value <= 40);
   assert.equal(result.indicator_checks[0].status, "not_reviewed");
 });
 
@@ -146,7 +150,9 @@ test("unsupported signals are removed, never chosen for their confidence", () =>
   assert.equal(result.signals.length, 0);
   assert.equal(result.verdict, "inconclusive");
   assert.equal(result.confidence, 0);
-  assert.equal(result.trade_plan.entry, null);
+  assert.equal(result.trade_plan.levels_basis, "illustrative");
+  assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
+  assert.ok(result.stockgpt_score.value <= 20);
 });
 
 test("generic candlesticks/indicator labels and duplicate signals are not findings", () => {
@@ -158,7 +164,9 @@ test("inconclusive and low confidence reads are never promoted", () => {
   const result = read({ verdict: "inconclusive", confidence: 15 });
   assert.equal(result.verdict, "inconclusive");
   assert.equal(result.confidence, 15);
-  assert.equal(result.trade_plan.entry, null);
+  assert.equal(result.trade_plan.status, "conditional");
+  assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
+  assert.ok(result.stockgpt_score.value < 50);
 });
 
 test("unknown or unsupported charts require retake and no technical highlights", () => {
@@ -175,7 +183,7 @@ test("unreadable prices do not force an unnecessary supporting photo", () => {
   const result = read({ current_price: null });
   assert.equal(result.needs_more_info, false);
   assert.equal(result.verdict, "bullish");
-  assert.equal(result.trade_plan.entry, null);
+  assert.equal(result.trade_plan.entry_value, 100);
 });
 
 test("a full chart cannot trigger a wider-photo request", () => {
@@ -183,10 +191,14 @@ test("a full chart cannot trigger a wider-photo request", () => {
   assert.equal(read({ needs_more_info: true, chart_coverage: "partial" }).needs_more_info, true);
 });
 
-test("invalid bullish/bearish risk ordering and unreadable scales withhold plans", () => {
-  assert.equal(read({ trade_plan: { ...scan.trade_plan, stop_loss: "105" } }).trade_plan.take_profit, null);
-  assert.equal(read({ verdict: "bearish" }).trade_plan.take_profit, null);
-  assert.equal(read({ trade_plan: { ...scan.trade_plan, price_scale_readable: false } }).trade_plan.entry, null);
+test("invalid risk ordering is repaired with explicitly estimated valid levels", () => {
+  for (const result of [read({ trade_plan: { ...scan.trade_plan, stop_loss: "105" } }), read({ verdict: "bearish" })]) {
+    const p = result.trade_plan, d = p.side === "long" ? 1 : -1;
+    assert.ok((p.entry_value - p.stop_value) * d > 0);
+    assert.ok((p.target_value - p.entry_value) * d > 0);
+    assert.equal(p.status, "estimated");
+    assert.ok(p.assumptions);
+  }
 });
 
 test("risk reward is calculated from valid levels, not copied from a model", () => {
@@ -197,7 +209,7 @@ test("risk reward is calculated from valid levels, not copied from a model", () 
 
 test("trade horizons are withheld when timeframe is unreadable", () => {
   const result = read({ timeframe: null });
-  assert.equal(result.trade_plan.entry, "100");
+  assert.equal(result.trade_plan.entry_value, 100);
   assert.equal(result.trade_plan.projected_horizon, null);
   assert.equal(result.trade_plan.projected_bars, null);
 });
@@ -211,7 +223,8 @@ test("level lines need checked reactions, valid prices, and clean locations", ()
   assert.equal(read().overlay.support_y_pct, 52);
   assert.equal(read({ overlay: { ...scan.overlay, levels_confirmed: false } }).overlay.support_y_pct, null);
   assert.equal(read({ levels: { support: "near support" } }).overlay.support_y_pct, null);
-  assert.equal(read({ overlay: { ...scan.overlay, support_y_pct: 19 } }).overlay.support_y_pct, null);
+  assert.equal(read({ overlay: { ...scan.overlay, support_y_pct: 19 } }).overlay.support_y_pct, 52);
+  assert.equal(read({ overlay: { ...scan.overlay, price_axis_confirmed: false } }).overlay.support_y_pct, null);
 });
 
 test("markdown JSON parses, malformed and nonobject responses fail", () => {
@@ -284,4 +297,86 @@ test("analysis failure does not call review with invented empty evidence", async
     review: async () => { throw new Error("should not run"); },
   }, 1);
   assert.equal(output, null);
+});
+
+test("price-linked lines use displayed numbers and ignore freely suggested Y positions", () => {
+  const result = read({ overlay: { ...scan.overlay, support_y_pct: 40, resistance_y_pct: 50 } });
+  assert.equal(result.overlay.calibration_status, "matched");
+  assert.equal(result.overlay.support_y_pct, 52);
+  assert.ok(Math.abs(result.overlay.resistance_y_pct - 25) < 1e-8);
+  assert.deepEqual(result.overlay.trade_lines.map(line => [line.kind, Math.round(line.y_pct)]), [["entry", 43], ["stop", 52], ["target", 25]]);
+  for (const line of result.overlay.trade_lines) assert.equal(priceNumber(line.price), result.trade_plan[line.kind === "entry" ? "entry_value" : line.kind === "stop" ? "stop_value" : "target_value"]);
+});
+
+test("disagreeing or sparse axis ticks produce no displaced level lines", () => {
+  for (const price_axis of [{ ...axis, ticks: axis.ticks.slice(0, 2) }, { ...axis, ticks: axis.ticks.map(tick => ({ ...tick, y_pct: tick.y_pct + 2 })) }]) {
+    const result = read({ overlay: { ...scan.overlay, price_axis } });
+    assert.equal(result.overlay.calibration_status, "unavailable");
+    assert.deepEqual(result.overlay.trade_lines, []);
+    assert.equal(result.overlay.support_y_pct, null);
+    assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
+  }
+});
+
+test("unreadable absolute prices retain both labelled relative risk exits", () => {
+  const result = read({ current_price: null, levels: {}, trade_plan: {} });
+  assert.equal(result.trade_plan.status, "relative");
+  assert.equal(result.trade_plan.entry_value, null);
+  assert.match(result.trade_plan.stop_loss, /2%/);
+  assert.match(result.trade_plan.take_profit, /4%/);
+  assert.match(result.trade_plan.assumptions, /Illustrative/);
+  assert.ok(result.stockgpt_score.value <= 20);
+  assert.deepEqual(result.overlay.trade_lines, []);
+});
+
+test("a user reference converts relative exits into explicitly estimated numeric levels", () => {
+  const result = normaliseChartScan({ ...scan, current_price: null, trade_plan: {}, levels: {} }, layout, true, 200);
+  assert.equal(result.trade_plan.price_basis, "user");
+  assert.equal(result.trade_plan.entry_value, 200);
+  assert.equal(result.trade_plan.stop_value, 196);
+  assert.equal(result.trade_plan.target_value, 208);
+  assert.equal(result.trade_plan.status, "estimated");
+  assert.match(result.trade_plan.assumptions, /fixed 2%/);
+});
+
+const doubleBottom = { name: "Double bottom", status: "forming", two_swings_visible: true, intervening_swing_visible: true, breakout_confirmed: false, neckline: 100, extreme_1: 95, extreme_2: 95.5, evidence: "Two distinct troughs around 95 are separated by a rally to 100; the second trough has recovered below the neckline." };
+
+test("a forming double bottom yields a neckline-triggered scenario before a breakout", () => {
+  const result = read({ current_price: "98", verdict: "inconclusive", trade_plan: {}, levels: {}, pattern_checks: [doubleBottom] });
+  assert.equal(result.pattern_checks[0].status, "forming");
+  assert.equal(result.trade_plan.side, "long");
+  assert.equal(result.trade_plan.entry_value, 100);
+  assert.ok(result.trade_plan.stop_value < 95.5);
+  assert.equal(result.trade_plan.target_value, 104.5);
+  assert.notEqual(result.trade_plan.status, "confirmed");
+});
+
+test("double bottom/top needs two actual swings and the intervening swing", () => {
+  for (const changes of [{ two_swings_visible: false }, { intervening_swing_visible: false }, { neckline: 90 }]) {
+    assert.deepEqual(read({ pattern_checks: [{ ...doubleBottom, ...changes }] }).pattern_checks, []);
+  }
+  assert.equal(read({ pattern_checks: [{ ...doubleBottom, status: "confirmed" }] }).pattern_checks[0].status, "forming");
+  assert.equal(read({ pattern_checks: [{ ...doubleBottom, status: "confirmed", breakout_confirmed: true }] }).pattern_checks[0].status, "confirmed");
+});
+
+test("opposing evidence and estimated risk levels reduce the StockGPT Score", () => {
+  const confirmed = read({ trade_plan: { ...scan.trade_plan, activation: "confirmed" } });
+  const opposed = read({ signals: [priceSignal, { ...indicatorSignal, bias: "bearish" }], trade_plan: { ...scan.trade_plan, activation: "confirmed" } });
+  const estimated = read({ trade_plan: { ...scan.trade_plan, levels_basis: "estimated" } });
+  assert.ok(confirmed.stockgpt_score.value > opposed.stockgpt_score.value);
+  assert.ok(confirmed.stockgpt_score.value > estimated.stockgpt_score.value);
+  assert.ok(estimated.stockgpt_score.value <= 60);
+});
+
+test("reviewer-discovered indicators survive inventory normalisation", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: { ...rawLayout, indicators: [] }, model: "mapper" }),
+    analyse: async () => ({ value: { ...scan, indicator_checks: [], signals: [priceSignal] }, model: "analyst" }),
+    review: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators,
+      indicator_checks: [{ id: "review-indicator-1", status: "readable", finding: "RSI recovers above 50." }],
+      signals: [{ ...indicatorSignal, region_id: "review-indicator-1" }],
+    }, model: "reviewer" }),
+  }, 1);
+  assert.equal(output.result.indicator_checks[0].status, "readable");
+  assert.equal(output.result.signals[0].kind, "indicator");
 });
