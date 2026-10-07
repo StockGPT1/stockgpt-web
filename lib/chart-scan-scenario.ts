@@ -172,7 +172,7 @@ export function buildTradeScenario(
   const target = validTarget ? modelTarget! : [measuredTarget, structuralTarget].find(price =>
     price !== null && (price - entry) * direction > 0) ?? entry + direction * risk * 2;
   // Positive-price instruments cannot have zero/negative targets or stops.
-  if (stop <= 0 || target <= 0 || risk <= 0) return {
+  if (!Number.isFinite(stop) || !Number.isFinite(target) || stop <= 0 || target <= 0 || risk <= 0) return {
     ...empty, status: "relative", entry: priceLabel(entry, sample),
     stop_loss: `${side === "long" ? "−" : "+"}2% from entry`, take_profit: `${side === "long" ? "+" : "−"}4% from entry`,
     stop_pct: 2, target_pct: 4, risk_reward: "2.0:1",
@@ -180,7 +180,7 @@ export function buildTradeScenario(
     plan: text(raw.confirmation) ?? "Wait for an entry confirmation.",
   };
   const completeModelPlan = validStop && validTarget && plan.levels_basis !== "illustrative";
-  const levelsBasis = noDirectionalEvidence ? "illustrative" : completeModelPlan && plan.levels_basis !== "estimated" ? "structure" : "estimated";
+  const levelsBasis = noDirectionalEvidence ? "illustrative" : completeModelPlan && plan.levels_basis !== "estimated" && priceBasis !== "user" ? "structure" : "estimated";
   const displayPrecision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(Math.min(risk, Math.abs(target - entry)))) + 2));
   const entryLabel = priceLabel(entry, sample, displayPrecision), stopLabel = priceLabel(stop, sample, displayPrecision), targetLabel = priceLabel(target, sample, displayPrecision);
   const displayedEntry = positivePrice(entryLabel)!, displayedStop = positivePrice(stopLabel)!, displayedTarget = positivePrice(targetLabel)!;
@@ -201,7 +201,9 @@ export function buildTradeScenario(
     assumptions,
     projected_bars: text(raw.timeframe) ? text(plan.projected_bars, 60) : null,
     projected_horizon: text(raw.timeframe) ? text(plan.projected_horizon, 80) : null,
-    plan: text(plan.plan) ?? text(raw.confirmation) ?? `Wait for price to confirm the ${side} entry condition.`,
+    plan: preferredPattern?.status === "forming"
+      ? `Wait for a candle to close ${side === "long" ? "above" : "below"} the ${priceLabel(preferredPattern.neckline ?? entry, sample, displayPrecision)} neckline before entering. The pattern is still forming.`
+      : text(plan.plan) ?? text(raw.confirmation) ?? `Wait for a candle to close ${side === "long" ? "above" : "below"} ${entryLabel} before considering this ${side} scenario.`,
     rationale: text(plan.rationale),
   };
 }

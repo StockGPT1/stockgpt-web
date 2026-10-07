@@ -380,3 +380,25 @@ test("reviewer-discovered indicators survive inventory normalisation", async () 
   assert.equal(output.result.indicator_checks[0].status, "readable");
   assert.equal(output.result.signals[0].kind, "indicator");
 });
+
+test("a forming pattern cannot be promoted by a model's confirmed trade activation", () => {
+  const result = read({ pattern_checks: [doubleBottom], trade_plan: { ...scan.trade_plan, activation: "confirmed" } });
+  assert.equal(result.trade_plan.status, "conditional");
+  assert.match(result.trade_plan.plan, /close above the 100.00 neckline/);
+});
+
+test("numbers proposed without any readable price anchor are never absolute exits", () => {
+  const result = read({ current_price: null, levels: {}, trade_plan: { ...scan.trade_plan, price_scale_readable: false } });
+  assert.equal(result.trade_plan.status, "relative");
+  assert.equal(result.trade_plan.entry_value, null);
+  assert.equal(result.trade_plan.stop_value, null);
+  assert.equal(result.trade_plan.target_value, null);
+  assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
+});
+
+test("a user-derived model plan remains estimated rather than technically confirmed", () => {
+  const result = normaliseChartScan({ ...scan, current_price: null, trade_plan: { ...scan.trade_plan, price_basis: "user", activation: "confirmed" } }, layout, true, 100);
+  assert.equal(result.trade_plan.price_basis, "user");
+  assert.equal(result.trade_plan.status, "estimated");
+  assert.ok(result.stockgpt_score.value <= 60);
+});

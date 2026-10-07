@@ -280,7 +280,7 @@ export function normaliseChartScan(
     more_info_prompt: needsMoreInfo ? scanText(raw.more_info_prompt, 220) ?? "Add a view of the missing chart area and price scale." : null,
     summary: rejectedEvidence ? "The proposed signals could not be confirmed from this image. No directional setup is supported by the reviewed evidence." : scanText(raw.summary, 480) ?? "There is not enough visible evidence for a reliable directional read.",
     confirmation: scanText(raw.confirmation, 260) ?? "Wait for a clear reaction at the visible structure.",
-    invalidation: scanText(raw.invalidation, 260) ?? "A break against the visible structure would invalidate the setup.",
+    invalidation: scanText(raw.invalidation, 260) ?? (scenario.stop_value !== null ? `A move ${scenario.side === "long" ? "below" : "above"} ${scenario.stop_loss} cancels this scenario.` : "Reaching the stop-loss distance above cancels this scenario."),
     watch_for: scanText(raw.watch_for, 220) ?? "Watch the next confirmed reaction at the nearest visible level.",
     observations: list(raw.observations).map(item => scanText(item, 200)).filter((item): item is string => item !== null).slice(0, 4),
     verification_status: reviewed ? "reviewed" : "unavailable",
