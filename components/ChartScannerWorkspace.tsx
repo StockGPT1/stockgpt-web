@@ -126,9 +126,9 @@ const panelClass = "rounded-3xl border border-white/10 bg-[#092116]/75 p-5";
 
 function TradeLevel({ label, value, tone, hint }: { label: string; value: string | null; tone: "entry" | "stop" | "target"; hint: string }) {
   const color = tone === "stop" ? "text-rose-200" : tone === "target" ? "text-emerald-200" : "text-[#f2d786]";
-  return <div className="min-w-0 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+  return <div className={`min-w-0 rounded-2xl border border-white/10 bg-black/15 p-3.5 ${tone === "entry" ? "col-span-2 sm:col-span-1" : ""}`}>
     <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${color}`}>{label}</p>
-    <p className={`mt-2 break-words text-[clamp(17px,4.8vw,27px)] font-bold leading-tight tracking-tight tabular-nums ${color}`}>{value}</p>
+    <p className={`mt-2 break-words text-[clamp(20px,6vw,28px)] font-bold leading-tight tracking-tight tabular-nums ${color}`}>{value}</p>
     <p className="mt-2 text-[11px] leading-4 text-white/45">{hint}</p>
   </div>;
 }
@@ -270,7 +270,7 @@ export function ChartScannerWorkspace() {
         <section className={panelClass}>
           <div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-semibold text-white/45">{[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Your screenshot"}</p><p className={`mt-3 text-[11px] font-bold uppercase tracking-[0.15em] ${sideColor}`}>{setupTitle}</p><h2 className="mt-1 text-[clamp(26px,7vw,38px)] font-bold leading-tight tracking-tight">{plan.side === "long" ? "Long" : "Short"} scenario</h2><p className="mt-1 text-sm text-white/60">{result.label}</p></div><div className="shrink-0 rounded-2xl border border-[#f2c35f]/20 bg-[#f2c35f]/5 px-3 py-3 text-center"><p className="text-[10px] font-bold text-[#f2d786]">StockGPT Score</p><p className="mt-1 text-3xl font-bold tabular-nums text-[#f2d786]">{score.value}<span className="text-xs text-white/40">/100</span></p><p className="mt-1 text-[10px] text-white/55">{score.label}</p></div></div>
           <p className="mt-4 text-sm leading-6 text-white/70">{result.summary}</p>
-          <div className="mt-5 grid grid-cols-3 gap-2"><TradeLevel label="Entry" value={plan.entry} tone="entry" hint={plan.status === "confirmed" ? "Check the trigger below" : "Wait for the trigger"} /><TradeLevel label="Stop loss" value={plan.stop_loss} tone="stop" hint={percent(plan.stop_pct)} /><TradeLevel label="Take profit" value={plan.take_profit} tone="target" hint={percent(plan.target_pct)} /></div>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3"><TradeLevel label="Entry" value={plan.entry} tone="entry" hint={plan.status === "confirmed" ? "Check the trigger below" : "Wait for the trigger"} /><TradeLevel label="Stop loss" value={plan.stop_loss} tone="stop" hint={percent(plan.stop_pct)} /><TradeLevel label="Take profit" value={plan.take_profit} tone="target" hint={percent(plan.target_pct)} /></div>
           <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-white/50"><p>Reward / risk <span className="font-bold text-white/80">{plan.risk_reward}</span></p>{plan.projected_horizon && <p>Scenario horizon {plan.projected_horizon}</p>}</div>
           {plan.assumptions && <p className="mt-4 rounded-xl border border-[#f2c35f]/15 bg-[#f2c35f]/5 p-3 text-xs leading-5 text-[#f2d786]/85">{plan.assumptions}</p>}
           <div className="mt-5 space-y-4 border-t border-white/10 pt-4"><div><h3 className="text-xs font-bold text-[#f2d786]">When to enter</h3><p className="mt-1 text-sm leading-5 text-white/75">{plan.plan || result.confirmation}</p></div><div><h3 className="text-xs font-bold text-rose-200">What cancels this setup</h3><p className="mt-1 text-sm leading-5 text-white/65">{result.invalidation}</p></div></div>
