@@ -213,12 +213,12 @@ export function PortfolioStage({
               style={{ "--portfolio-value-width": Math.max(5, valueText.length * 0.66) } as CSSProperties}
               title={valueText}
             >
-              {scrubPoint ? valueText : <RouletteNumber value={valueText} />}
+              <RouletteNumber value={valueText} />
             </h1>
             <div className={styles.metadata}>
               <div className="min-w-0">
                 <p className={`${styles.returnValue} ${currentPnl === null ? "text-[#faf6f0]/60" : toneClass(currentPnl)}`}>
-                  {scrubPoint ? returnText : <RouletteNumber value={returnText} />}
+                  <RouletteNumber value={returnText} />
                 </p>
                 <p className={styles.detailLabel}>{scrubPoint ? "Total return at this point" : "Total return"}</p>
               </div>

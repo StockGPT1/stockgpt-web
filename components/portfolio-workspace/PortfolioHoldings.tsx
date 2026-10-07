@@ -153,15 +153,17 @@ export function PortfolioHoldings({
         </label>
 
         <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2 lg:mt-0">
-          <label className="min-w-0">
+          <label className="relative min-w-0">
             <span className="sr-only">Sort holdings</span>
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as HoldingSort)}
-              className="h-11 w-full truncate rounded-lg border border-[#faf6f0]/14 bg-transparent px-3 text-[12px] font-semibold text-[#faf6f0] outline-none focus-visible:ring-2 focus-visible:ring-[#ddb159]/60"
+              style={{ WebkitAppearance: "none" }}
+              className="h-11 w-full appearance-none truncate rounded-xl border border-[#faf6f0]/14 bg-transparent py-0 pl-3 pr-9 text-[12px] font-semibold text-[#faf6f0] shadow-none outline-none focus-visible:border-[#ddb159]/70 focus-visible:ring-2 focus-visible:ring-[#ddb159]/10"
             >
               {SORTS.map((item) => <option key={item.value} value={item.value} className="bg-[#08281b]">{item.label}</option>)}
             </select>
+            <PortfolioIcon name="chevron" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#ddb159]" />
           </label>
           <button
             type="button"
