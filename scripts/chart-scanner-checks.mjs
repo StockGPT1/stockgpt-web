@@ -1,0 +1,287 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  normaliseScanBox, normaliseChartLayout, normaliseChartScan, parseScanJson,
+  priceNumber, runGroundedChartScan,
+  isChartAnalysis,
+} from "../lib/chart-scanner.ts";
+
+const plot = { x_pct: 5, y_pct: 18, width_pct: 85, height_pct: 42 };
+const candleBox = { x_pct: 61, y_pct: 28, width_pct: 8, height_pct: 16 };
+const rsiPanel = { x_pct: 5, y_pct: 65, width_pct: 85, height_pct: 14 };
+const rawLayout = {
+  price_series_type: "candles", price_plot_box: plot,
+  indicators: [{ name: "RSI", placement: "panel", source_image: 0, readable: true, box: rsiPanel }],
+  exclusions: [{ x_pct: 5, y_pct: 18, width_pct: 18, height_pct: 3 }],
+};
+const layout = normaliseChartLayout(rawLayout, 1);
+const priceSignal = {
+  name: "Bullish engulfing at swing support", kind: "candle", bias: "bullish", confidence: 72,
+  evidence: "The latest green body engulfs the preceding red body near the recent swing low.",
+  region_id: "price", source_image: 0, supported: true,
+  localisation_confirmed: true, localisation_confidence: 92, box: candleBox,
+};
+const indicatorSignal = {
+  name: "RSI recovers above 50", kind: "indicator", bias: "bullish", confidence: 70,
+  evidence: "The labelled RSI line crosses its midline in the lower panel.",
+  region_id: "indicator-1", source_image: 0, supported: true,
+  localisation_confirmed: true, localisation_confidence: 91,
+  box: { x_pct: 65, y_pct: 67, width_pct: 15, height_pct: 8 },
+};
+const scan = {
+  verdict: "bullish", confidence: 65, label: "Support reclaim", pattern: "Base and reclaim",
+  summary: "Price holds the swing low and RSI recovers.",
+  price_series_type: "candles", chart_coverage: "full", current_price: "$100", timeframe: "1h",
+  signals: [priceSignal, indicatorSignal],
+  indicator_checks: [{ id: "indicator-1", status: "readable", finding: "RSI rises through 50." }],
+  overlay: { price_plot_confirmed: true, price_plot_box: plot, levels_confirmed: true, support_y_pct: 52, resistance_y_pct: 25 },
+  levels: { support: "95", resistance: "110" },
+  trade_plan: { price_scale_readable: true, entry: "100", stop_loss: "95", take_profit: "110", projected_bars: "6–12 bars", projected_horizon: "6–12 hours" },
+};
+const read = (changes = {}, mapped = layout, reviewed = true) => normaliseChartScan({ ...scan, ...changes }, mapped, reviewed);
+
+test("null, strings, booleans, NaN and off-image coordinates never become rectangles", () => {
+  for (const value of [null, undefined, "8", false, NaN, -1, 101]) {
+    assert.equal(normaliseScanBox({ ...candleBox, x_pct: value }), null);
+  }
+  assert.equal(normaliseScanBox({ x_pct: 99, y_pct: 99, width_pct: 6, height_pct: 6 }), null);
+  assert.equal(normaliseScanBox({ ...candleBox, height_pct: 0 }), null);
+});
+
+test("valid fractional coordinates retain precision", () => {
+  const box = { x_pct: 61.33, y_pct: 28.7, width_pct: 0.8, height_pct: 4.5 };
+  assert.deepEqual(normaliseScanBox(box), box);
+});
+
+test("a verified candle and separate RSI panel both get correct highlights", () => {
+  const result = read();
+  assert.equal(result.signals.length, 2);
+  assert.deepEqual(result.signals[0].box, candleBox);
+  assert.deepEqual(result.signals[1].box, indicatorSignal.box);
+  assert.equal(result.indicator_checks[0].status, "readable");
+});
+
+test("a candle box on the chart legend is withheld while its text read survives", () => {
+  const result = read({ signals: [{ ...priceSignal, box: { x_pct: 7, y_pct: 18, width_pct: 10, height_pct: 2 } }] });
+  assert.equal(result.signals.length, 1);
+  assert.equal(result.signals[0].box, null);
+});
+
+test("a toolbar or title outside the price pane is never highlighted as candles", () => {
+  assert.equal(read({ signals: [{ ...priceSignal, box: { x_pct: 5, y_pct: 4, width_pct: 25, height_pct: 8 } }] }).signals[0].box, null);
+});
+
+test("volume and indicator panes cannot receive price/candle highlights", () => {
+  assert.equal(read({ signals: [{ ...priceSignal, box: indicatorSignal.box }] }).signals[0].box, null);
+  assert.equal(read({ signals: [{ ...indicatorSignal, box: candleBox }] }).signals[0].box, null);
+});
+
+test("candlestick claims are dropped on a price-line chart", () => {
+  const mapped = { ...layout, price_series_type: "price_line" };
+  const result = read({ price_series_type: "price_line" }, mapped);
+  assert.equal(result.signals.some(signal => signal.kind === "candle"), false);
+  assert.equal(result.signals.some(signal => signal.kind === "indicator"), true);
+});
+
+test("a useful signal can have no geometry without losing the analysis", () => {
+  const result = read({ signals: [{ ...priceSignal, box: null }] });
+  assert.equal(result.signals.length, 1);
+  assert.equal(result.verdict, "bullish");
+  assert.equal(result.signals[0].box, null);
+});
+
+test("signal confidence alone cannot authorize a highlight", () => {
+  assert.equal(read({ signals: [{ ...priceSignal, confidence: 99, localisation_confidence: 70 }] }).signals[0].box, null);
+  assert.equal(read({ signals: [{ ...priceSignal, localisation_confirmed: false }] }).signals[0].box, null);
+});
+
+test("price bounds need independent agreement, not just containment", () => {
+  const result = read({ overlay: { ...scan.overlay, price_plot_box: { x_pct: 0, y_pct: 0, width_pct: 100, height_pct: 100 } } });
+  assert.equal(result.overlay.price_plot_box, null);
+  assert.equal(result.signals[0].box, null);
+});
+
+test("overlapping independently mapped plots use their shared bounds", () => {
+  const checked = { x_pct: 6, y_pct: 19, width_pct: 83, height_pct: 40 };
+  assert.deepEqual(read({ overlay: { ...scan.overlay, price_plot_box: checked } }).overlay.price_plot_box, checked);
+});
+
+test("indicator text cannot claim a nonexistent region or an unreadable indicator", () => {
+  assert.equal(read({ signals: [{ ...indicatorSignal, region_id: "made-up" }] }).signals.length, 0);
+  const result = read({ indicator_checks: [{ id: "indicator-1", status: "unreadable" }] });
+  assert.equal(result.signals.some(signal => signal.kind === "indicator"), false);
+  assert.equal(result.indicator_checks[0].finding, null);
+});
+
+test("missing indicator reviews are exposed rather than silently confirmed", () => {
+  assert.equal(read({ indicator_checks: [] }).indicator_checks[0].status, "unreadable");
+  assert.equal(read({ indicator_checks: [] }).signals.length, 1);
+});
+
+test("a supporting photo's indicator can be discussed but never drawn over the primary", () => {
+  const mapped = normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], source_image: 1 }] }, 2);
+  const result = read({ signals: [{ ...indicatorSignal, source_image: 1 }] }, mapped);
+  assert.equal(result.signals[0].source_image, 1);
+  assert.equal(result.signals[0].box, null);
+});
+
+test("invalid source indices and placements are removed from inventory", () => {
+  for (const source_image of [-1, 0.5, null, "0", 2]) {
+    assert.equal(normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], source_image }] }, 2).indicators.length, 0);
+  }
+  assert.equal(normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], placement: "toolbar" }] }, 1).indicators.length, 0);
+});
+
+test("unreviewed reads expose review status and withhold all geometry and plans", () => {
+  const result = read({}, layout, false);
+  assert.equal(result.verification_status, "unavailable");
+  assert.ok(result.signals.every(signal => signal.box === null));
+  assert.equal(result.overlay.price_plot_box, null);
+  assert.equal(result.trade_plan.take_profit, null);
+  assert.equal(result.indicator_checks[0].status, "not_reviewed");
+});
+
+test("unsupported signals are removed, never chosen for their confidence", () => {
+  const result = read({ signals: [{ ...priceSignal, supported: false, confidence: 99 }] });
+  assert.equal(result.signals.length, 0);
+  assert.equal(result.verdict, "inconclusive");
+  assert.equal(result.confidence, 0);
+  assert.equal(result.trade_plan.entry, null);
+});
+
+test("generic candlesticks/indicator labels and duplicate signals are not findings", () => {
+  assert.equal(read({ signals: [{ ...priceSignal, name: "Candlesticks" }] }).signals.length, 0);
+  assert.equal(read({ signals: [priceSignal, priceSignal] }).signals.length, 1);
+});
+
+test("inconclusive and low confidence reads are never promoted", () => {
+  const result = read({ verdict: "inconclusive", confidence: 15 });
+  assert.equal(result.verdict, "inconclusive");
+  assert.equal(result.confidence, 15);
+  assert.equal(result.trade_plan.entry, null);
+});
+
+test("unknown or unsupported charts require retake and no technical highlights", () => {
+  for (const price_series_type of ["unknown", "unsupported"]) {
+    const result = read({ price_series_type });
+    assert.equal(result.retake_required, true);
+    assert.equal(result.signals.length, 0);
+    assert.equal(result.overlay.price_plot_box, null);
+    assert.equal(result.confidence, 0);
+  }
+});
+
+test("unreadable prices do not force an unnecessary supporting photo", () => {
+  const result = read({ current_price: null });
+  assert.equal(result.needs_more_info, false);
+  assert.equal(result.verdict, "bullish");
+  assert.equal(result.trade_plan.entry, null);
+});
+
+test("a full chart cannot trigger a wider-photo request", () => {
+  assert.equal(read({ needs_more_info: true, more_info_prompt: "Wider chart please" }).needs_more_info, false);
+  assert.equal(read({ needs_more_info: true, chart_coverage: "partial" }).needs_more_info, true);
+});
+
+test("invalid bullish/bearish risk ordering and unreadable scales withhold plans", () => {
+  assert.equal(read({ trade_plan: { ...scan.trade_plan, stop_loss: "105" } }).trade_plan.take_profit, null);
+  assert.equal(read({ verdict: "bearish" }).trade_plan.take_profit, null);
+  assert.equal(read({ trade_plan: { ...scan.trade_plan, price_scale_readable: false } }).trade_plan.entry, null);
+});
+
+test("risk reward is calculated from valid levels, not copied from a model", () => {
+  assert.equal(read({ trade_plan: { ...scan.trade_plan, risk_reward: "99:1" } }).trade_plan.risk_reward, "2.0:1");
+  const bearish = read({ verdict: "bearish", trade_plan: { ...scan.trade_plan, stop_loss: "105", take_profit: "90" } });
+  assert.equal(bearish.trade_plan.risk_reward, "2.0:1");
+});
+
+test("trade horizons are withheld when timeframe is unreadable", () => {
+  const result = read({ timeframe: null });
+  assert.equal(result.trade_plan.entry, "100");
+  assert.equal(result.trade_plan.projected_horizon, null);
+  assert.equal(result.trade_plan.projected_bars, null);
+});
+
+test("prices must be unambiguous numbers, not ranges, shorthand or prose", () => {
+  assert.equal(priceNumber("$1,250.50"), 1250.5);
+  for (const price of ["100–110", "about 100", "1.2k", "1,25", null, "0", "-1"]) assert.equal(priceNumber(price), null);
+});
+
+test("level lines need checked reactions, valid prices, and clean locations", () => {
+  assert.equal(read().overlay.support_y_pct, 52);
+  assert.equal(read({ overlay: { ...scan.overlay, levels_confirmed: false } }).overlay.support_y_pct, null);
+  assert.equal(read({ levels: { support: "near support" } }).overlay.support_y_pct, null);
+  assert.equal(read({ overlay: { ...scan.overlay, support_y_pct: 19 } }).overlay.support_y_pct, null);
+});
+
+test("markdown JSON parses, malformed and nonobject responses fail", () => {
+  assert.deepEqual(parseScanJson('```json\n{"verdict":"bullish"}\n```'), { verdict: "bullish" });
+  assert.equal(parseScanJson("not JSON"), null);
+  assert.equal(parseScanJson("{broken}"), null);
+  assert.equal(parseScanJson("[]"), null);
+});
+
+test("valid JSON without analysis fields cannot pass as an independent review", () => {
+  assert.equal(isChartAnalysis({}), false);
+  assert.equal(isChartAnalysis({ error: "provider error" }), false);
+  assert.equal(isChartAnalysis(null), false);
+  assert.equal(isChartAnalysis(scan), true);
+});
+
+test("independent reviewer replaces a confident false candle finding", async () => {
+  const calls = [];
+  const output = await runGroundedChartScan({
+    locate: async () => { calls.push("layout"); return { value: rawLayout, model: "mapper" }; },
+    analyse: async () => { calls.push("analysis"); return { value: { ...scan, confidence: 99 }, model: "analyst" }; },
+    review: async () => { calls.push("review"); return { value: { ...scan, verdict: "inconclusive", confidence: 30, signals: [indicatorSignal] }, model: "reviewer" }; },
+  }, 1);
+  assert.deepEqual(calls, ["layout", "analysis", "review"]);
+  assert.equal(output.result.verdict, "inconclusive");
+  assert.equal(output.result.signals.length, 1);
+  assert.equal(output.model, "reviewer");
+});
+
+test("failed independent review returns a visibly preliminary read without drawings", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: rawLayout, model: "mapper" }),
+    analyse: async () => ({ value: scan, model: "analyst" }),
+    review: async () => ({ value: null, model: "reviewer" }),
+  }, 1);
+  assert.equal(output.result.verification_status, "unavailable");
+  assert.ok(output.result.signals.every(signal => signal.box === null));
+});
+
+test("an indicator missed by the mapping pass is inventoried before review", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: { ...rawLayout, indicators: [] }, model: "mapper" }),
+    analyse: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators }, model: "analyst" }),
+    review: async enriched => {
+      assert.equal(enriched.indicators[0].id, "analysis-indicator-1");
+      return { value: { ...scan,
+        indicator_checks: [{ id: "analysis-indicator-1", status: "readable", finding: "RSI is recovering." }],
+        signals: [{ ...indicatorSignal, region_id: "analysis-indicator-1" }],
+      }, model: "reviewer" };
+    },
+  }, 1);
+  assert.equal(output.result.signals[0].kind, "indicator");
+  assert.deepEqual(output.result.signals[0].box, indicatorSignal.box);
+});
+
+test("mapping failure withholds localisation without discarding a readable structure", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: null, model: "mapper" }),
+    analyse: async () => ({ value: scan, model: "analyst" }),
+    review: async () => ({ value: { ...scan, signals: [{ ...priceSignal, kind: "structure" }] }, model: "reviewer" }),
+  }, 1);
+  assert.equal(output.result.verdict, "bullish");
+  assert.equal(output.result.signals[0].box, null);
+});
+
+test("analysis failure does not call review with invented empty evidence", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: rawLayout, model: "mapper" }),
+    analyse: async () => ({ value: null, model: "analyst" }),
+    review: async () => { throw new Error("should not run"); },
+  }, 1);
+  assert.equal(output, null);
+});
