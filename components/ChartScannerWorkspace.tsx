@@ -4,73 +4,10 @@ import Link from "next/link";
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StockIcon } from "@/components/StockIcon";
+import { ChartScanPreview } from "@/components/ChartScanPreview";
+import type { ChartScanResult as ScanResult } from "@/lib/chart-scanner";
 import { nativeHaptic } from "@/lib/ios-native";
 import { buildAskHref } from "@/lib/ask-context";
-
-type ScanResult = {
-  verdict: "bullish" | "bearish" | "inconclusive";
-  label: string;
-  pattern: string;
-  confidence: number;
-  ticker: string | null;
-  timeframe: string | null;
-  summary: string;
-  confirmation: string;
-  invalidation: string;
-  watch_for: string;
-  observations: string[];
-  current_price: string | null;
-  retake_required: boolean;
-  retake_reason: string | null;
-  needs_more_info: boolean;
-  more_info_prompt: string | null;
-  price_series_type: "candles" | "price_line" | "unsupported" | "unknown";
-  chart_coverage: "full" | "partial" | "unclear";
-  signals: Array<{
-    name: string;
-    bias: "bullish" | "bearish" | "neutral";
-    confidence: number;
-    evidence: string;
-    box: {
-      x_pct: number | null;
-      y_pct: number | null;
-      width_pct: number | null;
-      height_pct: number | null;
-    } | null;
-  }>;
-  trade_plan: {
-    entry: string | null;
-    stop_loss: string | null;
-    take_profit: string | null;
-    risk_reward: string | null;
-    projected_bars: string | null;
-    projected_horizon: string | null;
-    plan: string | null;
-    rationale: string | null;
-  };
-  levels: {
-    support: string | null;
-    resistance: string | null;
-    breakout: string | null;
-    invalidation: string | null;
-  };
-  overlay: {
-    resistance_y_pct: number | null;
-    support_y_pct: number | null;
-    price_plot_box: {
-      x_pct: number;
-      y_pct: number;
-      width_pct: number;
-      height_pct: number;
-    } | null;
-    pattern_box: {
-      x_pct: number | null;
-      y_pct: number | null;
-      width_pct: number | null;
-      height_pct: number | null;
-    } | null;
-  };
-};
 
 type ScanResponse = {
   result?: ScanResult;
@@ -78,13 +15,9 @@ type ScanResponse = {
 };
 
 const analysisSteps = [
-  "Reading current price",
-  "Mapping support and resistance",
-  "Scanning chart patterns",
-  "Checking visible indicators",
-  "Building risk levels",
-  "Estimating trade horizon",
-  "Cross-checking directional bias",
+  "Mapping the chart and indicator panels",
+  "Reading price structure and momentum",
+  "Reviewing the evidence and highlights",
 ];
 
 async function imageFromFile(file: File) {
@@ -113,10 +46,12 @@ async function prepareImage(file: File) {
 
   const image = await imageFromFile(file);
   const targetBytes = 1_650_000;
+  if (file.size <= targetBytes && Math.max(image.naturalWidth, image.naturalHeight) <= 2000 &&
+    ["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
   const attempts = [
-    { maxDimension: 1500, quality: 0.8 },
-    { maxDimension: 1320, quality: 0.7 },
-    { maxDimension: 1160, quality: 0.62 },
+    { maxDimension: 2000, quality: 0.92 },
+    { maxDimension: 1800, quality: 0.86 },
+    { maxDimension: 1600, quality: 0.8 },
   ];
 
   let latestBlob: Blob | null = null;
@@ -134,6 +69,9 @@ async function prepareImage(file: File) {
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Could not prepare that image.");
 
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.imageSmoothingQuality = "high";
     context.drawImage(image, 0, 0, width, height);
 
     latestBlob = await new Promise<Blob | null>((resolve) => {
@@ -280,7 +218,7 @@ function TradeLevelCard({
   return (
     <div
       className={
-        "min-w-0 overflow-hidden rounded-[22px] border p-4 " +
+        "min-w-0 overflow-hidden rounded-[16px] border p-3 " +
         (isStop
           ? "border-rose-300/20 bg-rose-300/[0.075]"
           : "border-emerald-300/20 bg-emerald-300/[0.075]")
@@ -289,7 +227,7 @@ function TradeLevelCard({
       <p className={"text-[10px] font-black uppercase tracking-[0.15em] " + (isStop ? "text-rose-200" : "text-emerald-200")}>
         {label}
       </p>
-      <p className={"mt-2 break-words text-[clamp(28px,9vw,40px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
+      <p className={"mt-2 break-words text-[clamp(22px,6vw,28px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
         {value ?? "Not clear"}
       </p>
       <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/40">{hint}</p>
@@ -298,6 +236,9 @@ function TradeLevelCard({
 }
 
 export function ChartScannerWorkspace() {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const [selectedSignal, setSelectedSignal] = useState<number | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const contextCameraInputRef = useRef<HTMLInputElement>(null);
@@ -313,13 +254,12 @@ export function ChartScannerWorkspace() {
 
   useEffect(() => {
     if (status !== "analyzing") {
-      setStepIndex(0);
       return;
     }
 
     const timer = window.setInterval(() => {
-      setStepIndex((current) => (current + 1) % analysisSteps.length);
-    }, 900);
+      setStepIndex((current) => Math.min(current + 1, analysisSteps.length - 1));
+    }, 6500);
 
     return () => window.clearInterval(timer);
   }, [status]);
@@ -351,6 +291,8 @@ export function ChartScannerWorkspace() {
     };
   }, []);
 
+  useEffect(() => () => requestRef.current?.abort(), []);
+
   const askHref = useMemo(() => {
     if (!result) return "/ask-stockgpt";
 
@@ -376,8 +318,13 @@ export function ChartScannerWorkspace() {
 
   async function runScan(files: File[]) {
     if (files.length === 0) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     setError("");
     setResult(null);
+    setSelectedSignal(null);
+    setStepIndex(0);
     setStatus("analyzing");
     nativeHaptic("medium");
 
@@ -388,6 +335,7 @@ export function ChartScannerWorkspace() {
       const response = await fetch("/api/chart-scan", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
       const payload = (await response.json().catch(() => null)) as ScanResponse | null;
@@ -396,10 +344,12 @@ export function ChartScannerWorkspace() {
         throw new Error(payload?.error || "StockGPT could not read that chart.");
       }
 
+      if (controller.signal.aborted) return;
       setResult(payload.result);
       setStatus("result");
       nativeHaptic("success");
     } catch (scanError) {
+      if (controller.signal.aborted) return;
       setError(scanError instanceof Error ? scanError.message : "StockGPT could not read that chart.");
       setStatus("error");
       nativeHaptic("error");
@@ -473,6 +423,8 @@ export function ChartScannerWorkspace() {
 
 
   function reset() {
+    requestRef.current?.abort();
+    setSelectedSignal(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     supportingPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrl(null);
@@ -486,15 +438,12 @@ export function ChartScannerWorkspace() {
   }
 
   const tone = result ? verdictTone(result.verdict) : null;
-  const box = result?.overlay.pattern_box;
-  const pricePlotBox = result?.overlay.price_plot_box;
-  const hasBox = box && box.x_pct !== null && box.y_pct !== null && box.width_pct !== null && box.height_pct !== null;
   const verdictWord = result
     ? result.verdict === "bullish"
-      ? "BULLISH"
+      ? "Bullish bias"
       : result.verdict === "bearish"
-        ? "BEARISH"
-        : "INCONCLUSIVE"
+        ? "Bearish bias"
+        : "Mixed evidence"
     : "";
   const verdictTextClass = result?.verdict === "bullish"
     ? "text-emerald-300"
@@ -545,9 +494,9 @@ export function ChartScannerWorkspace() {
       {status === "idle" && (
         <section className="flex min-h-[calc(100dvh-190px)] flex-col justify-center py-5">
           <div className="mb-6 min-w-0 px-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f2c35f]/72">StockGPT Vision · V1</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f2c35f]/72">StockGPT Vision</p>
             <h1 className="mt-2 max-w-[12ch] break-words text-[clamp(34px,10vw,40px)] font-black leading-[0.96] tracking-[-0.055em] text-[#fffaf2]">
-              Spot the setup in seconds.
+              Read the chart. See the evidence.
             </h1>
             <p className="mt-3 max-w-[36rem] text-[14px] font-medium leading-6 text-[#fffaf2]/56">
               Point your iPhone at a stock chart or use a screenshot. StockGPT scans the actual candlesticks or price line, then checks the structure, signals and risk levels it can read.
@@ -567,7 +516,7 @@ export function ChartScannerWorkspace() {
             <div className="mt-3 grid gap-2 text-[11.5px] font-semibold leading-4 text-[#fffaf2]/55">
               <p>• Make the candle/price plot the main thing in the photo.</p>
               <p>• Keep ticker + timeframe visible if possible.</p>
-              <p>• Keep RSI, MACD, volume or moving averages visible only if you want those analysed too.</p>
+              <p>• Include visible RSI, MACD, volume and moving averages for a fuller read.</p>
             </div>
           </div>
 
@@ -592,7 +541,7 @@ export function ChartScannerWorkspace() {
           </div>
 
           <p className="mt-4 px-2 text-center text-[10.5px] leading-4 text-[#fffaf2]/32">
-            Image-only analysis for now. V1 does not verify the chart against live market data and is not a trade signal.
+            Visual analysis of your image. Prices are not checked against live market data.
           </p>
         </section>
       )}
@@ -663,109 +612,20 @@ export function ChartScannerWorkspace() {
 
       {status === "result" && result && previewUrl && tone && (
         <section className="min-w-0 overflow-x-hidden pb-4 pt-1">
-          <div className="relative w-full overflow-hidden rounded-[28px] border border-[#f2c35f]/14 bg-black">
-            <img src={previewUrl} alt="Scanned stock chart" className="block h-auto w-full max-w-full" />
-
-            {pricePlotBox && (
-              <span
-                className="pointer-events-none absolute rounded-[10px] border border-white/[0.09]"
-                style={{
-                  left: pricePlotBox.x_pct + "%",
-                  top: pricePlotBox.y_pct + "%",
-                  width: pricePlotBox.width_pct + "%",
-                  height: pricePlotBox.height_pct + "%",
-                }}
-              />
-            )}
-
-            {result.overlay.resistance_y_pct !== null && pricePlotBox && (
-              <span
-                className="pointer-events-none absolute border-t border-dashed border-rose-300/75"
-                style={{
-                  top: result.overlay.resistance_y_pct + "%",
-                  left: pricePlotBox.x_pct + "%",
-                  width: pricePlotBox.width_pct + "%",
-                }}
-              >
-                <span className="absolute right-0 -top-3 grid size-6 place-items-center rounded-full border border-rose-300/25 bg-[#16070a]/90 text-[9px] font-black text-rose-200 backdrop-blur">
-                  R
-                </span>
-              </span>
-            )}
-
-            {result.overlay.support_y_pct !== null && pricePlotBox && (
-              <span
-                className="pointer-events-none absolute border-t border-dashed border-emerald-300/70"
-                style={{
-                  top: result.overlay.support_y_pct + "%",
-                  left: pricePlotBox.x_pct + "%",
-                  width: pricePlotBox.width_pct + "%",
-                }}
-              >
-                <span className="absolute left-0 -top-3 grid size-6 place-items-center rounded-full border border-emerald-300/25 bg-[#06150e]/90 text-[9px] font-black text-emerald-200 backdrop-blur">
-                  S
-                </span>
-              </span>
-            )}
-
-            {hasBox && box && (
-              <span
-                className="pointer-events-none absolute rounded-[14px] border border-dashed border-[#f2c35f]/40"
-                style={{
-                  left: box.x_pct + "%",
-                  top: box.y_pct + "%",
-                  width: box.width_pct + "%",
-                  height: box.height_pct + "%",
-                }}
-              />
-            )}
-
-            {result.signals.map((signal, index) => {
-              const signalBox = signal.box;
-              if (!signalBox) return null;
-              const signalStyle = signalTone(signal.bias);
-
-              return (
-                <span
-                  key={signal.name + index}
-                  className={"pointer-events-none absolute rounded-[10px] border-2 " + signalStyle.border + " " + signalStyle.bg}
-                  style={{
-                    left: signalBox.x_pct + "%",
-                    top: signalBox.y_pct + "%",
-                    width: signalBox.width_pct + "%",
-                    height: signalBox.height_pct + "%",
-                  }}
-                >
-                  <span
-                    className={
-                      "absolute -left-2 -top-2 grid size-6 place-items-center rounded-full border border-black/30 bg-[#031009]/95 text-[10px] font-black shadow-[0_3px_12px_rgba(0,0,0,0.45)] " +
-                      signalStyle.text
-                    }
-                  >
-                    {index + 1}
-                  </span>
-                </span>
-              );
-            })}
-
-            <div className="absolute left-3 top-3 flex max-w-[calc(100%-24px)] items-center gap-2 rounded-full border border-white/10 bg-[#04180f]/82 px-3 py-1.5 backdrop-blur-xl">
-              <span className="size-1.5 shrink-0 rounded-full bg-[#f2c35f]" />
-              <span className="truncate text-[9px] font-black uppercase tracking-[0.13em] text-[#fffaf2]/72">
-                Candles / price plot only
-              </span>
-            </div>
+          <div ref={previewRef} className="scroll-mt-20">
+            <ChartScanPreview key={previewUrl} src={previewUrl} result={result} selectedSignal={selectedSignal} />
           </div>
 
-          <div className={"relative -mt-2 min-w-0 rounded-t-[30px] bg-[#061b12] px-1 pt-5 " + tone.glow}>
+          <div className="relative min-w-0 px-1 pt-6">
             <div className="min-w-0 border-b border-[#fffaf2]/[0.055] pb-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#fffaf2]/34">Chart verdict</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#fffaf2]/34">Technical outlook</p>
               <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-                <h1 className={"min-w-0 break-words text-[clamp(30px,10vw,46px)] font-black leading-none tracking-[-0.065em] " + verdictTextClass}>
+                <h1 className={"min-w-0 break-words text-[clamp(27px,8vw,36px)] font-black leading-none tracking-[-0.065em] " + verdictTextClass}>
                   {verdictWord}
                 </h1>
                 <div className="shrink-0 pb-1 text-right">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#fffaf2]/34">Confidence</p>
-                  <p className="mt-0.5 text-[clamp(23px,7vw,30px)] font-black leading-none tracking-[-0.045em] text-[#f2d786]">{result.confidence}%</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#fffaf2]/34">Read confidence</p>
+                  <p className="mt-0.5 text-[clamp(23px,7vw,30px)] font-black leading-none tracking-[-0.045em] text-[#f2d786]">{result.confidence}<span className="text-[12px] text-[#fffaf2]/30">/100</span></p>
                 </div>
               </div>
 
@@ -782,6 +642,15 @@ export function ChartScannerWorkspace() {
               </div>
             </div>
 
+            {result.verification_status === "unavailable" && (
+              <div className="mt-4 rounded-xl border border-[#f2c35f]/15 bg-[#f2c35f]/5 px-3 py-3 text-[12px] leading-5 text-[#f2d786]">
+                <p>The second review could not finish. This is a preliminary read; highlights and trade levels are withheld.</p>
+                <button type="button" onClick={() => scanFile && void runScan([scanFile, ...supportingFiles])}
+                  className="mt-2 min-h-11 rounded-full border border-[#f2c35f]/25 px-4 text-[11px] font-bold">
+                  Retry review
+                </button>
+              </div>
+            )}
             <div className="min-w-0 pt-5">
               <h2 className="break-words text-[clamp(24px,7vw,30px)] font-black leading-[1.02] tracking-[-0.045em] text-[#fffaf2]">{result.pattern}</h2>
               <p className="mt-2 break-words text-[12px] font-bold text-[#fffaf2]/42">
@@ -884,15 +753,15 @@ export function ChartScannerWorkspace() {
                   <Level label="Entry / trigger" value={result.trade_plan.entry} />
                 </div>
 
-                <div className="mt-4 grid min-w-0 gap-3">
+                <div className="mt-4 grid min-w-0 grid-cols-2 gap-3">
                   <TradeLevelCard
-                    label="STOP LOSS"
+                    label="Stop loss"
                     value={result.trade_plan.stop_loss}
                     tone="stop"
                     hint="Technical invalidation level — beyond the structure that makes the setup wrong."
                   />
                   <TradeLevelCard
-                    label="TAKE PROFIT"
+                    label="Target"
                     value={result.trade_plan.take_profit}
                     tone="target"
                     hint="Technical target from the visible resistance/support or measured move."
@@ -933,10 +802,10 @@ export function ChartScannerWorkspace() {
               <div className="mt-5 min-w-0 overflow-hidden rounded-[22px] border border-[#fffaf2]/7 bg-[#fffaf2]/[0.035] p-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/42">Risk levels</p>
                 <p className="mt-2 text-[14px] font-black leading-5 text-[#fffaf2]">
-                  No defensible stop/target pair from this chart.
+                  A complete trade plan is not supported by this image.
                 </p>
                 <p className="mt-1.5 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/45">
-                  The chart is already usable, so StockGPT is not asking you to take another photo just to force a number.
+                  The read above shows the visible setup. Exact risk levels require readable prices and a clear invalidation.
                 </p>
               </div>
             )}
@@ -944,12 +813,12 @@ export function ChartScannerWorkspace() {
             <div className="mt-5 min-w-0">
               <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/34">Signals detected</p>
+                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/34">Evidence</p>
                   <p className="mt-1 text-[13px] font-black text-[#fffaf2]">
                     {result.signals.length > 0 ? result.signals.length + " visible signals" : "No strong secondary signals"}
                   </p>
                 </div>
-                <p className="text-[9px] font-bold text-[#fffaf2]/28">Numbers match the chart highlights</p>
+                <p className="text-[9px] font-bold text-[#fffaf2]/28">Tap a finding to inspect</p>
               </div>
 
               {result.signals.length > 0 && (
@@ -957,34 +826,67 @@ export function ChartScannerWorkspace() {
                   {result.signals.map((signal, index) => {
                     const signalStyle = signalTone(signal.bias);
                     return (
-                      <div key={signal.name + index} className="min-w-0 overflow-hidden rounded-[18px] border border-[#fffaf2]/7 bg-[#fffaf2]/[0.035] p-3.5">
+                      <button key={signal.name + index} type="button" aria-pressed={selectedSignal === index}
+                        onClick={() => {
+                          setSelectedSignal(current => current === index ? null : index);
+                          nativeHaptic("light");
+                          if (signal.box) previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className={"w-full min-w-0 overflow-hidden rounded-[16px] border p-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f] " +
+                          (selectedSignal === index ? "border-[#f2c35f]/40 bg-[#f2c35f]/[0.045]" : "border-[#fffaf2]/7 bg-[#fffaf2]/[0.025]")}>
                         <div className="flex min-w-0 items-start gap-3">
-                          <span className={"grid size-8 shrink-0 place-items-center rounded-full border text-[11px] font-black " + signalStyle.border + " " + signalStyle.bg + " " + signalStyle.text}>
+                          <span className={"grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold " + signalStyle.bg + " " + signalStyle.text}>
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                              <p className="min-w-0 break-words text-[13px] font-black text-[#fffaf2]">{signal.name}</p>
-                              <span className={"shrink-0 text-[9px] font-black uppercase tracking-[0.08em] " + signalStyle.text}>
-                                {signal.bias} · {signal.confidence}%
-                              </span>
+                            <p className="break-words text-[13px] font-bold text-[#fffaf2]">{signal.name}</p>
+                            <p className="mt-1.5 break-words text-[12px] font-medium leading-5 text-[#fffaf2]/55">{signal.evidence}</p>
+                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-semibold">
+                              <span className={signalStyle.text}>{signal.bias === "neutral" ? "Context" : signal.bias === "bullish" ? "Bullish evidence" : "Bearish evidence"}</span>
+                              <span className="text-[#fffaf2]/30">{signal.kind === "candle" ? "Candle pattern" : signal.kind === "indicator" ? "Indicator" : signal.kind === "volume" ? "Volume" : "Price structure"}</span>
+                              <span className="text-[#fffaf2]/30">{signal.box ? "Locate on chart ↗" : signal.source_image > 0 ? "Supporting image" : "Text read"}</span>
                             </div>
-                            <p className="mt-1 break-words text-[11.5px] font-semibold leading-4 text-[#fffaf2]/46">{signal.evidence}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
               )}
             </div>
 
-            <div className="mt-5 grid min-w-0 grid-cols-2 gap-x-4 border-y border-[#fffaf2]/[0.055]">
-              <Level label="Breakout" value={result.levels.breakout} />
-              <Level label="Invalidation" value={result.levels.invalidation} />
-              <Level label="Support" value={result.levels.support} />
-              <Level label="Resistance" value={result.levels.resistance} />
-            </div>
+            {result.indicator_checks.length > 0 && (
+              <div className="mt-6 min-w-0 border-t border-[#fffaf2]/[0.07] pt-5">
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#fffaf2]/38">Indicator review</p>
+                <div className="mt-3 divide-y divide-[#fffaf2]/[0.055]">
+                  {result.indicator_checks.map(indicator => (
+                    <div key={indicator.id} className="py-3 first:pt-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[12px] font-bold text-[#fffaf2]/85">{indicator.name}</p>
+                        <span className={"shrink-0 text-[9px] font-semibold " + (indicator.status === "readable" ? "text-emerald-200/70" : "text-[#fffaf2]/35")}>
+                          {indicator.status === "readable" ? "Read" : indicator.status === "unreadable" ? "Not legible" : indicator.status === "not_confirmed" ? "Not confirmed" : "Review pending"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11.5px] leading-5 text-[#fffaf2]/46">
+                        {indicator.finding ?? (indicator.status === "not_confirmed" ? "This indicator could not be confirmed from the image." : "There is not enough readable detail for a finding.")}
+                        {indicator.source_image > 0 ? " · Supporting image" : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Object.values(result.levels).some(Boolean) && (
+              <div className="mt-5 grid min-w-0 grid-cols-2 gap-x-4 border-y border-[#fffaf2]/[0.055]">
+                {[
+                  { label: "Support", value: result.levels.support },
+                  { label: "Resistance", value: result.levels.resistance },
+                  { label: "Breakout", value: result.levels.breakout },
+                  { label: "Invalidation", value: result.levels.invalidation },
+                ].filter(level => level.value).map(level => <Level key={level.label} {...level} />)}
+              </div>
+            )}
 
             <div className="mt-5 min-w-0 space-y-5">
               <div className="min-w-0">
@@ -997,8 +899,8 @@ export function ChartScannerWorkspace() {
               </div>
 
               {result.observations.length > 0 && (
-                <div className="min-w-0 border-t border-[#fffaf2]/[0.055] pt-5">
-                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/34">What StockGPT sees</p>
+                <details className="min-w-0 border-t border-[#fffaf2]/[0.055] pt-3">
+                  <summary className="min-h-11 cursor-pointer py-3 text-[11px] font-bold text-[#fffaf2]/48">Other observations</summary>
                   <div className="mt-3 space-y-2.5">
                     {result.observations.map((observation, index) => (
                       <div key={observation + index} className="flex min-w-0 gap-3">
@@ -1007,7 +909,7 @@ export function ChartScannerWorkspace() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </details>
               )}
 
               <div className="min-w-0 overflow-hidden rounded-[22px] bg-[#0a2a1d]/78 p-4">
