@@ -13,7 +13,7 @@ export function visionSettings(stage: VisionStage, remainingMs: number, fallback
   const available = Math.max(0, remainingMs - 1_000);
   // A failed first analysis may retry only while leaving the other reader time.
   const budget = fallback ? Math.floor(available / 2) : available;
-  const timeout = Math.min(stage === "layout" ? 18_000 : stage === "review" ? 70_000 : 60_000, budget);
+  const timeout = Math.min(stage === "layout" ? 18_000 : stage === "review" ? 90_000 : 60_000, budget);
   return {
     timeout,
     canRequest: timeout >= (stage === "layout" ? 3_000 : 12_000),

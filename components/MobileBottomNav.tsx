@@ -17,7 +17,7 @@ const moreItems = [
   {
     href: "/chart-scan",
     label: "Chart Scanner",
-    description: "AI pattern and level scan",
+    description: "44 candle patterns · AI trade plan",
     icon: "camera",
     appOnly: true,
   },
@@ -197,7 +197,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                       active
                         ? "bg-[#ddb159]/14 text-[#ddb159]"
                         : item.href === "/chart-scan"
-                          ? "bg-[linear-gradient(90deg,rgba(242,195,95,0.10),rgba(242,195,95,0.035))] text-[#faf6f0]"
+                          ? "bg-[linear-gradient(100deg,#087044,#10412d)] text-[#f1fff6]"
                           : "text-[#faf6f0] hover:bg-[#faf6f0]/6",
                     ].join(" ")}
                   >
@@ -208,7 +208,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                       <span className="flex items-center gap-2 text-[13px] font-black">
                         {item.label}
                         {item.href === "/chart-scan" && (
-                          <span className="rounded-full bg-[#f2c35f]/14 px-1.5 py-0.5 text-[7.5px] font-black uppercase tracking-[0.12em] text-[#f2d786]">New</span>
+                          <span className="rounded-full bg-[#ffd361] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#06311f]">Beta</span>
                         )}
                       </span>
                       <span className="mt-0.5 block truncate text-[10.5px] font-medium text-[#faf6f0]/48">
@@ -301,3 +301,4 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
     </>
   );
 }
+

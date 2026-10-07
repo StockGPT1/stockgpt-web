@@ -67,7 +67,7 @@ async function requestVision(
     const payload = await response.json().catch(() => null) as ProviderResponse | null;
     const content = payload?.choices?.[0]?.message?.content;
     const value = typeof content === "string" ? parseScanJson(content) : null;
-    if (!response.ok || payload?.choices?.[0]?.finish_reason === "length" || !value || (stage !== "layout" && !isChartAnalysis(value))) {
+    if (!response.ok || payload?.choices?.[0]?.finish_reason === "length" || !value || (stage !== "layout" && !isChartAnalysis(value, true))) {
       failures.push({ model, stage, status: response.status, message: payload?.error?.message ?? "No complete, valid scanner JSON." });
       return { value: null, model };
     }

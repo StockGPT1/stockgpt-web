@@ -1,5 +1,6 @@
 import { buildScanTimeline, type ScanTimeline } from "./chart-scan-timeline.ts";
 import { assessChartReview, type ChartReview } from "./chart-scan-review.ts";
+import { CANDLE_PATTERNS, candlePatternId, hasCompleteCandleAudit, normaliseCandleAudit, type CandleAudit } from "./chart-scan-candles.ts";
 import { pixelAnchoredAxis, matchedEvidenceBoxes, type ScanGeometry } from "./chart-scan-coordinates.ts";
 import { buildTradeScenario, stockGPTScore, normalisePatternChecks, normalisePriceAxis, calibratePriceAxis, priceToY, positivePrice, type PriceAxis, type TradeScenario, type ChartPattern } from "./chart-scan-scenario.ts";
 
@@ -46,6 +47,7 @@ export type ChartScanResult = {
   chart_coverage: "full" | "partial" | "unclear";
   verification_status: "reviewed" | "unavailable";
   review: ChartReview;
+  candle_audit: CandleAudit;
   indicator_checks: Array<{
     id: string;
     name: string;
@@ -77,6 +79,8 @@ export type ChartScanResult = {
     pattern_box: PctBox | null;
     calibration_status: "matched" | "unavailable";
     trade_lines: Array<{ kind: "entry" | "stop" | "target"; price: string; y_pct: number }>;
+    off_chart_levels: Array<{ kind: "entry" | "stop" | "target"; price: string }>;
+    exclusions: PctBox[];
 
   };
 };
@@ -189,6 +193,8 @@ function findingFamily(item: JsonRecord, kind: SignalKind) {
     return name;
   }
   if (kind === "candle") {
+    const id = candlePatternId(item.candle_pattern_id ?? item.id, item.name);
+    if (id) return `${id}:${signalBias(item.bias)}`;
     for (const family of ["engulfing", "hammer", "doji", "morning star", "evening star", "shooting star", "hanging man", "harami"]) {
       if (name.includes(family)) return `${family}:${signalBias(item.bias)}`;
     }
@@ -214,6 +220,8 @@ export function normaliseChartScan(
 ): ChartScanResult {
   const raw = record(value), overlay = record(raw.overlay), levels = record(raw.levels);
   const finalSeries = series(raw.price_series_type);
+  const first = reviewCandidate ?? localisation?.candidate;
+  const candleAudit = normaliseCandleAudit(raw.candle_audit, finalSeries, reviewed, first?.candle_audit);
   const seriesAgrees = layout.price_series_type === finalSeries;
   const mustRetake = raw.retake_required === true || finalSeries === "unknown" || finalSeries === "unsupported";
   const plot = reviewed && seriesAgrees && overlay.price_plot_confirmed === true
@@ -238,6 +246,10 @@ export function normaliseChartScan(
     const previous = [
       ...list(localisation.candidate.signals).map(record),
       ...list(localisation.candidate.pattern_checks).map((value): JsonRecord => ({ ...record(value), kind: "pattern", source_image: 0 })),
+      ...list(record(localisation.candidate.candle_audit).present).map((value): JsonRecord => {
+        const item = record(value), pattern = CANDLE_PATTERNS.find(pattern => pattern.id === item.id);
+        return { ...item, candle_pattern_id: item.id, name: pattern?.name, bias: pattern?.bias, kind: "candle", source_image: 0 };
+      }),
     ].filter(candidate => candidate.frame_id === item.frame_id && candidate.kind === kind && candidate.source_image === source &&
       candidate.localisation_confirmed === true && confidence(candidate.localisation_confidence) >= 80 &&
       findingFamily(candidate, kind) === findingFamily(item, kind));
@@ -264,6 +276,10 @@ export function normaliseChartScan(
       if (!region || (reviewed && !indicatorChecks.some(check => check.id === region.id && check.status === "readable"))) return [];
     } else if (regionId !== "price" || source !== 0) return [];
     if (kind === "candle" && (finalSeries !== "candles" || layout.price_series_type !== "candles")) return [];
+    if (kind === "candle" && raw.candle_audit) {
+      const id = candlePatternId(item.candle_pattern_id, name);
+      if (!candleAudit.checks.some(check => check.id === id && check.status === "detected")) return [];
+    }
     const key = `${source}:${regionId}:${name.toLowerCase()}`;
     if (seen.has(key)) return [];
     seen.add(key);
@@ -289,13 +305,22 @@ export function normaliseChartScan(
   }).slice(0, 8);
   const patterns = mustRetake ? [] : normalisePatternChecks(raw.pattern_checks);
   for (const pattern of patterns) {
-    if (signals.length >= 8 || signals.some(signal => signal.kind === "pattern" &&
+    if (signals.length >= 12 || signals.some(signal => signal.kind === "pattern" &&
       (signal.name.toLowerCase().includes(pattern.name.toLowerCase()) || signal.evidence === pattern.evidence))) continue;
     const patternRaw = list(raw.pattern_checks).map(record).find(item => item.name === pattern.name) ?? {};
     const boxes = evidenceBoxes(patternRaw, "price", 0, "pattern");
     signals.push({ name: pattern.name, kind: "pattern", bias: /bottom|inverse/i.test(pattern.name) ? "bullish" : /double[ -]?top|head[ -]?and[ -]?shoulders/i.test(pattern.name) ? "bearish" : "neutral",
       confidence: Math.min(pattern.status === "forming" ? 65 : 85, confidence(raw.confidence)), evidence: pattern.evidence,
       region_id: "price", source_image: 0, box: boxes[0] ?? null, boxes });
+  }
+  if (!mustRetake && finalSeries === "candles" && layout.price_series_type === "candles") {
+    for (const check of candleAudit.checks.filter(check => check.status === "detected").sort((a, b) => b.confidence - a.confidence)) {
+      if (signals.length >= 12 || signals.some(signal => signal.kind === "candle" && candlePatternId(null, signal.name) === check.id)) continue;
+      const item = list(record(raw.candle_audit).present).map(record).find(item => item.id === check.id) ?? {};
+      const boxes = evidenceBoxes({ ...item, candle_pattern_id: check.id, name: check.name, bias: check.bias }, "price", 0, "candle");
+      signals.push({ name: check.name, kind: "candle", bias: check.bias, confidence: Math.min(check.completed ? 90 : 65, check.confidence),
+        evidence: check.evidence!, region_id: "price", source_image: 0, box: boxes[0] ?? null, boxes });
+    }
   }
   const rejectedEvidence = reviewed && !mustRetake && signals.length === 0;
   const resolvedVerdict = mustRetake || rejectedEvidence ? "inconclusive" : verdict(raw.verdict);
@@ -319,27 +344,36 @@ export function normaliseChartScan(
   score.value = Math.min(score.value, review.score_cap);
   score.label = score.value >= 75 ? "Stronger setup" : score.value >= 50 ? "Developing setup" : "Speculative setup";
   if (review.agreement === "mixed") score.reasons.push(review.headline);
+  if (finalSeries === "candles" && raw.candle_audit && (candleAudit.checked < candleAudit.total || candleAudit.unclear > candleAudit.total / 2)) {
+    score.value = Math.min(score.value, 55);
+    score.label = score.value >= 50 ? "Developing setup" : "Speculative setup";
+    score.reasons.push(candleAudit.checked < candleAudit.total ? "Candle checklist incomplete" : "Many candle patterns could not be read clearly");
+  }
   const timeline = buildScanTimeline(record(raw.trade_plan).timeline, timeframe, scenario.status === "confirmed", scenario.levels_basis === "illustrative");
   const mappedAxis = localisation ? pixelAnchoredAxis(record(localisation.candidate.overlay).price_axis, localisation.geometry.axis_rows) : layout.price_axis;
   const checkedAxis = localisation ? pixelAnchoredAxis(overlay.price_axis, localisation.geometry.axis_rows) : normalisePriceAxis(overlay.price_axis);
-  const calibration = plot && reviewed && overlay.price_axis_confirmed === true
+  // Price placement depends on agreeing labelled pixels, not the strength of
+  // the trade thesis. The numeric plan remains visible for estimated scenarios.
+  const linePlot = plot ?? (reviewed && seriesAgrees ? agreedBox(layout.price_plot_box, normaliseScanBox(overlay.price_plot_box)) : null);
+  const calibration = linePlot && reviewed
     ? calibratePriceAxis(mappedAxis, checkedAxis) : null;
   const safeY = (price: number | null) => {
-    if (!plot) return null;
-    const y = priceToY(price, calibration, plot.y_pct, plot.height_pct);
+    if (!linePlot) return null;
+    const y = priceToY(price, calibration, linePlot.y_pct, linePlot.height_pct);
     if (y === null) return null;
-    const line = { x_pct: plot.x_pct, y_pct: y - 0.05, width_pct: plot.width_pct, height_pct: 0.1 };
-    return !layout.exclusions.some(exclusion => overlaps(line, exclusion)) &&
-      !layout.indicators.some(region => region.source_image === 0 && region.placement === "panel" && region.box && overlaps(line, region.box)) ? y : null;
+    return y;
   };
-  const tradeLines: ChartScanResult["overlay"]["trade_lines"] = [
+  const proposedLines = [
     { kind: "entry" as const, price: scenario.entry, value: scenario.entry_value },
     { kind: "stop" as const, price: scenario.stop_loss, value: scenario.stop_value },
     { kind: "target" as const, price: scenario.take_profit, value: scenario.target_value },
-  ].flatMap(line => {
+  ];
+  const tradeLines: ChartScanResult["overlay"]["trade_lines"] = proposedLines.flatMap(line => {
     const y = safeY(line.value);
     return y !== null && line.price ? [{ kind: line.kind, price: line.price, y_pct: y }] : [];
   });
+  const offChart = calibration && linePlot ? proposedLines.filter(line => line.value !== null && line.price && safeY(line.value) === null)
+    .map(line => ({ kind: line.kind, price: line.price! })) : [];
   return {
     verdict: resolvedVerdict,
     label: mustRetake ? "Chart not readable" : rejectedEvidence ? "Illustrative trade scenario" : scanText(raw.label, 70) ?? "Mixed evidence",
@@ -359,6 +393,7 @@ export function normaliseChartScan(
     observations: list(raw.observations).map(item => scanText(item, 200)).filter((item): item is string => item !== null).slice(0, 4),
     verification_status: reviewed ? "reviewed" : "unavailable",
     review,
+    candle_audit: candleAudit,
     indicator_checks: indicatorChecks, signals: mustRetake ? [] : signals,
     trade_plan: scenario, timeline,
     stockgpt_score: score,
@@ -370,14 +405,16 @@ export function normaliseChartScan(
       invalidation: positivePrice(levels.invalidation) !== null && !mustRetake ? typeof levels.invalidation === "number" ? String(levels.invalidation) : scanText(levels.invalidation, 40) : null,
     },
     overlay: {
-      price_plot_box: mustRetake ? null : plot,
+      price_plot_box: mustRetake ? null : linePlot,
       image_sizes: localisation?.geometry.image_sizes ?? [],
-      resistance_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.resistance)) : null,
-      support_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.support)) : null,
+      resistance_y_pct: mustRetake ? null : overlay.levels_confirmed === true && overlay.price_axis_confirmed === true ? safeY(positivePrice(levels.resistance)) : null,
+      support_y_pct: mustRetake ? null : overlay.levels_confirmed === true && overlay.price_axis_confirmed === true ? safeY(positivePrice(levels.support)) : null,
       // Only evidence-specific highlights are displayed, never an extra speculative pattern rectangle.
       pattern_box: null,
       calibration_status: calibration ? "matched" : "unavailable",
       trade_lines: mustRetake ? [] : tradeLines,
+      off_chart_levels: mustRetake ? [] : offChart,
+      exclusions: [...layout.exclusions, ...layout.indicators.filter(region => region.source_image === 0 && region.placement === "panel").flatMap(region => region.box ? [region.box] : [])],
     },
   };
 }
@@ -392,10 +429,11 @@ export function parseScanJson(content: string): JsonRecord | null {
   } catch { return null; }
 }
 
-export function isChartAnalysis(value: JsonRecord | null) {
+export function isChartAnalysis(value: JsonRecord | null, requireCandleChecklist = false) {
   return Boolean(value && ["bullish", "bearish", "inconclusive"].includes(String(value.verdict)) &&
     ["candles", "price_line", "unsupported", "unknown"].includes(String(value.price_series_type)) &&
-    typeof value.summary === "string" && Array.isArray(value.signals) && Array.isArray(value.indicator_checks));
+    typeof value.summary === "string" && Array.isArray(value.signals) && Array.isArray(value.indicator_checks) &&
+    (!requireCandleChecklist || hasCompleteCandleAudit(value.candle_audit, value.price_series_type)));
 }
 
 type ScanPass = { value: JsonRecord | null; model: string };
