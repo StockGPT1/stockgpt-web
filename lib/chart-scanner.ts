@@ -1,4 +1,5 @@
 import { buildScanTimeline, type ScanTimeline } from "./chart-scan-timeline.ts";
+import { assessChartReview, type ChartReview } from "./chart-scan-review.ts";
 import { pixelAnchoredAxis, matchedEvidenceBoxes, type ScanGeometry } from "./chart-scan-coordinates.ts";
 import { buildTradeScenario, stockGPTScore, normalisePatternChecks, normalisePriceAxis, calibratePriceAxis, priceToY, positivePrice, type PriceAxis, type TradeScenario, type ChartPattern } from "./chart-scan-scenario.ts";
 
@@ -44,6 +45,7 @@ export type ChartScanResult = {
   price_series_type: ChartLayout["price_series_type"];
   chart_coverage: "full" | "partial" | "unclear";
   verification_status: "reviewed" | "unavailable";
+  review: ChartReview;
   indicator_checks: Array<{
     id: string;
     name: string;
@@ -178,6 +180,23 @@ function verdict(value: unknown): ScanVerdict {
 const signalKinds = new Set<SignalKind>(["structure", "pattern", "candle", "level", "indicator", "volume"]);
 const genericSignal = /^(candles?|candlesticks?|price\s*(line|chart|action|plot)|chart|volume|rsi|macd|moving averages?|bollinger bands?)$/i;
 
+function findingFamily(item: JsonRecord, kind: SignalKind) {
+  const name = scanText(item.name, 80)?.toLowerCase().replace(/[-_]/g, " ") ?? "";
+  if (kind === "pattern") {
+    for (const family of ["double bottom", "double top", "inverse head and shoulders", "head and shoulders", "bull flag", "bear flag"]) {
+      if (name.includes(family)) return family;
+    }
+    return name;
+  }
+  if (kind === "candle") {
+    for (const family of ["engulfing", "hammer", "doji", "morning star", "evening star", "shooting star", "hanging man", "harami"]) {
+      if (name.includes(family)) return `${family}:${signalBias(item.bias)}`;
+    }
+    return name;
+  }
+  return `${kind}:${signalBias(item.bias)}`;
+}
+
 export function priceNumber(value: unknown): number | null {
   const price = scanText(value, 40)?.replace(/^[$£€¥]\s*/, "");
   if (!price || !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(price)) return null;
@@ -191,6 +210,7 @@ export function normaliseChartScan(
   reviewed: boolean,
   referencePrice?: number | null,
   localisation?: { geometry: ScanGeometry; candidate: JsonRecord },
+  reviewCandidate?: JsonRecord,
 ): ChartScanResult {
   const raw = record(value), overlay = record(raw.overlay), levels = record(raw.levels);
   const finalSeries = series(raw.price_series_type);
@@ -211,12 +231,21 @@ export function normaliseChartScan(
     if (!localisation || !reviewed || item.localisation_confirmed !== true || confidence(item.localisation_confidence) < 80) return [];
     const frame = localisation.geometry.frames.find(frame => frame.id === item.frame_id && frame.id === regionId && frame.source_image === source);
     if (!frame) return [];
-    const previous = [...list(localisation.candidate.signals), ...list(localisation.candidate.pattern_checks)].map(record)
-      .find(candidate => candidate.frame_id === item.frame_id && scanText(candidate.name, 80)?.toLowerCase() === scanText(item.name, 80)?.toLowerCase());
-    if (!previous) return [];
+    // Fresh readers need not use identical labels. Require the same owner,
+    // finding family, direction and actual crop location instead. Candle and
+    // pattern names retain distinct families, so a hammer cannot confirm an
+    // engulfing simply because both boxes cover the latest candle.
+    const previous = [
+      ...list(localisation.candidate.signals).map(record),
+      ...list(localisation.candidate.pattern_checks).map((value): JsonRecord => ({ ...record(value), kind: "pattern", source_image: 0 })),
+    ].filter(candidate => candidate.frame_id === item.frame_id && candidate.kind === kind && candidate.source_image === source &&
+      candidate.localisation_confirmed === true && confidence(candidate.localisation_confidence) >= 80 &&
+      findingFamily(candidate, kind) === findingFamily(item, kind));
     const region = layout.indicators.find(region => region.id === regionId && region.source_image === source);
     const owner = region?.box ?? (source === 0 ? plot : null);
-    return matchedEvidenceBoxes(previous.evidence_boxes, item.evidence_boxes, frame).filter(box =>
+    const matches = previous.map(candidate => matchedEvidenceBoxes(candidate.evidence_boxes, item.evidence_boxes, frame))
+      .sort((a, b) => b.length - a.length)[0] ?? [];
+    return matches.filter(box =>
       boxInside(box, owner) && (kind !== "pattern" || box.width_pct <= 30) &&
       (source !== 0 || !layout.exclusions.some(exclusion => overlaps(box, exclusion))) &&
       (region || !layout.indicators.some(indicator => indicator.source_image === source && indicator.placement === "panel" && indicator.box && overlaps(box, indicator.box))));
@@ -277,7 +306,19 @@ export function normaliseChartScan(
   const scenario = buildTradeScenario({ ...raw, verdict: resolvedVerdict }, {
     usable: !mustRetake, reviewed, referencePrice, patterns, signals,
   });
+  const review = assessChartReview(reviewCandidate, raw, reviewed);
+  if (review.agreement === "mixed" && scenario.status === "confirmed") {
+    scenario.status = "conditional";
+    scenario.plan = `Wait for a fresh candle to close ${scenario.side === "long" ? "above" : "below"} ${scenario.entry} before considering this scenario. The two readings differ, so confirm the trigger again.`;
+  }
   const score = stockGPTScore(rejectedEvidence ? 0 : raw.confidence, scenario, reviewed, signals, patterns);
+  if (coverage !== "full") {
+    score.value = Math.min(score.value, coverage === "partial" ? 65 : 50);
+    score.reasons.push(coverage === "partial" ? "Part of the chart is missing" : "Chart coverage is unclear");
+  }
+  score.value = Math.min(score.value, review.score_cap);
+  score.label = score.value >= 75 ? "Stronger setup" : score.value >= 50 ? "Developing setup" : "Speculative setup";
+  if (review.agreement === "mixed") score.reasons.push(review.headline);
   const timeline = buildScanTimeline(record(raw.trade_plan).timeline, timeframe, scenario.status === "confirmed", scenario.levels_basis === "illustrative");
   const mappedAxis = localisation ? pixelAnchoredAxis(record(localisation.candidate.overlay).price_axis, localisation.geometry.axis_rows) : layout.price_axis;
   const checkedAxis = localisation ? pixelAnchoredAxis(overlay.price_axis, localisation.geometry.axis_rows) : normalisePriceAxis(overlay.price_axis);
@@ -311,11 +352,13 @@ export function normaliseChartScan(
     needs_more_info: needsMoreInfo,
     more_info_prompt: needsMoreInfo ? scanText(raw.more_info_prompt, 220) ?? "Add a view of the missing chart area and price scale." : null,
     summary: rejectedEvidence ? "The proposed signals could not be confirmed from this image. No directional setup is supported by the reviewed evidence." : scanText(raw.summary, 480) ?? "There is not enough visible evidence for a reliable directional read.",
-    confirmation: scanText(raw.confirmation, 260) ?? "Wait for a clear reaction at the visible structure.",
+    confirmation: review.agreement === "mixed" && scenario.status === "conditional" && scenario.plan
+      ? scenario.plan : scanText(raw.confirmation, 260) ?? "Wait for a clear reaction at the visible structure.",
     invalidation: scanText(raw.invalidation, 260) ?? (scenario.stop_value !== null ? `A move ${scenario.side === "long" ? "below" : "above"} ${scenario.stop_loss} cancels this scenario.` : "Reaching the stop-loss distance above cancels this scenario."),
     watch_for: scanText(raw.watch_for, 220) ?? "Watch the next confirmed reaction at the nearest visible level.",
     observations: list(raw.observations).map(item => scanText(item, 200)).filter((item): item is string => item !== null).slice(0, 4),
     verification_status: reviewed ? "reviewed" : "unavailable",
+    review,
     indicator_checks: indicatorChecks, signals: mustRetake ? [] : signals,
     trade_plan: scenario, timeline,
     stockgpt_score: score,
@@ -385,7 +428,7 @@ export async function runGroundedChartScan(passes: ScanPasses, imageCount: numbe
   const finalLayout = { ...enrichedLayout, indicators: [...enrichedLayout.indicators, ...reviewIndicators.filter(region =>
     !enrichedLayout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
   return {
-    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice, passes.geometry ? { geometry: passes.geometry(), candidate: candidate.value } : undefined),
+    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice, passes.geometry ? { geometry: passes.geometry(), candidate: candidate.value } : undefined, candidate.value),
     model: reviewed ? review.model : candidate.model,
     passes: 3,
   };

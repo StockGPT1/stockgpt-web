@@ -1,0 +1,141 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { ChartScanPreview } from "@/components/ChartScanPreview";
+import { StockIcon } from "@/components/StockIcon";
+import { nativeHaptic } from "@/lib/ios-native";
+import type { ChartScanResult } from "@/lib/chart-scanner";
+import styles from "./ChartScanAnalysis.module.css";
+
+type Props = {
+  result: ChartScanResult;
+  src: string;
+  supportingSrc: string | null;
+  askHref: string;
+  onReset: () => void;
+  onAddContext: () => void;
+  onReference: () => void;
+};
+const panel = "rounded-3xl border border-[#275540] bg-[#0a251a] p-5 sm:p-6";
+const button = `flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold ${styles.tap}`;
+const quietButton = `${button} border border-[#38654c] bg-[#133b29] text-[#e7f8ed]`;
+const brightButton = `${button} bg-[#f6c96b] text-[#092116]`;
+
+function Score({ value, label }: { value: number; label: string }) {
+  const color = value >= 75 ? "#52e0aa" : "#f6c96b";
+  return <div className="w-28 shrink-0 text-center sm:w-32">
+    <p className="mb-2 text-xs font-bold text-[#ffe3a0]">StockGPT Score</p>
+    <div className="relative mx-auto size-24 sm:size-28" role="img" aria-label={`StockGPT Score ${value} out of 100. ${label}. Setup confidence, not a win probability.`}>
+      <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden="true">
+        <circle cx="50" cy="50" r="43" fill="none" stroke="#31503e" strokeWidth="6" />
+        <circle className={styles.scoreArc} cx="50" cy="50" r="43" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" pathLength="100" strokeDasharray={`${value} 100`} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true"><span className="text-3xl font-extrabold tabular-nums text-[#fff5df] sm:text-4xl">{value}</span><span className="text-xs text-[#c2d9c9]">out of 100</span></div>
+    </div>
+    <p className="mt-2 text-xs font-semibold text-[#e7edda]">{label}</p>
+  </div>;
+}
+
+function TradeLevel({ label, value, tone, hint, explanation }: { label: string; value: string | null; tone: "entry" | "stop" | "target"; hint: string; explanation: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const colors = tone === "entry" ? "border-[#f6c96b]/60 bg-[#f6c96b]/15 text-[#ffe3a0]"
+    : tone === "stop" ? "border-[#efa99f]/50 bg-[#efa99f]/10 text-[#ffc9bf]"
+      : "border-[#52e0aa]/60 bg-[#52e0aa]/15 text-[#85f8c7]";
+  return <button type="button" aria-expanded={expanded} onClick={() => { nativeHaptic("light"); setExpanded(value => !value); }}
+    className={`min-w-0 rounded-2xl border p-4 text-left ${colors} ${styles.tap} ${tone === "entry" ? "col-span-2 sm:col-span-1" : ""}`}>
+    <span className="flex items-center justify-between gap-1 text-xs font-bold"><span>{label}</span><StockIcon name="chevron-down" className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`} /></span>
+    <span className="mt-2 block break-words text-[clamp(22px,6vw,32px)] font-extrabold leading-tight tracking-tight tabular-nums">{value ?? "Price not readable"}</span>
+    <span className="mt-2 block text-xs leading-5 text-[#e3eee4]">{hint}</span>
+    {expanded && <span className="mt-3 block border-t border-current/20 pt-3 text-sm leading-5">{explanation}</span>}
+  </button>;
+}
+
+export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset, onAddContext, onReference }: Props) {
+  const [focusedSignal, setFocusedSignal] = useState<number | null | undefined>(undefined);
+  const plan = result.trade_plan, score = result.stockgpt_score;
+  const illustrative = plan.levels_basis === "illustrative";
+  const direction = plan.side === "long" ? "Price could rise" : "Price could fall";
+  const setup = illustrative ? "Practice scenario · no confirmed edge" : plan.status === "confirmed" ? "Trigger visible · check current price"
+    : plan.status === "conditional" ? "Waiting for the price trigger" : "Estimated levels · confirm first";
+  const riskHint = (value: number | null) => value === null ? "Relative to your entry" : `${value.toFixed(1)}% from entry`;
+  function jump(id: string) {
+    nativeHaptic("light");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? "instant" : "smooth", block: "start" });
+  }
+  const supports = result.signals.filter(signal => signal.bias === (plan.side === "long" ? "bullish" : "bearish"));
+  const opposes = result.signals.filter(signal => signal.bias === (plan.side === "long" ? "bearish" : "bullish"));
+  return <div className={`${styles.analysis} ${styles.arrive} space-y-5`}>
+    <nav aria-label="Analysis sections" className="grid grid-cols-3 gap-2">
+      {[{ id: "scan-plan", name: "Your plan", icon: "total" as const }, { id: "scan-chart", name: "On the chart", icon: "search" as const }, { id: "scan-evidence", name: "The evidence", icon: "check" as const }].map(item =>
+        <button key={item.id} type="button" onClick={() => jump(item.id)} className={`${quietButton} px-2 text-xs`}><StockIcon name={item.icon} className="hidden size-4 sm:block" />{item.name}</button>)}
+    </nav>
+
+    <section id="scan-plan" className={`${panel} ${styles.hero} ${styles.anchor}`} aria-labelledby="scan-direction">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><p className="text-sm font-semibold text-[#c7dece]">{[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Your chart analysis"}</p>
+          <span className="mt-4 inline-flex rounded-full border border-[#52e0aa]/35 bg-[#52e0aa]/15 px-3 py-1.5 text-xs font-bold text-[#96f2c8]">{plan.side === "long" ? "↑ Long scenario" : "↓ Short scenario"}</span>
+          <h2 id="scan-direction" className="mt-3 text-[clamp(26px,6vw,42px)] font-extrabold leading-[1.1] tracking-tight">{illustrative ? "A scenario to practise" : direction}</h2>
+          <p className="mt-2 text-sm font-semibold text-[#ffe3a0]">{setup}</p>
+        </div>
+        <Score value={score.value} label={score.label} />
+      </div>
+      <p className="mt-5 text-base leading-7 text-[#e1ede4]">{result.summary}</p>
+      <div className="mt-5 grid grid-cols-2 items-start gap-3 sm:grid-cols-3">
+        <TradeLevel label="Open / entry" tone="entry" value={plan.entry} hint="Tap to understand the entry" explanation={`The price to watch before opening this ${plan.side === "long" ? "upward" : "downward"} scenario. ${plan.plan || result.confirmation}`} />
+        <TradeLevel label="Stop loss" tone="stop" value={plan.stop_loss} hint={riskHint(plan.stop_pct)} explanation={`The planned exit if price goes against this scenario. ${result.invalidation}`} />
+        <TradeLevel label="Take profit" tone="target" value={plan.take_profit} hint={riskHint(plan.target_pct)} explanation="The planned exit if price moves in your favour. This is an estimated target; price may turn before reaching it." />
+      </div>
+      <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-[#c7dece]"><p>Potential reward / risk <strong className="text-[#fff4d8]">{plan.risk_reward ?? "Not measurable"}</strong></p><span className="text-xs">Tap any price card for help</span></div>
+      {plan.assumptions && <p className="mt-4 rounded-xl border border-[#f6c96b]/30 bg-[#f6c96b]/10 p-3 text-sm leading-6 text-[#ffe3a0]">{plan.assumptions}</p>}
+      <div className="mt-5 rounded-2xl border border-[#52e0aa]/30 bg-[#071d13]/60 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-[#85f8c7]"><StockIcon name="alerts" className="size-4" />Your next move</h3>
+        <p className="mt-2 text-base leading-6 text-[#edf7ee]">{plan.plan || result.confirmation}</p>
+      </div>
+      <details className="mt-4 border-t border-[#38654c] pt-1" onToggle={() => nativeHaptic("light")}>
+        <summary className="min-h-12 content-center text-sm font-semibold text-[#ffe3a0]">How confident is this score?</summary>
+        <p className="text-sm leading-6 text-[#c7dece]">A score for the visible setup, not the chance of winning. It weighs supporting evidence, conflicts, the price trigger and level quality.</p>
+        <ul className="mt-3 space-y-2 text-sm text-[#edf7ee]">{score.reasons.map(reason => <li key={reason} className="flex gap-2"><span aria-hidden="true" className="text-[#f6c96b]">•</span>{reason}</li>)}</ul>
+      </details>
+    </section>
+
+    <section className={panel} aria-labelledby="scan-timing">
+      <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-xl bg-[#f6c96b]/15 text-[#ffe3a0]"><StockIcon name="clock" className="size-5" /></span><div><h3 id="scan-timing" className="text-lg font-bold">When could it happen?</h3><p className="text-xs text-[#c7dece]">{result.timeline.quality === "illustrative" ? "Illustrative monitoring windows" : "Estimated timeline"}</p></div></div>
+      <ol className="mt-4 grid gap-3 sm:grid-cols-3">{[{ name: "Watch for entry", text: result.timeline.entry }, { name: "Allow for the target", text: result.timeline.target }, { name: "Check again", text: result.timeline.reassess }].map((step, index) =>
+        <li key={step.name} className="rounded-2xl border border-[#38654c] bg-[#103522] p-4"><span className="grid size-7 place-items-center rounded-full bg-[#f6c96b] text-xs font-extrabold text-[#092116]">{index + 1}</span><h4 className="mt-3 text-sm font-bold text-[#fff4d8]">{step.name}</h4><p className="mt-2 text-sm leading-6 text-[#dcecdf]">{step.text}</p></li>)}
+      </ol>
+      <p className="mt-4 text-sm leading-6 text-[#c7dece]">{result.timeline.basis}</p><p className="mt-2 text-xs leading-5 text-[#c7dece]">Count from the latest candle in this screenshot. Market closures pause chart time. The price trigger matters more than the clock.</p>
+    </section>
+
+    <section id="scan-chart" className={`${panel} ${styles.anchor}`}><ChartScanPreview src={src} supportingSrc={supportingSrc} result={result} focusedSignal={focusedSignal} onSignalChange={setFocusedSignal} /></section>
+
+    <section className="rounded-3xl border border-[#f6c96b]/40 bg-[#352b16]/70 p-5 sm:p-6" aria-labelledby="scan-caution">
+      <h3 id="scan-caution" className="text-lg font-bold text-[#ffe3a0]">What could spoil the trade?</h3>
+      <p className="mt-3 text-base leading-7 text-[#fff1d1]">{result.review.counterargument}</p>
+      <div className="mt-4 rounded-xl bg-black/15 p-3"><p className="text-sm font-bold text-[#ffe3a0]">The exit rule</p><p className="mt-1 text-sm leading-6 text-[#e8dfc9]">{result.invalidation}</p></div>
+      <div className="mt-4 border-t border-[#f6c96b]/20 pt-4"><p className="text-sm font-bold text-[#ffe3a0]">{result.review.headline}</p><p className="mt-1 text-sm leading-6 text-[#e8dfc9]">{result.review.detail}</p></div>
+    </section>
+
+    <section id="scan-evidence" className={`${panel} ${styles.anchor}`} aria-labelledby="scan-evidence-title">
+      <div className="flex items-start justify-between gap-3"><div><h3 id="scan-evidence-title" className="text-lg font-bold">Why this scenario?</h3><p className="mt-1 text-sm text-[#c7dece]">The chart clues, in plain English.</p></div><span className="rounded-full bg-[#52e0aa]/15 px-3 py-1.5 text-xs font-bold text-[#85f8c7]">{supports.length} supporting</span></div>
+      <div className="mt-4 space-y-3">{[...supports, ...opposes, ...result.signals.filter(signal => signal.bias === "neutral")].slice(0, 6).map(signal => {
+        const against = opposes.includes(signal), neutral = signal.bias === "neutral";
+        return <div key={`${signal.region_id}:${signal.name}`} className={`rounded-2xl border p-4 ${against || neutral ? "border-[#f6c96b]/35 bg-[#f6c96b]/10" : "border-[#52e0aa]/25 bg-[#52e0aa]/5"}`}>
+          <span className={`text-xs font-bold ${against || neutral ? "text-[#ffe3a0]" : "text-[#85f8c7]"}`}>{against ? "Works against the trade" : neutral ? "Mixed clue" : "Supports the trade"}</span><h4 className="mt-1 text-base font-bold">{signal.name}</h4><p className="mt-2 text-sm leading-6 text-[#dcecdf]">{signal.evidence}</p>
+          {signal.boxes.length > 0 && <button type="button" onClick={() => { setFocusedSignal(result.signals.indexOf(signal)); jump("scan-chart"); }} className={`${quietButton} mt-3 text-xs`}>Show me on the chart <span aria-hidden="true">↑</span></button>}
+        </div>;
+      })}{result.signals.length === 0 && <p className="text-sm leading-6 text-[#c7dece]">No directional finding survived review. The plan is an illustrative risk scenario.</p>}</div>
+      {result.pattern_checks.length > 0 && <div className="mt-4 space-y-2">{result.pattern_checks.map(pattern => <div key={pattern.name} className="rounded-xl bg-[#173c28] p-3"><p className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold">{pattern.name}<span className={`rounded-full px-2.5 py-1 text-xs ${pattern.status === "confirmed" ? "bg-[#52e0aa]/20 text-[#85f8c7]" : "bg-[#f6c96b]/20 text-[#ffe3a0]"}`}>{pattern.status === "confirmed" ? "Trigger seen" : "Still forming"}</span></p><p className="mt-2 text-sm leading-6 text-[#c7dece]">{pattern.evidence}</p></div>)}</div>}
+      <details className="mt-4 border-t border-[#38654c] pt-1" onToggle={() => nativeHaptic("light")}><summary className="min-h-12 content-center text-sm font-bold text-[#ffe3a0]">All indicators · {result.indicator_checks.length} checked</summary>
+        <div className="mt-2 space-y-4">{result.indicator_checks.map(check => <div key={check.id}><p className="text-sm font-bold">{check.name}<span className="ml-2 text-xs font-normal text-[#c7dece]">{check.status === "readable" ? "Read and reviewed" : check.status === "not_reviewed" ? "Review incomplete" : check.status === "not_confirmed" ? "Not confirmed" : "Not readable"}</span></p><p className="mt-1 text-sm leading-6 text-[#c7dece]">{check.finding || "No reliable finding from this image."}</p></div>)}{result.indicator_checks.length === 0 && <p className="text-sm text-[#c7dece]">No readable indicator panels were identified.</p>}{plan.rationale && <p className="border-t border-[#38654c] pt-3 text-sm leading-6 text-[#c7dece]">Why these prices: {plan.rationale}</p>}</div>
+      </details>
+    </section>
+
+    {result.needs_more_info && <section className={panel}><p className="text-sm leading-6 text-[#dcecdf]">{result.more_info_prompt}</p><button type="button" onClick={() => { nativeHaptic("light"); onAddContext(); }} className={`${quietButton} mt-3 w-full`}>Add missing chart context</button></section>}
+    {(plan.price_basis === "relative" || plan.price_basis === "user") && <button type="button" onClick={() => { nativeHaptic("light"); onReference(); }} className={`${quietButton} w-full`}>{plan.price_basis === "relative" ? "Add a reference price & rescan" : "Update reference price & rescan"}</button>}
+    <Link href={askHref} onClick={() => nativeHaptic("medium")} className={`${brightButton} w-full`}>Talk me through this trade <span aria-hidden="true">→</span></Link>
+    <button type="button" onClick={onReset} className={`${quietButton} w-full`}>Scan another chart</button>
+    <p className="px-2 text-center text-xs leading-5 text-[#bdd3c4]">Based on this screenshot, not live prices. Estimated levels need confirmation. Stops, targets and timing are scenarios, not guarantees.</p>
+  </div>;
+}
