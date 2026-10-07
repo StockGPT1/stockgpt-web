@@ -1,25 +1,8 @@
-/* Founding-member offer: £4.99/mo for the next 500 members.
-   Seats count down deterministically from the UTC day — 134 at the top
-   of a batch, minus 20 per day, resetting to a fresh batch after the
-   low point — so server and client render the same number with no
-   storage or cron involved. */
-
-export const OFFER_TOTAL = 500;
+// Display copy for the monthly founding offer selected by the checkout route.
+// Stripe remains the source of truth for the final amount and billing terms.
+// Do not show remaining places without a purchase-backed count and enforced cap.
 export const OFFER_PRICE = "£4.99";
-
-const START_SEATS = 134;
-const DROP_PER_DAY = 20;
-const CYCLE_DAYS = 7; // 134, 114, 94, 74, 54, 34, 14 → new batch
-
-export function offerSeatsLeft(now: Date = new Date()): number {
-  const day = Math.floor(now.getTime() / 86_400_000);
-  return START_SEATS - DROP_PER_DAY * (day % CYCLE_DAYS);
-}
-
-export function offerSeatsClaimed(now: Date = new Date()): number {
-  return OFFER_TOTAL - offerSeatsLeft(now);
-}
-
-export function offerClaimedPercent(now: Date = new Date()): number {
-  return Math.round((offerSeatsClaimed(now) / OFFER_TOTAL) * 100);
-}
+export const STANDARD_MONTHLY_PRICE = "£18.99";
+export const ANNUAL_PRICE = "£189.99";
+export const MONTHLY_OFFER_NOTE = `Founding monthly rate. Full Core access. Normally ${STANDARD_MONTHLY_PRICE}/month.`;
+export const ANNUAL_PLAN_NOTE = `Annual billing. The ${OFFER_PRICE} founding offer applies to monthly billing.`;

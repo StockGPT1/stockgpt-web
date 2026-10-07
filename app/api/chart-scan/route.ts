@@ -5,6 +5,7 @@ import { buildChartImageGuides } from "@/lib/chart-scan-images";
 import type { ScanGeometry } from "@/lib/chart-scan-coordinates";
 import { positivePrice } from "@/lib/chart-scan-scenario";
 import { CHART_LAYOUT_PROMPT, CHART_ANALYSIS_PROMPT, CHART_REVIEW_INSTRUCTION } from "@/lib/chart-scanner-prompts";
+import { indicatorEvidenceGuidance } from "@/lib/chart-scan-indicators";
 import { SCAN_MODELS, SCAN_DEADLINE_MS, visionSettings, type VisionStage } from "@/lib/chart-scan-vision";
 
 export const runtime = "nodejs";
@@ -36,7 +37,9 @@ async function requestVision(
   failures: VisionFailure[],
   settings: ReturnType<typeof visionSettings>,
   guides: Array<{ url: string; description: string }> = [],
+  clientSignal?: AbortSignal,
 ) {
+  if (clientSignal?.aborted) return { value: null, model };
   if (!settings.canRequest) {
     failures.push({ model, stage, message: "Scan deadline left insufficient time for an independent read." });
     return { value: null, model };
@@ -44,7 +47,7 @@ async function requestVision(
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      signal: AbortSignal.timeout(settings.timeout),
+      signal: clientSignal ? AbortSignal.any([clientSignal, AbortSignal.timeout(settings.timeout)]) : AbortSignal.timeout(settings.timeout),
       headers: {
         Authorization: "Bearer " + apiKey,
         "Content-Type": "application/json",
@@ -78,7 +81,7 @@ async function requestVision(
   }
 }
 
-async function analyseImages(apiKey: string, dataUrls: string[], referencePrice: number | null) {
+async function analyseImages(apiKey: string, dataUrls: string[], referencePrice: number | null, clientSignal: AbortSignal) {
   const failures: VisionFailure[] = [];
   const deadline = Date.now() + SCAN_DEADLINE_MS;
   let requests = 0;
@@ -86,11 +89,12 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
   let geometry: ScanGeometry = { axis_rows: [], frames: [], image_sizes: [] };
   let analysisModel: string = SCAN_MODELS.analysis;
   const ask = (model: string, system: string, instruction: string, stage: VisionStage, fallback = false) => {
-    requests += 1;
+    const settings = visionSettings(stage, deadline - Date.now(), fallback);
+    if (settings.canRequest && !clientSignal.aborted) requests += 1;
     return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures,
-      visionSettings(stage, deadline - Date.now(), fallback), stage === "layout" ? [] : guides);
+      settings, stage === "layout" ? [] : guides, clientSignal);
   };
-  const inventory = (layout: ChartLayout) => `Original uploaded image count: ${dataUrls.length}. Appended labelled guides are diagnostic crops, not extra source_images.\nChart region inventory (check against original images):\n` + JSON.stringify(layout) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
+  const inventory = (layout: ChartLayout) => `Original uploaded image count: ${dataUrls.length}. Appended labelled guides are diagnostic crops, not extra source_images.\nChart region inventory (check against original images):\n` + JSON.stringify(layout) + "\n" + indicatorEvidenceGuidance(layout.indicators.map(region => region.name)) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
   const scan = await runGroundedChartScan({
     locate: () => ask(SCAN_MODELS.layout, CHART_LAYOUT_PROMPT,
       "Map the real primary price plot and inventory every visible indicator in these images. Return JSON.", "layout"),
@@ -103,7 +107,7 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
       }
       const instruction = inventory(layout) + "\nRead the price structure and each inventoried indicator. Return the analysis schema.";
       const primary = await ask(SCAN_MODELS.analysis, CHART_ANALYSIS_PROMPT, instruction, "analysis");
-      if (primary.value) return primary;
+      if (primary.value || clientSignal.aborted) return primary;
       analysisModel = SCAN_MODELS.review;
       return ask(SCAN_MODELS.review, CHART_ANALYSIS_PROMPT, instruction, "analysis", true);
     },
@@ -112,7 +116,7 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
     review: layout => ask(analysisModel === SCAN_MODELS.analysis ? SCAN_MODELS.review : SCAN_MODELS.analysis, CHART_ANALYSIS_PROMPT,
       inventory(layout) + "\n" + CHART_REVIEW_INSTRUCTION, "review"),
     geometry: () => geometry,
-  }, dataUrls.length, referencePrice);
+  }, dataUrls.length, referencePrice, clientSignal);
   if (failures.length > 0) console.error("[chart-scan] vision pass failed", failures);
   return { result: scan?.result ?? null, model: scan?.model ?? null, passes: requests, failures };
 }
@@ -192,7 +196,7 @@ export async function POST(req: NextRequest) {
         return "data:" + image.type + ";base64," + bytes.toString("base64");
       }),
     );
-    const analysis = await analyseImages(apiKey, dataUrls, referencePrice);
+    const analysis = await analyseImages(apiKey, dataUrls, referencePrice, req.signal);
 
     if (!analysis.result) {
       console.error("[chart-scan] all vision models failed", analysis.failures);

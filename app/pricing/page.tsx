@@ -4,7 +4,9 @@ import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalConsentLine } from "@/components/LegalConsentLine";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { OfferSeatsMeter } from "@/components/OfferSeatsMeter";
+import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockIcon } from "@/components/StockIcon";
+import { ANNUAL_PRICE, ANNUAL_PLAN_NOTE, MONTHLY_OFFER_NOTE } from "@/lib/limited-offer";
 
 export const metadata: Metadata = {
   title: "Pricing | StockGPT AI Market Research Plans",
@@ -87,7 +89,7 @@ function CoreCard({
   highlighted = false,
 }: {
   title: string;
-  price: string;
+  price: React.ReactNode;
   cadence: string;
   badge?: string;
   note: string;
@@ -234,8 +236,8 @@ export default async function PricingPage({
           </div>
 
           <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2 lg:grid-cols-[1fr_1fr_0.92fr] lg:items-stretch xl:gap-4">
-            <CoreCard title="Core monthly" price="£18.99" cadence="/ month" note="Flexible monthly access to the current Core platform." plan="monthly" />
-            <CoreCard title="Core annual" price="£189.99" cadence="/ year" badge="Best value — 2 months free" note="Annual access with the same Core features, priced as 2 months free versus monthly." plan="annual" highlighted />
+            <CoreCard title="Core monthly" price={<LimitedTimePriceOffer />} cadence="/ month" badge="Founding offer" note={MONTHLY_OFFER_NOTE} plan="monthly" highlighted />
+            <CoreCard title="Core annual" price={ANNUAL_PRICE} cadence="/ year" badge="Annual billing" note={ANNUAL_PLAN_NOTE} plan="annual" />
             <div className="md:col-span-2 lg:col-span-1">
               <ExecutiveCard />
             </div>

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EndorselyReferralInput } from "@/components/EndorselyReferralInput";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockIcon } from "@/components/StockIcon";
+import { ANNUAL_PRICE, ANNUAL_PLAN_NOTE, MONTHLY_OFFER_NOTE, OFFER_PRICE } from "@/lib/limited-offer";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
@@ -43,15 +45,15 @@ function checkoutConfirmHref(plan: BillingPlan, offer: string | null) {
 const planCopy = {
   monthly: {
     label: "Core monthly",
-    price: "£18.99",
+    price: OFFER_PRICE,
     cadence: "/ month",
-    note: "Flexible monthly access to the current Core platform.",
+    note: MONTHLY_OFFER_NOTE,
   },
   annual: {
     label: "Core annual",
-    price: "£189.99",
+    price: ANNUAL_PRICE,
     cadence: "/ year",
-    note: "Best value — 2 months free versus paying monthly.",
+    note: ANNUAL_PLAN_NOTE,
   },
 } satisfies Record<BillingPlan, { label: string; price: string; cadence: string; note: string }>;
 
@@ -122,7 +124,7 @@ export default async function CheckoutConfirmPage({
 
               <div className="mt-3 flex flex-wrap items-end gap-2">
                 <h2 className="text-[42px] font-black leading-none tracking-[-0.05em]">
-                  {copy.price}
+                  {selectedPlan === "monthly" ? <LimitedTimePriceOffer /> : copy.price}
                 </h2>
                 <p className="pb-1 text-[13px] font-bold text-[#faf6f0]/52">
                   {copy.cadence}
@@ -133,13 +135,13 @@ export default async function CheckoutConfirmPage({
                 {copy.note} You will be redirected to Stripe. StockGPT does not store your card details.
               </p>
 
-              {offer && (
+              {offer && selectedPlan === "annual" && (
                 <div className="mt-3 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">
-                    Launch offer applied
+                    Launch promotion requested
                   </p>
                   <p className="mt-1 text-[12px] font-semibold leading-5 text-[#faf6f0]/72">
-                    50% off your first month will be applied automatically in Stripe Checkout.
+                    Your launch promotion will be sent to Stripe Checkout. Review the exact discount and renewal amount there.
                   </p>
                 </div>
               )}

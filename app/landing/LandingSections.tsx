@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { useEffect, useRef, type ReactNode } from "react";
 
 /* ================================================================== */
@@ -493,10 +494,11 @@ function PricingSection() {
             </div>
             <p className="mt-4 flex items-baseline gap-2">
               <span className="text-[44px] font-black leading-none tracking-[-0.04em] text-[#071b11]">
-                £18.99
+                <LimitedTimePriceOffer />
               </span>
               <span className="text-[12px] font-bold text-[#071b11]/60">/ month</span>
             </p>
+            <p className="mt-3 text-[11px] font-bold text-[#071b11]/70">Founding monthly offer</p>
             <ul className="mt-7 flex-1 space-y-3.5">
               {PRO_POINTS.map((point) => (
                 <CheckItem key={point} gold>

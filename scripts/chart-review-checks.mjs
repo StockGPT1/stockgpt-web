@@ -3,7 +3,8 @@ import test from "node:test";
 import { assessChartReview } from "../lib/chart-scan-review.ts";
 import { visionSettings, SCAN_DEADLINE_MS } from "../lib/chart-scan-vision.ts";
 import { stockGPTScore, buildTradeScenario } from "../lib/chart-scan-scenario.ts";
-import { runGroundedChartScan } from "../lib/chart-scanner.ts";
+import { normaliseChartLayout, normaliseChartScan, runGroundedChartScan } from "../lib/chart-scanner.ts";
+import { CANDLE_PATTERNS, normaliseCandleAudit } from "../lib/chart-scan-candles.ts";
 
 const reading = {
   verdict: "bullish", confidence: 99, summary: "Two troughs hold support.",
@@ -38,6 +39,87 @@ test("a trade direction that contradicts its own verdict is never high-confidenc
   const result = assessChartReview(reading, { ...reading, trade_plan: { ...reading.trade_plan, side: "short" } }, true);
   assert.equal(result.agreement, "mixed");
   assert.equal(result.score_cap, 35);
+});
+test("an inconsistent first reader cannot falsely confirm the second reader", () => {
+  const first = { ...reading, trade_plan: { ...reading.trade_plan, side: "short" } };
+  const result = assessChartReview(first, reading, true);
+  assert.equal(result.agreement, "mixed");
+  assert.equal(result.score_cap, 35);
+});
+test("a directional lean survives inconclusive first evidence with a reduced score", async () => {
+  const result = await runGroundedChartScan({
+    locate: async () => ({ value: { price_series_type: "candles" }, model: "mapper" }),
+    analyse: async () => ({ value: { ...reading, verdict: "inconclusive" }, model: "first" }),
+    review: async () => ({ value: reading, model: "second" }),
+  }, 1);
+  assert.equal(result.result.verdict, "bullish");
+  assert.equal(result.result.review.agreement, "mixed");
+  assert.equal(result.result.trade_plan.status, "conditional");
+  assert.ok(result.result.stockgpt_score.value <= 55);
+});
+test("opposing candle and price-line readings cannot be labelled aligned", () => {
+  const result = assessChartReview({ ...reading, price_series_type: "price_line" }, reading, true);
+  assert.equal(result.agreement, "mixed");
+  assert.equal(result.score_cap, 40);
+  assert.match(result.headline, /chart type/);
+});
+test("known ticker disagreement is surfaced while formatting and unreadable symbols are ignored", () => {
+  for (const [first, second] of [["aapl", "AAPL"], ["$AAPL", "NASDAQ:AAPL"], ["BRK.B", "BRK-B"], [null, "AAPL"], ["unknown", "AAPL"], ["N/A", "AAPL"], ["Apple Inc.", "AAPL"]]) {
+    assert.equal(assessChartReview({ ...reading, ticker: first }, { ...reading, ticker: second }, true).agreement, "aligned");
+  }
+  const result = assessChartReview({ ...reading, ticker: "NASDAQ:AAPL" }, { ...reading, ticker: "MSFT" }, true);
+  assert.equal(result.agreement, "mixed");
+  assert.equal(result.score_cap, 40);
+  assert.match(result.headline, /symbol/);
+});
+test("equivalent candle timeframes agree and unreadable intervals do not manufacture disagreement", () => {
+  for (const [first, second] of [["1h", "60m"], ["1d", "24h"], ["daily", "1440m"], ["0.5 hours", "30min"], [null, "1h"], ["unknown", "1h"], ["1M", "1h"]]) {
+    assert.equal(assessChartReview({ ...reading, timeframe: first }, { ...reading, timeframe: second }, true).agreement, "aligned");
+  }
+});
+test("known timeframe disagreement reduces certainty without dropping a supported direction", async () => {
+  const result = await runGroundedChartScan({
+    locate: async () => ({ value: { price_series_type: "candles" }, model: "mapper" }),
+    analyse: async () => ({ value: { ...reading, timeframe: "1h" }, model: "first" }),
+    review: async () => ({ value: { ...reading, timeframe: "1d" }, model: "second" }),
+  }, 1);
+  assert.equal(result.result.review.agreement, "mixed");
+  assert.equal(result.result.review.score_cap, 40);
+  assert.equal(result.result.verdict, "bullish");
+  assert.equal(result.result.trade_plan.status, "conditional");
+  assert.ok(result.result.stockgpt_score.value <= 40);
+});
+test("an exit read by only one model is uncertainty rather than numeric agreement", () => {
+  for (const field of ["entry", "stop_loss", "take_profit"]) {
+    const first = { ...reading, trade_plan: { ...reading.trade_plan, [field]: null } };
+    for (const pair of [[first, reading], [reading, first]]) {
+      const result = assessChartReview(...pair, true);
+      assert.equal(result.agreement, "mixed");
+      assert.equal(result.score_cap, 55);
+    }
+  }
+});
+test("both readers must identify a closed candle formation before completion is claimed", () => {
+  const present = { id: "bullish-engulfing", context_confirmed: true, candles_visible: 2, completed: true,
+    confidence: 88, evidence: "The two latest bodies engulf after a visible decline." };
+  const audit = item => ({ present: [item], absent: CANDLE_PATTERNS.map(pattern => pattern.id).filter(id => id !== present.id), unclear: [], not_applicable: [] });
+  for (const completed of [false, undefined]) {
+    const result = normaliseCandleAudit(audit(present), "candles", true, audit({ ...present, completed }));
+    assert.equal(result.checks[0].status, "detected");
+    assert.equal(result.checks[0].completed, false);
+  }
+  assert.equal(normaliseCandleAudit(audit(present), "candles", true, audit(present)).checks[0].completed, true);
+  assert.equal(normaliseCandleAudit(audit(present), "candles", false, audit(present)).checks[0].completed, false);
+});
+test("a model cannot bypass the forming candle cap by repeating it in signals", () => {
+  const present = { id: "bullish-engulfing", context_confirmed: true, candles_visible: 2, completed: true,
+    confidence: 88, evidence: "The two latest bodies engulf after a visible decline." };
+  const audit = item => ({ present: [item], absent: CANDLE_PATTERNS.map(pattern => pattern.id).filter(id => id !== present.id), unclear: [], not_applicable: [] });
+  const first = { ...reading, candle_audit: audit({ ...present, completed: false }) };
+  const final = { ...reading, candle_audit: audit(present), signals: [{ ...reading.signals[0], name: "Bullish engulfing", kind: "candle", confidence: 99 }] };
+  const result = normaliseChartScan(final, normaliseChartLayout({ price_series_type: "candles" }, 1), true, null, undefined, first);
+  assert.equal(result.candle_audit.checks[0].completed, false);
+  assert.equal(result.signals[0].confidence, 65);
 });
 test("rounding noise and equivalent currency formatting do not manufacture disagreement", () => {
   assert.equal(assessChartReview(reading, { ...reading, trade_plan: { ...reading.trade_plan, entry: "$100.01" } }, true).agreement, "aligned");

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CANDLE_PATTERNS, candlePatternId, hasCompleteCandleAudit, normaliseCandleAudit } from "../lib/chart-scan-candles.ts";
+import { CANDLE_PATTERNS, CANDLE_LOOKBACK, CANDLE_CHECKLIST_PROMPT, SCANNER_INDICATORS, SCANNER_CAPABILITY_STATS, candlePatternId, hasCompleteCandleAudit, normaliseCandleAudit } from "../lib/chart-scan-candles.ts";
+import { SCANNER_INDICATOR_CATALOG } from "../lib/chart-scan-indicators.ts";
 import { CHART_ANALYSIS_PROMPT, CHART_REVIEW_INSTRUCTION } from "../lib/chart-scanner-prompts.ts";
 import { normaliseChartLayout, normaliseChartScan, isChartAnalysis } from "../lib/chart-scanner.ts";
-import { scannerHaptic, scannerHapticMode, setScannerHaptics, subscribeScannerHaptics } from "../lib/chart-scan-haptics.ts";
+import { scannerHaptic } from "../lib/chart-scan-haptics.ts";
 
 const ids = CANDLE_PATTERNS.map(pattern => pattern.id);
 const audit = (present = []) => ({ present, absent: ids.filter(id => !present.some(item => item.id === id)), unclear: [], not_applicable: [] });
@@ -26,6 +27,32 @@ test("the advertised checklist has 44 distinct named patterns with contextual ru
   assert.ok(CANDLE_PATTERNS.every(pattern => pattern.rule.length > 40 && pattern.candles >= 1));
   for (const id of ids) assert.ok(CHART_ANALYSIS_PROMPT.includes(id), `analysis missing ${id}`);
   assert.match(CHART_REVIEW_INSTRUCTION, /ENTIRE mandatory candle checklist independently/);
+});
+test("landing capability totals match the distinct indicator catalog and bounded candle lookback", () => {
+  const scope = CANDLE_PATTERNS.length + SCANNER_INDICATORS.length;
+  assert.equal(SCANNER_INDICATORS.length, 9);
+  assert.equal(new Set(SCANNER_INDICATORS).size, 9);
+  assert.equal(scope, 53);
+  assert.deepEqual(SCANNER_CAPABILITY_STATS.map(stat => stat.value), ["50+", "100+", "100+"]);
+  assert.ok(Number.parseInt(SCANNER_CAPABILITY_STATS[0].value) <= scope);
+  assert.ok(SCANNER_INDICATOR_CATALOG.length > 100);
+  assert.ok(Number.parseInt(SCANNER_CAPABILITY_STATS[1].value) <= SCANNER_INDICATOR_CATALOG.length);
+  assert.equal(SCANNER_CAPABILITY_STATS[0].detail, "patterns + indicators");
+  assert.equal(SCANNER_CAPABILITY_STATS[0].label, "chart indicators");
+  assert.equal(SCANNER_CAPABILITY_STATS[1].label, "technical indicators");
+  assert.match(SCANNER_CAPABILITY_STATS[1].detail, /recognised when visible/);
+  assert.match(SCANNER_CAPABILITY_STATS[2].detail, /up to 120, when readable/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, new RegExp(`last ${CANDLE_LOOKBACK} readable completed candles`));
+});
+test("the 100+ candle scope is bounded by visible completed history rather than fabricated coverage", () => {
+  assert.equal(CANDLE_LOOKBACK, 120);
+  assert.ok(CHART_ANALYSIS_PROMPT.includes(CANDLE_CHECKLIST_PROMPT));
+  assert.match(CANDLE_CHECKLIST_PROMPT, /up to the last 120 readable completed candles/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, /Use fewer when the supplied image contains fewer visible, readable completed candles/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, /never invent hidden history or claim the full lookback was reviewed without seeing it/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, /Exclude a live\/unclosed candle from the completed-candle lookback/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, /actually adjacent.*never bridge cropped areas or unreadable gaps/);
+  assert.match(CANDLE_CHECKLIST_PROMPT, /missing history.*required context.*mark that pattern unclear/);
 });
 test("API validation rejects a silently missing candle check, duplicate or invented pattern", () => {
   assert.equal(isChartAnalysis(reading(), true), true);
@@ -105,7 +132,7 @@ test("incomplete or mostly unreadable candle coverage lowers setup confidence", 
   }
 });
 test("verified numeric exits are visible even on a cautious estimated scenario", () => {
-  const value = reading({ confidence: 10, overlay: { price_plot_confirmed: false, price_plot_box: plot, price_axis_confirmed: false, price_axis: axis } });
+  const value = reading({ confidence: 10, overlay: { price_plot_confirmed: false, price_plot_box: plot, price_axis_confirmed: true, price_axis: axis } });
   const result = read(value, value);
   assert.equal(result.overlay.calibration_status, "matched");
   assert.deepEqual(result.overlay.trade_lines.map(line => [line.kind, line.price, line.y_pct]), [["entry", "87.50", 48], ["stop", "85.50", 64], ["target", "91.50", 16]]);
@@ -132,31 +159,25 @@ test("unreadable or mismatched labels never produce guessed exit lines or false 
   }
 });
 
-test("native strong, light and disabled feedback persist and respect the selected strength", () => {
-  const messages = [], saved = new Map(), originalWindow = globalThis.window;
-  globalThis.window = { localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) }, webkit: { messageHandlers: { stockgptNative: { postMessage: message => messages.push(message) } } }, addEventListener() {}, removeEventListener() {} };
+test("scanner feedback communicates actions without an intensity preference", () => {
+  const messages = [], originalWindow = globalThis.window;
+  globalThis.window = { localStorage: { getItem() { throw new Error("Feedback must not read old intensity preferences."); } }, webkit: { messageHandlers: { stockgptNative: { postMessage: message => messages.push(message) } } } };
   try {
-    let changes = 0;
-    const unsubscribe = subscribeScannerHaptics(() => changes++);
-    setScannerHaptics("strong"); messages.length = 0;
-    assert.equal(scannerHapticMode(), "strong");
-    scannerHaptic("scan"); scannerHaptic(); scannerHaptic("open"); scannerHaptic("complete"); scannerHaptic("warning");
-    assert.deepEqual(messages.map(message => message.style), ["heavy", "heavy", "heavy", "success", "warning"]);
-    setScannerHaptics("light"); messages.length = 0;
-    scannerHaptic("open"); scannerHaptic();
-    assert.deepEqual(messages.map(message => message.style), ["medium", "light"]);
-    setScannerHaptics("off"); messages.length = 0;
-    assert.equal(scannerHaptic("scan"), false);
-    assert.equal(scannerHaptic("complete"), false);
-    assert.equal(messages.length, 0);
-    assert.equal(saved.get("stockgpt.scanner.haptics"), "off");
-    assert.equal(changes, 3); unsubscribe();
+    for (const action of ["tap", "open", "close", "scan", "complete", "warning", "error"]) {
+      assert.equal(scannerHaptic(action), true);
+    }
+    assert.deepEqual(messages, ["light", "medium", "light", "heavy", "success", "warning", "error"].map(style => ({ type: "haptic", style })));
   } finally { globalThis.window = originalWindow; }
 });
-test("blocked storage and a missing native bridge do not break scanning", () => {
+test("a missing or failed native bridge does not break scanning", () => {
   const originalWindow = globalThis.window;
-  globalThis.window = { localStorage: { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } } };
-  try { setScannerHaptics("strong"); assert.equal(scannerHapticMode(), "strong"); assert.equal(scannerHaptic("scan"), false); }
+  globalThis.window = {};
+  try {
+    assert.equal(scannerHaptic("scan"), false);
+    globalThis.window = { webkit: { messageHandlers: { stockgptNative: { postMessage() { throw new Error("bridge unavailable"); } } } } };
+    assert.equal(scannerHaptic("complete"), false);
+    delete globalThis.window;
+    assert.equal(scannerHaptic(), false);
+  }
   finally { globalThis.window = originalWindow; }
-  assert.equal(scannerHaptic("scan"), false);
 });

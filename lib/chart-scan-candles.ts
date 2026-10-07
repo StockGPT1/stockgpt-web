@@ -1,3 +1,5 @@
+import { SCANNER_INDICATOR_CATALOG } from "./chart-scan-indicators.ts";
+
 type Bias = "bullish" | "bearish" | "neutral";
 type Category = "Reversal" | "Continuation" | "Indecision";
 export type CandlePattern = { id: string; name: string; bias: Bias; candles: number; category: Category; rule: string };
@@ -52,6 +54,19 @@ export const CANDLE_PATTERNS: readonly CandlePattern[] = [
 ];
 
 export const SCANNER_INDICATORS = ["Volume", "RSI", "MACD", "Stochastic", "EMA", "SMA", "VWAP", "Bollinger Bands", "Ichimoku"] as const;
+// Scope counts, not a promise that every item is readable in every image.
+export const CANDLE_LOOKBACK = 120;
+// The first count includes candle patterns and the nine core indicator tools.
+// Technical indicator recognition is counted separately from the actual catalog,
+// never by counting a second reading of the same indicator as another type.
+const chartCheckScope = CANDLE_PATTERNS.length + SCANNER_INDICATORS.length;
+const roundedScope = (count: number) => `${Math.floor(count / 10) * 10}+`;
+export const SCANNER_CAPABILITY_STATS = [
+  { value: roundedScope(chartCheckScope), label: "chart indicators", detail: "patterns + indicators" },
+  { value: `${Math.floor(SCANNER_INDICATOR_CATALOG.length / 100) * 100}+`, label: "technical indicators", detail: "recognised when visible" },
+  { value: `${Math.floor(CANDLE_LOOKBACK / 100) * 100}+`, label: "candle lookback", detail: `up to ${CANDLE_LOOKBACK}, when readable` },
+] as const;
+
 export type CandleCheck = { id: string; name: string; bias: Bias; category: Category; status: "detected" | "unconfirmed" | "not_present" | "unclear" | "not_applicable" | "not_checked"; evidence: string | null; confidence: number; completed: boolean };
 export type CandleAudit = { total: number; checked: number; detected: number; unclear: number; applicable: boolean; checks: CandleCheck[] };
 type RecordValue = Record<string, unknown>;
@@ -87,7 +102,8 @@ export function normaliseCandleAudit(value: unknown, series: unknown, reviewed: 
       const before = array(candidate.present).map(object).find(item => item.id === pattern.id);
       const agreed = reviewed && before?.context_confirmed === true && typeof before.candles_visible === "number" && before.candles_visible >= pattern.candles &&
         typeof before.confidence === "number" && Number.isFinite(before.confidence) && before.confidence >= 60 && typeof before.evidence === "string" && before.evidence.trim().length >= 12;
-      return { ...base, status: agreed ? "detected" : "unconfirmed", evidence, confidence, completed: present.completed === true };
+      return { ...base, status: agreed ? "detected" : "unconfirmed", evidence, confidence,
+        completed: agreed && present.completed === true && before?.completed === true };
     }
     if (array(raw.absent).includes(pattern.id)) return { ...base, status: "not_present" };
     if (array(raw.unclear).includes(pattern.id)) return { ...base, status: "unclear" };
@@ -97,7 +113,7 @@ export function normaliseCandleAudit(value: unknown, series: unknown, reviewed: 
     detected: checks.filter(check => check.status === "detected").length, unclear: checks.filter(check => check.status === "unclear").length, applicable, checks };
 }
 
-export const CANDLE_CHECKLIST_PROMPT = `MANDATORY CANDLE CHECKLIST: evaluate EVERY following id separately on every analysis and independent read. Inspect the last 30 readable completed candles and important visible turning points. Apply the required preceding trend, bodies, wicks, gaps and neighbouring candles. Do not force a match, infer a body from UI/volume, confuse an inverted hammer with a hammer, or treat all dojis as directional. Gap patterns require visible actual gaps; session boundaries alone are not gaps. If the chart/time resolution cannot establish a rule, mark unclear. A live/unclosed last candle is not a completed formation; completed=false. Candle colour alone does not determine direction.
+export const CANDLE_CHECKLIST_PROMPT = `MANDATORY CANDLE CHECKLIST: evaluate EVERY following id separately on every analysis and independent read. Inspect up to the last ${CANDLE_LOOKBACK} readable completed candles and important visible turning points. Use fewer when the supplied image contains fewer visible, readable completed candles; never invent hidden history or claim the full lookback was reviewed without seeing it. Exclude a live/unclosed candle from the completed-candle lookback. Pattern neighbours must be actually adjacent in the image: never bridge cropped areas or unreadable gaps to form a candle sequence. If missing history prevents the required context from being established, mark that pattern unclear. Apply the required preceding trend, bodies, wicks, gaps and neighbouring candles. Do not force a match, infer a body from UI/volume, confuse an inverted hammer with a hammer, or treat all dojis as directional. Gap patterns require visible actual gaps; session boundaries alone are not gaps. If the chart/time resolution cannot establish a rule, mark unclear. A live/unclosed last candle is not a completed formation; completed=false. Candle colour alone does not determine direction.
 ${CANDLE_PATTERNS.map(pattern => `${pattern.id} | ${pattern.name} | ${pattern.candles} candle(s) | ${pattern.rule}`).join("\n")}
 Return candle_audit with four arrays: present (objects), absent (ids), unclear (ids), not_applicable (ids). EVERY id must appear EXACTLY ONCE across these arrays, including patterns not found. For candles, not_applicable=[]; for price-line/unknown/unsupported charts put ALL ids in not_applicable and no candle findings. An empty/missing checklist is invalid.
 Each present object: {"id":"bullish-engulfing","evidence":"specific candle location and required context","candles_visible":2,"context_confirmed":true,"completed":true,"confidence":80,"frame_id":"price","localisation_confirmed":true,"localisation_confidence":90,"evidence_boxes":[]}. Give local crop boxes around the actual candle group, not just the final candle of a multi-candle formation. Use one strongest recent occurrence per id. Missing context means unclear, not present. Do not repeat every detection in signals: reserve signals for up to six strongest independent trade clues; the app surfaces detected candle checks separately.`;

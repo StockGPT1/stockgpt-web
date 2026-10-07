@@ -79,6 +79,8 @@ export function IOSNativeEnhancements() {
         "button, a, [role='button'], input[type='checkbox'], input[type='radio'], select",
       );
       if (!control || !control.closest(".sg-app-shell")) return;
+      // These views provide action-specific feedback themselves.
+      if (control.closest('[data-native-haptics="managed"]')) return;
       if (control.getAttribute("data-native-haptic") === "off") return;
       if (control.hasAttribute("disabled") || control.getAttribute("aria-disabled") === "true") return;
       nativeHaptic(hapticStyle(control));

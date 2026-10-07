@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AuthProviderButtons } from "@/components/AuthProviderButtons";
 import { trackClientEvent } from "@/lib/analytics/client-events";
 import { normaliseInternalRedirect } from "@/lib/auth/redirect";
+import { OFFER_PRICE } from "@/lib/limited-offer";
 import {
   AuthMessage,
   AuthScaffold,
@@ -308,7 +309,7 @@ export default function SignupPage() {
         <div className="space-y-4">
           {offerSaved && (
             <AuthMessage tone="info">
-              Offer saved: 50% off your first month after your free trial.
+              Founding monthly offer available: {OFFER_PRICE}/month. Review the billing summary before subscribing.
             </AuthMessage>
           )}
 

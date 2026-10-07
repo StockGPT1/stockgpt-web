@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { LandingOfferPopup } from "@/components/marketing/LandingOfferPopup";
+import { LimitedTimePriceOffer } from "@/components/LimitedTimePriceOffer";
 import { StockIcon } from "@/components/StockIcon";
 import {
   AskStockGPTVisual,
@@ -245,7 +246,7 @@ function ProofStack({ stockCountLabel }: { stockCountLabel: string }) {
             </h2>
           </div>
           <p className="text-[11px] font-bold text-[#66746b]">
-            Account first · free trial included · research before subscribing
+            Free account first · research before subscribing
           </p>
         </div>
 
@@ -842,10 +843,10 @@ export function LandingClient({ tickerTape, metrics, topRankings }: LandingClien
                         Core access
                       </p>
                       <h3 className="sg-heading mt-2 text-4xl font-medium text-[#071b11]">
-                        £18.99
+                        <LimitedTimePriceOffer />
                       </h3>
                       <p className="mt-1 text-sm font-bold text-[#66746b]">
-                        per month after account creation
+                        per month · founding offer
                       </p>
                     </div>
                     <span className="w-fit rounded-full bg-[#e8f7ee] px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">

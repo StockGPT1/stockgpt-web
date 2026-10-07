@@ -35,12 +35,12 @@ const scan = {
   summary: "Price holds the swing low and RSI recovers.",
   price_series_type: "candles", chart_coverage: "full", current_price: "$100", timeframe: "1h",
   signals: [priceSignal, indicatorSignal],
-  indicator_checks: [{ id: "indicator-1", status: "readable", finding: "RSI rises through 50." }],
+  indicator_checks: [{ id: "indicator-1", name: "RSI", status: "readable", finding: "RSI rises through 50." }],
   overlay: { price_axis_confirmed: true, price_axis: axis, price_plot_confirmed: true, price_plot_box: plot, levels_confirmed: true, support_y_pct: 52, resistance_y_pct: 25 },
   levels: { support: "95", resistance: "110" },
   trade_plan: { price_scale_readable: true, entry: "100", stop_loss: "95", take_profit: "110", projected_bars: "6–12 bars", projected_horizon: "6–12 hours" },
 };
-const read = (changes = {}, mapped = layout, reviewed = true) => normaliseChartScan({ ...scan, ...changes }, mapped, reviewed);
+const read = (changes = {}, mapped = layout, reviewed = true, candidate = scan) => normaliseChartScan({ ...scan, ...changes }, mapped, reviewed, null, undefined, candidate);
 
 test("null, strings, booleans, NaN and off-image coordinates never become rectangles", () => {
   for (const value of [null, undefined, "8", false, NaN, -1, 101]) {
@@ -116,8 +116,64 @@ test("indicator text cannot claim a nonexistent region or an unreadable indicato
 });
 
 test("missing indicator reviews are exposed rather than silently confirmed", () => {
-  assert.equal(read({ indicator_checks: [] }).indicator_checks[0].status, "unreadable");
+  assert.equal(read({ indicator_checks: [] }).indicator_checks[0].status, "not_confirmed");
   assert.equal(read({ indicator_checks: [] }).signals.length, 1);
+});
+test("a final readable indicator cannot bypass a missing or unreadable independent check", () => {
+  for (const indicator_checks of [[], [{ id: "indicator-1", status: "unreadable" }], [{ id: "indicator-1", status: "readable", finding: "" }]]) {
+    const result = read({}, layout, true, { ...scan, indicator_checks });
+    assert.equal(result.indicator_checks[0].status, "not_confirmed");
+    assert.equal(result.indicator_checks[0].finding, "RSI rises through 50.");
+    assert.equal(result.signals.some(signal => signal.kind === "indicator"), false);
+  }
+  const withoutFirstRead = normaliseChartScan(scan, layout, true);
+  assert.equal(withoutFirstRead.indicator_checks[0].status, "not_confirmed");
+  assert.equal(withoutFirstRead.signals.some(signal => signal.kind === "indicator"), false);
+});
+test("indicator aliases confirm identity while findings may use different wording", () => {
+  const result = read({ indicator_checks: [{ id: "indicator-1", name: "Relative Strength Index (14)", status: "readable", finding: "The oscillator has risen above its midpoint." }] }, layout, true,
+    { ...scan, indicator_checks: [{ id: "indicator-1", name: "RSI_14", status: "readable", finding: "RSI is recovering through 50." }] });
+  assert.equal(result.indicator_checks[0].status, "readable");
+  assert.equal(result.indicator_checks[0].finding, "The oscillator has risen above its midpoint.");
+  assert.equal(result.signals.some(signal => signal.kind === "indicator"), true);
+});
+test("neither reader can confirm an indicator without explicitly reading its label", () => {
+  for (const name of [undefined, null, ""]) {
+    const unnamed = { id: "indicator-1", status: "readable", finding: "The oscillator rises through its midpoint.", ...(name === undefined ? {} : { name }) };
+    for (const [finalChecks, firstChecks] of [[scan.indicator_checks, [unnamed]], [[unnamed], scan.indicator_checks], [[unnamed], [unnamed]]]) {
+      const result = read({ indicator_checks: finalChecks }, layout, true, { ...scan, indicator_checks: firstChecks });
+      assert.equal(result.indicator_checks[0].status, "not_confirmed");
+      assert.equal(result.signals.some(signal => signal.kind === "indicator"), false);
+    }
+  }
+});
+test("ambiguous shared abbreviations cannot become a named indicator through two matching guesses", () => {
+  for (const label of ["RVI", "RVI(14)", "TSI", "SMI", "MA20"]) {
+    const mapped = normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], name: label }] }, 1);
+    const check = { id: "indicator-1", name: label, status: "readable", finding: "Its visible line rises." };
+    const result = read({ indicator_checks: [check] }, mapped, true, { ...scan, indicator_checks: [check] });
+    assert.equal(result.indicator_checks[0].status, "not_confirmed");
+    assert.equal(result.signals.some(signal => signal.kind === "indicator"), false);
+  }
+});
+test("a reported wrong indicator identity or source cannot confirm an inventory region", () => {
+  for (const changes of [{ name: "MACD" }, { name: "Stochastic RSI" }, { name: null }, { name: "" }, { source_image: 1 }]) {
+    const wrong = { ...scan.indicator_checks[0], ...changes };
+    for (const [finalChecks, firstChecks] of [[scan.indicator_checks, [wrong]], [[wrong], scan.indicator_checks]]) {
+      const result = read({ indicator_checks: finalChecks }, layout, true, { ...scan, indicator_checks: firstChecks });
+      assert.equal(result.indicator_checks[0].status, "not_confirmed");
+      assert.equal(result.signals.some(signal => signal.kind === "indicator"), false);
+    }
+  }
+});
+test("unknown labelled tools retain an agreed literal identity without guessed catalog recognition", () => {
+  const mapped = normaliseChartLayout({ ...rawLayout, indicators: [{ ...rawLayout.indicators[0], name: "Custom Flow Ribbon" }] }, 1);
+  const result = read({ indicator_checks: [{ id: "indicator-1", name: "Custom Flow Ribbon", status: "readable", finding: "The labelled ribbon turns upward." }] }, mapped, true,
+    { ...scan, indicator_checks: [{ id: "indicator-1", name: "custom flow ribbon", status: "readable", finding: "Its visible line is rising." }] });
+  assert.equal(result.indicator_checks[0].status, "readable");
+  assert.equal(result.indicator_checks[0].name, "Custom Flow Ribbon");
+  const unidentified = { ...mapped, indicators: [{ ...mapped.indicators[0], name: "Unidentified indicator" }] };
+  assert.equal(read({}, unidentified, true, { ...scan, indicator_checks: [{ id: "indicator-1", status: "readable", finding: "The visible line rises." }] }).indicator_checks[0].status, "not_confirmed");
 });
 
 test("a supporting photo's indicator can be discussed but never drawn over the primary", () => {
@@ -267,11 +323,14 @@ test("failed independent review returns a visibly preliminary read without drawi
 test("an indicator missed by the mapping pass is inventoried before review", async () => {
   const output = await runGroundedChartScan({
     locate: async () => ({ value: { ...rawLayout, indicators: [] }, model: "mapper" }),
-    analyse: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators }, model: "analyst" }),
+    analyse: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators,
+      indicator_checks: [{ id: "analysis-indicator-1", name: "RSI", status: "readable", finding: "RSI rises through 50." }],
+      signals: [{ ...indicatorSignal, region_id: "analysis-indicator-1" }],
+    }, model: "analyst" }),
     review: async enriched => {
       assert.equal(enriched.indicators[0].id, "analysis-indicator-1");
       return { value: { ...scan,
-        indicator_checks: [{ id: "analysis-indicator-1", status: "readable", finding: "RSI is recovering." }],
+        indicator_checks: [{ id: "analysis-indicator-1", name: "RSI", status: "readable", finding: "RSI is recovering." }],
         signals: [{ ...indicatorSignal, region_id: "analysis-indicator-1" }],
       }, model: "reviewer" };
     },
@@ -315,6 +374,53 @@ test("disagreeing or sparse axis ticks produce no displaced level lines", () => 
     assert.deepEqual(result.overlay.trade_lines, []);
     assert.equal(result.overlay.support_y_pct, null);
     assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
+  }
+});
+test("matching prices cannot draw trade lines when either reader did not confirm the axis", () => {
+  for (const flag of [false, undefined]) {
+    const unconfirmed = { ...scan, overlay: { ...scan.overlay, price_axis_confirmed: flag } };
+    for (const [final, first] of [[unconfirmed, scan], [scan, unconfirmed]]) {
+      const result = normaliseChartScan(final, layout, true, null, undefined, first);
+      assert.equal(result.overlay.calibration_status, "unavailable");
+      assert.deepEqual(result.overlay.trade_lines, []);
+      assert.equal(result.overlay.support_y_pct, null);
+      assert.equal(result.trade_plan.entry_value, 100);
+    }
+  }
+});
+test("the reviewer receives only a chart inventory, never the first thesis", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: rawLayout, model: "mapper" }),
+    analyse: async () => ({ value: scan, model: "analyst" }),
+    review: async (...args) => {
+      assert.equal(args.length, 1);
+      assert.equal(args[0].verdict, undefined);
+      assert.equal(args[0].trade_plan, undefined);
+      assert.equal(args[0].signals, undefined);
+      return { value: scan, model: "reviewer" };
+    },
+  }, 1);
+  assert.equal(output.result.verification_status, "reviewed");
+});
+test("a cancelled scan does not launch a subsequent model stage", async () => {
+  for (const cancelAfter of ["before", "layout", "analysis"]) {
+    const controller = new AbortController(), calls = [];
+    if (cancelAfter === "before") controller.abort();
+    const output = await runGroundedChartScan({
+      locate: async () => {
+        calls.push("layout");
+        if (cancelAfter === "layout") controller.abort();
+        return { value: rawLayout, model: "mapper" };
+      },
+      analyse: async () => {
+        calls.push("analysis");
+        if (cancelAfter === "analysis") controller.abort();
+        return { value: scan, model: "analyst" };
+      },
+      review: async () => { throw new Error("A cancelled scan must not launch the reviewer"); },
+    }, 1, null, controller.signal);
+    assert.equal(output, null);
+    assert.deepEqual(calls, cancelAfter === "before" ? [] : cancelAfter === "layout" ? ["layout"] : ["layout", "analysis"]);
   }
 });
 
@@ -368,17 +474,50 @@ test("opposing evidence and estimated risk levels reduce the StockGPT Score", ()
   assert.ok(estimated.stockgpt_score.value <= 60);
 });
 
-test("reviewer-discovered indicators survive inventory normalisation", async () => {
+test("reviewer-only discoveries survive as unconfirmed text rather than independent findings", async () => {
   const output = await runGroundedChartScan({
     locate: async () => ({ value: { ...rawLayout, indicators: [] }, model: "mapper" }),
     analyse: async () => ({ value: { ...scan, indicator_checks: [], signals: [priceSignal] }, model: "analyst" }),
     review: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators,
-      indicator_checks: [{ id: "review-indicator-1", status: "readable", finding: "RSI recovers above 50." }],
+      indicator_checks: [{ id: "review-indicator-1", name: "RSI", status: "readable", finding: "RSI recovers above 50." }],
       signals: [{ ...indicatorSignal, region_id: "review-indicator-1" }],
     }, model: "reviewer" }),
   }, 1);
+  assert.equal(output.result.indicator_checks[0].status, "not_confirmed");
+  assert.equal(output.result.indicator_checks[0].finding, "RSI recovers above 50.");
+  assert.equal(output.result.signals.some(signal => signal.kind === "indicator"), false);
+});
+test("additional aliases map to the same checked region in both independent reads", async () => {
+  const output = await runGroundedChartScan({
+    locate: async () => ({ value: { ...rawLayout, indicators: [] }, model: "mapper" }),
+    analyse: async () => ({ value: { ...scan, additional_indicators: rawLayout.indicators,
+      indicator_checks: [{ id: "analysis-indicator-1", name: "RSI", status: "readable", finding: "RSI recovers through its midline." }],
+      signals: [{ ...indicatorSignal, region_id: "analysis-indicator-1" }],
+    }, model: "analyst" }),
+    review: async () => ({ value: { ...scan, additional_indicators: [{ ...rawLayout.indicators[0], name: "Relative Strength Index" }],
+      indicator_checks: [{ id: "review-indicator-1", name: "Relative Strength Index", status: "readable", finding: "The visible oscillator crosses above 50." }],
+      signals: [{ ...indicatorSignal, region_id: "review-indicator-1" }],
+    }, model: "reviewer" }),
+  }, 1);
+  assert.equal(output.result.indicator_checks.length, 1);
+  assert.equal(output.result.indicator_checks[0].id, "analysis-indicator-1");
   assert.equal(output.result.indicator_checks[0].status, "readable");
-  assert.equal(output.result.signals[0].kind, "indicator");
+  assert.equal(output.result.signals[0].region_id, "analysis-indicator-1");
+});
+test("additional regions on a different source or panel do not borrow another indicator's first read", async () => {
+  for (const changes of [{ source_image: 1 }, { box: { ...rsiPanel, y_pct: 82 } }]) {
+    const output = await runGroundedChartScan({
+      locate: async () => ({ value: rawLayout, model: "mapper" }),
+      analyse: async () => ({ value: scan, model: "analyst" }),
+      review: async () => ({ value: { ...scan, additional_indicators: [{ ...rawLayout.indicators[0], ...changes }],
+        indicator_checks: [{ id: "review-indicator-1", name: "RSI", status: "readable", finding: "The second oscillator rises." }],
+        signals: [{ ...indicatorSignal, source_image: changes.source_image ?? 0, region_id: "review-indicator-1" }],
+      }, model: "reviewer" }),
+    }, 2);
+    assert.equal(output.result.indicator_checks.length, 2);
+    assert.equal(output.result.indicator_checks[1].status, "not_confirmed");
+    assert.equal(output.result.signals.some(signal => signal.kind === "indicator"), false);
+  }
 });
 
 test("a forming pattern cannot be promoted by a model's confirmed trade activation", () => {

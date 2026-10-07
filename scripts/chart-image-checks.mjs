@@ -115,7 +115,7 @@ test("supplementary indicator highlights stay in the supporting image's coordina
   const pane = { x_pct: 10, y_pct: 50, width_pct: 80, height_pct: 30 };
   const mapped = normaliseChartLayout({ ...rawLayout, indicators: [{ name: "RSI", source_image: 1, placement: "panel", readable: true, box: pane }] }, 2);
   const signal = { name: "RSI recovers above 50", kind: "indicator", bias: "bullish", confidence: 70, evidence: "RSI rises above its midline in the supporting image.", region_id: "indicator-1", source_image: 1, supported: true, frame_id: "indicator-1", localisation_confirmed: true, localisation_confidence: 92, evidence_boxes: [{ x_pct: 40, y_pct: 20, width_pct: 20, height_pct: 40 }] };
-  const candidate = { ...analysis, signals: [signal], indicator_checks: [{ id: "indicator-1", status: "readable", finding: signal.evidence }] };
+  const candidate = { ...analysis, signals: [signal], indicator_checks: [{ id: "indicator-1", name: "RSI", status: "readable", finding: signal.evidence }] };
   const result = normaliseChartScan(candidate, mapped, true, null, { candidate, geometry: { ...geometry, frames: [...geometry.frames, { id: "indicator-1", source_image: 1, box: pane }], image_sizes: [{ width: 800, height: 500 }, { width: 600, height: 400 }] } });
   assert.equal(result.signals[0].source_image, 1);
   assert.equal(result.signals[0].boxes.length, 1);

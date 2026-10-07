@@ -2,6 +2,7 @@ import { buildScanTimeline, type ScanTimeline } from "./chart-scan-timeline.ts";
 import { assessChartReview, type ChartReview } from "./chart-scan-review.ts";
 import { CANDLE_PATTERNS, candlePatternId, hasCompleteCandleAudit, normaliseCandleAudit, type CandleAudit } from "./chart-scan-candles.ts";
 import { pixelAnchoredAxis, matchedEvidenceBoxes, type ScanGeometry } from "./chart-scan-coordinates.ts";
+import { resolveScannerIndicator } from "./chart-scan-indicators.ts";
 import { buildTradeScenario, stockGPTScore, normalisePatternChecks, normalisePriceAxis, calibratePriceAxis, priceToY, positivePrice, type PriceAxis, type TradeScenario, type ChartPattern } from "./chart-scan-scenario.ts";
 
 export type ScanVerdict = "bullish" | "bearish" | "inconclusive";
@@ -181,6 +182,52 @@ function verdict(value: unknown): ScanVerdict {
   return value === "bullish" || value === "bearish" ? value : "inconclusive";
 }
 
+const unidentifiedIndicator = /^(?:unidentified|unknown|unlabelled|unlabeled)(?:\s+indicator)?$|^indicator$/i;
+function indicatorIdentity(value: unknown) {
+  const label = scanText(value, 80);
+  if (!label || unidentifiedIndicator.test(label)) return null;
+  const known = resolveScannerIndicator(label);
+  // These shared abbreviations cannot establish which method is displayed,
+  // even when both readers repeat the same ambiguous legend or period.
+  if (!known && /^(?:rvi|tsi|smi|ma)(?:$|[\s_]*\d|\s*[\[(])/i.test(label)) return null;
+  return known ? `catalog:${known.id}` : `label:${label.toLowerCase()}`;
+}
+function indicatorCheckName(check: JsonRecord | undefined) {
+  return scanText(check?.name, 80);
+}
+function readableIndicatorCheck(check: JsonRecord | undefined, region: ChartRegion) {
+  const identity = indicatorIdentity(indicatorCheckName(check));
+  const inventoryIdentity = indicatorIdentity(region.name);
+  return check?.status === "readable" && Boolean(scanText(check.finding, 240)) && identity !== null &&
+    (inventoryIdentity === null || identity === inventoryIdentity) &&
+    (check.source_image == null || check.source_image === region.source_image);
+}
+
+function sameIndicatorRegion(a: ChartRegion, b: ChartRegion) {
+  const identity = indicatorIdentity(a.name);
+  return identity !== null && identity === indicatorIdentity(b.name) && a.source_image === b.source_image &&
+    a.placement === b.placement && (!a.box || !b.box || agreedBox(a.box, b.box) !== null);
+}
+function mergeIndicatorInventory(layout: ChartLayout, additions: ChartRegion[]) {
+  const indicators = [...layout.indicators], aliases = new Map<string, string>();
+  for (const addition of additions) {
+    const matches = indicators.filter(existing => sameIndicatorRegion(existing, addition));
+    // Repeated instances of one type are legitimate. Never choose arbitrarily
+    // when missing geometry leaves several possible owners in the same image.
+    if (matches.length === 1) aliases.set(addition.id, matches[0].id);
+    else indicators.push(addition);
+  }
+  return { layout: { ...layout, indicators }, aliases };
+}
+function remapIndicatorReading(reading: JsonRecord, aliases: Map<string, string>): JsonRecord {
+  if (aliases.size === 0) return reading;
+  const remap = (value: unknown) => typeof value === "string" ? aliases.get(value) ?? value : value;
+  return { ...reading,
+    indicator_checks: list(reading.indicator_checks).map(value => { const check = record(value); return { ...check, id: remap(check.id) }; }),
+    signals: list(reading.signals).map(value => { const signal = record(value); return { ...signal, region_id: remap(signal.region_id), frame_id: remap(signal.frame_id) }; }),
+  };
+}
+
 const signalKinds = new Set<SignalKind>(["structure", "pattern", "candle", "level", "indicator", "volume"]);
 const genericSignal = /^(candles?|candlesticks?|price\s*(line|chart|action|plot)|chart|volume|rsi|macd|moving averages?|bollinger bands?)$/i;
 
@@ -227,13 +274,19 @@ export function normaliseChartScan(
   const plot = reviewed && seriesAgrees && overlay.price_plot_confirmed === true
     ? agreedBox(layout.price_plot_box, normaliseScanBox(overlay.price_plot_box)) : null;
   const checks = list(raw.indicator_checks).map(record);
+  const firstChecks = list(first?.indicator_checks).map(record);
   const indicatorChecks: ChartScanResult["indicator_checks"] = layout.indicators.map(region => {
     const check = checks.find(item => item.id === region.id);
-    const finding = scanText(check?.finding, 240);
+    const before = firstChecks.find(item => item.id === region.id);
+    const finalReadable = readableIndicatorCheck(check, region), firstReadable = readableIndicatorCheck(before, region);
+    const identitiesAgree = indicatorIdentity(indicatorCheckName(check)) === indicatorIdentity(indicatorCheckName(before));
+    const confirmed = finalReadable && firstReadable && identitiesAgree;
     const status = !reviewed ? "not_reviewed"
-      : check?.status === "readable" && finding ? "readable"
-        : check?.status === "not_confirmed" ? "not_confirmed" : "unreadable";
-    return { id: region.id, name: region.name, source_image: region.source_image, status, finding: status === "readable" ? finding : null };
+      : confirmed ? "readable"
+        : check?.status === "readable" || firstReadable || check?.status === "not_confirmed" ? "not_confirmed" : "unreadable";
+    const name = indicatorIdentity(region.name) === null && confirmed ? indicatorCheckName(check)! : region.name;
+    return { id: region.id, name, source_image: region.source_image, status,
+      finding: reviewed && finalReadable ? scanText(check?.finding, 240) : null };
   });
   const evidenceBoxes = (item: JsonRecord, regionId: string, source: number, kind: SignalKind) => {
     if (!localisation || !reviewed || item.localisation_confirmed !== true || confidence(item.localisation_confidence) < 80) return [];
@@ -273,13 +326,12 @@ export function normaliseChartScan(
     if (reviewed && item.supported !== true) return [];
     const region = layout.indicators.find(region => region.id === regionId && region.source_image === source);
     if (kind === "indicator" || kind === "volume") {
-      if (!region || (reviewed && !indicatorChecks.some(check => check.id === region.id && check.status === "readable"))) return [];
+      if (!region || !indicatorChecks.some(check => check.id === region.id && check.status === "readable")) return [];
     } else if (regionId !== "price" || source !== 0) return [];
     if (kind === "candle" && (finalSeries !== "candles" || layout.price_series_type !== "candles")) return [];
-    if (kind === "candle" && raw.candle_audit) {
-      const id = candlePatternId(item.candle_pattern_id, name);
-      if (!candleAudit.checks.some(check => check.id === id && check.status === "detected")) return [];
-    }
+    const auditedCandle = kind === "candle" && raw.candle_audit
+      ? candleAudit.checks.find(check => check.id === candlePatternId(item.candle_pattern_id, name)) : undefined;
+    if (kind === "candle" && raw.candle_audit && auditedCandle?.status !== "detected") return [];
     const key = `${source}:${regionId}:${name.toLowerCase()}`;
     if (seen.has(key)) return [];
     seen.add(key);
@@ -301,7 +353,9 @@ export function normaliseChartScan(
       ? evidenceBoxes(item, regionId, source, kind) : patternGeometry ? evidenceBoxes(patternGeometry, regionId, source, kind) : []
       : safe && candidate ? [candidate] : [];
     return [{ name, evidence, kind, source_image: source, region_id: regionId,
-      bias: signalBias(item.bias), confidence: confidence(item.confidence), box: boxes[0] ?? null, boxes }];
+      bias: signalBias(item.bias), confidence: auditedCandle
+        ? Math.min(confidence(item.confidence), auditedCandle.confidence, auditedCandle.completed ? 90 : 65)
+        : confidence(item.confidence), box: boxes[0] ?? null, boxes }];
   }).slice(0, 8);
   const patterns = mustRetake ? [] : normalisePatternChecks(raw.pattern_checks);
   for (const pattern of patterns) {
@@ -355,7 +409,9 @@ export function normaliseChartScan(
   // Price placement depends on agreeing labelled pixels, not the strength of
   // the trade thesis. The numeric plan remains visible for estimated scenarios.
   const linePlot = plot ?? (reviewed && seriesAgrees ? agreedBox(layout.price_plot_box, normaliseScanBox(overlay.price_plot_box)) : null);
-  const calibration = linePlot && reviewed
+  const axisConfirmed = overlay.price_axis_confirmed === true &&
+    (!first || record(first.overlay).price_axis_confirmed === true);
+  const calibration = linePlot && reviewed && axisConfirmed
     ? calibratePriceAxis(mappedAxis, checkedAxis) : null;
   const safeY = (price: number | null) => {
     if (!linePlot) return null;
@@ -440,33 +496,39 @@ type ScanPass = { value: JsonRecord | null; model: string };
 type ScanPasses = {
   locate: () => Promise<ScanPass>;
   analyse: (layout: ChartLayout) => Promise<ScanPass>;
-  review: (layout: ChartLayout, candidate: JsonRecord) => Promise<ScanPass>;
+  review: (layout: ChartLayout) => Promise<ScanPass>;
   geometry?: () => ScanGeometry;
 };
 
-export async function runGroundedChartScan(passes: ScanPasses, imageCount: number, referencePrice?: number | null) {
+export async function runGroundedChartScan(passes: ScanPasses, imageCount: number, referencePrice?: number | null, signal?: AbortSignal) {
+  if (signal?.aborted) return null;
   const located = await passes.locate();
+  if (signal?.aborted) return null;
   // Mapping may fail without making the whole image unreadable. An independent
   // analysis can still explain evidence, but localisation fails closed.
   const layout = normaliseChartLayout(located.value, imageCount);
   const candidate = await passes.analyse(layout);
-  if (!candidate.value) return null;
+  if (!candidate.value || signal?.aborted) return null;
   // The technical pass can find a panel the inventory missed. Give it an id
   // before the independent reviewer checks it, rather than discarding it.
   const additional = normaliseChartLayout({
     price_plot_box: layout.price_plot_box,
     indicators: candidate.value.additional_indicators,
   }, imageCount).indicators.map(region => ({ ...region, id: region.id.replace("indicator-", "analysis-indicator-") }));
-  const enrichedLayout = { ...layout, indicators: [...layout.indicators, ...additional.filter(region =>
-    !layout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
-  const review = await passes.review(enrichedLayout, candidate.value);
+  const enriched = mergeIndicatorInventory(layout, additional);
+  const enrichedLayout = enriched.layout;
+  const firstReading = remapIndicatorReading(candidate.value, enriched.aliases);
+  // The second reader receives only the region inventory. The first thesis,
+  // prices, confidence and findings stay local until both reads are complete.
+  const review = await passes.review(enrichedLayout);
+  if (signal?.aborted) return null;
   const reviewed = review.value !== null;
-  const reviewIndicators = normaliseChartLayout({ indicators: review.value?.additional_indicators }, imageCount).indicators
+  const reviewIndicators = normaliseChartLayout({ price_plot_box: layout.price_plot_box, indicators: review.value?.additional_indicators }, imageCount).indicators
     .map(region => ({ ...region, id: region.id.replace("indicator-", "review-indicator-") }));
-  const finalLayout = { ...enrichedLayout, indicators: [...enrichedLayout.indicators, ...reviewIndicators.filter(region =>
-    !enrichedLayout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
+  const merged = mergeIndicatorInventory(enrichedLayout, reviewIndicators);
+  const finalReading = review.value ? remapIndicatorReading(review.value, merged.aliases) : firstReading;
   return {
-    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice, passes.geometry ? { geometry: passes.geometry(), candidate: candidate.value } : undefined, candidate.value),
+    result: normaliseChartScan(finalReading, merged.layout, reviewed, referencePrice, passes.geometry ? { geometry: passes.geometry(), candidate: firstReading } : undefined, firstReading),
     model: reviewed ? review.model : candidate.model,
     passes: 3,
   };

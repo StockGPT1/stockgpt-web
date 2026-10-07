@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { LandingMetrics } from "./ScrollLandingScreens";
-import { offerClaimedPercent, offerSeatsLeft } from "@/lib/limited-offer";
+import { OFFER_PRICE } from "@/lib/limited-offer";
 import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
   ChatScreen,
@@ -601,8 +601,6 @@ function CinematicPhone({
    nav drops 28px to make room), a pill floating in the empty nav centre
    on wide screens */
 function OfferPill() {
-  const seats = offerSeatsLeft();
-  const pct = offerClaimedPercent();
   return (
     <>
       <Link
@@ -611,10 +609,7 @@ function OfferPill() {
       >
         <span className="sl-pulse h-1 w-1 shrink-0 rounded-full bg-[#ddb159]" />
         <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
-          £4.99/mo — next 500 members
-        </span>
-        <span className="sl-mono text-[8.5px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
-          {seats} left
+          {OFFER_PRICE}/mo — founding offer
         </span>
       </Link>
       <Link
@@ -623,16 +618,7 @@ function OfferPill() {
       >
         <span className="sl-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-[#ddb159]" />
         <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#f4d78a]">
-          £4.99/mo — next 500 members
-        </span>
-        <span className="h-1 w-14 overflow-hidden rounded-full bg-white/15" suppressHydrationWarning>
-          <span
-            className="block h-full rounded-full bg-[#ddb159]"
-            style={{ width: `${pct}%` }}
-          />
-        </span>
-        <span className="sl-mono text-[9px] font-black uppercase tracking-[0.14em] text-white/70" suppressHydrationWarning>
-          {seats} left
+          {OFFER_PRICE}/mo — founding offer
         </span>
       </Link>
     </>

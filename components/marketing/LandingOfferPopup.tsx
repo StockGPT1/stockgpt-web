@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { trackClientEvent } from "@/lib/analytics/client-events";
+import { OFFER_PRICE, STANDARD_MONTHLY_PRICE } from "@/lib/limited-offer";
 
 const OFFER_CODE = "50PORTFOLIO2026";
 const DISMISSAL_KEY = "stockgpt.offer.dismissal";
@@ -131,7 +132,7 @@ export function LandingOfferPopup() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ddb159]">Launch offer</p>
-          <h2 className="mt-2 text-2xl font-black tracking-[-0.04em]">Research with less first-month cost.</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-[-0.04em]">Core at the founding rate.</h2>
         </div>
         <button
           type="button"
@@ -144,8 +145,8 @@ export function LandingOfferPopup() {
       </div>
 
       <p className="mt-3 text-[13px] font-semibold leading-6 text-white/68">
-        Start your free trial, then get 50% off your first month. The discount is
-        applied automatically at checkout.
+        Core monthly access is {OFFER_PRICE}/month at the founding rate, normally {STANDARD_MONTHLY_PRICE}/month.
+        Review the billing summary before subscribing.
       </p>
       <p className="mt-2 text-[10px] font-semibold text-white/38">
         Educational research only. Not financial advice.
@@ -159,7 +160,7 @@ export function LandingOfferPopup() {
           onClick={claimOffer}
           className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#ddb159] px-5 text-center text-[12px] font-black !text-[#072116] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#061b12]"
         >
-          Claim 50% off first month
+          Review {OFFER_PRICE}/month offer
         </TrackedLink>
         <TrackedLink
           href="/demo?source=offer_popup"
