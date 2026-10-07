@@ -180,6 +180,23 @@ function verdict(value: unknown): ScanVerdict {
 const signalKinds = new Set<SignalKind>(["structure", "pattern", "candle", "level", "indicator", "volume"]);
 const genericSignal = /^(candles?|candlesticks?|price\s*(line|chart|action|plot)|chart|volume|rsi|macd|moving averages?|bollinger bands?)$/i;
 
+function findingFamily(item: JsonRecord, kind: SignalKind) {
+  const name = scanText(item.name, 80)?.toLowerCase().replace(/[-_]/g, " ") ?? "";
+  if (kind === "pattern") {
+    for (const family of ["double bottom", "double top", "inverse head and shoulders", "head and shoulders", "bull flag", "bear flag"]) {
+      if (name.includes(family)) return family;
+    }
+    return name;
+  }
+  if (kind === "candle") {
+    for (const family of ["engulfing", "hammer", "doji", "morning star", "evening star", "shooting star", "hanging man", "harami"]) {
+      if (name.includes(family)) return `${family}:${signalBias(item.bias)}`;
+    }
+    return name;
+  }
+  return `${kind}:${signalBias(item.bias)}`;
+}
+
 export function priceNumber(value: unknown): number | null {
   const price = scanText(value, 40)?.replace(/^[$£€¥]\s*/, "");
   if (!price || !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(price)) return null;
@@ -214,12 +231,21 @@ export function normaliseChartScan(
     if (!localisation || !reviewed || item.localisation_confirmed !== true || confidence(item.localisation_confidence) < 80) return [];
     const frame = localisation.geometry.frames.find(frame => frame.id === item.frame_id && frame.id === regionId && frame.source_image === source);
     if (!frame) return [];
-    const previous = [...list(localisation.candidate.signals), ...list(localisation.candidate.pattern_checks)].map(record)
-      .find(candidate => candidate.frame_id === item.frame_id && scanText(candidate.name, 80)?.toLowerCase() === scanText(item.name, 80)?.toLowerCase());
-    if (!previous) return [];
+    // Fresh readers need not use identical labels. Require the same owner,
+    // finding family, direction and actual crop location instead. Candle and
+    // pattern names retain distinct families, so a hammer cannot confirm an
+    // engulfing simply because both boxes cover the latest candle.
+    const previous = [
+      ...list(localisation.candidate.signals).map(record),
+      ...list(localisation.candidate.pattern_checks).map((value): JsonRecord => ({ ...record(value), kind: "pattern", source_image: 0 })),
+    ].filter(candidate => candidate.frame_id === item.frame_id && candidate.kind === kind && candidate.source_image === source &&
+      candidate.localisation_confirmed === true && confidence(candidate.localisation_confidence) >= 80 &&
+      findingFamily(candidate, kind) === findingFamily(item, kind));
     const region = layout.indicators.find(region => region.id === regionId && region.source_image === source);
     const owner = region?.box ?? (source === 0 ? plot : null);
-    return matchedEvidenceBoxes(previous.evidence_boxes, item.evidence_boxes, frame).filter(box =>
+    const matches = previous.map(candidate => matchedEvidenceBoxes(candidate.evidence_boxes, item.evidence_boxes, frame))
+      .sort((a, b) => b.length - a.length)[0] ?? [];
+    return matches.filter(box =>
       boxInside(box, owner) && (kind !== "pattern" || box.width_pct <= 30) &&
       (source !== 0 || !layout.exclusions.some(exclusion => overlaps(box, exclusion))) &&
       (region || !layout.indicators.some(indicator => indicator.source_image === source && indicator.placement === "panel" && indicator.box && overlaps(box, indicator.box))));

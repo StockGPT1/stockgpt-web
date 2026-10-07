@@ -121,3 +121,33 @@ test("supplementary indicator highlights stay in the supporting image's coordina
   assert.equal(result.signals[0].boxes.length, 1);
   assert.equal(result.signals[0].boxes[0].y_pct, 56);
 });
+
+test("independent readers can agree on a location without copying a finding's wording", () => {
+  const signal = { name: "Support holds at the swing low", kind: "structure", bias: "bullish", confidence: 70, evidence: "Buying holds the same visible low.", region_id: "price", source_image: 0, supported: true, frame_id: "price", localisation_confirmed: true, localisation_confidence: 92, evidence_boxes: [troughs[0]] };
+  const candidate = { ...analysis, signals: [signal], pattern_checks: [] };
+  const result = normaliseChartScan({ ...candidate, signals: [{ ...signal, name: "Buyers defend the recent low" }] }, normaliseChartLayout(rawLayout, 1), true, null, { geometry, candidate });
+  assert.equal(result.signals[0].boxes.length, 1);
+});
+test("pattern labels can differ in forming/confirmed wording while matching both actual troughs", () => {
+  const result = finalRead({ ...analysis, pattern_checks: [{ ...pattern, name: "Double bottom forming" }] });
+  assert.equal(result.signals[0].boxes.length, 2);
+});
+test("different candle families cannot confirm each other's overlapping locations", () => {
+  const candle = { name: "Bullish hammer", kind: "candle", bias: "bullish", confidence: 70, evidence: "The latest body has a long lower wick.", region_id: "price", source_image: 0, supported: true, frame_id: "price", localisation_confirmed: true, localisation_confidence: 92, evidence_boxes: [troughs[0]] };
+  const candidate = { ...analysis, price_series_type: "candles", signals: [candle], pattern_checks: [] };
+  const mapped = normaliseChartLayout({ ...rawLayout, price_series_type: "candles" }, 1);
+  const result = normaliseChartScan({ ...candidate, signals: [{ ...candle, name: "Bullish engulfing" }] }, mapped, true, null, { geometry, candidate });
+  assert.equal(result.signals[0].boxes.length, 0);
+});
+test("a low-confidence first localisation cannot authorise the second reader's highlight", () => {
+  const candidate = { ...analysis, pattern_checks: [{ ...pattern, localisation_confidence: 30 }] };
+  const result = normaliseChartScan(analysis, normaliseChartLayout(rawLayout, 1), true, null, { geometry, candidate });
+  assert.equal(result.signals[0].boxes.length, 0);
+});
+test("opposite interpretations of the same candle cannot confirm a highlight", () => {
+  const candle = { name: "Bullish engulfing", kind: "candle", bias: "bullish", confidence: 70, evidence: "The green body covers the prior red body.", region_id: "price", source_image: 0, supported: true, frame_id: "price", localisation_confirmed: true, localisation_confidence: 92, evidence_boxes: [troughs[0]] };
+  const candidate = { ...analysis, price_series_type: "candles", signals: [candle], pattern_checks: [] };
+  const mapped = normaliseChartLayout({ ...rawLayout, price_series_type: "candles" }, 1);
+  const result = normaliseChartScan({ ...candidate, signals: [{ ...candle, name: "Bearish engulfing", bias: "bearish" }] }, mapped, true, null, { geometry, candidate });
+  assert.equal(result.signals[0].boxes.length, 0);
+});
