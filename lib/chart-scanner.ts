@@ -1,3 +1,5 @@
+import { buildTradeScenario, stockGPTScore, normalisePatternChecks, normalisePriceAxis, calibratePriceAxis, priceToY, positivePrice, type PriceAxis, type TradeScenario, type ChartPattern } from "./chart-scan-scenario.ts";
+
 export type ScanVerdict = "bullish" | "bearish" | "inconclusive";
 export type SignalKind = "structure" | "pattern" | "candle" | "level" | "indicator" | "volume";
 export type PctBox = { x_pct: number; y_pct: number; width_pct: number; height_pct: number };
@@ -17,6 +19,7 @@ export type ChartLayout = {
   price_plot_box: PctBox | null;
   indicators: ChartRegion[];
   exclusions: PctBox[];
+  price_axis: PriceAxis;
 };
 
 export type ChartScanResult = {
@@ -56,22 +59,18 @@ export type ChartScanResult = {
     source_image: number;
     box: PctBox | null;
   }>;
-  trade_plan: {
-    entry: string | null;
-    stop_loss: string | null;
-    take_profit: string | null;
-    risk_reward: string | null;
-    projected_bars: string | null;
-    projected_horizon: string | null;
-    plan: string | null;
-    rationale: string | null;
-  };
+  trade_plan: TradeScenario;
+  stockgpt_score: { value: number; label: string; reasons: string[] };
+  pattern_checks: ChartPattern[];
   levels: { support: string | null; resistance: string | null; breakout: string | null; invalidation: string | null };
   overlay: {
     price_plot_box: PctBox | null;
     resistance_y_pct: number | null;
     support_y_pct: number | null;
     pattern_box: PctBox | null;
+    calibration_status: "matched" | "unavailable";
+    trade_lines: Array<{ kind: "entry" | "stop" | "target"; price: string; y_pct: number }>;
+
   };
 };
 
@@ -158,6 +157,7 @@ export function normaliseChartLayout(value: unknown, imageCount: number): ChartL
   });
   return {
     price_series_type: series(raw.price_series_type), price_plot_box: plot, indicators,
+    price_axis: normalisePriceAxis(raw.price_axis),
     exclusions: list(raw.exclusions).map(normaliseScanBox).filter((box): box is PctBox => box !== null).slice(0, 16),
   };
 }
@@ -184,8 +184,9 @@ export function normaliseChartScan(
   value: unknown,
   layout: ChartLayout,
   reviewed: boolean,
+  referencePrice?: number | null,
 ): ChartScanResult {
-  const raw = record(value), overlay = record(raw.overlay), plan = record(raw.trade_plan), levels = record(raw.levels);
+  const raw = record(value), overlay = record(raw.overlay), levels = record(raw.levels);
   const finalSeries = series(raw.price_series_type);
   const seriesAgrees = layout.price_series_type === finalSeries;
   const mustRetake = raw.retake_required === true || finalSeries === "unknown" || finalSeries === "unsupported";
@@ -230,28 +231,45 @@ export function normaliseChartScan(
     return [{ name, evidence, kind, source_image: source, region_id: regionId,
       bias: signalBias(item.bias), confidence: confidence(item.confidence), box: safe ? candidate : null }];
   }).slice(0, 8);
+  const patterns = mustRetake ? [] : normalisePatternChecks(raw.pattern_checks);
+  for (const pattern of patterns) {
+    if (signals.length >= 8 || signals.some(signal => signal.kind === "pattern" &&
+      (signal.name.toLowerCase().includes(pattern.name.toLowerCase()) || signal.evidence === pattern.evidence))) continue;
+    signals.push({ name: pattern.name, kind: "pattern", bias: /bottom|inverse/i.test(pattern.name) ? "bullish" : /double[ -]?top|head[ -]?and[ -]?shoulders/i.test(pattern.name) ? "bearish" : "neutral",
+      confidence: Math.min(pattern.status === "forming" ? 65 : 85, confidence(raw.confidence)), evidence: pattern.evidence,
+      region_id: "price", source_image: 0, box: null });
+  }
   const rejectedEvidence = reviewed && !mustRetake && signals.length === 0;
   const resolvedVerdict = mustRetake || rejectedEvidence ? "inconclusive" : verdict(raw.verdict);
   const currentPrice = scanText(raw.current_price, 40);
   const coverage = raw.chart_coverage === "full" || raw.chart_coverage === "partial" ? raw.chart_coverage : "unclear";
   const needsMoreInfo = !mustRetake && raw.needs_more_info === true && coverage === "partial";
-  const entry = priceNumber(plan.entry), stop = priceNumber(plan.stop_loss), target = priceNumber(plan.take_profit);
-  const orderedPlan = entry !== null && stop !== null && target !== null &&
-    (resolvedVerdict === "bullish" ? stop < entry && entry < target : resolvedVerdict === "bearish" && target < entry && entry < stop);
-  const canPlan = reviewed && !mustRetake && !needsMoreInfo && priceNumber(currentPrice) !== null &&
-    plan.price_scale_readable === true && orderedPlan && signals.length > 0;
   const timeframe = scanText(raw.timeframe, 24);
-  const safeY = (value: unknown, level: unknown) => {
-    const y = pct(value);
-    if (!plot || y === null || priceNumber(level) === null || overlay.levels_confirmed !== true) return null;
-    const line = { x_pct: plot.x_pct, y_pct: y - 0.15, width_pct: plot.width_pct, height_pct: 0.3 };
-    return y > plot.y_pct + 1 && y < plot.y_pct + plot.height_pct - 1 &&
-      !layout.exclusions.some(exclusion => overlaps(line, exclusion)) &&
+  const scenario = buildTradeScenario({ ...raw, verdict: resolvedVerdict }, {
+    usable: !mustRetake, reviewed, referencePrice, patterns, signals,
+  });
+  const score = stockGPTScore(rejectedEvidence ? 0 : raw.confidence, scenario, reviewed, signals, patterns);
+  const calibration = plot && reviewed && overlay.price_axis_confirmed === true
+    ? calibratePriceAxis(layout.price_axis, normalisePriceAxis(overlay.price_axis)) : null;
+  const safeY = (price: number | null) => {
+    if (!plot) return null;
+    const y = priceToY(price, calibration, plot.y_pct, plot.height_pct);
+    if (y === null) return null;
+    const line = { x_pct: plot.x_pct, y_pct: y - 0.05, width_pct: plot.width_pct, height_pct: 0.1 };
+    return !layout.exclusions.some(exclusion => overlaps(line, exclusion)) &&
       !layout.indicators.some(region => region.source_image === 0 && region.placement === "panel" && region.box && overlaps(line, region.box)) ? y : null;
   };
+  const tradeLines: ChartScanResult["overlay"]["trade_lines"] = [
+    { kind: "entry" as const, price: scenario.entry, value: scenario.entry_value },
+    { kind: "stop" as const, price: scenario.stop_loss, value: scenario.stop_value },
+    { kind: "target" as const, price: scenario.take_profit, value: scenario.target_value },
+  ].flatMap(line => {
+    const y = safeY(line.value);
+    return y !== null && line.price ? [{ kind: line.kind, price: line.price, y_pct: y }] : [];
+  });
   return {
     verdict: resolvedVerdict,
-    label: mustRetake ? "Chart not readable" : rejectedEvidence ? "No confirmed setup" : scanText(raw.label, 70) ?? "Mixed evidence",
+    label: mustRetake ? "Chart not readable" : rejectedEvidence ? "Illustrative trade scenario" : scanText(raw.label, 70) ?? "Mixed evidence",
     pattern: mustRetake ? "No reliable chart read" : rejectedEvidence ? "No supported pattern" : scanText(raw.pattern, 90) ?? "No clear pattern",
     confidence: mustRetake || rejectedEvidence ? 0 : confidence(raw.confidence),
     ticker: scanText(raw.ticker, 14)?.toUpperCase() ?? null, timeframe,
@@ -262,33 +280,28 @@ export function normaliseChartScan(
     more_info_prompt: needsMoreInfo ? scanText(raw.more_info_prompt, 220) ?? "Add a view of the missing chart area and price scale." : null,
     summary: rejectedEvidence ? "The proposed signals could not be confirmed from this image. No directional setup is supported by the reviewed evidence." : scanText(raw.summary, 480) ?? "There is not enough visible evidence for a reliable directional read.",
     confirmation: scanText(raw.confirmation, 260) ?? "Wait for a clear reaction at the visible structure.",
-    invalidation: scanText(raw.invalidation, 260) ?? "A break against the visible structure would invalidate the setup.",
+    invalidation: scanText(raw.invalidation, 260) ?? (scenario.stop_value !== null ? `A move ${scenario.side === "long" ? "below" : "above"} ${scenario.stop_loss} cancels this scenario.` : "Reaching the stop-loss distance above cancels this scenario."),
     watch_for: scanText(raw.watch_for, 220) ?? "Watch the next confirmed reaction at the nearest visible level.",
     observations: list(raw.observations).map(item => scanText(item, 200)).filter((item): item is string => item !== null).slice(0, 4),
     verification_status: reviewed ? "reviewed" : "unavailable",
     indicator_checks: indicatorChecks, signals: mustRetake ? [] : signals,
-    trade_plan: {
-      entry: canPlan ? scanText(plan.entry, 40) : null,
-      stop_loss: canPlan ? scanText(plan.stop_loss, 40) : null,
-      take_profit: canPlan ? scanText(plan.take_profit, 40) : null,
-      risk_reward: canPlan ? `${(Math.abs(target! - entry!) / Math.abs(entry! - stop!)).toFixed(1)}:1` : null,
-      projected_bars: canPlan && timeframe ? scanText(plan.projected_bars, 60) : null,
-      projected_horizon: canPlan && timeframe ? scanText(plan.projected_horizon, 80) : null,
-      plan: canPlan ? scanText(plan.plan, 320) : null,
-      rationale: canPlan ? scanText(plan.rationale, 220) : null,
-    },
+    trade_plan: scenario,
+    stockgpt_score: score,
+    pattern_checks: patterns,
     levels: {
-      support: priceNumber(levels.support) !== null && !mustRetake ? scanText(levels.support, 40) : null,
-      resistance: priceNumber(levels.resistance) !== null && !mustRetake ? scanText(levels.resistance, 40) : null,
-      breakout: priceNumber(levels.breakout) !== null && !mustRetake ? scanText(levels.breakout, 40) : null,
-      invalidation: priceNumber(levels.invalidation) !== null && !mustRetake ? scanText(levels.invalidation, 40) : null,
+      support: positivePrice(levels.support) !== null && !mustRetake ? typeof levels.support === "number" ? String(levels.support) : scanText(levels.support, 40) : null,
+      resistance: positivePrice(levels.resistance) !== null && !mustRetake ? typeof levels.resistance === "number" ? String(levels.resistance) : scanText(levels.resistance, 40) : null,
+      breakout: positivePrice(levels.breakout) !== null && !mustRetake ? typeof levels.breakout === "number" ? String(levels.breakout) : scanText(levels.breakout, 40) : null,
+      invalidation: positivePrice(levels.invalidation) !== null && !mustRetake ? typeof levels.invalidation === "number" ? String(levels.invalidation) : scanText(levels.invalidation, 40) : null,
     },
     overlay: {
       price_plot_box: mustRetake ? null : plot,
-      resistance_y_pct: mustRetake ? null : safeY(overlay.resistance_y_pct, levels.resistance),
-      support_y_pct: mustRetake ? null : safeY(overlay.support_y_pct, levels.support),
+      resistance_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.resistance)) : null,
+      support_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.support)) : null,
       // Only evidence-specific highlights are displayed, never an extra speculative pattern rectangle.
       pattern_box: null,
+      calibration_status: calibration ? "matched" : "unavailable",
+      trade_lines: mustRetake ? [] : tradeLines,
     },
   };
 }
@@ -316,7 +329,7 @@ type ScanPasses = {
   review: (layout: ChartLayout, candidate: JsonRecord) => Promise<ScanPass>;
 };
 
-export async function runGroundedChartScan(passes: ScanPasses, imageCount: number) {
+export async function runGroundedChartScan(passes: ScanPasses, imageCount: number, referencePrice?: number | null) {
   const located = await passes.locate();
   // Mapping may fail without making the whole image unreadable. An independent
   // analysis can still explain evidence, but localisation fails closed.
@@ -333,8 +346,12 @@ export async function runGroundedChartScan(passes: ScanPasses, imageCount: numbe
     !layout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
   const review = await passes.review(enrichedLayout, candidate.value);
   const reviewed = review.value !== null;
+  const reviewIndicators = normaliseChartLayout({ indicators: review.value?.additional_indicators }, imageCount).indicators
+    .map(region => ({ ...region, id: region.id.replace("indicator-", "review-indicator-") }));
+  const finalLayout = { ...enrichedLayout, indicators: [...enrichedLayout.indicators, ...reviewIndicators.filter(region =>
+    !enrichedLayout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
   return {
-    result: normaliseChartScan(review.value ?? candidate.value, enrichedLayout, reviewed),
+    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice),
     model: reviewed ? review.model : candidate.model,
     passes: 3,
   };

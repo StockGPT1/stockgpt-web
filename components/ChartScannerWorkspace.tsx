@@ -1,8 +1,11 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Local blob screenshots preserve their natural aspect ratio for price-coordinate overlays. */
+
 import Link from "next/link";
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { positivePrice } from "@/lib/chart-scan-scenario";
 import { StockIcon } from "@/components/StockIcon";
 import { ChartScanPreview } from "@/components/ChartScanPreview";
 import type { ChartScanResult as ScanResult } from "@/lib/chart-scanner";
@@ -17,7 +20,7 @@ type ScanResponse = {
 const analysisSteps = [
   "Mapping the chart and indicator panels",
   "Reading price structure and momentum",
-  "Reviewing the evidence and highlights",
+  "Checking the setup and risk levels",
 ];
 
 async function imageFromFile(file: File) {
@@ -117,833 +120,173 @@ function resetIOSViewportAfterPicker() {
   window.setTimeout(restore, 320);
 }
 
-function verdictTone(verdict: ScanResult["verdict"]) {
-  if (verdict === "bullish") {
-    return {
-      badge: "border-emerald-300/25 bg-emerald-300/10 text-emerald-200",
-      glow: "shadow-[0_0_50px_rgba(52,211,153,0.11)]",
-      dot: "bg-emerald-300",
-    };
-  }
+const primaryButton = "flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#f2c35f] px-5 text-sm font-bold text-[#092116] transition active:scale-[0.99] disabled:opacity-50";
+const secondaryButton = "flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.035] px-4 text-sm font-semibold text-[#fffaf2] disabled:opacity-50";
+const panelClass = "rounded-3xl border border-white/10 bg-[#092116]/75 p-5";
 
-  if (verdict === "bearish") {
-    return {
-      badge: "border-rose-300/25 bg-rose-300/10 text-rose-200",
-      glow: "shadow-[0_0_50px_rgba(251,113,133,0.10)]",
-      dot: "bg-rose-300",
-    };
-  }
-
-  return {
-    badge: "border-[#f2c35f]/22 bg-[#f2c35f]/8 text-[#f2d786]",
-    glow: "shadow-[0_0_50px_rgba(242,195,95,0.08)]",
-    dot: "bg-[#f2c35f]",
-  };
-}
-
-function signalTone(bias: "bullish" | "bearish" | "neutral") {
-  if (bias === "bullish") {
-    return {
-      border: "border-emerald-300/85",
-      bg: "bg-emerald-300/10",
-      text: "text-emerald-200",
-      dot: "bg-emerald-300",
-    };
-  }
-  if (bias === "bearish") {
-    return {
-      border: "border-rose-300/85",
-      bg: "bg-rose-300/10",
-      text: "text-rose-200",
-      dot: "bg-rose-300",
-    };
-  }
-  return {
-    border: "border-[#f2c35f]/75",
-    bg: "bg-[#f2c35f]/10",
-    text: "text-[#f2d786]",
-    dot: "bg-[#f2c35f]",
-  };
-}
-
-function ScannerTarget() {
-  return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-[430px] overflow-hidden rounded-[30px] border border-[#f2c35f]/16 bg-[radial-gradient(circle_at_50%_34%,rgba(242,195,95,0.12),transparent_30%),linear-gradient(180deg,#0b2c1e,#06160f)] shadow-[0_30px_80px_rgba(0,0,0,0.28)]">
-      <div className="absolute inset-[20px] rounded-[24px] border border-[#f2c35f]/10" />
-      <div className="absolute left-[10%] right-[10%] top-1/2 h-px bg-[#f2c35f]/10" />
-      <div className="absolute bottom-[14%] left-[12%] right-[12%] h-[54%]">
-        <svg viewBox="0 0 320 160" className="h-full w-full" fill="none" aria-hidden="true">
-          <path d="M5 132 C38 122 48 92 80 102 C110 112 118 69 150 78 C181 87 194 54 225 60 C255 66 267 27 315 20" stroke="rgba(242,195,95,0.74)" strokeWidth="4" strokeLinecap="round" />
-          <path d="M5 139 H315" stroke="rgba(255,255,255,0.08)" />
-          <path d="M5 94 H315" stroke="rgba(255,255,255,0.06)" />
-          <path d="M5 49 H315" stroke="rgba(255,255,255,0.06)" />
-        </svg>
-      </div>
-      <div className="absolute inset-0">
-        <span className="absolute left-5 top-5 h-9 w-9 rounded-tl-[14px] border-l-2 border-t-2 border-[#f2c35f]/75" />
-        <span className="absolute right-5 top-5 h-9 w-9 rounded-tr-[14px] border-r-2 border-t-2 border-[#f2c35f]/75" />
-        <span className="absolute bottom-5 left-5 h-9 w-9 rounded-bl-[14px] border-b-2 border-l-2 border-[#f2c35f]/75" />
-        <span className="absolute bottom-5 right-5 h-9 w-9 rounded-br-[14px] border-b-2 border-r-2 border-[#f2c35f]/75" />
-      </div>
-      <div className="absolute inset-0 grid place-items-center">
-        <span className="grid size-[74px] place-items-center rounded-full border border-[#f2c35f]/24 bg-[#04180f]/78 text-[#f2c35f] shadow-[0_12px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
-          <StockIcon name="camera" className="size-8" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function Level({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="min-w-0 py-3">
-      <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#faf6f0]/38">{label}</p>
-      <p className="mt-1 break-words text-[15px] font-black tracking-[-0.02em] text-[#faf6f0]">{value ?? "Not clear"}</p>
-    </div>
-  );
-}
-
-function TradeLevelCard({
-  label,
-  value,
-  tone,
-  hint,
-}: {
-  label: string;
-  value: string | null;
-  tone: "stop" | "target";
-  hint: string;
-}) {
-  const isStop = tone === "stop";
-  return (
-    <div
-      className={
-        "min-w-0 overflow-hidden rounded-[16px] border p-3 " +
-        (isStop
-          ? "border-rose-300/20 bg-rose-300/[0.075]"
-          : "border-emerald-300/20 bg-emerald-300/[0.075]")
-      }
-    >
-      <p className={"text-[10px] font-black uppercase tracking-[0.15em] " + (isStop ? "text-rose-200" : "text-emerald-200")}>
-        {label}
-      </p>
-      <p className={"mt-2 break-words text-[clamp(22px,6vw,28px)] font-black leading-none tracking-[-0.05em] " + (isStop ? "text-rose-300" : "text-emerald-300")}>
-        {value ?? "Not clear"}
-      </p>
-      <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/40">{hint}</p>
-    </div>
-  );
+function TradeLevel({ label, value, tone, hint }: { label: string; value: string | null; tone: "entry" | "stop" | "target"; hint: string }) {
+  const color = tone === "stop" ? "text-rose-200" : tone === "target" ? "text-emerald-200" : "text-[#f2d786]";
+  return <div className={`min-w-0 rounded-2xl border border-white/10 bg-black/15 p-3.5 ${tone === "entry" ? "col-span-2 sm:col-span-1" : ""}`}>
+    <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${color}`}>{label}</p>
+    <p className={`mt-2 break-words text-[clamp(20px,6vw,28px)] font-bold leading-tight tracking-tight tabular-nums ${color}`}>{value}</p>
+    <p className="mt-2 text-[11px] leading-4 text-white/45">{hint}</p>
+  </div>;
 }
 
 export function ChartScannerWorkspace() {
-  const previewRef = useRef<HTMLDivElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
+  const supportingRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef<AbortController | null>(null);
-  const [selectedSignal, setSelectedSignal] = useState<number | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const libraryInputRef = useRef<HTMLInputElement>(null);
-  const contextCameraInputRef = useRef<HTMLInputElement>(null);
-  const contextLibraryInputRef = useRef<HTMLInputElement>(null);
+  const preparationRef = useRef(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [supporting, setSupporting] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [scanFile, setScanFile] = useState<File | null>(null);
-  const [supportingFiles, setSupportingFiles] = useState<File[]>([]);
-  const [supportingPreviewUrls, setSupportingPreviewUrls] = useState<string[]>([]);
+  const [supportUrl, setSupportUrl] = useState<string | null>(null);
+  const [referencePrice, setReferencePrice] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [status, setStatus] = useState<"idle" | "preparing" | "analyzing" | "result" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "preparing" | "ready" | "analyzing" | "result" | "error">("idle");
   const [error, setError] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    if (status !== "analyzing") {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setStepIndex((current) => Math.min(current + 1, analysisSteps.length - 1));
-    }, 6500);
-
+    if (status !== "analyzing") return;
+    const timer = window.setInterval(() => setStepIndex(value => Math.min(value + 1, analysisSteps.length - 1)), 10000);
     return () => window.clearInterval(timer);
   }, [status]);
-
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  useEffect(() => () => { if (supportUrl) URL.revokeObjectURL(supportUrl); }, [supportUrl]);
+  useEffect(() => () => { requestRef.current?.abort(); preparationRef.current += 1; }, []);
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
-
-  useEffect(() => {
-    const resetAfterReturn = () => {
-      window.setTimeout(resetIOSViewportAfterPicker, 40);
-      window.setTimeout(resetIOSViewportAfterPicker, 360);
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") resetAfterReturn();
-    };
-
-    window.addEventListener("orientationchange", resetAfterReturn);
-    window.addEventListener("pageshow", resetAfterReturn);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      window.removeEventListener("orientationchange", resetAfterReturn);
-      window.removeEventListener("pageshow", resetAfterReturn);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
+    const reset = () => window.setTimeout(resetIOSViewportAfterPicker, 40);
+    const visible = () => { if (document.visibilityState === "visible") reset(); };
+    window.addEventListener("orientationchange", reset);
+    window.addEventListener("pageshow", reset);
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.removeEventListener("orientationchange", reset); window.removeEventListener("pageshow", reset); document.removeEventListener("visibilitychange", visible); };
   }, []);
 
-  useEffect(() => () => requestRef.current?.abort(), []);
+  const askHref = useMemo(() => result ? buildAskHref({
+    contextType: "stock", ...(result.ticker ? { ticker: result.ticker } : {}),
+    activeFilters: {
+      chartScan: result.label, chartPattern: result.pattern, chartConfidence: result.stockgpt_score.value,
+      chartScoreMeaning: "Heuristic setup confidence, not a win probability", chartSetupStatus: result.trade_plan.status,
+      chartDirection: result.trade_plan.side, chartEntry: result.trade_plan.entry,
+      chartConfirmation: result.confirmation, chartInvalidation: result.invalidation,
+      chartSignals: result.signals.map(signal => signal.name).join(", "),
+      chartStopLoss: result.trade_plan.stop_loss, chartTakeProfit: result.trade_plan.take_profit,
+      chartTradePlan: result.trade_plan.plan, chartLevelAssumptions: result.trade_plan.assumptions,
+    },
+  }) : "/ask-stockgpt", [result]);
 
-  const askHref = useMemo(() => {
-    if (!result) return "/ask-stockgpt";
-
-    return buildAskHref({
-      contextType: "stock",
-      ...(result.ticker ? { ticker: result.ticker } : {}),
-      activeFilters: {
-        chartScan: result.label,
-        chartPattern: result.pattern,
-        chartConfidence: result.confidence,
-        chartConfirmation: result.confirmation,
-        chartInvalidation: result.invalidation,
-        chartCurrentPrice: result.current_price,
-        chartSignals: result.signals.map((signal) => signal.name).join(", "),
-        chartStopLoss: result.trade_plan.stop_loss,
-        chartTakeProfit: result.trade_plan.take_profit,
-        chartProjectedHorizon: result.trade_plan.projected_horizon,
-        chartProjectedBars: result.trade_plan.projected_bars,
-        chartTradePlan: result.trade_plan.plan,
-      },
-    });
-  }, [result]);
-
-  async function runScan(files: File[]) {
-    if (files.length === 0) return;
-    requestRef.current?.abort();
-    const controller = new AbortController();
-    requestRef.current = controller;
-    setError("");
-    setResult(null);
-    setSelectedSignal(null);
-    setStepIndex(0);
-    setStatus("analyzing");
-    nativeHaptic("medium");
-
-    const formData = new FormData();
-    files.slice(0, 2).forEach((file) => formData.append("image", file));
-
-    try {
-      const response = await fetch("/api/chart-scan", {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      });
-
-      const payload = (await response.json().catch(() => null)) as ScanResponse | null;
-
-      if (!response.ok || !payload?.result) {
-        throw new Error(payload?.error || "StockGPT could not read that chart.");
-      }
-
-      if (controller.signal.aborted) return;
-      setResult(payload.result);
-      setStatus("result");
-      nativeHaptic("success");
-    } catch (scanError) {
-      if (controller.signal.aborted) return;
-      setError(scanError instanceof Error ? scanError.message : "StockGPT could not read that chart.");
-      setStatus("error");
-      nativeHaptic("error");
-    }
-  }
-
-  async function handleImage(event: ChangeEvent<HTMLInputElement>) {
+  async function handleImage(event: ChangeEvent<HTMLInputElement>, extra = false) {
     const selected = event.target.files?.[0];
     event.target.value = "";
     resetIOSViewportAfterPicker();
-    window.setTimeout(resetIOSViewportAfterPicker, 260);
     if (!selected) return;
-
-    setStatus("preparing");
-    setError("");
-
-    try {
-      const prepared = await prepareImage(selected);
-      if (prepared.size > 3_200_000) {
-        throw new Error("That image is still too large. Try a tighter screenshot.");
-      }
-
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      const nextPreview = URL.createObjectURL(prepared);
-      setPreviewUrl(nextPreview);
-      supportingPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-      setSupportingFiles([]);
-      setSupportingPreviewUrls([]);
-      setScanFile(prepared);
-      await runScan([prepared]);
-    } catch (prepareError) {
-      setError(prepareError instanceof Error ? prepareError.message : "Could not prepare that chart image.");
-      setStatus("error");
-      nativeHaptic("error");
-    }
-  }
-
-  async function handleAdditionalImage(event: ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
-    event.target.value = "";
-    resetIOSViewportAfterPicker();
-    window.setTimeout(resetIOSViewportAfterPicker, 260);
-    if (!selected || !scanFile) return;
-
-    if (supportingFiles.length >= 1) {
-      setError("StockGPT can combine the main chart with one supporting photo.");
-      nativeHaptic("warning");
-      return;
-    }
-
-    setStatus("preparing");
-    setError("");
-
-    try {
-      const prepared = await prepareImage(selected);
-      if (prepared.size > 3_200_000) {
-        throw new Error("That image is still too large. Try a tighter screenshot.");
-      }
-
-      const nextSupportingFiles = [...supportingFiles, prepared].slice(0, 1);
-      const nextPreview = URL.createObjectURL(prepared);
-      setSupportingFiles(nextSupportingFiles);
-      setSupportingPreviewUrls((current) => [...current, nextPreview].slice(0, 1));
-      await runScan([scanFile, ...nextSupportingFiles]);
-    } catch (prepareError) {
-      setError(prepareError instanceof Error ? prepareError.message : "Could not prepare that extra chart image.");
-      setStatus("error");
-      nativeHaptic("error");
-    }
-  }
-
-
-  function reset() {
     requestRef.current?.abort();
-    setSelectedSignal(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    supportingPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    setPreviewUrl(null);
-    setScanFile(null);
-    setSupportingFiles([]);
-    setSupportingPreviewUrls([]);
-    setResult(null);
-    setError("");
-    setStatus("idle");
-    nativeHaptic("light");
+    const preparation = ++preparationRef.current;
+    setStatus("preparing"); setError(""); setResult(null);
+    try {
+      const prepared = await prepareImage(selected);
+      if (preparation !== preparationRef.current) return;
+      if (prepared.size > 1_800_000) throw new Error("Use a smaller screenshot so the price labels stay readable.");
+      const url = URL.createObjectURL(prepared);
+      if (extra) { setSupporting(prepared); setSupportUrl(url); }
+      else { setFile(prepared); setPreviewUrl(url); setSupporting(null); setSupportUrl(null); setReferencePrice(""); }
+      setStatus("ready"); nativeHaptic("light");
+    } catch (cause) {
+      if (preparation !== preparationRef.current) return;
+      setError(cause instanceof Error ? cause.message : "Could not prepare that image."); setStatus("error");
+    }
   }
 
-  const tone = result ? verdictTone(result.verdict) : null;
-  const verdictWord = result
-    ? result.verdict === "bullish"
-      ? "Bullish bias"
-      : result.verdict === "bearish"
-        ? "Bearish bias"
-        : "Mixed evidence"
-    : "";
-  const verdictTextClass = result?.verdict === "bullish"
-    ? "text-emerald-300"
-    : result?.verdict === "bearish"
-      ? "text-rose-300"
-      : "text-[#f2d786]";
-  const hasCompleteTradePlan = Boolean(
-    result?.trade_plan.stop_loss && result?.trade_plan.take_profit,
-  );
-
+  async function runScan() {
+    if (!file) return;
+    if (referencePrice.trim() && positivePrice(referencePrice) === null) { setError("Enter a positive reference price, such as 125.50."); return; }
+    requestRef.current?.abort();
+    const controller = new AbortController(); requestRef.current = controller;
+    setError(""); setResult(null); setStepIndex(0); setStatus("analyzing"); nativeHaptic("medium");
+    const data = new FormData(); data.append("image", file);
+    if (supporting) data.append("image", supporting);
+    if (referencePrice.trim()) data.append("reference_price", referencePrice.trim());
+    try {
+      const response = await fetch("/api/chart-scan", { method: "POST", body: data, signal: controller.signal });
+      const payload = await response.json().catch(() => null) as ScanResponse | null;
+      if (!response.ok || !payload?.result) throw new Error(payload?.error || "StockGPT could not read that chart.");
+      if (controller.signal.aborted) return;
+      setResult(payload.result); setStatus("result"); nativeHaptic("success");
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      setError(cause instanceof Error ? cause.message : "Could not scan that chart."); setStatus("error"); nativeHaptic("error");
+    }
+  }
+  function reset() {
+    requestRef.current?.abort(); preparationRef.current += 1;
+    setFile(null); setSupporting(null); setPreviewUrl(null); setSupportUrl(null); setReferencePrice("");
+    setResult(null); setError(""); setStatus("idle"); nativeHaptic("light");
+  }
+  const busy = status === "preparing" || status === "analyzing";
+  const plan = result?.trade_plan;
+  const score = result?.stockgpt_score;
+  const sideColor = plan?.side === "short" ? "text-rose-200" : "text-emerald-200";
+  const illustrative = plan?.levels_basis === "illustrative";
+  const setupTitle = illustrative ? "Illustrative scenario" : plan?.status === "confirmed" ? "Confirmed setup" : plan?.status === "conditional" ? "Conditional setup" : "Estimated setup";
+  const percent = (value: number | null | undefined) => value == null ? "" : `${value.toFixed(1)}% from entry`;
   return (
-    <main className="sg-chart-scanner mx-auto min-h-full w-full max-w-[760px] overflow-x-hidden pb-8 pt-2">
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleImage}
-        className="sr-only"
-        tabIndex={-1}
-      />
-      <input
-        ref={libraryInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleImage}
-        className="sr-only"
-        tabIndex={-1}
-      />
-      <input
-        ref={contextCameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleAdditionalImage}
-        className="sr-only"
-        tabIndex={-1}
-      />
-      <input
-        ref={contextLibraryInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleAdditionalImage}
-        className="sr-only"
-        tabIndex={-1}
-      />
-
-      {status === "idle" && (
-        <section className="flex min-h-[calc(100dvh-190px)] flex-col justify-center py-5">
-          <div className="mb-6 min-w-0 px-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f2c35f]/72">StockGPT Vision</p>
-            <h1 className="mt-2 max-w-[12ch] break-words text-[clamp(34px,10vw,40px)] font-black leading-[0.96] tracking-[-0.055em] text-[#fffaf2]">
-              Read the chart. See the evidence.
-            </h1>
-            <p className="mt-3 max-w-[36rem] text-[14px] font-medium leading-6 text-[#fffaf2]/56">
-              Point your iPhone at a stock chart or use a screenshot. StockGPT scans the actual candlesticks or price line, then checks the structure, signals and risk levels it can read.
-            </p>
-          </div>
-
-          <ScannerTarget />
-
-          <div className="mt-5 min-w-0 rounded-[22px] border border-[#f2c35f]/14 bg-[#f2c35f]/[0.055] p-4">
-            <div className="flex items-center gap-2">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#f2c35f]/12 text-[13px] font-black text-[#f2d786]">!</span>
-              <p className="text-[11px] font-black uppercase tracking-[0.13em] text-[#f2d786]">Before you take the photo</p>
-            </div>
-            <p className="mt-2 text-[13px] font-black leading-5 text-[#fffaf2]">
-              Get the full chart in — especially the latest candles, current price and right-side price scale.
-            </p>
-            <div className="mt-3 grid gap-2 text-[11.5px] font-semibold leading-4 text-[#fffaf2]/55">
-              <p>• Make the candle/price plot the main thing in the photo.</p>
-              <p>• Keep ticker + timeframe visible if possible.</p>
-              <p>• Include visible RSI, MACD, volume and moving averages for a fuller read.</p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-2.5">
-            <button
-              type="button"
-              data-native-haptic="medium"
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex h-14 w-full min-w-0 items-center justify-center gap-2 rounded-[19px] bg-[linear-gradient(180deg,#f5d982,#d9ae50)] px-5 text-[14px] font-black text-[#092116] shadow-[0_14px_36px_rgba(221,177,89,0.18)] transition active:scale-[0.985]"
-            >
-              <StockIcon name="camera" className="size-5" />
-              Open camera
-            </button>
-
-            <button
-              type="button"
-              onClick={() => libraryInputRef.current?.click()}
-              className="h-12 w-full min-w-0 rounded-[18px] border border-[#fffaf2]/8 bg-[#fffaf2]/[0.045] px-5 text-[13px] font-black text-[#fffaf2]/78 transition active:scale-[0.985]"
-            >
-              Choose a screenshot
-            </button>
-          </div>
-
-          <p className="mt-4 px-2 text-center text-[10.5px] leading-4 text-[#fffaf2]/32">
-            Visual analysis of your image. Prices are not checked against live market data.
-          </p>
+    <main className="sg-chart-scanner mx-auto min-h-full w-full max-w-[820px] pb-10 pt-2 text-[#fffaf2]">
+      <input ref={cameraRef} aria-label="Take a chart photo" type="file" accept="image/*" capture="environment" onChange={event => handleImage(event)} className="sr-only" tabIndex={-1} />
+      <input ref={libraryRef} aria-label="Choose a chart screenshot" type="file" accept="image/*" onChange={event => handleImage(event)} className="sr-only" tabIndex={-1} />
+      <input ref={supportingRef} aria-label="Choose a supporting chart image" type="file" accept="image/*" onChange={event => handleImage(event, true)} className="sr-only" tabIndex={-1} />
+      <header className="mb-6 flex items-center justify-between gap-3">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f2c35f]">StockGPT</p><h1 className="mt-1 text-xl font-bold tracking-tight">Chart Scanner</h1></div>
+        {(file || busy) && <button type="button" onClick={reset} className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold">{busy ? "Cancel" : "New scan"}</button>}
+      </header>
+      {error && <div role="alert" className="mb-4 rounded-2xl border border-rose-300/25 bg-rose-300/10 p-4 text-sm text-rose-100">{error}</div>}
+      {!file && !busy && <section className={`${panelClass} space-y-6`}>
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-white/50"><span className="grid size-6 place-items-center rounded-full bg-[#f2c35f] text-[#092116]">1</span>Upload<span className="h-px flex-1 bg-white/10" /><span>2 Analyse</span><span className="h-px flex-1 bg-white/10" /><span>3 Your plan</span></div>
+        <div><h2 className="max-w-lg text-[clamp(29px,7vw,42px)] font-bold leading-[1.1] tracking-tight">One chart.<br />A clear trade plan.</h2><p className="mt-4 max-w-lg text-sm leading-6 text-white/60">See the strongest long or short scenario, where it activates, where to exit and how confident StockGPT is in the setup.</p></div>
+        <div className="grid grid-cols-3 gap-2 border-y border-white/10 py-4 text-center"><div><p className="text-sm font-bold text-[#f2d786]">Entry</p><p className="mt-1 text-[11px] text-white/45">A clear trigger</p></div><div><p className="text-sm font-bold text-rose-200">Stop loss</p><p className="mt-1 text-[11px] text-white/45">Defined risk</p></div><div><p className="text-sm font-bold text-emerald-200">Take profit</p><p className="mt-1 text-[11px] text-white/45">A target to watch</p></div></div>
+        <div className="space-y-3"><button type="button" onClick={() => libraryRef.current?.click()} className={primaryButton}>Choose screenshot</button><button type="button" onClick={() => cameraRef.current?.click()} className={`${secondaryButton} w-full`}><StockIcon name="camera" className="size-5" />Take a photo</button></div>
+        <p className="text-xs leading-5 text-white/45">Include the latest candles, price scale and indicator panels. Clear screenshots give a better read.</p>
+      </section>}
+      {busy && <section aria-live="polite" className={`${panelClass} py-10 text-center`}>
+        <div className="mx-auto mb-5 size-11 animate-spin rounded-full border-2 border-[#f2c35f]/20 border-t-[#f2c35f]" />
+        <h2 className="text-xl font-bold">{status === "preparing" ? "Preparing your chart" : "Building your trade plan"}</h2>
+        <p className="mt-2 text-sm text-white/55">{status === "preparing" ? "Keeping the price labels and indicators clear." : analysisSteps[stepIndex]}</p>
+        {status === "analyzing" && <div className="mx-auto mt-6 max-w-sm space-y-3 text-left">{analysisSteps.map((step, index) => <p key={step} className={`flex items-center gap-3 text-xs ${index === stepIndex ? "text-[#f2d786]" : "text-white/40"}`}><span className={`grid size-6 shrink-0 place-items-center rounded-full border ${index <= stepIndex ? "border-[#f2c35f]/40" : "border-white/10"}`}>{index + 1}</span>{step}</p>)}</div>}
+        <p className="mt-6 text-[11px] text-white/40">A full scan can take about a minute.</p>
+      </section>}
+      {file && previewUrl && !busy && !result && <section className={`${panelClass} space-y-5`}>
+        <div><h2 className="text-xl font-bold">Ready to scan?</h2><p className="mt-1 text-sm text-white/55">Check that the price scale and latest candles are visible.</p></div>
+        <div className="max-h-[360px] overflow-auto rounded-2xl border border-white/10"><img src={previewUrl} alt="Selected chart screenshot" className="h-auto w-full" /></div>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => libraryRef.current?.click()} className={secondaryButton}>Replace chart</button><button type="button" onClick={() => supportingRef.current?.click()} className={secondaryButton}>{supporting ? "Replace extra image" : "+ Indicator close-up"}</button></div>
+        {supportUrl && <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3"><img src={supportUrl} alt="Supporting indicator image" className="size-14 rounded-lg object-cover" /><p className="flex-1 text-xs text-white/60">Extra view of the same chart</p><button type="button" onClick={() => { setSupporting(null); setSupportUrl(null); }} className="min-h-11 px-2 text-xs text-white/70">Remove</button></div>}
+        <div><label htmlFor="scan-reference-price" className="text-xs font-semibold text-white/70">Reference price <span className="font-normal text-white/40">· optional</span></label><input id="scan-reference-price" inputMode="decimal" autoComplete="off" value={referencePrice} onChange={event => setReferencePrice(event.target.value)} placeholder="e.g. 125.50" className="mt-2 min-h-12 w-full rounded-xl border border-white/15 bg-black/20 px-3 text-base outline-none focus:border-[#f2c35f]/60" /><p className="mt-2 text-[11px] leading-4 text-white/40">Used only if the image price cannot be read. Choose a fresh screenshot for current prices.</p></div>
+        <button type="button" onClick={runScan} className={primaryButton}>Get my trade plan</button>
+      </section>}
+      {result?.retake_required && <section className={`${panelClass} space-y-4`}><h2 className="text-xl font-bold">Try a clearer chart</h2><p className="text-sm leading-6 text-white/60">{result.retake_reason}</p><button type="button" onClick={() => libraryRef.current?.click()} className={primaryButton}>Choose another screenshot</button><button type="button" onClick={() => cameraRef.current?.click()} className={`${secondaryButton} w-full`}>Retake photo</button></section>}
+      {result && !result.retake_required && plan && score && previewUrl && <div className="space-y-5">
+        <section className={panelClass}>
+          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-semibold text-white/45">{[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Your screenshot"}</p><p className={`mt-3 text-[11px] font-bold uppercase tracking-[0.15em] ${sideColor}`}>{setupTitle}</p><h2 className="mt-1 text-[clamp(26px,7vw,38px)] font-bold leading-tight tracking-tight">{plan.side === "long" ? "Long" : "Short"} scenario</h2><p className="mt-1 text-sm text-white/60">{result.label}</p></div><div className="shrink-0 rounded-2xl border border-[#f2c35f]/20 bg-[#f2c35f]/5 px-3 py-3 text-center"><p className="text-[10px] font-bold text-[#f2d786]">StockGPT Score</p><p className="mt-1 text-3xl font-bold tabular-nums text-[#f2d786]">{score.value}<span className="text-xs text-white/40">/100</span></p><p className="mt-1 text-[10px] text-white/55">{score.label}</p></div></div>
+          <p className="mt-4 text-sm leading-6 text-white/70">{result.summary}</p>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3"><TradeLevel label="Entry" value={plan.entry} tone="entry" hint={plan.status === "confirmed" ? "Check the trigger below" : "Wait for the trigger"} /><TradeLevel label="Stop loss" value={plan.stop_loss} tone="stop" hint={percent(plan.stop_pct)} /><TradeLevel label="Take profit" value={plan.take_profit} tone="target" hint={percent(plan.target_pct)} /></div>
+          <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-white/50"><p>Reward / risk <span className="font-bold text-white/80">{plan.risk_reward}</span></p>{plan.projected_horizon && <p>Scenario horizon {plan.projected_horizon}</p>}</div>
+          {plan.assumptions && <p className="mt-4 rounded-xl border border-[#f2c35f]/15 bg-[#f2c35f]/5 p-3 text-xs leading-5 text-[#f2d786]/85">{plan.assumptions}</p>}
+          <div className="mt-5 space-y-4 border-t border-white/10 pt-4"><div><h3 className="text-xs font-bold text-[#f2d786]">When to enter</h3><p className="mt-1 text-sm leading-5 text-white/75">{plan.plan || result.confirmation}</p></div><div><h3 className="text-xs font-bold text-rose-200">What cancels this setup</h3><p className="mt-1 text-sm leading-5 text-white/65">{result.invalidation}</p></div></div>
+          <details className="mt-5 border-t border-white/10 pt-4"><summary className="min-h-8 cursor-pointer text-xs font-semibold text-white/65">Why this score?</summary><p className="mt-2 text-xs leading-5 text-white/50">AI setup confidence based on visible evidence, confirmation and level quality. It is not a win probability or a live-market rating.</p><ul className="mt-2 space-y-1 text-xs text-white/65">{score.reasons.map(reason => <li key={reason}>• {reason}</li>)}</ul></details>
         </section>
-      )}
-
-      {(status === "preparing" || status === "analyzing") && previewUrl && (
-        <section className="flex min-h-[calc(100dvh-190px)] flex-col justify-center py-5">
-          <div className="mb-4 min-w-0 px-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#f2c35f]/68">
-              {supportingFiles.length > 0 ? "Combining chart views" : "Scanning chart"}
-            </p>
-            <h1 className="mt-1 break-words text-[clamp(26px,8vw,32px)] font-black tracking-[-0.045em] text-[#fffaf2]">
-              {status === "preparing" ? "Preparing image…" : analysisSteps[stepIndex]}
-            </h1>
-            {supportingFiles.length > 0 && (
-              <p className="mt-2 text-[11px] font-bold text-[#fffaf2]/38">
-                Using {1 + supportingFiles.length} photos together
-              </p>
-            )}
-          </div>
-
-          <div className="relative w-full overflow-hidden rounded-[28px] border border-[#f2c35f]/16 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-            <img src={previewUrl} alt="Chart being scanned" className="block h-auto w-full max-w-full" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,24,15,0.06),rgba(4,24,15,0.18))]" />
-            <span className="sg-chart-scan-laser absolute inset-x-0 h-px bg-[#f5d982] shadow-[0_0_18px_rgba(245,217,130,0.95)]" />
-            <span className="absolute inset-[12px] rounded-[20px] border border-[#f2c35f]/20" />
-          </div>
-
-          <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-bold text-[#fffaf2]/42">
-            <span className="size-1.5 animate-pulse rounded-full bg-[#f2c35f]" />
-            Visual pattern analysis · no live-data verification
-          </div>
+        <section className={panelClass}><ChartScanPreview src={previewUrl} result={result} /></section>
+        {result.pattern_checks.length > 0 && <section className={panelClass}><h3 className="text-sm font-bold">Patterns spotted</h3><div className="mt-3 space-y-4">{result.pattern_checks.map(pattern => <div key={pattern.name}><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{pattern.name}</p><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${pattern.status === "confirmed" ? "bg-emerald-300/10 text-emerald-200" : "bg-[#f2c35f]/10 text-[#f2d786]"}`}>{pattern.status === "confirmed" ? "Confirmed" : "Forming"}</span></div><p className="mt-1 text-xs leading-5 text-white/55">{pattern.evidence}</p>{pattern.status === "forming" && <p className="mt-1 text-[11px] text-[#f2d786]/70">Confirmation still needed{pattern.neckline !== null ? ` at the ${pattern.neckline} neckline` : ""}.</p>}</div>)}</div></section>}
+        <section className={panelClass}><h3 className="text-sm font-bold">Why this direction?</h3><div className="mt-3 space-y-4">{result.signals.length ? result.signals.slice(0, 4).map(signal => <div key={`${signal.region_id}:${signal.name}`}><div className="flex items-center gap-2"><span className={`size-1.5 shrink-0 rounded-full ${signal.bias === "bullish" ? "bg-emerald-300" : signal.bias === "bearish" ? "bg-rose-300" : "bg-[#f2c35f]"}`} /><p className="text-xs font-semibold">{signal.name}</p></div><p className="mt-1 pl-3.5 text-xs leading-5 text-white/55">{signal.evidence}</p></div>) : <p className="text-xs leading-5 text-white/55">No directional finding survived review. The plan above is an illustrative risk scenario.</p>}</div>
+          <details className="mt-4 border-t border-white/10 pt-4"><summary className="min-h-8 cursor-pointer text-xs font-semibold text-white/65">Full indicator review · {result.indicator_checks.length} checked</summary><div className="mt-3 space-y-3">{result.indicator_checks.length ? result.indicator_checks.map(check => <div key={check.id}><p className="text-xs font-semibold">{check.name}<span className="ml-2 font-normal text-white/40">{check.status === "readable" ? "Reviewed" : check.status === "not_reviewed" ? "Review incomplete" : check.status === "not_confirmed" ? "Not confirmed" : "Not readable"}</span></p><p className="mt-1 text-xs leading-5 text-white/50">{check.finding || "No reliable indicator finding from this image."}</p></div>) : <p className="text-xs text-white/50">No readable indicator panels were identified.</p>}{plan.rationale && <p className="border-t border-white/10 pt-3 text-xs leading-5 text-white/55">Level rationale: {plan.rationale}</p>}{result.signals.slice(4).map(signal => <p key={signal.name} className="text-xs leading-5 text-white/55"><strong>{signal.name}:</strong> {signal.evidence}</p>)}</div></details>
         </section>
-      )}
-
-      {status === "error" && (
-        <section className="flex min-h-[calc(100dvh-190px)] min-w-0 flex-col justify-center py-5">
-          {previewUrl && (
-            <div className="mb-5 w-full overflow-hidden rounded-[26px] border border-[#fffaf2]/8 bg-black/40">
-              <img src={previewUrl} alt="Chart scan" className="block h-auto w-full max-w-full opacity-70" />
-            </div>
-          )}
-          <div className="min-w-0 overflow-hidden rounded-[26px] border border-rose-300/12 bg-rose-300/[0.045] p-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-rose-200/65">Scan failed</p>
-            <p className="mt-2 break-words text-[19px] font-black tracking-[-0.025em] text-[#fffaf2]">{error}</p>
-            <p className="mt-2 text-[12px] leading-5 text-[#fffaf2]/45">
-              Keep the actual candles/price line, latest price and price scale visible. StockGPT ignores TradingView headers and toolbar lines.
-            </p>
-          </div>
-          <div className="mt-4 grid min-w-0 grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => scanFile && void runScan([scanFile, ...supportingFiles])}
-              disabled={!scanFile}
-              className="h-12 min-w-0 rounded-[18px] bg-[#f2c35f] px-3 text-[13px] font-black text-[#092116] disabled:opacity-40"
-            >
-              Retry
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              className="h-12 min-w-0 rounded-[18px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[13px] font-black text-[#fffaf2]/76"
-            >
-              New chart
-            </button>
-          </div>
-        </section>
-      )}
-
-      {status === "result" && result && previewUrl && tone && (
-        <section className="min-w-0 overflow-x-hidden pb-4 pt-1">
-          <div ref={previewRef} className="scroll-mt-20">
-            <ChartScanPreview key={previewUrl} src={previewUrl} result={result} selectedSignal={selectedSignal} />
-          </div>
-
-          <div className="relative min-w-0 px-1 pt-6">
-            <div className="min-w-0 border-b border-[#fffaf2]/[0.055] pb-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#fffaf2]/34">Technical outlook</p>
-              <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-                <h1 className={"min-w-0 break-words text-[clamp(27px,8vw,36px)] font-black leading-none tracking-[-0.065em] " + verdictTextClass}>
-                  {verdictWord}
-                </h1>
-                <div className="shrink-0 pb-1 text-right">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#fffaf2]/34">Read confidence</p>
-                  <p className="mt-0.5 text-[clamp(23px,7vw,30px)] font-black leading-none tracking-[-0.045em] text-[#f2d786]">{result.confidence}<span className="text-[12px] text-[#fffaf2]/30">/100</span></p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
-                <div className={"inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] " + tone.badge}>
-                  <span className={"size-1.5 shrink-0 rounded-full " + tone.dot} />
-                  <span className="break-words">{result.label}</span>
-                </div>
-                {result.current_price && (
-                  <div className="max-w-full break-words rounded-full border border-[#fffaf2]/8 bg-[#fffaf2]/[0.045] px-3 py-1.5 text-[10px] font-black text-[#fffaf2]/72">
-                    Current {result.current_price}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {result.verification_status === "unavailable" && (
-              <div className="mt-4 rounded-xl border border-[#f2c35f]/15 bg-[#f2c35f]/5 px-3 py-3 text-[12px] leading-5 text-[#f2d786]">
-                <p>The second review could not finish. This is a preliminary read; highlights and trade levels are withheld.</p>
-                <button type="button" onClick={() => scanFile && void runScan([scanFile, ...supportingFiles])}
-                  className="mt-2 min-h-11 rounded-full border border-[#f2c35f]/25 px-4 text-[11px] font-bold">
-                  Retry review
-                </button>
-              </div>
-            )}
-            <div className="min-w-0 pt-5">
-              <h2 className="break-words text-[clamp(24px,7vw,30px)] font-black leading-[1.02] tracking-[-0.045em] text-[#fffaf2]">{result.pattern}</h2>
-              <p className="mt-2 break-words text-[12px] font-bold text-[#fffaf2]/42">
-                {[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Ticker/timeframe not confidently visible"}
-              </p>
-              <p className="mt-4 max-w-[42rem] break-words text-[14px] font-medium leading-6 text-[#fffaf2]/66">{result.summary}</p>
-            </div>
-
-            {result.retake_required && (
-              <div className="mt-5 min-w-0 overflow-hidden rounded-[24px] border border-rose-300/20 bg-rose-300/[0.07] p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-200">Need a cleaner primary chart</p>
-                <p className="mt-2 break-words text-[15px] font-black leading-5 text-[#fffaf2]">
-                  {result.retake_reason || "Retake with the full candle/price plot clearly visible."}
-                </p>
-                <p className="mt-2 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">
-                  StockGPT rejected this as a reliable price plot rather than using a header, toolbar or text line as technical structure.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="mt-4 h-11 w-full min-w-0 rounded-[16px] bg-rose-200 px-4 text-[12px] font-black text-[#2c090e] transition active:scale-[0.985]"
-                >
-                  Retake primary chart
-                </button>
-              </div>
-            )}
-
-            {!result.retake_required && result.needs_more_info && (
-              <div className="mt-5 min-w-0 overflow-hidden rounded-[24px] border border-[#f2c35f]/18 bg-[#f2c35f]/[0.065] p-4">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#f2d786]">One more view would help</p>
-                  <span className="shrink-0 rounded-full bg-[#f2c35f]/10 px-2.5 py-1 text-[9px] font-black text-[#f2d786]">
-                    {1 + supportingFiles.length}/2 photos
-                  </span>
-                </div>
-                <p className="mt-2 break-words text-[15px] font-black leading-5 text-[#fffaf2]">
-                  {result.more_info_prompt || "Add one more chart photo with the missing price context."}
-                </p>
-                <p className="mt-2 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">
-                  Your first photo stays as the main chart. StockGPT will combine the next picture with it rather than starting over.
-                </p>
-
-                {supportingPreviewUrls.length > 0 && (
-                  <div className="mt-3 flex gap-2 overflow-hidden">
-                    {supportingPreviewUrls.map((url, index) => (
-                      <div key={url} className="min-w-0 flex-1 overflow-hidden rounded-[12px] border border-[#fffaf2]/8 bg-black">
-                        <img src={url} alt={"Supporting chart view " + (index + 1)} className="aspect-[16/10] w-full object-cover opacity-80" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {supportingFiles.length === 0 ? (
-                  <div className="mt-4 grid min-w-0 gap-2.5 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => contextCameraInputRef.current?.click()}
-                      className="h-12 min-w-0 rounded-[17px] bg-[#f2c35f] px-3 text-[12px] font-black text-[#092116] transition active:scale-[0.985]"
-                    >
-                      Add requested photo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => contextLibraryInputRef.current?.click()}
-                      className="h-12 min-w-0 rounded-[17px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[12px] font-black text-[#fffaf2]/76 transition active:scale-[0.985]"
-                    >
-                      Add screenshot
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={reset}
-                    className="mt-4 h-12 w-full min-w-0 rounded-[17px] border border-[#fffaf2]/9 bg-[#fffaf2]/[0.045] px-3 text-[12px] font-black text-[#fffaf2]/76 transition active:scale-[0.985]"
-                  >
-                    Start over with a clearer chart
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!result.retake_required && !result.needs_more_info && hasCompleteTradePlan && (
-              <div className="mt-5 min-w-0 overflow-hidden rounded-[24px] border border-[#fffaf2]/7 bg-[#081f16] p-4">
-                <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/70">Technical trade plan</p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#fffaf2]/38">
-                      Built from the visible {result.timeframe ? result.timeframe + " chart" : "chart timeframe"} · not live-market verified
-                    </p>
-                  </div>
-                  {result.trade_plan.risk_reward && (
-                    <div className="shrink-0 rounded-full bg-[#f2c35f]/10 px-3 py-1.5 text-[11px] font-black text-[#f2d786]">
-                      R:R {result.trade_plan.risk_reward}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 border-y border-[#fffaf2]/[0.055]">
-                  <Level label="Current price" value={result.current_price} />
-                  <Level label="Entry / trigger" value={result.trade_plan.entry} />
-                </div>
-
-                <div className="mt-4 grid min-w-0 grid-cols-2 gap-3">
-                  <TradeLevelCard
-                    label="Stop loss"
-                    value={result.trade_plan.stop_loss}
-                    tone="stop"
-                    hint="Technical invalidation level — beyond the structure that makes the setup wrong."
-                  />
-                  <TradeLevelCard
-                    label="Target"
-                    value={result.trade_plan.take_profit}
-                    tone="target"
-                    hint="Technical target from the visible resistance/support or measured move."
-                  />
-                </div>
-
-                {(result.trade_plan.projected_horizon || result.trade_plan.projected_bars) && (
-                  <div className="mt-4 min-w-0 rounded-[20px] border border-[#f2c35f]/12 bg-[#f2c35f]/[0.045] p-4">
-                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Projected trade horizon</p>
-                    <p className="mt-1.5 break-words text-[22px] font-black tracking-[-0.035em] text-[#fffaf2]">
-                      {result.trade_plan.projected_horizon ?? result.trade_plan.projected_bars}
-                    </p>
-                    {result.trade_plan.projected_bars && result.trade_plan.projected_horizon && (
-                      <p className="mt-1 text-[11px] font-bold text-[#fffaf2]/38">
-                        Approx. {result.trade_plan.projected_bars} on the visible {result.timeframe ?? "chart"} timeframe
-                      </p>
-                    )}
-                    <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[#fffaf2]/34">
-                      Scenario estimate from the visible swing cadence and target distance, not a guaranteed arrival time.
-                    </p>
-                  </div>
-                )}
-
-                {result.trade_plan.plan && (
-                  <div className="mt-4 min-w-0 border-t border-[#fffaf2]/[0.055] pt-4">
-                    <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Plan</p>
-                    <p className="mt-1.5 break-words text-[13px] font-semibold leading-5 text-[#fffaf2]/72">{result.trade_plan.plan}</p>
-                  </div>
-                )}
-
-                {result.trade_plan.rationale && (
-                  <p className="mt-4 break-words text-[11.5px] font-semibold leading-5 text-[#fffaf2]/48">{result.trade_plan.rationale}</p>
-                )}
-              </div>
-            )}
-
-            {!result.retake_required && !result.needs_more_info && !hasCompleteTradePlan && (
-              <div className="mt-5 min-w-0 overflow-hidden rounded-[22px] border border-[#fffaf2]/7 bg-[#fffaf2]/[0.035] p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/42">Risk levels</p>
-                <p className="mt-2 text-[14px] font-black leading-5 text-[#fffaf2]">
-                  A complete trade plan is not supported by this image.
-                </p>
-                <p className="mt-1.5 text-[11.5px] font-semibold leading-5 text-[#fffaf2]/45">
-                  The read above shows the visible setup. Exact risk levels require readable prices and a clear invalidation.
-                </p>
-              </div>
-            )}
-
-            <div className="mt-5 min-w-0">
-              <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#fffaf2]/34">Evidence</p>
-                  <p className="mt-1 text-[13px] font-black text-[#fffaf2]">
-                    {result.signals.length > 0 ? result.signals.length + " visible signals" : "No strong secondary signals"}
-                  </p>
-                </div>
-                <p className="text-[9px] font-bold text-[#fffaf2]/28">Tap a finding to inspect</p>
-              </div>
-
-              {result.signals.length > 0 && (
-                <div className="mt-3 space-y-2.5">
-                  {result.signals.map((signal, index) => {
-                    const signalStyle = signalTone(signal.bias);
-                    return (
-                      <button key={signal.name + index} type="button" aria-pressed={selectedSignal === index}
-                        onClick={() => {
-                          setSelectedSignal(current => current === index ? null : index);
-                          nativeHaptic("light");
-                          if (signal.box) previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                        className={"w-full min-w-0 overflow-hidden rounded-[16px] border p-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#f2c35f] " +
-                          (selectedSignal === index ? "border-[#f2c35f]/40 bg-[#f2c35f]/[0.045]" : "border-[#fffaf2]/7 bg-[#fffaf2]/[0.025]")}>
-                        <div className="flex min-w-0 items-start gap-3">
-                          <span className={"grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold " + signalStyle.bg + " " + signalStyle.text}>
-                            {index + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-[13px] font-bold text-[#fffaf2]">{signal.name}</p>
-                            <p className="mt-1.5 break-words text-[12px] font-medium leading-5 text-[#fffaf2]/55">{signal.evidence}</p>
-                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-semibold">
-                              <span className={signalStyle.text}>{signal.bias === "neutral" ? "Context" : signal.bias === "bullish" ? "Bullish evidence" : "Bearish evidence"}</span>
-                              <span className="text-[#fffaf2]/30">{signal.kind === "candle" ? "Candle pattern" : signal.kind === "indicator" ? "Indicator" : signal.kind === "volume" ? "Volume" : "Price structure"}</span>
-                              <span className="text-[#fffaf2]/30">{signal.box ? "Locate on chart ↗" : signal.source_image > 0 ? "Supporting image" : "Text read"}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {result.indicator_checks.length > 0 && (
-              <div className="mt-6 min-w-0 border-t border-[#fffaf2]/[0.07] pt-5">
-                <p className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#fffaf2]/38">Indicator review</p>
-                <div className="mt-3 divide-y divide-[#fffaf2]/[0.055]">
-                  {result.indicator_checks.map(indicator => (
-                    <div key={indicator.id} className="py-3 first:pt-0">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[12px] font-bold text-[#fffaf2]/85">{indicator.name}</p>
-                        <span className={"shrink-0 text-[9px] font-semibold " + (indicator.status === "readable" ? "text-emerald-200/70" : "text-[#fffaf2]/35")}>
-                          {indicator.status === "readable" ? "Read" : indicator.status === "unreadable" ? "Not legible" : indicator.status === "not_confirmed" ? "Not confirmed" : "Review pending"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11.5px] leading-5 text-[#fffaf2]/46">
-                        {indicator.finding ?? (indicator.status === "not_confirmed" ? "This indicator could not be confirmed from the image." : "There is not enough readable detail for a finding.")}
-                        {indicator.source_image > 0 ? " · Supporting image" : ""}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {Object.values(result.levels).some(Boolean) && (
-              <div className="mt-5 grid min-w-0 grid-cols-2 gap-x-4 border-y border-[#fffaf2]/[0.055]">
-                {[
-                  { label: "Support", value: result.levels.support },
-                  { label: "Resistance", value: result.levels.resistance },
-                  { label: "Breakout", value: result.levels.breakout },
-                  { label: "Invalidation", value: result.levels.invalidation },
-                ].filter(level => level.value).map(level => <Level key={level.label} {...level} />)}
-              </div>
-            )}
-
-            <div className="mt-5 min-w-0 space-y-5">
-              <div className="min-w-0">
-                <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Confirmation</p>
-                <p className="mt-1.5 break-words text-[13px] font-semibold leading-5 text-[#fffaf2]/72">{result.confirmation}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/68">Invalidation</p>
-                <p className="mt-1.5 break-words text-[13px] font-semibold leading-5 text-[#fffaf2]/72">{result.invalidation}</p>
-              </div>
-
-              {result.observations.length > 0 && (
-                <details className="min-w-0 border-t border-[#fffaf2]/[0.055] pt-3">
-                  <summary className="min-h-11 cursor-pointer py-3 text-[11px] font-bold text-[#fffaf2]/48">Other observations</summary>
-                  <div className="mt-3 space-y-2.5">
-                    {result.observations.map((observation, index) => (
-                      <div key={observation + index} className="flex min-w-0 gap-3">
-                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[#f2c35f]/70" />
-                        <p className="min-w-0 break-words text-[12.5px] font-medium leading-5 text-[#fffaf2]/61">{observation}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              <div className="min-w-0 overflow-hidden rounded-[22px] bg-[#0a2a1d]/78 p-4">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#f2c35f]/60">Watch next</p>
-                <p className="mt-1.5 break-words text-[14px] font-black leading-5 tracking-[-0.015em] text-[#fffaf2]">{result.watch_for}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid min-w-0 gap-2.5">
-              <Link
-                href={askHref}
-                prefetch={false}
-                data-native-haptic="medium"
-                className="flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-[19px] bg-[linear-gradient(180deg,#f5d982,#d9ae50)] px-4 py-3 text-center text-[13px] font-black text-[#092116] shadow-[0_14px_36px_rgba(221,177,89,0.16)] transition active:scale-[0.985]"
-              >
-                <StockIcon name="ask" className="size-5 shrink-0" />
-                <span className="min-w-0 break-words">Ask StockGPT about this setup</span>
-              </Link>
-
-              <button
-                type="button"
-                onClick={reset}
-                className="h-12 min-w-0 rounded-[18px] border border-[#fffaf2]/8 bg-[#fffaf2]/[0.04] px-5 text-[12px] font-black text-[#fffaf2]/65 transition active:scale-[0.985]"
-              >
-                Scan another chart
-              </button>
-            </div>
-
-            <p className="mt-4 px-2 text-center text-[10px] leading-4 text-[#fffaf2]/28">
-              Stop/target levels are visual technical references from the supplied photos, not live-market verification or guaranteed outcomes.
-            </p>
-          </div>
-        </section>
-      )}
+        {result.needs_more_info && <section className={panelClass}><p className="text-sm leading-5 text-white/65">{result.more_info_prompt}</p><button type="button" onClick={() => supportingRef.current?.click()} className={`${secondaryButton} mt-3 w-full`}>Add missing chart context</button></section>}
+        {(plan.price_basis === "relative" || plan.price_basis === "user") && <button type="button" onClick={() => { setResult(null); setStatus("ready"); }} className={`${secondaryButton} w-full`}>{plan.price_basis === "relative" ? "Add a reference price & rescan" : "Update reference price & rescan"}</button>}
+        <Link href={askHref} className={primaryButton}>Explain this setup with StockGPT</Link>
+        <button type="button" onClick={reset} className={`${secondaryButton} w-full`}>Scan another chart</button>
+        <p className="px-2 text-center text-[11px] leading-5 text-white/40">Based on this screenshot, not live prices. Estimated levels need confirmation; stops and targets are scenarios, not guarantees.{result.verification_status === "unavailable" ? " Independent review was unavailable; the score is reduced." : ""}</p>
+      </div>}
     </main>
   );
 }
