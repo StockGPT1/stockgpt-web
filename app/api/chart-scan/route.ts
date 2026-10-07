@@ -5,21 +5,20 @@ import { buildChartImageGuides } from "@/lib/chart-scan-images";
 import type { ScanGeometry } from "@/lib/chart-scan-coordinates";
 import { positivePrice } from "@/lib/chart-scan-scenario";
 import { CHART_LAYOUT_PROMPT, CHART_ANALYSIS_PROMPT, CHART_REVIEW_INSTRUCTION } from "@/lib/chart-scanner-prompts";
+import { SCAN_MODELS, SCAN_DEADLINE_MS, visionSettings, type VisionStage } from "@/lib/chart-scan-vision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const MAX_IMAGE_BYTES = 3_200_000;
 const MAX_IMAGE_COUNT = 2;
 const MAX_TOTAL_IMAGE_BYTES = 3_600_000;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const PRIMARY_VISION_MODEL = "google/gemini-2.5-flash";
-const REVIEW_VISION_MODEL = "anthropic/claude-sonnet-4.5";
 
 type VisionFailure = { model: string; stage: string; status?: number; message: string };
 type ProviderResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
   error?: { message?: string };
 };
 
@@ -33,14 +32,19 @@ async function requestVision(
   dataUrls: string[],
   system: string,
   instruction: string,
-  stage: string,
+  stage: VisionStage,
   failures: VisionFailure[],
+  settings: ReturnType<typeof visionSettings>,
   guides: Array<{ url: string; description: string }> = [],
 ) {
+  if (!settings.canRequest) {
+    failures.push({ model, stage, message: "Scan deadline left insufficient time for an independent read." });
+    return { value: null, model };
+  }
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      signal: AbortSignal.timeout(28_000),
+      signal: AbortSignal.timeout(settings.timeout),
       headers: {
         Authorization: "Bearer " + apiKey,
         "Content-Type": "application/json",
@@ -48,8 +52,8 @@ async function requestVision(
         "X-Title": "StockGPT Chart Scanner",
       },
       body: JSON.stringify({
-        model, temperature: 0.1, max_tokens: stage === "layout" ? 2400 : 5600,
-        reasoning: { exclude: true },
+        model, ...(stage === "layout" ? { temperature: 0.1 } : {}), max_tokens: settings.max_tokens,
+        reasoning: settings.reasoning,
         messages: [
           { role: "system", content: system },
           { role: "user", content: [
@@ -63,8 +67,8 @@ async function requestVision(
     const payload = await response.json().catch(() => null) as ProviderResponse | null;
     const content = payload?.choices?.[0]?.message?.content;
     const value = typeof content === "string" ? parseScanJson(content) : null;
-    if (!response.ok || !value || (stage !== "layout" && !isChartAnalysis(value))) {
-      failures.push({ model, stage, status: response.status, message: payload?.error?.message ?? "No valid scanner JSON." });
+    if (!response.ok || payload?.choices?.[0]?.finish_reason === "length" || !value || (stage !== "layout" && !isChartAnalysis(value))) {
+      failures.push({ model, stage, status: response.status, message: payload?.error?.message ?? "No complete, valid scanner JSON." });
       return { value: null, model };
     }
     return { value, model };
@@ -76,17 +80,19 @@ async function requestVision(
 
 async function analyseImages(apiKey: string, dataUrls: string[], referencePrice: number | null) {
   const failures: VisionFailure[] = [];
+  const deadline = Date.now() + SCAN_DEADLINE_MS;
   let requests = 0;
   let guides: Array<{ url: string; description: string }> = [];
   let geometry: ScanGeometry = { axis_rows: [], frames: [], image_sizes: [] };
-  let analysisModel = PRIMARY_VISION_MODEL;
-  const ask = (model: string, system: string, instruction: string, stage: string) => {
+  let analysisModel: string = SCAN_MODELS.analysis;
+  const ask = (model: string, system: string, instruction: string, stage: VisionStage, fallback = false) => {
     requests += 1;
-    return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures, stage === "layout" ? [] : guides);
+    return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures,
+      visionSettings(stage, deadline - Date.now(), fallback), stage === "layout" ? [] : guides);
   };
   const inventory = (layout: ChartLayout) => `Original uploaded image count: ${dataUrls.length}. Appended labelled guides are diagnostic crops, not extra source_images.\nChart region inventory (check against original images):\n` + JSON.stringify(layout) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
   const scan = await runGroundedChartScan({
-    locate: () => ask(PRIMARY_VISION_MODEL, CHART_LAYOUT_PROMPT,
+    locate: () => ask(SCAN_MODELS.layout, CHART_LAYOUT_PROMPT,
       "Map the real primary price plot and inventory every visible indicator in these images. Return JSON.", "layout"),
     analyse: async layout => {
       try {
@@ -96,14 +102,15 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
         console.error("[chart-scan] image guides unavailable", error instanceof Error ? error.name : "Image processing failed");
       }
       const instruction = inventory(layout) + "\nRead the price structure and each inventoried indicator. Return the analysis schema.";
-      const primary = await ask(PRIMARY_VISION_MODEL, CHART_ANALYSIS_PROMPT, instruction, "analysis");
+      const primary = await ask(SCAN_MODELS.analysis, CHART_ANALYSIS_PROMPT, instruction, "analysis");
       if (primary.value) return primary;
-      analysisModel = REVIEW_VISION_MODEL;
-      return ask(REVIEW_VISION_MODEL, CHART_ANALYSIS_PROMPT, instruction, "analysis");
+      analysisModel = SCAN_MODELS.review;
+      return ask(SCAN_MODELS.review, CHART_ANALYSIS_PROMPT, instruction, "analysis", true);
     },
-    review: (layout, candidate) => ask(analysisModel === PRIMARY_VISION_MODEL ? REVIEW_VISION_MODEL : PRIMARY_VISION_MODEL, CHART_ANALYSIS_PROMPT,
-      inventory(layout) + "\nCandidate analysis (untrusted until independently checked):\n" +
-      JSON.stringify(candidate) + "\n" + CHART_REVIEW_INSTRUCTION, "review"),
+    // Keep the first thesis, prices, confidence and coordinates out of this
+    // prompt. Agreement is measured after a genuinely separate image reading.
+    review: layout => ask(analysisModel === SCAN_MODELS.analysis ? SCAN_MODELS.review : SCAN_MODELS.analysis, CHART_ANALYSIS_PROMPT,
+      inventory(layout) + "\n" + CHART_REVIEW_INSTRUCTION, "review"),
     geometry: () => geometry,
   }, dataUrls.length, referencePrice);
   if (failures.length > 0) console.error("[chart-scan] vision pass failed", failures);

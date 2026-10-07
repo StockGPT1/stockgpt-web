@@ -202,7 +202,7 @@ export function buildTradeScenario(
     projected_bars: text(raw.timeframe) ? text(plan.projected_bars, 60) : null,
     projected_horizon: text(raw.timeframe) ? text(plan.projected_horizon, 80) : null,
     plan: preferredPattern?.status === "forming"
-      ? `Wait for a candle to close ${side === "long" ? "above" : "below"} the ${priceLabel(preferredPattern.neckline ?? entry, sample, displayPrecision)} neckline before entering. The pattern is still forming.`
+      ? `Wait for a candle to close ${side === "long" ? "above" : "below"} the ${priceLabel(preferredPattern.neckline ?? entry, sample, displayPrecision)} neckline (the level between the two swings) before entering. The pattern is still forming.`
       : text(plan.plan) ?? text(raw.confirmation) ?? `Wait for a candle to close ${side === "long" ? "above" : "below"} ${entryLabel} before considering this ${side} scenario.`,
     rationale: text(plan.rationale),
   };
@@ -212,13 +212,23 @@ export function stockGPTScore(
   rawConfidence: unknown,
   plan: TradeScenario,
   reviewed: boolean,
-  signals: Array<{ bias: string; confidence: number }>,
+  signals: Array<{ bias: string; confidence: number; kind?: string; name?: string; region_id?: string }>,
   patterns: ChartPattern[],
 ) {
   if (plan.status === "unavailable") return { value: 0, label: "No chart read", reasons: ["A readable chart is required."] };
   const matching = signals.filter(signal => signal.bias === (plan.side === "long" ? "bullish" : "bearish"));
   const opposing = signals.filter(signal => signal.bias === (plan.side === "long" ? "bearish" : "bullish"));
-  let value = boundedScore(rawConfidence) * 0.6 + Math.min(22, matching.length * 7) - opposing.length * 8;
+  const family = (signal: typeof signals[number]) => {
+    if (signal.kind === "volume" || /volume/i.test(signal.name ?? "")) return "volume";
+    if (["structure", "pattern", "candle", "level"].includes(signal.kind ?? "")) return "price";
+    if (/rsi|macd|stoch|momentum/i.test(signal.name ?? "")) return "momentum";
+    if (/moving.average|\b[es]ma\b|vwap|ichimoku/i.test(signal.name ?? "")) return "trend";
+    if (/bollinger|band|\batr\b|volatility/i.test(signal.name ?? "")) return "volatility";
+    return signal.region_id ?? "unclassified";
+  };
+  const supportingFamilies = new Set(matching.map(family)).size;
+  const opposingFamilies = new Set(opposing.map(family)).size;
+  let value = boundedScore(rawConfidence) * 0.6 + Math.min(22, supportingFamilies * 7) - opposingFamilies * 8;
   value += plan.levels_basis === "structure" ? 10 : -8;
   value += patterns.some(pattern => pattern.status === "confirmed") ? 8 : 0;
   value -= plan.status === "conditional" ? 5 : 0;
@@ -227,9 +237,11 @@ export function stockGPTScore(
   if (Number.parseFloat(plan.risk_reward ?? "0") < 1) value -= 10;
   if (plan.status === "estimated") value = Math.min(60, value);
   if (matching.length === 0) value = Math.min(35, value);
+  if (supportingFamilies < 2) value = Math.min(70, value);
   const score = Math.round(Math.max(5, Math.min(95, value)));
   const reasons = [
     matching.length ? `${matching.length} supporting finding${matching.length === 1 ? "" : "s"}` : "No supporting directional finding",
+    ...(matching.length ? [`${supportingFamilies} evidence ${supportingFamilies === 1 ? "family" : "families"}; related clues count together`] : []),
     ...(opposing.length ? [`${opposing.length} opposing finding${opposing.length === 1 ? "" : "s"}`] : []),
     ...(plan.status === "conditional" ? ["Entry confirmation still needed"] : []),
     ...(plan.levels_basis !== "structure" ? ["Risk levels include estimates"] : []),
