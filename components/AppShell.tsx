@@ -125,7 +125,7 @@ function PageBackdrop({ activePath }: { activePath: string }) {
         </>
       )}
 
-      {variant === "default" && (
+      {variant === "default" && activePath !== "/portfolio" && (
         <svg
           className="absolute right-[5%] top-[12%] h-[220px] w-[500px] opacity-[0.1]"
           viewBox="0 0 500 220"

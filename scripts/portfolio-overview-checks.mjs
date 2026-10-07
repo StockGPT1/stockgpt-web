@@ -134,10 +134,12 @@ test("reviews retain observed alerts and select one primary reason in priority o
     holding("OVERDUE", 10, { daysSinceReview: 31 }),
     holding("SECTOR", 10, { sector: " ", daysSinceReview: 10 }),
   ], 500);
-  assert.deepEqual(result.reviews.map((review) => review.key), ["MISSING", "ALERT", "TARGET", "EVENT", "OVERDUE", "SECTOR"]);
+  assert.deepEqual(result.reviews.map((review) => review.key), ["MISSING", "ALERT", "EVENT", "SECTOR"]);
+  assert.ok(!result.reviews.some((review) => review.key === "TARGET"));
+  assert.equal(snapshot([holding("TARGET", 50, { targetAllocationPct: 2 })], 500).reviews[0].title, "Above your target");
   assert.equal(result.reviews.find((review) => review.key === "ALERT").detail, "Higher priority observation");
   assert.equal(result.reviews.find((review) => review.key === "EVENT").detail, "Recorded event");
-  assert.match(result.reviews.find((review) => review.key === "OVERDUE").detail, /31 days/);
+  assert.ok(!result.reviews.some((review) => review.key === "OVERDUE"));
   assert.equal(new Set(result.reviews.map((review) => review.key)).size, result.reviews.length);
 });
 

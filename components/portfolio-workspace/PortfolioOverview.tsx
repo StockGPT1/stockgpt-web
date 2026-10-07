@@ -104,7 +104,7 @@ export function PortfolioOverview({
         <p className={styles.footnote}>Unrealised P/L is on holdings you still own. Recorded realised P/L comes from the sale history available for this portfolio.</p>
       </section>
       <section ref={reviewsRef} className={`${styles.section} ${styles.reviewSection}`}>
-      <SectionHeading title="Worth a look" detail="Observed alerts, exposure and review dates. Open a holding to inspect the context." action={snapshot.reviews.length > 4 ? <button type="button" onClick={onViewHoldings} className={styles.textAction}>View holdings <span aria-hidden="true">→</span></button> : undefined} />
+      <SectionHeading title="Worth a look" detail="Active alerts and exposure flags. Open a holding to inspect the context." action={snapshot.reviews.length > 4 ? <button type="button" onClick={onViewHoldings} className={styles.textAction}>View holdings <span aria-hidden="true">→</span></button> : undefined} />
       {snapshot.reviews.length ? <ul className={styles.reviews}>
         {snapshot.reviews.slice(0, 4).map(review => <li key={review.key}><button type="button" onClick={() => onHolding(review.holding)} className={styles.reviewRow}>
           <span className={styles.reviewTicker}>{review.holding.ticker}</span><span className={styles.reviewText}><span className={styles.reviewTitle}>{review.title}</span><span className={styles.reviewDetail}>{review.detail}</span></span><PortfolioIcon name="arrow" className="size-4 shrink-0 text-[#ddb159]" />

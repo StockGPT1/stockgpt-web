@@ -57,6 +57,7 @@ export function buildPortfolioOverviewSnapshot({
   const cashValue = positiveValue(cashBalance);
   const totalValue = holdingsValue + cashValue;
   const allocationAvailable = valuesValid && Number.isFinite(totalValue) && totalValue > 0;
+  const exposureAvailable = allocationAvailable && missingPriceCount === 0;
   const percentage = (value: number) => Number.isFinite(totalValue) && totalValue > 0 ? value / totalValue * 100 : 0;
   const sorted = priced.slice().sort((a, b) => b.currentValue - a.currentValue);
   const sectors = new Map<string, { value: number; holdings: ExtendedHolding[] }>();
@@ -99,20 +100,19 @@ export function buildPortfolioOverviewSnapshot({
     if (!Number.isFinite(holding.currentValue) || holding.currentValue < 0) reasons.push({ title: "Valuation unavailable", detail: "This holding has no usable current valuation.", priority: 100 });
     const action = holding.actionAlerts.slice().sort((a, b) => b.priority - a.priority)[0];
     if (action) reasons.push({ title: "Model review alert", detail: action.title, priority: 90 });
-    if (allocationAvailable && holding.targetAllocationPct != null && holding.targetAllocationPct > 0 && share - holding.targetAllocationPct > 3) {
+    if (exposureAvailable && holding.targetAllocationPct != null && holding.targetAllocationPct > 0 && share - holding.targetAllocationPct > 3) {
       reasons.push({ title: "Above your target", detail: `${share.toFixed(1)}% allocation versus your ${holding.targetAllocationPct.toFixed(1)}% target.`, priority: 80 });
     }
-    if (allocationAvailable && share > policy.concentrationReviewPct) reasons.push({
+    if (exposureAvailable && share > policy.concentrationReviewPct) reasons.push({
       title: "Position concentration", detail: `${share.toFixed(1)}% of ${missingPriceCount ? "available valuation" : "portfolio value"}; ${policy.concentrationReviewPct}% is the ${policy.riskProfile} profile review threshold.`, priority: 75,
     });
     const sectorName = holding.sector?.trim() || "Unknown";
     const sector = sectors.get(sectorName);
-    if (allocationAvailable && sectorName !== "Unknown" && sector?.holdings[0] === holding && percentage(sector.value) > policy.sectorCapPct) reasons.push({
+    if (exposureAvailable && sectorName !== "Unknown" && sector?.holdings[0] === holding && percentage(sector.value) > policy.sectorCapPct) reasons.push({
       title: "Sector concentration", detail: `${sectorName} represents ${percentage(sector.value).toFixed(1)}% of ${missingPriceCount ? "available valuation" : "portfolio value"}; the profile review threshold is ${policy.sectorCapPct}%.`, priority: 70,
     });
-    const event = holding.eventAlerts.slice().sort((a, b) => b.priority - a.priority)[0];
+    const event = holding.eventAlerts.filter((alert) => alert.action !== "none" && alert.severity !== "success").sort((a, b) => b.priority - a.priority)[0];
     if (event) reasons.push({ title: "Event to review", detail: event.title, priority: 60 });
-    if (Number.isFinite(holding.daysSinceReview) && holding.daysSinceReview > 30) reasons.push({ title: "Review overdue", detail: `${Math.floor(holding.daysSinceReview)} days since this holding was reviewed.`, priority: 50 });
     if (sectorName === "Unknown") reasons.push({ title: "Sector unclassified", detail: "Sector exposure cannot be fully classified for this position.", priority: 30 });
     const reason = reasons.sort((a, b) => b.priority - a.priority)[0];
     if (reason) reviews.push({ key: holding.ticker, holding, ...reason });

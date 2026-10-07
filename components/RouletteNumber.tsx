@@ -47,6 +47,8 @@ export function RouletteNumber({
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
       const next = latestValueRef.current;
+      if (next === frame.current) return;
+      setSpinning(true);
 
       setFrame((current) => {
         if (next === current.current) return current;
@@ -58,12 +60,11 @@ export function RouletteNumber({
         };
       });
     }, delay);
-  }, [frame.current, minUpdateMs, value]);
+  }, [frame, minUpdateMs, value]);
 
   useEffect(() => {
     if (frame.sequence === 0) return;
 
-    setSpinning(true);
     if (settleTimerRef.current != null) {
       window.clearTimeout(settleTimerRef.current);
     }
@@ -73,7 +74,7 @@ export function RouletteNumber({
       settleTimerRef.current = null;
       setSpinning(false);
     }, spinMs + maxDigitDelay + 18);
-  }, [frame.current.length, frame.sequence, spinMs]);
+  }, [frame, spinMs]);
 
   useEffect(() => {
     return () => {
@@ -90,17 +91,17 @@ export function RouletteNumber({
 
   return (
     <span className={`sg-roulette-number ${className}`} aria-label={frame.current}>
-      {!spinning ? frame.current : Array.from(frame.current).map((character, index) => {
+      {Array.from(frame.current).map((character, index) => {
         const previousCharacter = sameLength ? frame.previous[index] : null;
         const isDigit = /^\d$/.test(character);
         const previousIsDigit = previousCharacter != null && /^\d$/.test(previousCharacter);
         const shouldSpin =
-          isDigit &&
+          spinning && isDigit &&
           (!previousIsDigit || previousCharacter !== character);
 
         if (!shouldSpin) {
           return (
-            <span key={`static-${index}-${character}`} aria-hidden="true">
+            <span key={`static-${index}-${character}`} className={isDigit ? "sg-roulette-digit" : undefined} aria-hidden="true">
               {character}
             </span>
           );

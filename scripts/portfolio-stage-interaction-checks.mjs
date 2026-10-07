@@ -131,6 +131,21 @@ function assertCurrent(view, props) {
   assert.ok(!text(view.tree).includes("Total return at this point"));
 }
 
+test("scrubbing across different value lengths keeps the headline font sizing fixed", () => {
+  const stage = stageHarness();
+  stage.props.chartData["1M"][0] = { ...stage.history[0], close: 999.5 };
+  let view = stage.render();
+  const width = find(view.tree, (node) => node.type === "h1").props.style["--portfolio-value-width"];
+  for (const point of view.chart.props.data["1M"]) {
+    view.chart.props.onScrub(point);
+    view = stage.render();
+    assert.equal(view.balance, money(point.close, "GBP"));
+    assert.equal(find(view.tree, (node) => node.type === "h1").props.style["--portfolio-value-width"], width);
+  }
+  view.chart.props.onScrub(null);
+  assert.equal(find(stage.render().tree, (node) => node.type === "h1").props.style["--portfolio-value-width"], width);
+});
+
 test("a historical value without PnL shows unavailable instead of current gains", () => {
   const stage = stageHarness();
   stage.props.chartData["1M"][1] = { ...stage.history[1], pnl: undefined, pnlPct: undefined };

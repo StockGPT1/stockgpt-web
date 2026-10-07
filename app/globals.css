@@ -884,6 +884,13 @@ html[data-app-shell="true"] a {
 .sg-roulette-number {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.sg-roulette-digit {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
 }
 
 .sg-roulette-slot {

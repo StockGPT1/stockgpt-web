@@ -188,7 +188,7 @@ export function derivePortfolioHoldingAction(
   const reviewSized = allocation > (target != null && target > 0 ? target * 1.15 : policy.concentrationReviewPct);
   const oversized = allocation > (target != null && target > 0 ? target * 1.25 : policy.concentrationTrimPct);
   const severelyOversized = allocation > (target != null && target > 0 ? Math.max(target * 1.6, policy.hardConcentrationPct) : policy.hardConcentrationPct);
-  const weakConviction = score < 6200 || (scoreChange < -900 && rankWorsened > 20);
+  const weakConviction = score > 0 && (score < 6200 || (scoreChange < -900 && rankWorsened > 20));
   const strongConviction = score >= 7200 && (rank == null || rank <= 120);
   const underTarget =
     target != null && target > 0
@@ -241,7 +241,7 @@ export function derivePortfolioHoldingAction(
     label = "Consider buying more";
     reason = `${ticker} remains high conviction, is below the portfolio construction sizing band, and cash/context can support a measured add without creating an immediate trim conflict.`;
     suggestedBuyAmount = Math.max(50, Math.min(sizingRoom.suggestedAddValue, finiteNumber(holding.currentValue) * 0.25));
-  } else if (alertAction === "review" || eventWarnings.length > 0 || weakConviction || reviewSized || finiteNumber(holding.daysSinceReview) > 30) {
+  } else if (alertAction === "review" || eventWarnings.length > 0 || weakConviction || reviewSized) {
     action = "review";
     scoreForConfidence = stale ? 38 : 56;
     label = "Review / watch";

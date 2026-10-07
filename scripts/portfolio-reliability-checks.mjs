@@ -111,6 +111,8 @@ const now = Date.now();
 const fresh = new Date(now - 30 * 60_000).toISOString();
 const stale = new Date(now - 5 * 24 * 60 * 60_000).toISOString();
 assert.equal(derivePortfolioHoldingAction(holding(), { riskTolerance: "moderate", cashBalance: 250, nowMs: now }).action, "none");
+assert.equal(derivePortfolioHoldingAction(holding({ daysSinceReview: 180, pnlPercent: 40 }), { riskTolerance: "moderate", cashBalance: 250, nowMs: now }).action, "none");
+assert.equal(derivePortfolioHoldingAction(holding({ score: 0, rank: null, pnlPercent: 40 }), { riskTolerance: "moderate", cashBalance: 250, nowMs: now }).action, "none");
 assert.equal(derivePortfolioHoldingAction(holding({ score: 5800, rank: 240, daysSinceReview: 45 }), { riskTolerance: "moderate", cashBalance: 250, nowMs: now }).action, "review");
 assert.equal(derivePortfolioHoldingAction(holding({ score: 8100, rank: 25, currentAllocationPct: 5, targetAllocationPct: 14, actionAlerts: [{ action: "buy_more", severity: "info", dataUpdatedAt: fresh }] }), { riskTolerance: "moderate", cashBalance: 1500, cashDrag: 7, nowMs: now }).action, "buy_more");
 assert.equal(derivePortfolioHoldingAction(holding({ score: 5500, rank: 200, currentAllocationPct: 38, targetAllocationPct: 18 }), { riskTolerance: "moderate", cashBalance: 500, sectorExposurePct: 38, nowMs: now }).action, "trim");

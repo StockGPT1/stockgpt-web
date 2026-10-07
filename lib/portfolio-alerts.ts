@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { getStockChart } from "@/lib/yahoo";
+import { hasUsableAlertQuote, isAlertDataFresh } from "@/lib/portfolio-alert-data";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AlertSeverity = "critical" | "warning" | "info" | "success";
@@ -69,6 +70,7 @@ export type EnrichedHolding = {
   score: number;
   maxScore: number;
   currentPrice: number;
+  priceUpdatedAt?: string | null;
   entryPrice: number;
   shares: number;
   costBasis: number;
@@ -147,6 +149,10 @@ type AlertContext = {
   riskTolerance: RiskTolerance;
   factorDiagnostics?: Record<string, unknown> | null;
   technical: TechnicalLevels;
+  quoteConfirmed?: boolean;
+  allocationComplete?: boolean;
+  modelConfirmed?: boolean;
+  diagnosticsConfirmed?: boolean;
 };
 
 type DiagnosticRecord = Record<string, unknown>;
@@ -192,12 +198,13 @@ function finiteNumber(value: unknown, fallback = 0) {
 }
 
 function nullableNumber(value: unknown) {
+  if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
 function pctChange(current: number | null, previous: number | null) {
-  if (!current || !previous || previous <= 0) return null;
+  if (current === null || previous === null || !Number.isFinite(current) || !Number.isFinite(previous) || current <= 0 || previous <= 0) return null;
   return ((current - previous) / previous) * 100;
 }
 
@@ -590,17 +597,25 @@ function fallbackTechnicalLevels(currentPrice: number): TechnicalLevels {
   };
 }
 
+function confirmedModelEvidence(ctx: AlertContext) {
+  const scoreConfirmed = ctx.modelConfirmed !== false && Number.isFinite(ctx.score) && ctx.score > 0;
+  const rankConfirmed = ctx.modelConfirmed !== false && ctx.rank !== null && Number.isFinite(ctx.rank) && ctx.rank > 0;
+  const diagnostics = ctx.diagnosticsConfirmed === false ? null : ctx.factorDiagnostics;
+  const scoreFromEntryPct = scoreConfirmed ? pctChange(ctx.score, ctx.scoreAtEntry) : null;
+  const latestScorePct = pctChange(
+    latestDiagnosticScore(diagnostics),
+    previousDiagnosticScore(diagnostics),
+  );
+  const rankMove = rankConfirmed && ctx.rankAtEntry !== null && Number.isFinite(ctx.rankAtEntry) && ctx.rankAtEntry > 0 ? ctx.rank! - ctx.rankAtEntry : null;
+  return { scoreFromEntryPct, latestScorePct, rankMove, rankConfirmed,
+    negativeEvidence: negativeFactorEvidence(diagnostics), positiveEvidence: positiveFactorEvidence(diagnostics) };
+}
+
 function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
   const alerts: HoldingAlert[] = [];
   const heldPastGrace = ctx.daysHeld >= RECENT_HOLDING_GRACE_DAYS;
-  const scoreFromEntryPct = pctChange(ctx.score, ctx.scoreAtEntry);
-  const latestScorePct = pctChange(
-    latestDiagnosticScore(ctx.factorDiagnostics),
-    previousDiagnosticScore(ctx.factorDiagnostics),
-  );
-  const rankMove = ctx.rank && ctx.rankAtEntry ? ctx.rank - ctx.rankAtEntry : null;
-  const negativeEvidence = negativeFactorEvidence(ctx.factorDiagnostics);
-  const positiveEvidence = positiveFactorEvidence(ctx.factorDiagnostics);
+  const { scoreFromEntryPct, latestScorePct, rankMove, rankConfirmed, negativeEvidence, positiveEvidence } = confirmedModelEvidence(ctx);
+  const quoteConfirmed = ctx.quoteConfirmed !== false && Number.isFinite(ctx.currentPrice) && ctx.currentPrice > 0;
 
   if (latestScorePct !== null && latestScorePct <= -8) {
     alerts.push(
@@ -802,6 +817,7 @@ function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
 
   if (
     heldPastGrace &&
+    rankConfirmed &&
     ctx.sectorMomentum === "Struggling" &&
     ctx.sectorBullishPct <= 20 &&
     ctx.rankPercentile < 60
@@ -830,7 +846,7 @@ function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
   }
 
   if (
-    ctx.sectorMomentum === "Booming" &&
+    rankConfirmed && ctx.sectorMomentum === "Booming" &&
     ctx.sectorBullishPct >= 35 &&
     ctx.rankPercentile >= 70
   ) {
@@ -857,7 +873,7 @@ function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
     );
   }
 
-  if (heldPastGrace && ctx.pnlPercent <= -12) {
+  if (heldPastGrace && quoteConfirmed && ctx.pnlPercent <= -12) {
     alerts.push(
       makeAlert({
         ticker: ctx.ticker,
@@ -884,7 +900,7 @@ function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
     );
   }
 
-  if (heldPastGrace && ctx.pnlPercent >= 30) {
+  if (heldPastGrace && quoteConfirmed && ctx.pnlPercent >= 30) {
     alerts.push(
       makeAlert({
         ticker: ctx.ticker,
@@ -911,22 +927,17 @@ function buildEventAlerts(ctx: AlertContext): HoldingAlert[] {
 }
 
 function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
+  const quoteConfirmed = ctx.quoteConfirmed !== false && Number.isFinite(ctx.currentPrice) && ctx.currentPrice > 0;
+  const { scoreFromEntryPct, latestScorePct, rankMove, rankConfirmed: modelRankConfirmed, negativeEvidence, positiveEvidence } = confirmedModelEvidence(ctx);
   const heldPastGrace = ctx.daysHeld >= RECENT_HOLDING_GRACE_DAYS;
-  const scoreFromEntryPct = pctChange(ctx.score, ctx.scoreAtEntry);
-  const latestScorePct = pctChange(
-    latestDiagnosticScore(ctx.factorDiagnostics),
-    previousDiagnosticScore(ctx.factorDiagnostics),
-  );
-  const rankMove = ctx.rank && ctx.rankAtEntry ? ctx.rank - ctx.rankAtEntry : null;
   const rankImprovement = rankMove !== null ? -rankMove : 0;
-  const negativeEvidence = negativeFactorEvidence(ctx.factorDiagnostics);
-  const positiveEvidence = positiveFactorEvidence(ctx.factorDiagnostics);
   const maxConcentration = concentrationThreshold(ctx.riskTolerance);
   const driftFromTarget =
     ctx.targetAllocationPct !== null
       ? ctx.currentAllocationPct - ctx.targetAllocationPct
       : null;
   const stopHit =
+    quoteConfirmed &&
     ctx.technical.stopLoss !== null && ctx.currentPrice <= ctx.technical.stopLoss;
   const targetUpsidePct =
     ctx.technical.takeProfit && ctx.technical.takeProfit > ctx.currentPrice
@@ -954,10 +965,12 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
       : ctx.currentAllocationPct < 8;
 
   const overbuilt =
+    quoteConfirmed &&
+    ctx.allocationComplete !== false &&
     ctx.currentAllocationPct > maxConcentration &&
     (driftFromTarget === null || driftFromTarget > 4);
 
-  if (heldPastGrace && stopHit && (ctx.rankPercentile < 60 || clearDeterioration)) {
+  if (heldPastGrace && stopHit && ((modelRankConfirmed && ctx.rankPercentile < 60) || clearDeterioration)) {
     return makeAlert({
       ticker: ctx.ticker,
       category: "action",
@@ -987,7 +1000,7 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
     });
   }
 
-  if (heldPastGrace && ctx.rankPercentile <= 25 && clearDeterioration) {
+  if (heldPastGrace && modelRankConfirmed && ctx.rankPercentile <= 25 && clearDeterioration) {
     return makeAlert({
       ticker: ctx.ticker,
       category: "action",
@@ -1019,6 +1032,7 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
 
   if (
     heldPastGrace &&
+    modelRankConfirmed &&
     scoreFromEntryPct !== null &&
     scoreFromEntryPct <= -25 &&
     ctx.rankPercentile < 55 &&
@@ -1077,6 +1091,7 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
 
   if (
     heldPastGrace &&
+    modelRankConfirmed &&
     scoreFromEntryPct !== null &&
     scoreFromEntryPct <= -15 &&
     ctx.rankPercentile < 65
@@ -1103,7 +1118,7 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
     });
   }
 
-  if (heldPastGrace && ctx.pnlPercent >= 35 && ctx.rankPercentile < 75) {
+  if (heldPastGrace && quoteConfirmed && modelRankConfirmed && ctx.pnlPercent >= 35 && ctx.rankPercentile < 75) {
     return makeAlert({
       ticker: ctx.ticker,
       category: "action",
@@ -1131,6 +1146,9 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
 
   if (
     heldPastGrace &&
+    quoteConfirmed &&
+    modelRankConfirmed &&
+    ctx.allocationComplete !== false &&
     ctx.rankPercentile >= 85 &&
     sectorStrong &&
     underbuilt &&
@@ -1166,7 +1184,7 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
     (alert) => alert.severity === "warning" || alert.severity === "critical",
   ).length;
 
-  if (ctx.daysSinceReview >= 90 || warningEventCount >= 2) {
+  if (warningEventCount >= 2) {
     return makeAlert({
       ticker: ctx.ticker,
       category: "action",
@@ -1174,19 +1192,16 @@ function buildActionAlert(ctx: AlertContext, eventAlerts: HoldingAlert[]) {
       severity: "info",
       action: "review",
       title: `Review required: ${ctx.ticker}`,
-      message:
-        ctx.daysSinceReview >= 90
-          ? `${ctx.ticker} has not been reviewed for ${ctx.daysSinceReview} days.`
-          : `${ctx.ticker} has multiple active event alerts and needs a manual check.`,
+      message: `${ctx.ticker} has multiple active warning events and needs a manual check.`,
       recommendation:
-        "Review the stock page, recent news, AI score, rank and portfolio sizing. Then mark it reviewed.",
+        "Check the active warning events against recent news, AI score, rank and portfolio sizing.",
       evidence: [
-        `Days since review: ${ctx.daysSinceReview}`,
         `Active warning events: ${warningEventCount}`,
+        ...eventAlerts.filter((alert) => alert.severity === "warning" || alert.severity === "critical").map((alert) => alert.title),
       ],
       priority: 60,
       expiresWhen:
-        "This action disappears once the position is reviewed and event pressure reduces.",
+        "This action disappears when fewer than two warning events remain active.",
     });
   }
 
@@ -1243,26 +1258,6 @@ function buildTriggers(ctx: AlertContext): HoldingTrigger[] {
       action: "Review the thesis. If rank is also weak, reduce or exit.",
     });
   }
-
-  const reviewIn = Math.max(0, 90 - ctx.daysSinceReview);
-  const reviewDate = new Date();
-  reviewDate.setDate(reviewDate.getDate() + reviewIn);
-
-  triggers.push({
-    type: "review",
-    icon: "calendar",
-    tone: "neutral",
-    priority: 4,
-    condition:
-      reviewIn === 0
-        ? "Review is due now"
-        : `Next review around ${reviewDate.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-          })}`,
-    action:
-      "Check AI rank, score trend, news flow, technical levels and allocation size.",
-  });
 
   return triggers.sort((a, b) => a.priority - b.priority);
 }
@@ -1444,14 +1439,20 @@ async function enrichHoldingsWithClient(
     });
   });
 
+  const now = new Date();
+  const quoteTimestamp = (current: CurrentStockRow | undefined) => safeIso(current?.last_price_update ?? current?.updated_at);
+  const allocationComplete = holdings.every((holding) => {
+    if (holding.shares === 0) return true;
+    const current = currentMap.get(holding.ticker);
+    return holding.shares !== null && Number.isFinite(holding.shares) && holding.shares > 0 &&
+      hasUsableAlertQuote(finiteNumber(current?.price, 0), quoteTimestamp(current), now.getTime());
+  });
   const totalPortfolioValue = holdings.reduce((sum, holding) => {
     const current = currentMap.get(holding.ticker);
     const price = finiteNumber(current?.price, 0);
     const shares = finiteNumber(holding.shares, 1);
-    return sum + price * shares;
+    return sum + (price > 0 && shares > 0 ? price * shares : 0);
   }, 0);
-
-  const now = new Date();
 
   return await Promise.all(
     holdings.map(async (holding) => {
@@ -1459,6 +1460,7 @@ async function enrichHoldingsWithClient(
       const ticker = holding.ticker;
       const score = finiteNumber(current?.score, 0);
       const currentPrice = finiteNumber(current?.price, 0);
+      const priceUpdatedAt = quoteTimestamp(current);
       const entryPrice = finiteNumber(holding.entry_price, currentPrice);
       const sector = typeof current?.sector === "string" ? current.sector : null;
       const company = typeof current?.company === "string" ? current.company : null;
@@ -1566,6 +1568,10 @@ async function enrichHoldingsWithClient(
         riskTolerance,
         factorDiagnostics,
         technical,
+        quoteConfirmed: hasUsableAlertQuote(currentPrice, priceUpdatedAt, now.getTime()),
+        allocationComplete,
+        modelConfirmed: isAlertDataFresh(current?.last_ranking_update ?? current?.updated_at, now.getTime()),
+        diagnosticsConfirmed: isAlertDataFresh(diagnosticsUpdatedAt, now.getTime()),
       };
 
       const attachFreshness = (alert: HoldingAlert): HoldingAlert => ({
@@ -1593,6 +1599,7 @@ async function enrichHoldingsWithClient(
         score,
         maxScore,
         currentPrice,
+        priceUpdatedAt,
         entryPrice,
         shares,
         costBasis: round1(costBasis),

@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { saveUnreadNotificationSummary } from "@/lib/notification-summary";
+import { hasUsableAlertQuote } from "@/lib/portfolio-alert-data";
 import {
   enrichHoldings,
   type AlertSeverity,
@@ -154,6 +155,7 @@ function buildStoredTradeLevelNotifications({
   ticker,
   company,
   currentPrice,
+  priceUpdatedAt,
   riskLevelAtEntry,
   targetLevelAtEntry,
 }: {
@@ -162,10 +164,11 @@ function buildStoredTradeLevelNotifications({
   ticker: string;
   company: string | null;
   currentPrice: number;
+  priceUpdatedAt: string | null | undefined;
   riskLevelAtEntry: number | null;
   targetLevelAtEntry: number | null;
 }): BuiltNotification[] {
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+  if (!hasUsableAlertQuote(currentPrice, priceUpdatedAt)) {
     return [];
   }
 
@@ -384,6 +387,7 @@ export async function getUserNotifications({
             ticker: holding.ticker,
             company: holding.company,
             currentPrice: holding.currentPrice,
+            priceUpdatedAt: holding.priceUpdatedAt,
             riskLevelAtEntry: storedLevels.riskLevelAtEntry,
             targetLevelAtEntry: storedLevels.targetLevelAtEntry,
           }),

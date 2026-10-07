@@ -144,6 +144,10 @@ export function PortfolioStage({
     : null;
   const currentValue = scrubPoint?.close ?? summary.totalValue;
   const valueText = money(currentValue, meta.currency);
+  const valueWidth = useMemo(() => (activeData ?? []).reduce(
+    (width, point) => Math.max(width, money(point.close, meta.currency).length),
+    money(summary.totalValue, meta.currency).length,
+  ), [activeData, summary.totalValue, meta.currency]);
   const currentPnl = scrubPoint ? (Number.isFinite(scrubPoint.pnl) ? scrubPoint.pnl! : null) : summary.totalPnl;
   const currentPnlPct = scrubPoint ? (Number.isFinite(scrubPoint.pnlPct) ? scrubPoint.pnlPct! : null) : summary.totalPnlPct;
   const returnText = currentPnl === null
@@ -210,7 +214,7 @@ export function PortfolioStage({
             </div>
             <h1
               className={styles.value}
-              style={{ "--portfolio-value-width": Math.max(5, valueText.length * 0.66) } as CSSProperties}
+              style={{ "--portfolio-value-width": Math.max(5, valueWidth * 0.66) } as CSSProperties}
               title={valueText}
             >
               <RouletteNumber value={valueText} />

@@ -199,7 +199,7 @@ export function NotificationsList({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ddb159]">Alert inbox</p>
-            <h1 className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#faf6f0]">What needs review</h1>
+            <h1 className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#faf6f0]">What needs attention</h1>
             <p className="mt-1 text-[11px] font-semibold text-[#faf6f0]/48">
               {unread.length > 0 ? `${unread.length} unread research ${unread.length === 1 ? "prompt" : "prompts"}` : "No major alerts right now. Your portfolio and rankings look stable."}
             </p>
