@@ -5,7 +5,6 @@
  * mark breathing inside a spinning gold arc, over a market sparkline
  * that draws itself on loop with a "live tick" riding the line.
  *
- * The root launch lifecycle reserves this artwork for the initial app load.
  * Server-safe: pure CSS animations via an inline <style> tag (the CSP
  * allows inline styles, only scripts are nonce-gated). Class names are
  * prefixed bl- to stay clear of the global stylesheet.
@@ -18,23 +17,6 @@ export function BrandLoader({ label }: { label: string }) {
   return (
     <div className="bl-wrap" role="status" aria-label={label}>
       <style>{`
-        .bl-route-feedback {
-          display: none;
-          align-items: center;
-          gap: 10px;
-          color: rgba(250,246,240,0.62);
-          font-size: 12px;
-        }
-        .bl-route-spinner {
-          width: 18px;
-          height: 18px;
-          border: 2px solid rgba(221,177,89,0.18);
-          border-top-color: #ddb159;
-          border-radius: 50%;
-          animation: bl-spin 0.8s linear infinite;
-        }
-        html[data-stockgpt-launch-ready="true"] .bl-launch-animation { display: none; }
-        html[data-stockgpt-launch-ready="true"] .bl-route-feedback { display: flex; }
         .bl-wrap {
           display: flex;
           flex-direction: column;
@@ -89,7 +71,6 @@ export function BrandLoader({ label }: { label: string }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .bl-wrap, .bl-wrap * { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
-          .bl-route-spinner { animation: none; }
         }
       `}</style>
 
@@ -181,17 +162,12 @@ export function BrandLoaderPage({
   return (
     <main
       aria-busy="true"
-      data-stockgpt-launch-loader="true"
       className="grid h-dvh place-items-center"
       style={{
         background: `radial-gradient(ellipse 60% 45% at 50% 38%, rgba(221,177,89,0.09), transparent 65%), ${background}`,
       }}
     >
-      <div className="bl-launch-animation"><BrandLoader label={label} /></div>
-      <div className="bl-route-feedback" role="status" aria-label={label}>
-        <span className="bl-route-spinner" aria-hidden="true" />
-        <span aria-hidden="true">Loading…</span>
-      </div>
+      <BrandLoader label={label} />
     </main>
   );
 }

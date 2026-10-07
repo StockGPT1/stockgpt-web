@@ -1,5 +1,0 @@
-import { BrandLoaderPage } from "@/components/BrandLoader";
-
-export default function Loading() {
-  return <BrandLoaderPage label="Opening the loading preview" />;
-}
