@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { isChartAnalysis, parseScanJson, runGroundedChartScan, type ChartLayout } from "@/lib/chart-scanner";
+import { buildChartImageGuides } from "@/lib/chart-scan-images";
+import type { ScanGeometry } from "@/lib/chart-scan-coordinates";
 import { positivePrice } from "@/lib/chart-scan-scenario";
 import { CHART_LAYOUT_PROMPT, CHART_ANALYSIS_PROMPT, CHART_REVIEW_INSTRUCTION } from "@/lib/chart-scanner-prompts";
 
@@ -33,6 +35,7 @@ async function requestVision(
   instruction: string,
   stage: string,
   failures: VisionFailure[],
+  guides: Array<{ url: string; description: string }> = [],
 ) {
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -45,13 +48,14 @@ async function requestVision(
         "X-Title": "StockGPT Chart Scanner",
       },
       body: JSON.stringify({
-        model, temperature: 0.1, max_tokens: stage === "layout" ? 2400 : 4400,
+        model, temperature: 0.1, max_tokens: stage === "layout" ? 2400 : 5600,
         reasoning: { exclude: true },
         messages: [
           { role: "system", content: system },
           { role: "user", content: [
             { type: "text", text: instruction },
             ...dataUrls.map(url => ({ type: "image_url", image_url: { url } })),
+            ...guides.flatMap(guide => [{ type: "text", text: guide.description }, { type: "image_url", image_url: { url: guide.url } }]),
           ] },
         ],
       }),
@@ -73,16 +77,24 @@ async function requestVision(
 async function analyseImages(apiKey: string, dataUrls: string[], referencePrice: number | null) {
   const failures: VisionFailure[] = [];
   let requests = 0;
+  let guides: Array<{ url: string; description: string }> = [];
+  let geometry: ScanGeometry = { axis_rows: [], frames: [], image_sizes: [] };
   let analysisModel = PRIMARY_VISION_MODEL;
   const ask = (model: string, system: string, instruction: string, stage: string) => {
     requests += 1;
-    return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures);
+    return requestVision(apiKey, model, dataUrls, system, instruction, stage, failures, stage === "layout" ? [] : guides);
   };
-  const inventory = (layout: ChartLayout) => "Chart region inventory (check against images):\n" + JSON.stringify(layout) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
+  const inventory = (layout: ChartLayout) => `Original uploaded image count: ${dataUrls.length}. Appended labelled guides are diagnostic crops, not extra source_images.\nChart region inventory (check against original images):\n` + JSON.stringify(layout) + (referencePrice !== null ? `\nUser-supplied reference price: ${referencePrice}. Use only as an anchor when image prices are unreadable; it does not confirm a technical level.` : "");
   const scan = await runGroundedChartScan({
     locate: () => ask(PRIMARY_VISION_MODEL, CHART_LAYOUT_PROMPT,
       "Map the real primary price plot and inventory every visible indicator in these images. Return JSON.", "layout"),
     analyse: async layout => {
+      try {
+        const pixels = await buildChartImageGuides(dataUrls.map(url => Buffer.from(url.slice(url.indexOf(",") + 1), "base64")), layout);
+        guides = pixels.guides; geometry = pixels.geometry;
+      } catch (error) {
+        console.error("[chart-scan] image guides unavailable", error instanceof Error ? error.name : "Image processing failed");
+      }
       const instruction = inventory(layout) + "\nRead the price structure and each inventoried indicator. Return the analysis schema.";
       const primary = await ask(PRIMARY_VISION_MODEL, CHART_ANALYSIS_PROMPT, instruction, "analysis");
       if (primary.value) return primary;
@@ -92,6 +104,7 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
     review: (layout, candidate) => ask(analysisModel === PRIMARY_VISION_MODEL ? REVIEW_VISION_MODEL : PRIMARY_VISION_MODEL, CHART_ANALYSIS_PROMPT,
       inventory(layout) + "\nCandidate analysis (untrusted until independently checked):\n" +
       JSON.stringify(candidate) + "\n" + CHART_REVIEW_INSTRUCTION, "review"),
+    geometry: () => geometry,
   }, dataUrls.length, referencePrice);
   if (failures.length > 0) console.error("[chart-scan] vision pass failed", failures);
   return { result: scan?.result ?? null, model: scan?.model ?? null, passes: requests, failures };

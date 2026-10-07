@@ -1,3 +1,5 @@
+import { buildScanTimeline, type ScanTimeline } from "./chart-scan-timeline.ts";
+import { pixelAnchoredAxis, matchedEvidenceBoxes, type ScanGeometry } from "./chart-scan-coordinates.ts";
 import { buildTradeScenario, stockGPTScore, normalisePatternChecks, normalisePriceAxis, calibratePriceAxis, priceToY, positivePrice, type PriceAxis, type TradeScenario, type ChartPattern } from "./chart-scan-scenario.ts";
 
 export type ScanVerdict = "bullish" | "bearish" | "inconclusive";
@@ -58,13 +60,16 @@ export type ChartScanResult = {
     region_id: string;
     source_image: number;
     box: PctBox | null;
+    boxes: PctBox[];
   }>;
   trade_plan: TradeScenario;
+  timeline: ScanTimeline;
   stockgpt_score: { value: number; label: string; reasons: string[] };
   pattern_checks: ChartPattern[];
   levels: { support: string | null; resistance: string | null; breakout: string | null; invalidation: string | null };
   overlay: {
     price_plot_box: PctBox | null;
+    image_sizes: Array<{ width: number; height: number }>;
     resistance_y_pct: number | null;
     support_y_pct: number | null;
     pattern_box: PctBox | null;
@@ -185,6 +190,7 @@ export function normaliseChartScan(
   layout: ChartLayout,
   reviewed: boolean,
   referencePrice?: number | null,
+  localisation?: { geometry: ScanGeometry; candidate: JsonRecord },
 ): ChartScanResult {
   const raw = record(value), overlay = record(raw.overlay), levels = record(raw.levels);
   const finalSeries = series(raw.price_series_type);
@@ -201,6 +207,20 @@ export function normaliseChartScan(
         : check?.status === "not_confirmed" ? "not_confirmed" : "unreadable";
     return { id: region.id, name: region.name, source_image: region.source_image, status, finding: status === "readable" ? finding : null };
   });
+  const evidenceBoxes = (item: JsonRecord, regionId: string, source: number, kind: SignalKind) => {
+    if (!localisation || !reviewed || item.localisation_confirmed !== true || confidence(item.localisation_confidence) < 80) return [];
+    const frame = localisation.geometry.frames.find(frame => frame.id === item.frame_id && frame.id === regionId && frame.source_image === source);
+    if (!frame) return [];
+    const previous = [...list(localisation.candidate.signals), ...list(localisation.candidate.pattern_checks)].map(record)
+      .find(candidate => candidate.frame_id === item.frame_id && scanText(candidate.name, 80)?.toLowerCase() === scanText(item.name, 80)?.toLowerCase());
+    if (!previous) return [];
+    const region = layout.indicators.find(region => region.id === regionId && region.source_image === source);
+    const owner = region?.box ?? (source === 0 ? plot : null);
+    return matchedEvidenceBoxes(previous.evidence_boxes, item.evidence_boxes, frame).filter(box =>
+      boxInside(box, owner) && (kind !== "pattern" || box.width_pct <= 30) &&
+      (source !== 0 || !layout.exclusions.some(exclusion => overlaps(box, exclusion))) &&
+      (region || !layout.indicators.some(indicator => indicator.source_image === source && indicator.placement === "panel" && indicator.box && overlaps(box, indicator.box))));
+  };
   const seen = new Set<string>();
   const signals: ChartScanResult["signals"] = list(raw.signals).flatMap(value => {
     const item = record(value);
@@ -228,16 +248,25 @@ export function normaliseChartScan(
     const safe = reviewed && source === 0 && item.localisation_confirmed === true &&
       confidence(item.localisation_confidence) >= 80 && boxInside(candidate, owner) && freeOfUI && panelSafe &&
       (!region || region.placement === "panel" || boxInside(candidate, region.box));
+    const patternGeometry = kind === "pattern" ? list(raw.pattern_checks).map(record).find(pattern => {
+      const patternName = scanText(pattern.name, 80)?.toLowerCase();
+      return patternName && name.toLowerCase().includes(patternName);
+    }) : undefined;
+    const boxes = localisation ? evidenceBoxes(item, regionId, source, kind).length
+      ? evidenceBoxes(item, regionId, source, kind) : patternGeometry ? evidenceBoxes(patternGeometry, regionId, source, kind) : []
+      : safe && candidate ? [candidate] : [];
     return [{ name, evidence, kind, source_image: source, region_id: regionId,
-      bias: signalBias(item.bias), confidence: confidence(item.confidence), box: safe ? candidate : null }];
+      bias: signalBias(item.bias), confidence: confidence(item.confidence), box: boxes[0] ?? null, boxes }];
   }).slice(0, 8);
   const patterns = mustRetake ? [] : normalisePatternChecks(raw.pattern_checks);
   for (const pattern of patterns) {
     if (signals.length >= 8 || signals.some(signal => signal.kind === "pattern" &&
       (signal.name.toLowerCase().includes(pattern.name.toLowerCase()) || signal.evidence === pattern.evidence))) continue;
+    const patternRaw = list(raw.pattern_checks).map(record).find(item => item.name === pattern.name) ?? {};
+    const boxes = evidenceBoxes(patternRaw, "price", 0, "pattern");
     signals.push({ name: pattern.name, kind: "pattern", bias: /bottom|inverse/i.test(pattern.name) ? "bullish" : /double[ -]?top|head[ -]?and[ -]?shoulders/i.test(pattern.name) ? "bearish" : "neutral",
       confidence: Math.min(pattern.status === "forming" ? 65 : 85, confidence(raw.confidence)), evidence: pattern.evidence,
-      region_id: "price", source_image: 0, box: null });
+      region_id: "price", source_image: 0, box: boxes[0] ?? null, boxes });
   }
   const rejectedEvidence = reviewed && !mustRetake && signals.length === 0;
   const resolvedVerdict = mustRetake || rejectedEvidence ? "inconclusive" : verdict(raw.verdict);
@@ -249,8 +278,11 @@ export function normaliseChartScan(
     usable: !mustRetake, reviewed, referencePrice, patterns, signals,
   });
   const score = stockGPTScore(rejectedEvidence ? 0 : raw.confidence, scenario, reviewed, signals, patterns);
+  const timeline = buildScanTimeline(record(raw.trade_plan).timeline, timeframe, scenario.status === "confirmed", scenario.levels_basis === "illustrative");
+  const mappedAxis = localisation ? pixelAnchoredAxis(record(localisation.candidate.overlay).price_axis, localisation.geometry.axis_rows) : layout.price_axis;
+  const checkedAxis = localisation ? pixelAnchoredAxis(overlay.price_axis, localisation.geometry.axis_rows) : normalisePriceAxis(overlay.price_axis);
   const calibration = plot && reviewed && overlay.price_axis_confirmed === true
-    ? calibratePriceAxis(layout.price_axis, normalisePriceAxis(overlay.price_axis)) : null;
+    ? calibratePriceAxis(mappedAxis, checkedAxis) : null;
   const safeY = (price: number | null) => {
     if (!plot) return null;
     const y = priceToY(price, calibration, plot.y_pct, plot.height_pct);
@@ -285,7 +317,7 @@ export function normaliseChartScan(
     observations: list(raw.observations).map(item => scanText(item, 200)).filter((item): item is string => item !== null).slice(0, 4),
     verification_status: reviewed ? "reviewed" : "unavailable",
     indicator_checks: indicatorChecks, signals: mustRetake ? [] : signals,
-    trade_plan: scenario,
+    trade_plan: scenario, timeline,
     stockgpt_score: score,
     pattern_checks: patterns,
     levels: {
@@ -296,6 +328,7 @@ export function normaliseChartScan(
     },
     overlay: {
       price_plot_box: mustRetake ? null : plot,
+      image_sizes: localisation?.geometry.image_sizes ?? [],
       resistance_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.resistance)) : null,
       support_y_pct: mustRetake ? null : overlay.levels_confirmed === true ? safeY(positivePrice(levels.support)) : null,
       // Only evidence-specific highlights are displayed, never an extra speculative pattern rectangle.
@@ -327,6 +360,7 @@ type ScanPasses = {
   locate: () => Promise<ScanPass>;
   analyse: (layout: ChartLayout) => Promise<ScanPass>;
   review: (layout: ChartLayout, candidate: JsonRecord) => Promise<ScanPass>;
+  geometry?: () => ScanGeometry;
 };
 
 export async function runGroundedChartScan(passes: ScanPasses, imageCount: number, referencePrice?: number | null) {
@@ -351,7 +385,7 @@ export async function runGroundedChartScan(passes: ScanPasses, imageCount: numbe
   const finalLayout = { ...enrichedLayout, indicators: [...enrichedLayout.indicators, ...reviewIndicators.filter(region =>
     !enrichedLayout.indicators.some(existing => existing.name.toLowerCase() === region.name.toLowerCase() && existing.source_image === region.source_image))] };
   return {
-    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice),
+    result: normaliseChartScan(review.value ?? candidate.value, finalLayout, reviewed, referencePrice, passes.geometry ? { geometry: passes.geometry(), candidate: candidate.value } : undefined),
     model: reviewed ? review.model : candidate.model,
     passes: 3,
   };

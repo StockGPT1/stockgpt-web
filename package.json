@@ -9,7 +9,7 @@
     "lint": "eslint",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
     "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && npm run lint:portfolio",
-    "test:chart-scan": "node --no-warnings --experimental-strip-types --test scripts/chart-scanner-checks.mjs scripts/chart-scenario-checks.mjs && eslint app/api/chart-scan/route.ts components/ChartScannerWorkspace.tsx components/ChartScanPreview.tsx lib/chart-scanner.ts lib/chart-scanner-prompts.ts lib/chart-scan-scenario.ts",
+    "test:chart-scan": "node --no-warnings --experimental-strip-types --test scripts/chart-scanner-checks.mjs scripts/chart-scenario-checks.mjs scripts/chart-image-checks.mjs && eslint app/api/chart-scan/route.ts components/ChartScannerWorkspace.tsx components/ChartScanPreview.tsx lib/chart-scanner.ts lib/chart-scanner-prompts.ts lib/chart-scan-scenario.ts lib/chart-scan-coordinates.ts lib/chart-scan-images.ts lib/chart-scan-timeline.ts",
     "types:gen": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > lib/database.types.ts",
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts",
     "ios:release": "CAPACITOR_SERVER_URL= npx cap sync ios && npx cap open ios"
@@ -24,7 +24,8 @@
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "stripe": "^22.1.0"
+    "stripe": "^22.1.0",
+    "sharp": "0.34.5"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.0",
