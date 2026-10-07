@@ -6,19 +6,25 @@ import type { InstrumentAlias } from "@/lib/instruments";
 import type { BrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
 import { retrieveBrokerUserSecret, storeBrokerUserSecret } from "@/lib/brokerage/secret-store";
 import { createSnapTradeClient, type SnapTradeClient } from "./client";
+import { runSnapTradeDiagnosticPhase } from "./diagnostics";
 import { normalizeSnapTradeAccount, snapTradeProviderUserId } from "./normalize";
 
 export async function registerSnapTradeUser(
   admin: SupabaseClient<Database>,
   input: { userId: string; providerId: string },
-  sdk: SnapTradeClient = createSnapTradeClient(),
+  sdk?: SnapTradeClient,
 ) {
+  const client = await runSnapTradeDiagnosticPhase("configuration", () => sdk ?? createSnapTradeClient());
   const providerUserId = snapTradeProviderUserId(input.userId);
-  const response = await sdk.authentication.registerSnapTradeUser({ userId: providerUserId });
-  if (response.data.userId !== providerUserId || !response.data.userSecret) {
-    throw new Error("SnapTrade registration response invalid");
-  }
-  await storeBrokerUserSecret(admin, { ...input, providerUserId, userSecret: response.data.userSecret });
+  const response = await runSnapTradeDiagnosticPhase("registration", async () => {
+    const result = await client.authentication.registerSnapTradeUser({ userId: providerUserId });
+    if (result.data.userId !== providerUserId || !result.data.userSecret) {
+      throw new Error("SnapTrade registration response invalid");
+    }
+    return { userSecret: result.data.userSecret };
+  });
+  await runSnapTradeDiagnosticPhase("credential_store", () =>
+    storeBrokerUserSecret(admin, { ...input, providerUserId, userSecret: response.userSecret }));
   return { providerUserId };
 }
 
@@ -31,22 +37,25 @@ export async function createReadOnlySnapTradePortalLink(
     reconnect?: string;
     broker?: "SANDBOX";
   },
-  sdk: SnapTradeClient = createSnapTradeClient(),
+  sdk?: SnapTradeClient,
 ) {
-  const credential = await retrieveBrokerUserSecret(admin, input);
-  const response = await sdk.authentication.loginSnapTradeUser({
-    userId: credential.providerUserId,
-    userSecret: credential.userSecret,
-    connectionType: "read",
-    broker: input.broker,
-    customRedirect: input.customRedirect,
-    reconnect: input.reconnect,
-    showCloseButton: true,
+  const client = await runSnapTradeDiagnosticPhase("configuration", () => sdk ?? createSnapTradeClient());
+  return runSnapTradeDiagnosticPhase("portal_login", async () => {
+    const credential = await retrieveBrokerUserSecret(admin, input);
+    const response = await client.authentication.loginSnapTradeUser({
+      userId: credential.providerUserId,
+      userSecret: credential.userSecret,
+      connectionType: "read",
+      broker: input.broker,
+      customRedirect: input.customRedirect,
+      reconnect: input.reconnect,
+      showCloseButton: true,
+    });
+    if (!("redirectURI" in response.data) || !response.data.redirectURI) {
+      throw new Error("SnapTrade portal link unavailable");
+    }
+    return response.data.redirectURI;
   });
-  if (!("redirectURI" in response.data) || !response.data.redirectURI) {
-    throw new Error("SnapTrade portal link unavailable");
-  }
-  return response.data.redirectURI;
 }
 
 export async function listSnapTradeConnections(
