@@ -42,47 +42,47 @@ export function HoldingLedgerRow({
     <button
       type="button"
       onClick={() => onOpen(holding)}
-      aria-label={`Open holding ${holding.ticker}, ${holding.currentAllocationPct.toFixed(1)}% allocation, ${status}`}
+      aria-label={`Open holding ${holding.ticker}, ${priceAvailable ? `${money(holding.currentValue, currency)}, unrealised return ${signedMoney(holding.totalPnLDollars, currency)} (${signedPct(holding.pnlPercent)}), ${holding.currentAllocationPct.toFixed(1)}% allocation` : "price and return unavailable"}, ${status}`}
       className={`group block w-full border-b border-[#faf6f0]/8 text-left transition hover:bg-[#faf6f0]/[0.025] focus-visible:bg-[#faf6f0]/[0.035] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159] ${
-        compact ? "px-0 py-4" : "px-0 py-5 sm:px-1"
+        compact ? "px-0 py-3" : "px-0 py-4 sm:px-1"
       }`}
     >
-      <span className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-start gap-3">
-        <StockLogo ticker={holding.ticker} company={holding.company} size={44} />
+      <span className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-start gap-2.5">
+        <StockLogo ticker={holding.ticker} company={holding.company} size={36} />
         <span className="min-w-0">
-          <span className="block truncate text-[16px] font-black tracking-[-0.02em] text-[#faf6f0]">
+          <span className="block truncate text-[14px] font-semibold tracking-[-0.02em] text-[#faf6f0]">
             {holding.company || holding.ticker}
           </span>
-          <span className="mt-1 block truncate text-[11px] font-bold text-[#faf6f0]/42">
+          <span className="mt-1 block truncate text-[10px] font-medium text-[#faf6f0]/52">
             {holding.ticker} · {number(holding.shares, 6)} shares
           </span>
         </span>
-        <span className="min-w-[92px] text-right">
-          <span className="block text-[16px] font-black tabular-nums text-[#faf6f0]">
-            {priceAvailable ? money(holding.currentValue, currency) : "—"}
+        <span className="min-w-[82px] text-right">
+          <span className="block text-[14px] font-semibold tabular-nums text-[#faf6f0]">
+            {priceAvailable ? money(holding.currentValue, currency, true) : "—"}
           </span>
-          <span className={`mt-1 block text-[11px] font-black tabular-nums ${toneClass(holding.totalPnLDollars)}`}>
+          <span className={`mt-1 block text-[10px] font-medium tabular-nums ${toneClass(holding.totalPnLDollars)}`}>
             {priceAvailable
-              ? `${signedMoney(holding.totalPnLDollars, currency)} · ${signedPct(holding.pnlPercent)}`
+              ? `${signedMoney(holding.totalPnLDollars, currency, true)} · ${signedPct(holding.pnlPercent)}`
               : "Price unavailable"}
           </span>
         </span>
       </span>
 
-      <span className="mt-4 flex min-w-0 items-center justify-between gap-3">
-        <span className="truncate text-[10px] font-black text-[#ddb159]">
+      <span className="mt-3 flex min-w-0 items-center justify-between gap-3">
+        <span className="truncate text-[10px] font-medium text-[#ddb159]">
           AI #{holding.rank ?? "—"} · {Math.round(holding.score).toLocaleString("en-GB")}
         </span>
-        <span className={`shrink-0 text-[10px] font-black ${statusTone(status)}`}>{status}</span>
+        <span className={`shrink-0 text-[10px] font-medium ${statusTone(status)}`}>{status}</span>
       </span>
 
-      <span className="mt-3 block h-1.5 overflow-hidden rounded-full bg-[#faf6f0]/9">
+      <span className="mt-2 block h-1 overflow-hidden rounded-full bg-[#faf6f0]/9">
         <span
           className="block h-full rounded-full bg-[linear-gradient(90deg,#b7842f,#ddb159_55%,#f2d27a)]"
           style={{ width: `${visualAllocation}%` }}
         />
       </span>
-      <span className="mt-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-[#faf6f0]/36">
+      <span className="mt-1 flex items-center justify-between gap-3 text-[10px] font-medium text-[#faf6f0]/48">
         <span>{priceAvailable ? `${holding.currentAllocationPct.toFixed(1)}%` : "Unavailable"}</span>
         <span>of total portfolio</span>
       </span>

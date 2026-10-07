@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect, useId, type KeyboardEvent } from "react";
 import { RouletteNumber } from "@/components/RouletteNumber";
+import { nativeHaptic } from "@/lib/ios-native";
 
 export type ChartPoint = {
   date: string;
@@ -24,6 +25,8 @@ type Props = {
   mobileTransparentFrame?: boolean;
   rangeOrder?: TimeRange[];
   showUnavailableRanges?: boolean;
+  appearance?: "default" | "portfolio";
+  formatValue?: (value: number) => string;
   onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
 
@@ -93,6 +96,8 @@ export function StockChart({
   mobileTransparentFrame = false,
   rangeOrder = DEFAULT_RANGES,
   showUnavailableRanges = false,
+  appearance = "default",
+  formatValue,
   onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
@@ -100,6 +105,9 @@ export function StockChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const moveFrameRef = useRef<number | null>(null);
   const pendingClientXRef = useRef<number | null>(null);
+  const gradientId = `portfolio-chart-fill-${useId().replaceAll(":", "")}`;
+  const isPortfolioAppearance = appearance === "portfolio";
+  const valueFormatter = formatValue ?? formatPrice;
 
   const availableRanges = useMemo(
     () => rangeOrder.filter((r) => (data[r]?.length ?? 0) > 1),
@@ -129,7 +137,7 @@ export function StockChart({
 
   const fillColor = `${lineColor}26`;
   const isPortfolioMiniChart = compact && ticker === "Portfolio";
-  const lineStrokeWidth = isPortfolioMiniChart ? 1.35 : 2;
+  const lineStrokeWidth = isPortfolioAppearance ? 2 : isPortfolioMiniChart ? 1.35 : 2;
 
   const {
     svgWidth,
@@ -293,6 +301,27 @@ export function StockChart({
     onScrub?.(null, { range: resolvedRange });
   }, [onScrub, resolvedRange]);
 
+  const handleKeyDown = useCallback((event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End", "Escape"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Escape") {
+      handlePointerLeave();
+      return;
+    }
+    pendingClientXRef.current = null;
+    if (moveFrameRef.current != null) {
+      window.cancelAnimationFrame(moveFrameRef.current);
+      moveFrameRef.current = null;
+    }
+    const current = hoverIdx ?? points.length - 1;
+    const next = event.key === "Home" ? 0
+      : event.key === "End" ? points.length - 1
+        : Math.max(0, Math.min(points.length - 1, current + (event.key === "ArrowLeft" ? -1 : 1)));
+    setHoverIdx(next);
+    onScrub?.(points[next], { range: resolvedRange });
+  }, [handlePointerLeave, hoverIdx, onScrub, points, resolvedRange]);
+
   const summary = useMemo(() => {
     if (points.length < 2) return null;
 
@@ -317,7 +346,7 @@ export function StockChart({
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
-  const hideTooltip = compact && ticker === "Portfolio";
+  const hideTooltip = isPortfolioAppearance || (compact && ticker === "Portfolio");
   const scrubDateLeft = hoverPoint
     ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 5rem), calc(100% - 10.85rem))`
     : "0.75rem";
@@ -327,7 +356,7 @@ export function StockChart({
       <div
         className={[
           "flex items-center justify-center",
-          mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
+          isPortfolioAppearance ? "bg-transparent" : mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
         ].join(" ")}
         style={{ height: `${height}px` }}
       >
@@ -349,7 +378,7 @@ export function StockChart({
 
             <p className="mt-0.5 text-[24px] font-black tabular-nums tracking-[-0.03em] text-[#faf6f0]">
               <RouletteNumber
-                value={formatPrice(hoverPoint ? hoverPoint.close : summary.last)}
+                value={valueFormatter(hoverPoint ? hoverPoint.close : summary.last)}
               />
             </p>
 
@@ -364,7 +393,7 @@ export function StockChart({
                 }`}
               >
                 <RouletteNumber
-                  value={`${summary.change >= 0 ? "+" : ""}${formatPrice(summary.change)} (${summary.changePct >= 0 ? "+" : ""}${summary.changePct.toFixed(2)}%)`}
+                  value={`${summary.change >= 0 ? "+" : ""}${valueFormatter(summary.change)} (${summary.changePct >= 0 ? "+" : ""}${summary.changePct.toFixed(2)}%)`}
                 />
               </p>
             )}
@@ -375,7 +404,7 @@ export function StockChart({
       <div
         className={[
           "sg-stock-chart-frame relative overflow-hidden",
-          mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
+          isPortfolioAppearance ? "bg-transparent" : mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
         ].join(" ")}
         style={{ height: `${height}px` }}
       >
@@ -384,9 +413,24 @@ export function StockChart({
           ref={svgRef}
           viewBox={`0 0 ${svgWidth} ${height}`}
           preserveAspectRatio="none"
-          className="sg-stock-chart-canvas h-full w-full touch-none"
+          className={`sg-stock-chart-canvas h-full w-full ${isPortfolioAppearance ? "touch-pan-y focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159]" : "touch-none"}`}
+          tabIndex={isPortfolioAppearance ? 0 : undefined}
+          role={isPortfolioAppearance ? "slider" : undefined}
+          aria-label={isPortfolioAppearance ? `${ticker} value history, ${resolvedRange}` : undefined}
+          aria-description={isPortfolioAppearance ? "Use Left and Right arrows to inspect recorded values, Home and End for the first and last points, and Escape to return to the current portfolio value. The dashed guide marks the first value in view." : undefined}
+          aria-valuemin={isPortfolioAppearance ? 0 : undefined}
+          aria-valuemax={isPortfolioAppearance ? points.length - 1 : undefined}
+          aria-valuenow={isPortfolioAppearance ? hoverIdx ?? points.length - 1 : undefined}
+          aria-valuetext={isPortfolioAppearance ? `${formatDate((hoverPoint ?? points[points.length - 1]).date, resolvedRange)}: ${valueFormatter((hoverPoint ?? points[points.length - 1]).close)}` : undefined}
+          onKeyDown={isPortfolioAppearance ? handleKeyDown : undefined}
+          onBlur={isPortfolioAppearance ? handlePointerLeave : undefined}
           onPointerMove={(e) => scheduleMove(e.clientX)}
-          onPointerDown={(e) => handleMove(e.clientX)}
+          onPointerDown={(e) => {
+            if (isPortfolioAppearance && e.isPrimary && e.button === 0) {
+              try { nativeHaptic("light"); } catch { /* Feedback is optional when the native bridge is unavailable. */ }
+            }
+            handleMove(e.clientX);
+          }}
           onPointerLeave={handlePointerLeave}
           onPointerCancel={handlePointerLeave}
           onPointerUp={(e) => {
@@ -397,6 +441,14 @@ export function StockChart({
             handleMove(e.clientX);
           }}
         >
+          {isPortfolioAppearance && (
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={lineColor} stopOpacity="0.08" />
+                <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+          )}
           {!compact &&
             gridPrices.map((price, i) => {
               const y = yScale(price);
@@ -421,13 +473,26 @@ export function StockChart({
                     fillOpacity="0.4"
                     fontWeight="600"
                   >
-                    {formatPrice(price)}
+                    {valueFormatter(price)}
                   </text>
                 </g>
               );
             })}
 
-          <path className="sg-stock-chart-area" d={areaD} fill={fillColor} />
+          <path className="sg-stock-chart-area" d={areaD} fill={isPortfolioAppearance ? `url(#${gradientId})` : fillColor} />
+
+          {isPortfolioAppearance && (
+            <line
+              x1={padding.left}
+              x2={padding.left + plotW}
+              y1={yScale(points[0].close)}
+              y2={yScale(points[0].close)}
+              stroke={lineColor}
+              strokeOpacity="0.22"
+              strokeDasharray="2 5"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
 
           <path
             className="sg-stock-chart-line"
@@ -435,10 +500,15 @@ export function StockChart({
             fill="none"
             stroke={lineColor}
             strokeWidth={lineStrokeWidth}
+            vectorEffect={isPortfolioAppearance ? "non-scaling-stroke" : undefined}
             strokeLinejoin="round"
             strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 7px ${lineColor}66)` }}
+            style={isPortfolioAppearance ? undefined : { filter: `drop-shadow(0 0 7px ${lineColor}66)` }}
           />
+
+          {isPortfolioAppearance && !hoverPoint && (
+            <circle cx={pointXs[points.length - 1]} cy={yScale(points[points.length - 1].close)} r="3" fill={lineColor} />
+          )}
 
           {hoverPoint && (
             <>
@@ -515,12 +585,12 @@ export function StockChart({
                 compact ? "mt-0.5 text-[12px]" : "mt-0.5 text-[14px]",
               ].join(" ")}
             >
-              <RouletteNumber value={formatPrice(hoverPoint.close)} />
+              <RouletteNumber value={valueFormatter(hoverPoint.close)} />
             </p>
           </div>
         )}
 
-        {hoverPoint && hideTooltip && (
+        {hoverPoint && hideTooltip && !isPortfolioAppearance && (
           <div
             className="pointer-events-none absolute bottom-3 z-20 w-[10rem] rounded-full border border-[#ddb159]/28 bg-[#072116]/92 px-2.5 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.06em] text-[#ddb159] shadow-[0_10px_22px_rgba(0,0,0,0.28)] backdrop-blur"
             style={{ left: scrubDateLeft }}

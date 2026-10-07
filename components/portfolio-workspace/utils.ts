@@ -20,9 +20,9 @@ export function money(value: number, currency: string, compact = false) {
   }).format(safe);
 }
 
-export function signedMoney(value: number, currency: string) {
+export function signedMoney(value: number, currency: string, compact = false) {
   const safe = Number.isFinite(value) ? value : 0;
-  return `${safe >= 0 ? "+" : "−"}${money(Math.abs(safe), currency)}`;
+  return `${safe >= 0 ? "+" : "−"}${money(Math.abs(safe), currency, compact)}`;
 }
 
 export function signedPct(value: number, digits = 1) {

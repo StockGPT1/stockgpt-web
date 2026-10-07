@@ -130,7 +130,7 @@ export function PortfolioModernWorkspace({
           onManage={() => setManageOpen(true)}
         />
 
-        <div className="sg-portfolio-body px-4 pt-4 sm:px-6 lg:px-0 lg:pt-9">
+        <div className="sg-portfolio-body px-4 pt-5 sm:px-6 lg:mx-auto lg:max-w-[1180px] lg:px-0 lg:pt-9">
           <section
             role="tabpanel"
             aria-label={`${section[0].toUpperCase()}${section.slice(1)} portfolio section`}
@@ -156,6 +156,7 @@ export function PortfolioModernWorkspace({
                 holdings={holdings}
                 meta={portfolioMeta}
                 onHolding={(holding) => setSelectedTicker(holding.ticker)}
+                onAdd={() => setAddOpen(true)}
               />
             )}
 

@@ -1,81 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useRef, type ReactNode } from "react";
 import type { ExtendedHolding } from "@/components/PortfolioCommandCentreRevolut";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
-import { HoldingLedgerRow, PortfolioExposureView } from "@/components/portfolio-workspace/PortfolioHoldingsVisuals";
+import { buildPortfolioOverviewSnapshot } from "@/lib/portfolio-overview";
 import type { PortfolioMeta } from "@/components/portfolio-workspace/types";
-import {
-  formatDate,
-  money,
-  signedMoney,
-  signedPct,
-  toneClass,
-} from "@/components/portfolio-workspace/utils";
+import { formatDate, money, signedMoney, toneClass } from "@/components/portfolio-workspace/utils";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
+import styles from "./PortfolioOverview.module.css";
 
-function SectionHeading({
-  eyebrow,
-  title,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 items-end justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] lg:text-[10px]">
-          {eyebrow}
-        </p>
-        <h2 className="mt-1 text-[21px] font-black leading-tight tracking-[-0.04em] text-[#faf6f0] lg:text-[28px]">
-          {title}
-        </h2>
-      </div>
-      {action}
-    </div>
-  );
+function SectionHeading({ title, detail, action }: { title: string; detail?: string; action?: ReactNode }) {
+  return <div className={styles.heading}>
+    <div className="min-w-0"><h2 className={styles.title}>{title}</h2>{detail && <p className={styles.description}>{detail}</p>}</div>
+    {action}
+  </div>;
 }
 
-function Metric({
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  tone?: string;
-}) {
-  return (
-    <div className="min-w-0 border-l border-[#ddb159]/16 pl-3 first:border-l-0 first:pl-0 lg:px-4 lg:first:border-l lg:first:pl-4">
-      <p className="text-[8px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/36 lg:text-[9px]">
-        {label}
-      </p>
-      <p className={`mt-1.5 truncate text-[18px] font-black tabular-nums lg:mt-2 lg:text-[21px] ${tone ?? "text-[#faf6f0]"}`}>
-        {value}
-      </p>
-      <p className="mt-0.5 truncate text-[9px] font-semibold text-[#faf6f0]/34 lg:mt-1 lg:text-[10px]">{detail}</p>
-    </div>
-  );
+function Metric({ label, value, detail, onClick }: { label: string; value: string; detail: string; onClick?: () => void }) {
+  return <div className={styles.metric}><dt className={styles.metricLabel}>{label}</dt><dd className={styles.metricValue} title={value}>{onClick ? <button type="button" onClick={onClick} aria-label={`Review ${value} flagged position${value === "1" ? "" : "s"}`} className={styles.reviewJump}>{value}<PortfolioIcon name="arrow" className="size-4 text-[#ddb159]" /></button> : value}</dd><p className={styles.metricDetail}>{detail}</p></div>;
 }
 
 export function PortfolioOverview({
-  portfolioId,
-  meta,
-  summary,
-  holdings,
-  opportunities,
-  canUsePremium,
-  latestActivityDate,
-  onHolding,
-  onAnalysis,
-  onViewHoldings,
-  onAdd,
+  portfolioId, meta, summary, holdings, opportunities, canUsePremium, latestActivityDate,
+  onHolding, onAnalysis, onViewHoldings, onAdd,
 }: {
   portfolioId: string;
   meta: PortfolioMeta;
@@ -89,251 +39,98 @@ export function PortfolioOverview({
   onViewHoldings: () => void;
   onAdd: () => void;
 }) {
-  const sortedHoldings = holdings.slice().sort((a, b) => b.currentValue - a.currentValue);
-  const topHoldings = sortedHoldings.slice(0, 5);
+  const snapshot = useMemo(() => buildPortfolioOverviewSnapshot({ holdings, cashBalance: meta.cashBalance, riskTolerance: meta.riskTolerance }), [holdings, meta.cashBalance, meta.riskTolerance]);
+  const hasHoldings = snapshot.holdingsCount > 0;
+  const missingPrices = snapshot.missingPriceCount > 0;
+  const partialValuation = !snapshot.valuationComplete;
+  const unrealisedAvailable = !partialValuation && Number.isFinite(summary.unrealisedPnl);
+  const researchIdeas = opportunities.slice(0, 3);
+  const reviewsRef = useRef<HTMLElement>(null);
 
-  return (
-    <div className="space-y-8 lg:space-y-14">
-      <section aria-labelledby="portfolio-briefing-title">
-        <p id="portfolio-briefing-title" className="sr-only">Portfolio briefing at a glance</p>
-        <div className="sg-portfolio-overview-metrics grid grid-cols-2 gap-x-4 gap-y-5 rounded-[20px] border border-[#ddb159]/12 bg-[#0a2a1d]/40 px-4 py-4 lg:grid-cols-4 lg:gap-0 lg:bg-transparent lg:px-0 lg:py-0">
-          <Metric
-            label="Value"
-            value={money(summary.totalValue, meta.currency)}
-            detail="Latest valuation"
-          />
-          <Metric
-            label="Return"
-            value={signedPct(summary.totalPnlPct)}
-            detail={signedMoney(summary.totalPnl, meta.currency)}
-            tone={toneClass(summary.totalPnl)}
-          />
-          <Metric
-            label="Reviews"
-            value={String(summary.actionAlerts)}
-            detail={`${summary.eventAlerts} supporting events`}
-            tone={summary.actionAlerts > 0 ? "text-[#e8bd61]" : "text-[#61d7ab]"}
-          />
-          <Metric
-            label="Largest"
-            value={`${summary.largestPositionPct.toFixed(1)}%`}
-            detail={latestActivityDate ? `Active ${formatDate(latestActivityDate)}` : "No recent activity"}
-            tone={summary.largestPositionPct > 30 ? "text-[#e8bd61]" : "text-[#faf6f0]"}
-          />
-        </div>
+  return <div className={styles.overview}>
+    <section aria-label="Portfolio at a glance" className={styles.snapshot}>
+      <p className={styles.eyebrow}>At a glance</p>
+      <dl className={styles.metrics}>
+        <Metric label="Invested" value={money(snapshot.holdingsValue, meta.currency)} detail={partialValuation ? "Priced holdings value" : "Current holdings value"} />
+        <Metric label="Cash" value={snapshot.cashValid ? money(meta.cashBalance, meta.currency) : "Unavailable"} detail={snapshot.allocationAvailable ? `${snapshot.cashPercentage.toFixed(1)}% of ${partialValuation ? "available valuation" : "portfolio value"}` : "Cash balance"} />
+        <Metric label="Positions" value={String(snapshot.holdingsCount)} detail={snapshot.unknownSectorCount ? `${Math.max(0, snapshot.sectorCount - 1)} ${partialValuation ? "priced " : ""}sectors · ${snapshot.unknownSectorCount} unclassified` : `${snapshot.sectorCount} ${partialValuation ? "priced " : ""}sectors`} />
+        <Metric label="Needs review" value={hasHoldings ? String(snapshot.reviews.length) : "—"} detail={hasHoldings ? "Positions with review flags" : "Add a holding to begin"} onClick={snapshot.reviews.length ? () => reviewsRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) : undefined} />
+      </dl>
+    </section>
+
+    {!hasHoldings && <section className={styles.empty}>
+      <h2 className={styles.title}>{meta.cashBalance > 0 ? "Your cash is recorded" : "Start with what you own"}</h2>
+      <p className={styles.description}>{meta.cashBalance > 0 ? "Log existing holdings to see allocation, unrealised returns and review signals." : "Add cash, log an existing holding or import your Trading 212 holdings."}</p>
+      <button type="button" onClick={onAdd} data-native-haptic="medium" className={styles.primaryAction}>Add to portfolio <PortfolioIcon name="plus" className="size-4" /></button>
+    </section>}
+
+    {(hasHoldings || meta.cashBalance > 0) && <div className={styles.mainGrid}>
+      <section className={styles.section}>
+        <SectionHeading title={partialValuation ? "Available valuation" : "Where your money sits"} detail={partialValuation ? "Priced holdings and cash. Unpriced positions are excluded from this breakdown." : "Allocation across your holdings and cash."} action={hasHoldings ? <button type="button" onClick={onViewHoldings} className={styles.textAction}>View all <span aria-hidden="true">→</span></button> : undefined} />
+        {snapshot.allocationAvailable ? <ul className={styles.allocations}>
+          {snapshot.allocations.map(row => <li key={row.key}>
+            {row.holding ? <button type="button" onClick={() => onHolding(row.holding!)} className={styles.allocationRow} aria-label={`Review ${row.label}, ${row.displayPercentage.toFixed(1)}% of ${partialValuation ? "available valuation" : "portfolio value"}`}>
+              <span className={styles.allocationLabel}>{row.label}<span className={styles.allocationCompany}>{row.holding.company || "Holding"}</span></span>
+              <span className={styles.allocationNumbers}><span>{money(row.value, meta.currency)}</span><span className={styles.percentage}>{row.displayPercentage.toFixed(1)}%</span></span>
+              <span className={styles.barTrack} aria-hidden="true"><span className={styles.barFill} style={{ width: `${row.percentage}%` }} /></span>
+            </button> : <div className={styles.allocationRow}>
+              <span className={styles.allocationLabel}>{row.label}<span className={styles.allocationCompany}>{row.kind === "cash" ? "Cash balance" : "Remaining positions"}</span></span>
+              <span className={styles.allocationNumbers}><span>{money(row.value, meta.currency)}</span><span className={styles.percentage}>{row.displayPercentage.toFixed(1)}%</span></span>
+              <span className={styles.barTrack} aria-hidden="true"><span className={`${styles.barFill} ${row.kind === "cash" ? styles.cashBar : styles.otherBar}`} style={{ width: `${row.percentage}%` }} /></span>
+            </div>}
+          </li>)}
+        </ul> : <p className={styles.stateCopy}>Allocation appears when portfolio balances can be valued.</p>}
+        {missingPrices && <p className={styles.valuationNote}>{snapshot.missingPriceCount} holding{snapshot.missingPriceCount === 1 ? " has" : "s have"} no current price. Review {snapshot.missingPriceCount === 1 ? "it" : "them"} below before treating this as a complete valuation.</p>}
+        {partialValuation && !missingPrices && <p className={styles.valuationNote}>A balance or holding valuation is unavailable. Percentages are hidden until those values can be confirmed.</p>}
       </section>
 
-      <section>
-        <SectionHeading
-          eyebrow="Your portfolio"
-          title="Holdings"
-          action={
-            holdings.length > 0 ? (
-              <button
-                type="button"
-                onClick={onViewHoldings}
-                className="inline-flex min-h-11 items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]"
-              >
-                View all →
-              </button>
-            ) : undefined
-          }
-        />
-        {topHoldings.length > 0 ? (
-          <div className="sg-portfolio-overview-holdings mt-3 overflow-hidden rounded-[20px] border border-[#faf6f0]/8 bg-[#081f15]/52 px-3 lg:mt-4 lg:rounded-none lg:border-x-0 lg:bg-transparent lg:px-0">
-            {topHoldings.map((holding) => (
-              <HoldingLedgerRow
-                key={holding.ticker}
-                holding={holding}
-                currency={meta.currency}
-                riskTolerance={meta.riskTolerance}
-                onOpen={onHolding}
-                compact
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-[20px] border border-[#ddb159]/14 bg-[#0a2a1d]/45 px-5 py-8 text-center">
-            <p className="text-[16px] font-black text-[#faf6f0]">This portfolio is ready to build</p>
-            <p className="mx-auto mt-2 max-w-lg text-[12px] font-semibold leading-6 text-[#faf6f0]/44">
-              Add cash, log an existing holding or import a Trading 212 CSV.
-            </p>
-            <button
-              type="button"
-              onClick={onAdd}
-              data-native-haptic="medium"
-              className="mt-5 h-12 rounded-2xl bg-[#ddb159] px-6 text-[11px] font-black text-[#061b12]"
-            >
-              Add to portfolio
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section className="sg-portfolio-pulse rounded-[22px] border border-[#ddb159]/14 bg-[#0a2a1d]/42 p-5 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)] lg:gap-10 lg:border-0 lg:bg-transparent lg:p-0">
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159] lg:text-[10px]">
-            Portfolio pulse
-          </p>
-          <h2 className="mt-2 max-w-3xl text-[23px] font-black leading-[1.15] tracking-[-0.04em] text-[#faf6f0] lg:text-[36px]">
-            {summary.label}{summary.actionAlerts > 0 ? " · review needed" : " · no urgent action"}
-          </h2>
-          <p className="mt-3 line-clamp-3 max-w-3xl text-[12px] font-semibold leading-6 text-[#faf6f0]/54 lg:mt-4 lg:line-clamp-none lg:text-[14px] lg:leading-7">
-            {summary.explanation}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 lg:mt-6">
-            {[
-              `${summary.actionAlerts} review${summary.actionAlerts === 1 ? "" : "s"}`,
-              `${summary.oversizedCount} oversized`,
-              `${summary.sectorCount} sectors`,
-            ].map((signal) => (
-              <span
-                key={signal}
-                className="inline-flex min-h-8 items-center rounded-full border border-[#ddb159]/16 bg-[#ddb159]/6 px-3 text-[9px] font-black text-[#f2d27a] lg:min-h-9 lg:text-[10px]"
-              >
-                {signal}
-              </span>
-            ))}
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:items-center lg:mt-7">
-            <AskStockGPTButton
-              canUseAskStockGPT={canUsePremium}
-              isAuthenticated
-              label="Ask StockGPT"
-              context={{ contextType: "portfolio", portfolioId }}
-              className="h-11 rounded-2xl px-3 lg:h-12 lg:px-5"
-            />
-            <button
-              type="button"
-              onClick={onAnalysis}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#ddb159]/22 px-3 text-[10px] font-black text-[#ddb159] transition hover:bg-[#ddb159]/7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:h-12 lg:px-5 lg:text-[11px]"
-            >
-              Full analysis
-            </button>
-          </div>
+      {hasHoldings && <div className={styles.sidebar}>
+      <section className={styles.section}>
+        <SectionHeading title="Unrealised contributors" detail="Largest open-position gains and losses by amount, since entry." />
+        <div className={styles.contributors}>
+          {([{ label: "Biggest gain", holding: snapshot.gainContributor }, { label: "Biggest loss", holding: snapshot.lossContributor }] as const).map(({ label, holding }) => <div key={label} className={styles.contributor}>
+            <p className={styles.metricLabel}>{label}</p>
+            {holding ? <button type="button" onClick={() => onHolding(holding)} className={styles.contributorButton} aria-label={`Review ${holding.ticker}, ${label.toLowerCase()} in unrealised return`}>
+              <span className={styles.contributorTicker}>{holding.ticker} <PortfolioIcon name="arrow" className="size-4" /></span>
+              <span className={`${styles.contributorValue} ${toneClass(holding.totalPnLDollars)}`}>{signedMoney(holding.totalPnLDollars, meta.currency)}</span>
+              <span className={styles.contributorCompany}>{holding.company || holding.ticker}</span>
+            </button> : <p className={styles.stateCopy}>{label === "Biggest gain" ? "No gain among priced holdings" : "No loss among priced holdings"}</p>}
+          </div>)}
         </div>
-
-        <dl className="sg-portfolio-pulse-metrics mt-5 grid grid-cols-4 gap-2 border-t border-[#faf6f0]/8 pt-4 lg:mt-0 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-6 lg:rounded-[20px] lg:border lg:border-[#ddb159]/14 lg:bg-[#0a2a1d]/45 lg:p-6">
-          {[
-            ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
-            ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}%`],
-            ["AI score", summary.weightedAvgScore?.toLocaleString("en-GB") ?? "—", "Weighted"],
-            ["Health", `${summary.score}/100`, summary.label],
-          ].map(([label, value, detail]) => (
-            <div key={label} className="min-w-0">
-              <dt className="truncate text-[7.5px] font-black uppercase tracking-[0.1em] text-[#faf6f0]/34 lg:text-[9px]">{label}</dt>
-              <dd className="mt-1.5 truncate text-[15px] font-black tabular-nums text-[#faf6f0] lg:mt-2 lg:text-[20px]">{value}</dd>
-              <p className="mt-0.5 truncate text-[8px] font-semibold text-[#faf6f0]/34 lg:mt-1 lg:text-[10px]">{detail}</p>
-            </div>
-          ))}
+        <dl className={styles.returnBreakdown}>
+          <div><dt>Unrealised P/L</dt><dd className={unrealisedAvailable ? toneClass(summary.unrealisedPnl) : styles.muted}>{unrealisedAvailable ? signedMoney(summary.unrealisedPnl, meta.currency) : "Unavailable in full"}</dd></div>
+          <div><dt>Recorded realised P/L</dt><dd className={Number.isFinite(summary.realisedPnl) ? toneClass(summary.realisedPnl) : styles.muted}>{Number.isFinite(summary.realisedPnl) ? signedMoney(summary.realisedPnl, meta.currency) : "Unavailable"}</dd></div>
         </dl>
+        <p className={styles.footnote}>Unrealised P/L is on holdings you still own. Recorded realised P/L comes from the sale history available for this portfolio.</p>
       </section>
-
-      <section>
-        <SectionHeading
-          eyebrow="Portfolio construction"
-          title="Conviction × exposure"
-          action={<span className="hidden text-[11px] font-semibold text-[#faf6f0]/36 sm:block">Tap a holding to investigate</span>}
-        />
-        <p className="mt-2 max-w-2xl text-[11px] font-semibold leading-5 text-[#faf6f0]/44 lg:mt-3 lg:text-[12px] lg:leading-6">
-          Position size versus model conviction, so concentration issues stand out quickly.
-        </p>
-        <div className="mt-4 lg:mt-5">
-          <PortfolioExposureView
-            holdings={holdings}
-            riskTolerance={meta.riskTolerance}
-            currency={meta.currency}
-            onSelect={onHolding}
-          />
-        </div>
+      <section ref={reviewsRef} className={`${styles.section} ${styles.reviewSection}`}>
+      <SectionHeading title="Worth a look" detail="Observed alerts, exposure and review dates. Open a holding to inspect the context." action={snapshot.reviews.length > 4 ? <button type="button" onClick={onViewHoldings} className={styles.textAction}>View holdings <span aria-hidden="true">→</span></button> : undefined} />
+      {snapshot.reviews.length ? <ul className={styles.reviews}>
+        {snapshot.reviews.slice(0, 4).map(review => <li key={review.key}><button type="button" onClick={() => onHolding(review.holding)} className={styles.reviewRow}>
+          <span className={styles.reviewTicker}>{review.holding.ticker}</span><span className={styles.reviewText}><span className={styles.reviewTitle}>{review.title}</span><span className={styles.reviewDetail}>{review.detail}</span></span><PortfolioIcon name="arrow" className="size-4 shrink-0 text-[#ddb159]" />
+        </button></li>)}
+      </ul> : <p className={styles.stateCopy}>No current review flags in the available holding data.</p>}
       </section>
+      </div>}
+    </div>}
 
-      <section>
-        <SectionHeading
-          eyebrow="StockGPT opportunities"
-          title="Portfolio-fit ideas"
-          action={
-            opportunities.length > 0 ? (
-              <Link
-                href="/rankings"
-                className="hidden min-h-11 items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#ddb159] sm:inline-flex"
-              >
-                Review rankings →
-              </Link>
-            ) : undefined
-          }
-        />
-        {opportunities.length > 0 ? (
-          <div className="sg-native-edge-portfolio -mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:mt-5 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-3">
-            {opportunities.slice(0, 6).map((opportunity) => (
-              <article
-                key={`${opportunity.ticker}-${opportunity.category}`}
-                className="flex min-h-[210px] w-[calc(100vw-56px)] max-w-[390px] shrink-0 snap-center flex-col rounded-[20px] border border-[#ddb159]/16 bg-[#0a2a1d]/72 p-4 shadow-[0_16px_34px_rgba(0,0,0,0.18)] lg:min-h-[232px] lg:w-auto lg:max-w-none lg:p-5"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[18px] font-black text-[#faf6f0] lg:text-[19px]">
-                      {opportunity.ticker}
-                      <span className="ml-2 font-semibold text-[#faf6f0]/38">{opportunity.company}</span>
-                    </p>
-                    <p className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#ddb159] lg:text-[10px]">
-                      {opportunity.category}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#ddb159]/18 px-3 py-1 text-[9px] font-black text-[#f2d27a] lg:text-[10px]">
-                    AI {Math.round(opportunity.score).toLocaleString("en-GB")}
-                  </span>
-                </div>
-                <p className="mt-3 line-clamp-3 text-[11px] font-semibold leading-5 text-[#faf6f0]/58 lg:mt-4 lg:text-[12px] lg:leading-6">
-                  {opportunity.reason}
-                </p>
-                <p className="mt-2 line-clamp-2 text-[10px] font-semibold leading-5 text-[#f1908d]/72 lg:mt-3 lg:text-[11px]">
-                  Risk: {opportunity.risk}
-                </p>
-                <div className="mt-auto flex items-end justify-between gap-3 pt-4 lg:pt-5">
-                  <span className="text-[8px] font-semibold text-[#faf6f0]/30 lg:text-[9px]">
-                    {opportunity.updatedAt ? formatDate(opportunity.updatedAt, true) : "Freshness unavailable"}
-                  </span>
-                  <Link
-                    href={`/stock/${opportunity.ticker}`}
-                    className="inline-flex min-h-10 items-center gap-2 text-[10px] font-black text-[#ddb159] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159] lg:min-h-11 lg:text-[11px]"
-                  >
-                    Research <PortfolioIcon name="arrow" className="size-4" />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-[20px] border border-[#faf6f0]/8 py-7 text-center lg:mt-5 lg:border-x-0 lg:py-9">
-            <p className="text-[15px] font-black text-[#faf6f0] lg:text-[16px]">No strong fit ideas right now</p>
-            <p className="mx-auto mt-2 max-w-lg px-4 text-[11px] font-semibold leading-5 text-[#faf6f0]/44 lg:text-[12px] lg:leading-6">
-              StockGPT only surfaces ideas when the model finds a meaningful portfolio-specific reason and a clear risk to consider.
-            </p>
-          </div>
-        )}
-      </section>
+    <section className={styles.analysis}>
+      <div><h2 className={styles.title}>Make sense of your portfolio</h2><p className={styles.description}>{hasHoldings ? "Explore your allocation, model signals and the reasons behind a review." : "Ask about your goals or explore how portfolio analysis works."}</p>{latestActivityDate && <p className={styles.footnote}>Last recorded activity: {formatDate(latestActivityDate)}.</p>}</div>
+      <div className={styles.analysisActions}>
+        <AskStockGPTButton canUseAskStockGPT={canUsePremium} isAuthenticated label="Ask StockGPT" context={{ contextType: "portfolio", portfolioId }} className="h-11 rounded-full px-4 text-xs" />
+        <button type="button" onClick={onAnalysis} className={styles.secondaryAction}>Full analysis</button>
+      </div>
+    </section>
 
-      <details className="sg-portfolio-diagnostics border-y border-[#faf6f0]/8 py-1">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 text-[12px] font-black text-[#faf6f0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ddb159]">
-          Portfolio diagnostics
-          <span className="text-[#ddb159]">View details</span>
-        </summary>
-        <dl className="grid gap-x-8 gap-y-5 border-t border-[#faf6f0]/8 py-6 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["Holdings", String(summary.holdingsCount), `${summary.sectorCount} sectors`],
-            ["Cash", money(meta.cashBalance, meta.currency), `${summary.cashDrag.toFixed(1)}% of portfolio`],
-            ["Active reviews", String(summary.actionAlerts), `${summary.eventAlerts} supporting events`],
-            ["Largest position", `${summary.largestPositionPct.toFixed(1)}%`, `${summary.oversizedCount} oversized`],
-          ].map(([label, value, detail]) => (
-            <div key={label}>
-              <dt className="text-[9px] font-black uppercase tracking-[0.12em] text-[#faf6f0]/34">{label}</dt>
-              <dd className="mt-2 text-[20px] font-black text-[#faf6f0]">{value}</dd>
-              <p className="mt-1 text-[10px] font-semibold text-[#faf6f0]/34">{detail}</p>
-            </div>
-          ))}
-        </dl>
-      </details>
-    </div>
-  );
+    <section className={styles.section}>
+      <SectionHeading title="Portfolio-fit ideas" detail="Research prompts from the model, with a reason and a risk to check." action={<Link href="/rankings" className={styles.textAction}>Rankings <span aria-hidden="true">→</span></Link>} />
+      {researchIdeas.length ? <div className={styles.ideas}>
+        {researchIdeas.map(idea => <article key={`${idea.ticker}-${idea.category}`} className={styles.idea}>
+          <div className={styles.ideaHeading}><h3>{idea.ticker}<span>{idea.company}</span></h3><Link href={`/stock/${encodeURIComponent(idea.ticker)}`} className={styles.researchAction}>Research <span className="sr-only">{idea.ticker}</span><PortfolioIcon name="arrow" className="size-4" /></Link></div>
+          <p className={styles.ideaCategory}>{idea.category}</p><p className={styles.ideaReason}>{idea.reason}</p><p className={styles.ideaRisk}><span>Risk to consider:</span> {idea.risk || "Review the stock's risks before drawing a conclusion."}</p>
+          <p className={styles.footnote}>{idea.updatedAt ? `Model data: ${formatDate(idea.updatedAt, true)}` : "Model data timestamp unavailable"}</p>
+        </article>)}
+      </div> : <p className={styles.stateCopy}>{hasHoldings ? "No portfolio-fit research ideas are available in the current model data." : "Portfolio-fit research appears as you add holdings and the model finds relevant ideas."}</p>}
+    </section>
+  </div>;
 }

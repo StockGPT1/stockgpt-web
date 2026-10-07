@@ -98,14 +98,14 @@ assert.doesNotMatch(workspace, /allocation[^\n]{0,80}Math\.random/);
 assert.match(stage, /filterDisplayablePortfolioChartData/);
 assert.match(stage, /sanitisePortfolioChartData/);
 
-assert.match(overview, /Portfolio [Pp]ulse/);
-assert.match(overview, /Conviction × exposure/);
+assert.match(overview, /buildPortfolioOverviewSnapshot/);
+assert.match(overview, /Where your money sits/);
+assert.match(overview, /Unrealised contributors/);
+assert.match(overview, /Worth a look/);
 assert.match(overview, /Portfolio-fit ideas/);
-assert.match(overview, /title="Holdings"/);
-assert.ok(
-  overview.indexOf('title="Holdings"') < overview.indexOf("Portfolio pulse"),
-  "Holdings should appear before the long Portfolio pulse section on mobile",
-);
+assert.doesNotMatch(overview, /HoldingLedgerRow|PortfolioExposureView/,
+  "Overview summarizes allocation and contributors; the position ledger and maps belong in Holdings");
+assert.match(overview, /onViewHoldings/);
 assert.match(visuals, /ConvictionMap/);
 assert.match(visuals, /AllocationTreemap/);
 assert.match(holdings, /Search holdings/);
@@ -121,7 +121,6 @@ assert.match(loading, /BrandLoaderPage/);
 assert.match(loading, /label="Weighing your holdings"/);
 assert.doesNotMatch(loading, /overflow-y-auto/);
 
-assert.match(overview, /snap-x snap-mandatory/);
 assert.match(workspace, /overflow-x-auto/);
 assert.match(workspace, /\[scrollbar-width:none\]/);
 assert.match(sheetShell, /overflow-y-auto overscroll-contain/);

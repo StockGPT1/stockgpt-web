@@ -245,37 +245,10 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
   /* Portfolio: the hero is intentionally compact on-device; holdings now sit
      immediately below the summary rather than several long editorial blocks. */
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content {
-    background: #061b12;
-  }
-
-
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content {
     padding-top: 0 !important;
   }
 
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage::before {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    z-index: -5;
-    opacity: 0.16;
-    background-image:
-      linear-gradient(rgba(242, 195, 95, 0.16) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(242, 195, 95, 0.10) 1px, transparent 1px);
-    background-size: 28px 28px;
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent 76%);
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent 76%);
-  }
-
-
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-route-content,
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-native-portfolio-shell {
-    background: #061b12;
-  }
-
-  /* One continuous mobile portfolio canvas: the hero can stay rich, but the
-     body below it should not look like a stack of differently coloured boxes. */
+  /* Let the phone chart span the canvas while keeping controls comfortably inset. */
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage {
     margin-left: -12px;
     margin-right: -12px;
@@ -296,20 +269,9 @@ html[data-app-shell="true"] :where(a, button, input, textarea, select, [role="bu
     background: transparent;
   }
 
-  html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-stage-backdrop {
-    background:
-      radial-gradient(circle at 50% -2%, rgba(255, 224, 138, 0.16), transparent 31%),
-      radial-gradient(circle at 12% 46%, rgba(52, 211, 153, 0.08), transparent 34%),
-      linear-gradient(180deg, #0d3a27 0%, #082b1d 58%, #061b12 100%) !important;
-  }
-
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-section-nav {
     margin-left: -12px;
     margin-right: -12px;
-    border-bottom-color: transparent !important;
-    background: #061b12 !important;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 
   html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-portfolio-body {

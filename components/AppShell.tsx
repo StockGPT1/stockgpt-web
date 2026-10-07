@@ -33,17 +33,15 @@ function PageBackdrop({ activePath }: { activePath: string }) {
   const variant =
     activePath === "/rankings"
       ? "rankings"
-      : activePath === "/portfolio"
-        ? "portfolio"
-        : activePath === "/watchlist"
-          ? "watchlist"
-          : activePath === "/notifications"
-            ? "alerts"
-            : activePath === "/world-news"
-              ? "news"
-              : activePath === "/settings"
-                ? "settings"
-                : "default";
+      : activePath === "/watchlist"
+        ? "watchlist"
+        : activePath === "/notifications"
+          ? "alerts"
+          : activePath === "/world-news"
+            ? "news"
+            : activePath === "/settings"
+              ? "settings"
+              : "default";
 
   return (
     <div className="sg-page-backdrop pointer-events-none absolute inset-0 overflow-hidden">
@@ -71,19 +69,6 @@ function PageBackdrop({ activePath }: { activePath: string }) {
               opacity="0.35"
             />
           </svg>
-        </>
-      )}
-
-      {variant === "portfolio" && (
-        <>
-          <div className="absolute bottom-[-18%] right-[3%] h-[420px] w-[420px] rounded-full border border-[#ddb159]/10 bg-[#ddb159]/[0.045] blur-[2px]" />
-          <div className="absolute right-[9%] top-[16%] grid h-[180px] w-[230px] grid-cols-5 items-end gap-3 opacity-[0.09]">
-            <span className="h-[42%] rounded-t bg-[#ddb159]" />
-            <span className="h-[62%] rounded-t bg-[#ddb159]" />
-            <span className="h-[35%] rounded-t bg-[#ddb159]" />
-            <span className="h-[78%] rounded-t bg-[#ddb159]" />
-            <span className="h-full rounded-t bg-[#ddb159]" />
-          </div>
         </>
       )}
 
