@@ -1,58 +1,93 @@
-.analysis {
-  --scan-gold: #f6c96b;
-  --scan-green: #52e0aa;
+.analysis, .workspace {
+  --scan-gold: #ffd361;
+  --scan-green: #36ffad;
   scroll-margin-top: 1rem;
 }
-
-.arrive {
-  animation: arrive 350ms ease-out both;
+.workspace { color: #f6fff9; }
+.arrive { animation: arrive 380ms cubic-bezier(.2,.8,.2,1) both; }
+.panel {
+  border: 1px solid #35db9466;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #0b3825, #08251a);
+  box-shadow: 0 10px 28px #0003;
 }
-
 .hero {
-  background: radial-gradient(ellipse at top right, #236044 0%, transparent 64%), #0a2a1d;
-  box-shadow: 0 12px 36px #00000025;
+  background: radial-gradient(ellipse at top right, #12804d 0%, transparent 70%), linear-gradient(145deg, #075738, #082d20);
+  border: 1px solid #46ffad99;
+  box-shadow: 0 0 32px #20de881a, 0 16px 40px #0004;
+  position: relative;
+  overflow: hidden;
 }
-
-.tap {
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
-  touch-action: manipulation;
+.landing {
+  padding: 24px;
+  border-radius: 28px;
+  border: 1px solid #4fffba99;
+  background: radial-gradient(ellipse at top right, #129251 0%, transparent 70%), linear-gradient(155deg, #075c38, #072c20 70%);
+  box-shadow: 0 0 40px #17df871a;
 }
-
-.tap:active {
-  transform: scale(0.98);
+.kicker { color: #a1ffd1; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
+.beta {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px; background: #ffd361; color: #07291b;
+  padding: 4px 7px; font-size: 10px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase;
+  box-shadow: 0 0 18px #ffd36133;
 }
-
-.analysis button:focus-visible,
-.analysis a:focus-visible,
-.analysis summary:focus-visible {
-  outline: 2px solid var(--scan-gold);
-  outline-offset: 4px;
+.primary {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px;
+  border-radius: 16px; padding: 12px 20px; font-size: 16px; font-weight: 900;
+  background: linear-gradient(110deg, #ffe090, #ffd361); color: #062418;
+  box-shadow: 0 5px 0 #b9852533, 0 8px 24px #f4c15426;
 }
-
-.analysis summary {
-  cursor: pointer;
+.primary:disabled, .secondary:disabled { opacity: .5; box-shadow: none; }
+.secondary, .helpButton, .tab, .chartControl {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; border: 1px solid #39de9580; border-radius: 14px;
+  padding: 10px 14px; background: #104b32; color: #e6fff0; font-size: 13px; font-weight: 800;
 }
-
-.scoreArc {
-  animation: draw 700ms ease-out both;
+.helpButton { font-size: 12px; padding: 10px 12px; color: #ffe09b; border-color: #ffd36199; background: #21452a; }
+.iconButton { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; background: #36ffad22; color: #eafff1; border: 1px solid #36ffad66; }
+.activeTab { background: #36ffad; color: #032519; border-color: #66ffc0; box-shadow: 0 4px 16px #36ffad18; }
+.expandButton { background: #ffd361; color: #062418; border-color: #ffd361; }
+.statGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.statGrid > div { display: flex; flex-direction: column; padding: 15px 6px; text-align: center; background: #021e14b3; border: 1px solid #36ffad66; border-radius: 16px; }
+.statGrid strong { color: #ffd361; font-size: clamp(28px,7vw,42px); font-weight: 950; line-height: 1.15; }
+.statGrid span { color: #c8f8de; font-size: 11px; font-weight: 700; margin-top: 6px; }
+.candleArt { width: 100%; height: 96px; margin: 0 auto; overflow: visible; }
+.candleArt rect, .candleArt line { vector-effect: non-scaling-stroke; }
+.candleArt .scanSweep { animation: sweep 3s ease-in-out infinite alternate; }
+.loading { background: radial-gradient(ellipse at top, #087949, #082c1e 70%); border: 1px solid #36ffad99; }
+.sectionLabel { display: inline-flex; align-items: center; gap: 8px; color: #67ffc0; font-weight: 900; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.timelineCard { border: 1px solid #ffd36188; background: linear-gradient(135deg, #1b5335, #0c3525); border-radius: 16px; padding: 16px; }
+.caution { background: linear-gradient(120deg, #ffe29b, #ffd361); border: 1px solid #ffeab6; color: #092b1c; border-radius: 24px; box-shadow: 0 8px 24px #ffd36115; }
+.evidenceCard { border: 1px solid #36ffad88; border-left: 4px solid #36ffad; background: #0b4c31; border-radius: 16px; padding: 16px; }
+.conflictCard { border-color: #ffd36199; border-left-color: #ffd361; background: #3c3d20; }
+.chartFrame { border-radius: 16px; border: 2px solid #36ffad99; overflow: hidden; box-shadow: 0 0 24px #36ffad14; }
+.auditRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 0; border-bottom: 1px solid #36ffad22; font-size: 13px; }
+.capabilityDialog {
+  position: fixed; inset: 0; margin: auto; width: min(640px,calc(100% - 24px)); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain; border: 1px solid #36ffad99; border-radius: 24px; padding: 0;
+  background: #082b1c; color: #f6fff9; box-shadow: 0 24px 100px #0009;
 }
-
-.anchor {
-  scroll-margin-top: 1rem;
+.capabilityDialog::backdrop, .previewDialog::backdrop { background: #00130bdb; backdrop-filter: blur(6px); }
+.dialogHeader { display: flex; gap: 12px; justify-content: space-between; padding: 24px 20px; border-bottom: 1px solid #36ffad66; background: linear-gradient(120deg, #077848, #06452e); }
+.catalogCard { border: 1px solid #36ffad55; border-radius: 12px; background: #0e3c29; }
+.searchInput { margin-top: 8px; width: 100%; min-height: 48px; padding: 12px; border: 1px solid #36ffad88; border-radius: 12px; background: #031f14; color: #fff9e7; font-size: 16px; }
+.indicatorTile { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid #36ffad88; background: #0c5333; color: #8fffc6; font-size: 14px; }
+.processCard { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #36ffad55; border-radius: 16px; padding: 16px; background: #0b3f2a; }
+.processCard > span { display: grid; place-items: center; min-width: 30px; height: 30px; background: #ffd361; color: #042519; border-radius: 50%; font-weight: 900; }
+.previewDialog { position: fixed; inset: 0; margin: auto; height: 100dvh; max-height: none; width: 100vw; max-width: none; border: 0; padding: 0; background: #03180f; color: #f6fff9; }
+.tap { -webkit-tap-highlight-color: transparent; transition: transform 180ms cubic-bezier(.2,.8,.2,1), background-color 160ms ease, box-shadow 160ms ease; touch-action: manipulation; }
+.tap:active { transform: scale(.96); }
+.analysis button:focus-visible, .analysis a:focus-visible, .analysis summary:focus-visible,
+.workspace button:focus-visible, .workspace a:focus-visible, .workspace summary:focus-visible,
+.capabilityDialog button:focus-visible, .capabilityDialog summary:focus-visible, .searchInput:focus-visible {
+  outline: 3px solid #ffd361; outline-offset: 3px;
 }
-
-@keyframes arrive {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes draw {
-  from { stroke-dasharray: 0 100; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .arrive, .scoreArc { animation: none; }
-  .tap { transition: none; }
-  .tap:active { transform: none; }
-}
+.analysis summary { cursor: pointer; }
+.scoreArc { animation: draw 700ms ease-out both; filter: drop-shadow(0 0 3px #36ffad66); }
+.anchor { scroll-margin-top: 1rem; }
+@keyframes arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes draw { from { stroke-dasharray: 0 100; } }
+@keyframes sweep { from { transform: translateX(-100px); } to { transform: translateX(100px); } }
+@media (max-width: 380px) { .landing { padding: 20px; } .helpButton { padding: 8px; font-size: 11px; } .chartControl { font-size: 12px; padding: 10px; } }
+@media (prefers-reduced-motion: reduce) { .arrive, .scoreArc, .candleArt .scanSweep { animation: none; } .tap { transition: none; } .tap:active { transform: none; } }
