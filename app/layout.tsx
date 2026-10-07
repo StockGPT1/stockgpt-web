@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import { AppShellMode } from "@/components/AppShellMode";
+import { AppLaunchLifecycle } from "@/components/AppLaunchLifecycle";
 import { StockAskActionPolish } from "@/components/StockAskActionPolish";
 import { IOSNativeEnhancements } from "@/components/IOSNativeEnhancements";
 import { IOSAppLock } from "@/components/IOSAppLock";
@@ -105,6 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <AppShellMode />
+        <AppLaunchLifecycle />
         <IOSNativeEnhancements />
         <IOSAppLock />
         <StockAskActionPolish />
