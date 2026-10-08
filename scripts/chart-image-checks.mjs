@@ -158,8 +158,10 @@ test("an atlas recovers the full price when an approximate plot edge clips the s
   const image = await sharp(labelledChart(true)).png().toBuffer();
   const edge = Math.floor((clippedPlot.x_pct + clippedPlot.width_pct) / 100 * 800);
   const outside = await sharp(image).extract({ left: edge, top: 40, width: 800 - edge, height: 320 }).greyscale().raw().toBuffer({ resolveWithObject: true });
-  assert.equal(detectAxisLabelBands(outside.data, outside.info.width, outside.info.height, outside.info.channels).length, 4,
-    "suffixes of clipped labels still look like four label bands");
+  // Font rasterisation varies across macOS/Linux. The regression requires the
+  // old >=3-band gate to pass, regardless of the exact number of clipped glyphs.
+  assert.ok(detectAxisLabelBands(outside.data, outside.info.width, outside.info.height, outside.info.channels).length >= 3,
+    "suffixes of clipped labels still pass the three-label threshold");
   const { geometry, guides } = await buildChartImageGuides([image], normaliseChartLayout({ ...rawLayout, price_plot_box: clippedPlot }, 1));
   const rows = geometry.axis_rows.filter(row => row.id.startsWith("right-"));
   assert.equal(rows.length, 4);
