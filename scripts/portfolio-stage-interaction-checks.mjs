@@ -23,7 +23,7 @@ function loadLibrary(name) {
   new Function("require", "module", "exports", compiled(file))(loadLibrary, loaded, loaded.exports);
   return loaded.exports;
 }
-const { money, signedMoney, signedPct } = loadLibrary("@/components/portfolio-workspace/utils");
+const { formatDate, money, signedMoney, signedPct } = loadLibrary("@/components/portfolio-workspace/utils");
 const stageCode = compiled("components/portfolio-workspace/PortfolioStage.tsx");
 const StockChart = () => null;
 const RouletteNumber = () => null;
@@ -130,6 +130,24 @@ function assertCurrent(view, props) {
   assert.ok(text(view.tree).includes(`${signedMoney(props.summary.totalPnl, props.meta.currency)} · ${signedPct(props.summary.totalPnlPct)}`));
   assert.ok(!text(view.tree).includes("Total return at this point"));
 }
+
+test("portfolio dates use the shared chart overlay and keep selected return context accessible", () => {
+  const stage = stageHarness();
+  let view = stage.render();
+  assert.equal(view.chart.props.showScrubDate, true);
+  assert.equal(view.chart.props.interaction, undefined);
+  view.chart.props.onScrub(view.chart.props.data["1M"][1]);
+  view = stage.render();
+  assert.equal(text(find(view.tree, (node) => node.props?.className === "captionRow")).trim(), "Portfolio value");
+  const selectedDate = formatDate(stage.history[1].date, true);
+  const accessibleDate = find(view.tree, (node) => node.type === "span" && node.props.className === "sr-only" && text(node).includes(selectedDate));
+  assert.ok(text(accessibleDate).includes(selectedDate));
+  assert.ok(text(view.tree).includes(`${signedMoney(150, "GBP")} · ${signedPct(15)}`));
+  view.chart.props.onScrub(null);
+  view = stage.render();
+  assertCurrent(view, stage.props);
+  assert.equal(find(view.tree, (node) => node.type === "span" && node.props.className === "sr-only" && text(node).includes(selectedDate)), undefined);
+});
 
 test("scrubbing across different value lengths keeps the headline font sizing fixed", () => {
   const stage = stageHarness();

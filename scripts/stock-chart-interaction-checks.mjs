@@ -16,15 +16,20 @@ const compiled = ts.transpileModule(source, {
 // between renders; the browser stub lets us verify queued pointer cancellation.
 function chartHarness(overrides = {}) {
   const slots = [], pendingEffects = new Map(), frames = new Map(), scrubbed = [], haptics = [];
-  const listeners = new Map(), listenerCalls = [], captured = new Set(), captureCalls = [], releaseCalls = [];
-  let cursor = 0, frameId = 0, changed = false, latestSvg;
+  const listeners = new Map(), listenerCapture = new Map(), listenerCalls = [], captured = new Set(), captureCalls = [], releaseCalls = [];
+  let cursor = 0, frameId = 0, changed = false, latestSvg, latestFrame;
   const equalDeps = (a, b) => a && b && a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
-  const target = {
+  class DomNode {}
+  const descendant = new DomNode(), outside = new DomNode();
+  const target = Object.assign(new DomNode(), {
     getBoundingClientRect: () => ({ left: 0, width: 800 }),
+    contains: (node) => node === target || node === descendant,
     setPointerCapture: (id) => { captured.add(id); captureCalls.push(id); },
     hasPointerCapture: (id) => captured.has(id),
     releasePointerCapture: (id) => { captured.delete(id); releaseCalls.push(id); },
-  };
+  });
+  const frameTarget = Object.assign(new DomNode(), { contains: (node) => node === frameTarget || target.contains(node) });
+  globalThis.Node = DomNode;
   const hooks = {
     useState(initial) {
       const index = cursor++;
@@ -78,19 +83,30 @@ function chartHarness(overrides = {}) {
   globalThis.document = {
     addEventListener(type, listener, options) {
       if (!listeners.has(type)) listeners.set(type, new Set());
+      if (!listenerCapture.has(type)) listenerCapture.set(type, new Map());
       listeners.get(type).add(listener);
+      listenerCapture.get(type).set(listener, options === true || options?.capture === true);
       listenerCalls.push({ type, options });
     },
-    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+    removeEventListener(type, listener, options) {
+      if (listenerCapture.get(type)?.get(listener) === (options === true || options?.capture === true)) {
+        listeners.get(type)?.delete(listener);
+        listenerCapture.get(type).delete(listener);
+      }
+    },
   };
   function render() {
     for (let attempt = 0; attempt < 25; attempt++) {
       cursor = 0; changed = false;
       const tree = chartModule.exports.StockChart(props);
       const svg = find(tree, (node) => node.type === "svg");
+      const frame = find(tree, (node) => node.props?.className?.includes("sg-stock-chart-frame"));
       if (svg) svg.props.ref.current = target;
       else if (latestSvg) latestSvg.props.ref.current = null;
+      if (frame?.props.ref) frame.props.ref.current = frameTarget;
+      else if (latestFrame?.props.ref) latestFrame.props.ref.current = null;
       latestSvg = svg;
+      latestFrame = frame;
       const effects = [...pendingEffects.entries()]; pendingEffects.clear();
       for (const [index, effect] of effects) {
         slots[index].cleanup?.();
@@ -105,16 +121,18 @@ function chartHarness(overrides = {}) {
   }
   function dispatchDocument(type, overrides = {}) {
     const event = { cancelable: true, defaultPrevented: false, target,
-      preventDefault() { this.defaultPrevented = true; }, ...overrides };
+      touches: touchList(), changedTouches: touchList(),
+      preventDefault() { if (this.cancelable) this.defaultPrevented = true; }, ...overrides };
     listeners.get(type)?.forEach((listener) => listener(event));
     return event;
   }
   function unmount() {
     // React detaches the DOM ref before passive effect cleanup runs.
     if (latestSvg) latestSvg.props.ref.current = null;
+    if (latestFrame?.props.ref) latestFrame.props.ref.current = null;
     for (const slot of slots) if (slot?.effectSlot) slot.cleanup?.();
   }
-  return { render, flush, unmount, dispatchDocument, frames, points, props, scrubbed, haptics, listeners, listenerCalls, captured, captureCalls, releaseCalls, target };
+  return { render, flush, unmount, dispatchDocument, frames, points, props, scrubbed, haptics, listeners, listenerCalls, captured, captureCalls, releaseCalls, target, frameTarget, descendant, outside };
 }
 
 function all(tree, predicate) {
@@ -139,6 +157,10 @@ function pointer(svg, overrides = {}) {
   return { clientX: 100, isPrimary: true, button: 0, pointerId: 7, pointerType: "mouse",
     currentTarget: svg.props.ref.current, preventDefault() {}, ...overrides };
 }
+function touchList(...touches) {
+  return Object.assign(touches, { item: (index) => touches[index] ?? null });
+}
+function touch(identifier, clientX, target) { return { identifier, clientX, target }; }
 
 test("portfolio scrub uses the nearest timestamp and returns the original value and PnL", () => {
   const chart = chartHarness();
@@ -478,4 +500,121 @@ test("same-range history replacement, unavailable history and ticker changes res
   assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
   chart.unmount();
   assert.equal(chart.listeners.get("wheel").size, 0);
+});
+
+test("native stock touches block scrolling only for the chart's original finger, including beyond the plot", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  let { tree, svg } = chart.render();
+  for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
+    assert.equal(chart.listeners.get(type)?.size, 1, type);
+    assert.equal(chart.listenerCalls.find((call) => call.type === type)?.options.capture, true, type);
+  }
+  for (const type of ["touchstart", "touchmove"]) assert.equal(chart.listenerCalls.find((call) => call.type === type)?.options.passive, false, type);
+  const frame = find(tree, (node) => node.props?.className?.includes("sg-stock-chart-frame"));
+  for (const node of [frame, svg]) {
+    assert.equal(node.props["data-stock-chart-scrub-lock"], true);
+    assert.equal(node.props.style.touchAction, "none");
+    assert.equal(node.props.style.userSelect, "none");
+    assert.equal(node.props.style.WebkitUserSelect, "none");
+    assert.equal(node.props.style.WebkitTouchCallout, "none");
+  }
+  let preventedContextMenu = false;
+  frame.props.onContextMenu({ preventDefault: () => { preventedContextMenu = true; } });
+  assert.equal(preventedContextMenu, true);
+  const unrelated = touch(3, 100, chart.outside);
+  assert.equal(chart.dispatchDocument("touchstart", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(unrelated) }).defaultPrevented, false);
+  assert.equal(chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(unrelated) }).defaultPrevented, false);
+  assert.equal(chart.scrubbed.length, 0);
+
+  const finger = touch(41, 100, chart.descendant);
+  assert.equal(chart.dispatchDocument("touchstart", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) }).defaultPrevented, true);
+  chart.flush();
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[1]);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+  ({ tree, svg } = chart.render());
+  assert.equal(chart.listeners.get("touchstart").size, 1, "selection rerenders must not duplicate native handlers");
+  const date = find(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true);
+  assert.equal(date.props.style.userSelect, "none");
+  assert.equal(date.props.style.WebkitUserSelect, "none");
+  assert.equal(date.props.style.WebkitTouchCallout, "none");
+  for (const handler of ["onPointerCancel", "onLostPointerCapture"]) {
+    svg.props.onPointerDown(pointer(svg, { pointerType: "touch" }));
+    svg.props[handler](pointer(svg, { pointerType: "touch" }));
+    assert.equal(chart.captured.size, 0, handler);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true, "native touch must remain active after pointer cancellation");
+  }
+  assert.equal(chart.dispatchDocument("touchstart", { target: chart.outside, touches: touchList(unrelated, finger), changedTouches: touchList(unrelated) }).defaultPrevented, true);
+
+  // A second finger ending cannot unlock the original touch. Movement outside
+  // the SVG still follows identifier 41 rather than the first TouchList entry.
+  assert.equal(chart.dispatchDocument("touchend", { touches: touchList(finger), changedTouches: touchList(unrelated) }).defaultPrevented, false);
+  const outsideFinger = touch(41, 900, chart.descendant);
+  assert.equal(chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(unrelated, outsideFinger), changedTouches: touchList(outsideFinger) }).defaultPrevented, true);
+  chart.flush();
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
+  chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(touch(41, 100, chart.descendant)) });
+  assert.equal(chart.frames.size, 1);
+  chart.dispatchDocument("touchend", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(touch(41, 8, chart.descendant)) });
+  assert.equal(chart.frames.size, 0);
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0]);
+  chart.flush();
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0], "the final touch coordinate must survive a previously queued move");
+  assert.equal(all(chart.render().tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 1);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  assert.equal(chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(unrelated) }).defaultPrevented, false);
+  chart.unmount();
+});
+
+test("native touch cancellation and chart cleanup cannot restore a queued selection or leave scrolling locked", () => {
+  for (const end of ["cancel", "data", "unmount"]) {
+    const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+    let { tree, svg } = chart.render();
+    const finger = touch(41, 100, chart.descendant);
+    chart.dispatchDocument("touchstart", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) });
+    // Pointer and native touch identifiers need not be equal. Both browser
+    // pathways must be released when the gesture or chart is cancelled.
+    svg.props.onPointerDown(pointer(svg, { pointerType: "touch" }));
+    svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 792 }));
+    assert.equal(chart.frames.size, 1);
+    if (end === "cancel") {
+      chart.dispatchDocument("touchcancel", { touches: touchList(), changedTouches: touchList(finger) });
+    } else if (end === "data") {
+      chart.props.data = { "1M": chart.points.map((point) => ({ ...point, close: point.close + 50 })) };
+      ({ tree, svg } = chart.render());
+    } else chart.unmount();
+    assert.equal(chart.frames.size, 0, end);
+    assert.equal(chart.captured.size, 0, end);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false, end);
+    assert.equal(chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(finger), changedTouches: touchList(finger) }).defaultPrevented, false, end);
+    chart.flush();
+    if (end !== "unmount") {
+      ({ tree } = chart.render());
+      assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0, end);
+      assert.ok(renderedText(tree).includes(end === "data" ? "$170.00" : "$120.00"), end);
+      chart.unmount();
+    }
+    for (const type of ["wheel", "touchstart", "touchmove", "touchend", "touchcancel"]) assert.equal(chart.listeners.get(type).size, 0, `${end}: ${type}`);
+  }
+});
+
+test("a portfolio can show the scrub-line date without stock touch locking or a duplicate date", () => {
+  const chart = chartHarness({ showScrubDate: true });
+  let { tree, svg } = chart.render();
+  assert.ok(svg.props.className.includes("touch-pan-y"));
+  assert.notEqual(svg.props.style?.touchAction, "none");
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  key(svg, "Home");
+  ({ tree, svg } = chart.render());
+  const overlay = find(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true);
+  const date = new Date(chart.points[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  assert.equal(renderedText(overlay), date);
+  assert.equal(renderedText(tree).split(date).length - 1, 1);
+  assert.equal(svg.props["data-stock-chart-scrub-lock"], undefined);
+  for (const type of ["wheel", "touchstart", "touchmove", "touchend", "touchcancel"]) assert.equal(chart.listeners.get(type)?.size ?? 0, 0, type);
+  const finger = touch(41, 100, chart.descendant);
+  assert.equal(chart.dispatchDocument("touchstart", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) }).defaultPrevented, false);
+  assert.equal(chart.dispatchDocument("touchmove", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) }).defaultPrevented, false);
+  key(svg, "Escape");
+  assert.equal(all(chart.render().tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  chart.unmount();
 });

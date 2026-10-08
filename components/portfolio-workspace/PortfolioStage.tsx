@@ -211,7 +211,6 @@ export function PortfolioStage({
           <div className={styles.balance}>
             <div className={styles.captionRow}>
               <p className={styles.caption}>Portfolio value</p>
-              <p className={styles.scrubDate}>{scrubPoint ? formatDate(scrubPoint.date, true) : ""}</p>
             </div>
             <h1
               className={styles.value}
@@ -225,7 +224,10 @@ export function PortfolioStage({
                 <p className={`${styles.returnValue} ${currentPnl === null ? "text-[#faf6f0]/60" : toneClass(currentPnl)}`}>
                   <RouletteNumber value={returnText} />
                 </p>
-                <p className={styles.detailLabel}>{scrubPoint ? "Total return at this point" : "Total return"}</p>
+                <p className={styles.detailLabel}>
+                  {scrubPoint ? "Total return at this point" : "Total return"}
+                  {scrubPoint && <span className="sr-only">{` · ${formatDate(scrubPoint.date, true)}`}</span>}
+                </p>
               </div>
               <div className={styles.health}>
                 {summary.holdingsCount > 0 && (
@@ -264,6 +266,7 @@ export function PortfolioStage({
                 compact
                 color="#f2c35f"
                 appearance="portfolio"
+                showScrubDate
                 formatValue={(value) => money(value, meta.currency)}
                 onScrub={(point) => setScrubSelection(point ? { point, range: activeRange, height: chartHeight } : null)}
               />

@@ -28,11 +28,13 @@ type Props = {
   showUnavailableRanges?: boolean;
   appearance?: "default" | "portfolio";
   interaction?: "default" | "stock";
+  showScrubDate?: boolean;
   formatValue?: (value: number) => string;
   onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
 
 const DEFAULT_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
+const NO_TEXT_SELECTION = { userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" } as const;
 
 function formatPrice(n: number) {
   if (Math.abs(n) >= 1000) {
@@ -100,19 +102,23 @@ export function StockChart({
   showUnavailableRanges = false,
   appearance = "default",
   interaction = "default",
+  showScrubDate,
   formatValue,
   onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
   const [hoverSelection, setHoverSelection] = useState<{ index: number; points: ChartPoint[]; ticker: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const moveFrameRef = useRef<number | null>(null);
   const pendingClientXRef = useRef<number | null>(null);
   const activePointerRef = useRef<{ id: number; target: SVGSVGElement } | null>(null);
+  const activeTouchRef = useRef<number | null>(null);
   const scrubScrollLockedRef = useRef(false);
   const gradientId = `portfolio-chart-fill-${useId().replaceAll(":", "")}`;
   const isPortfolioAppearance = appearance === "portfolio";
   const isStockInteraction = interaction === "stock";
+  const showDateOnLine = showScrubDate ?? isStockInteraction;
   const valueFormatter = formatValue ?? formatPrice;
 
   const availableRanges = useMemo(
@@ -302,7 +308,7 @@ export function StockChart({
   }, []);
 
   const releaseStockPointer = useCallback(() => {
-    scrubScrollLockedRef.current = false;
+    scrubScrollLockedRef.current = activeTouchRef.current !== null;
     const active = activePointerRef.current;
     activePointerRef.current = null;
     if (active) {
@@ -310,26 +316,78 @@ export function StockChart({
     }
   }, []);
 
-  useEffect(() => {
-    if (!isStockInteraction) return cancelPendingMove;
-    const blockScrubScroll = (event: WheelEvent) => {
-      if (scrubScrollLockedRef.current) event.preventDefault();
-    };
-    // A non-passive listener also blocks trackpad scrolling in nested page scrollers.
-    document.addEventListener("wheel", blockScrubScroll, { passive: false });
-    return () => {
-      document.removeEventListener("wheel", blockScrubScroll);
-      cancelPendingMove();
-      releaseStockPointer();
-    };
-  }, [isStockInteraction, resolvedRange, points, ticker, cancelPendingMove, releaseStockPointer]);
-
   const handlePointerLeave = useCallback(() => {
     cancelPendingMove();
+    activeTouchRef.current = null;
     releaseStockPointer();
     setHoverSelection(null);
     onScrub?.(null, { range: resolvedRange });
   }, [cancelPendingMove, releaseStockPointer, onScrub, resolvedRange]);
+
+  useEffect(() => {
+    if (!isStockInteraction) return cancelPendingMove;
+    const preventScroll = (event: Event) => {
+      if (event.cancelable) event.preventDefault();
+    };
+    const blockScrubScroll = (event: WheelEvent) => {
+      if (scrubScrollLockedRef.current) preventScroll(event);
+    };
+    const findTouch = (list: TouchList, id: number) => {
+      for (let i = 0; i < list.length; i++) {
+        const touch = list.item(i);
+        if (touch?.identifier === id) return touch;
+      }
+      return null;
+    };
+    const startTouch = (event: TouchEvent) => {
+      if (activeTouchRef.current !== null) {
+        preventScroll(event);
+        return;
+      }
+      if (!event.target || !frameRef.current?.contains(event.target as Node)) return;
+      const touch = event.changedTouches.item(0);
+      if (!touch) return;
+      activeTouchRef.current = touch.identifier;
+      scrubScrollLockedRef.current = true;
+      // Cancel the initial gesture before WebKit starts scrolling or selecting text.
+      preventScroll(event);
+      handleMove(touch.clientX);
+    };
+    const moveTouch = (event: TouchEvent) => {
+      if (activeTouchRef.current === null) return;
+      preventScroll(event);
+      const touch = findTouch(event.touches, activeTouchRef.current);
+      if (touch) scheduleMove(touch.clientX);
+    };
+    const endTouch = (event: TouchEvent) => {
+      if (activeTouchRef.current === null) return;
+      const touch = findTouch(event.changedTouches, activeTouchRef.current);
+      if (!touch) return;
+      cancelPendingMove();
+      handleMove(touch.clientX);
+      activeTouchRef.current = null;
+      releaseStockPointer();
+    };
+    const cancelTouch = (event: TouchEvent) => {
+      if (activeTouchRef.current !== null && findTouch(event.changedTouches, activeTouchRef.current)) handlePointerLeave();
+    };
+    // Capture keeps finger scrubbing locked when it crosses the plot boundary.
+    document.addEventListener("wheel", blockScrubScroll, { passive: false });
+    document.addEventListener("touchstart", startTouch, { passive: false, capture: true });
+    document.addEventListener("touchmove", moveTouch, { passive: false, capture: true });
+    document.addEventListener("touchend", endTouch, { capture: true });
+    document.addEventListener("touchcancel", cancelTouch, { capture: true });
+    return () => {
+      document.removeEventListener("wheel", blockScrubScroll);
+      document.removeEventListener("touchstart", startTouch, true);
+      document.removeEventListener("touchmove", moveTouch, true);
+      document.removeEventListener("touchend", endTouch, true);
+      document.removeEventListener("touchcancel", cancelTouch, true);
+      cancelPendingMove();
+      activeTouchRef.current = null;
+      releaseStockPointer();
+    };
+  }, [isStockInteraction, handleMove, scheduleMove, handlePointerLeave, cancelPendingMove, releaseStockPointer]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent<SVGSVGElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
@@ -380,11 +438,11 @@ export function StockChart({
       : 0;
 
   const yPos = hoverPoint ? yScale(hoverPoint.close) : 0;
-  const hideTooltip = isPortfolioAppearance || (compact && ticker === "Portfolio");
+  const hideTooltip = showDateOnLine || isPortfolioAppearance || (compact && ticker === "Portfolio");
   const scrubDateLeft = hoverPoint
     ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 5rem), calc(100% - 10.85rem))`
     : "0.75rem";
-  const stockScrubDateLeft = `clamp(0.375rem, calc(${(xPos / svgWidth) * 100}% - 4rem), calc(100% - 8.375rem))`;
+  const crosshairDateLeft = `clamp(0.375rem, calc(${(xPos / svgWidth) * 100}% - 4rem), calc(100% - 8.375rem))`;
 
   if (points.length < 2) {
     return (
@@ -417,7 +475,7 @@ export function StockChart({
               />
             </p>
 
-            {hoverPoint && !isStockInteraction ? (
+            {hoverPoint && !showDateOnLine ? (
               <p className="text-[11px] font-semibold text-[#faf6f0]/55">
                 {formatDate(hoverPoint.date, resolvedRange)}
               </p>
@@ -439,11 +497,14 @@ export function StockChart({
       )}
 
       <div
+        ref={frameRef}
+        data-stock-chart-scrub-lock={isStockInteraction ? true : undefined}
         className={[
           "sg-stock-chart-frame relative overflow-hidden",
           isPortfolioAppearance ? "bg-transparent" : mobileTransparentFrame ? "bg-transparent sm:rounded-xl sm:bg-[#072116]/40" : "rounded-xl bg-[#072116]/40",
         ].join(" ")}
-        style={{ height: `${height}px` }}
+        style={{ height: `${height}px`, ...(isStockInteraction ? { ...NO_TEXT_SELECTION, touchAction: "none" } : {}) }}
+        onContextMenu={isStockInteraction ? (event) => event.preventDefault() : undefined}
       >
         <svg
           key={resolvedRange}
@@ -452,6 +513,7 @@ export function StockChart({
           preserveAspectRatio="none"
           className={`sg-stock-chart-canvas h-full w-full ${isStockInteraction || !isPortfolioAppearance ? "touch-none" : "touch-pan-y"} ${isPortfolioAppearance ? "outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159]" : ""}`}
           data-stock-chart-scrub-lock={isStockInteraction ? true : undefined}
+          style={isStockInteraction ? { ...NO_TEXT_SELECTION, touchAction: "none" } : undefined}
           tabIndex={isPortfolioAppearance ? 0 : undefined}
           role={isPortfolioAppearance ? "slider" : undefined}
           aria-label={isPortfolioAppearance ? `${ticker} value history, ${resolvedRange}` : undefined}
@@ -484,15 +546,22 @@ export function StockChart({
             handleMove(e.clientX);
           }}
           onPointerLeave={() => {
-            if (isStockInteraction && activePointerRef.current) return;
+            if (isStockInteraction && (activePointerRef.current || activeTouchRef.current !== null)) return;
             handlePointerLeave();
           }}
           onPointerCancel={(e) => {
             if (isStockInteraction && activePointerRef.current && activePointerRef.current.id !== e.pointerId) return;
+            if (isStockInteraction && activeTouchRef.current !== null) {
+              cancelPendingMove();
+              releaseStockPointer();
+              return;
+            }
             handlePointerLeave();
           }}
           onLostPointerCapture={isStockInteraction ? (e) => {
-            if (activePointerRef.current?.id === e.pointerId) handlePointerLeave();
+            if (activePointerRef.current?.id !== e.pointerId) return;
+            if (activeTouchRef.current !== null) releaseStockPointer();
+            else handlePointerLeave();
           } : undefined}
           onPointerUp={(e) => {
             if (isStockInteraction) {
@@ -629,12 +698,12 @@ export function StockChart({
           )}
         </svg>
 
-        {hoverPoint && isStockInteraction && (
+        {hoverPoint && showDateOnLine && (
           <div
             data-stock-chart-scrub-date
             aria-hidden="true"
-            className="pointer-events-none absolute top-1 z-20 w-32 whitespace-nowrap rounded-md border border-[#ddb159]/20 bg-[#072116]/90 px-1 py-1 text-center text-[10px] font-semibold tabular-nums text-[#faf6f0]/80"
-            style={{ left: stockScrubDateLeft }}
+            className="pointer-events-none absolute top-1 z-20 w-32 select-none whitespace-nowrap rounded-md border border-[#ddb159]/20 bg-[#072116]/90 px-1 py-1 text-center text-[10px] font-semibold tabular-nums text-[#faf6f0]/80"
+            style={{ left: crosshairDateLeft, ...NO_TEXT_SELECTION }}
           >
             {formatDate(hoverPoint.date, resolvedRange)}
           </div>
@@ -669,7 +738,7 @@ export function StockChart({
           </div>
         )}
 
-        {hoverPoint && hideTooltip && !isPortfolioAppearance && (
+        {hoverPoint && hideTooltip && !isPortfolioAppearance && !showDateOnLine && (
           <div
             className="pointer-events-none absolute bottom-3 z-20 w-[10rem] rounded-full border border-[#ddb159]/28 bg-[#072116]/92 px-2.5 py-1.5 text-center text-[10px] font-black uppercase tracking-[0.06em] text-[#ddb159] shadow-[0_10px_22px_rgba(0,0,0,0.28)] backdrop-blur"
             style={{ left: scrubDateLeft }}

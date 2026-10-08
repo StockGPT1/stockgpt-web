@@ -49,9 +49,8 @@
 .actionLabel { display: none; }
 
 .balance { container-type: inline-size; margin-top: 25px; }
-.captionRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 18px; }
+.captionRow { display: flex; align-items: center; min-height: 18px; }
 .caption { color: rgba(255, 250, 242, 0.6); font-size: 12px; font-weight: 500; }
-.scrubDate { color: #f2c35f; font-size: 11px; font-variant-numeric: tabular-nums; }
 .value {
   overflow: hidden;
   margin-top: 8px;
@@ -96,7 +95,7 @@
   .value { font-size: min(64px, calc(100cqw / var(--portfolio-value-width, 8))); }
   .returnValue { font-size: 16px; }
   .healthScore { font-size: 12px; }
-  .detailLabel, .scrubDate { font-size: 11px; }
+  .detailLabel { font-size: 11px; }
   .chart { margin-top: 26px; }
   .sectionTabs { display: flex; gap: 20px; }
   .sectionInner { padding: 0; }
