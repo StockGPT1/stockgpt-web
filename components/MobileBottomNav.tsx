@@ -253,7 +253,7 @@ export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCoun
             <Link
               key={item.href}
               href={item.href}
-              prefetch={item.href !== "/chart-scan"}
+              prefetch={true}
               aria-label={item.href === "/chart-scan" ? "Chart Scanner" : item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
