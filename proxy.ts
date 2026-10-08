@@ -116,7 +116,7 @@ export async function proxy(request: NextRequest) {
   // server HTML visible while React never hydrates, making every control on
   // the page look normal but ignore taps.
   if (process.env.NODE_ENV === "development") {
-    if (!needsSessionRefresh(pathname)) {
+    if (pathname === "/chart-scan/review-preview" || !needsSessionRefresh(pathname)) {
       return NextResponse.next();
     }
     return updateSession(request);

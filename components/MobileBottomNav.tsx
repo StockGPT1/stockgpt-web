@@ -88,7 +88,6 @@ export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCoun
   const [moreOpen, setMoreOpen] = useState(false);
   const focusedPath =
     pathname.startsWith("/ask-stockgpt") ||
-    pathname.startsWith("/chart-scan") ||
     pathname.startsWith("/compare") ||
     pathname.includes("/fullscreen");
   const hidden = focusedPath || focusedFlowCount > 0 || keyboardOpen;

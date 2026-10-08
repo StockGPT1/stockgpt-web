@@ -3,7 +3,8 @@
   --scan-green: #6cbd96;
   scroll-margin-top: 1rem;
 }
-.workspace { color: #f6fff9; position: relative; isolation: isolate; }
+.workspace { color: #f6fff9; position: relative; isolation: isolate; container-type: inline-size; }
+.workspaceHeader { margin-bottom: 14px; }
 .backdrop {
   background:
     radial-gradient(ellipse at 85% 5%, #07613a40, transparent 48%),
@@ -37,12 +38,60 @@
   overflow: hidden;
 }
 .landing {
-  padding: 24px;
+  padding: 22px;
   border-radius: 28px;
-  border: 1px solid #2b8c5e80;
-  background: radial-gradient(ellipse at 90% 0%, #06683d55, transparent 55%), radial-gradient(ellipse at 0% 90%, #03482f55, transparent 58%), linear-gradient(155deg, #032e1d, #021b12 70%);
-  box-shadow: inset 0 1px 0 #ffd36138, inset 0 0 60px #00170c35, 0 20px 50px #0005;
+  border: 1px solid #ddb15938;
+  background: radial-gradient(ellipse at 100% 0%, #07533355, transparent 58%), radial-gradient(ellipse at 0% 90%, #03482f45, transparent 58%), linear-gradient(155deg, #042b1c, #041d14 70%);
+  box-shadow: inset 0 1px 0 #ffd36120, 0 16px 42px #0003;
   position: relative; isolation: isolate; overflow: hidden;
+}
+.landingTitle { margin-top: 12px; font-size: 36px; font-weight: 950; line-height: 1.07; letter-spacing: -.045em; }
+.landingTitle > span { color: #ffe08b; }
+.landingSubtitle { max-width: 440px; margin-top: 12px; color: #d0e2d6; font-size: 14px; line-height: 1.6; }
+.landingActions { display: grid; gap: 10px; margin-top: 22px; }
+.landingActions .captureAction { justify-content: flex-start; width: 100%; min-height: 64px; padding: 12px 14px; gap: 12px; border-radius: 18px; }
+.captureIcon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid currentColor; border-color: #06311f20; border-radius: 11px; background: #06311f0a; }
+.secondary .captureIcon { background: #f2c35f0b; color: #f2c35f; border-color: #f2c35f30; }
+.captureCopy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; text-align: left; }
+.captureCopy strong { font-size: 15px; line-height: 1.25; }
+.captureCopy small { font-size: 10.5px; font-weight: 600; line-height: 1.4; opacity: .72; }
+.captureArrow { font-size: 21px; font-weight: 500; }
+.captureHint { display: flex; align-items: flex-start; gap: 7px; margin: 2px 3px 0; color: #a9c2b3; font-size: 10.5px; line-height: 1.6; }
+.captureHint svg { margin-top: 2px; color: #ddb159; }
+.landingVisual { margin-top: 24px; }
+.visualCaption { display: flex; justify-content: space-between; gap: 12px; color: #d0e2d6; font-size: 10px; font-weight: 700; }
+.visualCaption > span:last-child { color: #88a696; font-size: 9px; font-weight: 500; }
+.visualPlot { position: relative; margin-top: 8px; padding-right: 46px; }
+.visualPlot .candleArt { height: 92px; }
+.exampleLevel { position: absolute; right: 0; display: flex; align-items: center; justify-content: center; min-width: 43px; height: 20px; border-radius: 5px; font-size: 9px; font-weight: 800; }
+.exampleLevel::before { content: ""; position: absolute; right: calc(100% + 5px); width: 150px; border-top: 1px dashed currentColor; opacity: .28; }
+.exampleTarget { top: 8px; color: #62ba90; background: #0d492f80; }
+.exampleEntry { top: 38px; color: #f2c35f; background: #f2c35f14; }
+.exampleStop { top: 69px; color: #d89992; background: #d8999212; }
+.outputStrip { display: flex; justify-content: space-between; gap: 6px; padding-top: 8px; color: #aec9b9; font-size: 9px; font-weight: 600; }
+.statGrid.landingStats { margin-top: 22px; gap: 0; padding-top: 18px; border-top: 1px solid #ddb15924; }
+.statGrid.landingStats > div { padding: 0 5px; border: none; border-radius: 0; background: transparent; box-shadow: none; }
+.statGrid.landingStats > div + div { border-left: 1px solid #ddb15920; }
+.statGrid.landingStats strong { font-size: 27px; }
+.statGrid.landingStats span { color: #c6ddce; font-size: 9.5px; }
+.statGrid.landingStats small { color: #8faa9b; font-size: 8px; }
+.landingNote { margin-top: 16px; color: #94af9f; font-size: 10px; line-height: 1.6; text-align: center; }
+@container (max-width: 639px) { .workspaceHeader h1 { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; } }
+@container (max-width: 360px) { .landing { padding: 18px; } .landingTitle { font-size: 32px; } }
+@container (min-width: 640px) {
+  .landing { display: grid; grid-template-columns: 1.05fr 1fr; column-gap: 36px; padding: 32px; }
+  .landingIntro { grid-column: 1; grid-row: 1; }
+  .landingTitle { font-size: 43px; }
+  .landingActions { grid-column: 1; grid-row: 2; }
+  .landingVisual { grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; justify-content: center; margin-top: 0; }
+  .visualPlot .candleArt { height: 126px; }
+  .exampleTarget { top: 20px; }
+  .exampleEntry { top: 59px; }
+  .exampleStop { top: 100px; }
+  .landingStats, .landingNote { grid-column: 1 / -1; }
+  .statGrid.landingStats strong { font-size: 32px; }
+  .statGrid.landingStats span { font-size: 11px; }
+  .statGrid.landingStats small { font-size: 10px; }
 }
 .kicker { color: #c1d9c3; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
 .beta {
@@ -130,5 +179,5 @@
 @keyframes draw { from { stroke-dasharray: 0 100; } }
 @keyframes sweep { from { transform: translateX(-100px); } to { transform: translateX(100px); } }
 @keyframes scanWait { to { transform: translateX(185%); } }
-@media (max-width: 380px) { .landing { padding: 20px; } .helpButton { padding: 8px; font-size: 11px; } .chartControl { font-size: 12px; padding: 10px; } .resultHeader { flex-direction: column; } }
+@media (max-width: 380px) { .helpButton { padding: 8px; font-size: 11px; } .chartControl { font-size: 12px; padding: 10px; } .resultHeader { flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) { .arrive, .scoreArc, .candleArt .scanSweep, .candleArt .candleBar, .candleFloat, .candleFocus, .candleTrail, .landing::before, .primary::after, .statGrid > div, .progressTrack::after { animation: none; } .candleTrail { stroke-dashoffset: 0; } .tap { transition: none; } .tap:hover, .tap:active { transform: none; } }

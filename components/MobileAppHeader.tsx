@@ -13,7 +13,7 @@ function pageTitle(pathname: string) {
     return decodeURIComponent(pathname.split("/")[2] ?? "Stock").toUpperCase();
   }
   if (pathname.startsWith("/compare")) return "Compare";
-  if (pathname.startsWith("/chart-scan")) return "Chart Scan";
+  if (pathname.startsWith("/chart-scan")) return "Chart Scanner";
   if (pathname.startsWith("/rankings")) return "Rankings";
   if (pathname.startsWith("/portfolio")) return "Portfolio";
   if (pathname.startsWith("/notifications")) return "Alerts";
@@ -106,7 +106,7 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
   const isDashboard = pathname === "/dashboard";
   const isDetailPage = pathname.startsWith("/stock/") || pathname.startsWith("/compare");
   const isChartScan = pathname.startsWith("/chart-scan");
-  const usesBackButton = isDetailPage || isChartScan;
+  const usesBackButton = isDetailPage;
 
   useEffect(() => {
     document.body.dataset.sgPath = routeKey(pathname);

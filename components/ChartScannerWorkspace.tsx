@@ -253,19 +253,42 @@ export function ChartScannerWorkspace() {
       <input ref={cameraRef} aria-label="Take a chart photo" type="file" accept="image/*" capture="environment" onChange={event => handleImage(event)} className="sr-only" tabIndex={-1} />
       <input ref={libraryRef} aria-label="Choose a chart screenshot" type="file" accept="image/*" onChange={event => handleImage(event)} className="sr-only" tabIndex={-1} />
       <input ref={supportingRef} aria-label="Choose a supporting chart image" type="file" accept="image/*" onChange={event => handleImage(event, true)} className="sr-only" tabIndex={-1} />
-      <header className="mb-6 flex items-center justify-between gap-3">
-        <div className="min-w-0"><p className={styles.kicker}>StockGPT <span className={`${styles.beta} ml-2`}>Beta</span></p><h1 className="mt-2 text-[clamp(21px,5vw,28px)] font-black tracking-tight">Chart Scanner</h1></div>
+      <header className={`${styles.workspaceHeader} flex items-center justify-between gap-3`}>
+        <div className="min-w-0"><p className={styles.kicker}>AI analysis <span className={`${styles.beta} ml-2`}>Beta</span></p><h1 className="mt-2 text-[clamp(21px,5vw,28px)] font-black tracking-tight">Chart Scanner</h1></div>
         <div className="flex shrink-0 flex-col items-end gap-2"><ChartScanCapabilities audit={result?.candle_audit} />{(file || busy) && <button type="button" onClick={reset} className={`${styles.tap} min-h-11 px-3 text-xs font-bold text-[#9fffd0]`}>{busy ? "Cancel scan" : "New scan"}</button>}</div>
       </header>
       {error && <div role="alert" className="mb-4 rounded-2xl border border-rose-300/25 bg-rose-300/10 p-4 text-sm text-rose-100">{error}</div>}
-      {!file && !busy && <section className={`${styles.landing} ${styles.arrive} space-y-6`}>
-        <p className={styles.kicker}>Your chart. A whole new perspective.</p>
-        <div><h2 className="max-w-lg text-[clamp(34px,8vw,52px)] font-black leading-[1.04] tracking-tight">Read the candles.<br /><span className="text-[#ffe08b]">See the trade.</span></h2><p className="mt-4 max-w-lg text-base leading-7 text-[#e2ffef]">A deep chart scan. A bold, visual plan. See the entry, stop loss, take profit and estimated timing right where they matter.</p></div>
-        <CandleArt />
-        <div className={styles.statGrid}>{SCANNER_CAPABILITY_STATS.map(stat => <div key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span><small>{stat.detail}</small></div>)}</div>
-        <div className="space-y-3"><button type="button" onClick={() => { scannerHaptic("open"); cameraRef.current?.click(); }} className={primaryButton}><StockIcon name="camera" className="size-5" />Take a photo <span aria-hidden="true">→</span></button><button type="button" onClick={() => { scannerHaptic("open"); libraryRef.current?.click(); }} className={`${secondaryButton} w-full min-h-14`}>Scan my screenshot <span aria-hidden="true">↗</span></button></div>
-        <div className="flex items-center justify-between gap-2 border-t border-[#6cbd96]/30 pt-4 text-xs font-bold text-[#c5ffde]"><span>1 Upload</span><span aria-hidden="true" className="text-[#ffd361]">→</span><span>2 Deep scan</span><span aria-hidden="true" className="text-[#ffd361]">→</span><span>3 Your plan</span></div>
-        <p className="text-xs leading-5 text-[#c8f5db]">Include the latest candles, price scale and indicator panels. Clear screenshots give a better read. Beta scenarios need confirmation.</p>
+      {!file && !busy && <section className={`${styles.landing} ${styles.arrive}`}>
+        <div className={styles.landingIntro}>
+          <p className={styles.kicker}>From chart to clarity</p>
+          <h2 className={styles.landingTitle}>Read the candles.<br /><span>See the trade.</span></h2>
+          <p className={styles.landingSubtitle}>Find the setup, key levels and what could change the picture. All on your chart.</p>
+        </div>
+        <div className={styles.landingActions}>
+          <button type="button" aria-label="Take a photo" onClick={() => { scannerHaptic("open"); cameraRef.current?.click(); }} className={`${primaryButton} ${styles.captureAction}`}>
+            <span className={styles.captureIcon}><StockIcon name="camera" className="size-5" /></span>
+            <span className={styles.captureCopy}><strong>Take a photo</strong><small>A chart on another screen</small></span>
+            <span aria-hidden="true" className={styles.captureArrow}>→</span>
+          </button>
+          <button type="button" aria-label="Scan my screenshot" onClick={() => { scannerHaptic("open"); libraryRef.current?.click(); }} className={`${secondaryButton} ${styles.captureAction}`}>
+            <span className={styles.captureIcon}><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" /><path d="m4 17 5-5 4 4 3-3 4 4" /></svg></span>
+            <span className={styles.captureCopy}><strong>Scan my screenshot</strong><small>Choose from your photos or files</small></span>
+            <span aria-hidden="true" className={styles.captureArrow}>↗</span>
+          </button>
+          <p className={styles.captureHint}><StockIcon name="check" className="size-3.5 shrink-0" />Keep the latest candles, price scale and timeframe visible.</p>
+        </div>
+        <div className={styles.landingVisual}>
+          <div className={styles.visualCaption}><span>Your chart, with a plan</span><span>Illustration</span></div>
+          <div className={styles.visualPlot}>
+            <CandleArt />
+            <span className={`${styles.exampleLevel} ${styles.exampleTarget}`}>Target</span>
+            <span className={`${styles.exampleLevel} ${styles.exampleEntry}`}>Entry</span>
+            <span className={`${styles.exampleLevel} ${styles.exampleStop}`}>Stop</span>
+          </div>
+          <div className={styles.outputStrip}><span>Patterns &amp; signals</span><span>Entry &amp; exits</span><span>Estimated timing</span></div>
+        </div>
+        <div className={`${styles.statGrid} ${styles.landingStats}`}>{SCANNER_CAPABILITY_STATS.map(stat => <div key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span><small>{stat.detail}</small></div>)}</div>
+        <p className={styles.landingNote}>Reads visible chart evidence. Beta scenarios need confirmation.</p>
       </section>}
       {busy && <section aria-live="polite" className={`${panelClass} ${styles.loading} py-10 text-center`}>
         <div className="mx-auto mb-5 max-w-sm"><CandleArt scanning /></div>
