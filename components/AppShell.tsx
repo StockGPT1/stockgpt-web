@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { TickerTape } from "@/components/TickerTape";
@@ -161,7 +162,9 @@ export async function AppShell({
     {
       data: { user },
     },
-  ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser()]);
+    headerStore,
+  ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser(), headers()]);
+  const nativeApp = /StockGPTApp/i.test(headerStore.get("user-agent") ?? "");
 
   let canUseAskStockGPT = false;
 
@@ -334,7 +337,7 @@ export async function AppShell({
 
         <GlobalSearchOverlay showRankingData={canUseAskStockGPT} />
         <CommandPalette />
-        <MobileBottomNav unreadCount={unreadCount} />
+        <MobileBottomNav unreadCount={unreadCount} nativeApp={nativeApp} />
       </div>
     </AppChromeProvider>
   );

@@ -6,51 +6,56 @@ import { usePathname, useRouter } from "next/navigation";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 import { useAppChrome } from "@/components/AppChromeProvider";
 
-const primaryItems = [
+const coreItems = [
   { href: "/dashboard", label: "Home", icon: "dashboard" },
   { href: "/rankings", label: "Rankings", icon: "rankings" },
   { href: "/portfolio", label: "Portfolio", icon: "portfolio" },
-  { href: "/notifications", label: "Alerts", icon: "alerts" },
 ] as const;
 
-const moreItems = [
-  {
-    href: "/chart-scan",
-    label: "Chart Scanner",
-    description: "50+ candle patterns · AI trade plan",
-    icon: "camera",
-    appOnly: true,
-  },
+const alertsItem = {
+  href: "/notifications",
+  label: "Alerts",
+  description: "Portfolio and market alerts",
+  icon: "alerts",
+} as const;
+
+const webPrimaryItems = [...coreItems, alertsItem] as const;
+const appPrimaryItems = [
+  ...coreItems,
+  { href: "/chart-scan", label: "Scanner", icon: "camera" },
+] as const;
+
+const webMoreItems = [
   {
     href: "/watchlist",
     label: "Watchlist",
     description: "Stocks you're tracking",
     icon: "watchlist",
-    appOnly: false,
   },
   {
     href: "/world-news",
     label: "World News",
     description: "Market-moving stories and ticker impact",
     icon: "news",
-    appOnly: false,
   },
   {
     href: "/settings",
     label: "Settings",
     description: "Account, preferences and subscription",
     icon: "settings",
-    appOnly: false,
   },
 ] as const;
+const appMoreItems = [alertsItem, ...webMoreItems] as const;
 
 function isPathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function activeDestination(pathname: string) {
+function activeDestination(pathname: string, nativeApp: boolean) {
   if (pathname.startsWith("/stock/") || pathname.startsWith("/compare")) return "";
 
+  const primaryItems = nativeApp ? appPrimaryItems : webPrimaryItems;
+  const moreItems = nativeApp ? appMoreItems : webMoreItems;
   const primary = primaryItems.find((item) => isPathActive(pathname, item.href));
   if (primary) return primary.href;
 
@@ -74,10 +79,12 @@ function MoreIcon({ className = "size-[19px]" }: { className?: string }) {
   );
 }
 
-export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
+export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCount: number; nativeApp?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { focusedFlowCount, keyboardOpen } = useAppChrome();
+  const primaryItems = nativeApp ? appPrimaryItems : webPrimaryItems;
+  const moreItems = nativeApp ? appMoreItems : webMoreItems;
   const [moreOpen, setMoreOpen] = useState(false);
   const focusedPath =
     pathname.startsWith("/ask-stockgpt") ||
@@ -85,7 +92,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
     pathname.startsWith("/compare") ||
     pathname.includes("/fullscreen");
   const hidden = focusedPath || focusedFlowCount > 0 || keyboardOpen;
-  const current = activeDestination(pathname);
+  const current = activeDestination(pathname, nativeApp);
   const [visualCurrent, setVisualCurrent] = useState(current);
   const visualDestination = moreOpen ? "more" : visualCurrent;
   const primaryBubbleIndex = primaryItems.findIndex(
@@ -101,15 +108,13 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const nativeShell = document.documentElement.dataset.appShell === "true";
       for (const item of [...primaryItems, ...moreItems]) {
-        if ("appOnly" in item && item.appOnly && !nativeShell) continue;
         if (!isPathActive(pathname, item.href)) router.prefetch(item.href);
       }
     }, 650);
 
     return () => window.clearTimeout(timer);
-  }, [pathname, router]);
+  }, [pathname, router, primaryItems, moreItems]);
 
   useEffect(() => {
     if (!hidden) return;
@@ -187,18 +192,16 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={item.appOnly ? false : true}
+                    prefetch={true}
                     onPointerDown={() => setVisualCurrent("more")}
                     onClick={() => setMoreOpen(false)}
+                    aria-label={item.href === "/notifications" && unreadCount > 0 ? `Alerts, ${unreadCount} unread alerts` : item.label}
                     aria-current={active ? "page" : undefined}
                     className={[
-                      item.appOnly ? "sg-app-only hidden" : "",
                       "flex min-h-[62px] items-center gap-3 rounded-[20px] px-3 transition active:scale-[0.985]",
                       active
                         ? "bg-[#ddb159]/14 text-[#ddb159]"
-                        : item.href === "/chart-scan"
-                          ? "bg-[linear-gradient(100deg,#087044,#10412d)] text-[#f1fff6]"
-                          : "text-[#faf6f0] hover:bg-[#faf6f0]/6",
+                        : "text-[#faf6f0] hover:bg-[#faf6f0]/6",
                     ].join(" ")}
                   >
                     <span className="relative grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#faf6f0]/6 text-[#ddb159]">
@@ -207,14 +210,16 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2 text-[13px] font-black">
                         {item.label}
-                        {item.href === "/chart-scan" && (
-                          <span className="rounded-full bg-[#ffd361] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-[#06311f]">Beta</span>
-                        )}
                       </span>
                       <span className="mt-0.5 block truncate text-[10.5px] font-medium text-[#faf6f0]/48">
                         {item.description}
                       </span>
                     </span>
+                    {item.href === "/notifications" && unreadCount > 0 && (
+                      <span aria-hidden="true" className="grid h-5 min-w-5 place-items-center rounded-full bg-[#b9504d] px-1.5 text-[10px] font-black text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                     <span aria-hidden="true" className="text-[18px] text-[#ddb159]/70">›</span>
                   </Link>
                 );
@@ -249,8 +254,8 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
             <Link
               key={item.href}
               href={item.href}
-              prefetch={true}
-              aria-label={item.label}
+              prefetch={item.href !== "/chart-scan"}
+              aria-label={item.href === "/chart-scan" ? "Chart Scanner" : item.label}
               aria-current={isActive ? "page" : undefined}
               tabIndex={hidden ? -1 : undefined}
               data-active={isVisualActive ? "true" : "false"}
@@ -281,7 +286,7 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
           type="button"
           onPointerDown={() => setVisualCurrent("more")}
           onClick={toggleMore}
-          aria-label="More"
+          aria-label={nativeApp && unreadCount > 0 ? `More, ${unreadCount} unread alerts` : "More"}
           aria-expanded={moreOpen}
           tabIndex={hidden ? -1 : undefined}
           data-active={visualDestination === "more" ? "true" : "false"}
@@ -292,7 +297,14 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
               : "hover:text-[#fffaf2]",
           ].join(" ")}
         >
-          <MoreIcon />
+          <span className="relative">
+            <MoreIcon />
+            {nativeApp && unreadCount > 0 && (
+              <span aria-hidden="true" className="absolute -right-2.5 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#b9504d] px-1 text-[8px] font-black text-white ring-2 ring-[#04180f]">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </span>
           <span className="sg-mobile-nav-label text-[9.5px] font-extrabold leading-none">More</span>
 
         </button>
@@ -301,4 +313,3 @@ export function MobileBottomNav({ unreadCount }: { unreadCount: number }) {
     </>
   );
 }
-
