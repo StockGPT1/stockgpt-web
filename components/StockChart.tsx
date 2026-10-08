@@ -27,6 +27,7 @@ type Props = {
   rangeOrder?: TimeRange[];
   showUnavailableRanges?: boolean;
   appearance?: "default" | "portfolio";
+  interaction?: "default" | "stock";
   formatValue?: (value: number) => string;
   onScrub?: (point: ChartPoint | null, context: { range: TimeRange }) => void;
 };
@@ -98,16 +99,20 @@ export function StockChart({
   rangeOrder = DEFAULT_RANGES,
   showUnavailableRanges = false,
   appearance = "default",
+  interaction = "default",
   formatValue,
   onScrub,
 }: Props) {
   const [range, setRange] = useState<TimeRange>(initialRange);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverSelection, setHoverSelection] = useState<{ index: number; points: ChartPoint[]; ticker: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const moveFrameRef = useRef<number | null>(null);
   const pendingClientXRef = useRef<number | null>(null);
+  const activePointerRef = useRef<{ id: number; target: SVGSVGElement } | null>(null);
+  const scrubScrollLockedRef = useRef(false);
   const gradientId = `portfolio-chart-fill-${useId().replaceAll(":", "")}`;
   const isPortfolioAppearance = appearance === "portfolio";
+  const isStockInteraction = interaction === "stock";
   const valueFormatter = formatValue ?? formatPrice;
 
   const availableRanges = useMemo(
@@ -118,6 +123,11 @@ export function StockChart({
   const resolvedRange =
     (data[range]?.length ?? 0) > 1 ? range : availableRanges[0] ?? range;
   const points = useMemo(() => data[resolvedRange] ?? [], [data, resolvedRange]);
+  if (hoverSelection && (hoverSelection.points !== points || hoverSelection.ticker !== ticker)) {
+    setHoverSelection(null);
+  }
+  const hoverIdx = hoverSelection?.points === points && hoverSelection.ticker === ticker
+    ? hoverSelection.index : null;
 
   const direction = useMemo(() => {
     if (points.length < 2) return "flat";
@@ -262,11 +272,11 @@ export function StockChart({
         0,
       );
 
-      setHoverIdx(idx);
+      setHoverSelection({ index: idx, points, ticker });
 
       onScrub?.(points[idx], { range: resolvedRange });
     },
-    [points, svgWidth, pointXs, onScrub, resolvedRange],
+    [points, ticker, svgWidth, pointXs, onScrub, resolvedRange],
   );
 
   const scheduleMove = useCallback(
@@ -283,24 +293,43 @@ export function StockChart({
     [handleMove],
   );
 
-  useEffect(() => {
-    return () => {
-      if (moveFrameRef.current != null) {
-        window.cancelAnimationFrame(moveFrameRef.current);
-        moveFrameRef.current = null;
-      }
-    };
-  }, []);
-
-  const handlePointerLeave = useCallback(() => {
+  const cancelPendingMove = useCallback(() => {
     pendingClientXRef.current = null;
     if (moveFrameRef.current != null) {
       window.cancelAnimationFrame(moveFrameRef.current);
       moveFrameRef.current = null;
     }
-    setHoverIdx(null);
+  }, []);
+
+  const releaseStockPointer = useCallback(() => {
+    scrubScrollLockedRef.current = false;
+    const active = activePointerRef.current;
+    activePointerRef.current = null;
+    if (active) {
+      try { active.target.releasePointerCapture(active.id); } catch { /* The browser may already have released a cancelled pointer. */ }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isStockInteraction) return cancelPendingMove;
+    const blockScrubScroll = (event: WheelEvent) => {
+      if (scrubScrollLockedRef.current) event.preventDefault();
+    };
+    // A non-passive listener also blocks trackpad scrolling in nested page scrollers.
+    document.addEventListener("wheel", blockScrubScroll, { passive: false });
+    return () => {
+      document.removeEventListener("wheel", blockScrubScroll);
+      cancelPendingMove();
+      releaseStockPointer();
+    };
+  }, [isStockInteraction, resolvedRange, points, ticker, cancelPendingMove, releaseStockPointer]);
+
+  const handlePointerLeave = useCallback(() => {
+    cancelPendingMove();
+    releaseStockPointer();
+    setHoverSelection(null);
     onScrub?.(null, { range: resolvedRange });
-  }, [onScrub, resolvedRange]);
+  }, [cancelPendingMove, releaseStockPointer, onScrub, resolvedRange]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent<SVGSVGElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
@@ -319,9 +348,9 @@ export function StockChart({
     const next = event.key === "Home" ? 0
       : event.key === "End" ? points.length - 1
         : Math.max(0, Math.min(points.length - 1, current + (event.key === "ArrowLeft" ? -1 : 1)));
-    setHoverIdx(next);
+    setHoverSelection({ index: next, points, ticker });
     onScrub?.(points[next], { range: resolvedRange });
-  }, [handlePointerLeave, hoverIdx, onScrub, points, resolvedRange]);
+  }, [handlePointerLeave, hoverIdx, onScrub, points, ticker, resolvedRange]);
 
   const summary = useMemo(() => {
     if (points.length < 2) return null;
@@ -329,12 +358,16 @@ export function StockChart({
     const first = points[0].close;
     const last = points[points.length - 1].close;
     const change = last - first;
-    const changePct = (change / first) * 100;
+    const changePct = first !== 0 ? (change / first) * 100 : 0;
 
     return { first, last, change, changePct };
   }, [points]);
 
   const hoverPoint = hoverIdx != null ? points[hoverIdx] : null;
+  const displayedChange = summary
+    ? (isStockInteraction && hoverPoint ? hoverPoint.close : summary.last) - summary.first
+    : 0;
+  const displayedChangePct = summary?.first ? (displayedChange / summary.first) * 100 : 0;
 
   const yScale = (price: number) =>
     minPrice === maxPrice
@@ -351,6 +384,7 @@ export function StockChart({
   const scrubDateLeft = hoverPoint
     ? `clamp(0.75rem, calc(${(xPos / svgWidth) * 100}% - 5rem), calc(100% - 10.85rem))`
     : "0.75rem";
+  const stockScrubDateLeft = `clamp(0.375rem, calc(${(xPos / svgWidth) * 100}% - 4rem), calc(100% - 8.375rem))`;
 
   if (points.length < 2) {
     return (
@@ -383,18 +417,20 @@ export function StockChart({
               />
             </p>
 
-            {hoverPoint ? (
+            {hoverPoint && !isStockInteraction ? (
               <p className="text-[11px] font-semibold text-[#faf6f0]/55">
                 {formatDate(hoverPoint.date, resolvedRange)}
               </p>
             ) : (
               <p
                 className={`text-[11px] font-bold ${
-                  summary.change >= 0 ? "text-emerald-400" : "text-red-400"
+                  displayedChange >= 0 ? "text-emerald-400" : "text-red-400"
                 }`}
               >
                 <RouletteNumber
-                  value={`${summary.change >= 0 ? "+" : ""}${valueFormatter(summary.change)} (${summary.changePct >= 0 ? "+" : ""}${summary.changePct.toFixed(2)}%)`}
+                  value={isStockInteraction
+                    ? `${displayedChange >= 0 ? "+" : "-"}${valueFormatter(Math.abs(displayedChange))} (${displayedChangePct >= 0 ? "+" : ""}${displayedChangePct.toFixed(2)}%)`
+                    : `${summary.change >= 0 ? "+" : ""}${valueFormatter(summary.change)} (${summary.changePct >= 0 ? "+" : ""}${summary.changePct.toFixed(2)}%)`}
                 />
               </p>
             )}
@@ -414,7 +450,8 @@ export function StockChart({
           ref={svgRef}
           viewBox={`0 0 ${svgWidth} ${height}`}
           preserveAspectRatio="none"
-          className={`sg-stock-chart-canvas h-full w-full ${isPortfolioAppearance ? "touch-pan-y focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159]" : "touch-none"}`}
+          className={`sg-stock-chart-canvas h-full w-full ${isStockInteraction || !isPortfolioAppearance ? "touch-none" : "touch-pan-y"} ${isPortfolioAppearance ? "outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ddb159]" : ""}`}
+          data-stock-chart-scrub-lock={isStockInteraction ? true : undefined}
           tabIndex={isPortfolioAppearance ? 0 : undefined}
           role={isPortfolioAppearance ? "slider" : undefined}
           aria-label={isPortfolioAppearance ? `${ticker} value history, ${resolvedRange}` : undefined}
@@ -425,16 +462,46 @@ export function StockChart({
           aria-valuetext={isPortfolioAppearance ? `${formatDate((hoverPoint ?? points[points.length - 1]).date, resolvedRange)}: ${valueFormatter((hoverPoint ?? points[points.length - 1]).close)}` : undefined}
           onKeyDown={isPortfolioAppearance ? handleKeyDown : undefined}
           onBlur={isPortfolioAppearance ? handlePointerLeave : undefined}
-          onPointerMove={(e) => scheduleMove(e.clientX)}
+          onPointerMove={(e) => {
+            if (isStockInteraction) {
+              if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
+              scrubScrollLockedRef.current = true;
+            }
+            scheduleMove(e.clientX);
+          }}
           onPointerDown={(e) => {
+            if (isStockInteraction) {
+              if (!e.isPrimary || e.button !== 0 || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
+              scrubScrollLockedRef.current = true;
+              activePointerRef.current = { id: e.pointerId, target: e.currentTarget };
+              try { e.currentTarget.setPointerCapture(e.pointerId); } catch {
+                activePointerRef.current = null;
+              }
+            }
             if (isPortfolioAppearance && e.isPrimary && e.button === 0) {
               try { nativeHaptic("light"); } catch { /* Feedback is optional when the native bridge is unavailable. */ }
             }
             handleMove(e.clientX);
           }}
-          onPointerLeave={handlePointerLeave}
-          onPointerCancel={handlePointerLeave}
+          onPointerLeave={() => {
+            if (isStockInteraction && activePointerRef.current) return;
+            handlePointerLeave();
+          }}
+          onPointerCancel={(e) => {
+            if (isStockInteraction && activePointerRef.current && activePointerRef.current.id !== e.pointerId) return;
+            handlePointerLeave();
+          }}
+          onLostPointerCapture={isStockInteraction ? (e) => {
+            if (activePointerRef.current?.id === e.pointerId) handlePointerLeave();
+          } : undefined}
           onPointerUp={(e) => {
+            if (isStockInteraction) {
+              if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
+              cancelPendingMove();
+              handleMove(e.clientX);
+              releaseStockPointer();
+              return;
+            }
             if (onScrub) {
               handlePointerLeave();
               return;
@@ -562,6 +629,17 @@ export function StockChart({
           )}
         </svg>
 
+        {hoverPoint && isStockInteraction && (
+          <div
+            data-stock-chart-scrub-date
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1 z-20 w-32 whitespace-nowrap rounded-md border border-[#ddb159]/20 bg-[#072116]/90 px-1 py-1 text-center text-[10px] font-semibold tabular-nums text-[#faf6f0]/80"
+            style={{ left: stockScrubDateLeft }}
+          >
+            {formatDate(hoverPoint.date, resolvedRange)}
+          </div>
+        )}
+
         {hoverPoint && !hideTooltip && (
           <div
             className={[
@@ -618,12 +696,9 @@ export function StockChart({
                 aria-label={available ? `Show ${label} chart` : `${label} chart temporarily unavailable`}
                 onClick={() => {
                   if (!available) return;
-                  pendingClientXRef.current = null;
-                  if (moveFrameRef.current != null) {
-                    window.cancelAnimationFrame(moveFrameRef.current);
-                    moveFrameRef.current = null;
-                  }
-                  setHoverIdx(null);
+                  cancelPendingMove();
+                  releaseStockPointer();
+                  setHoverSelection(null);
                   onScrub?.(null, { range: r });
                   setRange(r);
                 }}

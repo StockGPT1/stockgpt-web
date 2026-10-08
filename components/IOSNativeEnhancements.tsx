@@ -180,7 +180,14 @@ export function IOSNativeEnhancements() {
     }
 
     function onTouchStart(event: TouchEvent) {
-      if (refreshingRef.current || root.scrollTop > 0 || event.touches.length !== 1) {
+      const target = event.target instanceof Element ? event.target : null;
+      // Stock chart scrubbing owns the gesture, including touches on SVG children.
+      if (
+        target?.closest("[data-stock-chart-scrub-lock]") ||
+        refreshingRef.current ||
+        root.scrollTop > 0 ||
+        event.touches.length !== 1
+      ) {
         reset();
         return;
       }

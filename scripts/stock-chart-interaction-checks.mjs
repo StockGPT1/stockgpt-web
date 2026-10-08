@@ -15,23 +15,45 @@ const compiled = ts.transpileModule(source, {
 // Run the component's actual event handlers. Minimal hooks retain state and refs
 // between renders; the browser stub lets us verify queued pointer cancellation.
 function chartHarness(overrides = {}) {
-  const slots = [], effects = [], frames = new Map(), scrubbed = [], haptics = [];
-  let cursor = 0, frameId = 0;
+  const slots = [], pendingEffects = new Map(), frames = new Map(), scrubbed = [], haptics = [];
+  const listeners = new Map(), listenerCalls = [], captured = new Set(), captureCalls = [], releaseCalls = [];
+  let cursor = 0, frameId = 0, changed = false, latestSvg;
+  const equalDeps = (a, b) => a && b && a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
+  const target = {
+    getBoundingClientRect: () => ({ left: 0, width: 800 }),
+    setPointerCapture: (id) => { captured.add(id); captureCalls.push(id); },
+    hasPointerCapture: (id) => captured.has(id),
+    releasePointerCapture: (id) => { captured.delete(id); releaseCalls.push(id); },
+  };
   const hooks = {
     useState(initial) {
       const index = cursor++;
-      if (!(index in slots)) slots[index] = initial;
-      return [slots[index], (next) => { slots[index] = typeof next === "function" ? next(slots[index]) : next; }];
+      if (!(index in slots)) slots[index] = typeof initial === "function" ? initial() : initial;
+      return [slots[index], (next) => {
+        const value = typeof next === "function" ? next(slots[index]) : next;
+        if (!Object.is(value, slots[index])) { slots[index] = value; changed = true; }
+      }];
     },
     useRef(initial) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = { current: initial };
       return slots[index];
     },
-    useMemo: (factory) => factory(),
-    useCallback: (callback) => callback,
-    useEffect: (effect) => { effects.push(effect); },
-    useId: () => "chart-test",
+    useMemo(factory, deps) {
+      const index = cursor++;
+      if (!slots[index] || !equalDeps(slots[index].deps, deps)) slots[index] = { deps, value: factory() };
+      return slots[index].value;
+    },
+    useCallback: (callback, deps) => hooks.useMemo(() => callback, deps),
+    useEffect(effect, deps) {
+      const index = cursor++;
+      if (!slots[index] || !equalDeps(slots[index].deps, deps)) {
+        const cleanup = slots[index]?.cleanup;
+        slots[index] = { deps, cleanup, effectSlot: true };
+        pendingEffects.set(index, effect);
+      }
+    },
+    useId: () => { cursor++; return "chart-test"; },
   };
   const chartModule = { exports: {} };
   const imports = (name) => {
@@ -53,17 +75,46 @@ function chartHarness(overrides = {}) {
     requestAnimationFrame: (callback) => { frames.set(++frameId, callback); return frameId; },
     cancelAnimationFrame: (id) => frames.delete(id),
   };
+  globalThis.document = {
+    addEventListener(type, listener, options) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+      listenerCalls.push({ type, options });
+    },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+  };
   function render() {
-    cursor = 0;
-    const tree = chartModule.exports.StockChart(props);
-    const svg = find(tree, (node) => node.type === "svg");
-    svg.props.ref.current = { getBoundingClientRect: () => ({ left: 0, width: 800 }) };
-    return { tree, svg };
+    for (let attempt = 0; attempt < 25; attempt++) {
+      cursor = 0; changed = false;
+      const tree = chartModule.exports.StockChart(props);
+      const svg = find(tree, (node) => node.type === "svg");
+      if (svg) svg.props.ref.current = target;
+      else if (latestSvg) latestSvg.props.ref.current = null;
+      latestSvg = svg;
+      const effects = [...pendingEffects.entries()]; pendingEffects.clear();
+      for (const [index, effect] of effects) {
+        slots[index].cleanup?.();
+        slots[index].cleanup = effect();
+      }
+      if (!changed) return { tree, svg };
+    }
+    throw new Error("Chart did not settle after effect state updates");
   }
   function flush() {
     const pending = [...frames.values()]; frames.clear(); pending.forEach((callback) => callback());
   }
-  return { render, flush, frames, points, props, scrubbed, haptics, effects };
+  function dispatchDocument(type, overrides = {}) {
+    const event = { cancelable: true, defaultPrevented: false, target,
+      preventDefault() { this.defaultPrevented = true; }, ...overrides };
+    listeners.get(type)?.forEach((listener) => listener(event));
+    return event;
+  }
+  function unmount() {
+    // React detaches the DOM ref before passive effect cleanup runs.
+    if (latestSvg) latestSvg.props.ref.current = null;
+    for (const slot of slots) if (slot?.effectSlot) slot.cleanup?.();
+  }
+  return { render, flush, unmount, dispatchDocument, frames, points, props, scrubbed, haptics, listeners, listenerCalls, captured, captureCalls, releaseCalls, target };
 }
 
 function all(tree, predicate) {
@@ -83,6 +134,10 @@ function key(svg, keyName) {
   let prevented = false;
   svg.props.onKeyDown({ key: keyName, preventDefault: () => { prevented = true; } });
   return prevented;
+}
+function pointer(svg, overrides = {}) {
+  return { clientX: 100, isPrimary: true, button: 0, pointerId: 7, pointerType: "mouse",
+    currentTarget: svg.props.ref.current, preventDefault() {}, ...overrides };
 }
 
 test("portfolio scrub uses the nearest timestamp and returns the original value and PnL", () => {
@@ -152,6 +207,8 @@ test("portfolio appearance uses accurate currency text, scrolling, and unsmoothe
   assert.equal(svg.props.role, "slider");
   assert.equal(svg.props.tabIndex, 0);
   assert.ok(svg.props.className.includes("touch-pan-y"));
+  assert.equal(svg.props["data-stock-chart-scrub-lock"], undefined);
+  assert.equal(chart.listeners.get("wheel")?.size ?? 0, 0);
   assert.match(svg.props["aria-valuetext"], /£120\.00/);
   const line = find(tree, (node) => node.props?.className === "sg-stock-chart-line");
   assert.equal(line.props.strokeWidth, 2);
@@ -244,4 +301,181 @@ test("shared stock timeframe controls expose selection and reset scrubbing only 
   assert.ok(!renderedText(tree).includes("$130.00"));
   buttons = all(find(tree, (node) => node.props?.["aria-label"] === "AAPL chart timeframe"), (node) => node.type === "button");
   assert.deepEqual(buttons.map((button) => button.props["aria-pressed"]), [false, false, true]);
+});
+
+test("stock scrubbing keeps signed range return beside the selected value and places the date only at the crosshair", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock", rangeOrder: ["1M", "MAX"] });
+  chart.props.data = {
+    "1M": chart.points.map((point, index) => ({ ...point, close: index === 2 ? 80 : point.close })),
+    MAX: [{ date: "2025-10-01T00:00:00Z", close: 200 }, { date: "2026-10-10T00:00:00Z", close: 80 }],
+  };
+  let { tree, svg } = chart.render();
+  assert.ok(renderedText(tree).includes("-$20.00 (-20.00%)"));
+  svg.props.onPointerMove(pointer(svg));
+  chart.flush();
+  ({ tree, svg } = chart.render());
+  assert.ok(renderedText(tree).includes("$130.00"));
+  assert.ok(renderedText(tree).includes("+$30.00 (+30.00%)"));
+  const date = new Date(chart.points[1].date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const overlays = all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true);
+  assert.equal(overlays.length, 1);
+  assert.equal(renderedText(overlays[0]), date);
+  assert.equal(renderedText(tree).split(date).length - 1, 1, "the date must not replace or duplicate the selected return in the header");
+  svg.props.onPointerMove(pointer(svg, { clientX: 792 }));
+  chart.flush();
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$80.00"));
+  assert.ok(renderedText(tree).includes("-$20.00 (-20.00%)"));
+  find(tree, (node) => node.type === "button" && renderedText(node) === "All").props.onClick();
+  ({ tree, svg } = chart.render());
+  assert.equal(svg.key, "MAX");
+  assert.ok(renderedText(tree).includes("-$120.00 (-60.00%)"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  chart.unmount();
+});
+
+test("stock hover and pointer capture gate wheel scrolling, while release keeps the final selected point", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  let { tree, svg } = chart.render();
+  assert.ok(svg.props.className.includes("touch-none"));
+  assert.ok(!svg.props.className.includes("touch-pan-y"));
+  assert.equal(svg.props["data-stock-chart-scrub-lock"], true);
+  assert.equal(chart.listeners.get("wheel").size, 1);
+  assert.equal(chart.listenerCalls.find((call) => call.type === "wheel").options.passive, false);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  svg.props.onPointerMove(pointer(svg));
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+  chart.flush();
+  ({ svg } = chart.render());
+  assert.equal(chart.listeners.get("wheel").size, 1, "rerendering must not duplicate the wheel listener");
+  svg.props.onPointerLeave();
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  ({ svg } = chart.render());
+  svg.props.onPointerDown(pointer(svg, { pointerId: 9, pointerType: "touch" }));
+  assert.deepEqual(chart.captureCalls, [9]);
+  assert.equal(chart.captured.has(9), true);
+  svg.props.onPointerDown(pointer(svg, { pointerId: 99, pointerType: "pen" }));
+  assert.deepEqual(chart.captureCalls, [9], "a second primary pointer type must not replace an existing capture");
+  svg.props.onPointerLeave();
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+  assert.equal(chart.captured.has(9), true);
+  svg.props.onPointerMove(pointer(svg, { pointerId: 9, pointerType: "touch", clientX: 8 }));
+  assert.equal(chart.frames.size, 1);
+  svg.props.onPointerUp(pointer(svg, { pointerId: 99, pointerType: "touch", clientX: 792 }));
+  assert.equal(chart.captured.has(9), true, "an unrelated pointer must not end the active scrub");
+  svg.props.onPointerUp(pointer(svg, { pointerId: 9, pointerType: "touch", clientX: 792 }));
+  assert.equal(chart.frames.size, 0);
+  assert.deepEqual(chart.releaseCalls, [9]);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
+  // The browser emits lostpointercapture after a deliberate release. It must
+  // not erase the final point that pointerup intentionally retained.
+  svg.props.onLostPointerCapture(pointer(svg, { pointerId: 9, pointerType: "touch" }));
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
+  chart.flush();
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$120.00"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 1);
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2], "a queued earlier move must not overwrite the release point");
+  chart.unmount();
+});
+
+test("stock cancellation, lost capture, blur, Escape, range changes and unmount release all pending interaction", () => {
+  for (const end of ["cancel", "lost", "blur", "escape", "range", "unmount"]) {
+    const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock", rangeOrder: ["1M", "MAX"] });
+    chart.props.data.MAX = [{ date: "2025-10-01T00:00:00Z", close: 80 }, { date: "2026-10-10T00:00:00Z", close: 120 }];
+    let { tree, svg } = chart.render();
+    svg.props.onPointerDown(pointer(svg, { pointerType: "touch" }));
+    svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 792 }));
+    assert.equal(chart.frames.size, 1);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+    if (end === "cancel" || end === "lost") {
+      const handler = end === "cancel" ? "onPointerCancel" : "onLostPointerCapture";
+      svg.props[handler](pointer(svg, { pointerId: 99 }));
+      assert.equal(chart.captured.has(7), true);
+      assert.equal(chart.frames.size, 1);
+      assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+      svg.props[handler](pointer(svg));
+    } else if (end === "blur") svg.props.onBlur();
+    else if (end === "escape") key(svg, "Escape");
+    else if (end === "range") find(tree, (node) => node.type === "button" && renderedText(node) === "All").props.onClick();
+    else chart.unmount();
+    assert.equal(chart.frames.size, 0, end);
+    assert.equal(chart.captured.size, 0, end);
+    assert.deepEqual(chart.releaseCalls, [7], end);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false, end);
+    chart.flush();
+    if (end === "unmount") assert.equal(chart.listeners.get("wheel").size, 0);
+    else {
+      ({ tree, svg } = chart.render());
+      assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0, end);
+      assert.equal(chart.scrubbed.at(-1).point, null, end);
+      if (end === "range") assert.equal(svg.key, "MAX");
+      chart.unmount();
+      assert.equal(chart.listeners.get("wheel").size, 0, end);
+    }
+  }
+});
+
+test("an unavailable pointer capture cannot leave stock wheel scrolling locked after exiting", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  const { svg } = chart.render();
+  chart.target.setPointerCapture = () => { throw new Error("Pointer capture unavailable"); };
+  svg.props.onPointerDown(pointer(svg));
+  assert.equal(chart.captured.size, 0);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true);
+  svg.props.onPointerLeave();
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  assert.equal(chart.scrubbed.at(-1).point, null);
+  chart.unmount();
+});
+
+test("same-range history replacement, unavailable history and ticker changes reset stock selection and locks", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  let { tree, svg } = chart.render();
+  svg.props.onPointerDown(pointer(svg, { pointerType: "touch" }));
+  svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 792 }));
+  assert.equal(chart.frames.size, 1);
+  const replacement = [...chart.points.map((point) => ({ ...point })), { date: "2026-10-12T00:00:00Z", close: 180 }];
+  chart.props.data = { "1M": replacement };
+  ({ tree, svg } = chart.render());
+  assert.ok(renderedText(tree).includes("$180.00"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  assert.equal(chart.frames.size, 0);
+  assert.equal(chart.captured.size, 0);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  chart.flush();
+  assert.ok(renderedText(chart.render().tree).includes("$180.00"));
+
+  // Disappearing and then restoring the same cached series must not revive its
+  // old cursor or leave the detached SVG's pointer capture active.
+  svg.props.onPointerDown(pointer(svg, { pointerId: 8, pointerType: "touch" }));
+  svg.props.onPointerMove(pointer(svg, { pointerId: 8, pointerType: "touch", clientX: 792 }));
+  chart.props.data = { "1M": [replacement[0]] };
+  ({ tree, svg } = chart.render());
+  assert.equal(svg, undefined);
+  assert.ok(renderedText(tree).includes("No chart data available"));
+  assert.equal(chart.frames.size, 0);
+  assert.equal(chart.captured.size, 0);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  chart.props.data = { "1M": replacement };
+  ({ tree, svg } = chart.render());
+  assert.ok(renderedText(tree).includes("$180.00"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+
+  svg.props.onPointerDown(pointer(svg, { pointerId: 9, pointerType: "touch" }));
+  svg.props.onPointerMove(pointer(svg, { pointerId: 9, pointerType: "touch", clientX: 792 }));
+  chart.props.ticker = "MSFT";
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$180.00"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  assert.equal(chart.frames.size, 0);
+  assert.equal(chart.captured.size, 0);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  chart.props.ticker = "AAPL";
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$180.00"));
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  chart.unmount();
+  assert.equal(chart.listeners.get("wheel").size, 0);
 });

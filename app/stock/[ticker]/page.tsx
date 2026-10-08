@@ -413,6 +413,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
                   initialRange="1Y"
                   height={320}
                   appearance="portfolio"
+                  interaction="stock"
                   rangeOrder={["1D", "5D", "1M", "1Y", "5Y", "MAX"]}
                   showUnavailableRanges
                 /></div> : <div className="mt-3"><ModuleState title="Chart unavailable" description="StockGPT could not verify enough price points for a reliable chart. Try again later; no synthetic movement is shown." tone="review" /></div>}</section>

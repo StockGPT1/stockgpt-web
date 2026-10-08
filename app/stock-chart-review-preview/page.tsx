@@ -37,7 +37,7 @@ export default function StockChartReviewPreviewPage() {
         <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 p-3 sm:p-4">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#f2c35f]">Price chart</p>
           <div className="mt-2 min-w-0 max-w-full overflow-hidden">
-            <StockChart ticker="DEMO" data={data} initialRange="1Y" height={320} appearance="portfolio" rangeOrder={RANGES} showUnavailableRanges />
+            <StockChart ticker="DEMO" data={data} initialRange="1Y" height={320} appearance="portfolio" interaction="stock" rangeOrder={RANGES} showUnavailableRanges />
           </div>
         </section>
       </div>
