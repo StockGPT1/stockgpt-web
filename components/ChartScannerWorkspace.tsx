@@ -9,7 +9,7 @@ import { StockIcon } from "@/components/StockIcon";
 import { ChartScanAnalysis } from "@/components/ChartScanAnalysis";
 import type { ChartScanResult as ScanResult } from "@/lib/chart-scanner";
 import { scannerHaptic } from "@/lib/chart-scan-haptics";
-import { CANDLE_PATTERNS, SCANNER_CAPABILITY_STATS } from "@/lib/chart-scan-candles";
+import { SCANNER_CAPABILITY_STATS } from "@/lib/chart-scan-candles";
 import { ChartScanCapabilities } from "@/components/ChartScanCapabilities";
 import styles from "./ChartScanAnalysis.module.css";
 import { buildAskHref } from "@/lib/ask-context";
@@ -22,7 +22,7 @@ type ScanResponse = {
 };
 
 const analysisSteps = [
-  `${CANDLE_PATTERNS.length} named candle patterns and price structure`,
+  "50+ named candle patterns and price structure",
   "Every visible, readable indicator panel",
   "Two independent reads of your chart",
   "Entry, exits and an estimated timeline",

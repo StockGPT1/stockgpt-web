@@ -17,7 +17,7 @@ const moreItems = [
   {
     href: "/chart-scan",
     label: "Chart Scanner",
-    description: "44 candle patterns · AI trade plan",
+    description: "50+ candle patterns · AI trade plan",
     icon: "camera",
     appOnly: true,
   },

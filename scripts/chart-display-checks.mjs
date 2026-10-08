@@ -67,7 +67,7 @@ test("off-screen targets have explicit labels and unreadable scales explain how 
 });
 test("the landing screen has Beta and the capability catalog without haptic intensity controls", () => {
   const html = renderToStaticMarkup(React.createElement(ChartScannerWorkspace));
-  for (const text of ["Beta", "How it works", "Read the candles.", "See the trade.", "Scan my screenshot", "44 candle patterns"]) assert.ok(html.includes(text), `missing ${text}`);
+  for (const text of ["Beta", "How it works", "Read the candles.", "See the trade.", "Scan my screenshot", "50+ candle patterns"]) assert.ok(html.includes(text), `missing ${text}`);
   for (const pattern of CANDLE_PATTERNS) assert.ok(html.includes(pattern.name), `missing ${pattern.name}`);
   assert.ok(html.includes('role="tablist"'));
   assert.ok(!html.includes('Scanner haptic strength'));
@@ -78,7 +78,7 @@ test("landing indicator claims reflect the recognisable catalog and readable can
   for (const stat of SCANNER_CAPABILITY_STATS) {
     assert.ok(html.includes(`>${stat.value}</strong><span>${stat.label}</span><small>${stat.detail}</small>`), `missing ${stat.value} ${stat.label}`);
   }
-  assert.ok(html.includes(`44 candle patterns and ${SCANNER_INDICATOR_CATALOG.length} named technical indicators`));
+  assert.ok(html.includes(`50+ candle patterns and ${SCANNER_INDICATOR_CATALOG.length} named technical indicators`));
   assert.ok(html.includes(`looking back up to ${CANDLE_LOOKBACK} readable completed candles`));
   assert.ok(html.includes("Indicators need visible labels and plots; hidden values are never calculated"));
   assert.ok(!html.includes("possible checks"));
