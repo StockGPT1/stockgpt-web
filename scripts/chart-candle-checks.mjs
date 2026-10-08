@@ -139,12 +139,21 @@ test("a full candle roster cannot crowd a forming double bottom out of the findi
   const value = reading({ candle_audit: audit(candles), pattern_checks: [{ name: "Double bottom", status: "forming", evidence: "Two distinct troughs have an intervening rally.", two_swings_visible: true, intervening_swing_visible: true }] });
   assert.ok(read(value, value).signals.some(signal => signal.name === "Double bottom"));
 });
-test("incomplete or mostly unreadable candle coverage lowers setup confidence", () => {
-  for (const checklist of [{ ...audit(), absent: ids.slice(0, 20) }, { ...audit(), absent: [], unclear: ids }]) {
-    const result = read(reading({ candle_audit: checklist, signals: [{ name: "RSI recovery", kind: "structure", bias: "bullish", confidence: 99, evidence: "Buying pressure is improving.", region_id: "price", source_image: 0, supported: true }] }));
-    assert.ok(result.stockgpt_score.value <= 55);
-    assert.match(result.stockgpt_score.reasons.join(" "), /checklist incomplete|patterns could not be read/);
-  }
+test("an incomplete mandatory candle review still limits confidence", () => {
+  const result = read(reading({ candle_audit: { ...audit(), absent: ids.slice(0, 20) }, signals: [{ name: "Higher swing lows", kind: "structure", bias: "bullish", confidence: 99, evidence: "The recent price lows are successively higher.", region_id: "price", source_image: 0, supported: true }] }));
+  assert.ok(result.stockgpt_score.value <= 55);
+  assert.match(result.stockgpt_score.reasons.join(" "), /checklist incomplete/);
+});
+test("unrelated unclear candle patterns do not cap a clearly reviewed price setup", () => {
+  const signal = { name: "Higher swing lows", kind: "structure", bias: "bullish", confidence: 90, evidence: "The recent price lows are successively higher.", region_id: "price", source_image: 0, supported: true };
+  const complete = reading({ candle_audit: audit(), signals: [signal] });
+  const limitedHistory = reading({ candle_audit: { ...audit(), absent: [], unclear: ids }, signals: [signal] });
+  const full = read(complete, complete), partial = read(limitedHistory, limitedHistory);
+  assert.equal(partial.candle_audit.checked, ids.length);
+  assert.equal(partial.candle_audit.detected, 0);
+  assert.equal(partial.stockgpt_score.value, full.stockgpt_score.value);
+  assert.ok(partial.stockgpt_score.value > 55);
+  assert.ok(!partial.stockgpt_score.reasons.some(reason => /patterns could not be read/.test(reason)));
 });
 test("verified numeric exits are visible even on a cautious estimated scenario", () => {
   const value = reading({ confidence: 10, overlay: { price_plot_confirmed: false, price_plot_box: plot, price_axis_confirmed: true, price_axis: axis } });

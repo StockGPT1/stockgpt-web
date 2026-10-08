@@ -54,14 +54,18 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
   const [shareStatus, setShareStatus] = useState("");
   const plan = result.trade_plan, score = result.stockgpt_score;
   const illustrative = plan.levels_basis === "illustrative";
-  const direction = result.verdict === "bullish" ? "Bullish" : result.verdict === "bearish" ? "Bearish" : "No clear edge";
-  const directionStyle = result.verdict === "bullish" ? styles.bullish : result.verdict === "bearish" ? styles.bearish : styles.neutral;
-  const setup = illustrative ? "Practice scenario · no confirmed edge" : plan.status === "confirmed" ? "Trigger visible · check current price"
+  const noSetup = plan.status === "unavailable" || illustrative && plan.status !== "relative";
+  const hasTradeLevels = !illustrative && plan.status !== "unavailable";
+  const chartResult = hasTradeLevels ? result : { ...result, overlay: { ...result.overlay, trade_lines: [], off_chart_levels: [] } };
+  const direction = noSetup ? "No clear setup" : result.verdict === "bullish" ? "Bullish" : result.verdict === "bearish" ? "Bearish" : "No clear edge";
+  const directionStyle = noSetup ? styles.neutral : result.verdict === "bullish" ? styles.bullish : result.verdict === "bearish" ? styles.bearish : styles.neutral;
+  const setup = noSetup ? "No confirmed edge" : plan.status === "relative" ? "Price levels unavailable · include the price scale"
+    : plan.status === "confirmed" ? "Trigger visible · check current price"
     : plan.status === "conditional" ? "Waiting for the price trigger" : "Estimated levels · confirm first";
   const riskHint = (value: number | null) => value === null ? "Relative to your entry" : `${value.toFixed(1)}% from entry`;
   const levels = [
-    { label: "Open / entry", tone: "entry" as const, value: plan.entry, hint: "Tap to understand the entry", explanation: `The price to watch before opening this ${plan.side === "long" ? "upward" : "downward"} scenario. ${plan.plan || result.confirmation}` },
-    { label: "Stop loss", tone: "stop" as const, value: plan.stop_loss, hint: riskHint(plan.stop_pct), explanation: `The planned exit if price goes against this scenario. ${result.invalidation}` },
+    { label: "Open / entry", tone: "entry" as const, value: plan.entry, hint: "Tap to understand the entry", explanation: `${illustrative ? "An estimated reference level, not a confirmed entry." : `The price to watch before opening this ${plan.side === "long" ? "upward" : "downward"} trade.`} ${plan.plan || result.confirmation}` },
+    { label: "Stop loss", tone: "stop" as const, value: plan.stop_loss, hint: riskHint(plan.stop_pct), explanation: `${illustrative ? "An estimated exit level if price moves against the assumed direction." : "The planned exit if price goes against the trade."} ${result.invalidation}` },
     { label: "Take profit", tone: "target" as const, value: plan.take_profit, hint: riskHint(plan.target_pct), explanation: "The planned exit if price moves in your favour. This is an estimated target; price may turn before reaching it." },
   ];
   const levelHelp = levels.find(level => level.tone === expandedLevel);
@@ -72,14 +76,14 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
   }
   async function shareRead() {
     scannerHaptic("open");
-    const title = `StockGPT Beta · ${illustrative ? "Practice scenario" : direction}`;
+    const title = `StockGPT Beta · ${direction}`;
     const text = [
       [result.ticker, result.timeframe].filter(Boolean).join(" · "),
       `Setup score: ${score.value}/100 (not a win probability).`,
       result.summary,
-      `Entry: ${plan.entry ?? "not established"} · Stop loss: ${plan.stop_loss ?? "not established"} · Take profit: ${plan.take_profit ?? "not established"}`,
-      `Scenario: ${plan.plan || result.confirmation}`,
-      "Screenshot-based scenario. Estimated levels need confirmation; prices are not live.",
+      hasTradeLevels ? `Entry: ${plan.entry ?? "not established"} · Stop loss: ${plan.stop_loss ?? "not established"} · Take profit: ${plan.take_profit ?? "not established"}` : "No confirmed entry or exit levels.",
+      `Chart read: ${hasTradeLevels ? plan.plan || result.confirmation : result.watch_for || result.confirmation}`,
+      "Screenshot-based chart analysis. Estimated levels need confirmation; prices are not live.",
     ].filter(Boolean).join("\n\n");
     try {
       if (navigator.share) {
@@ -109,19 +113,19 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
       <p className={styles.scanComplete}><span aria-hidden="true"><StockIcon name="check" className="size-3.5" /></span>Scan complete</p>
       <div className={styles.resultHeader}>
         <div className="min-w-0"><p className="text-sm font-semibold text-[#c7dece]">{[result.ticker, result.timeframe].filter(Boolean).join(" · ") || "Your chart analysis"}</p>
-          <h2 id="scan-direction" className={`${styles.directionTitle} mt-3`}>{illustrative ? "A scenario to practise" : direction}</h2>
-          <span className={`${styles.directionBadge} mt-2`}>{illustrative ? "Practice scenario" : result.verdict === "inconclusive" ? "Mixed chart evidence" : plan.side === "long" ? "↑ Upward bias" : "↓ Downward bias"}</span>
+          <h2 id="scan-direction" className={`${styles.directionTitle} mt-3`}>{direction}</h2>
+          <span className={`${styles.directionBadge} mt-2`}>{noSetup ? "No confirmed edge" : result.verdict === "inconclusive" ? "Mixed chart evidence" : plan.side === "long" ? "↑ Upward bias" : "↓ Downward bias"}</span>
         </div>
         <Score value={score.value} label={score.label} />
       </div>
       <div id="scan-chart" className={`${styles.anchor} mt-5`}>
-        <ChartScanPreview src={src} supportingSrc={supportingSrc} result={result} focusedSignal={focusedSignal} onSignalChange={setFocusedSignal} compact>
-          <div className={`${styles.tradeLevels} mt-5`}>
+        <ChartScanPreview src={src} supportingSrc={supportingSrc} result={chartResult} focusedSignal={focusedSignal} onSignalChange={setFocusedSignal} compact>
+          {hasTradeLevels && <><div className={`${styles.tradeLevels} mt-5`}>
             {levels.map(level => <TradeLevel key={level.tone} {...level} expanded={expandedLevel === level.tone} onToggle={() => setExpandedLevel(current => current === level.tone ? null : level.tone)} />)}
           </div>
           {levelHelp && <div id={`scan-level-${levelHelp.tone}`} className={styles.levelExplanation}><p className="text-xs font-bold text-[#ffe3a0]">{levelHelp.label}</p><p className="mt-2 text-sm leading-6 text-[#e3eee4]">{levelHelp.explanation}</p></div>}
           <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-[#c7dece]"><p>Potential reward / risk <strong className="text-[#fff4d8]">{plan.risk_reward ?? "Not measurable"}</strong></p><span className="text-xs">Tap any price card for help</span></div>
-          {plan.assumptions && <p className="mt-4 rounded-xl border border-[#f6c96b]/30 bg-[#f6c96b]/10 p-3 text-sm leading-6 text-[#ffe3a0]">{plan.assumptions}</p>}
+          {plan.assumptions && <p className="mt-4 rounded-xl border border-[#f6c96b]/30 bg-[#f6c96b]/10 p-3 text-sm leading-6 text-[#ffe3a0]">{plan.assumptions}</p>}</>}
         </ChartScanPreview>
       </div>
       <p className="mt-5 text-base leading-7 text-[#e1ede4]">{result.summary}</p>
@@ -129,9 +133,9 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
         <span>{supports.length} supporting clue{supports.length === 1 ? "" : "s"}</span><span>{opposes.length} opposing clue{opposes.length === 1 ? "" : "s"}</span><span>{result.verification_status === "reviewed" ? "Second read complete" : "Second read unavailable"}</span>
       </div>
       <div className={`${styles.nextMove} mt-5`}>
-        <h3 className="flex items-center gap-2 text-sm font-bold text-[#85f8c7]"><StockIcon name="alerts" className="size-4" />Your next move</h3>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-[#85f8c7]"><StockIcon name="alerts" className="size-4" />{hasTradeLevels ? "Your next move" : "What to watch next"}</h3>
         <p className="mt-2 text-sm font-semibold text-[#ffe3a0]">{setup}</p>
-        <p className="mt-2 text-base leading-6 text-[#edf7ee]">{plan.plan || result.confirmation}</p>
+        <p className="mt-2 text-base leading-6 text-[#edf7ee]">{hasTradeLevels ? plan.plan || result.confirmation : result.watch_for || result.confirmation}</p>
       </div>
       <details className="mt-4 border-t border-[#38654c] pt-1">
         <summary onClick={() => scannerHaptic()} className="min-h-12 content-center text-sm font-semibold text-[#ffe3a0]">How confident is this score?</summary>
@@ -140,30 +144,30 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
       </details>
     </section>
 
-    <section className={panel} aria-labelledby="scan-timing"><p className={`${styles.sectionLabel} mb-3`}>Your estimated timeline</p>
-      <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-xl bg-[#ffd361] text-[#072719]"><StockIcon name="clock" className="size-5" /></span><div><h3 id="scan-timing" className="text-2xl font-black tracking-tight">When could it happen?</h3><p className="text-xs text-[#c7dece]">{result.timeline.quality === "illustrative" ? "Illustrative monitoring windows" : "Estimated timeline"}</p></div></div>
+    {hasTradeLevels && result.timeline.quality === "estimated" && <section className={panel} aria-labelledby="scan-timing"><p className={`${styles.sectionLabel} mb-3`}>Your estimated timeline</p>
+      <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-xl bg-[#ffd361] text-[#072719]"><StockIcon name="clock" className="size-5" /></span><div><h3 id="scan-timing" className="text-2xl font-black tracking-tight">When could it happen?</h3><p className="text-xs text-[#c7dece]">Estimated timeline</p></div></div>
       <ol className={`${styles.timelineGrid} mt-4`}>{[{ name: "Watch for entry", text: result.timeline.entry }, { name: "Allow for the target", text: result.timeline.target }, { name: "Check again", text: result.timeline.reassess }].map((step, index) =>
         <li key={step.name} className={styles.timelineCard}><span className="grid size-7 shrink-0 place-items-center rounded-full border border-[#6cbd96]/30 bg-[#07442c] text-xs font-extrabold text-[#dcecdf]">{index + 1}</span><div><h4 className="text-sm font-bold text-[#fff4d8]">{step.name}</h4><p className="mt-2 text-sm leading-6 text-[#dcecdf]">{step.text}</p></div></li>)}
       </ol>
       <p className="mt-4 text-sm leading-6 text-[#c7dece]">{result.timeline.basis}</p><p className="mt-2 text-xs leading-5 text-[#c7dece]">Count from the latest candle in this screenshot. Market closures pause chart time. The price trigger matters more than the clock.</p>
-    </section>
+    </section>}
 
     <section className={`${styles.caution} p-5 sm:p-6`} aria-labelledby="scan-caution">
-      <h3 id="scan-caution" className="text-2xl font-black tracking-tight text-[#edf7ee]">What could spoil the trade?</h3>
+      <h3 id="scan-caution" className="text-2xl font-black tracking-tight text-[#edf7ee]">{hasTradeLevels ? "What could spoil the trade?" : "What could change this read?"}</h3>
       <p className="mt-3 text-base leading-7 text-[#d5e4da]">{result.review.counterargument}</p>
-      <div className="mt-4 rounded-xl border border-[#6cbd96]/25 bg-[#021e14]/70 p-3"><p className="text-sm font-bold text-[#edf7ee]">The exit rule</p><p className="mt-1 text-sm leading-6 text-[#d5e4da]">{result.invalidation}</p></div>
+      <div className="mt-4 rounded-xl border border-[#6cbd96]/25 bg-[#021e14]/70 p-3"><p className="text-sm font-bold text-[#edf7ee]">{hasTradeLevels ? "The exit rule" : "Confirmation to watch"}</p><p className="mt-1 text-sm leading-6 text-[#d5e4da]">{hasTradeLevels ? result.invalidation : result.confirmation}</p></div>
       <div className="mt-4 border-t border-[#6cbd96]/25 pt-4"><p className="text-sm font-bold text-[#edf7ee]">{result.review.headline}</p><p className="mt-1 text-sm leading-6 text-[#d5e4da]">{result.review.detail}</p></div>
     </section>
 
     <section id="scan-evidence" className={`${panel} ${styles.anchor}`} aria-labelledby="scan-evidence-title">
-      <div className="flex items-start justify-between gap-3"><div><h3 id="scan-evidence-title" className="text-2xl font-black tracking-tight">Why this scenario?</h3><p className="mt-1 text-sm text-[#c7dece]">The chart clues, in plain English.</p></div><span className="rounded-full border border-[#ad9451]/60 bg-[#032a1b] px-3 py-2 text-xs font-black text-[#ffe09b]">{supports.length} supporting</span></div>
+      <div className="flex items-start justify-between gap-3"><div><h3 id="scan-evidence-title" className="text-2xl font-black tracking-tight">What the chart shows</h3><p className="mt-1 text-sm text-[#c7dece]">The chart clues, in plain English.</p></div><span className="rounded-full border border-[#ad9451]/60 bg-[#032a1b] px-3 py-2 text-xs font-black text-[#ffe09b]">{supports.length} supporting</span></div>
       <div className="mt-4 space-y-3">{[...supports, ...opposes, ...result.signals.filter(signal => signal.bias === "neutral")].map(signal => {
         const against = opposes.includes(signal), neutral = signal.bias === "neutral";
         return <div key={`${signal.region_id}:${signal.name}`} className={`${styles.evidenceCard} ${against || neutral ? styles.conflictCard : ""}`}>
-          <span className={`text-xs font-bold ${against || neutral ? "text-[#ffe3a0]" : "text-[#85f8c7]"}`}>{against ? "Works against the trade" : neutral ? "Mixed clue" : "Supports the trade"}</span><h4 className="mt-1 text-lg font-extrabold">{result.signals.indexOf(signal) + 1}. {signal.name}</h4><p className="mt-2 text-sm leading-6 text-[#dcecdf]">{signal.evidence}</p>
+          <span className={`text-xs font-bold ${against || neutral ? "text-[#ffe3a0]" : "text-[#85f8c7]"}`}>{against ? hasTradeLevels ? "Works against the trade" : "Opposing clue" : neutral ? "Mixed clue" : hasTradeLevels ? "Supports the trade" : "Directional clue"}</span><h4 className="mt-1 text-lg font-extrabold">{result.signals.indexOf(signal) + 1}. {signal.name}</h4><p className="mt-2 text-sm leading-6 text-[#dcecdf]">{signal.evidence}</p>
           {signal.boxes.length > 0 && <button type="button" onClick={() => { setFocusedSignal(result.signals.indexOf(signal)); jump("scan-chart"); }} className={`${quietButton} mt-3 text-xs`}>Show me on the chart <span aria-hidden="true">↑</span></button>}
         </div>;
-      })}{result.signals.length === 0 && <p className="text-sm leading-6 text-[#c7dece]">No directional finding survived review. The plan is an illustrative risk scenario.</p>}</div>
+      })}{result.signals.length === 0 && <p className="text-sm leading-6 text-[#c7dece]">No clear directional setup was confirmed. Watch for a clearer price reaction before planning entry and exits.</p>}</div>
       {result.pattern_checks.length > 0 && <div className="mt-4 space-y-2">{result.pattern_checks.map(pattern => <div key={pattern.name} className="rounded-xl border border-[#6cbd96]/40 bg-[#032a1a] p-4"><p className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold">{pattern.name}<span className={`rounded-full px-2.5 py-1 text-xs ${pattern.status === "confirmed" ? "bg-[#087648]/25 text-[#85f8c7]" : "bg-[#f6c96b]/20 text-[#ffe3a0]"}`}>{pattern.status === "confirmed" ? "Trigger seen" : "Still forming"}</span></p><p className="mt-2 text-sm leading-6 text-[#c7dece]">{pattern.evidence}</p></div>)}</div>}
       <div className="mt-5 rounded-2xl border border-[#6cbd96]/70 bg-[#02291a] p-4">
         <p className={styles.sectionLabel}>50+ candle patterns</p><div className="mt-2 flex items-end justify-between gap-3"><h4 className="text-xl font-black">{result.candle_audit.applicable ? `${result.candle_audit.detected} patterns agreed` : "A line chart, not candles"}</h4><span className="shrink-0 text-xs font-extrabold text-[#ffe09b]">{result.candle_audit.applicable ? result.candle_audit.checked === result.candle_audit.total ? "Checklist reviewed" : "Partial read" : "Not applicable"}</span></div>
@@ -180,11 +184,11 @@ export function ChartScanAnalysis({ result, src, supportingSrc, askHref, onReset
     </section>
 
     {result.needs_more_info && <section className={panel}><p className="text-sm leading-6 text-[#dcecdf]">{result.more_info_prompt}</p><button type="button" onClick={() => { scannerHaptic(); onAddContext(); }} className={`${quietButton} mt-3 w-full`}>Add missing chart context</button></section>}
-    {(plan.price_basis === "relative" || plan.price_basis === "user") && <button type="button" onClick={() => { scannerHaptic(); onReference(); }} className={`${quietButton} w-full`}>{plan.price_basis === "relative" ? "Add a reference price & rescan" : "Update reference price & rescan"}</button>}
-    <Link href={askHref} onClick={() => scannerHaptic("open")} className={`${brightButton} w-full`}>Talk me through this trade <span aria-hidden="true">→</span></Link>
+    {!noSetup && (plan.price_basis === "relative" || plan.price_basis === "user") && <button type="button" onClick={() => { scannerHaptic(); onReference(); }} className={`${quietButton} w-full`}>{plan.price_basis === "relative" ? "Add a reference price & rescan" : "Update reference price & rescan"}</button>}
+    <Link href={askHref} onClick={() => scannerHaptic("open")} className={`${brightButton} w-full`}>{hasTradeLevels ? "Talk me through this trade" : "Talk me through this chart"} <span aria-hidden="true">→</span></Link>
     <button type="button" onClick={shareRead} className={`${quietButton} w-full`}>Share this chart read <span aria-hidden="true">↗</span></button>
     {shareStatus && <p role="status" className="text-center text-sm text-[#ffe09b]">{shareStatus}</p>}
     <button type="button" onClick={onReset} className={`${quietButton} w-full`}>Scan another chart</button>
-    <p className="px-2 text-center text-xs leading-5 text-[#bdd3c4]">Based on this screenshot, not live prices. Estimated levels need confirmation. Stops, targets and timing are scenarios, not guarantees.</p>
+    <p className="px-2 text-center text-xs leading-5 text-[#bdd3c4]">Based on this screenshot, not live prices. Estimated levels need confirmation. Stops, targets and timing are estimates, not guarantees.</p>
   </div>;
 }

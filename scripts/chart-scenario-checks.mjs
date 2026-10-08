@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calibratePriceAxis, priceToY, normalisePriceAxis, buildTradeScenario } from "../lib/chart-scan-scenario.ts";
+import { calibratePriceAxis, priceToY, normalisePriceAxis, buildTradeScenario, stockGPTScore } from "../lib/chart-scan-scenario.ts";
 const axis = (scale, points) => normalisePriceAxis({ scale, ticks: points.map(([price, y_pct]) => ({ price, y_pct })) });
 
 test("linear and inverted price scales map exact prices to the same tick centres", () => {
@@ -54,4 +54,34 @@ test("short fallbacks preserve ordering and never generate nonpositive prices", 
   const p = buildTradeScenario({ verdict: "bearish", current_price: "100" }, { usable: true, reviewed: true, signals: [{ bias: "bearish", confidence: 70 }], patterns: [] });
   assert.equal(p.entry_value, 100); assert.equal(p.stop_value, 102); assert.equal(p.target_value, 96);
   assert.equal(p.risk_reward, "2.0:1"); assert.equal(p.levels_basis, "estimated");
+});
+test("a readable chart without directional evidence never creates a practice trade", () => {
+  for (const current_price of [null, "100"]) {
+    const raw = { verdict: "inconclusive", current_price,
+      trade_plan: { side: "long", price_scale_readable: true, entry: "100", stop_loss: "98", take_profit: "104" } };
+    const p = buildTradeScenario(raw, { usable: true, reviewed: true, signals: [{ bias: "neutral", confidence: 80 }], patterns: [] });
+    assert.equal(p.status, "unavailable");
+    assert.equal(p.entry, null);
+    assert.equal(p.stop_loss, null);
+    assert.equal(p.take_profit, null);
+    assert.equal(p.stop_pct, null);
+    assert.equal(p.target_pct, null);
+    assert.match(p.assumptions, /No directional setup/);
+    assert.equal(stockGPTScore(80, p, true, [], []).label, "No clear setup");
+  }
+});
+test("a directional verdict alone cannot create evidence for a trade plan", () => {
+  const p = buildTradeScenario({ verdict: "bullish", current_price: "100" },
+    { usable: true, reviewed: true, signals: [], patterns: [] });
+  assert.equal(p.status, "unavailable");
+  assert.equal(p.entry_value, null);
+});
+test("a supported direction with an unreadable scale retains clearly relative distances", () => {
+  const p = buildTradeScenario({ verdict: "bullish", current_price: null },
+    { usable: true, reviewed: true, signals: [{ bias: "bullish", confidence: 70 }], patterns: [] });
+  assert.equal(p.status, "relative");
+  assert.equal(p.price_basis, "relative");
+  assert.equal(p.entry_value, null);
+  assert.match(p.assumptions, /no readable reference price/);
+  assert.ok(stockGPTScore(70, p, true, [{ bias: "bullish", confidence: 70 }], []).value <= 20);
 });

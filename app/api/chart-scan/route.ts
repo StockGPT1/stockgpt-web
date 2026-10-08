@@ -118,6 +118,27 @@ async function analyseImages(apiKey: string, dataUrls: string[], referencePrice:
     geometry: () => geometry,
   }, dataUrls.length, referencePrice, clientSignal);
   if (failures.length > 0) console.error("[chart-scan] vision pass failed", failures);
+  if (scan?.result) {
+    const result = scan.result;
+    // Operational counts only: never log uploaded images, ticker or prices.
+    console.info("[chart-scan] quality", {
+      reviewed: result.verification_status === "reviewed",
+      agreement: result.review.agreement,
+      score: result.stockgpt_score.value,
+      score_cap: result.review.score_cap,
+      plan_status: result.trade_plan.status,
+      risk_basis: result.trade_plan.levels_basis,
+      atlas_rows: geometry.axis_rows.length,
+      guide_count: guides.length,
+      calibration: result.overlay.calibration_status,
+      trade_lines: result.overlay.trade_lines.length,
+      off_chart_levels: result.overlay.off_chart_levels.length,
+      indicator_count: result.indicator_checks.length,
+      indicators_readable: result.indicator_checks.filter(check => check.status === "readable").length,
+      candle_findings: result.candle_audit.detected,
+      candle_checks_unclear: result.candle_audit.unclear,
+    });
+  }
   return { result: scan?.result ?? null, model: scan?.model ?? null, passes: requests, failures };
 }
 

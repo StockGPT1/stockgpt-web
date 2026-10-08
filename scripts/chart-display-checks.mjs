@@ -90,8 +90,9 @@ test("capability claims reflect the recognisable catalog and readable candle lim
 });
 test("a result exposes its complete candle audit alongside plain-language prices, timing and contrary evidence", () => {
   const result = make();
+  result.timeline.quality = "estimated";
   const html = renderToStaticMarkup(React.createElement(ChartScanAnalysis, { result, src: "/main.png", supportingSrc: null, askHref: "/ask-stockgpt", onReset() {}, onAddContext() {}, onReference() {} }));
-  for (const text of ["Open / entry", "Stop loss", "Take profit", "StockGPT Score", "When could it happen?", "What could spoil the trade?", "50+ candle patterns", "View the 50+ candle checklist"]) assert.ok(html.includes(text), `missing ${text}`);
+  for (const text of ["Open / entry", "Stop loss", "Take profit", "StockGPT Score", "When could it happen?", "What could spoil the trade?", "What the chart shows", "50+ candle patterns", "View the 50+ candle checklist"]) assert.ok(html.includes(text), `missing ${text}`);
   assert.ok(!html.includes("44 / 44"));
   assert.ok(!html.includes("All patterns"));
   assert.ok(!html.includes("Expand ↗"));
@@ -106,6 +107,37 @@ test("an inconclusive chart cannot be advertised as a bullish or bearish finding
   assert.ok(html.includes("Mixed chart evidence"));
   assert.ok(!html.includes("Upward bias"));
   assert.ok(!html.includes("Downward bias"));
+});
+test("an estimated fallback is a plain unclear result, never a practice mode or directional trade signal", () => {
+  const result = make();
+  // The fallback basis must take precedence even if a stale directional verdict remains.
+  result.verdict = "bullish"; result.trade_plan.levels_basis = "illustrative";
+  result.trade_plan.price_basis = "relative";
+  result.signals = [];
+  result.watch_for = "Watch for a clear close above the visible range.";
+  const html = renderToStaticMarkup(React.createElement(ChartScanAnalysis, { result, src: "/main.png", supportingSrc: null, askHref: "/ask-stockgpt", onReset() {}, onAddContext() {}, onReference() {} }));
+  for (const text of ["No clear setup", "No confirmed edge", "What to watch next", result.watch_for, "Watch for a clearer price reaction before planning entry and exits."]) assert.ok(html.includes(text), `missing ${text}`);
+  assert.ok(!/practi[cs]e/i.test(html));
+  assert.ok(!html.includes("Upward bias"));
+  assert.ok(!html.includes("Downward bias"));
+  assert.ok(!html.includes('>Bullish</h2>'));
+  assert.ok(html.includes("neutral"));
+  for (const text of ["Open / entry", "Potential reward / risk", "When could it happen?", "data-trade-line=", "Add a reference price"]) assert.ok(!html.includes(text), `unexpected ${text}`);
+  const source = fs.readFileSync(path.join(root, "components/ChartScanAnalysis.tsx"), "utf8");
+  assert.ok(!/practi[cs]e|Practice scenario|Why this scenario/.test(source));
+  assert.ok(source.includes('const title = `StockGPT Beta · ${direction}`'));
+});
+test("a supported directional read with missing prices explains the scale problem without a practice trade", () => {
+  const result = make();
+  result.trade_plan.status = "relative"; result.trade_plan.levels_basis = "illustrative"; result.trade_plan.price_basis = "relative";
+  const html = renderToStaticMarkup(React.createElement(ChartScanAnalysis, { result, src: "/main.png", supportingSrc: null, askHref: "/ask-stockgpt", onReset() {}, onAddContext() {}, onReference() {} }));
+  assert.ok(html.includes('>Bullish</h2>'));
+  assert.ok(html.includes("Price levels unavailable"));
+  assert.ok(html.includes("include the price scale"));
+  assert.ok(!html.includes("No confirmed edge"));
+  assert.ok(!html.includes("Open / entry"));
+  assert.ok(!html.includes("data-trade-line="));
+  assert.ok(!/practi[cs]e/i.test(html));
 });
 test("missing defensible exit prices do not claim that the screenshot price is unreadable", () => {
   const result = make(); result.trade_plan.stop_loss = null; result.trade_plan.take_profit = null;

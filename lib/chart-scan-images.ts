@@ -75,21 +75,50 @@ export async function buildChartImageGuides(buffers: Buffer[], layout: ChartLayo
     const gridRows = detectGridRows(plotPixels.data, bounds.width, bounds.height, plotPixels.info.channels);
     for (const side of ["right", "left"] as const) {
       const edge = side === "right" ? bounds.left + bounds.width : bounds.left;
-      const available = side === "right" ? primary.info.width - edge : edge;
-      const stripWidth = Math.min(available, Math.ceil(primary.info.width * 0.18));
-      if (stripWidth < 16) continue;
-      const strip = { left: side === "right" ? edge : edge - stripWidth, top: bounds.top, width: stripWidth, height: bounds.height };
-      const gray = await sharp(primary.data).extract(strip).greyscale().raw().toBuffer({ resolveWithObject: true });
-      const bands = detectAxisLabelBands(gray.data, stripWidth, strip.height, gray.info.channels);
+      const reach = Math.ceil(primary.info.width * 0.18);
+      const outside = side === "right"
+        ? { left: edge, width: Math.min(primary.info.width - edge, reach) }
+        : { left: Math.max(0, edge - reach), width: Math.min(edge, reach) };
+      const readBands = async (strip: PixelRect) => {
+        if (strip.width < 16) return { bands: [], clipped: false };
+        const gray = await sharp(primary.data).extract(strip).greyscale().raw().toBuffer({ resolveWithObject: true });
+        const bands = detectAxisLabelBands(gray.data, strip.width, strip.height, gray.info.channels);
+        const clipped = bands.some(band => {
+          let edgeInk = 0;
+          for (let y = band.top; y <= band.bottom; y++) {
+            const values = Array.from({ length: strip.width }, (_, x) => gray.data[(y * strip.width + x) * gray.info.channels]);
+            const background = [...values].sort((a, b) => a - b)[Math.floor(strip.width / 2)];
+            const edgeValues = side === "right" ? values.slice(0, 3) : values.slice(-3);
+            if (edgeValues.some(value => Math.abs(value - background) >= 42)) edgeInk++;
+          }
+          return edgeInk >= 2;
+        });
+        return { bands, clipped };
+      };
+      let strip = { ...outside, top: bounds.top, height: bounds.height };
+      const outsideReading = await readBands(strip);
+      let bands = outsideReading.bands;
+      let overlapping = false;
+      if (bands.length < 3 || outsideReading.clipped) {
+        // Phone charts often print their price scale over the plot, and the
+        // locator's approximate edge can include it. Recover the actual label
+        // pixels just inside that edge; neither their prices nor Y's are guessed.
+        const inset = Math.min(reach, Math.floor(bounds.width / 4));
+        const left = side === "right" ? Math.max(bounds.left, edge - inset) : outside.left;
+        const right = side === "right" ? outside.left + outside.width : Math.min(bounds.left + bounds.width, edge + inset);
+        strip = { left, width: right - left, top: bounds.top, height: bounds.height };
+        bands = (await readBands(strip)).bands;
+        overlapping = true;
+      }
       if (bands.length < 3) continue;
-      const rowHeight = 72, gutter = 88, cropWidth = Math.min(480, stripWidth * 3);
+      const rowHeight = 72, gutter = 140, cropWidth = Math.min(480, strip.width * 3);
       const composites: OverlayOptions[] = [];
       const rows: AxisPixelRow[] = [];
       for (let index = 0; index < bands.length; index++) {
-        const band = bands[index], id = `${side}-${index + 1}`;
+        const band = bands[index], id = `${side}${overlapping ? "-overlap" : ""}-${index + 1}`;
         const top = Math.max(0, band.top - 3), height = Math.min(strip.height - top, band.bottom - top + 4);
         const cropped = await sharp(primary.data).extract({ ...strip, top: strip.top + top, height }).resize({ width: cropWidth, height: rowHeight - 12, fit: "contain", background: "#111827" }).png().toBuffer();
-        const label = Buffer.from(`<svg width="${gutter}" height="${rowHeight}"><rect width="100%" height="100%" fill="#111827"/><text x="8" y="41" fill="white" font-family="sans-serif" font-size="16">${side === "right" ? "R" : "L"}${index + 1}</text></svg>`);
+        const label = Buffer.from(`<svg width="${gutter}" height="${rowHeight}"><rect width="100%" height="100%" fill="#111827"/><text x="8" y="41" fill="white" font-family="sans-serif" font-size="13">${id}</text></svg>`);
         composites.push({ input: label, left: 0, top: index * rowHeight }, { input: cropped, left: gutter, top: index * rowHeight + 6 });
         const nearby = gridRows.filter(y => Math.abs(y - band.centre) <= Math.max(3, (band.bottom - band.top) * 0.35))
           .sort((a, b) => Math.abs(a - band.centre) - Math.abs(b - band.centre));
@@ -98,7 +127,7 @@ export async function buildChartImageGuides(buffers: Buffer[], layout: ChartLayo
       }
       const atlas = await sharp({ create: { width: gutter + cropWidth, height: rowHeight * bands.length, channels: 3, background: "#111827" } }).composite(composites).png().toBuffer();
       geometry.axis_rows.push(...rows);
-      guides.push({ url: dataUrl(atlas), description: `PRIMARY ${side} price-label atlas. R1/R2 etc map to row_id right-1/right-2; L1/L2 map to left-1/left-2. Read exact printed prices from these rows. These are cropped labels, not new charts. Coordinates are computed from original pixels; never return a y coordinate.` });
+      guides.push({ url: dataUrl(atlas), description: `PRIMARY ${side} price-label atlas. Copy the exact displayed row_id (${rows.map(row => row.id).join(", ")}) for each readable printed price. These are cropped original-pixel bands, not new charts.${overlapping ? " This recovery crop overlaps the plot edge: ignore candle/line fragments and rows without a complete printed numeric price label." : ""} Choose only the actual price axis. Coordinates are computed from original pixels; never return a y coordinate.` });
     }
   }
   const regions = [

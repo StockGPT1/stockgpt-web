@@ -43,6 +43,21 @@ test("unknown row ids and model-supplied y coordinates cannot move price anchors
   assert.equal(pixelAnchoredAxis({ ticks: [{ row_id: "made-up", price: 87.5, y_pct: 60 }] }, rows).ticks.length, 0);
 });
 
+test("explicit R1/L1 guide aliases resolve only to an existing row on the selected axis", () => {
+  const rows = [{ id: "right-1", y_pct: 20 }, { id: "right-2", y_pct: 40 }, { id: "right-3", y_pct: 60 }, { id: "left-1", y_pct: 75 }];
+  const reading = { axis_id: "right", scale: "linear", ticks: [
+    { row_id: "R1", price: 91.5, y_pct: 99 },
+    { row_id: " r2 ", price: 89.5 },
+    { row_id: "RIGHT-3", price: 87.5 },
+    { row_id: "L1", price: 85.5 },
+    { row_id: "R4", price: 83.5 },
+    { row_id: "right-2-anything", price: 81.5 },
+  ] };
+  assert.deepEqual(pixelAnchoredAxis(reading, rows).ticks, [
+    { price: 91.5, y_pct: 20 }, { price: 89.5, y_pct: 40 }, { price: 87.5, y_pct: 60 },
+  ]);
+});
+
 test("solid backgrounds and gridline-only strips never become label anchors", () => {
   const width = 90, height = 300, pixels = new Uint8Array(width * height).fill(20);
   for (const y of [30, 100, 200]) for (let x = 0; x < width; x++) pixels[y * width + x] = 220;
@@ -100,6 +115,59 @@ test("long and short entry, SL and TP lines land on the independently read price
       assert.ok(Math.abs(line.y_pct - labelRow.y_pct) < 0.1, `${side} ${kind} must align with ${price}'s pixel row`);
     }
   }
+});
+
+test("phone candle charts retain all three exact level lines when the mapped plot includes the price scale", async () => {
+  const phonePlot = { x_pct: 3, y_pct: 10, width_pct: 95, height_pct: 55 };
+  const prices = [103.5, 103, 102.5, 102, 101.5];
+  for (const side of ["right", "left"]) {
+    const axisLeft = side === "right" ? 340 : 9;
+    const svg = Buffer.from(`<svg width="400" height="600" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="600" fill="#131722"/>${prices.map((price, index) => {
+      const y = 120 + index * 60;
+      return `<path d="M58 ${y}H334" stroke="#252a35"/><text x="${axisLeft}" y="${y + 4}" font-family="sans-serif" font-size="11" fill="#b2b5be">${price.toFixed(2)}</text>`;
+    }).join("")}${Array.from({ length: 16 }, (_, i) => {
+      const x = 75 + i * 15, y = 190 + (i % 4) * 20;
+      return `<path d="M${x} ${y - 8}V${y + 28}" stroke="#26a69a"/><rect x="${x - 3}" y="${y}" width="6" height="14" fill="#26a69a"/>`;
+    }).join("")}</svg>`);
+    const image = await sharp(svg).png().toBuffer();
+    const mapped = normaliseChartLayout({ ...rawLayout, price_series_type: "candles", price_plot_box: phonePlot }, 1);
+    const { geometry: pixels, guides } = await buildChartImageGuides([image], mapped);
+    const detected = pixels.axis_rows.filter(row => row.id.startsWith(`${side}-`));
+    const rows = prices.map((_, index) => detected.find(row => Math.abs(row.y_pct * 6 - (120 + index * 60)) <= 3));
+    assert.ok(rows.every(Boolean), `${side} printed price labels must survive an imperfect mapped edge`);
+    assert.ok(rows.every(row => row.id.startsWith(`${side}-overlap-`)));
+    assert.ok(guides.some(guide => guide.description.includes(rows[0].id)), "guide must show exact machine-readable ids");
+    const priceAxis = { axis_id: side, scale: "linear", ticks: rows.map((row, index) => ({ row_id: row.id, price: prices[index] })) };
+    const reading = { ...analysis, price_series_type: "candles", current_price: "102.50", timeframe: "5m",
+      trade_plan: { ...analysis.trade_plan, levels_basis: "structure", entry: 102.5, stop_loss: 102, take_profit: 103 },
+      overlay: { ...analysis.overlay, price_plot_box: phonePlot, price_axis: priceAxis } };
+    const result = normaliseChartScan(reading, mapped, true, null, { geometry: pixels, candidate: reading });
+    assert.equal(result.overlay.calibration_status, "matched");
+    assert.equal(result.overlay.trade_lines.length, 3);
+    for (const [kind, price] of [["entry", 102.5], ["stop", 102], ["target", 103]]) {
+      const line = result.overlay.trade_lines.find(line => line.kind === kind);
+      assert.equal(Number(line.price), price);
+      assert.ok(Math.abs(line.y_pct * 6 - (120 + prices.indexOf(price) * 60)) <= 3,
+        `${side} ${kind} must align with its original printed row`);
+    }
+  }
+});
+
+test("an atlas recovers the full price when an approximate plot edge clips the start of three or more labels", async () => {
+  const clippedPlot = { ...plot, width_pct: 83.5 };
+  const image = await sharp(labelledChart(true)).png().toBuffer();
+  const edge = Math.floor((clippedPlot.x_pct + clippedPlot.width_pct) / 100 * 800);
+  const outside = await sharp(image).extract({ left: edge, top: 40, width: 800 - edge, height: 320 }).greyscale().raw().toBuffer({ resolveWithObject: true });
+  assert.equal(detectAxisLabelBands(outside.data, outside.info.width, outside.info.height, outside.info.channels).length, 4,
+    "suffixes of clipped labels still look like four label bands");
+  const { geometry, guides } = await buildChartImageGuides([image], normaliseChartLayout({ ...rawLayout, price_plot_box: clippedPlot }, 1));
+  const rows = geometry.axis_rows.filter(row => row.id.startsWith("right-"));
+  assert.equal(rows.length, 4);
+  assert.ok(rows.every(row => row.id.startsWith("right-overlap-")), "clipped bands require a crop that includes the missing price prefix");
+  assert.equal(guides.filter(guide => guide.description.startsWith("PRIMARY right")).length, 1, "send one complete atlas, not duplicate or clipped labels");
+  assert.ok(guides.find(guide => guide.description.startsWith("PRIMARY right")).description.includes("recovery crop"));
+  const axis = pixelAnchoredAxis({ axis_id: "right", scale: "linear", ticks: rows.map((row, index) => ({ row_id: row.id, price: 91.5 - index * 2 })) }, geometry.axis_rows);
+  assert.ok(Math.abs(priceToY(87.5, calibratePriceAxis(axis, axis), 8, 64) * 5 - 240) <= 3);
 });
 test("server geometry never falls back to guessed percentages when native rows are missing", () => {
   const result = finalRead({ ...analysis, overlay: { ...analysis.overlay, price_axis: { scale: "linear", ticks: [{ price: 91.5, y_pct: 16 }, { price: 89.5, y_pct: 32 }, { price: 87.5, y_pct: 48 }] } } }, { ...geometry, axis_rows: [] });

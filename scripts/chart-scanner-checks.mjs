@@ -207,13 +207,28 @@ test("unsupported signals are removed, never chosen for their confidence", () =>
   assert.equal(result.verdict, "inconclusive");
   assert.equal(result.confidence, 0);
   assert.equal(result.trade_plan.levels_basis, "illustrative");
-  assert.ok(result.trade_plan.stop_loss && result.trade_plan.take_profit);
-  assert.ok(result.stockgpt_score.value <= 20);
+  assert.equal(result.trade_plan.status, "unavailable");
+  assert.equal(result.trade_plan.entry, null);
+  assert.equal(result.trade_plan.stop_loss, null);
+  assert.equal(result.trade_plan.take_profit, null);
+  assert.equal(result.stockgpt_score.value, 0);
+  assert.equal(result.stockgpt_score.label, "No clear setup");
+  assert.deepEqual(result.overlay.trade_lines, []);
 });
 
 test("generic candlesticks/indicator labels and duplicate signals are not findings", () => {
   assert.equal(read({ signals: [{ ...priceSignal, name: "Candlesticks" }] }).signals.length, 0);
   assert.equal(read({ signals: [priceSignal, priceSignal] }).signals.length, 1);
+});
+test("a model's illustrative fallback cannot retain a directional trade verdict", () => {
+  const result = read({ trade_plan: { ...scan.trade_plan, levels_basis: "illustrative" } });
+  assert.ok(result.signals.length > 0);
+  assert.equal(result.verdict, "inconclusive");
+  assert.equal(result.confidence, 0);
+  assert.equal(result.trade_plan.status, "unavailable");
+  assert.equal(result.trade_plan.entry, null);
+  assert.equal(result.stockgpt_score.label, "No clear setup");
+  assert.deepEqual(result.overlay.trade_lines, []);
 });
 
 test("inconclusive and low confidence reads are never promoted", () => {

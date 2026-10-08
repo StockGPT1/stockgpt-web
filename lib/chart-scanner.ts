@@ -396,13 +396,16 @@ export function normaliseChartScan(
     score.reasons.push(coverage === "partial" ? "Part of the chart is missing" : "Chart coverage is unclear");
   }
   score.value = Math.min(score.value, review.score_cap);
-  score.label = score.value >= 75 ? "Stronger setup" : score.value >= 50 ? "Developing setup" : "Speculative setup";
   if (review.agreement === "mixed") score.reasons.push(review.headline);
-  if (finalSeries === "candles" && raw.candle_audit && (candleAudit.checked < candleAudit.total || candleAudit.unclear > candleAudit.total / 2)) {
+  // Missing mandatory checks are a review failure. Unrelated patterns whose
+  // required history isn't visible are not evidence against a readable setup.
+  // Only independently confirmed candle findings enter signals above.
+  if (finalSeries === "candles" && raw.candle_audit && candleAudit.checked < candleAudit.total) {
     score.value = Math.min(score.value, 55);
-    score.label = score.value >= 50 ? "Developing setup" : "Speculative setup";
-    score.reasons.push(candleAudit.checked < candleAudit.total ? "Candle checklist incomplete" : "Many candle patterns could not be read clearly");
+    score.reasons.push("Candle checklist incomplete");
   }
+  score.label = scenario.status === "unavailable" ? mustRetake ? "No chart read" : "No clear setup"
+    : score.value >= 75 ? "Stronger setup" : score.value >= 50 ? "Developing setup" : "Speculative setup";
   const timeline = buildScanTimeline(record(raw.trade_plan).timeline, timeframe, scenario.status === "confirmed", scenario.levels_basis === "illustrative");
   const mappedAxis = localisation ? pixelAnchoredAxis(record(localisation.candidate.overlay).price_axis, localisation.geometry.axis_rows) : layout.price_axis;
   const checkedAxis = localisation ? pixelAnchoredAxis(overlay.price_axis, localisation.geometry.axis_rows) : normalisePriceAxis(overlay.price_axis);
@@ -431,10 +434,10 @@ export function normaliseChartScan(
   const offChart = calibration && linePlot ? proposedLines.filter(line => line.value !== null && line.price && safeY(line.value) === null)
     .map(line => ({ kind: line.kind, price: line.price! })) : [];
   return {
-    verdict: resolvedVerdict,
-    label: mustRetake ? "Chart not readable" : rejectedEvidence ? "Illustrative trade scenario" : scanText(raw.label, 70) ?? "Mixed evidence",
+    verdict: scenario.status === "unavailable" ? "inconclusive" : resolvedVerdict,
+    label: mustRetake ? "Chart not readable" : rejectedEvidence || scenario.status === "unavailable" ? "No clear setup" : scanText(raw.label, 70) ?? "Mixed evidence",
     pattern: mustRetake ? "No reliable chart read" : rejectedEvidence ? "No supported pattern" : scanText(raw.pattern, 90) ?? "No clear pattern",
-    confidence: mustRetake || rejectedEvidence ? 0 : confidence(raw.confidence),
+    confidence: mustRetake || rejectedEvidence || scenario.status === "unavailable" ? 0 : confidence(raw.confidence),
     ticker: scanText(raw.ticker, 14)?.toUpperCase() ?? null, timeframe,
     current_price: currentPrice, price_series_type: finalSeries, chart_coverage: coverage,
     retake_required: mustRetake,

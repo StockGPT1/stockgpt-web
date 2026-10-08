@@ -155,6 +155,30 @@ test("RSI and MACD support share the momentum family rather than inflate the sco
   assert.equal(stockGPTScore(90, plan, true, [a], []).value,
     stockGPTScore(90, plan, true, [a, { ...a, name: "MACD recovery" }], []).value);
 });
+test("readable estimated risk levels do not receive the same estimate penalty twice", () => {
+  const signals = [{ kind: "structure", name: "Support holds after a pullback", bias: "bullish", confidence: 75 }];
+  const estimatedReading = { ...reading, confidence: 75, trade_plan: { ...reading.trade_plan, levels_basis: "estimated" } };
+  const plan = buildTradeScenario(estimatedReading, { usable: true, reviewed: true, signals, patterns: [] });
+  assert.equal(plan.status, "estimated");
+  const score = stockGPTScore(75, plan, true, signals, []);
+  assert.equal(score.value, 52);
+  assert.match(score.reasons.join(" "), /Risk levels include estimates/);
+  assert.equal(stockGPTScore(99, plan, true, signals, []).value, 60);
+  assert.ok(stockGPTScore(35, plan, true, signals, []).value < 50);
+  assert.ok(stockGPTScore(99, plan, false, signals, []).value <= 40);
+});
+test("strong reviewed evidence can exceed 50 without manufacturing an 80-plus score", () => {
+  const price = { kind: "structure", name: "Confirmed support reaction", bias: "bullish", confidence: 85 };
+  const momentum = { kind: "indicator", name: "RSI recovery", bias: "bullish", confidence: 85 };
+  const plan = buildTradeScenario(reading, { usable: true, reviewed: true, signals: [price, momentum], patterns: [] });
+  const score = stockGPTScore(85, plan, true, [price, momentum], []);
+  assert.equal(score.value, 75);
+  const opposed = stockGPTScore(85, plan, true, [price, momentum,
+    { kind: "volume", name: "Weak participation on the bounce", bias: "bearish", confidence: 85 }], []);
+  assert.ok(opposed.value < score.value);
+  assert.ok(stockGPTScore(35, plan, true, [price], []).value < 50);
+  assert.ok(stockGPTScore(99, plan, true, [], []).value <= 35);
+});
 test("request budgets reserve visible JSON output and never exceed the route deadline", () => {
   const layout = visionSettings("layout", SCAN_DEADLINE_MS);
   const analysis = visionSettings("analysis", SCAN_DEADLINE_MS - layout.timeout);

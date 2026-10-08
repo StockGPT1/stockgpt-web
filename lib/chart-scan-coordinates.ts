@@ -12,13 +12,23 @@ export type ScanGeometry = {
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
+function canonicalAxisRow(value: unknown) {
+  if (typeof value !== "string") return null;
+  const id = value.trim().toLowerCase();
+  if (/^(right|left)(-overlap)?-[1-9]\d*$/.test(id)) return id;
+  // Older guide images displayed R1/L1. Resolve only that explicit spelling,
+  // never approximate an unknown id or accept a model-supplied position.
+  const short = /^([rl])(-overlap)?-?([1-9]\d*)$/.exec(id);
+  return short ? `${short[1] === "r" ? "right" : "left"}${short[2] ?? ""}-${short[3]}` : null;
+}
 export function pixelAnchoredAxis(value: unknown, rows: AxisPixelRow[]): PriceAxis {
   const raw = object(value);
   const ticks = Array.isArray(raw.ticks) ? raw.ticks : [];
   const axis = raw.axis_id === "left" || raw.axis_id === "right" ? raw.axis_id : null;
   return normalisePriceAxis({ scale: raw.scale, ticks: ticks.flatMap(value => {
     const tick = object(value);
-    const row = rows.find(row => row.id === tick.row_id && (!axis || row.id.startsWith(axis + "-")));
+    const id = canonicalAxisRow(tick.row_id);
+    const row = rows.find(row => row.id === id && (!axis || row.id.startsWith(axis + "-")));
     // Positions come only from pixels. A model-provided y_pct is deliberately ignored.
     return row ? [{ price: tick.price, y_pct: row.y_pct }] : [];
   }) });

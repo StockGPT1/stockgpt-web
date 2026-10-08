@@ -155,7 +155,13 @@ export function buildTradeScenario(
     projected_bars: null, projected_horizon: null, plan: null, rationale: null,
   };
   if (!context.usable) return empty;
-  const noDirectionalEvidence = context.signals.every(signal => signal.bias === "neutral") && !preferredPattern && raw.verdict !== "bullish" && raw.verdict !== "bearish";
+  const noDirectionalEvidence = context.signals.every(signal => signal.bias === "neutral") && !preferredPattern;
+  // A readable chart without a supported direction is a useful result, but
+  // fixed percentage exits would create a trade plan the chart did not supply.
+  if (noDirectionalEvidence || plan.levels_basis === "illustrative") return {
+    ...empty,
+    assumptions: "No directional setup is supported by the visible chart evidence. Wait for a clearer price reaction before planning entry and exits.",
+  };
   const sample = proposedEntry !== null ? plan.entry : imagePrice !== null ? raw.current_price : entry;
   if (entry === null) {
     return { ...empty, status: "relative", entry: "On entry confirmation",
@@ -185,7 +191,7 @@ export function buildTradeScenario(
     plan: text(raw.confirmation) ?? "Wait for an entry confirmation.",
   };
   const completeModelPlan = validStop && validTarget && plan.levels_basis !== "illustrative";
-  const levelsBasis = noDirectionalEvidence ? "illustrative" : completeModelPlan && plan.levels_basis !== "estimated" && priceBasis !== "user" ? "structure" : "estimated";
+  const levelsBasis = completeModelPlan && plan.levels_basis !== "estimated" && priceBasis !== "user" ? "structure" : "estimated";
   const displayPrecision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(Math.min(risk, Math.abs(target - entry)))) + 2));
   const entryLabel = priceLabel(entry, sample, displayPrecision), stopLabel = priceLabel(stop, sample, displayPrecision), targetLabel = priceLabel(target, sample, displayPrecision);
   const displayedEntry = positivePrice(entryLabel)!, displayedStop = positivePrice(stopLabel)!, displayedTarget = positivePrice(targetLabel)!;
@@ -194,9 +200,7 @@ export function buildTradeScenario(
     : plan.activation === "confirmed" && raw.verdict !== "inconclusive" && (!preferredPattern || preferredPattern.status === "confirmed") ? "confirmed" : "conditional";
   const genericRisk = !validStop && structureStop == null;
   const genericTarget = !validTarget && measuredTarget == null && (structuralTarget === null || (structuralTarget - entry) * direction <= 0);
-  const assumptions = levelsBasis === "illustrative"
-    ? "No directional edge is confirmed. This is an illustrative scenario, not a detected trade signal."
-    : genericRisk || genericTarget ? `Estimated fallback: ${genericRisk ? "a fixed 2% entry-to-stop distance" : "stop based on visible invalidation"}${genericTarget ? " and a 2R target" : ", with a visible target"}. These estimates are not volatility-calibrated.`
+  const assumptions = genericRisk || genericTarget ? `Estimated fallback: ${genericRisk ? "a fixed 2% entry-to-stop distance" : "stop based on visible invalidation"}${genericTarget ? " and a 2R target" : ", with a visible target"}. These estimates are not volatility-calibrated.`
       : levelsBasis === "estimated" ? "One or more levels are estimated from visible structure and need confirmation." : null;
   return {
     side, status, entry: entryLabel, stop_loss: stopLabel, take_profit: targetLabel,
@@ -220,7 +224,9 @@ export function stockGPTScore(
   signals: Array<{ bias: string; confidence: number; kind?: string; name?: string; region_id?: string }>,
   patterns: ChartPattern[],
 ) {
-  if (plan.status === "unavailable") return { value: 0, label: "No chart read", reasons: ["A readable chart is required."] };
+  if (plan.status === "unavailable") return plan.assumptions
+    ? { value: 0, label: "No clear setup", reasons: ["No supported directional setup was found."] }
+    : { value: 0, label: "No chart read", reasons: ["A readable chart is required."] };
   const matching = signals.filter(signal => signal.bias === (plan.side === "long" ? "bullish" : "bearish"));
   const opposing = signals.filter(signal => signal.bias === (plan.side === "long" ? "bearish" : "bullish"));
   const family = (signal: typeof signals[number]) => {
@@ -234,7 +240,10 @@ export function stockGPTScore(
   const supportingFamilies = new Set(matching.map(family)).size;
   const opposingFamilies = new Set(opposing.map(family)).size;
   let value = boundedScore(rawConfidence) * 0.6 + Math.min(22, supportingFamilies * 7) - opposingFamilies * 8;
-  value += plan.levels_basis === "structure" ? 10 : -8;
+  // The analyst's confidence already reflects estimated levels. Reward a
+  // complete structure-based risk plan, but do not subtract the same estimate
+  // again here: the estimated-plan ceiling below limits those setups to 60.
+  value += plan.levels_basis === "structure" ? 10 : 0;
   value += patterns.some(pattern => pattern.status === "confirmed") ? 8 : 0;
   value -= plan.status === "conditional" ? 5 : 0;
   if (!reviewed) value = Math.min(40, value - 15);
