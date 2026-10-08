@@ -11,23 +11,12 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { StockLogo } from "@/components/StockLogo";
+import { topMoversClient, type MarketMover, type TopMoversSnapshot } from "@/lib/top-movers-client";
 
 type MoverMode = "gainers" | "losers";
 type LoadState = "idle" | "loading" | "ready" | "error";
 
-type MarketMover = {
-  ticker: string;
-  company: string;
-  sector: string;
-  price: string;
-  score: string;
-  rankLabel: string;
-  rankTone: "up" | "down" | "flat" | "none";
-  rankTitle: string;
-  actualRankLabel?: string;
-  dailyMoveLabel: string;
-  dailyMoveTone: "positive" | "negative" | "neutral";
-};
+const EMPTY_MOVERS: MarketMover[] = [];
 
 function parseMove(label?: string | null) {
   const value = Number(String(label ?? "").replace(/[+,%]/g, ""));
@@ -391,31 +380,20 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [mode, setMode] = useState<MoverMode>("gainers");
-  const [items, setItems] = useState<MarketMover[]>([]);
-  const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [checkedAt, setCheckedAt] = useState<number | null>(null);
-  const [sessionLabel, setSessionLabel] = useState("Market session");
+  const [snapshot, setSnapshot] = useState<TopMoversSnapshot | null>(() => canUsePremium ? topMoversClient.peek() : null);
+  const [loadState, setLoadState] = useState<LoadState>(canUsePremium ? "loading" : "idle");
+  const [sessionLabel] = useState(marketSessionLabel);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const items = snapshot?.movers ?? EMPTY_MOVERS;
+  const checkedAt = snapshot?.checkedAt ?? null;
+  const hasSnapshot = snapshot !== null;
 
   const loadMovers = useCallback(async () => {
     if (!canUsePremium || loadState === "loading") return;
     setLoadState("loading");
 
     try {
-      const response = await fetch("/api/top-movers?period=1d", {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { movers?: MarketMover[] }
-        | null;
-
-      if (!response.ok || !Array.isArray(payload?.movers)) {
-        throw new Error("Market movers unavailable");
-      }
-
-      setItems(payload.movers);
-      setCheckedAt(Date.now());
+      setSnapshot(await topMoversClient.load());
       setLoadState("ready");
     } catch {
       setLoadState("error");
@@ -423,32 +401,21 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
   }, [canUsePremium, loadState]);
 
   useEffect(() => {
-    setSessionLabel(marketSessionLabel());
-  }, []);
-
-  useEffect(() => {
-    if (!canUsePremium || loadState !== "idle") return;
-    const section = sectionRef.current;
-    if (!section) return;
-
-    if (!("IntersectionObserver" in window)) {
-      void loadMovers();
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadMovers();
-          observer.disconnect();
-        }
+    if (!canUsePremium) return;
+    // Start as soon as the portal content mounts, before the user scrolls here.
+    let active = true;
+    void topMoversClient.load().then(
+      (next) => {
+        if (!active) return;
+        setSnapshot(next);
+        setLoadState("ready");
       },
-      { rootMargin: "360px 0px" },
+      () => {
+        if (active) setLoadState("error");
+      },
     );
-
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, [canUsePremium, loadMovers, loadState]);
+    return () => { active = false; };
+  }, [canUsePremium]);
 
   const gainers = useMemo(() => sortedMovers(items, "gainers"), [items]);
   const losers = useMemo(() => sortedMovers(items, "losers"), [items]);
@@ -524,7 +491,7 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
             Today&apos;s biggest moves
           </h2>
         </div>
-        {loadState === "ready" && activeMovers.length > 3 && (
+        {canUsePremium && hasSnapshot && activeMovers.length > 3 && (
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
@@ -561,9 +528,9 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
           <p className="truncate text-[8.5px] font-bold text-[#faf6f0]/40">
             {sessionLabel}
           </p>
-          {loadState === "ready" && (
+          {canUsePremium && hasSnapshot && (
             <p suppressHydrationWarning className="mt-0.5 truncate text-[8px] font-bold text-[#faf6f0]/28">
-              {checkedLabel(checkedAt)}
+              {loadState === "idle" || loadState === "loading" ? "Refreshing…" : checkedLabel(checkedAt)}
             </p>
           )}
         </div>
@@ -582,9 +549,9 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
             View plans →
           </Link>
         </div>
-      ) : loadState === "idle" || loadState === "loading" ? (
+      ) : !hasSnapshot && (loadState === "idle" || loadState === "loading") ? (
         <LoadingState />
-      ) : loadState === "error" ? (
+      ) : !hasSnapshot && loadState === "error" ? (
         <div className="mt-3 rounded-[1.4rem] border border-[#ddb159]/14 bg-[#0b2b1d]/52 p-4 text-[#faf6f0]">
           <p className="text-[12px] font-black">Market movers are temporarily unavailable.</p>
           <button
@@ -596,6 +563,13 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
           </button>
         </div>
       ) : (
+        <>
+        {loadState === "error" && (
+          <div className="mt-3 flex items-center justify-between gap-3 px-1 text-[10px] font-semibold text-[#faf6f0]/50" role="status">
+            <span>Showing the last checked movers.</span>
+            <button type="button" onClick={() => void loadMovers()} className="min-h-10 shrink-0 font-black text-[#ddb159]">Try again →</button>
+          </div>
+        )}
         <div
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -620,10 +594,11 @@ function MarketMoversSection({ canUsePremium }: { canUsePremium: boolean }) {
             </div>
           </div>
         </div>
+        </>
       )}
 
       <MoversSheet
-        open={sheetOpen}
+        open={canUsePremium && sheetOpen}
         mode={mode}
         onModeChange={setMode}
         movers={activeMovers}
@@ -645,6 +620,8 @@ export function MobileMarketMoversPortal({
       "[data-mobile-market-movers-host]",
     );
     if (existing) {
+      // The portal host can only be discovered in the hydrated client DOM.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHost(existing);
       return;
     }

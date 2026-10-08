@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run test:chart-scan && npm run test:portfolio && npm run test:offer && next build",
+    "build": "npm run test:chart-scan && npm run test:portfolio && npm run test:market-movers && npm run test:offer && next build",
     "start": "next start",
     "lint": "eslint",
+    "test:market-movers": "node --test scripts/top-movers-client-checks.mjs scripts/top-movers-route-checks.mjs scripts/yahoo-performance-checks.mjs && eslint components/MobileMarketMovers.tsx lib/top-movers-client.ts lib/yahoo.ts app/api/top-movers/route.ts",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/portfolio/page.tsx app/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",
     "test:portfolio": "node --no-warnings scripts/portfolio-reliability-checks.mjs && node --no-warnings scripts/portfolio-workspace-quality-checks.mjs && node --test scripts/stock-chart-interaction-checks.mjs scripts/portfolio-stage-interaction-checks.mjs scripts/portfolio-overview-checks.mjs scripts/roulette-number-checks.mjs scripts/portfolio-alert-checks.mjs && npm run lint:portfolio",
     "test:chart-scan": "node --no-warnings --experimental-strip-types --test scripts/chart-scanner-checks.mjs scripts/chart-scenario-checks.mjs scripts/chart-image-checks.mjs scripts/chart-review-checks.mjs scripts/chart-candle-checks.mjs scripts/chart-display-checks.mjs scripts/chart-indicator-checks.mjs && eslint app/api/chart-scan/route.ts components/ChartScannerWorkspace.tsx components/ChartScanPreview.tsx components/ChartScanAnalysis.tsx components/ChartScanCapabilities.tsx lib/chart-scan-candles.ts lib/chart-scan-indicators.ts lib/chart-scan-haptics.ts lib/chart-scanner.ts lib/chart-scanner-prompts.ts lib/chart-scan-scenario.ts lib/chart-scan-coordinates.ts lib/chart-scan-images.ts lib/chart-scan-timeline.ts lib/chart-scan-review.ts lib/chart-scan-vision.ts",

@@ -107,13 +107,22 @@ export async function GET(req: NextRequest) {
   }
 
   const period = req.nextUrl.searchParams.get("period") === "1m" ? "1m" : req.nextUrl.searchParams.get("period") === "1w" ? "1w" : "1d";
-  const rankings = (await getStableRankings(supabase)).filter((stock) => stock.ticker).slice(0, 500);
-  const tickers = rankings.map((stock) => String(stock.ticker).toUpperCase());
-  const snapshotMap = await getRankSnapshotMapAround24hAgo(supabase);
-
-  const moveMap = period === "1d"
-    ? new Map(Array.from((await getOneDayMoveMap(tickers)).entries()).map(([ticker, move]) => [ticker, move.changePct]))
-    : await periodMoveMap(tickers, period === "1w" ? "5D" : "1M");
+  // Rank history is independent of both the ranking universe and price reads.
+  // Start it now so it cannot add another round trip before quote fetching.
+  const rankingsPromise = getStableRankings(supabase)
+    .then((stocks) => stocks.filter((stock) => stock.ticker).slice(0, 500));
+  const snapshotPromise = getRankSnapshotMapAround24hAgo(supabase);
+  const movesPromise = rankingsPromise.then((rankings) => {
+    const tickers = rankings.map((stock) => String(stock.ticker).toUpperCase());
+    return period === "1d"
+      ? getOneDayMoveMap(tickers).then((moves) => new Map(
+          Array.from(moves.entries()).map(([ticker, move]) => [ticker, move.changePct]),
+        ))
+      : periodMoveMap(tickers, period === "1w" ? "5D" : "1M");
+  });
+  const [rankings, snapshotMap, moveMap] = await Promise.all([
+    rankingsPromise, snapshotPromise, movesPromise,
+  ]);
 
   const movers: MoverPayload[] = rankings.map((stock) => {
     const ticker = String(stock.ticker ?? "").toUpperCase();

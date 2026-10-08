@@ -34,6 +34,7 @@ type YahooChartResponse = {
 
 type CacheEntry = { data: ChartPoint[]; fetchedAt: number };
 const memoryChartCache = new Map<string, CacheEntry>();
+const pendingChartRequests = new Map<string, Promise<ChartPoint[]>>();
 
 function normalizeTicker(ticker: string) {
   return ticker.trim().toUpperCase();
@@ -57,12 +58,12 @@ async function fetchYahooRangeFromBase(
   base: string,
   ticker: string,
   range: TimeRange,
+  controller: AbortController,
 ): Promise<ChartPoint[]> {
   const cfg = RANGE_CONFIG[range];
   const normalizedTicker = normalizeTicker(ticker);
   const providerTicker = yahooTicker(normalizedTicker);
   const url = `${base}${encodeURIComponent(providerTicker)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
-  const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), YAHOO_FETCH_TIMEOUT_MS);
 
   try {
@@ -115,24 +116,24 @@ async function fetchYahooRangeUncached(
   ticker: string,
   range: TimeRange,
 ): Promise<ChartPoint[]> {
-  const attempts = await Promise.allSettled(
-    YAHOO_BASES.map((base) => fetchYahooRangeFromBase(base, ticker, range)),
-  );
-
-  const success = attempts.find(
-    (attempt): attempt is PromiseFulfilledResult<ChartPoint[]> =>
-      attempt.status === "fulfilled" && attempt.value.length > 1,
-  );
-  if (success) return success.value;
-
-  const lastError = [...attempts]
-    .reverse()
-    .find((attempt): attempt is PromiseRejectedResult => attempt.status === "rejected")
-    ?.reason;
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`Yahoo chart unavailable for ${normalizeTicker(ticker)} ${range}`);
+  const controllers = YAHOO_BASES.map(() => new AbortController());
+  try {
+    // Either provider can supply the complete, validated range. A slow backup
+    // must not hold up usable quotes from the other provider.
+    return await Promise.any(
+      YAHOO_BASES.map((base, index) =>
+        fetchYahooRangeFromBase(base, ticker, range, controllers[index]),
+      ),
+    );
+  } catch (error) {
+    const lastError = error instanceof AggregateError ? error.errors.at(-1) : error;
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`Yahoo chart unavailable for ${normalizeTicker(ticker)} ${range}`);
+  } finally {
+    // Cancel the losing request once a valid result has arrived.
+    controllers.forEach((controller) => controller.abort());
+  }
 }
 
 const fetchYahooRangeCached = unstable_cache(
@@ -232,9 +233,19 @@ export async function getStockChart(
       }
 
       try {
-        const points = await fetchYahooRange(normalizedTicker, range);
-        result[range] = points;
-        memoryChartCache.set(key, { data: points, fetchedAt: now });
+        let request = pendingChartRequests.get(key);
+        if (!request) {
+          request = fetchYahooRange(normalizedTicker, range).then((points) => {
+            memoryChartCache.set(key, { data: points, fetchedAt: Date.now() });
+            return points;
+          });
+          pendingChartRequests.set(key, request);
+        }
+        try {
+          result[range] = await request;
+        } finally {
+          if (pendingChartRequests.get(key) === request) pendingChartRequests.delete(key);
+        }
       } catch (error) {
         console.warn("[yahoo-chart] range unavailable", {
           ticker: normalizedTicker,
