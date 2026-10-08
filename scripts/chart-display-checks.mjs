@@ -22,6 +22,7 @@ const React = require("react"), { renderToStaticMarkup } = require("react-dom/se
 const { ChartScanPreview } = require("../components/ChartScanPreview.tsx");
 const { ChartScanAnalysis } = require("../components/ChartScanAnalysis.tsx");
 const { ChartScannerWorkspace } = require("../components/ChartScannerWorkspace.tsx");
+const { ChartScanCapabilities } = require("../components/ChartScanCapabilities.tsx");
 const { normaliseChartLayout, normaliseChartScan } = require("../lib/chart-scanner.ts");
 const { CANDLE_PATTERNS, SCANNER_CAPABILITY_STATS, CANDLE_LOOKBACK } = require("../lib/chart-scan-candles.ts");
 const { SCANNER_INDICATOR_CATALOG } = require("../lib/chart-scan-indicators.ts");
@@ -65,16 +66,20 @@ test("off-screen targets have explicit labels and unreadable scales explain how 
   const unclear = make({ overlay: { ...raw.overlay, price_axis: { scale: "unknown", ticks: [] } } });
   assert.ok(preview(unclear).includes("use a clearer screenshot to place them accurately"));
 });
-test("the landing screen has Beta and the capability catalog without haptic intensity controls", () => {
+test("the landing screen has Beta and a boxed new scan action without legacy help or haptic intensity controls", () => {
   const html = renderToStaticMarkup(React.createElement(ChartScannerWorkspace));
-  for (const text of ["Beta", "How it works", "Read the candles.", "See the trade.", "Scan my screenshot", "50+ candle patterns"]) assert.ok(html.includes(text), `missing ${text}`);
-  for (const pattern of CANDLE_PATTERNS) assert.ok(html.includes(pattern.name), `missing ${pattern.name}`);
-  assert.ok(html.includes('role="tablist"'));
+  for (const text of ["Beta", "New scan", "Read the candles.", "See the trade.", "Scan my screenshot"]) assert.ok(html.includes(text), `missing ${text}`);
+  assert.ok(!html.includes("How it works"));
   assert.ok(!html.includes('Scanner haptic strength'));
   assert.ok(html.includes('data-native-haptics="managed"'));
 });
-test("landing indicator claims reflect the recognisable catalog and readable candle limit", () => {
-  const html = renderToStaticMarkup(React.createElement(ChartScannerWorkspace));
+test("the capability catalog keeps the full contextual checklist", () => {
+  const html = renderToStaticMarkup(React.createElement(ChartScanCapabilities));
+  for (const pattern of CANDLE_PATTERNS) assert.ok(html.includes(pattern.name), `missing ${pattern.name}`);
+  assert.ok(html.includes('role="tablist"'));
+});
+test("capability claims reflect the recognisable catalog and readable candle limit", () => {
+  const html = renderToStaticMarkup(React.createElement(ChartScanCapabilities));
   for (const stat of SCANNER_CAPABILITY_STATS) {
     assert.ok(html.includes(`>${stat.value}</strong><span>${stat.label}</span><small>${stat.detail}</small>`), `missing ${stat.value} ${stat.label}`);
   }
@@ -86,7 +91,11 @@ test("landing indicator claims reflect the recognisable catalog and readable can
 test("a result exposes its complete candle audit alongside plain-language prices, timing and contrary evidence", () => {
   const result = make();
   const html = renderToStaticMarkup(React.createElement(ChartScanAnalysis, { result, src: "/main.png", supportingSrc: null, askHref: "/ask-stockgpt", onReset() {}, onAddContext() {}, onReference() {} }));
-  for (const text of ["Open / entry", "Stop loss", "Take profit", "StockGPT Score", "When could it happen?", "What could spoil the trade?", "44 / 44", "See all 44 pattern checks"]) assert.ok(html.includes(text), `missing ${text}`);
+  for (const text of ["Open / entry", "Stop loss", "Take profit", "StockGPT Score", "When could it happen?", "What could spoil the trade?", "50+ candle patterns", "View the 50+ candle checklist"]) assert.ok(html.includes(text), `missing ${text}`);
+  assert.ok(!html.includes("44 / 44"));
+  assert.ok(!html.includes("All patterns"));
+  assert.ok(!html.includes("Expand ↗"));
+  assert.ok(html.includes('aria-label="Expand your chart"'));
   assert.ok(!/NaN|undefined/.test(html));
 });
 

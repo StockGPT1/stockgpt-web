@@ -10,7 +10,6 @@ import { ChartScanAnalysis } from "@/components/ChartScanAnalysis";
 import type { ChartScanResult as ScanResult } from "@/lib/chart-scanner";
 import { scannerHaptic } from "@/lib/chart-scan-haptics";
 import { SCANNER_CAPABILITY_STATS } from "@/lib/chart-scan-candles";
-import { ChartScanCapabilities } from "@/components/ChartScanCapabilities";
 import styles from "./ChartScanAnalysis.module.css";
 import { buildAskHref } from "@/lib/ask-context";
 import { trackClientEvent } from "@/lib/analytics/client-events";
@@ -255,7 +254,7 @@ export function ChartScannerWorkspace() {
       <input ref={supportingRef} aria-label="Choose a supporting chart image" type="file" accept="image/*" onChange={event => handleImage(event, true)} className="sr-only" tabIndex={-1} />
       <header className={`${styles.workspaceHeader} flex items-center justify-between gap-3`}>
         <div className="min-w-0"><p className={styles.kicker}>AI analysis <span className={`${styles.beta} ml-2`}>Beta</span></p><h1 className="mt-2 text-[clamp(21px,5vw,28px)] font-black tracking-tight">Chart Scanner</h1></div>
-        <div className="flex shrink-0 flex-col items-end gap-2"><ChartScanCapabilities audit={result?.candle_audit} />{(file || busy) && <button type="button" onClick={reset} className={`${styles.tap} min-h-11 px-3 text-xs font-bold text-[#9fffd0]`}>{busy ? "Cancel scan" : "New scan"}</button>}</div>
+        <button type="button" onClick={reset} className={`${styles.helpButton} ${styles.tap} shrink-0`}><StockIcon name="camera" className="size-4" />{busy ? "Cancel scan" : "New scan"}</button>
       </header>
       {error && <div role="alert" className="mb-4 rounded-2xl border border-rose-300/25 bg-rose-300/10 p-4 text-sm text-rose-100">{error}</div>}
       {!file && !busy && <section className={`${styles.landing} ${styles.arrive}`}>

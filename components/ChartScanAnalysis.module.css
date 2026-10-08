@@ -192,6 +192,7 @@
 .evidenceCard { border: 1px solid #20835788; border-left: 4px solid #2fa96d; background: linear-gradient(140deg, #043421, #021e14); border-radius: 16px; padding: 16px; }
 .conflictCard { border-color: #ffd36199; border-left-color: #ffd361; background: #282919; }
 .chartFrame { border-radius: 16px; border: 2px solid #6cbd9699; overflow: hidden; box-shadow: 0 0 24px #6cbd9614; }
+.chartExpand { display: block; padding: 0; cursor: zoom-in; -webkit-tap-highlight-color: transparent; }
 .auditRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 0; border-bottom: 1px solid #6cbd9622; font-size: 13px; }
 .capabilityDialog {
   position: fixed; inset: 0; margin: auto; width: min(640px,calc(100% - 24px)); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));

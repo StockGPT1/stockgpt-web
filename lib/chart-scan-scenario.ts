@@ -87,8 +87,13 @@ export function priceToY(price: number | null, calibration: PriceCalibration | n
   if (!calibration || price === null || price <= 0) return null;
   const value = calibration.scale === "log" ? Math.log(price) : price;
   const y = calibration.slope * value + calibration.intercept;
+  const bottom = top + height;
   // A small extrapolation into the plot margin is fine; drawing outside it isn't.
-  return Number.isFinite(y) && y >= top && y <= top + height ? y : null;
+  // A fitted tick exactly on an edge can land a few trillionths beyond it.
+  // Tolerate only numerical rounding, never move an off-chart price into view.
+  const roundingTolerance = 1e-9;
+  return Number.isFinite(y) && y >= top - roundingTolerance && y <= bottom + roundingTolerance
+    ? Math.max(top, Math.min(bottom, y)) : null;
 }
 
 export function normalisePatternChecks(value: unknown): ChartPattern[] {

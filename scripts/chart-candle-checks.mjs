@@ -20,19 +20,20 @@ const reading = (changes = {}) => ({ verdict: "bullish", confidence: 90, summary
   overlay: { price_plot_confirmed: true, price_plot_box: plot, price_axis_confirmed: true, price_axis: axis }, ...changes });
 const read = (final = reading(), first = reading(), mapped = layout, meta = geometry, reviewed = true) => normaliseChartScan(final, mapped, reviewed, null, { geometry: meta, candidate: first }, first);
 
-test("the advertised checklist has 44 distinct named patterns with contextual rules", () => {
-  assert.equal(ids.length, 44);
-  assert.equal(new Set(ids).size, 44);
-  assert.equal(new Set(CANDLE_PATTERNS.map(pattern => pattern.name)).size, 44);
+test("the advertised 50+ checklist contains distinct named patterns with contextual rules", () => {
+  assert.ok(ids.length >= 50);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(new Set(CANDLE_PATTERNS.map(pattern => pattern.name)).size, ids.length);
   assert.ok(CANDLE_PATTERNS.every(pattern => pattern.rule.length > 40 && pattern.candles >= 1));
   for (const id of ids) assert.ok(CHART_ANALYSIS_PROMPT.includes(id), `analysis missing ${id}`);
   assert.match(CHART_REVIEW_INSTRUCTION, /ENTIRE mandatory candle checklist independently/);
+  assert.ok(CHART_REVIEW_INSTRUCTION.includes(`Partition all ${ids.length} ids`));
 });
 test("landing capability totals match the distinct indicator catalog and bounded candle lookback", () => {
   const scope = CANDLE_PATTERNS.length + SCANNER_INDICATORS.length;
   assert.equal(SCANNER_INDICATORS.length, 9);
   assert.equal(new Set(SCANNER_INDICATORS).size, 9);
-  assert.equal(scope, 53);
+  assert.equal(scope, 59);
   assert.deepEqual(SCANNER_CAPABILITY_STATS.map(stat => stat.value), ["50+", "100+", "100+"]);
   assert.ok(Number.parseInt(SCANNER_CAPABILITY_STATS[0].value) <= scope);
   assert.ok(SCANNER_INDICATOR_CATALOG.length > 100);
@@ -97,9 +98,23 @@ test("engulfing, hammer, inverted hammer, harami cross and doji star keep separa
   for (const [name, id] of [["Inverted hammer at support", "inverted-hammer"], ["Hammer at support", "hammer"], ["Bullish harami cross at the swing", "bullish-harami-cross"], ["Bullish harami at support", "bullish-harami"], ["Morning doji star", "morning-doji-star"], ["Morning star", "morning-star"], ["Dragonfly doji", "dragonfly-doji"]]) assert.equal(candlePatternId(null, name), id);
   assert.equal(candlePatternId(null, "Generic candlesticks"), null);
 });
+test("new close-recovery and shared-open formations retain separate identities and require complete audits", () => {
+  const additions = ["bullish-counterattack", "bearish-counterattack", "bullish-separating-lines", "bearish-separating-lines", "in-neck", "thrusting"];
+  for (const id of additions) {
+    const pattern = CANDLE_PATTERNS.find(item => item.id === id);
+    assert.ok(pattern);
+    assert.equal(candlePatternId(null, `${pattern.name} near the latest swing`), id);
+    assert.equal(hasCompleteCandleAudit({ ...audit(), absent: ids.filter(item => item !== id) }, "candles"), false);
+    const present = candle(id, { candles_visible: pattern.candles, evidence: `The latest two completed bodies meet the ${pattern.name} rule in the visible preceding trend.` });
+    assert.equal(normaliseCandleAudit(audit([present]), "candles", true, audit([present])).checks.find(item => item.id === id)?.status, "detected");
+    assert.equal(normaliseCandleAudit(audit([present]), "candles", true, audit()).checks.find(item => item.id === id)?.status, "unconfirmed");
+  }
+  assert.equal(candlePatternId(null, "On-neck pattern at the latest low"), "on-neck");
+  assert.equal(candlePatternId(null, "In neck pattern in a decline"), "in-neck");
+});
 test("agreed candle checks become named findings with verified crop-local highlights", () => {
   const result = read();
-  assert.equal(result.candle_audit.checked, 44);
+  assert.equal(result.candle_audit.checked, ids.length);
   assert.equal(result.candle_audit.detected, 1);
   assert.equal(result.signals[0].name, "Bullish engulfing");
   assert.deepEqual(result.signals[0].boxes, [{ x_pct: 29, y_pct: 27.2, width_pct: 6.4, height_pct: 12.8 }]);

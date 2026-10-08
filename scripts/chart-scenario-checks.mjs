@@ -17,6 +17,24 @@ test("log scales interpolate multiplicative prices rather than linear price diff
   assert.equal(calibration.scale, "log");
   assert.ok(Math.abs(priceToY(Math.sqrt(100 * 1000), calibration, 0, 100) - 35) < 1e-9);
 });
+test("exit prices exactly at fractional plot edges survive fitting roundoff", () => {
+  const top = 1.1, height = 42.7, bottom = top + height;
+  for (const [scale, prices] of [["linear", [110, 100, 90]], ["log", [1000, 100, 10]]]) {
+    for (const inverted of [false, true]) {
+      const rows = inverted ? [bottom, top + height / 2, top] : [top, top + height / 2, bottom];
+      const ticks = axis(scale, prices.map((price, index) => [price, rows[index]]));
+      const calibration = calibratePriceAxis(ticks, ticks);
+      assert.ok(calibration);
+      assert.ok(Math.abs(priceToY(prices[0], calibration, top, height) - rows[0]) < 1e-9);
+      assert.ok(Math.abs(priceToY(prices[2], calibration, top, height) - rows[2]) < 1e-9);
+      for (const y of [top - 0.000001, bottom + 0.000001]) {
+        const value = (y - calibration.intercept) / calibration.slope;
+        const offChartPrice = scale === "log" ? Math.exp(value) : value;
+        assert.equal(priceToY(offChartPrice, calibration, top, height), null);
+      }
+    }
+  }
+});
 test("inconsistent labels, unknown geometry and nonlinear linear axes fail calibration", () => {
   const ticks = axis("linear", [[80, 70], [100, 50], [120, 30]]);
   assert.equal(calibratePriceAxis(ticks, axis("log", [[80, 70], [100, 50], [120, 30]])), null);

@@ -51,6 +51,22 @@ export const CANDLE_PATTERNS: readonly CandlePattern[] = [
   { id: "on-neck", name: "On-neck pattern", bias: "bearish", candles: 2, category: "Continuation", rule: "In a downtrend, a long falling body is followed by a rising candle opening lower and closing around the prior low, below the prior body." },
   { id: "long-lower-shadow", name: "Long lower shadow", bias: "bullish", candles: 1, category: "Reversal", rule: "Near a declining swing, a lower wick substantially exceeds the body and shows rejection of lower prices." },
   { id: "long-upper-shadow", name: "Long upper shadow", bias: "bearish", candles: 1, category: "Reversal", rule: "Near a rising swing, an upper wick substantially exceeds the body and shows rejection of higher prices." },
+  // Counterattack compares closes; separating lines compares opens and requires
+  // a long second body with a negligible wick at its opening end. These are
+  // distinct formations, not aliases for engulfing or marubozu.
+  // Reference: https://github.com/TA-Lib/ta-lib/blob/main/src/ta_func/ta_CDLCOUNTERATTACK.c
+  // Reference: https://github.com/TA-Lib/ta-lib/blob/main/src/ta_func/ta_CDLSEPARATINGLINES.c
+  { id: "bullish-counterattack", name: "Bullish counterattack", bias: "bullish", candles: 2, category: "Reversal", rule: "After a decline, a long falling body is followed by a long rising body that opens lower and recovers to approximately the same close as the first; confirmation is needed." },
+  { id: "bearish-counterattack", name: "Bearish counterattack", bias: "bearish", candles: 2, category: "Reversal", rule: "After a rise, a long rising body is followed by a long falling body that opens higher and retreats to approximately the same close as the first; confirmation is needed." },
+  { id: "bullish-separating-lines", name: "Bullish separating lines", bias: "bullish", candles: 2, category: "Continuation", rule: "In an uptrend, a falling candle is followed by a long rising body opening at approximately the first candle's open, with negligible lower wick; the bodies extend to opposite sides of their shared open." },
+  { id: "bearish-separating-lines", name: "Bearish separating lines", bias: "bearish", candles: 2, category: "Continuation", rule: "In a downtrend, a rising candle is followed by a long falling body opening at approximately the first candle's open, with negligible upper wick; the bodies extend to opposite sides of their shared open." },
+  // Keep the close-depth distinction explicit: on-neck stops near the prior
+  // low, in-neck barely enters the prior body, and thrusting goes farther in
+  // while remaining below its midpoint.
+  // Reference: https://github.com/TA-Lib/ta-lib/blob/main/src/ta_func/ta_CDLINNECK.c
+  // Reference: https://github.com/TA-Lib/ta-lib/blob/main/src/ta_func/ta_CDLTHRUSTING.c
+  { id: "in-neck", name: "In-neck pattern", bias: "bearish", candles: 2, category: "Continuation", rule: "In a downtrend, a long falling body is followed by a rising candle opening below the prior low and closing only slightly above the prior close, barely inside its body; distinguish it from on-neck and deeper thrusting recovery." },
+  { id: "thrusting", name: "Thrusting pattern", bias: "bearish", candles: 2, category: "Continuation", rule: "In a downtrend, a long falling body is followed by a rising candle opening below the prior low and closing meaningfully above the prior close but below the body's midpoint; a tiny recovery is in-neck, not thrusting." },
 ];
 
 export const SCANNER_INDICATORS = ["Volume", "RSI", "MACD", "Stochastic", "EMA", "SMA", "VWAP", "Bollinger Bands", "Ichimoku"] as const;
@@ -75,8 +91,9 @@ const array = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
 
 export function candlePatternId(value: unknown, name: unknown): string | null {
   if (typeof value === "string" && CANDLE_PATTERNS.some(pattern => pattern.id === value)) return value;
-  const text = typeof name === "string" ? name.toLowerCase().replace(/[-_]/g, " ") : "";
-  return [...CANDLE_PATTERNS].sort((a, b) => b.name.length - a.name.length).find(pattern => text.includes(pattern.name.toLowerCase()))?.id ?? null;
+  const normaliseName = (value: string) => value.toLowerCase().replace(/[-_]/g, " ");
+  const text = typeof name === "string" ? normaliseName(name) : "";
+  return [...CANDLE_PATTERNS].sort((a, b) => b.name.length - a.name.length).find(pattern => text.includes(normaliseName(pattern.name)))?.id ?? null;
 }
 
 export function hasCompleteCandleAudit(value: unknown, series: unknown) {

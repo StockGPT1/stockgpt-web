@@ -76,6 +76,31 @@ test("normalised result couples exact open price to native row and preserves two
   assert.equal(result.signals[0].boxes.length, 2);
   assert.deepEqual(result.overlay.image_sizes, geometry.image_sizes);
 });
+test("long and short entry, SL and TP lines land on the independently read price-label pixels", async () => {
+  const image = await sharp(labelledChart(true)).png().toBuffer();
+  const mapped = normaliseChartLayout(rawLayout, 1);
+  const { geometry: pixels } = await buildChartImageGuides([image], mapped);
+  const rows = pixels.axis_rows.filter(row => row.id.startsWith("right-"));
+  const prices = [91.5, 89.5, 87.5, 85.5];
+  const priceAxis = { axis_id: "right", scale: "linear", ticks: rows.map((row, index) => ({ row_id: row.id, price: prices[index] })) };
+  for (const side of ["long", "short"]) {
+    const stop = side === "long" ? 85.5 : 91.5;
+    const target = side === "long" ? 91.5 : 85.5;
+    const reading = { ...analysis, verdict: side === "long" ? "bullish" : "bearish",
+      trade_plan: { ...analysis.trade_plan, side, entry: 87.5, stop_loss: stop, take_profit: target },
+      overlay: { ...analysis.overlay, price_axis: priceAxis } };
+    const result = normaliseChartScan(reading, mapped, true, null, { geometry: pixels, candidate: reading });
+    assert.equal(result.overlay.calibration_status, "matched");
+    assert.equal(result.overlay.trade_lines.length, 3);
+    assert.deepEqual(result.overlay.off_chart_levels, []);
+    for (const [kind, price] of [["entry", 87.5], ["stop", stop], ["target", target]]) {
+      const line = result.overlay.trade_lines.find(line => line.kind === kind);
+      const labelRow = rows[prices.indexOf(price)];
+      assert.equal(Number(line.price), price);
+      assert.ok(Math.abs(line.y_pct - labelRow.y_pct) < 0.1, `${side} ${kind} must align with ${price}'s pixel row`);
+    }
+  }
+});
 test("server geometry never falls back to guessed percentages when native rows are missing", () => {
   const result = finalRead({ ...analysis, overlay: { ...analysis.overlay, price_axis: { scale: "linear", ticks: [{ price: 91.5, y_pct: 16 }, { price: 89.5, y_pct: 32 }, { price: 87.5, y_pct: 48 }] } } }, { ...geometry, axis_rows: [] });
   assert.equal(result.overlay.calibration_status, "unavailable");
