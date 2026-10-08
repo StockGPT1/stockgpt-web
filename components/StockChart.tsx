@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, useId, type KeyboardEvent } from "react";
 import { RouletteNumber } from "@/components/RouletteNumber";
 import { nativeHaptic } from "@/lib/ios-native";
+import timeframeStyles from "@/components/ChartTimeframes.module.css";
 
 export type ChartPoint = {
   date: string;
@@ -153,7 +154,7 @@ export function StockChart({
   } = useMemo(() => {
     const svgWidth = 800;
 
-    const padding = compact
+    const padding = compact || isPortfolioAppearance
       ? { top: 8, right: 8, bottom: 8, left: 8 }
       : { top: 16, right: 12, bottom: 32, left: 56 };
 
@@ -227,7 +228,7 @@ export function StockChart({
 
     const gridPrices: number[] = [];
 
-    if (!compact) {
+    if (!compact && !isPortfolioAppearance) {
       for (let i = 0; i <= 4; i++) {
         gridPrices.push(minP + ((maxP - minP) * i) / 4);
       }
@@ -245,7 +246,7 @@ export function StockChart({
       gridPrices,
       pointXs,
     };
-  }, [points, height, compact]);
+  }, [points, height, compact, isPortfolioAppearance]);
 
   const handleMove = useCallback(
     (clientX: number) => {
@@ -417,7 +418,7 @@ export function StockChart({
           tabIndex={isPortfolioAppearance ? 0 : undefined}
           role={isPortfolioAppearance ? "slider" : undefined}
           aria-label={isPortfolioAppearance ? `${ticker} value history, ${resolvedRange}` : undefined}
-          aria-description={isPortfolioAppearance ? "Use Left and Right arrows to inspect recorded values, Home and End for the first and last points, and Escape to return to the current portfolio value. The dashed guide marks the first value in view." : undefined}
+          aria-description={isPortfolioAppearance ? "Use Left and Right arrows to inspect recorded values, Home and End for the first and last points, and Escape to return to the latest value. The dashed guide marks the first value in view." : undefined}
           aria-valuemin={isPortfolioAppearance ? 0 : undefined}
           aria-valuemax={isPortfolioAppearance ? points.length - 1 : undefined}
           aria-valuenow={isPortfolioAppearance ? hoverIdx ?? points.length - 1 : undefined}
@@ -449,7 +450,7 @@ export function StockChart({
               </linearGradient>
             </defs>
           )}
-          {!compact &&
+          {!compact && !isPortfolioAppearance &&
             gridPrices.map((price, i) => {
               const y = yScale(price);
 
@@ -532,7 +533,7 @@ export function StockChart({
             </>
           )}
 
-          {!compact && points.length > 2 && (
+          {!compact && !isPortfolioAppearance && points.length > 2 && (
             <>
               {[0, Math.floor(points.length / 2), points.length - 1].map(
                 (idx, i) => {
@@ -601,15 +602,20 @@ export function StockChart({
       </div>
 
       {!compact && (showUnavailableRanges ? rangeOrder.length > 1 : availableRanges.length > 1) && (
-        <div className="flex flex-wrap gap-1">
+        <div
+          aria-label={`${ticker} chart timeframe`}
+          className={isPortfolioAppearance ? timeframeStyles.ranges : "flex flex-wrap gap-1"}
+        >
           {(showUnavailableRanges ? rangeOrder : availableRanges).map((r) => {
             const available = (data[r]?.length ?? 0) > 1;
+            const label = isPortfolioAppearance && r === "MAX" ? "All" : r;
             return (
               <button
                 key={r}
                 type="button"
                 disabled={!available}
-                aria-label={available ? `Show ${r} chart` : `${r} chart temporarily unavailable`}
+                aria-pressed={available && resolvedRange === r}
+                aria-label={available ? `Show ${label} chart` : `${label} chart temporarily unavailable`}
                 onClick={() => {
                   if (!available) return;
                   pendingClientXRef.current = null;
@@ -621,7 +627,7 @@ export function StockChart({
                   onScrub?.(null, { range: r });
                   setRange(r);
                 }}
-                className={`rounded-md px-3 py-1 text-[11px] font-black transition ${
+                className={isPortfolioAppearance ? `${timeframeStyles.range} min-h-11 focus-visible:outline` : `rounded-md px-3 py-1 text-[11px] font-black transition ${
                   resolvedRange === r
                     ? "sg-metal-gold-fill"
                     : available
@@ -629,7 +635,7 @@ export function StockChart({
                       : "cursor-not-allowed bg-[#072116]/20 text-[#faf6f0]/22"
                 }`}
               >
-                {r}
+                {label}
               </button>
             );
           })}

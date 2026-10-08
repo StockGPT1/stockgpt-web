@@ -16,6 +16,7 @@ import {
 import { sanitisePortfolioChartData } from "@/lib/portfolio-chart-display";
 import { PortfolioIcon } from "@/components/portfolio-workspace/PortfolioIcon";
 import styles from "./PortfolioStage.module.css";
+import timeframeStyles from "@/components/ChartTimeframes.module.css";
 import type {
   PortfolioMeta,
   PortfolioOption,
@@ -287,7 +288,7 @@ export function PortfolioStage({
 
           <div
             aria-label="Portfolio chart timeframe"
-            className={styles.ranges}
+            className={timeframeStyles.ranges}
           >
             {RANGE_ITEMS.map(({ range, label }) => {
               const available = availableRanges.some((item) => item.range === range);
@@ -304,7 +305,7 @@ export function PortfolioStage({
                     setRequestedRange(range);
                     setScrubSelection(null);
                   }}
-                  className={`${styles.range} min-h-11 focus-visible:outline`}
+                  className={`${timeframeStyles.range} min-h-11 focus-visible:outline`}
                 >
                   {label}
                 </button>

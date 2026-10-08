@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const jsx = require("react/jsx-runtime");
+const RouletteNumber = () => null;
 const source = fs.readFileSync(new URL("../components/StockChart.tsx", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -36,8 +37,9 @@ function chartHarness(overrides = {}) {
   const imports = (name) => {
     if (name === "react") return hooks;
     if (name === "react/jsx-runtime") return jsx;
-    if (name === "@/components/RouletteNumber") return { RouletteNumber: () => null };
+    if (name === "@/components/RouletteNumber") return { RouletteNumber };
     if (name === "@/lib/ios-native") return { nativeHaptic: (style) => haptics.push(style) };
+    if (name === "@/components/ChartTimeframes.module.css") return { __esModule: true, default: { ranges: "shared-ranges", range: "shared-range" } };
     throw new Error(`Unexpected chart dependency ${name}`);
   };
   new Function("require", "module", "exports", compiled)(imports, chartModule, chartModule.exports);
@@ -70,6 +72,13 @@ function all(tree, predicate) {
   return [...(predicate(tree) ? [tree] : []), ...all(tree.props?.children, predicate)];
 }
 function find(tree, predicate) { return all(tree, predicate)[0]; }
+function renderedText(tree) {
+  if (Array.isArray(tree)) return tree.map(renderedText).join(" ");
+  if (typeof tree === "string" || typeof tree === "number") return String(tree);
+  if (!tree || typeof tree !== "object") return "";
+  if (tree.type === RouletteNumber) return tree.props.value;
+  return renderedText(tree.props?.children);
+}
 function key(svg, keyName) {
   let prevented = false;
   svg.props.onKeyDown({ key: keyName, preventDefault: () => { prevented = true; } });
@@ -174,4 +183,65 @@ test("default stock charts preserve their existing frame, touch and glow behavio
   assert.equal(line.props.vectorEffect, undefined);
   assert.match(line.props.style.filter, /drop-shadow/);
   assert.equal(all(tree, (node) => node.type === "linearGradient").length, 0);
+});
+
+test("a noncompact stock chart can use the transparent portfolio plot without losing its value summary", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false });
+  let { tree, svg } = chart.render();
+  assert.equal(all(svg, (node) => node.type === "text").length, 0);
+  const frame = find(tree, (node) => node.props?.className?.includes("sg-stock-chart-frame"));
+  assert.ok(frame.props.className.includes("bg-transparent"));
+  assert.ok(!frame.props.className.includes("sm:bg-"));
+  const line = find(svg, (node) => node.props?.className === "sg-stock-chart-line");
+  const width = Number(svg.props.viewBox.split(" ")[2]);
+  const coordinates = line.props.d.split(" ");
+  assert.ok(Number(coordinates[1]) < 16, "the first point must not retain a left axis gutter");
+  assert.ok(Number(coordinates.at(-2)) > width - 16, "the last point must reach the plot edge");
+  assert.ok(renderedText(tree).includes("$120.00"));
+  assert.ok(renderedText(tree).includes("+$20.00 (+20.00%)"));
+  svg.props.onPointerDown({ clientX: 100, isPrimary: true, button: 0 });
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[1]);
+  ({ tree, svg } = chart.render());
+  assert.ok(renderedText(tree).includes("$130.00"));
+  assert.ok(!renderedText(tree).includes("+$20.00 (+20.00%)"));
+  svg.props.onPointerLeave();
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$120.00"));
+  assert.ok(renderedText(tree).includes("+$20.00 (+20.00%)"));
+});
+
+test("shared stock timeframe controls expose selection and reset scrubbing only for an available range", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, rangeOrder: ["1D", "1M", "MAX"], showUnavailableRanges: true });
+  chart.props.data.MAX = [
+    { date: "2025-10-01T00:00:00Z", close: 80 },
+    { date: "2026-10-10T00:00:00Z", close: 120 },
+  ];
+  let { tree, svg } = chart.render();
+  const controls = find(tree, (node) => node.props?.["aria-label"] === "AAPL chart timeframe");
+  assert.equal(controls.props.className, "shared-ranges");
+  let buttons = all(controls, (node) => node.type === "button");
+  assert.deepEqual(buttons.map((button) => renderedText(button)), ["1D", "1M", "All"]);
+  assert.ok(buttons.every((button) => button.props.className.includes("shared-range")));
+  assert.deepEqual(buttons.map((button) => button.props["aria-pressed"]), [false, true, false]);
+  assert.equal(buttons[0].props.disabled, true);
+  assert.match(buttons[0].props["aria-label"], /unavailable/);
+  svg.props.onPointerDown({ clientX: 100, isPrimary: true, button: 0 });
+  svg.props.onPointerMove({ clientX: 792 });
+  const callbacksBefore = chart.scrubbed.length;
+  buttons[0].props.onClick();
+  assert.equal(chart.scrubbed.length, callbacksBefore);
+  assert.equal(chart.frames.size, 1);
+  ({ tree } = chart.render());
+  assert.ok(renderedText(tree).includes("$130.00"));
+  buttons = all(find(tree, (node) => node.props?.["aria-label"] === "AAPL chart timeframe"), (node) => node.type === "button");
+  buttons[2].props.onClick();
+  assert.equal(chart.frames.size, 0);
+  assert.deepEqual(chart.scrubbed.at(-1), { point: null, context: { range: "MAX" } });
+  chart.flush();
+  ({ tree, svg } = chart.render());
+  assert.equal(svg.key, "MAX");
+  assert.ok(renderedText(tree).includes("$120.00"));
+  assert.ok(!renderedText(tree).includes("$130.00"));
+  buttons = all(find(tree, (node) => node.props?.["aria-label"] === "AAPL chart timeframe"), (node) => node.type === "button");
+  assert.deepEqual(buttons.map((button) => button.props["aria-pressed"]), [false, false, true]);
 });

@@ -26,7 +26,6 @@
 
 .portfolioSelect:focus-visible,
 .action:focus-visible,
-.range:focus-visible,
 .sectionTab:focus-visible {
   outline: 2px solid #f2c35f;
   outline-offset: 3px;
@@ -73,24 +72,6 @@
 .healthScore { display: inline-flex; align-items: center; gap: 6px; color: rgba(255, 250, 242, 0.65); font-size: 11px; }
 .healthNumber { margin-left: 4px; color: #f2c35f; font-weight: 600; font-variant-numeric: tabular-nums; }
 .chart { width: 100%; margin-top: 20px; }
-.ranges { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; margin-top: 4px; }
-.range {
-  position: relative;
-  min-width: 44px;
-  min-height: 44px;
-  justify-self: stretch;
-  border-radius: 6px;
-  color: rgba(255, 250, 242, 0.58);
-  font-size: 12px;
-  font-weight: 600;
-  transition: color 140ms ease, background 140ms ease;
-}
-.range:hover:not(:disabled) { color: #fffaf2; background: rgba(255, 250, 242, 0.03); }
-.range:active:not(:disabled) { background: rgba(242, 195, 95, 0.08); }
-.range[aria-pressed="true"] { color: #f2c35f; }
-.range[aria-pressed="true"]::after { content: ""; position: absolute; bottom: 4px; left: calc(50% - 9px); width: 18px; height: 2px; border-radius: 2px; background: #f2c35f; }
-.range:disabled { color: rgba(255, 250, 242, 0.24); cursor: not-allowed; }
-.range:disabled::after { display: none; }
 
 .sectionNav { border-bottom: 1px solid rgba(255, 250, 242, 0.09); background: transparent; }
 .sectionInner { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
@@ -117,14 +98,12 @@
   .healthScore { font-size: 12px; }
   .detailLabel, .scrubDate { font-size: 11px; }
   .chart { margin-top: 26px; }
-  .ranges { display: flex; gap: 14px; margin-top: 8px; }
-  .range { min-width: 50px; }
   .sectionTabs { display: flex; gap: 20px; }
   .sectionInner { padding: 0; }
   .sectionTab { min-width: 90px; font-size: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .action, .range, .sectionTab { transition: none; }
+  .action, .sectionTab { transition: none; }
   .action:active { transform: none; }
 }

@@ -407,11 +407,12 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             </div>
           </section>
           {!canSeeRankAndScore && <SubscriberLockNotice isAuthenticated={isAuthenticated} />}
-          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 bg-[#faf6f0]/[0.03] p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#f2c35f]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart
+          <section className="max-w-full overflow-hidden rounded-2xl border border-[#ddb159]/20 p-3 sm:p-4"><div className="flex items-center justify-between gap-3"><p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#f2c35f]">Price chart</p><FreshnessLabel value={latestChartPoint?.date} compact /></div>{chartAvailable ? <div className="mt-2 min-w-0 max-w-full overflow-hidden"><StockChart
                   ticker={ticker}
                   data={chartData}
                   initialRange="1Y"
                   height={320}
+                  appearance="portfolio"
                   rangeOrder={["1D", "5D", "1M", "1Y", "5Y", "MAX"]}
                   showUnavailableRanges
                 /></div> : <div className="mt-3"><ModuleState title="Chart unavailable" description="StockGPT could not verify enough price points for a reliable chart. Try again later; no synthetic movement is shown." tone="review" /></div>}</section>
