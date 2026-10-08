@@ -2,12 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element -- Blob screenshots and overlays share the image's exact aspect ratio. */
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import type { ChartScanResult } from "@/lib/chart-scanner";
 import { scannerHaptic } from "@/lib/chart-scan-haptics";
 import styles from "./ChartScanAnalysis.module.css";
 
-type Props = { src: string; supportingSrc?: string | null; result: ChartScanResult; focusedSignal?: number | null; onSignalChange?: (index: number | null) => void };
+type Props = { src: string; supportingSrc?: string | null; result: ChartScanResult; focusedSignal?: number | null; onSignalChange?: (index: number | null) => void; compact?: boolean; children?: ReactNode };
 const tones = { entry: "#ffd361", stop: "#ff919e", target: "#6cbd96", support: "#8fcaff", resistance: "#c7afff" };
 const names = { entry: "Open", stop: "SL", target: "TP", support: "Support", resistance: "Resistance" };
 
@@ -66,14 +66,17 @@ export function ChartScanPreview(props: Props) {
   const hasPatterns = props.result.signals.some(signal => (signal.kind === "pattern" || signal.kind === "candle") && signal.boxes.length > 0);
   const buttonClass = `${styles.chartControl} ${styles.tap}`;
   const charts = <><ChartImage {...props} imageIndex={0} selectedSignal={selectedSignal} showPatterns={showPatterns} showStructure={showStructure} />{showSupporting && <div className="border-t-2 border-[#ffd361] bg-[#03301d]"><p className="px-3 py-3 text-sm font-extrabold text-[#ffe09b]">Indicator close-up · {signal.name}</p><ChartImage {...props} src={props.supportingSrc!} imageIndex={1} selectedSignal={selectedSignal} showPatterns={showPatterns} showStructure={showStructure} /></div>}</>;
-  return <div className="min-w-0">
-    <div className="mb-4"><p className="text-xs font-extrabold uppercase tracking-wider text-[#91e6b8]">The picture behind the plan</p><h3 className="mt-1 text-2xl font-black tracking-tight">See the clues on your chart.</h3></div>
-    <div className="mb-3 flex flex-wrap gap-2">
+  const controls = <div className={`${props.compact ? "mt-3" : "mb-3"} flex flex-wrap gap-2`}>
       {hasPatterns && <button type="button" aria-pressed={showPatterns} onClick={() => { scannerHaptic(); setShowPatterns(value => !value); }} className={`${buttonClass} ${showPatterns ? styles.activeTab : ""}`}>{showPatterns ? "Patterns on" : "Patterns off"}</button>}
       {hasStructure && <button type="button" aria-pressed={showStructure} onClick={() => { scannerHaptic(); setShowStructure(value => !value); }} className={`${buttonClass} ${showStructure ? styles.activeTab : ""}`}>Support / resistance</button>}
       <button type="button" onClick={() => { scannerHaptic("open"); setZoom(false); dialogRef.current?.showModal(); }} className={`${buttonClass} ${styles.expandButton}`}>Expand ↗</button>
-    </div>
+    </div>;
+  return <div className="min-w-0">
+    {props.compact ? <h3 className="mb-3 text-base font-extrabold text-[#edf7ee]">Your chart</h3> : <div className="mb-4"><p className="text-xs font-extrabold uppercase tracking-wider text-[#91e6b8]">The picture behind the plan</p><h3 className="mt-1 text-2xl font-black tracking-tight">See the clues on your chart.</h3></div>}
+    {!props.compact && controls}
     <div className={styles.chartFrame}>{charts}</div>
+    {props.children}
+    {props.compact && controls}
     {props.result.overlay.trade_lines.length > 0 && <p className="mt-3 inline-flex rounded-lg bg-[#377b55]/15 px-3 py-2 text-xs font-extrabold text-[#80ffbf]">Open · SL · TP stay visible as you explore</p>}
     {props.result.overlay.off_chart_levels.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{props.result.overlay.off_chart_levels.map(line => <span key={line.kind} className="rounded-lg border border-[#ffd361]/50 bg-[#ffd361]/10 px-3 py-2 text-xs font-bold text-[#ffe09b]">{names[line.kind]} {line.price} · outside screenshot</span>)}</div>}
     <div className="mt-4 flex flex-wrap gap-2"><button type="button" aria-pressed={selectedSignal === null} onClick={() => { setShowPatterns(true); selectSignal(null); }} className={`${buttonClass} ${selectedSignal === null && showPatterns ? styles.activeTab : ""}`}>All patterns</button>
