@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { getUsableNewsSummary } from "@/lib/news-summary";
 import {
   analyseArticleForMarketRelevance,
   enrichArticleWithStockInsights,
   getDirectlyConfirmedAffectedTickers,
   inferImpact,
-  isMarketRelevantArticle,
   type BaseNewsArticle,
   type StockLike,
 } from "@/lib/news-intelligence";
@@ -99,11 +99,12 @@ function parseGoogleNewsRss(xml: string): ExternalArticle[] {
     const link = between(item, "<link>", "</link>");
     const pubDate = between(item, "<pubDate>", "</pubDate>");
     const sourceMatch = item.match(/<source[^>]*>([\s\S]*?)<\/source>/i);
-    const description = between(item, "<description>", "</description>");
 
     return {
       title: title ? stripHtml(title) : null,
-      summary: description ? stripHtml(description) : null,
+      // Google RSS descriptions contain headline/source links, not article prose.
+      // Fetch the publisher summary when this story is opened instead.
+      summary: null,
       source: sourceMatch?.[1] ? stripHtml(sourceMatch[1]) : "Google News",
       url: link ? decodeHtml(link) : null,
       image_url: null,
@@ -186,7 +187,8 @@ async function fetchNewsApi(): Promise<ExternalArticle[]> {
       for (const article of json.articles ?? []) {
         results.push({
           title: article.title ?? null,
-          summary: article.description ?? article.content ?? null,
+          summary: getUsableNewsSummary({ title: article.title, summary: article.description, source: article.source?.name })
+            ?? getUsableNewsSummary({ title: article.title, summary: article.content, source: article.source?.name }),
           source: article.source?.name ?? null,
           url: article.url ?? null,
           image_url: article.urlToImage ?? null,
@@ -214,7 +216,7 @@ function uniqueArticles(articles: ExternalArticle[]) {
 
     if (!article.title || !article.url) continue;
 
-    output.push(article);
+    output.push({ ...article, summary: getUsableNewsSummary(article) });
   }
 
   return output.sort(

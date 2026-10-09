@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run test:chart-scan && npm run test:portfolio && npm run test:market-movers && npm run test:offer && next build",
+    "build": "npm run test:chart-scan && npm run test:portfolio && npm run test:market-movers && npm run test:offer && npm run test:news && next build",
     "start": "next start",
     "lint": "eslint",
     "test:market-movers": "node --test scripts/top-movers-client-checks.mjs scripts/top-movers-route-checks.mjs scripts/yahoo-performance-checks.mjs && eslint components/MobileMarketMovers.tsx lib/top-movers-client.ts lib/yahoo.ts app/api/top-movers/route.ts",
@@ -14,7 +14,8 @@
     "types:gen": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > lib/database.types.ts",
     "types:gen:local": "supabase gen types typescript --local --schema public > lib/database.types.ts",
     "ios:release": "CAPACITOR_SERVER_URL= npx cap sync ios && npx cap open ios",
-    "test:offer": "node --no-warnings --experimental-strip-types --test scripts/offer-display-checks.mjs"
+    "test:offer": "node --no-warnings --experimental-strip-types --test scripts/offer-display-checks.mjs",
+    "test:news": "node --no-warnings --experimental-strip-types --test scripts/news-summary-checks.mjs scripts/news-publisher-checks.mjs scripts/news-source-url-checks.mjs scripts/news-summary-route-checks.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",

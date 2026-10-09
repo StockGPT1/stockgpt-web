@@ -1,3 +1,5 @@
+import { getUsableNewsSummary } from "@/lib/news-summary";
+
 export type BaseNewsArticle = {
   id: string | number;
   title: string | null;
@@ -1787,15 +1789,7 @@ export function formatShortNewsDate(dateStr: string | null | undefined) {
 }
 
 export function displaySummary(article: NewsArticleDisplayLike) {
-  if (
-    article.summary &&
-    article.summary.trim() &&
-    article.summary !== "No summary available."
-  ) {
-    return article.summary;
-  }
-
-  return "No full description is currently available for this article.";
+  return getUsableNewsSummary(article) ?? "The news feed didn’t include a summary. Open the story to read more.";
 }
 
 export function getArticleImpactRating(

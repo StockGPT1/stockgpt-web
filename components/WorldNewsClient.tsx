@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { ModuleState } from "@/components/ModuleState";
 import { StockLogo } from "@/components/StockLogo";
+import { NewsArticleSummary } from "@/components/NewsArticleSummary";
 import { useFocusedFlow } from "@/components/AppChromeProvider";
 import type {
   AffectedStockInsight,
@@ -871,9 +872,7 @@ export function WorldNewsClient({
                     <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#ddb159]">
                       What happened
                     </p>
-                    <p className="mt-2 text-[13px] font-semibold leading-6 text-[#faf6f0]/70">
-                      {displaySummary(selectedArticle)}
-                    </p>
+                    <NewsArticleSummary key={selectedArticle.id} article={selectedArticle} />
                   </section>
 
                   <section className="rounded-[22px] border border-[#ddb159]/16 bg-[#ddb159]/[0.07] p-4">
