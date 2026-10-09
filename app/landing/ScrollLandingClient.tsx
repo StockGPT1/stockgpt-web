@@ -14,6 +14,10 @@ import type { LandingMetrics } from "./ScrollLandingScreens";
 import { OFFER_PRICE } from "@/lib/limited-offer";
 import { LandingBelowFold, SOCIALS, SocialIconLink } from "./LandingSections";
 import {
+  InsideEngineExperience,
+  type InsideEngineExperienceHandle,
+} from "./InsideEngineExperience";
+import {
   ChatScreen,
   FixedScale,
   NewsScreen,
@@ -949,6 +953,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const statRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const insideEngineRef = useRef<InsideEngineExperienceHandle | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
   const phoneRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
@@ -958,6 +963,9 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   const slotRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [staticMode, setStaticMode] = useState(false);
+  const [desktopSequenceViewport, setDesktopSequenceViewport] = useState<boolean | null>(null);
+
+  const useInsideEngineSequence = desktopSequenceViewport === true;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -968,7 +976,15 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
   }, []);
 
   useEffect(() => {
-    if (staticMode) return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setDesktopSequenceViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (staticMode || desktopSequenceViewport === null) return;
     const scroller = scrollerRef.current;
     if (!scroller) return;
 
@@ -1035,6 +1051,8 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
     };
 
     const apply = (p: number) => {
+      insideEngineRef.current?.setProgress(p);
+
       const t1 = easeInOut(seg(p, STRAIGHTEN.a, STRAIGHTEN.b));
       /* card flight (rect) and card unfold (internal layout) */
       const tM = easeInOut(seg(p, MORPH.a, MORPH.b));
@@ -1187,7 +1205,7 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
       scroller.removeEventListener("scroll", readTarget);
       window.removeEventListener("resize", onResize);
     };
-  }, [staticMode]);
+  }, [desktopSequenceViewport, staticMode]);
 
   const css = `
     .sl-root {
@@ -1435,6 +1453,14 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
           onPointerMove={onStagePointerMove}
           className="sl-bg sticky top-0 h-[100dvh] overflow-hidden"
         >
+          {desktopSequenceViewport === null ? null : useInsideEngineSequence ? (
+            <InsideEngineExperience
+              ref={insideEngineRef}
+              metrics={metrics}
+              className="absolute inset-0"
+            />
+          ) : (
+            <>
           {/* atmosphere */}
           <div className="sl-aurora pointer-events-none absolute inset-[-20%]" />
           <GoldDust />
@@ -1623,6 +1649,8 @@ export function ScrollLandingClient({ metrics }: { metrics: LandingMetrics }) {
 
           {/* socials rail */}
           <SocialRail />
+            </>
+          )}
         </div>
       </div>
 
