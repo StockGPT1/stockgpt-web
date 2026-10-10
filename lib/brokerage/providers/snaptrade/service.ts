@@ -6,7 +6,7 @@ import type { InstrumentAlias } from "@/lib/instruments";
 import type { BrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
 import { retrieveBrokerUserSecret, storeBrokerUserSecret } from "@/lib/brokerage/secret-store";
 import { createSnapTradeClient, type SnapTradeClient } from "./client";
-import { runSnapTradeDiagnosticPhase } from "./diagnostics";
+import { InvalidSnapTradeRegistrationData, runSnapTradeDiagnosticPhase } from "./diagnostics";
 import { normalizeSnapTradeAccount, snapTradeProviderUserId } from "./normalize";
 
 export async function registerSnapTradeUser(
@@ -18,8 +18,8 @@ export async function registerSnapTradeUser(
   const providerUserId = snapTradeProviderUserId(input.userId);
   const response = await runSnapTradeDiagnosticPhase("registration", async () => {
     const result = await client.authentication.registerSnapTradeUser({ userId: providerUserId });
-    if (result.data.userId !== providerUserId || !result.data.userSecret) {
-      throw new Error("SnapTrade registration response invalid");
+    if (!result?.data || result.data.userId !== providerUserId || !result.data.userSecret) {
+      throw new InvalidSnapTradeRegistrationData();
     }
     return { userSecret: result.data.userSecret };
   });

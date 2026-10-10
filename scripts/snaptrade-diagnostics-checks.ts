@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { SnaptradeError } from "snaptrade-typescript-sdk";
+import type { AxiosError } from "axios";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../lib/database.types";
 import type { SnapTradeClient } from "../lib/brokerage/providers/snaptrade/client";
@@ -33,12 +35,14 @@ async function check() {
     const payload = entry[1] as { phase: string; success: boolean };
     return [payload.phase, payload.success];
   });
+  const payloadKeys = (payload: { phase?: unknown; success?: unknown }) => ["phase", "success", "clientIdPresent", "consumerKeyPresent", "sandboxOptIn", "errorName",
+    ...(payload.phase === "registration" && payload.success === false ? ["failureKind", "httpStatus"] : [])].sort();
   try {
     console.info = (...args: unknown[]) => {
       assert.equal(args.length, 2);
       assert.equal(args[0], "[snaptrade-sandbox-phase]");
       assert(!JSON.stringify(args).includes(secret), "Secret-bearing input escaped the diagnostic allowlist");
-      assert.deepEqual(Object.keys(args[1] as object).sort(), ["phase", "success", "clientIdPresent", "consumerKeyPresent", "sandboxOptIn", "errorName"].sort());
+      assert.deepEqual(Object.keys(args[1] as object).sort(), payloadKeys(args[1] as object));
       logs.push(args);
     };
     globalThis.fetch = async () => { throw new Error("Network forbidden in diagnostics regression"); };
@@ -53,6 +57,36 @@ async function check() {
     process.env.SNAPTRADE_CONSUMER_KEY = secret;
     await assert.rejects(registerSnapTradeUser(admin, input, sdk(true)), (error) => error === failure);
     assert.deepEqual(phases(), [["configuration", true], ["registration", false]]);
+    const sdkError = (status?: number, code = "ERR_BAD_REQUEST") => new SnaptradeError({
+      message: secret, code, config: { url: `https://provider.invalid/${secret}`, headers: { Authorization: secret } },
+      ...(status === undefined ? {} : { response: { status, statusText: secret } }),
+    } as unknown as AxiosError, { userSecret: secret }, { Authorization: secret });
+    for (const [error, kind, status] of [
+      [sdkError(401), "provider_rejection", 401],
+      [sdkError(429), "provider_rejection", 429],
+      [new Error("Request failed after 3 retries due to 429 (rate limit) errors."), "provider_rejection", 429],
+      [sdkError(503), "provider_rejection", 503],
+      [sdkError(undefined, "ENOTFOUND"), "network_failure", null],
+      [sdkError(undefined, "ECONNABORTED"), "network_failure", null],
+      [sdkError(undefined, secret), "unknown_failure", null],
+      [sdkError(Number.NaN), "unknown_failure", null],
+      [sdkError(9999), "unknown_failure", null],
+    ] as const) {
+      logs.length = 0;
+      // Real pinned SDK error instances with deliberately secret-bearing fields.
+      await assert.rejects(runSnapTradeDiagnosticPhase("registration", () => { throw error; }));
+      const payload = logs[0][1] as Record<string, unknown>;
+      assert.equal(payload.failureKind, kind);
+      assert.equal(payload.httpStatus, status);
+    }
+    for (const data of [null, {}, { userId: secret, userSecret: secret }, { userId: "stockgpt-11111111-1111-4111-8111-111111111111" }]) {
+      logs.length = 0;
+      const invalidSdk = { authentication: { registerSnapTradeUser: async () => ({ data }) } } as unknown as SnapTradeClient;
+      await assert.rejects(registerSnapTradeUser(admin, input, invalidSdk));
+      assert.deepEqual(phases(), [["configuration", true], ["registration", false]]);
+      assert.equal((logs[1][1] as Record<string, unknown>).failureKind, "invalid_registration_data");
+      assert.equal((logs[1][1] as Record<string, unknown>).httpStatus, null);
+    }
     logs.length = 0;
     await assert.rejects(registerSnapTradeUser(failedAdmin, input, sdk()));
     assert.deepEqual(phases(), [["configuration", true], ["registration", true], ["credential_store", false]]);
@@ -69,7 +103,7 @@ async function check() {
       assert.equal(entry.length, 2);
       assert.equal(entry[0], "[snaptrade-sandbox-phase]");
       const payload = entry[1] as Record<string, unknown>;
-      assert.deepEqual(Object.keys(payload).sort(), ["phase", "success", "clientIdPresent", "consumerKeyPresent", "sandboxOptIn", "errorName"].sort());
+      assert.deepEqual(Object.keys(payload).sort(), payloadKeys(payload));
       assert.equal(payload.clientIdPresent, true);
       assert.equal(payload.consumerKeyPresent, true);
       assert.equal(payload.sandboxOptIn, true);
