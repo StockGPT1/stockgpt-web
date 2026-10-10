@@ -132,7 +132,6 @@ export async function fetchSnapTradeSyncCandidate(
   if (accounts.length === 0) throw new Error("SnapTrade connection accounts unavailable");
   if (accounts.length > 25) throw new Error("SnapTrade account fan-out exceeds bounded worker window");
 
-  const fetchedAt = new Date().toISOString();
   const sources = [];
   for (const account of accounts) {
     // Endpoint failures are not converted to empty financial facts.
@@ -162,6 +161,8 @@ export async function fetchSnapTradeSyncCandidate(
     })));
   }
 
+  // Collection completion bounds provider evidence received during requests and alias loading.
+  const fetchedAt = new Date().toISOString();
   return {
     fetchedAt,
     providerFreshnessAt: new Date(Math.min(...sources.map((source) => Date.parse(source.positions.data_freshness.as_of)))).toISOString(),
