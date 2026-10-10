@@ -5,8 +5,9 @@ import type { BrokerConnectionPresentation } from "@/lib/brokerage/connection-pr
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import type { PortfolioPerformanceResult } from "@/lib/portfolio-history";
 import { PortfolioContextDefaultControls } from "@/components/PortfolioContextDefaultControls";
+import { positionIdentityLabel, type HoldingIdentityPresentation } from "@/lib/instruments/broker-position-identity";
 
-type Position = {
+type Position = HoldingIdentityPresentation & {
   id: string;
   instrumentId: string | null;
   ticker: string | null;
@@ -51,7 +52,7 @@ export function ConnectedPortfolioWorkspace({
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5"><p className="text-xs text-white/45">Performance</p>{history.performance.status === "available" ? <><p className="mt-2 text-xl font-semibold">{history.performance.returnPct?.toFixed(2)}%</p><p className="mt-2 text-sm text-white/55">{history.performance.method === "time_weighted" ? "Time-weighted return" : "Estimated Modified Dietz return"} · {history.performance.quality}</p></> : <><p className="mt-2 text-xl font-semibold">Unavailable</p><p className="mt-2 text-sm text-white/55">{history.pointCount < 2 ? CONNECTED_PORTFOLIO_PERFORMANCE_UNAVAILABLE_MESSAGE : "Historical valuation or external-flow evidence is incomplete."}</p></>}</section>
       </div>
       {Object.values(history.chartData).some((points) => (points?.length ?? 0) > 1) && <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-5"><h2 className="font-semibold">Portfolio value history</h2><p className="mt-1 text-xs text-white/45">Provider account evidence · never reconstructed from current holdings</p><div className="mt-4"><StockChart ticker="Portfolio" data={history.chartData} initialRange="MAX" height={260} /></div></section>}
-      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-5"><h2 className="font-semibold">Broker positions</h2><div className="mt-4 divide-y divide-white/10">{positions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-medium">{position.ticker ?? position.description ?? "Unmapped instrument"}</p><p className="text-xs text-white/45">{position.instrumentId ? "StockGPT instrument resolved" : "Limited instrument coverage"} · Quantity {position.quantity ?? "unavailable"}</p></div><div className="text-right"><p>{money(position.currentValueUsd)}</p><p className="text-xs text-white/45">Provider evidence · {position.sourceCurrency ?? "currency unavailable"}</p></div></div>)}</div>{positions.length === 0 && <p className="mt-4 text-sm text-white/50">Positions are pending or this account has no normalized positions.</p>}</section>
+      <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-5"><h2 className="font-semibold">Broker positions</h2><div className="mt-4 divide-y divide-white/10">{positions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-medium">{position.ticker ?? position.description ?? "Unmapped instrument"}</p><p className="text-xs text-white/45">{positionIdentityLabel(position)} · Quantity {position.quantity ?? "unavailable"}</p></div><div className="text-right"><p>{money(position.currentValueUsd)}</p><p className="text-xs text-white/45">Provider evidence · {position.sourceCurrency ?? "currency unavailable"}</p></div></div>)}</div>{positions.length === 0 && <p className="mt-4 text-sm text-white/50">Positions are pending or this account has no normalized positions.</p>}</section>
     </div>
   </main>;
 }

@@ -4,6 +4,7 @@ import { loadCurrentPortfolioIntelligenceFromClient } from "@/lib/current-portfo
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 import { assessPortfolioIntelligence, type HoldingIntelligenceInput } from "@/lib/portfolio-intelligence";
 import { buildPortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import type { HoldingIdentityPresentation } from "@/lib/instruments/broker-position-identity";
 
 export type AllInvestmentsPortfolio = {
   id: string;
@@ -18,6 +19,7 @@ export type AllInvestmentsSourceFacts = AllInvestmentsPortfolio & {
   holdingCount: number | null;
   holdings: HoldingIntelligenceInput[];
   limitations: string[];
+  holdingIdentities?: Record<string, HoldingIdentityPresentation>;
 };
 
 export function buildAllInvestmentsFromSources(
@@ -26,6 +28,7 @@ export function buildAllInvestmentsFromSources(
 ) {
   const limitations = new Set<string>(["canonical_event_severity_source_unmapped"]);
   const holdings: HoldingIntelligenceInput[] = [];
+  const holdingIdentities: Record<string, HoldingIdentityPresentation> = {};
   let cashValue = 0;
   let allCashKnown = true;
   let allValuesKnown = true;
@@ -38,10 +41,14 @@ export function buildAllInvestmentsFromSources(
     if (source.cashUsd == null) allCashKnown = false;
     else cashValue += source.cashUsd;
     if (source.valueUsd == null) allValuesKnown = false;
-    source.holdings.forEach((holding) => holdings.push({
-      ...holding,
-      instrumentKey: `${source.id}:${holding.instrumentKey}`,
-    }));
+    source.holdings.forEach((holding) => {
+      const key = `${source.id}:${holding.instrumentKey}`;
+      const identity = source.holdingIdentities?.[holding.instrumentKey];
+      if (identity) holdingIdentities[key] = identity;
+      const synthetic = identity?.identityProvenance === "sandbox_fixture";
+      if (synthetic) limitations.add("connected_analysis_sandbox_fixture");
+      holdings.push({ ...holding, instrumentKey: key, ...(synthetic ? { ranking: null, diagnostics: null } : {}) });
+    });
   }
 
   const aggregateComplete = allCashKnown && allValuesKnown;
@@ -57,6 +64,7 @@ export function buildAllInvestmentsFromSources(
   if (!allCashKnown) limitations.add("all_investments_cash_incomplete");
   if (!allValuesKnown) limitations.add("all_investments_valuation_incomplete");
   return {
+    holdingIdentities,
     input,
     assessment,
     intelligence: buildPortfolioIntelligenceView({ result: assessment, adapterLimitations: [...limitations] }),
@@ -93,6 +101,7 @@ export async function loadAllInvestments(
         cashUsd: result.cashValueUsd,
         holdingCount: result.positions.length,
         holdings: result.input.holdings,
+        holdingIdentities: result.holdingIdentities,
         limitations: result.adapterLimitations,
       } : {
         ...portfolio,

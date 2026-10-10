@@ -3,6 +3,8 @@ import type { UsdFxQuote } from "@/lib/currency";
 import { convertCurrencyToUsdForWrite, SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/currency";
 import { assessPortfolioIntelligence, type HoldingIntelligenceInput, type PortfolioIntelligenceInput } from "@/lib/portfolio-intelligence";
 import { buildPortfolioIntelligenceView } from "@/lib/portfolio-intelligence-presentation";
+import { classifyMarketDataCoverage } from "@/lib/instruments";
+import { SANDBOX_FIXTURE_LABEL, type PositionIdentity, type HoldingIdentityPresentation } from "@/lib/instruments/broker-position-identity";
 
 type PositionFact = Database["public"]["Tables"]["broker_positions"]["Row"];
 type CashFact = Database["public"]["Tables"]["broker_cash_balances"]["Row"];
@@ -15,6 +17,8 @@ export type ConnectedPortfolioFacts = {
   connection: Pick<Database["public"]["Tables"]["broker_connections"]["Row"], "id" | "status" | "last_successful_sync_at">;
   positions: PositionFact[]; cashBalances: CashFact[]; rankings: RankingFact[]; diagnostics: DiagnosticFact[];
   rankedUniverseSize: number; fxQuote: UsdFxQuote;
+  identities?: Record<string, PositionIdentity>;
+  identityEvidenceUnavailable?: boolean;
 };
 
 const finite = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : null; };
@@ -23,6 +27,7 @@ function usd(value: number | null, code: string | null, quote: UsdFxQuote) { con
 
 export function assessConnectedPortfolioFacts(facts: ConnectedPortfolioFacts, asOf: string) {
   const limitations = ["canonical_event_severity_source_unmapped"];
+  if (facts.identityEvidenceUnavailable) limitations.push("connected_analysis_identity_unavailable");
   const rankingByInstrument = new Map(facts.rankings.filter((row) => row.instrument_id).map((row) => [row.instrument_id!, row]));
   const diagnosticByTicker = new Map(facts.diagnostics.map((row) => [row.ticker, row]));
   const mapped = facts.positions.map((position) => {
@@ -31,9 +36,13 @@ export function assessConnectedPortfolioFacts(facts: ConnectedPortfolioFacts, as
     const providerPrice = usd(finite(position.price), position.price_currency, facts.fxQuote);
     const derivedValue = quantity != null && providerPrice != null ? quantity * providerPrice : null;
     const currentValue = providerValue ?? derivedValue;
-    const ranking = position.instrument_id ? rankingByInstrument.get(position.instrument_id) : undefined;
+    const identity = facts.identities?.[position.id];
+    const instrumentId = facts.identities ? identity?.instrumentId ?? null : position.instrument_id;
+    const synthetic = identity?.provenance === "sandbox_fixture";
+    if (synthetic && !limitations.includes("connected_analysis_sandbox_fixture")) limitations.push("connected_analysis_sandbox_fixture");
+    const ranking = instrumentId && !synthetic ? rankingByInstrument.get(instrumentId) : undefined;
     const diagnostic = ranking?.ticker ? diagnosticByTicker.get(ranking.ticker) : undefined;
-    return { position, quantity, providerPrice, currentValue: currentValue != null && currentValue >= 0 ? currentValue : null, ranking, diagnostic };
+    return { position, instrumentId, synthetic, quantity, providerPrice, currentValue: currentValue != null && currentValue >= 0 ? currentValue : null, ranking, diagnostic };
   });
   const cashKnown = facts.account.last_successful_sync_at != null;
   const cashValues = facts.cashBalances.map((row) => usd(finite(row.amount), row.currency, facts.fxQuote));
@@ -42,20 +51,25 @@ export function assessConnectedPortfolioFacts(facts: ConnectedPortfolioFacts, as
   if (!cashKnown) limitations.push("connected_analysis_sync_pending");
   if (!cashComplete) limitations.push("connected_analysis_cash_unresolved");
   if (!valuationComplete) limitations.push("connected_analysis_valuation_incomplete");
-  const holdings: HoldingIntelligenceInput[] = mapped.map(({ position, quantity, providerPrice, currentValue, ranking, diagnostic }) => ({
-    instrumentKey: position.instrument_id ?? `broker-position:${position.id}`, ticker: ranking?.ticker ?? position.symbol,
-    coverage: ranking ? "ranked" : "unsupported", provenance: "broker", currentValue: valuationComplete ? currentValue : null,
+  const holdings: HoldingIntelligenceInput[] = mapped.map(({ position, instrumentId, quantity, providerPrice, currentValue, ranking, diagnostic }) => ({
+    instrumentKey: `broker-position:${position.id}`, ticker: ranking?.ticker ?? position.symbol,
+    coverage: classifyMarketDataCoverage({ instrumentId, hasRanking: Boolean(ranking), hasTrackedMarketData: currentValue != null }), provenance: "broker", currentValue: valuationComplete ? currentValue : null,
     costBasis: null, shares: quantity, unrealisedPnlPct: null,
     market: { currentPrice: providerPrice, savedRiskLevel: null, priceAsOf: position.as_of },
-    ranking: ranking ? { currentScore: finite(ranking.score), scoreAtEntry: null, currentRank: finite(ranking.rank), rankAtEntry: null, universeSize: facts.rankedUniverseSize, asOf: ranking.last_ranking_update } : null,
+    ranking: ranking ? { currentScore: ranking.score == null ? null : finite(ranking.score), scoreAtEntry: null, currentRank: ranking.rank == null ? null : finite(ranking.rank), rankAtEntry: null, universeSize: facts.rankedUniverseSize, asOf: ranking.last_ranking_update } : null,
     diagnostics: diagnostic ? { currentScore: finite(diagnostic.current_score), previousScore: finite(diagnostic.previous_score), asOf: diagnostic.updated_at } : null,
     events: [],
   }));
   const input: PortfolioIntelligenceInput = { asOf, portfolio: { id: facts.portfolio.id, riskTolerance: facts.portfolio.risk_tolerance, objective: facts.portfolio.objective, timeHorizon: facts.portfolio.time_horizon, cashValue: cashComplete ? cashValues.reduce((sum, value) => sum + (value ?? 0), 0) : 0 }, holdings };
   const assessment = assessPortfolioIntelligence(input);
+  const holdingIdentities: Record<string, HoldingIdentityPresentation> = Object.fromEntries(mapped.map(({ position, instrumentId, synthetic }) => [
+    `broker-position:${position.id}`,
+    { instrumentId, identityProvenance: facts.identities?.[position.id]?.provenance ?? (instrumentId ? "persisted" : "unresolved"), testDataLabel: synthetic ? SANDBOX_FIXTURE_LABEL : null },
+  ]));
   return {
+    holdingIdentities,
     input, assessment, intelligence: buildPortfolioIntelligenceView({ result: assessment, adapterLimitations: limitations }), adapterLimitations: limitations,
-    positions: mapped.map(({ position, quantity, providerPrice, currentValue, ranking }) => ({ id: position.id, instrumentId: position.instrument_id, ticker: ranking?.ticker ?? position.symbol, description: position.description, quantity, currentPriceUsd: providerPrice, currentValueUsd: currentValue, sourceCurrency: position.market_value_currency ?? position.price_currency, asOf: position.as_of })),
+    positions: mapped.map(({ position, instrumentId, synthetic, quantity, providerPrice, currentValue, ranking }) => ({ id: position.id, instrumentId, identityProvenance: facts.identities?.[position.id]?.provenance ?? (instrumentId ? "persisted" : "unresolved"), testDataLabel: synthetic ? SANDBOX_FIXTURE_LABEL : null, ticker: ranking?.ticker ?? position.symbol, description: position.description, quantity, currentPriceUsd: providerPrice, currentValueUsd: currentValue, sourceCurrency: position.market_value_currency ?? position.price_currency, asOf: position.as_of })),
     cashValueUsd: cashComplete ? cashValues.reduce((sum, value) => sum + (value ?? 0), 0) : null,
     totalValueUsd: valuationComplete ? mapped.reduce((sum, row) => sum + (row.currentValue ?? 0), 0) + cashValues.reduce((sum, value) => sum + (value ?? 0), 0) : null,
   };

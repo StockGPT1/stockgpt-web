@@ -14,6 +14,17 @@ import {
 import { isCanonicalUsdPortfolio } from "@/lib/portfolio-accounting-basis";
 import type { assessConnectedPortfolioFacts } from "@/lib/connected-portfolio-intelligence";
 import type { loadAllInvestments } from "@/lib/all-investments";
+import { SANDBOX_FIXTURE_LABEL, type HoldingIdentityPresentation } from "@/lib/instruments/broker-position-identity";
+
+function investmentResearchAvailable(holding: import("@/lib/portfolio-intelligence").HoldingIntelligenceInput, identity: HoldingIdentityPresentation | undefined, availability: string) {
+  const verified = holding.provenance !== "broker" || Boolean(identity?.instrumentId
+    && ["provider_alias", "persisted"].includes(identity.identityProvenance));
+  return availability === "ready" && verified && identity?.identityProvenance !== "sandbox_fixture"
+    && holding.coverage === "ranked" && holding.ranking != null
+    && Number.isFinite(holding.ranking.currentScore) && Number.isFinite(holding.ranking.currentRank)
+    && holding.ranking.currentRank! > 0 && holding.ranking.asOf != null
+    && Number.isFinite(Date.parse(holding.ranking.asOf));
+}
 
 export type AskPortfolioMeta = {
   id: string;
@@ -43,7 +54,10 @@ export function buildAskAllInvestmentsContext(
     canonical_assessment: { version: aggregate.assessment.version, as_of: aggregate.assessment.asOf, availability: aggregate.intelligence.availability, status: aggregate.intelligence.status, status_label: aggregate.intelligence.statusLabel, summary: aggregate.intelligence.summary, counts_by_status: aggregate.intelligence.countsByStatus, attention_order: aggregate.intelligence.attentionOrder, reasons: aggregate.intelligence.reasons },
     holdings: aggregate.input.holdings.map((holding) => {
       const assessment = assessmentByKey.get(holding.instrumentKey);
-      return { instrument_key: holding.instrumentKey, ticker: holding.ticker, company: null, sector: null, shares: holding.shares, current_price: holding.market.currentPrice, entry_price: null, current_value: holding.currentValue, cost_basis: null, unrealised_pnl_percent: null, current_allocation_pct_of_total_portfolio: assessment?.allocation.pctOfTotalPortfolio ?? null, current_allocation_pct_of_invested_assets: assessment?.allocation.pctOfInvestedAssets ?? null, current_rank: holding.ranking?.currentRank ?? null, current_score: holding.ranking?.currentScore ?? null, rank_at_entry: holding.ranking?.rankAtEntry ?? null, score_at_entry: holding.ranking?.scoreAtEntry ?? null, ranking_as_of: holding.ranking?.asOf ?? null, price_as_of: holding.market.priceAsOf, diagnostics_as_of: holding.diagnostics?.asOf ?? null, coverage: holding.coverage, provenance: holding.provenance, saved_risk_reference: null, saved_target_reference: null, canonical_assessment: { status: assessment?.status ?? null, status_label: assessment?.status ?? "Analysis limited", attention_rank: assessment?.attentionRank ?? null, reasons: assessment?.reasons ?? [] } };
+      const identity = aggregate.holdingIdentities?.[holding.instrumentKey];
+      const synthetic = identity?.identityProvenance === "sandbox_fixture";
+      const view = aggregate.intelligence.holdingAssessments[holding.instrumentKey] ?? aggregate.intelligence.holdingAssessments[tickerKey(holding.ticker)];
+      return { instrument_key: holding.instrumentKey, ticker: holding.ticker, company: null, sector: null, shares: holding.shares, current_price: holding.market.currentPrice, entry_price: null, current_value: holding.currentValue, cost_basis: null, unrealised_pnl_percent: null, current_allocation_pct_of_total_portfolio: assessment?.allocation.pctOfTotalPortfolio ?? null, current_allocation_pct_of_invested_assets: assessment?.allocation.pctOfInvestedAssets ?? null, current_rank: synthetic ? null : holding.ranking?.currentRank ?? null, current_score: synthetic ? null : holding.ranking?.currentScore ?? null, rank_at_entry: synthetic ? null : holding.ranking?.rankAtEntry ?? null, score_at_entry: synthetic ? null : holding.ranking?.scoreAtEntry ?? null, ranking_as_of: synthetic ? null : holding.ranking?.asOf ?? null, price_as_of: holding.market.priceAsOf, diagnostics_as_of: synthetic ? null : holding.diagnostics?.asOf ?? null, coverage: holding.coverage, provenance: holding.provenance, identity_provenance: identity?.identityProvenance ?? null, test_data_label: synthetic ? SANDBOX_FIXTURE_LABEL : null, instrument_id: identity?.instrumentId ?? null, investment_research_available: investmentResearchAvailable(holding, identity, aggregate.intelligence.availability), saved_risk_reference: null, saved_target_reference: null, canonical_assessment: { status: synthetic ? null : view?.status ?? null, status_label: synthetic ? "Analysis limited" : view?.statusLabel ?? "Analysis limited", attention_rank: synthetic ? null : view?.attentionRank ?? null, reasons: synthetic ? [] : view?.reasons ?? [] } };
     }),
     source_portfolios: aggregate.sources.map((source) => ({ id: source.id, name: source.name, source: source.source, value_usd: source.valueUsd })),
     limitations: aggregate.adapterLimitations,
@@ -323,7 +337,9 @@ export function buildAskConnectedPortfolioContext({
     },
     holdings: connected.input.holdings.map((holding) => {
       const assessment = assessmentByKey.get(holding.instrumentKey);
-      const view = connected.intelligence.holdingAssessments[tickerKey(holding.ticker) || holding.instrumentKey];
+      const view = connected.intelligence.holdingAssessments[holding.instrumentKey] ?? connected.intelligence.holdingAssessments[tickerKey(holding.ticker)];
+      const identity = connected.holdingIdentities[holding.instrumentKey];
+      const synthetic = identity?.identityProvenance === "sandbox_fixture";
       return {
         instrument_key: holding.instrumentKey, ticker: holding.ticker,
         company: null, sector: null, shares: holding.shares,
@@ -332,18 +348,22 @@ export function buildAskConnectedPortfolioContext({
         unrealised_pnl_percent: null,
         current_allocation_pct_of_total_portfolio: assessment?.allocation.pctOfTotalPortfolio ?? null,
         current_allocation_pct_of_invested_assets: assessment?.allocation.pctOfInvestedAssets ?? null,
-        current_rank: holding.ranking?.currentRank ?? null,
-        current_score: holding.ranking?.currentScore ?? null,
+        current_rank: synthetic ? null : holding.ranking?.currentRank ?? null,
+        current_score: synthetic ? null : holding.ranking?.currentScore ?? null,
         rank_at_entry: null, score_at_entry: null,
-        ranking_as_of: holding.ranking?.asOf ?? null,
+        ranking_as_of: synthetic ? null : holding.ranking?.asOf ?? null,
         price_as_of: holding.market.priceAsOf,
-        diagnostics_as_of: holding.diagnostics?.asOf ?? null,
+        diagnostics_as_of: synthetic ? null : holding.diagnostics?.asOf ?? null,
         coverage: holding.coverage, provenance: "broker",
+        identity_provenance: identity?.identityProvenance ?? null,
+        test_data_label: synthetic ? SANDBOX_FIXTURE_LABEL : null,
+        instrument_id: identity?.instrumentId ?? null,
+        investment_research_available: investmentResearchAvailable(holding, identity, connected.intelligence.availability),
         saved_risk_reference: null, saved_target_reference: null,
         canonical_assessment: {
-          status: view?.status ?? null, status_label: view?.statusLabel ?? "Analysis limited",
-          attention_rank: view?.attentionRank ?? assessment?.attentionRank ?? Number.MAX_SAFE_INTEGER,
-          reasons: view?.reasons ?? [],
+          status: synthetic ? null : view?.status ?? null, status_label: synthetic ? "Analysis limited" : view?.statusLabel ?? "Analysis limited",
+          attention_rank: synthetic ? null : view?.attentionRank ?? assessment?.attentionRank ?? Number.MAX_SAFE_INTEGER,
+          reasons: synthetic ? [] : view?.reasons ?? [],
         },
       };
     }),
@@ -363,6 +383,7 @@ You receive a compact JSON context block with server-verified portfolio ownershi
 How to answer:
 - Lead with the answer, then show the specific facts that support it.
 - Use supplied rank, score, price, allocation, P&L and freshness facts precisely. Never invent missing values.
+- A holding marked identity_provenance=sandbox_fixture or test_data_label is synthetic test data, not verified investment research. Identify it explicitly as a Sandbox fixture; do not treat its instrument mapping as real-security verification or supply missing rankings/diagnostics.
 - For a focused portfolio, canonical_assessment is StockGPT's authoritative assessment for the supplied facts. Use exactly On track, Monitor, Review or Urgent review. Analysis limited describes availability and is not a fifth status.
 - Explain canonical reason codes and evidence. Do not create a second status algorithm or relabel the canonical status from P&L, score, rank, article count or other context.
 - Canonical attention_order prioritises holdings for investigation; it is not an order to trade.

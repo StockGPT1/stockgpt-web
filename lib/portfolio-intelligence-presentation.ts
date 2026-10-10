@@ -214,6 +214,9 @@ export function buildPortfolioIntelligenceView({
               reasonView(reason, assessment.instrumentKey),
             ),
           };
+    // Preserve independently assessed positions even when ticker/canonical
+    // identity is shared. The ticker entry remains a compatibility lookup.
+    holdingAssessments[assessment.instrumentKey] = holdingAssessments[key];
   }
 
   if (availability === "limited") {
@@ -223,7 +226,11 @@ export function buildPortfolioIntelligenceView({
       statusLabel: "Analysis limited",
       tone: "neutral",
       summary:
-        connectedLimitation
+        adapterLimitations.includes("connected_analysis_sandbox_fixture")
+          ? "Sandbox fixture: synthetic test data is not a verified market assessment."
+          : adapterLimitations.includes("connected_analysis_identity_unavailable")
+          ? "Analysis is limited because instrument identity evidence is unavailable. Valid broker monetary facts remain visible."
+          : connectedLimitation
           ? "Analysis is limited because complete, current broker valuation facts are not available."
           : "Analysis is limited because this portfolio's stored currency basis cannot yet be reconciled with the market-price feed.",
       holdingAssessments,

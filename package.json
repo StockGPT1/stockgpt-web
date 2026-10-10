@@ -55,7 +55,7 @@
     "test:broker-connections": "tsx scripts/wave3-source-checks.ts && node --conditions=react-server --import tsx scripts/broker-sandbox-portal-checks.ts && node --conditions=react-server --import tsx scripts/snaptrade-diagnostics-checks.ts && npm run test:broker-sync-diagnostics",
     "test:broker-sync-diagnostics": "tsx scripts/broker-sync-diagnostics-checks.ts && tsx scripts/broker-sync-source-checks.ts",
     "test:broker-connection-state": "tsx scripts/broker-connection-presentation-state-checks.ts",
-    "test:connected-portfolio-intelligence": "tsx scripts/connected-portfolio-intelligence-checks.ts",
+    "test:connected-portfolio-intelligence": "tsx scripts/connected-portfolio-intelligence-checks.ts && tsx scripts/broker-position-identity-checks.ts",
     "test:connected-portfolios": "node scripts/verify-wave3-connected-portfolios-local.mjs",
     "test:wave3": "npm run test:broker-connection-state && npm run test:broker-connections && npm run test:connected-portfolio-intelligence && npm run test:connected-portfolios",
     "test:portfolio-history-context": "tsx scripts/wave4-history-context-checks.ts",
