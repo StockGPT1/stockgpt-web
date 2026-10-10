@@ -55,7 +55,7 @@ function buildContentSecurityPolicy(nonce: string) {
     "frame-src https://*.stripe.com https://stripe.com",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self' https://*.stripe.com",
+    "form-action 'self' https://*.stripe.com https://app.snaptrade.com",
     "frame-ancestors 'none'",
     "upgrade-insecure-requests",
   ].join("; ");

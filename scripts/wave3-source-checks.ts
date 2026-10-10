@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import { transpileModule } from "typescript";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read("supabase/migrations/20260920103104_integrate_connected_broker_portfolios.sql");
@@ -18,6 +20,34 @@ const mobileDashboard = read("components/MobileDashboardExperience.tsx");
 const connectedWorkspace = read("components/ConnectedPortfolioWorkspace.tsx");
 const ask = read("app/api/ask-stockgpt/route.ts");
 const notifications = read("lib/notifications.ts");
+
+// Exercise the actual pure CSP builder without importing session/provider code.
+const middlewareSource = read("middleware.ts");
+const cspBuilder = middlewareSource.slice(
+  middlewareSource.indexOf("function buildContentSecurityPolicy("),
+  middlewareSource.indexOf("export async function middleware("),
+);
+assert.ok(cspBuilder.startsWith("function buildContentSecurityPolicy("));
+for (const nonce of ["test-nonce-one", "test-nonce-two"]) {
+  const policy = runInNewContext(
+    transpileModule(`${cspBuilder}\nbuildContentSecurityPolicy(${JSON.stringify(nonce)});`, {}).outputText,
+    {},
+  );
+  assert.equal(policy, [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://vercel.live`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co https://*.stripe.com https://api.stripe.com https://openrouter.ai https://api.resend.com",
+    "frame-src https://*.stripe.com https://stripe.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self' https://*.stripe.com https://app.snaptrade.com",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; "), "Only the exact SnapTrade portal form destination is added; all other CSP restrictions remain intact");
+}
 
 assert.match(migration, /management_source public\.portfolio_management_source not null default 'manual'/u);
 assert.match(migration, /unique index user_portfolios_connected_account_key/u);
