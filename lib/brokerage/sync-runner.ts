@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { BrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
+import type { BrokerCandidateDiagnosticReason, BrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
 import { validateBrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
 
 type Job = Database["public"]["Tables"]["broker_sync_jobs"]["Row"];
@@ -9,6 +9,15 @@ export type BrokerSyncFetcher = (
   admin: SupabaseClient<Database>,
   scope: { userId: string; providerId: string; externalConnectionId: string },
 ) => Promise<BrokerSyncCandidate>;
+
+function logSandboxCandidateRejection(reason: BrokerCandidateDiagnosticReason) {
+  if (process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX !== "true") return;
+  try {
+    console.info("[broker-sync-sandbox-validation]", { reason });
+  } catch {
+    // Diagnostic delivery must not change validation or worker failure handling.
+  }
+}
 
 async function fetchForProvider(
   admin: SupabaseClient<Database>,
@@ -63,7 +72,7 @@ export async function processBrokerSyncJob(
     return { status: "retryable_failure" as const };
   }
 
-  const validation = validateBrokerSyncCandidate(candidate);
+  const validation = validateBrokerSyncCandidate(candidate, logSandboxCandidateRejection);
   if (!validation.ok) {
     const { error } = await admin.rpc("fail_broker_sync_job", {
       p_job_id: job.id, p_worker_id: workerId, p_error_code: validation.errorCode,

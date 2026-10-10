@@ -64,11 +64,23 @@ export type BrokerCandidateValidation =
 
 const isFiniteNumber = (value: number | null) => value === null || Number.isFinite(value);
 
-export function validateBrokerSyncCandidate(candidate: BrokerSyncCandidate): BrokerCandidateValidation {
+export type BrokerCandidateDiagnosticReason =
+  | "missing_position_key" | "duplicate_position_key"
+  | "zero_quantity" | "invalid_quantity" | "invalid_price" | "invalid_market_value"
+  | "invalid_position_timestamp" | "future_position_timestamp"
+  | "invalid_fetched_timestamp" | "invalid_freshness_timestamp" | "future_freshness_timestamp";
+
+export function validateBrokerSyncCandidate(
+  candidate: BrokerSyncCandidate,
+  diagnostic?: (reason: BrokerCandidateDiagnosticReason) => void,
+): BrokerCandidateValidation {
   if (!Number.isFinite(Date.parse(candidate.fetchedAt)) ||
       !Number.isFinite(Date.parse(candidate.providerFreshnessAt)) ||
       Date.parse(candidate.providerFreshnessAt) > Date.parse(candidate.fetchedAt) ||
       candidate.accounts.length === 0) {
+    if (!Number.isFinite(Date.parse(candidate.fetchedAt))) diagnostic?.("invalid_fetched_timestamp");
+    else if (!Number.isFinite(Date.parse(candidate.providerFreshnessAt))) diagnostic?.("invalid_freshness_timestamp");
+    else if (Date.parse(candidate.providerFreshnessAt) > Date.parse(candidate.fetchedAt)) diagnostic?.("future_freshness_timestamp");
     return { ok: false, retryable: false, errorCode: "candidate_invalid" };
   }
   const accountIds = new Set<string>();
@@ -88,6 +100,15 @@ export function validateBrokerSyncCandidate(candidate: BrokerSyncCandidate): Bro
       if (!position.positionKey || positionKeys.has(position.positionKey) || !Number.isFinite(position.quantity) || position.quantity === 0 ||
           !isFiniteNumber(position.price) || !isFiniteNumber(position.marketValue) ||
           !Number.isFinite(Date.parse(position.asOf)) || Date.parse(position.asOf) > Date.parse(candidate.fetchedAt)) {
+        // Fixed labels only, preserving the existing first-failure precedence.
+        if (!position.positionKey) diagnostic?.("missing_position_key");
+        else if (positionKeys.has(position.positionKey)) diagnostic?.("duplicate_position_key");
+        else if (!Number.isFinite(position.quantity)) diagnostic?.("invalid_quantity");
+        else if (position.quantity === 0) diagnostic?.("zero_quantity");
+        else if (!isFiniteNumber(position.price)) diagnostic?.("invalid_price");
+        else if (!isFiniteNumber(position.marketValue)) diagnostic?.("invalid_market_value");
+        else if (!Number.isFinite(Date.parse(position.asOf))) diagnostic?.("invalid_position_timestamp");
+        else diagnostic?.("future_position_timestamp");
         return { ok: false, retryable: false, errorCode: "candidate_position_invalid" };
       }
       positionKeys.add(position.positionKey);
