@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../lib/database.types";
-import type { BrokerCandidateDiagnosticReason, BrokerSyncCandidate } from "../lib/brokerage/sync-candidate";
+import type { BrokerCandidateDiagnosticReason, BrokerSyncCandidate, BrokerTimestampAheadBucket } from "../lib/brokerage/sync-candidate";
 import { validateBrokerSyncCandidate } from "../lib/brokerage/sync-candidate";
 import { processBrokerSyncJob } from "../lib/brokerage/sync-runner";
 
@@ -22,7 +22,7 @@ const base: BrokerSyncCandidate = {
   }],
 };
 
-type Fixture = { reason: BrokerCandidateDiagnosticReason; mutate: (candidate: BrokerSyncCandidate) => void; code?: string };
+type Fixture = { reason: BrokerCandidateDiagnosticReason; mutate: (candidate: BrokerSyncCandidate) => void; code?: string; aheadBucket?: BrokerTimestampAheadBucket };
 const fixtures: Fixture[] = [
   { reason: "missing_position_key", mutate: c => { c.accounts[0].positions.items[0].positionKey = ""; } },
   { reason: "duplicate_position_key", mutate: c => { c.accounts[0].positions.items.push({ ...c.accounts[0].positions.items[0] }); } },
@@ -31,7 +31,14 @@ const fixtures: Fixture[] = [
   ...[NaN, Infinity, -Infinity].map(price => ({ reason: "invalid_price" as const, mutate: (c: BrokerSyncCandidate) => { c.accounts[0].positions.items[0].price = price; } })),
   { reason: "invalid_market_value", mutate: c => { c.accounts[0].positions.items[0].marketValue = NaN; } },
   { reason: "invalid_position_timestamp", mutate: c => { c.accounts[0].positions.items[0].asOf = sensitive; } },
-  { reason: "future_position_timestamp", mutate: c => { c.accounts[0].positions.items[0].asOf = "2026-01-15T12:00:01Z"; } },
+  ...([
+    [1, "seconds"], [59_999, "seconds"],
+    [60_000, "minutes"], [3_599_999, "minutes"],
+    [3_600_000, "hours"], [86_400_000, "hours"], [86_400_001, "more_than_a_day"],
+  ] satisfies [number, BrokerTimestampAheadBucket][]).map(([aheadMs, aheadBucket]): Fixture => ({
+    reason: "future_position_timestamp", aheadBucket,
+    mutate: c => { c.accounts[0].positions.items[0].asOf = new Date(Date.parse(asOf) + aheadMs).toISOString(); },
+  })),
   { reason: "invalid_fetched_timestamp", code: "candidate_invalid", mutate: c => { c.fetchedAt = sensitive; } },
   { reason: "invalid_freshness_timestamp", code: "candidate_invalid", mutate: c => { c.providerFreshnessAt = sensitive; } },
   { reason: "future_freshness_timestamp", code: "candidate_invalid", mutate: c => { c.providerFreshnessAt = "2026-01-15T12:00:01Z"; } },
@@ -71,10 +78,14 @@ async function main() {
       const candidate = structuredClone(base);
       fixture.mutate(candidate);
       const reasons: BrokerCandidateDiagnosticReason[] = [];
-      const validation = validateBrokerSyncCandidate(candidate, reason => reasons.push(reason));
+      const buckets: (BrokerTimestampAheadBucket | undefined)[] = [];
+      const originalCandidate = structuredClone(candidate);
+      const validation = validateBrokerSyncCandidate(candidate, (reason, bucket) => { reasons.push(reason); buckets.push(bucket); });
       assert.deepEqual(validation, { ok: false, retryable: false, errorCode: fixture.code ?? "candidate_position_invalid" });
       assert.deepEqual(validateBrokerSyncCandidate(candidate), validation, "Diagnostics changed the validation result");
       assert.deepEqual(reasons, [fixture.reason]);
+      assert.deepEqual(buckets, [fixture.aheadBucket]);
+      assert.deepEqual(candidate, originalCandidate, "Diagnostic rewrote financial/timestamp evidence");
       for (const flag of [undefined, "false", "TRUE", "true"]) {
         if (flag === undefined) delete process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX;
         else process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX = flag;
@@ -83,11 +94,22 @@ async function main() {
         assert.deepEqual(calls.map(c => c.name), ["fail_broker_sync_job"], "Rejected candidate was promoted or retried");
         assert.equal(calls[0].args.p_error_code, fixture.code ?? "candidate_position_invalid");
         assert.equal(calls[0].args.p_retryable, false);
-        assert.deepEqual(logs, flag === "true" ? [["[broker-sync-sandbox-validation]", { reason: fixture.reason }]] : []);
+        assert.deepEqual(logs, flag === "true" ? [["[broker-sync-sandbox-validation]", {
+          reason: fixture.reason, ...(fixture.aheadBucket ? { aheadBucket: fixture.aheadBucket } : {}),
+        }]] : []);
         assert(!JSON.stringify(logs).includes(sensitive), "Provider data/identity leaked into Sandbox diagnostic");
+        assert(!JSON.stringify(logs).includes(candidate.accounts[0].positions.items[0].asOf), "Exact position timestamp leaked");
+        assert(!JSON.stringify(logs).includes(asOf), "Exact fetched timestamp leaked");
       }
     }
     process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX = "true";
+    for (const offset of [-1, 0]) {
+      const candidate = structuredClone(base);
+      candidate.accounts[0].positions.items[0].asOf = new Date(Date.parse(asOf) + offset).toISOString();
+      const reasons: BrokerCandidateDiagnosticReason[] = [];
+      assert.deepEqual(validateBrokerSyncCandidate(candidate, reason => reasons.push(reason)), { ok: true });
+      assert.deepEqual(reasons, [], "Non-future timestamp emitted an ahead bucket");
+    }
     for (const price of [null, 0, -10, 10]) {
       const candidate = structuredClone(base);
       candidate.accounts[0].positions.items[0].price = price;

@@ -70,9 +70,11 @@ export type BrokerCandidateDiagnosticReason =
   | "invalid_position_timestamp" | "future_position_timestamp"
   | "invalid_fetched_timestamp" | "invalid_freshness_timestamp" | "future_freshness_timestamp";
 
+export type BrokerTimestampAheadBucket = "seconds" | "minutes" | "hours" | "more_than_a_day";
+
 export function validateBrokerSyncCandidate(
   candidate: BrokerSyncCandidate,
-  diagnostic?: (reason: BrokerCandidateDiagnosticReason) => void,
+  diagnostic?: (reason: BrokerCandidateDiagnosticReason, aheadBucket?: BrokerTimestampAheadBucket) => void,
 ): BrokerCandidateValidation {
   if (!Number.isFinite(Date.parse(candidate.fetchedAt)) ||
       !Number.isFinite(Date.parse(candidate.providerFreshnessAt)) ||
@@ -108,7 +110,13 @@ export function validateBrokerSyncCandidate(
         else if (!isFiniteNumber(position.price)) diagnostic?.("invalid_price");
         else if (!isFiniteNumber(position.marketValue)) diagnostic?.("invalid_market_value");
         else if (!Number.isFinite(Date.parse(position.asOf))) diagnostic?.("invalid_position_timestamp");
-        else diagnostic?.("future_position_timestamp");
+        else {
+          // Relative to this candidate's fetched time, not a new wall-clock read.
+          // Coarse diagnostic only: never clamp or rewrite provider evidence.
+          const aheadMs = Date.parse(position.asOf) - Date.parse(candidate.fetchedAt);
+          diagnostic?.("future_position_timestamp", aheadMs < 60_000 ? "seconds"
+            : aheadMs < 3_600_000 ? "minutes" : aheadMs <= 86_400_000 ? "hours" : "more_than_a_day");
+        }
         return { ok: false, retryable: false, errorCode: "candidate_position_invalid" };
       }
       positionKeys.add(position.positionKey);

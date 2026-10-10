@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { BrokerCandidateDiagnosticReason, BrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
+import type { BrokerCandidateDiagnosticReason, BrokerSyncCandidate, BrokerTimestampAheadBucket } from "@/lib/brokerage/sync-candidate";
 import { validateBrokerSyncCandidate } from "@/lib/brokerage/sync-candidate";
 
 type Job = Database["public"]["Tables"]["broker_sync_jobs"]["Row"];
@@ -10,10 +10,14 @@ export type BrokerSyncFetcher = (
   scope: { userId: string; providerId: string; externalConnectionId: string },
 ) => Promise<BrokerSyncCandidate>;
 
-function logSandboxCandidateRejection(reason: BrokerCandidateDiagnosticReason) {
+function logSandboxCandidateRejection(reason: BrokerCandidateDiagnosticReason, aheadBucket?: BrokerTimestampAheadBucket) {
   if (process.env.STOCKGPT_ALLOW_SNAPTRADE_SANDBOX !== "true") return;
   try {
-    console.info("[broker-sync-sandbox-validation]", { reason });
+    if (reason === "future_position_timestamp" && aheadBucket) {
+      console.info("[broker-sync-sandbox-validation]", { reason, aheadBucket });
+    } else {
+      console.info("[broker-sync-sandbox-validation]", { reason });
+    }
   } catch {
     // Diagnostic delivery must not change validation or worker failure handling.
   }
