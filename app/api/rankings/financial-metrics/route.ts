@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getFinancialMetricMap } from "@/lib/yahoo-financials";
+import { getFinancialMetricMap, getFundamentalSnapshots } from "@/lib/yahoo-financials";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 
@@ -47,7 +47,7 @@ async function getRankingRow(ticker: string, supabase: SupabaseClient) {
     const variants = tickerVariants(ticker);
     const { data, error } = await supabase
       .from("stock_rankings")
-      .select("ticker,rank,score,price,momentum,pe,risk,factor_coverage,data_confidence,updated_at")
+      .select("ticker,rank,score,price,momentum,pe,risk,updated_at")
       .in("ticker", variants)
       .limit(1);
 
@@ -85,11 +85,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ metrics: null, diagnostics: null, ranking: null, reason: "Missing ticker." }, { status: 400 });
   }
 
-  const [metrics, diagnostics, ranking] = await Promise.all([
-    getFinancialMetricMap([ticker]).then((map) => map.get(ticker) ?? null),
+  const [snapshots, diagnostics, ranking] = await Promise.all([
+    getFundamentalSnapshots([ticker], authClient),
     getDiagnostics(ticker, authClient),
     getRankingRow(ticker, authClient),
   ]);
+  const metrics = (await getFinancialMetricMap([ticker], snapshots)).get(ticker) ?? null;
 
   return NextResponse.json({ metrics, diagnostics, ranking });
 }

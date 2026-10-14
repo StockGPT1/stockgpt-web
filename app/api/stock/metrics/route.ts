@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFinancialMetricMap } from "@/lib/yahoo-financials";
+import { getFinancialMetricMap, getFundamentalSnapshots } from "@/lib/yahoo-financials";
+import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
   }
 
-  const metrics = (await getFinancialMetricMap([ticker])).get(ticker) ?? null;
+  // Use the caller's session: RLS controls access to premium stored data.
+  // Anonymous callers retain the existing public quote/chart fallback.
+  const supabase = await createClient();
+  const snapshots = await getFundamentalSnapshots([ticker], supabase);
+  const metrics = (await getFinancialMetricMap([ticker], snapshots)).get(ticker) ?? null;
   return NextResponse.json({ ticker, metrics });
 }

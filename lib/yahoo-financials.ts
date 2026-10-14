@@ -1,4 +1,16 @@
 import { getStockChart } from "@/lib/yahoo";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type FundamentalSnapshot = {
+  ticker: string;
+  collected_at: string;
+  source: string;
+  values: Record<string, unknown>;
+  metadata?: {
+    fields?: Record<string, { status?: string; source?: string; period?: unknown; periods?: unknown; basis?: string; reason?: string }>;
+    metric_extra?: Record<string, unknown>;
+  } | null;
+};
 
 export type FinancialMetrics = {
   ticker: string;
@@ -18,7 +30,13 @@ export type FinancialMetrics = {
   ma50: number | null;
   ma200: number | null;
   sixMonthChangePct: number | null;
-  metricsSource: "quote" | "quote+chart" | "chart";
+  metricsSource: "quote" | "quote+chart" | "snapshot+chart" | "chart";
+  fundamentals: Record<string, number | null>;
+  fundamentalsStatus: "available" | "partial" | "unavailable";
+  fundamentalsSource: string | null;
+  fundamentalsAsOf: string | null;
+  fundamentalMetadata: FundamentalSnapshot["metadata"];
+  quoteStatus: "available" | "unauthorized" | "rate_limited" | "unavailable" | "not_requested";
 };
 
 type YahooQuoteResult = {
@@ -46,6 +64,14 @@ type YahooQuoteResponse = {
 const YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
 const CHUNK_SIZE = 60;
 const FINANCIAL_FETCH_TIMEOUT_MS = 4500;
+// Collected_at records retrieval, not the financial statement's reporting date.
+// Do not quietly present an abandoned snapshot as current financial data.
+const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const FUNDAMENTAL_KEYS = [
+  "MarketCap", "EPS", "PE", "PS", "PB", "EVToEBITDA", "ROE", "ROIC",
+  "GrossMargin", "OperatingMargin", "NetMargin", "RevenueGrowth", "EPSGrowth",
+  "FCFMargin", "FCFGrowth", "FCFYield", "DebtToEquity", "DividendYield", "Beta",
+] as const;
 
 function cleanTicker(value: string | null | undefined) {
   return String(value ?? "")
@@ -55,17 +81,59 @@ function cleanTicker(value: string | null | undefined) {
 }
 
 function finiteNumber(value: unknown, options: { allowZero?: boolean } = {}) {
-  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   if (!options.allowZero && parsed === 0) return null;
   return parsed;
 }
 
-function normalizeDividendYield(value: unknown) {
-  const n = finiteNumber(value);
-  if (n == null || n <= 0) return null;
-  return n <= 1 ? n * 100 : n;
+function dividendYieldPct(row: YahooQuoteResult) {
+  // Yahoo dividendYield is already in percentage points; the annual yield
+  // field is a fraction. A magnitude guess corrupts yields below 1%.
+  const percent = finiteNumber(row.dividendYield, { allowZero: true });
+  if (percent != null && percent >= 0) return percent;
+  const fraction = finiteNumber(row.trailingAnnualDividendYield, { allowZero: true });
+  return fraction != null && fraction >= 0 ? fraction * 100 : null;
+}
+
+function snapshotValues(snapshot: FundamentalSnapshot | undefined) {
+  if (!snapshot) return null;
+  const collectedAt = Date.parse(snapshot.collected_at);
+  const age = Date.now() - collectedAt;
+  if (!Number.isFinite(collectedAt) || age > SNAPSHOT_MAX_AGE_MS || age < -5 * 60 * 1000) return null;
+  const values: Record<string, number | null> = {};
+  for (const key of [...FUNDAMENTAL_KEYS, "ForwardPE", "ForwardEPS", "TargetMeanPrice"]) {
+    const status = snapshot.metadata?.fields?.[key]?.status;
+    const blocked = status && /missing|unavailable|not_applicable|not_collected|invalid|imputed|error|stale/.test(status.toLowerCase());
+    const value = blocked ? null : finiteNumber(snapshot.values?.[key] ?? snapshot.metadata?.metric_extra?.[key], { allowZero: true });
+    const requiresPositive = ["MarketCap", "PE", "PS", "PB", "EVToEBITDA", "ForwardPE", "TargetMeanPrice"].includes(key);
+    const requiresNonnegative = ["DividendYield", "DebtToEquity"].includes(key);
+    values[key] = value != null && (!requiresPositive || value > 0) && (!requiresNonnegative || value >= 0) ? value : null;
+  }
+  return FUNDAMENTAL_KEYS.some((key) => values[key] != null) ? values : null;
+}
+
+export async function getFundamentalSnapshots(tickers: string[], supabase: SupabaseClient): Promise<FundamentalSnapshot[]> {
+  const variants = Array.from(new Set(tickers.flatMap((ticker) => {
+    const cleaned = cleanTicker(ticker);
+    return [cleaned, cleaned.replace(/\./g, "-"), cleaned.replace(/-/g, ".")];
+  }).filter(Boolean)));
+  if (!variants.length) return [];
+  try {
+    const { data, error } = await supabase.from("stock_fundamental_snapshots")
+      .select("ticker,collected_at,source,values,metadata")
+      .in("ticker", variants);
+    if (error) {
+      console.warn("[yahoo-financials] stored fundamentals unavailable", { code: error.code });
+      return [];
+    }
+    return Array.isArray(data) ? data as FundamentalSnapshot[] : [];
+  } catch {
+    console.warn("[yahoo-financials] stored fundamentals read failed");
+    return [];
+  }
 }
 
 function average(values: number[]) {
@@ -105,7 +173,7 @@ function rsi(values: number[], period = 14) {
     avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
   }
 
-  if (avgLoss === 0) return 100;
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
   const rs = avgGain / avgLoss;
   return 100 - 100 / (1 + rs);
 }
@@ -118,25 +186,19 @@ function macdSignal(values: number[]): FinancialMetrics["macdSignal"] {
   const macdLine = ema26.map((value, index) => ema12[index + offset] - value);
   const signalLine = ema(macdLine, 9);
   if (signalLine.length < 2) return null;
-  const signalOffset = macdLine.length - signalLine.length;
   const currentMacd = macdLine[macdLine.length - 1];
   const previousMacd = macdLine[macdLine.length - 2];
   const currentSignal = signalLine[signalLine.length - 1];
   const previousSignal = signalLine[signalLine.length - 2];
-  const previousAlignedSignal = signalLine[Math.max(0, signalLine.length - 2 - Math.max(0, signalOffset - signalOffset))] ?? previousSignal;
-
-  if (previousMacd <= previousAlignedSignal && currentMacd > currentSignal) return "bullish_cross";
-  if (previousMacd >= previousAlignedSignal && currentMacd < currentSignal) return "bearish_cross";
+  if (previousMacd <= previousSignal && currentMacd > currentSignal) return "bullish_cross";
+  if (previousMacd >= previousSignal && currentMacd < currentSignal) return "bearish_cross";
   if (currentMacd > currentSignal && currentMacd > 0) return "bullish";
   if (currentMacd < currentSignal && currentMacd < 0) return "bearish";
   return "neutral";
 }
 
-function validRange(price: number | null, low: number | null, high: number | null) {
-  if (price == null || low == null || high == null || low <= 0 || high <= low) return false;
-  if (low < price * 0.35) return false;
-  if (high > price * 1.85) return false;
-  return true;
+function validRange(low: number | null, high: number | null) {
+  return low != null && high != null && low > 0 && high >= low;
 }
 
 async function getChartFallback(ticker: string) {
@@ -162,11 +224,12 @@ async function getChartFallback(ticker: string) {
     const sixMonthAnchor = recentRangeCloses[0] ?? closes[0];
     return {
       regularMarketPrice: last,
-      fiftyTwoWeekLow: Math.min(...recentRangeCloses),
-      fiftyTwoWeekHigh: Math.max(...recentRangeCloses),
+      // Daily closing prices cannot establish the true yearly high or low.
+      fiftyTwoWeekLow: null,
+      fiftyTwoWeekHigh: null,
       rsi14: rsi(closes),
       macdSignal: macdSignal(closes),
-      ma50: average(closes.slice(-50)),
+      ma50: closes.length >= 50 ? average(closes.slice(-50)) : null,
       ma200: closes.length >= 200 ? average(closes.slice(-200)) : null,
       sixMonthChangePct: sixMonthAnchor > 0 ? ((last - sixMonthAnchor) / sixMonthAnchor) * 100 : null,
     };
@@ -185,51 +248,61 @@ async function getChartFallback(ticker: string) {
   }
 }
 
-function hasQuoteFundamentals(metrics: FinancialMetrics) {
-  return [
-    metrics.marketCap,
-    metrics.trailingPE,
-    metrics.forwardPE,
-    metrics.priceToBook,
-    metrics.epsTrailingTwelveMonths,
-    metrics.epsForward,
-    metrics.dividendYieldPct,
-    metrics.targetMeanPrice,
-  ].some((value) => value != null);
-}
+async function toMetrics(
+  ticker: string,
+  row: YahooQuoteResult | undefined,
+  snapshot: FundamentalSnapshot | undefined,
+  quoteStatus: FinancialMetrics["quoteStatus"],
+  chartPromise: ReturnType<typeof getChartFallback>,
+): Promise<FinancialMetrics> {
+  const chartFallback = await chartPromise;
+  const stored = snapshotValues(snapshot);
+  const quotePrice = finiteNumber(row?.regularMarketPrice);
+  const quoteLow = finiteNumber(row?.fiftyTwoWeekLow);
+  const quoteHigh = finiteNumber(row?.fiftyTwoWeekHigh);
+  const useQuoteRange = validRange(quoteLow, quoteHigh);
+  const yieldPct = row ? dividendYieldPct(row) : null;
+  const fundamentals: Record<string, number | null> = stored ?? Object.fromEntries(FUNDAMENTAL_KEYS.map((key) => [key, null]));
+  if (!stored && row) {
+    Object.assign(fundamentals, {
+      MarketCap: finiteNumber(row.marketCap),
+      PE: finiteNumber(row.trailingPE),
+      PB: finiteNumber(row.priceToBook),
+      EPS: finiteNumber(row.epsTrailingTwelveMonths, { allowZero: true }),
+      DividendYield: yieldPct != null ? yieldPct / 100 : null,
+      ForwardPE: finiteNumber(row.forwardPE),
+      ForwardEPS: finiteNumber(row.epsForward, { allowZero: true }),
+      TargetMeanPrice: finiteNumber(row.targetMeanPrice),
+    });
+  }
+  const present = FUNDAMENTAL_KEYS.filter((key) => fundamentals[key] != null).length;
 
-async function toMetrics(row: YahooQuoteResult): Promise<FinancialMetrics | null> {
-  const ticker = cleanTicker(row.symbol);
-  if (!ticker) return null;
-  const chartFallback = await getChartFallback(ticker);
-  const quotePrice = finiteNumber(row.regularMarketPrice);
-  const quoteLow = finiteNumber(row.fiftyTwoWeekLow);
-  const quoteHigh = finiteNumber(row.fiftyTwoWeekHigh);
-  const useQuoteRange = validRange(quotePrice ?? chartFallback.regularMarketPrice, quoteLow, quoteHigh);
-
-  const metrics: FinancialMetrics = {
+  return {
     ticker,
-    marketCap: finiteNumber(row.marketCap),
-    trailingPE: finiteNumber(row.trailingPE),
-    forwardPE: finiteNumber(row.forwardPE),
-    priceToBook: finiteNumber(row.priceToBook),
-    epsTrailingTwelveMonths: finiteNumber(row.epsTrailingTwelveMonths),
-    epsForward: finiteNumber(row.epsForward),
-    dividendYieldPct: normalizeDividendYield(row.dividendYield ?? row.trailingAnnualDividendYield),
+    marketCap: fundamentals.MarketCap ?? null,
+    trailingPE: fundamentals.PE ?? null,
+    forwardPE: fundamentals.ForwardPE ?? null,
+    priceToBook: fundamentals.PB ?? null,
+    epsTrailingTwelveMonths: fundamentals.EPS ?? null,
+    epsForward: fundamentals.ForwardEPS ?? null,
+    dividendYieldPct: fundamentals.DividendYield != null ? fundamentals.DividendYield * 100 : null,
     fiftyTwoWeekLow: useQuoteRange ? quoteLow : chartFallback.fiftyTwoWeekLow,
     fiftyTwoWeekHigh: useQuoteRange ? quoteHigh : chartFallback.fiftyTwoWeekHigh,
     regularMarketPrice: quotePrice ?? chartFallback.regularMarketPrice,
-    targetMeanPrice: finiteNumber(row.targetMeanPrice),
+    targetMeanPrice: fundamentals.TargetMeanPrice ?? null,
     rsi14: chartFallback.rsi14,
     macdSignal: chartFallback.macdSignal,
     ma50: chartFallback.ma50,
     ma200: chartFallback.ma200,
     sixMonthChangePct: chartFallback.sixMonthChangePct,
-    metricsSource: "quote",
+    metricsSource: stored ? "snapshot+chart" : present ? "quote+chart" : "chart",
+    fundamentals,
+    fundamentalsStatus: present === FUNDAMENTAL_KEYS.length ? "available" : present > 0 ? "partial" : "unavailable",
+    fundamentalsSource: stored ? snapshot?.source ?? null : present ? "Yahoo Finance quote" : null,
+    fundamentalsAsOf: stored ? snapshot?.collected_at ?? null : present ? new Date().toISOString() : null,
+    fundamentalMetadata: stored ? snapshot?.metadata ?? null : null,
+    quoteStatus,
   };
-
-  metrics.metricsSource = hasQuoteFundamentals(metrics) ? "quote+chart" : "chart";
-  return metrics;
 }
 
 async function fetchQuoteChunk(tickers: string[]) {
@@ -237,67 +310,59 @@ async function fetchQuoteChunk(tickers: string[]) {
   const timeout = setTimeout(() => controller.abort(), FINANCIAL_FETCH_TIMEOUT_MS);
 
   try {
-    const url = `${YAHOO_QUOTE_URL}?symbols=${encodeURIComponent(tickers.join(","))}`;
+    const url = `${YAHOO_QUOTE_URL}?symbols=${encodeURIComponent(tickers.map((ticker) => ticker.replace(/\./g, "-")).join(","))}`;
     const response = await fetch(url, {
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0 StockGPT/1.0",
       },
-      next: { revalidate: 15 * 60 },
+      // In particular, an authorization failure must not be cached as data.
+      cache: "no-store",
       signal: controller.signal,
     });
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      const status: FinancialMetrics["quoteStatus"] = response.status === 401 || response.status === 403
+        ? "unauthorized" : response.status === 429 ? "rate_limited" : "unavailable";
+      console.warn("[yahoo-financials] quote request rejected", { status: response.status });
+      return { rows: [] as YahooQuoteResult[], status };
+    }
     const json = (await response.json()) as YahooQuoteResponse;
-    return json.quoteResponse?.result ?? [];
+    const rows = json.quoteResponse?.result;
+    return { rows: Array.isArray(rows) ? rows : [], status: Array.isArray(rows) && rows.length ? "available" as const : "unavailable" as const };
   } catch (error) {
     console.warn("[yahoo-financials] quote fetch failed", error);
-    return [];
+    return { rows: [] as YahooQuoteResult[], status: "unavailable" as const };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function getFinancialMetricMap(tickers: string[]) {
+export async function getFinancialMetricMap(tickers: string[], snapshots: FundamentalSnapshot[] = []) {
   const cleanTickers = Array.from(new Set(tickers.map(cleanTicker).filter(Boolean)));
   const map = new Map<string, FinancialMetrics>();
+  const snapshotMap = new Map<string, FundamentalSnapshot>();
+  for (const snapshot of snapshots) {
+    if (!Number.isFinite(Date.parse(snapshot.collected_at))) continue;
+    const key = cleanTicker(snapshot.ticker).replace(/\./g, "-");
+    const previous = snapshotMap.get(key);
+    if (!previous || Date.parse(snapshot.collected_at) > Date.parse(previous.collected_at)) snapshotMap.set(key, snapshot);
+  }
 
   for (let i = 0; i < cleanTickers.length; i += CHUNK_SIZE) {
     const chunk = cleanTickers.slice(i, i + CHUNK_SIZE);
-    const rows = await fetchQuoteChunk(chunk);
-    const returnedTickers = new Set<string>();
-    for (const row of rows) {
-      const metrics = await toMetrics(row);
-      if (metrics) {
-        returnedTickers.add(metrics.ticker);
-        map.set(metrics.ticker, metrics);
-      }
-    }
-
-    const missingTickers = chunk.filter((ticker) => !returnedTickers.has(ticker));
-    for (const ticker of missingTickers) {
-      const chartFallback = await getChartFallback(ticker);
-      map.set(ticker, {
-        ticker,
-        marketCap: null,
-        trailingPE: null,
-        forwardPE: null,
-        priceToBook: null,
-        epsTrailingTwelveMonths: null,
-        epsForward: null,
-        dividendYieldPct: null,
-        fiftyTwoWeekLow: chartFallback.fiftyTwoWeekLow,
-        fiftyTwoWeekHigh: chartFallback.fiftyTwoWeekHigh,
-        regularMarketPrice: chartFallback.regularMarketPrice,
-        targetMeanPrice: null,
-        rsi14: chartFallback.rsi14,
-        macdSignal: chartFallback.macdSignal,
-        ma50: chartFallback.ma50,
-        ma200: chartFallback.ma200,
-        sixMonthChangePct: chartFallback.sixMonthChangePct,
-        metricsSource: "chart",
-      });
-    }
+    const charts = new Map(chunk.map((ticker) => [ticker, getChartFallback(ticker)]));
+    const needsQuote = chunk.filter((ticker) => !snapshotValues(snapshotMap.get(ticker.replace(/\./g, "-"))));
+    const quote = needsQuote.length ? await fetchQuoteChunk(needsQuote) : { rows: [] as YahooQuoteResult[], status: "not_requested" as const };
+    const quoteMap = new Map(quote.rows.map((row) => [cleanTicker(row.symbol).replace(/\./g, "-"), row]));
+    await Promise.all(chunk.map(async (ticker) => {
+      const key = ticker.replace(/\./g, "-");
+      const snapshot = snapshotMap.get(key);
+      const row = quoteMap.get(key);
+      const status = snapshotValues(snapshot) ? "not_requested" : quote.status === "available" && !row ? "unavailable" : quote.status;
+      const metrics = await toMetrics(ticker, row, snapshot, status, charts.get(ticker)!);
+      map.set(ticker, metrics);
+    }));
   }
 
   return map;

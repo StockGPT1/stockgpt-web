@@ -9,7 +9,9 @@ import { StockLogo } from "@/components/StockLogo";
 import { useIsDesktop } from "@/components/useIsDesktop";
 import { buildAskHref } from "@/lib/ask-context";
 import { factorDescription, sentenceCaseFactor } from "@/lib/factor-labels";
+import { fundamentalReportingLabel } from "@/lib/fundamental-provenance";
 import type { StableRankingRow } from "@/lib/stable-rankings";
+import type { FinancialMetrics } from "@/lib/yahoo-financials";
 
 type DiagnosticsPayload = {
   diagnostics?: {
@@ -18,8 +20,9 @@ type DiagnosticsPayload = {
     top_positive_factors?: unknown;
     top_negative_factors?: unknown;
     updated_at?: string | null;
+    factor_coverage?: number | null;
   } | null;
-  ranking?: { factor_coverage?: number | null; data_confidence?: string | null } | null;
+  metrics?: FinancialMetrics | null;
 };
 
 type LazyWhyRankDetailsProps = {
@@ -204,16 +207,12 @@ function FactorColumn({
 /* Provenance footer: how much data sits behind this rank and how fresh
    it is — the trust signals users asked "why" for in the first place. */
 function WhyMetaFooter({ data }: { data: DiagnosticsPayload | null }) {
-  const coverage = data?.ranking?.factor_coverage;
-  const confidence = data?.ranking?.data_confidence;
+  const coverage = data?.diagnostics?.factor_coverage;
   const updatedAt = data?.diagnostics?.updated_at;
 
   const parts: string[] = [];
-  if (typeof coverage === "number" && coverage > 0) {
-    parts.push(coverage <= 1 ? `${Math.round(coverage * 100)}% factor coverage` : `${Math.round(coverage)} factors tracked`);
-  }
-  if (typeof confidence === "string" && confidence.trim()) {
-    parts.push(`${confidence.trim().replace(/^\w/, (c) => c.toUpperCase())} data confidence`);
+  if (typeof coverage === "number" && Number.isFinite(coverage) && coverage >= 0 && coverage <= 1) {
+    parts.push(`${Math.round(coverage * 100)}% data completeness`);
   }
   if (typeof updatedAt === "string" && updatedAt) {
     const date = new Date(updatedAt);
@@ -224,7 +223,51 @@ function WhyMetaFooter({ data }: { data: DiagnosticsPayload | null }) {
 
   if (parts.length === 0) return null;
   return (
-    <p className="text-[9px] font-bold text-[#faf6f0]/34">{parts.join(" · ")}</p>
+    <div className="grid gap-1 text-[9px] leading-4 text-[#faf6f0]/40">
+      <p className="font-bold">{parts.join(" · ")}</p>
+      {typeof coverage === "number" && coverage < 1 && (
+        <p>Missing ranking inputs use sector estimates. Completeness measures available data, not prediction accuracy.</p>
+      )}
+    </div>
+  );
+}
+
+function CompanyFundamentals({ metrics, compact }: { metrics: FinancialMetrics | null | undefined; compact: boolean }) {
+  if (!metrics) return null;
+  if (metrics.fundamentalsStatus === "unavailable") {
+    return <p className="text-[10px] font-semibold leading-4 text-[#faf6f0]/50">Company financial figures are temporarily unavailable. Chart prices and ranking detail are shown separately.</p>;
+  }
+  const fields = [
+    ["PE", "P/E", "multiple"], ["ROIC", "Return on capital", "percent"],
+    ["FCFYield", "Cash-flow yield", "percent"], ["RevenueGrowth", "Revenue growth", "percent"],
+    ["ROE", "Return on equity", "percent"], ["OperatingMargin", "Operating margin", "percent"],
+    ["FCFMargin", "Cash-flow margin", "percent"], ["FCFGrowth", "Cash-flow growth", "percent"],
+    ["DebtToEquity", "Debt / equity", "multiple"], ["DividendYield", "Dividend yield", "percent"],
+  ].slice(0, compact ? 4 : 10);
+  const collected = metrics.fundamentalsAsOf ? new Date(metrics.fundamentalsAsOf) : null;
+  const collectedLabel = collected && Number.isFinite(collected.getTime())
+    ? ` · Retrieved ${collected.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "";
+  const source = metrics.fundamentalsSource?.toLowerCase().includes("yahoo") ? "Yahoo Finance" : metrics.fundamentalsSource ?? "Financial data";
+  return (
+    <div className="grid gap-2 border-t border-[#ddb159]/12 pt-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#ddb159]">Company fundamentals</p>
+      <div className="grid grid-cols-2 gap-2">
+        {fields.map(([key, label, format]) => {
+          const value = metrics.fundamentals[key];
+          const field = metrics.fundamentalMetadata?.fields?.[key];
+          const reportingLabel = fundamentalReportingLabel(field);
+          const text = value == null ? "—" : format === "percent" ? `${(value * 100).toFixed(1)}%` : `${value.toFixed(1)}×`;
+          return (
+            <div key={key} className="rounded-lg border border-[#faf6f0]/8 px-2.5 py-2">
+              <p className="text-[9px] font-semibold text-[#faf6f0]/48">{label}</p>
+              <p className="mt-1 text-[12px] font-black tabular-nums text-[#faf6f0]/85">{text}</p>
+              {value != null && reportingLabel && <p className="mt-0.5 text-[8px] text-[#faf6f0]/38">{reportingLabel}</p>}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[9px] font-semibold leading-4 text-[#faf6f0]/40">{source}{collectedLabel}. — means unavailable or inapplicable.</p>
+    </div>
   );
 }
 
@@ -300,6 +343,7 @@ function WhyContent({
           </p>
 
           <WhyMetaFooter data={data} />
+          <CompanyFundamentals metrics={data?.metrics} compact={compact} />
         </>
       )}
 
