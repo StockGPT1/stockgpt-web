@@ -96,6 +96,12 @@ reviewed local version 20261015160822 maps to hosted Staging 20261021164515.
 
 ## Recommended next implementation (one handover)
 
+The synthetic engineering batch below has now been implemented in the
+accelerated readiness sprint; see [verification](readiness-sprint-verification.md).
+External commercial/legal approvals and real-account activation remain pending.
+The next handover is the consolidated provider/qualified-review decision packet
+plus approved source-publication isolation, not another Stage 22B review.
+
 Authorise **one synthetic-only readiness batch**: data-flow/processor register,
 lifecycle dry-run/export contracts, AI-context minimization/claims tests, and
 default-off cohort/observability/stop controls, while provider and counsel work

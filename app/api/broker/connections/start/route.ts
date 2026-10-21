@@ -2,18 +2,21 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { brokerConnectionsEnabled, brokerPortalSandboxRestriction, brokerReturnUrl } from "@/lib/brokerage/capability";
+import { brokerConnectionsEnabled, brokerPortalSandboxRestriction, brokerReturnUrl, brokerRolloutAccess } from "@/lib/brokerage/capability";
 import { ensureSnapTradeRegistration } from "@/lib/brokerage/connection-service";
 import { createReadOnlySnapTradePortalLink } from "@/lib/brokerage/providers/snaptrade/service";
 
 export async function POST(request: Request) {
   if (!brokerConnectionsEnabled()) return NextResponse.json({ error: "Broker connections are unavailable." }, { status: 503 });
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const profile = await supabase.from("profiles").select("subscription_status").eq("id", user.id).maybeSingle();
   if (!hasActiveSubscription(profile.data?.subscription_status)) {
     return NextResponse.json({ error: "An active subscription is required." }, { status: 403 });
+  }
+  if (profile.error || !brokerRolloutAccess({ userId: user.id, subscriptionStatus: profile.data?.subscription_status, operation: "connect" }).allowed) {
+    return NextResponse.json({ error: "Broker connections are unavailable." }, { status: 403 });
   }
 
   const admin = createAdminClient();

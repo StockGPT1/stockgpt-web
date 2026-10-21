@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { brokerConnectionsEnabled } from "@/lib/brokerage/capability";
+import { brokerConnectionsEnabled, brokerRolloutAccess } from "@/lib/brokerage/capability";
 
 export async function POST(request: Request) {
   if (!brokerConnectionsEnabled()) return NextResponse.json({ error: "Broker connections are unavailable." }, { status: 503 });
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const profile = await supabase.from("profiles").select("subscription_status").eq("id", user.id).maybeSingle();
+  if (profile.error || !brokerRolloutAccess({ userId: user.id, subscriptionStatus: profile.data?.subscription_status, operation: "project" }).allowed) {
+    return NextResponse.json({ error: "Broker connections are unavailable." }, { status: 403 });
+  }
   const form = await request.formData();
   const accountId = form.get("accountId");
   if (typeof accountId !== "string" || !accountId) {

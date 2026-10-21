@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { brokerConnectionsEnabled } from "@/lib/brokerage/capability";
+import { brokerConnectionsEnabled, brokerRolloutAccess } from "@/lib/brokerage/capability";
 import { discoverSnapTradeConnections } from "@/lib/brokerage/connection-service";
 
 export async function GET(request: Request) {
@@ -11,8 +11,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(target);
   }
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.redirect(new URL("/login", request.url));
+  const profile = await supabase.from("profiles").select("subscription_status").eq("id", user.id).maybeSingle();
+  if (profile.error || !brokerRolloutAccess({ userId: user.id, subscriptionStatus: profile.data?.subscription_status, operation: "discover" }).allowed) {
+    target.searchParams.set("state", "unavailable");
+    return NextResponse.redirect(target);
+  }
   const admin = createAdminClient();
   const provider = await admin.from("broker_providers").select("id").eq("provider_key", "snaptrade").single();
   if (provider.error) {

@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { brokerConnectionsEnabled } from "@/lib/brokerage/capability";
+import { brokerRolloutAccess } from "@/lib/brokerage/capability";
 import { deriveBrokerConnectionPresentation } from "@/lib/brokerage/connection-presentation-state";
 import type { Database } from "@/lib/database.types";
 
 export default async function BrokerConnectionsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
+  const profile = await supabase.from("profiles").select("subscription_status").eq("id", user.id).maybeSingle();
+  const canConnect = !profile.error && brokerRolloutAccess({ userId: user.id, subscriptionStatus: profile.data?.subscription_status, operation: "connect" }).allowed;
+  const canProject = !profile.error && brokerRolloutAccess({ userId: user.id, subscriptionStatus: profile.data?.subscription_status, operation: "project" }).allowed;
 
   const [connections, accounts, portfolios, jobs] = await Promise.all([
     supabase.from("broker_connections").select("id,institution_id,status,last_attempted_sync_at,last_successful_sync_at,brokerage_institutions(name)").order("created_at"),
@@ -25,12 +28,14 @@ export default async function BrokerConnectionsPage() {
       <div><p className="text-xs uppercase tracking-[0.18em] text-white/50">Read-only connections</p><h1 className="mt-2 text-3xl font-semibold">Connected accounts</h1></div>
       <Link href="/portfolio/modern" className="text-sm text-white/70 hover:text-white">Back to Portfolio</Link>
     </div>
-    {!brokerConnectionsEnabled() ? <section className="rounded-2xl border border-white/10 bg-white/5 p-6"><h2 className="font-semibold">Connections are not available yet</h2><p className="mt-2 text-sm text-white/60">This rollout is currently disabled. No provider request was made.</p></section> : <>
+    {(connections.error || accounts.error || portfolios.error || jobs.error) && <p role="status" className="mb-6 rounded-2xl border border-white/15 p-5 text-sm text-white/65">Some connected account information is unavailable. Last recorded financial facts have not been changed.</p>}
+    {!canConnect ? <section className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6"><h2 className="font-semibold">Connections are not available yet</h2><p className="mt-2 text-sm text-white/60">New connections are currently unavailable. Existing account information remains visible.</p></section> : <>
       <form action="/api/broker/connections/start" method="post" className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6">
         <h2 className="font-semibold">Connect an investment account</h2>
         <p className="mt-2 max-w-2xl text-sm text-white/60">Open the provider portal with read-only access. StockGPT cannot place trades.</p>
         <button className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black">Connect account</button>
       </form>
+    </>}
       <div className="space-y-4">
         {(connections.data ?? []).map((connection) => {
           const job = latestJob.get(connection.id);
@@ -40,15 +45,14 @@ export default async function BrokerConnectionsPage() {
             lastSuccessfulSyncAt: connection.last_successful_sync_at,
           });
           return <section key={connection.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-medium">{connection.brokerage_institutions.name}</h2><p className="text-sm text-white/55">{presentation.label}</p></div>{connection.status === "disconnected" && <form action="/api/broker/connections/start" method="post"><input type="hidden" name="connectionId" value={connection.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Reconnect</button></form>}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-medium">{connection.brokerage_institutions.name}</h2><p className="text-sm text-white/55">{jobs.error ? "Sync status unavailable" : presentation.label}</p></div>{canConnect && connection.status === "disconnected" && <form action="/api/broker/connections/start" method="post"><input type="hidden" name="connectionId" value={connection.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Reconnect</button></form>}</div>
             <div className="mt-4 space-y-3">{(accounts.data ?? []).filter((account) => account.connection_id === connection.id).map((account) => {
               const portfolioId = portfolioByAccount.get(account.id);
-              return <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/20 p-4"><div><p className="font-medium">{account.name}</p><p className="text-xs text-white/50">{account.account_type ?? "Investment account"} · {account.base_currency ?? "Currency unavailable"} · {account.last_successful_sync_at ? "Synced" : "Sync pending"}</p></div>{portfolioId ? <Link className="text-sm text-white/75" href={`/portfolio/modern?portfolio=${portfolioId}`}>View Portfolio</Link> : account.last_successful_sync_at ? <form action="/api/broker/portfolios" method="post"><input type="hidden" name="accountId" value={account.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Add to StockGPT</button></form> : <span className="text-xs text-white/45">Waiting for initial sync</span>}</div>;
+              return <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-black/20 p-4"><div><p className="font-medium">{account.name}</p><p className="text-xs text-white/50">{account.account_type ?? "Investment account"} · {account.base_currency ?? "Currency unavailable"} · {account.last_successful_sync_at ? "Synced" : "Sync pending"}</p></div>{portfolioId ? <Link className="text-sm text-white/75" href={`/portfolio/modern?portfolio=${portfolioId}`}>View Portfolio</Link> : canProject && account.last_successful_sync_at ? <form action="/api/broker/portfolios" method="post"><input type="hidden" name="accountId" value={account.id}/><button className="rounded-full border border-white/20 px-4 py-2 text-sm">Add to StockGPT</button></form> : <span className="text-xs text-white/45">{account.last_successful_sync_at ? "Account addition unavailable" : "Waiting for initial sync"}</span>}</div>;
             })}</div>
           </section>;
         })}
-        {(connections.data ?? []).length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-6 text-sm text-white/55">No provider connection has been discovered yet.</p>}
+        {!connections.error && (connections.data ?? []).length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-6 text-sm text-white/55">No provider connection has been discovered yet.</p>}
       </div>
-    </>}
   </main>;
 }

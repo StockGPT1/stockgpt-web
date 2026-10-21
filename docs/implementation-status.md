@@ -38,8 +38,8 @@ Engineering constitution:
 | 21 | Performance/load testing | COMPLETE | `Build release and performance gates` | Normal Portfolio facts are held-only, wider stock search is lazy, connected/aggregate loading remains bulk and provider-free, and deterministic 0/10/50/200-position plus 120-worker queue fixtures enforce bounded work. |
 | 22 | First real broker pilot | IN PROGRESS | Stage 22A + 22B accepted | Non-production Sandbox and native hosted scheduled proof complete. 22C commercial/security readiness and 22D explicitly authorised real-account pilot remain outstanding. |
 | 23 | Second-broker abstraction proof | NOT STARTED | | |
-| 24 | Compliance/legal launch review | IN PROGRESS — planning only | | Readiness packet and approval criteria prepared; no legal/regulatory approval claimed. |
-| 25 | Controlled production rollout | NOT STARTED | | Dependency-driven limited-beta backlog prepared; no activation authorised. |
+| 24 | Compliance/legal launch review | IN PROGRESS — engineering readiness | Synthetic lifecycle/export and AI minimization foundations | Provider/qualified legal decisions remain outstanding; no compliance clearance or destructive lifecycle policy claimed. |
+| 25 | Controlled production rollout | IN PROGRESS — disabled foundations | Synthetic cohort/stop/observability controls | Empty server-owned cohort; no beta participants, activation, push or deployment. Database admission and operational release gates remain outstanding. |
 | 26 | Post-launch provider strategy | NOT STARTED | | |
 
 ## Current development topology
@@ -252,6 +252,55 @@ readiness, 22D pilot gates, Stage 25 backlog and safe future Git publication.
 - Stage 22's real internal brokerage pilot remains `NOT STARTED` and requires separate explicit approval.
 
 ## Global release gates
+
+### Accelerated 22C / 22D / 24 / 25 readiness sprint — synthetic only
+
+- Session/RLS-derived brokerage export foundations read seven explicit-column
+  tables; owner/parent/institution validation, count-aware pagination and shared
+  row/page/byte budgets reject incomplete exports. Null/zero, monetary evidence
+  and activity timing are preserved without financial recalculation. This is a
+  non-transactional brokerage subset, not a complete legal rights export.
+- Lifecycle planning is executable **inventory only** with every mutation flag
+  false. Disconnect, Portfolio removal, credential revocation, broker-data erasure
+  and account closure remain distinct; retention/rights policy is unresolved.
+  No deletion endpoint, provider operation, schema/RLS change or retention period
+  was introduced. See [inventory](privacy-data-inventory.md).
+- Ask now applies one final outbound allowlist after authenticated factual loading.
+  Stable user/account/Portfolio/instrument IDs, private names, raw payloads and
+  arbitrary filter fields are excluded; request-local holding references preserve
+  separate positions and canonical evidence. Synthetic provenance, unknown
+  money and unavailable connected performance remain explicit. Financial context
+  is still personal data; questions/history are separate user disclosures and
+  processor/model approval remains required. Provider failure payloads and raw
+  exception diagnostics no longer reach Ask logs/customer failure objects.
+- Fixed a financial-isolation dependency: unavailable connected facts no longer
+  fall back to manual Portfolio cash/accounting in Ask. No accounting, valuation,
+  instrument resolution or performance mathematics changed.
+- New app connection, discovery/enqueue and projection operations require exact
+  session ownership, the unchanged subscription entitlement, rollout mode and a
+  single time/operation-bound trusted cohort approval. Registry remains empty;
+  missing/contradictory settings fail closed. Existing normalized views remain
+  available with explicit load failures rather than fabricated empty state.
+- Admission stop and ordinary worker stop controls are separate. Paused worker
+  ticks reject after cron authorization but before admin creation/claim; no
+  in-flight cancellation, provider disconnect or data deletion is implied.
+  Ordinary worker behavior when the new stop setting is absent is preserved.
+  A bounded fixed-enum/count/freshness projection supports privacy-safe future
+  operator observability without a new privileged endpoint or raw error logs.
+- These are server/application admission controls. Existing authenticated
+  `create_connected_portfolio` remains an exact-owner DB capability, not a
+  cohort-enforced RPC. Review database admission before beta activation; do not
+  claim this source-only sprint closes all database rollout boundaries.
+- `test:readiness` composes lifecycle, AI, actual-route mocked admission and
+  worker-stop tests and is included in static acceptance. Relevant acceptance,
+  type/lint/build evidence and the complete inventory are recorded in
+  [sprint verification](readiness-sprint-verification.md).
+- Parallel [provider/legal assessment](provider-legal-readiness-assessment.md)
+  separates public source facts, interpretation and required written decisions.
+  [22D/25 release runbook](runbooks/stage22-pilot-beta-release.md) records consent,
+  exact real-account approval, processor/retention, cost/operator and publishing
+  gates. No real pilot, cloud mutation, credential read, cohort activation,
+  provider request, paid service, push, merge or deployment occurred.
 
 Every implementation stage must pass:
 

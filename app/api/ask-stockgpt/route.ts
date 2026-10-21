@@ -18,6 +18,7 @@ import { hasActiveSubscription } from "@/lib/subscription";
 import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-intelligence";
 import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
 import { loadAllInvestments } from "@/lib/all-investments";
+import { minimizeAskAppContext, safeAiProviderFailure } from "@/lib/ai/portfolio-context-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -295,8 +296,8 @@ async function deleteOldChatMessages(supabase: ServerSupabaseClient, userId: str
       .delete()
       .eq("user_id", userId)
       .lt("created_at", sevenDaysAgoIso());
-  } catch (error) {
-    console.warn("[ask-stockgpt] Could not delete old chat messages", error);
+  } catch {
+    console.warn("[ask-stockgpt] Could not delete old chat messages", { code: "chat_cleanup_unavailable" });
   }
 }
 
@@ -311,7 +312,7 @@ async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: st
       .limit(MAX_STORED_MESSAGES);
 
     if (error) {
-      console.warn("[ask-stockgpt] Could not read chat history", error);
+      console.warn("[ask-stockgpt] Could not read chat history", { code: "chat_history_unavailable" });
       return [];
     }
 
@@ -326,8 +327,8 @@ async function readRecentChatMessages(supabase: ServerSupabaseClient, userId: st
         role: row.role as "user" | "assistant",
         content: String(row.content).trim(),
       }));
-  } catch (error) {
-    console.warn("[ask-stockgpt] Chat history unavailable", error);
+  } catch {
+    console.warn("[ask-stockgpt] Chat history unavailable", { code: "chat_history_unavailable" });
     return [];
   }
 }
@@ -339,8 +340,8 @@ async function storeChatMessage(supabase: ServerSupabaseClient, userId: string, 
       role: message.role,
       content: message.content.slice(0, 6000),
     });
-  } catch (error) {
-    console.warn("[ask-stockgpt] Could not store chat message", error);
+  } catch {
+    console.warn("[ask-stockgpt] Could not store chat message", { code: "chat_store_unavailable" });
   }
 }
 
@@ -505,7 +506,7 @@ async function buildAppContext(
             createdAt: focusedPortfolio.created_at,
           },
         })
-      : buildAskStockGPTPortfolioContext({
+      : focusedPortfolio.management_source === "connected" ? null : buildAskStockGPTPortfolioContext({
         facts: {
           portfolio: {
             id: focusedPortfolio.id,
@@ -589,7 +590,7 @@ async function buildAppContext(
             .map((portfolio, index) => ({ name: cleanPortfolioName(portfolio.name, index) })),
           mentioned_holdings: mentionedHoldings,
         }
-      : { available: false, reason: "No saved portfolio found." },
+      : { available: false, reason: focusedPortfolio ? "Portfolio facts unavailable." : "No saved portfolio found." },
     news_context: {
       latest_news: news.slice(0, 12),
       relevant_news: relevantNews.slice(0, 10),
@@ -639,29 +640,17 @@ async function callOpenRouter({
 
       failures.push({
         model,
-        status: response.status,
-        message: data?.error?.message ?? "OpenRouter returned no answer.",
+        ...safeAiProviderFailure(response.status),
       });
-    } catch (error) {
+    } catch {
       failures.push({
         model,
-        message: error instanceof Error ? error.message : "OpenRouter request failed.",
+        ...safeAiProviderFailure(),
       });
     }
   }
 
   return { answer: null, model: null, failures };
-}
-
-function parseOpenRouterFailureText(text: string) {
-  if (!text.trim()) return "OpenRouter returned no response body.";
-
-  try {
-    const parsed = JSON.parse(text) as OpenRouterResponse | null;
-    return parsed?.error?.message ?? text.slice(0, 240);
-  } catch {
-    return text.slice(0, 240);
-  }
 }
 
 async function openOpenRouterStream({
@@ -699,16 +688,15 @@ async function openOpenRouterStream({
         return { response, model, failures };
       }
 
-      const text = await response.text().catch(() => "");
+      await response.body?.cancel().catch(() => {});
       failures.push({
         model,
-        status: response.status,
-        message: parseOpenRouterFailureText(text),
+        ...safeAiProviderFailure(response.status),
       });
-    } catch (error) {
+    } catch {
       failures.push({
         model,
-        message: error instanceof Error ? error.message : "OpenRouter stream request failed.",
+        ...safeAiProviderFailure(),
       });
     }
   }
@@ -777,7 +765,7 @@ function streamOpenRouterAnswer({
             }
 
             if (chunk.error?.message) {
-              throw new Error(chunk.error.message);
+              throw new Error("ai_provider_stream_failed");
             }
 
             const delta = chunk.choices?.[0]?.delta?.content ?? "";
@@ -792,8 +780,8 @@ function streamOpenRouterAnswer({
         await finishWithFallback(
           "Ask StockGPT connected, but the model returned an empty response. Please retry.",
         );
-      } catch (error) {
-        console.warn("[ask-stockgpt] Stream interrupted", error);
+      } catch {
+        console.warn("[ask-stockgpt] Stream interrupted", { code: "ai_provider_stream_failed" });
         const interruption =
           "\n\nAsk StockGPT's response stream was interrupted. The partial answer above was saved; retry if you need the full response.";
 
@@ -841,7 +829,7 @@ export async function DELETE() {
     .eq("user_id", access.userId);
 
   if (error) {
-    console.error("[ask-stockgpt] Could not clear chat history", error);
+    console.error("[ask-stockgpt] Could not clear chat history", { code: "chat_clear_unavailable" });
     return NextResponse.json({ success: false, error: "Could not clear Ask StockGPT chat history." }, { status: 500 });
   }
 
@@ -913,13 +901,13 @@ export async function POST(req: NextRequest) {
     await storeChatMessage(supabase, access.userId, { role: "user", content: question });
 
     const contextAsOf = new Date().toISOString();
-    const context = await buildAppContext(
+    const context = minimizeAskAppContext(await buildAppContext(
       supabase,
       access.userId,
       question,
       requestedContext,
       contextAsOf,
-    );
+    ));
     const messages: OpenRouterMessage[] = [
       { role: "system", content: ASK_STOCKGPT_SYSTEM_PROMPT },
       ...history
@@ -961,13 +949,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.warn("[ask-stockgpt] Streaming unavailable; falling back to full response", streamResult.failures);
+      console.warn("[ask-stockgpt] Streaming unavailable; falling back to full response", { code: "ai_provider_unavailable" });
     }
 
     const result = await callOpenRouter({ apiKey, messages });
 
     if (!result.answer) {
-      console.error("[ask-stockgpt] OpenRouter all models failed", result.failures);
+      console.error("[ask-stockgpt] OpenRouter all models failed", { code: "ai_provider_unavailable" });
       const answer =
         "Ask StockGPT could not get an AI response from the OpenRouter model stack. Check OPENROUTER_API_KEY, free-model availability, rate limits and Vercel environment variables.";
 
@@ -982,8 +970,8 @@ export async function POST(req: NextRequest) {
       model_used: result.model,
       attempted_models: [result.model, ...result.failures.map((failure) => failure.model)].filter(Boolean),
     });
-  } catch (error) {
-    console.error("[ask-stockgpt]", error);
+  } catch {
+    console.error("[ask-stockgpt]", { code: "ai_request_failed" });
     return NextResponse.json(
       {
         answer:
