@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AskStockGPTWorkspace } from "@/components/AskStockGPTWorkspace";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { createClient } from "@/utils/supabase/server";
+import { getServerViewer, getViewerProfile } from "@/lib/server-viewer";
 import { askContextFromSearchParams } from "@/lib/ask-context";
 
 export const metadata: Metadata = {
@@ -15,22 +15,8 @@ export default async function AskStockGPTPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const initialContext = askContextFromSearchParams(await searchParams);
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let canUseAskStockGPT = false;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    canUseAskStockGPT = hasActiveSubscription(profile?.subscription_status);
-  }
+  const [{ user }, profile] = await Promise.all([getServerViewer(), getViewerProfile()]);
+  const canUseAskStockGPT = !!user && hasActiveSubscription(profile?.subscription_status);
 
   return (
     <AskStockGPTWorkspace

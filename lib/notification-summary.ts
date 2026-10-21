@@ -1,5 +1,5 @@
 import { deleteCacheKey, getJsonCache, setJsonCache } from "@/lib/redis-cache";
-import { createClient } from "@/utils/supabase/server";
+import { getServerViewer } from "@/lib/server-viewer";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const NOTIFICATION_SUMMARY_TTL_MS = Number(
@@ -60,10 +60,7 @@ export async function saveUnreadNotificationSummary(userId: string, unreadCount:
 
 export async function getUnreadNotificationCountFast(): Promise<number> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getServerViewer();
 
     if (!user) return 0;
 

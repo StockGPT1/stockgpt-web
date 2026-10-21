@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { StockIcon } from "@/components/StockIcon";
 import { useAppChrome } from "@/components/AppChromeProvider";
+import { NativeAppHeader } from "@/components/native-navigation/NativeNavigation";
 import { nativeShare } from "@/lib/ios-native";
 
 function pageTitle(pathname: string) {
@@ -98,7 +99,7 @@ function AskHeaderButton({ href }: { href: string }) {
   );
 }
 
-export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: string }) {
+export function MobileAppHeader({ askHref = "/ask-stockgpt", nativeApp = false, unreadCount = 0 }: { askHref?: string; nativeApp?: boolean; unreadCount?: number }) {
   const pathname = usePathname();
   const router = useRouter();
   const { openSearch } = useAppChrome();
@@ -125,6 +126,8 @@ export function MobileAppHeader({ askHref = "/ask-stockgpt" }: { askHref?: strin
     const query = params.toString();
     window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
   }, [openSearch, pathname]);
+
+  if (nativeApp) return <NativeAppHeader title={isDashboard ? "Home" : title} unreadCount={unreadCount} back={usesBackButton} />;
 
   if (isDashboard) {
     return (

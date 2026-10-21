@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import PortfolioDesignPreview from "@/dev/PortfolioDesignPreview";
-import "../portfolio/portfolio-mobile-alignment.css";
+import "../(workspace)/portfolio/portfolio-mobile-alignment.css";
 
 export const metadata = {
   title: "StockGPT portfolio design preview",

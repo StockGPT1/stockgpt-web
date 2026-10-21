@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthProviderButtons } from "@/components/AuthProviderButtons";
+import { useAppBoot } from "@/components/AppBootProvider";
 import {
   AuthMessage,
   AuthScaffold,
@@ -30,14 +31,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isIOSApp, setIsIOSApp] = useState(false);
-
-  useEffect(() => {
-    setIsIOSApp(isStockGPTIOSApp());
-    /* Warm the dashboard shell while the user types so the post-login
-       navigation only has to stream the data, not the whole route. */
-    router.prefetch("/dashboard");
-  }, [router]);
+  const { nativeApp: isIOSApp } = useAppBoot();
 
   useEffect(() => {
     if (!isStockGPTIOSApp()) return;

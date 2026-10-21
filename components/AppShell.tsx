@@ -1,13 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { TickerTape } from "@/components/TickerTape";
 import { AskStockGPTButton } from "@/components/AskStockGPTButton";
 import { getUnreadNotificationCountFast } from "@/lib/notification-summary";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { createClient } from "@/utils/supabase/server";
+import { getServerViewer, getViewerProfile } from "@/lib/server-viewer";
+import { NativePageRegistration } from "@/components/NativePageRegistration";
+import { BrandLoaderPage } from "@/components/BrandLoader";
+import { AppReady } from "@/components/AppBootProvider";
 import { AppLegalDisclaimer } from "@/components/AppLegalDisclaimer";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 import { AppChromeProvider } from "@/components/AppChromeProvider";
@@ -149,34 +152,20 @@ export async function AppShell({
   activePath,
   askLabel,
   askContext,
+  persistent = false,
 }: {
   children: ReactNode;
   activePath: string;
   askLabel?: string;
   askContext?: AskContext | null;
+  persistent?: boolean;
 }) {
-  const supabase = await createClient();
-
-  const [
-    unreadCount,
-    {
-      data: { user },
-    },
-    headerStore,
-  ] = await Promise.all([getUnreadNotificationCountFast(), supabase.auth.getUser(), headers()]);
+  const headerStore = await headers();
   const nativeApp = /StockGPTApp/i.test(headerStore.get("user-agent") ?? "");
-
-  let canUseAskStockGPT = false;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    canUseAskStockGPT = hasActiveSubscription(profile?.subscription_status);
-  }
+  const fallbackContext: AskContext | null = askContext ?? (activePath === "/portfolio" ? { contextType: "portfolio" } : activePath === "/rankings" ? { contextType: "rankings" } : { contextType: "dashboard" });
+  if (nativeApp && !persistent) return <NativePageRegistration context={fallbackContext}>{children}</NativePageRegistration>;
+  const [{ user }, profile, unreadCount] = await Promise.all([getServerViewer(), getViewerProfile(), getUnreadNotificationCountFast()]);
+  const canUseAskStockGPT = !!user && hasActiveSubscription(profile?.subscription_status);
 
   const inferredAskContext: AskContext | null = askContext ??
     (activePath === "/dashboard"
@@ -193,7 +182,9 @@ export async function AppShell({
         ? "Ask about this portfolio"
         : "Ask StockGPT");
   const mobileAskTarget = buildAskHref(inferredAskContext);
-  const mobileAskHref = canUseAskStockGPT
+  // The persistent native shell opens Ask itself so that the destination
+  // rechecks current membership, including upgrades made while the app is open.
+  const mobileAskHref = canUseAskStockGPT || (nativeApp && !!user)
     ? mobileAskTarget
     : user
       ? "/subscription"
@@ -202,7 +193,7 @@ export async function AppShell({
   return (
     <AppChromeProvider>
       <div className="sg-app-shell flex h-[100dvh] flex-col overflow-hidden text-[#fffaf2]">
-        <MobileAppHeader askHref={mobileAskHref} />
+        <MobileAppHeader askHref={mobileAskHref} nativeApp={nativeApp} unreadCount={unreadCount} />
 
       <header className="sg-app-header relative z-40 hidden h-[64px] shrink-0 items-center gap-2 border-b border-[#f2c35f]/24 bg-[linear-gradient(180deg,#0b3423,#08281b)] px-5 shadow-[0_10px_30px_rgba(0,0,0,0.22)] lg:flex">
         <Link
@@ -278,9 +269,7 @@ export async function AppShell({
 
       </header>
 
-      <div className="hidden shrink-0 lg:block">
-        <TickerTape />
-      </div>
+      {!nativeApp && <div className="hidden shrink-0 lg:block"><Suspense fallback={null}><TickerTape /></Suspense></div>}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="sg-sidebar hidden h-full w-[178px] shrink-0 border-r border-[#f2c35f]/20 bg-[linear-gradient(180deg,#092f20,#062117)] px-3 py-4 lg:block">
@@ -329,7 +318,7 @@ export async function AppShell({
         <section className={`sg-app-content sg-candle-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 pb-[calc(112px+env(safe-area-inset-bottom))] sm:p-3 lg:pb-3 ${activePath === "/chart-scan" ? chartScanStyles.backdrop : ""}`}>
           <PageBackdrop activePath={activePath} />
           <div key={activePath} className="sg-route-content relative z-10 min-h-full lg:h-full lg:min-h-0">
-            {children}
+            <Suspense fallback={<BrandLoaderPage label="Opening StockGPT" />}><AppReady />{children}</Suspense>
             <AppLegalDisclaimer />
           </div>
         </section>
@@ -337,7 +326,7 @@ export async function AppShell({
 
         <GlobalSearchOverlay showRankingData={canUseAskStockGPT} />
         <CommandPalette />
-        <MobileBottomNav unreadCount={unreadCount} nativeApp={nativeApp} />
+        <MobileBottomNav unreadCount={unreadCount} nativeApp={nativeApp} askHref={mobileAskHref} />
       </div>
     </AppChromeProvider>
   );

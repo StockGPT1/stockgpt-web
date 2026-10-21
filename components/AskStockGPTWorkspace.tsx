@@ -6,6 +6,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AskContext } from "@/lib/ask-context";
+import { AppReady, useAppBoot } from "@/components/AppBootProvider";
+import { ElasticBubble } from "@/components/native-navigation/LiquidControls";
+import { StockGPTFlame } from "@/components/native-navigation/StockGPTFlame";
+import styles from "./AskStockGPTWorkspace.module.css";
+
+function AskBubble({ nativeApp, children, className }: { nativeApp: boolean; children: ReactNode; className?: string }) {
+  return nativeApp ? <ElasticBubble className={className}>{children}</ElasticBubble> : <>{children}</>;
+}
+
+function NewConversationIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6" /><path d="m16 4 4 4M10 14l1-4 7-7a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2l-7 7-4 1Z" /></svg>;
+}
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -201,13 +213,13 @@ function PremiumOrb({ small = false }: { small?: boolean }) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, nativeApp }: { message: ChatMessage; nativeApp: boolean }) {
   const isUser = message.role === "user";
 
   if (isUser) {
     return (
       <div className="flex w-full justify-end">
-        <div className="max-w-[88%] rounded-[22px] rounded-br-[8px] border border-white/[0.07] bg-[#10261b]/92 px-4 py-3 text-[14px] font-semibold leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.18)] [overflow-wrap:anywhere] sm:max-w-[72%]">
+        <div className={`${styles.userBubble} max-w-[88%] rounded-[22px] rounded-br-[8px] border border-white/[0.07] bg-[#10261b]/92 px-4 py-3 text-[14px] font-semibold leading-6 text-[#f7f4ec] shadow-[0_12px_34px_rgba(0,0,0,0.18)] [overflow-wrap:anywhere] sm:max-w-[72%]`}>
           <div className="[&>p:first-child]:mt-0">{renderMessageContent(message.content)}</div>
         </div>
       </div>
@@ -215,11 +227,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="flex w-full items-start gap-3">
-      <span className="mt-1 grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[#ddb159]/26 bg-[#0a2418] p-1.5 shadow-[0_0_24px_rgba(221,177,89,0.10)]">
+    <div className={`${styles.assistantMessage} flex w-full items-start gap-3`}>
+      {nativeApp ? <div className={styles.assistantIdentity}><StockGPTFlame className={styles.replyFlame} /><span>StockGPT</span></div> : <span className="mt-1 grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[#ddb159]/26 bg-[#0a2418] p-1.5 shadow-[0_0_24px_rgba(221,177,89,0.10)]">
         <StockGPTIconImage fallbackClassName="text-[11px] font-black text-[#ddb159]" />
-      </span>
-      <div className="min-w-0 max-w-[calc(100%_-_44px)] flex-1 px-1 py-0.5 font-medium [overflow-wrap:anywhere] sm:max-w-[82%]">
+      </span>}
+      <div className={`${styles.assistantAnswer} min-w-0 max-w-[calc(100%_-_44px)] flex-1 px-1 py-0.5 font-medium [overflow-wrap:anywhere] sm:max-w-[82%]`}>
         <div className="[&>p:first-child]:mt-0">
           {renderMessageContent(message.content, true)}
         </div>
@@ -294,7 +306,7 @@ function MobileModeChips({ activeMode, setActiveMode }: { activeMode: Mode; setA
   return (
     <nav
       aria-label="Ask StockGPT mode"
-      className="sg-ask-mode-rail sg-native-edge-ask-modes flex shrink-0 gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center"
+      className={`${styles.modeRail} sg-ask-mode-rail sg-native-edge-ask-modes flex shrink-0 gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center`}
     >
       {modeOptions.map((option) => {
         const selected = activeMode === option.mode;
@@ -539,14 +551,14 @@ function ConversationHistoryDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Conversation history">
+    <div className={`${styles.historyLayer} fixed inset-0 z-[90]`} role="dialog" aria-modal="true" aria-label="Conversation history">
       <button
         type="button"
         aria-label="Close conversation history"
         onClick={onClose}
         className="absolute inset-0 bg-black/62 backdrop-blur-[2px]"
       />
-      <aside className="absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-[#ddb159]/10 bg-[linear-gradient(180deg,#10261b_0%,#0b1d15_46%,#08150f_100%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.48),inset_-1px_0_0_rgba(255,255,255,0.025)]">
+      <aside className={`${styles.historyPanel} absolute inset-y-0 left-0 flex w-[min(88vw,350px)] flex-col border-r border-[#ddb159]/10 bg-[linear-gradient(180deg,#10261b_0%,#0b1d15_46%,#08150f_100%)] pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] shadow-[26px_0_80px_rgba(0,0,0,0.48),inset_-1px_0_0_rgba(255,255,255,0.025)]`}>
         <div className="flex items-center justify-between gap-3 px-4">
           <div className="min-w-0">
             <p className="text-[15px] font-black tracking-[-0.025em] text-[#f7f4ec]">Chats</p>
@@ -658,6 +670,7 @@ function PortfolioFocusPicker({
 
 export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initialContext = null }: AskStockGPTWorkspaceProps) {
   const router = useRouter();
+  const { nativeApp } = useAppBoot();
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [loading, setLoading] = useState(false);
@@ -1083,7 +1096,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
       )}
       {messages
         .filter((message, index) => !(index === 0 && messages.length > 1 && message.content === welcomeMessage.content))
-        .map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} />)}
+        .map((message, index) => <MessageBubble key={`${message.role}-${index}`} message={message} nativeApp={nativeApp} />)}
       {loading && !streaming && (
         <div className="flex w-full items-start gap-2.5">
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ddb159]/24 bg-[#092418] p-1.5">
@@ -1117,19 +1130,22 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
               : "Account help";
 
   return (
-    <div className="sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]">
-      <header className="sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5">
-        <div className="mx-auto grid h-12 w-full max-w-4xl grid-cols-[64px_minmax(0,1fr)_64px] items-center">
+    <div className={`${styles.workspace} sg-ask-workspace sg-native-ask-workspace flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,rgba(221,177,89,0.12),transparent_30%),radial-gradient(circle_at_100%_38%,rgba(64,180,115,0.07),transparent_30%),linear-gradient(180deg,#06100b_0%,#020604_72%)] text-[#f7f4ec]`}>
+      <AppReady />
+      <header className={`${styles.header} sg-ask-topbar relative z-20 shrink-0 border-b border-white/[0.04] bg-black/10 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top,0px))] backdrop-blur-2xl sm:px-5`}>
+        <div className={`${styles.headerRow} mx-auto grid h-12 w-full max-w-4xl grid-cols-[64px_minmax(0,1fr)_64px] items-center`}>
+          <AskBubble nativeApp={nativeApp} className={styles.chatsBubble}>
           <button
             type="button"
             onClick={() => setHistoryOpen(true)}
             aria-label="Open previous chats"
-            className="inline-flex h-9 items-center justify-center justify-self-start rounded-full border border-white/[0.10] bg-white/[0.045] px-3 text-[11px] font-black tracking-[-0.01em] text-[#f7f4ec]/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_6px_18px_rgba(0,0,0,0.14)] backdrop-blur-xl transition hover:border-[#ddb159]/24 hover:bg-white/[0.065] hover:text-[#f7f4ec] active:scale-[0.97]"
+            className={`${styles.chatsButton} inline-flex h-9 items-center justify-center justify-self-start rounded-full border border-white/[0.10] bg-white/[0.045] px-3 text-[11px] font-black tracking-[-0.01em] text-[#f7f4ec]/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_6px_18px_rgba(0,0,0,0.14)] backdrop-blur-xl transition hover:border-[#ddb159]/24 hover:bg-white/[0.065] hover:text-[#f7f4ec] active:scale-[0.97]`}
           >
             Chats
           </button>
+          </AskBubble>
 
-          <div className="min-w-0 text-center">
+          <div className={`${styles.headerTitle} min-w-0 text-center`}>
             <p className="truncate text-[17px] font-black tracking-[-0.025em] text-[#f7f4ec]">
               Ask StockGPT
             </p>
@@ -1138,7 +1154,11 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
             </p>
           </div>
 
-          <button
+          {nativeApp ? <ElasticBubble className={styles.headerTools}>
+            {!locked && <button type="button" className={styles.nativeIconButton} aria-label="New chat" onClick={startNewConversation} disabled={loading || streaming || historyLoading}><NewConversationIcon /></button>}
+            {!locked && <span className={styles.toolDivider} aria-hidden="true" />}
+            <button type="button" className={styles.nativeIconButton} aria-label="Back to home" onClick={() => router.push("/dashboard")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button>
+          </ElasticBubble> : <button
             type="button"
             onClick={() => {
               if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -1149,6 +1169,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
           >
             <span aria-hidden="true">×</span>
           </button>
+          }
         </div>
       </header>
 
@@ -1166,7 +1187,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
         <LockedExperience isAuthenticated={isAuthenticated} />
       ) : (
         <>
-          <div className="shrink-0 border-b border-white/[0.035] bg-black/5 backdrop-blur-xl">
+          <div className={`${styles.contextBar} shrink-0 border-b border-white/[0.035] bg-black/5 backdrop-blur-xl`}>
             <MobileModeChips activeMode={activeMode} setActiveMode={setActiveMode} />
 
             {portfolioOptions.length > 1 && activeMode === "portfolio" && (
@@ -1185,29 +1206,29 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
           </div>
 
           <main className="min-h-0 flex-1 overflow-hidden">
-            <div className="sg-ask-scroll sg-native-ask-scroll h-full overflow-y-auto overflow-x-hidden">
-              <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-3 pb-5 pt-4 sm:px-5 sm:pt-6">
+            <div className={`${styles.chatScroll} sg-ask-scroll sg-native-ask-scroll h-full overflow-y-auto overflow-x-hidden`}>
+              <div className={`${styles.chatContent} mx-auto flex min-h-full w-full max-w-4xl flex-col px-3 pb-5 pt-4 sm:px-5 sm:pt-6`}>
                 {showStarterCards ? (
-                  <section className="flex flex-1 flex-col justify-center pb-8 sm:pb-10">
+                  <section className={`${styles.welcome} flex flex-1 flex-col justify-center pb-8 sm:pb-10`}>
                     <div className="mx-auto w-full max-w-2xl">
-                      <div className="mx-auto grid size-16 place-items-center overflow-hidden rounded-full border border-[#ddb159]/30 bg-[radial-gradient(circle_at_36%_28%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(145deg,#103724,#07150e)] p-3 shadow-[0_0_50px_rgba(221,177,89,0.12),0_22px_70px_rgba(0,0,0,0.42)]">
+                      {nativeApp ? <StockGPTFlame className={styles.welcomeFlame} /> : <div className="mx-auto grid size-16 place-items-center overflow-hidden rounded-full border border-[#ddb159]/30 bg-[radial-gradient(circle_at_36%_28%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(145deg,#103724,#07150e)] p-3 shadow-[0_0_50px_rgba(221,177,89,0.12),0_22px_70px_rgba(0,0,0,0.42)]">
                         <StockGPTIconImage fallbackClassName="text-[18px] font-black text-[#ddb159]" />
-                      </div>
+                      </div>}
 
                       <h1 className="mt-5 text-center text-[27px] font-black tracking-[-0.045em] text-[#f7f4ec] sm:text-[34px]">
-                        Your market copilot.
+                        {nativeApp ? "What’s on your mind?" : "Your market copilot."}
                       </h1>
                       <p className="mx-auto mt-2 max-w-xl text-center text-[12px] font-semibold leading-5 text-[#f7f4ec]/44 sm:text-[13px]">
                         {activeModeLabel}. Ask naturally. StockGPT already has the context.
                       </p>
 
-                      <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
-                        {visibleStarters.slice(0, 4).map((starter) => (
+                      <div className={`${styles.suggestions} mt-6 grid gap-2.5 sm:grid-cols-2`}>
+                        {visibleStarters.slice(0, nativeApp ? 3 : 4).map((starter) => (
+                          <AskBubble key={starter.prompt} nativeApp={nativeApp} className={styles.promptBubble}>
                           <button
-                            key={starter.prompt}
                             type="button"
                             onClick={() => void sendQuestion(starter.prompt)}
-                            className="group min-h-[78px] rounded-[20px] border border-white/[0.055] bg-black/15 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/22 hover:bg-[#0b2016]/58 active:scale-[0.99]"
+                            className={`${styles.promptButton} group min-h-[78px] rounded-[20px] border border-white/[0.055] bg-black/15 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] transition hover:-translate-y-0.5 hover:border-[#ddb159]/22 hover:bg-[#0b2016]/58 active:scale-[0.99]`}
                           >
                             <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#ddb159]/68">
                               {starter.eyebrow}
@@ -1216,11 +1237,12 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                               {starter.label}
                             </span>
                           </button>
+                          </AskBubble>
                         ))}
                       </div>
 
                       {activeMode === "portfolio" && holdingOptions.length > 0 && (
-                        <div className="mt-5">
+                        <div className={`${styles.holdingSuggestions} mt-5`}>
                           <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.13em] text-[#f7f4ec]/30">
                             Ask about a holding
                           </p>
@@ -1242,7 +1264,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                     </div>
                   </section>
                 ) : (
-                  <div className="grid gap-4 pb-4">
+                  <div className={`${styles.messageList} grid gap-4 pb-4`}>
                     {renderChatContent(mobileBottomRef)}
                   </div>
                 )}
@@ -1252,10 +1274,10 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
 
           <form
             onSubmit={handleSubmit}
-            className="sg-ask-composer shrink-0 bg-[linear-gradient(180deg,transparent,rgba(2,6,4,0.94)_30%)] px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 sm:px-5"
+            className={`${styles.composerArea} sg-ask-composer shrink-0 bg-[linear-gradient(180deg,transparent,rgba(2,6,4,0.94)_30%)] px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 sm:px-5`}
           >
             <div className="mx-auto w-full max-w-4xl">
-              <div className="grid grid-cols-[minmax(0,1fr)_46px] items-end gap-2 rounded-[27px] border border-white/[0.10] bg-[#0a1710]/88 p-2 shadow-[0_22px_70px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04),0_0_34px_rgba(221,177,89,0.045)] backdrop-blur-2xl focus-within:border-[#ddb159]/42">
+              <div className={`${styles.composer} grid grid-cols-[minmax(0,1fr)_46px] items-end gap-2 rounded-[27px] border border-white/[0.10] bg-[#0a1710]/88 p-2 shadow-[0_22px_70px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04),0_0_34px_rgba(221,177,89,0.045)] backdrop-blur-2xl focus-within:border-[#ddb159]/42`}>
                 <textarea
                   ref={textareaRef}
                   value={question}
@@ -1268,6 +1290,7 @@ export function AskStockGPTWorkspace({ canUseAskStockGPT, isAuthenticated, initi
                   }}
                   placeholder={activeMode === "portfolio" ? "Ask about your portfolio…" : activeMode === "rankings" ? "Ask about a stock or ranking…" : activeMode === "learn" ? "Ask me to explain something…" : "Ask about your account…"}
                   rows={1}
+                  aria-label="Your question for StockGPT"
                   className="max-h-28 min-h-[46px] min-w-0 resize-none bg-transparent px-2.5 py-3 text-[16px] font-medium leading-6 text-[#f7f4ec] outline-none placeholder:text-[#f7f4ec]/28"
                 />
                 <button

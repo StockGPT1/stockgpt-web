@@ -7,8 +7,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 
-const canonicalPage = read("app/portfolio/page.tsx");
-const modernPage = read("app/portfolio/modern/page.tsx");
+const canonicalPage = read("app/(workspace)/portfolio/page.tsx");
+const modernPage = read("app/(workspace)/portfolio/modern/page.tsx");
 const shellExport = read("components/PortfolioModernWorkspace.tsx");
 const workspaceFiles = [
   "components/portfolio-workspace/PortfolioModernWorkspace.tsx",
@@ -41,7 +41,7 @@ const sheetShell = read("components/portfolio-workspace/PortfolioSheet.tsx");
 const cashAction = read("lib/actions/portfolio-cash.ts");
 const layout = read("app/layout.tsx");
 const nextConfig = read("next.config.ts");
-const loading = read("app/portfolio/loading.tsx");
+const loading = read("app/(workspace)/layout.tsx");
 
 assert.match(canonicalPage, /from\s+["']\.\/modern\/page["']/);
 assert.match(canonicalPage, /export const dynamic = ["']force-dynamic["']/);
@@ -117,8 +117,8 @@ assert.match(orchestrator, /overflow-x-hidden/);
 assert.doesNotMatch(orchestrator, /overflow-y-auto/);
 assert.match(orchestrator, /pb-\[calc\(120px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(orchestrator, /max-w-\[1480px\]/);
-assert.match(loading, /BrandLoaderPage/);
-assert.match(loading, /label="Weighing your holdings"/);
+assert.match(loading, /<AppShell[^>]*persistent/);
+assert.equal(exists("app/(workspace)/portfolio/loading.tsx"), false, "navigation must not replace the shared app frame with a leaf loading screen");
 assert.doesNotMatch(loading, /overflow-y-auto/);
 
 assert.match(workspace, /overflow-x-auto/);

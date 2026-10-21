@@ -14,10 +14,10 @@ const compiled = ts.transpileModule(source, {
 
 // Run the component's actual event handlers. Minimal hooks retain state and refs
 // between renders; the browser stub lets us verify queued pointer cancellation.
-function chartHarness(overrides = {}) {
+function chartHarness({ nativeApp = false, ...overrides } = {}) {
   const slots = [], pendingEffects = new Map(), frames = new Map(), scrubbed = [], haptics = [];
   const listeners = new Map(), listenerCapture = new Map(), listenerCalls = [], captured = new Set(), captureCalls = [], releaseCalls = [];
-  let cursor = 0, frameId = 0, changed = false, latestSvg, latestFrame;
+  let cursor = 0, frameId = 0, changed = false, latestSvg, latestFrame, clock = 0;
   const equalDeps = (a, b) => a && b && a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
   class DomNode {}
   const descendant = new DomNode(), outside = new DomNode();
@@ -65,11 +65,11 @@ function chartHarness(overrides = {}) {
     if (name === "react") return hooks;
     if (name === "react/jsx-runtime") return jsx;
     if (name === "@/components/RouletteNumber") return { RouletteNumber };
-    if (name === "@/lib/ios-native") return { nativeHaptic: (style) => haptics.push(style) };
+    if (name === "@/lib/ios-native") return { isStockGPTIOSApp: () => nativeApp, nativeHaptic: (style) => haptics.push(style) };
     if (name === "@/components/ChartTimeframes.module.css") return { __esModule: true, default: { ranges: "shared-ranges", range: "shared-range" } };
     throw new Error(`Unexpected chart dependency ${name}`);
   };
-  new Function("require", "module", "exports", compiled)(imports, chartModule, chartModule.exports);
+  new Function("require", "module", "exports", "performance", compiled)(imports, chartModule, chartModule.exports, { now: () => clock });
   const points = [
     { date: "2026-10-01T00:00:00Z", close: 100, basis: 90, pnl: 10, pnlPct: 11.11 },
     { date: "2026-10-02T00:00:00Z", close: 130, basis: 110, pnl: 20, pnlPct: 18.18 },
@@ -132,7 +132,7 @@ function chartHarness(overrides = {}) {
     if (latestFrame?.props.ref) latestFrame.props.ref.current = null;
     for (const slot of slots) if (slot?.effectSlot) slot.cleanup?.();
   }
-  return { render, flush, unmount, dispatchDocument, frames, points, props, scrubbed, haptics, listeners, listenerCalls, captured, captureCalls, releaseCalls, target, frameTarget, descendant, outside };
+  return { render, flush, unmount, dispatchDocument, advanceTime: (milliseconds) => { clock += milliseconds; }, frames, points, props, scrubbed, haptics, listeners, listenerCalls, captured, captureCalls, releaseCalls, target, frameTarget, descendant, outside };
 }
 
 function all(tree, predicate) {
@@ -173,9 +173,87 @@ test("portfolio scrub uses the nearest timestamp and returns the original value 
   chart.flush();
   assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
   assert.equal(chart.scrubbed.at(-1).point.pnl, 10);
-  assert.deepEqual(chart.haptics, ["light"]);
+  assert.deepEqual(chart.haptics, []);
   svg.props.onPointerUp({ clientX: 792 });
   assert.equal(chart.scrubbed.at(-1).point, null);
+});
+
+test("chart haptics require an active touch or pen inside the native app", () => {
+  for (const nativeApp of [false, true]) {
+    const chart = chartHarness({ nativeApp });
+    const { svg } = chart.render();
+    svg.props.onPointerMove(pointer(svg, { clientX: 8 }));
+    chart.flush();
+    svg.props.onPointerDown(pointer(svg, { clientX: 100 }));
+    chart.advanceTime(100);
+    svg.props.onPointerMove(pointer(svg, { clientX: 792 }));
+    chart.flush();
+    svg.props.onPointerUp(pointer(svg, { clientX: 792 }));
+    assert.deepEqual(chart.haptics, [], "Mouse interaction must never produce chart haptics");
+    chart.unmount();
+  }
+  const browserChart = chartHarness();
+  const { svg } = browserChart.render();
+  svg.props.onPointerDown(pointer(svg, { clientX: 8, pointerType: "touch" }));
+  browserChart.advanceTime(100);
+  svg.props.onPointerMove(pointer(svg, { clientX: 792, pointerType: "touch" }));
+  browserChart.flush();
+  assert.deepEqual(browserChart.haptics, [], "A browser touch must not call the native bridge");
+  browserChart.unmount();
+});
+
+test("native chart scrubbing deduplicates selected points and rate limits fast crossings", () => {
+  for (const interaction of ["default", "stock"]) {
+    for (const pointerType of ["touch", "pen"]) {
+      const chart = chartHarness({ nativeApp: true, interaction });
+      const { svg } = chart.render();
+      const event = (clientX) => pointer(svg, { clientX, pointerType });
+      svg.props.onPointerDown(event(8));
+      assert.deepEqual(chart.haptics, ["light"]);
+      chart.advanceTime(10);
+      svg.props.onPointerMove(event(100));
+      chart.flush();
+      assert.deepEqual(chart.haptics, ["light"], "Fast crossings must not queue overlapping feedback");
+      chart.advanceTime(50);
+      svg.props.onPointerMove(event(792));
+      chart.flush();
+      assert.equal(chart.haptics.length, 2);
+      chart.advanceTime(100);
+      svg.props.onPointerMove(event(792));
+      chart.flush();
+      assert.equal(chart.haptics.length, 2, "Holding the same point must remain silent");
+      chart.advanceTime(50);
+      svg.props.onPointerMove(event(100));
+      chart.flush();
+      assert.equal(chart.haptics.length, 3);
+      svg.props.onPointerUp(event(100));
+      chart.advanceTime(100);
+      svg.props.onPointerMove(event(8));
+      chart.flush();
+      assert.equal(chart.haptics.length, 3, "Released scrubbing must not keep producing feedback");
+      chart.unmount();
+    }
+  }
+});
+
+test("WebKit touch and pointer events for one native scrub do not double the feedback", () => {
+  const chart = chartHarness({ nativeApp: true, interaction: "stock" });
+  const { svg } = chart.render();
+  chart.dispatchDocument("touchstart", { changedTouches: touchList(touch(1, 100, chart.target)) });
+  svg.props.onPointerDown(pointer(svg, { pointerType: "touch", clientX: 100 }));
+  assert.equal(chart.haptics.length, 1);
+  chart.advanceTime(50);
+  chart.dispatchDocument("touchmove", { touches: touchList(touch(1, 792, chart.target)) });
+  chart.flush();
+  svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 792 }));
+  chart.flush();
+  assert.equal(chart.haptics.length, 2);
+  chart.dispatchDocument("touchend", { changedTouches: touchList(touch(1, 792, chart.target)) });
+  chart.advanceTime(100);
+  svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 8 }));
+  chart.flush();
+  assert.equal(chart.haptics.length, 2);
+  chart.unmount();
 });
 
 test("keyboard scrubbing selects actual points, respects bounds, and resets on Escape", () => {
