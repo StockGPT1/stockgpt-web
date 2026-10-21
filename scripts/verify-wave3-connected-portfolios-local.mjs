@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { createLocalConnectedProjectionFixture } from "./local-connected-projection-fixture.mjs";
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const cli = resolve("node_modules", "supabase", "dist", "supabase.js");
@@ -37,9 +38,10 @@ try {
   assert(freeProjection.error?.message.includes("subscription_required"), "Free user bypassed the connected Portfolio entitlement boundary");
 
   const first = await active.rpc("create_connected_portfolio", { p_account_id: accountId });
-  if (first.error) throw first.error;
-  portfolioId = first.data?.[0]?.portfolio_id;
-  assert(portfolioId && first.data[0].created === true, "Connected Portfolio was not created");
+  assert(first.error?.message.includes("beta_projection_unavailable"), "Non-cohort user bypassed database projection admission");
+  const fixture = createLocalConnectedProjectionFixture();
+  portfolioId = fixture.portfolio_id;
+  assert(portfolioId && fixture.created === true, "Connected Portfolio was not created");
 
   const repeated = await active.rpc("create_connected_portfolio", { p_account_id: accountId });
   if (repeated.error) throw repeated.error;

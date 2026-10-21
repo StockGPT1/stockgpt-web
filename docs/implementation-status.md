@@ -39,7 +39,7 @@ Engineering constitution:
 | 22 | First real broker pilot | IN PROGRESS | Stage 22A + 22B accepted | Non-production Sandbox and native hosted scheduled proof complete. 22C commercial/security readiness and 22D explicitly authorised real-account pilot remain outstanding. |
 | 23 | Second-broker abstraction proof | NOT STARTED | | |
 | 24 | Compliance/legal launch review | IN PROGRESS — engineering readiness | Synthetic lifecycle/export and AI minimization foundations | Provider/qualified legal decisions remain outstanding; no compliance clearance or destructive lifecycle policy claimed. |
-| 25 | Controlled production rollout | IN PROGRESS — disabled foundations | Synthetic cohort/stop/observability controls | Empty server-owned cohort; no beta participants, activation, push or deployment. Database admission and operational release gates remain outstanding. |
+| 25 | Controlled production rollout | IN PROGRESS — disabled foundations | App and local database admission/stop controls | Empty server-owned cohort and DB approval registry; new connected projection default-denied locally. Hosted migration, operational/provider/legal release gates remain outstanding; no activation, push or deployment. |
 | 26 | Post-launch provider strategy | NOT STARTED | | |
 
 ## Current development topology
@@ -301,6 +301,71 @@ readiness, 22D pilot gates, Stage 25 backlog and safe future Git publication.
   exact real-account approval, processor/retention, cost/operator and publishing
   gates. No real pilot, cloud mutation, credential read, cohort activation,
   provider request, paid service, push, merge or deployment occurred.
+
+### Accelerated launch-readiness implementation — 2026-10-21/22
+
+Starting checkpoint `f452ed70a33488c2eca662e7a288f1acf69838cd`; parallel detached
+local worktrees used without modifying historical financial/provider contracts.
+Stage 22B remains COMPLETE; 22C/22D/24/25 remain approval-gated and incomplete.
+
+- Added private, RLS-enabled `broker_rollout_private` admission control and exact
+  owner/account approvals in forward migration `20261021224826`. Default stopped,
+  approvals empty; no public/client access or self-enrollment. INSERT trigger
+  independently guards new connected projections, including trusted direct DML;
+  source conversion/remapping is forbidden. Existing projection lookup and
+  legitimate owner rename/preferences/deletion/manual accounting are preserved.
+  Existing normal RPCs, broker worker, queue/promotion and valuation formulas are
+  unchanged. Stop/revocation serializes through row locks, not in-flight cancel.
+- Verified local Linux Docker context, original PG17.6 named database volume,
+  loopback port, system identifier `7692187049475596325`, expected synthetic
+  records and zero jobs before writes. Sanitized CLI `migration up --local`
+  applied only this migration (48 -> 49); no reset/reseed. Public generated types
+  match committed output; new private schema is not API-exposed. Hosted schemas
+  were not inspected or modified. Original local financial records remain exact.
+- New rollback-only PostgreSQL tests pass 27 cases exercising grants, exact cohort/owner/account,
+  entitlement, hostile metadata, expired/future/revoked approvals, bare trusted
+  writes, manual operations, connected read-only state, stopped existing lookup,
+  compatibility-fixture SQL and independent-session stop-row contention. No
+  enabled control, approval or fixture survives the test transactions.
+  Approval-revocation contention is covered by the shared-row-lock design but
+  was not a separate concurrent-session test. The suite is included before
+  other mutating suites in `test:acceptance:database`; it was run directly here.
+- Added synthetic pilot receipt and 65 network-denied actual-code rehearsal
+  checks. Mocked promotion is explicitly not external-provider/database proof.
+  Discovered and fixed `Number(null)` in connected facts coercion: unknown price
+  with retained USD now remains unknown, not a zero holding. Known zero remains
+  valid. Focused connected and aggregate/performance regressions pass.
+- Added uninstalled customer-project-specific ignored-build predicate and a
+  fail-closed pure publication receipt evaluator; 90 deterministic checks pass.
+  Root `vercel.json`, its ten cron definitions and CI configuration are unchanged.
+  Fresh read-only customer metadata confirms prior foundation Preview deployment
+  but omits trigger/ignore settings; exact Staging project lookup returns 404 in
+  connector scope. Publication is **NO-GO** until fresh authorized metadata and a
+  separately approved, verified project-only isolation policy exist. No cloud
+  setting, credential, deployment, push or Production change was performed.
+- Review-ready unsent [provider enquiry](drafts/stage22c-provider-enquiry.md) and
+  [qualified UK review brief](drafts/stage24-legal-review-brief.md) replace vague
+  external handovers with scoped decisions. Actual legal entity/controller,
+  Commercial/broker/permission/cost/processing approvals, AI scope, retention,
+  participant information and operational support remain external prerequisites.
+  Public research is not legal clearance or an account-specific provider promise.
+- Verification: complete `test:acceptance:static` PASS (includes new launch suite,
+  existing Stage 04/Portfolio, Stage 22B proof, privacy/AI/rollout, adapter,
+  identity/history/context, customer/Stripe and performance-budget checks).
+  Next typegen, standalone TypeScript, normal candidate lint (0 errors, 23
+  pre-existing warnings), production `build:app` and diff checks PASS in audited
+  source-only local candidate with external-network guard and no environment or
+  credential files. Targeted new-file lint also runs before checkpoint.
+  Full Auth/API database acceptance and browser journeys are not re-run: only the
+  preserved PG container is running; no new stack/reset/credentials were used.
+  Their positive projection fixtures now use a local-only transaction-scoped
+  approval, tested directly in rollback. Prior gitignored network helper lint
+  errors are excluded from candidate inventory, not silenced by rule changes.
+
+Next action: business-owner approval to send the provider enquiry and entity
+packet/feature brief to qualified counsel in parallel; obtain a fresh, narrowly
+authorized Vercel isolation/settings review before any publication. Real account
+connection, hosted migration, beta cohort and paid services remain unapproved.
 
 Every implementation stage must pass:
 

@@ -21,7 +21,7 @@ export type ConnectedPortfolioFacts = {
   identityEvidenceUnavailable?: boolean;
 };
 
-const finite = (value: unknown) => { const number = Number(value); return Number.isFinite(number) ? number : null; };
+const finite = (value: unknown) => { if (value == null) return null; const number = Number(value); return Number.isFinite(number) ? number : null; };
 function currency(value: string | null) { const normalized = String(value ?? "").toUpperCase(); return SUPPORTED_CURRENCIES.includes(normalized as SupportedCurrency) ? normalized as SupportedCurrency : null; }
 function usd(value: number | null, code: string | null, quote: UsdFxQuote) { const supported = currency(code); return value == null || !supported ? null : convertCurrencyToUsdForWrite(value, supported, quote); }
 

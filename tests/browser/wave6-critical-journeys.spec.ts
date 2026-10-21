@@ -1,45 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+// Local Docker fixture has no service-role/browser-client dependency.
+import { createLocalConnectedProjectionFixture } from "../../scripts/local-connected-projection-fixture.mjs";
 
 const EMAIL = "active-subscriber@stockgpt.invalid";
 const PASSWORD = "LocalStockGPT!2026";
-const CONNECTED_ACCOUNT_ID = "73000000-0000-4000-8000-000000000001";
-
 async function ensureConnectedPortfolio() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-  const existing = await supabase
-    .from("user_portfolios")
-    .select("id")
-    .eq("broker_account_id", CONNECTED_ACCOUNT_ID)
-    .maybeSingle();
-  if (existing.error) throw existing.error;
-  if (existing.data?.id) return String(existing.data.id);
-
-  const created = await supabase
-    .from("user_portfolios")
-    .insert({
-      user_id: "11111111-1111-4111-8111-111111111111",
-      name: "Synthetic Alpha Account",
-      risk_tolerance: "moderate",
-      time_horizon: "long",
-      investment_amount: 0,
-      cash_balance: 0,
-      cash_deposited_total: 0,
-      currency: "USD",
-      objective: "growth",
-      management_source: "connected",
-      broker_account_id: CONNECTED_ACCOUNT_ID,
-    })
-    .select("id")
-    .single();
-  if (created.error || !created.data?.id) {
-    throw created.error ?? new Error("Connected Portfolio fixture could not be created");
-  }
-  return String(created.data.id);
+  return createLocalConnectedProjectionFixture().portfolio_id;
 }
 
 async function assertViewportFits(page: Page) {

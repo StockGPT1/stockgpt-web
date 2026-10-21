@@ -11,7 +11,7 @@ and 26 remain separate work.
 | Identity | Expected value / evidence |
 |---|---|
 | Repository / branch | `StockGPT1/stockgpt-web` / `codex/broker-sync-foundation` |
-| Accepted local checkpoint | `53a4ab672ccdebf2887693e5543f55cf81daefe5`; not pushed |
+| Accepted local readiness baseline | `f452ed70a33488c2eca662e7a288f1acf69838cd`; not pushed |
 | Team | `team_eUm0mdcYHHHcNo4D5tMm9cHQ` |
 | Separate Staging project | `stockgpt-staging`, `prj_AxbNJT8VObcG020Abob7Vu5XhdMo` |
 | Customer project, excluded | `stockgpt-web`, `prj_QzlZVgUZ5qIC5SwYz5k3ThQKkQNo` |
@@ -25,7 +25,23 @@ expose production-branch/Git-trigger fields. The exact Staging project lookup
 returned `not_found` in this connector scope; that is an access/visibility
 limitation, not proof of deletion or changed settings. No token retrieval or
 permission workaround was attempted. Fresh authorized metadata access is a
-publication prerequisite.
+publication prerequisite. Fresh 2026-10-21 inspection again returned the exact
+customer project/team and protection setting, with latest READY Production
+deployment `dpl_5CY81bBDsXPrbaL6vhn6d4crVcjV`. This differs from the historical
+22B customer deployment; no change was made or attributed by this sprint.
+The same scoped Staging lookup again returned HTTP 404 `not_found`. The connector
+response still omits Git linkage, production branch, ignore command and automatic
+deployment controls. Those fields are **unknown**, not implicitly unchanged.
+No CLI credential files, tokens, environment values or protected URLs were read
+to work around the visibility limit. Read-only Dashboard/API access to these
+exact settings remains required before publication.
+
+The explicitly Preview-filtered customer deployment list independently returned
+READY `dpl_5Yeko3umQw3fZVVRcfRZ4zB7KRjX` for this foundation branch at
+`b41f76f3f3cb82613a6bf9d6b66b29e835649018` (and the previous `b18a3e0` Preview).
+This is concrete evidence of prior feature-branch customer deployments, not
+proof that present trigger settings are unchanged. Raw `target: null` is not a
+classification failure when the API's Preview-filtered list is the evidence.
 
 ## Publish local source without surprise deployments
 
@@ -62,17 +78,86 @@ Before any separately approved push:
    lists. Unexpected customer build/target/environment is a stop condition;
    follow the approved operator response, never silently change Production.
 
-Preferred proposal for later explicit approval: a **customer-project-only**
-Ignored Build Step that skips `codex/broker-sync-foundation`, while preserving
-any existing ignore rules and all other branches. The branch predicate alone is
-`node -e "process.exit(process.env.VERCEL_GIT_COMMIT_REF === 'codex/broker-sync-foundation' ? 0 : 1)"`.
-An operator must first inspect/compose the effective existing command, verify
-that root `ignoreCommand` does not override it and test both foundation/main
-outcomes without uploading code. Do not blindly replace an existing command.
+The implemented **uninstalled** customer-project-only proposal is
+`node scripts/customer-project-ignore-build.mjs` as the customer Dashboard
+Ignored Build Step. It exits 0 only for the exact customer project, GitHub
+repository owner/name, foundation branch and Preview environment; it logs no
+environment values. All other inputs exit 1, leaving normal builds eligible.
+This is deliberately not a universal unknown-project kill switch. Missing system
+metadata cannot establish isolation and blocks the publication receipt. Team
+ownership is independently checked against API metadata; `VERCEL_ORG_ID` is not
+assumed to be a Vercel build-system variable. Verify genuine system variables are
+available at the ignore step; do not inject fabricated identity values.
+
+The source is not connected to any customer setting, root config, npm build or
+workflow. It does **not** prevent a push today. For an existing Dashboard ignore
+rule, stop for exact rule composition review rather than replacing it: an
+existing exit-0 skip must remain a skip outside this foundation predicate.
+The supplied publication evaluator intentionally refuses that case until a
+separate composition is reviewed. A repository `ignoreCommand`, including one
+from an alternate effective config, can supersede the Dashboard command.
 Repository `git.deploymentEnabled` is shared configuration, not inherently a
 customer-project-only isolation setting. A skipped build may still create Vercel
 metadata and GitHub CI; this does not promise a push has zero side effects.
 Nothing in this proposal is configured or executed by this sprint.
+
+### Exact later publication procedure — NOT EXECUTED
+
+1. An authorized operator obtains fresh read-only project/API metadata for the
+   exact team and both project IDs. Review all repository links, Preview and
+   production branch rules, deploy hooks/CI triggers without exporting hook URLs,
+   effective config/ignore precedence, system-variable availability, names/types/
+   scopes of environment settings, protection and current deployments. No secret
+   values are needed. Resolve the Staging connector access gap first.
+2. With **separate explicit customer-settings approval**, preserve the existing
+   Dashboard ignore value and source precedence evidence. If no prior rule exists
+   and source cannot override it, install only the exact command above in the
+   **customer** project. This does not alter Production branch or root schedules.
+   If a rule already exists, review a composed rule before any change; never
+   overwrite it. Independently verify effective customer foundation/Preview skip
+   and main/Production preservation. The incoming Git revision must contain the
+   helper; it is not present in the currently remote accepted baseline.
+3. Keep Staging Git automation and cron disabled, zero schedules, proof disabled
+   and registries empty. No auto-deployment must activate the proof or inherit
+   customer credentials. Verify deployment metadata belongs to the exact project.
+4. Run `node scripts/deployment-isolation-checks.mjs` locally. Build a secret-free
+   receipt matching the tested structure in that script from the real reviewed
+   metadata; **do not use its synthetic receipt as live evidence**. Call the pure
+   `evaluatePublicationGate(receipt, { candidateSha, remoteSha, now })` exported by
+   `scripts/publication-gate.mjs`. Every missing field, stale (>15 minutes)/future
+   observation, changed SHA, effective config mismatch or unapproved side effect
+   blocks. Compare fresh `git ls-remote origin refs/heads/codex/broker-sync-foundation`
+   against the exact approved remote SHA; require a clean secret-scanned source
+   inventory. The gate returns fixed blocker codes and has no cloud/push executor.
+   A receipt is a reviewer attestation, not cryptographic proof or an authority to
+   run any command. Current incomplete metadata produces **NO-GO**.
+5. Obtain separate approval for the exact local SHA, GitHub CI effects and verified
+   customer skipped-build metadata. Only then publish with the narrowly scoped
+   `git push origin HEAD:refs/heads/codex/broker-sync-foundation`. No PR, merge,
+   force-push, deploy or branch change is implied. Recheck remote SHA and both
+   project events. Require no customer READY deployment from the new SHA and no
+   Staging schedule or deployment activation. A skipped event is not a deployment
+   of application runtime, but it and CI remain observable publication effects.
+6. On any unverified consequence, **stop before push**. After an unexpected build,
+   stop further publication and use only a separately approved project-scoped
+   cancellation/rollback response; never automatically revert Git or customer
+   Production. Preserve evidence. Restore the saved Dashboard rule only when
+   explicitly approved and when no further foundation push can bypass isolation.
+   Do not remove the isolation rule as an automatic post-push cleanup action.
+
+The fixed customer root-config digest is normalized SHA-256
+`029aab74a8f285c0bbf601d4651c346732dd48b18555fc512a8b6acfbf0f4e69`;
+the ten cron definitions are unchanged. This intentionally narrow evaluator does
+not assert that every possible Vercel policy is supported. An operator-approved
+different isolation strategy needs its own reviewed evidence/tests rather than
+falsifying this receipt. No publishing exception is granted by passing local
+tests.
+
+Authoritative behavior checked 2026-10-21:
+[branch deployment defaults and rule precedence](https://vercel.com/docs/project-configuration/git-configuration),
+[Dashboard skip exit semantics](https://vercel.com/kb/guide/how-do-i-use-the-ignored-build-step-field-on-vercel),
+[source ignoreCommand precedence](https://vercel.com/docs/project-configuration/vercel-json#ignorecommand),
+[genuine build system metadata](https://vercel.com/docs/environment-variables/system-environment-variables).
 
 Keep customer root `vercel.json` and ten schedules unchanged. The 22B isolated
 artifact required the exact Staging config materialized at artifact root and a
@@ -183,11 +268,20 @@ authorized by this backlog.
   counts and coarse freshness buckets only. It neither queries a queue nor
   authorizes an administrator. A future reader must provide trusted scope and
   completeness evidence before publishing a summary.
-- No new DB policy/migration was introduced. The existing authenticated
-  `create_connected_portfolio` RPC remains directly usable for an owned normalized
-  account. App gates protect registration/discovery/projection routes; **do not
-  describe them as database-wide cohort enforcement**. Resolve the database
-  admission requirement explicitly before any real beta activation.
+- Database admission now independently denies **new** connected Portfolio inserts
+  unless an exact-owner/account trusted approval and enabled control both hold.
+  Migration `20261021224826_protect_connected_portfolio_beta_admission.sql` was
+  applied only to verified local Docker PostgreSQL; hosted application requires
+  separate migration approval. `broker_rollout_private` is not API-exposed;
+  clients cannot inspect or mutate its stopped singleton or empty approval table.
+  No approval or enabled state was committed by tests. Existing owner-scoped
+  projection lookup, rename/preferences/removal and manual accounting remain
+  available. Existing source cannot be converted/remapped through direct DML.
+  Control/approval shared locks serialize creation against a committed stop or
+  revocation: an already admitted in-flight transaction may complete before the
+  stop commits. This is admission control, not sync cancellation, provider
+  revocation or erasure. Existing trusted service-role enqueue/promotion ownership
+  is unchanged; it is not a claim that every backend operation is cohort-gated.
 - Export/lifecycle foundations are not customer rights delivery or deletion
   authorization. Ask's automatic context allowlist does not anonymize financial
   holdings or redact user-authored questions/history. Processor/notice review is
@@ -199,3 +293,34 @@ to the business owner for provider confirmation and qualified counsel/privacy
 review in parallel. Meanwhile finish the synthetic controls and link their tests
 to this checklist. Request one precise 22D pilot approval only after those
 decisions and safe publication access are available; do not reopen accepted 22B.
+
+## Execution-ready internal pilot rehearsal
+
+`npm run test:pilot-rehearsal` runs 65 deterministic, network-denied checks using
+the existing portal helper, discovery, normalizer, shared worker/validator and
+connected facts adapter with injected dependencies. It covers permission/scope,
+duplicate ticks, errors, recovery, last-good preservation, disconnect, stop,
+sanitized support summaries, unknown valuation/FX and genuine zero. Promotion is
+a mock contract, not a new database atomicity claim. The synthetic receipt in
+`lib/brokerage/pilot-readiness.ts` always reports `canActivateRealPilot: false`.
+It permits one collection and an explicit <=240-second rehearsal budget, not
+production request cancellation. No participant is enrolled by this utility.
+
+For 22D, name exactly one consenting internal adult, one approved account,
+broker/jurisdiction, `read` permission, time/cost window and attending operator.
+Before connection, require written provider clearance and qualified entity,
+regulatory/privacy decisions applicable to that specific pilot; approve the
+participant information/acknowledgement and broker-derived AI scope. Record exact
+identity/permission metadata, then one approved sync, independent account/position/
+cash/activity reconciliation, stale/failure/stop checks and verified shutdown.
+No-go on identity/permission uncertainty, unknown acknowledgement, cost overrun,
+validation failure, missing operator or privacy/processing clearance. Do not retry
+an uncertain write or erase last-good records to obtain a passing result.
+
+Ready for business-owner review, **not sent**:
+[provider enquiry](../drafts/stage22c-provider-enquiry.md) and
+[UK legal/privacy brief](../drafts/stage24-legal-review-brief.md).
+The latter records the Delaware-LLC versus UK-controller source inconsistency;
+formation/registry, operating establishment and contracting/controller evidence
+must settle it before notices are changed. Neither draft changes legal wording,
+accepts a contract, authorizes real access or provides legal clearance.

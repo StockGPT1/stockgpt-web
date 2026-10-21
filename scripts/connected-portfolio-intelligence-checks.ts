@@ -48,7 +48,7 @@ assert.equal(unmapped.positions[0].ticker, "ZZZ");
 assert.equal(unmapped.input.holdings[0].coverage, "unsupported");
 assert.equal(unmapped.input.holdings[0].ranking, null);
 
-const unknownPrice = assessConnectedPortfolioFacts(facts({ positions: [position({ price: null, price_currency: null, market_value: null, market_value_currency: null })] }), asOf);
+const unknownPrice = assessConnectedPortfolioFacts(facts({ positions: [position({ price: null, price_currency: "USD", market_value: null, market_value_currency: "USD" })] }), asOf);
 assert.equal(unknownPrice.totalValueUsd, null);
 assert.equal(unknownPrice.positions[0].currentValueUsd, null);
 assert.equal(unknownPrice.input.holdings[0].currentValue, null);
