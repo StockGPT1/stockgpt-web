@@ -41,6 +41,7 @@ function localLanDevOrigins() {
 }
 
 const nextConfig: NextConfig = {
+  turbopack: { root: process.cwd() },
   /* Next 16 blocks dev-only client/HMR resources when a phone loads the
      Network URL unless that LAN host is explicitly allowed. Discover the
      Mac's current IPv4 addresses at dev-server startup so Wi-Fi changes do
