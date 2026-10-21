@@ -27,7 +27,9 @@ assert.match(worker, /function logSandboxCandidateRejection[\s\S]*?STOCKGPT_ALLO
 assert.match(worker, /promotion_failed/u);
 assert.match(worker, /provider_unavailable/u);
 assert.match(worker, /console\.warn\("\[broker-sync\][^"]+", \{ jobId: job\.id/u);
-const logs = [...(worker + provider).matchAll(/console\.(?:log|info|warn|error)\([^\n]+/gu)].map((match) => match[0]);
+// Ignore only line-ending whitespace; CRLF checkouts must enforce the same
+// exact log payload allowlist as LF checkouts.
+const logs = [...(worker + provider).matchAll(/console\.(?:log|info|warn|error)\([^\n]+/gu)].map((match) => match[0].trimEnd());
 assert(logs.every((entry) => /\{ jobId: job\.id(?:, code: validation\.errorCode)? \}/u.test(entry) || /^console\.info\("\[broker-sync-sandbox-validation\]", \{ reason(?:, aheadBucket)? \}\);$/u.test(entry)), "Broker logs include more than a job ID, sanitized code or fixed Sandbox reason/bucket");
 assert(!/instrument_market_data|stock_rankings|user_portfolios/u.test(worker + provider + migration), "Broker prices leaked into global market/Portfolio truth");
 assert(!/\.trading\.|refreshBrokerageAuthorization|place(Order|ForceOrder|MlegOrder|ComplexOrder)/u.test(worker + provider));

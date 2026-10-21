@@ -1893,6 +1893,40 @@ export type Database = {
         Args: { p_digest_key: string; p_user_id: string }
         Returns: boolean
       }
+      claim_exact_broker_sync_proof_job: {
+        Args: {
+          p_connection_id: string
+          p_external_connection_id: string
+          p_external_institution_id: string
+          p_institution_id: string
+          p_job_id: string
+          p_provider_id: string
+          p_user_id: string
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          available_at: string
+          completed_at: string | null
+          connection_id: string
+          created_at: string
+          error_code: string | null
+          id: string
+          lease_expires_at: string | null
+          leased_by: string | null
+          provider_freshness_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["broker_sync_job_status"]
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "broker_sync_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       clear_default_portfolio_context: { Args: never; Returns: undefined }
       complete_email_digest_delivery: {
         Args: {

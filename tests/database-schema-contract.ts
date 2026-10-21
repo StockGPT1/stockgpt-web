@@ -71,6 +71,7 @@ export type PublicFunctionSetIsCanonical = Assert<
     | "clear_default_portfolio_context"
     | "claim_broker_sync_jobs"
     | "claim_email_digest_delivery"
+    | "claim_exact_broker_sync_proof_job"
     | "complete_email_digest_delivery"
     | "correct_portfolio_holding"
     | "create_ai_portfolio_draft"
@@ -105,6 +106,22 @@ export type CsvCreationArgsAreNarrow = Assert<
   Equal<
     Database["public"]["Functions"]["create_trading212_portfolio"]["Args"],
     { p_holdings: Json; p_name: string }
+  >
+>;
+export type ExactProofClaimArgsAreNarrow = Assert<
+  Equal<
+    Database["public"]["Functions"]["claim_exact_broker_sync_proof_job"]["Args"],
+    {
+      p_job_id: string; p_user_id: string; p_connection_id: string;
+      p_provider_id: string; p_external_connection_id: string;
+      p_institution_id: string; p_external_institution_id: string; p_worker_id: string;
+    }
+  >
+>;
+export type ExactProofClaimReturnsExistingJob = Assert<
+  Equal<
+    Database["public"]["Functions"]["claim_exact_broker_sync_proof_job"]["Returns"],
+    Database["public"]["Tables"]["broker_sync_jobs"]["Row"][]
   >
 >;
 export type CsvReplacementArgsAreNarrow = Assert<

@@ -23,9 +23,9 @@ Engineering constitution:
 | 06 | Market-data and instrument infrastructure cleanup | COMPLETE | `Build instrument and broker data foundations` | Permanent listing UUIDs, namespaced/scoped aliases, explicit ranked/tracked-only/unsupported coverage and honest price provenance are established without rewriting legacy ticker history. |
 | 07 | Provider-neutral broker data model | COMPLETE | `Build instrument and broker data foundations` | Provider, institution, connection, account, position, multi-currency cash and durable activity entities are separate, owner-isolated and browser read-only. |
 | 08 | Broker secret/security architecture | COMPLETE | `Build secure broker sync engine` | Per-user provider secrets live in Supabase Vault behind an unexposed private credential schema and backend-only exact-scope RPCs; browser/anon access, rotation and local revocation were tested. |
-| 09 | SnapTrade sandbox integration | COMPLETE | `Build secure broker sync engine` | Pinned official SDK adapter implements immutable user identity, read-only portal links and fine-grained connection/account/position/balance/activity normalization. Deterministic provider-contract fixtures pass; external test-key sandbox network smoke is pending. |
+| 09 | SnapTrade sandbox integration | COMPLETE | `Build secure broker sync engine` | Pinned SDK and deterministic contracts retained; Stage 22A Self-directed provider proof and Stage 22B hosted scheduled proof complete. Additional selector-dependent scenarios/reconnect remain separately pending. |
 | 10 | Broker sync state machine and reconciliation | COMPLETE | `Build secure broker sync engine` | Durable bounded leases, candidate validation and one trusted atomic promotion boundary preserve last-good normalized state on incomplete/provider/database failure. |
-| 11 | Broker connection UX | COMPLETE | `Integrate connected broker portfolios` | Read-only server-owned connection flow and database-backed customer states are complete; external test-key smoke remains pending. |
+| 11 | Broker connection UX | COMPLETE | `Integrate connected broker portfolios` | Read-only server-owned flow and database-backed states complete; TEST/Sandbox portal and hosted flow subsequently proven in 22A/22B. Real-device/real-broker approvals remain separate. |
 | 12 | Post-connection onboarding | COMPLETE | `Integrate connected broker portfolios` | Provider discovery, normalized account selection and pending/error/last-good onboarding states are complete. |
 | 13 | Connected accounts → Portfolio projection | COMPLETE | `Integrate connected broker portfolios` | Connected Portfolios are exact-account, read-only projections over broker facts and use the canonical intelligence boundary. |
 | 14 | Connected portfolio historical charting | COMPLETE | `Build portfolio history and context` | Immutable provider-evidence history, exact-date FX and explicit TWR/Modified Dietz availability are implemented; optional provider historical backfill awaits sandbox/add-on access. |
@@ -36,17 +36,17 @@ Engineering constitution:
 | 19 | Remaining customer-facing audit cleanup | COMPLETE | `Harden product experience and security` | Notification failures remain distinguishable from an empty inbox, digest delivery is paged/idempotent, and active personalized transaction/recommendation language and legacy authority are removed. |
 | 20 | Full automated test suite | COMPLETE | `Build release and performance gates` | One deterministic acceptance hierarchy covers static/domain, local database/security, browser journeys, bounded-load evidence and the production build in independent read-only CI jobs. |
 | 21 | Performance/load testing | COMPLETE | `Build release and performance gates` | Normal Portfolio facts are held-only, wider stock search is lazy, connected/aggregate loading remains bulk and provider-free, and deterministic 0/10/50/200-position plus 120-worker queue fixtures enforce bounded work. |
-| 22 | First real broker pilot | NOT STARTED | | Stage 22A non-production Sandbox proof is complete; no real brokerage or production pilot has started. |
+| 22 | First real broker pilot | IN PROGRESS | Stage 22A + 22B accepted | Non-production Sandbox and native hosted scheduled proof complete. 22C commercial/security readiness and 22D explicitly authorised real-account pilot remain outstanding. |
 | 23 | Second-broker abstraction proof | NOT STARTED | | |
-| 24 | Compliance/legal launch review | NOT STARTED | | |
-| 25 | Controlled production rollout | NOT STARTED | | |
+| 24 | Compliance/legal launch review | IN PROGRESS — planning only | | Readiness packet and approval criteria prepared; no legal/regulatory approval claimed. |
+| 25 | Controlled production rollout | NOT STARTED | | Dependency-driven limited-beta backlog prepared; no activation authorised. |
 | 26 | Post-launch provider strategy | NOT STARTED | | |
 
 ## Current development topology
 
 - `stockgpt-staging` is the persistent Vercel web staging project.
-- `StockGPT` is the single cloud Supabase project and is production-only.
-- No second paid Supabase project or Supabase branch is maintained.
+- Customer Production Supabase remains `rfloxmydpbgyyaesysbv`, excluded from Sandbox operations.
+- Explicitly approved isolated Free Supabase Staging `oocvbilwiosehfqpzges` supports Stage 22B only; no second paid project or database branch is maintained.
 - Stage 03 established production schema reconciliation, reproducible migrations, generated database types, local Supabase bring-up and synthetic development data.
 - Staging must not receive broad production-database write credentials or the production service-role credential.
 - Production Supabase inspection is read-only unless a separately reviewed and explicitly approved migration operation is authorised.
@@ -229,7 +229,22 @@ Engineering constitution:
 - The local broker-queue load proof creates 120 jobs and claims them concurrently without duplicate leasing, recovers an expired lease with the next attempt count, and proves the database rejects claims above its configured cap. Runtime worker requests remain capped at five jobs, exponential retry remains bounded and sync candidate limits remain 25 accounts, 5,000 positions and 10,000 activities per account.
 - Performance evidence is deterministic architectural/query/provider-call evidence from local/CI fixtures, not production latency evidence. StockGPT's field targets remain LCP <= 2.5 s p75, INP <= 200 ms p75 and CLS <= 0.10 p75; production/staging RUM is still required before those field targets can be claimed. Stage 22 remains the first real broker-pilot gate; the non-production Self-directed Sandbox smoke is now complete, while measured staging/field evidence and explicit approval remain required before any real broker pilot.
 
-### Stage 22A — SnapTrade non-production Sandbox proof
+### Stage 22 — Sandbox closure and pilot readiness
+
+**Stage 22B COMPLETE (2026-10-21).** One native scheduled Staging invocation
+claimed exactly one fresh job and promoted 2 accounts, 12 positions, 2 cash
+balances and 35 activities. Combined value was $109,125.85 including $37,500
+cash. Shutdown independently verified zero schedules, cron execution disabled,
+activation false, automatic Git deployments disabled and unchanged Deployment
+Protection/customer Production. The checked-in approval registry remains empty.
+See [final evidence](stage22b-final-proof-evidence.md) for deployment/job IDs,
+timestamps, reconciliation and the hosted/local migration-version mapping.
+The preserved local PostgreSQL recovery used no reset or reseeding; exact-claim
+ownership, concurrency, privilege and financial-preservation tests passed.
+Hostile execution cases remain deterministic mock evidence, not extra provider
+smokes. Additional Sandbox scenarios/reconnect remain pending provider follow-up.
+See [next milestone plan](stage22-next-milestone-plan.md) for parallel 22C/24
+readiness, 22D pilot gates, Stage 25 backlog and safe future Git publication.
 
 - **Stage 22A COMPLETE — additional provider scenarios pending.** A Commercial test/non-production key and the read-only `SANDBOX` brokerage proved the real provider user registration, Vault credential boundary, Connection Portal, discovery, two-account normalization, candidate validation, atomic promotion and connected Portfolio projection path. The Self-directed fixture produced 2 accounts, 9 preserved positions, 2 cash balances and 31 activities; all 9 instruments remained honestly unresolved, and zero broker positions were copied into manual holdings.
 - Ordinary Portfolio/Dashboard/Ask/Notifications reads remain provider-free and consume promoted StockGPT database facts. No trading, manual refresh, paid add-on, production key, real brokerage or production Supabase operation occurred.
