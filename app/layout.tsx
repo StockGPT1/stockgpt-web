@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+import { AppBootProvider } from "@/components/AppBootProvider";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
@@ -99,11 +101,12 @@ export const viewport: Viewport = {
   themeColor: "#072116",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nativeApp = /StockGPTApp/i.test((await headers()).get("user-agent") ?? "");
   return (
-    <html lang="en">
+    <html lang="en" data-app-shell={nativeApp ? "true" : undefined}>
       <body>
-        {children}
+        <AppBootProvider nativeApp={nativeApp}>{children}</AppBootProvider>
         <AppShellMode />
         <IOSNativeEnhancements />
         <IOSAppLock />

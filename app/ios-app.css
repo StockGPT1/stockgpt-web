@@ -422,3 +422,71 @@ html[data-app-shell="true"] .sg-chart-scan-laser {
     top: 50%;
   }
 }
+
+/* The native shell has one viewport canvas. Transparent route/header layers
+   reveal the same green through the status area, content and safe-area inset. */
+html[data-app-shell="true"] {
+  --sg-native-canvas: #0b2d1f;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(223, 194, 113, 0.055), transparent 48%),
+    radial-gradient(ellipse at 100% 24%, rgba(79, 139, 92, 0.06), transparent 52%),
+    var(--sg-native-canvas);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-app-shell="true"] body {
+  background: transparent;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-app-shell="true"] .sg-app-shell,
+html[data-app-shell="true"] .sg-app-content,
+html[data-app-shell="true"] .sg-route-content,
+html[data-app-shell="true"] body[data-sg-path="chart-scan"] .sg-app-content,
+html[data-app-shell="true"] .sg-native-ask-workspace {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+html[data-app-shell="true"] .sg-page-backdrop,
+html[data-app-shell="true"] .sg-app-header,
+html[data-app-shell="true"] .sg-sidebar {
+  display: none !important;
+}
+
+html[data-app-shell="true"] .sg-native-header {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-app-shell="true"] .sg-app-content {
+  padding-top: 4px !important;
+  padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+  overscroll-behavior-y: none;
+}
+
+html[data-app-shell="true"] body[data-sg-path="portfolio"] .sg-app-content,
+html[data-app-shell="true"] body[data-sg-path="chart-scan"] .sg-app-content {
+  padding-top: 0 !important;
+}
+
+/* The bubbles supply their own glass surface; a painted footer would create
+   another green band behind them. */
+html[data-app-shell="true"] .sg-native-dock::before {
+  background: none;
+}
+
+html[data-app-shell="true"] .sg-native-ask-workspace {
+  overflow: hidden !important;
+}
+
+html[data-app-shell="true"] .sg-native-ask-scroll {
+  overscroll-behavior-y: none;
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
+import { NativeBottomNavigation } from "@/components/native-navigation/NativeNavigation";
 import { useAppChrome } from "@/components/AppChromeProvider";
 
 const coreItems = [
@@ -79,7 +80,13 @@ function MoreIcon({ className = "size-[19px]" }: { className?: string }) {
   );
 }
 
-export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCount: number; nativeApp?: boolean }) {
+export function MobileBottomNav({ unreadCount, nativeApp = false, askHref = "/ask-stockgpt" }: { unreadCount: number; nativeApp?: boolean; askHref?: string }) {
+  if (nativeApp) return <NativeBottomNavigation unreadCount={unreadCount} askHref={askHref} />;
+  return <WebMobileBottomNav unreadCount={unreadCount} />;
+}
+
+function WebMobileBottomNav({ unreadCount }: { unreadCount: number }) {
+  const nativeApp = false;
   const pathname = usePathname();
   const router = useRouter();
   const { focusedFlowCount, keyboardOpen } = useAppChrome();
@@ -106,6 +113,7 @@ export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCoun
   }, [current, pathname]);
 
   useEffect(() => {
+    if (nativeApp) return;
     const timer = window.setTimeout(() => {
       for (const item of [...primaryItems, ...moreItems]) {
         if (!isPathActive(pathname, item.href)) router.prefetch(item.href);
@@ -113,7 +121,7 @@ export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCoun
     }, 650);
 
     return () => window.clearTimeout(timer);
-  }, [pathname, router, primaryItems, moreItems]);
+  }, [pathname, router, primaryItems, moreItems, nativeApp]);
 
   useEffect(() => {
     if (!hidden) return;
@@ -155,6 +163,7 @@ export function MobileBottomNav({ unreadCount, nativeApp = false }: { unreadCoun
       if (appContent) appContent.style.overflow = previousOverflow;
     };
   }, [current, moreOpen]);
+
 
   return (
     <>

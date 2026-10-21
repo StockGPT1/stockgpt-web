@@ -1,4 +1,7 @@
+"use client";
 /* eslint-disable @next/next/no-img-element */
+import { useAppBoot } from "@/components/AppBootProvider";
+import { InlinePagePending } from "@/components/InlinePagePending";
 
 /**
  * Branded full-screen loader used by every loading.tsx: the StockGPT
@@ -159,6 +162,8 @@ export function BrandLoaderPage({
   label: string;
   background?: string;
 }) {
+  const { nativeApp, ready } = useAppBoot();
+  if (nativeApp && ready) return <InlinePagePending />;
   return (
     <main
       aria-busy="true"

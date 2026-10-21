@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useId, type KeyboardEvent } from "react";
 import { RouletteNumber } from "@/components/RouletteNumber";
-import { nativeHaptic } from "@/lib/ios-native";
+import { isStockGPTIOSApp, nativeHaptic } from "@/lib/ios-native";
 import timeframeStyles from "@/components/ChartTimeframes.module.css";
 
 export type ChartPoint = {
@@ -114,6 +114,8 @@ export function StockChart({
   const pendingClientXRef = useRef<number | null>(null);
   const activePointerRef = useRef<{ id: number; target: SVGSVGElement } | null>(null);
   const activeTouchRef = useRef<number | null>(null);
+  const activeScrubPointerRef = useRef<number | null>(null);
+  const scrubFeedbackRef = useRef<{ points: ChartPoint[]; ticker: string; index: number; lastTickAt: number } | null>(null);
   const scrubScrollLockedRef = useRef(false);
   const gradientId = `portfolio-chart-fill-${useId().replaceAll(":", "")}`;
   const isPortfolioAppearance = appearance === "portfolio";
@@ -280,6 +282,20 @@ export function StockChart({
 
       setHoverSelection({ index: idx, points, ticker });
 
+      if ((activeScrubPointerRef.current !== null || activeTouchRef.current !== null) && isStockGPTIOSApp()) {
+        const previous = scrubFeedbackRef.current;
+        const changedPoint = previous?.points !== points || previous?.ticker !== ticker || previous?.index !== idx;
+        if (changedPoint) {
+          const now = performance.now();
+          const shouldTick = !previous || now - previous.lastTickAt >= 40;
+          // Track every selected point, even while throttled, so holding still never repeats feedback.
+          scrubFeedbackRef.current = { points, ticker, index: idx, lastTickAt: shouldTick ? now : previous.lastTickAt };
+          if (shouldTick) {
+            try { nativeHaptic("light"); } catch { /* Feedback is optional when the native bridge is unavailable. */ }
+          }
+        }
+      }
+
       onScrub?.(points[idx], { range: resolvedRange });
     },
     [points, ticker, svgWidth, pointXs, onScrub, resolvedRange],
@@ -311,6 +327,7 @@ export function StockChart({
     scrubScrollLockedRef.current = activeTouchRef.current !== null;
     const active = activePointerRef.current;
     activePointerRef.current = null;
+    activeScrubPointerRef.current = null;
     if (active) {
       try { active.target.releasePointerCapture(active.id); } catch { /* The browser may already have released a cancelled pointer. */ }
     }
@@ -320,6 +337,7 @@ export function StockChart({
     cancelPendingMove();
     activeTouchRef.current = null;
     releaseStockPointer();
+    scrubFeedbackRef.current = null;
     setHoverSelection(null);
     onScrub?.(null, { range: resolvedRange });
   }, [cancelPendingMove, releaseStockPointer, onScrub, resolvedRange]);
@@ -525,6 +543,7 @@ export function StockChart({
           onKeyDown={isPortfolioAppearance ? handleKeyDown : undefined}
           onBlur={isPortfolioAppearance ? handlePointerLeave : undefined}
           onPointerMove={(e) => {
+            if (activeScrubPointerRef.current !== null && activeScrubPointerRef.current !== e.pointerId) return;
             if (isStockInteraction) {
               if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
               scrubScrollLockedRef.current = true;
@@ -540,8 +559,8 @@ export function StockChart({
                 activePointerRef.current = null;
               }
             }
-            if (isPortfolioAppearance && e.isPrimary && e.button === 0) {
-              try { nativeHaptic("light"); } catch { /* Feedback is optional when the native bridge is unavailable. */ }
+            if (e.isPrimary && e.button === 0 && (e.pointerType === "touch" || e.pointerType === "pen")) {
+              activeScrubPointerRef.current = e.pointerId;
             }
             handleMove(e.clientX);
           }}
@@ -576,6 +595,7 @@ export function StockChart({
               return;
             }
             handleMove(e.clientX);
+            activeScrubPointerRef.current = null;
           }}
         >
           {isPortfolioAppearance && (

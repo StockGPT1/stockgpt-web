@@ -1,0 +1,39 @@
+.header { display: flex; align-items: center; gap: 13px; height: calc(76px + env(safe-area-inset-top,0px)); padding: calc(13px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right)) 13px max(20px,env(safe-area-inset-left)); flex-shrink: 0; background: transparent; position: relative; z-index: 40; }
+.title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: #f9f7ecdf; }
+.menuBubble { width: 46px; height: 46px; flex-shrink: 0; }
+.iconButton { display: grid; place-items: center; width: 45px; height: 46px; position: relative; flex-shrink: 0; border: none; border-radius: 50%; padding: 0; color: #faf7ee; background: transparent; }
+.iconButton svg { width: 20px; height: 20px; }
+.tools { height: 46px; flex-shrink: 0; }
+.tools :global(.sg-liquid-content) { display: flex; align-items: center; }
+.divider { width: 1px; height: 17px; background: #f3e7b219; }
+.dot { position: absolute; top: 8px; right: 10px; width: 5px; height: 5px; border-radius: 50%; background: #edc772; box-shadow: 0 0 0 2px #123927; }
+.dock { position: fixed; z-index: 40; left: max(16px,env(safe-area-inset-left)); right: max(16px,env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom,0px) + 8px); display: flex; align-items: center; gap: 11px; max-width: 450px; margin: 0 auto; }
+.dock::before { content: ""; position: absolute; pointer-events: none; z-index: -1; inset: -30px -16px -16px; background: linear-gradient(transparent,#0b2d1fde 60%,#0b2d1f); }
+.askBubble { width: 66px; height: 66px; flex-shrink: 0; }
+.askBubble > :global(.sg-liquid-surface) { border-color: #e5c06b58; background: radial-gradient(circle at 34% 12%,#e5c06b16,transparent 63%),linear-gradient(145deg,#21432bdf,#0c2b1fde); }
+.askLink { position: relative; display: grid; place-items: center; width: 66px; height: 66px; border-radius: 50%; }
+.smallFlame { width: 20.25px; height: 39px; position: relative; transform-origin: 50% 80%; filter: drop-shadow(0 0 5px #eac56e30); animation: flameLife 6.5s ease-in-out infinite; }
+.ember { position: absolute; inset: 17px 19px; border-radius: 50%; background: radial-gradient(ellipse,#ecc66430,transparent 68%); filter: blur(6px); opacity: .65; pointer-events: none; }
+.menuLayer { position: fixed; inset: 0; z-index: 90; }
+.scrim { position: absolute; inset: 0; background: #020c0788; backdrop-filter: blur(4px); border: none; width: 100%; height: 100%; }
+.menuPanel { position: relative; display: flex; flex-direction: column; width: min(86%,350px); height: 100%; padding: calc(22px + env(safe-area-inset-top,0px)) 22px max(28px,env(safe-area-inset-bottom,0px)); background: #0b2d1ff5; box-shadow: 25px 0 70px #0004; border-right: 1px solid #c1be8930; animation: slideIn 300ms cubic-bezier(.2,.8,.2,1) both; }
+.menuTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wordmark { display: flex; align-items: center; gap: 10px; font-family: Georgia,serif; font-size: 23px; color: #efdfab; }
+.wordmark svg { height: 34px; width: 19px; }
+.menuLabel { margin: 42px 0 18px; color: #adba93; font-size: 9px; letter-spacing: .16em; }
+.menuPanel { overflow-y: auto; overscroll-behavior: contain; }
+.menuItem { display: flex; align-items: center; gap: 14px; padding: 19px 0; color: #e8edde; }
+.menuItem > svg { width: 21px; height: 21px; color: #e0c178; flex-shrink: 0; }
+.menuItem > span:nth-child(2) { flex: 1; }
+.menuItem strong { display: block; font-size: 14px; font-weight: 500; }
+.menuItem small { display: block; font-size: 10px; color: #9db196; margin-top: 6px; }
+.menuItem i { font-style: normal; color: #e4c47c; font-size: 10px; }
+.menuItem[aria-current="page"] strong { color: #edc772; }
+.menuBottom { margin-top: auto; padding-top: 30px; }
+.menuBottom > svg { height: 37px; width: 21px; }
+.menuBottom p { color: #9bac96; font-size: 13px; line-height: 1.8; margin-top: 20px; }
+.menuBottom strong { font-weight: 400; color: #d7ddbd; }
+@keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes flameLife { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-1px) rotate(1deg) scale(1.025); } }
+@media (max-width: 359px) { .dock { left: 12px; right: 12px; gap: 8px; } .header { padding-left: 16px; padding-right: 16px; gap: 10px; } }
+@media (prefers-reduced-motion: reduce) { .smallFlame,.menuPanel { animation: none; } }
