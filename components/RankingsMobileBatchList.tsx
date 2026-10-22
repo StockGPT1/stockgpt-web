@@ -11,6 +11,8 @@ import {
   matchesPriceMoveFilter,
 } from "@/lib/research-explainability";
 import type { StableRankingRow } from "@/lib/stable-rankings";
+import { useRankingsLiveMoves } from "@/components/RankingsLiveMoves";
+import { resolveRankingLiveQuote } from "@/lib/rankings-live-moves";
 
 export type MobileRankingItem = StableRankingRow & { dailyMove: number | null };
 
@@ -78,6 +80,7 @@ export function RankingsMobileBatchList({
   locked: boolean;
 }) {
   const router = useRouter();
+  const { quotes, request: requestQuotes } = useRankingsLiveMoves();
   const [items, setItems] = useState(initialItems);
   const [page, setPage] = useState(initialPage);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +97,7 @@ export function RankingsMobileBatchList({
         q: filters.q,
         sector: filters.sector,
         score: filters.score,
+        priceMove: filters.priceMove,
       });
 
       try {
@@ -124,6 +128,7 @@ export function RankingsMobileBatchList({
           ...nextRows.filter((row) => !current.some((item) => item.id === row.id)),
         ]);
         setPage(nextPage);
+        requestQuotes(nextRows.map(row => row.ticker).filter((ticker): ticker is string => Boolean(ticker)));
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Could not load the next rankings batch.");
       }
@@ -142,7 +147,9 @@ export function RankingsMobileBatchList({
 
   return (
     <div className="space-y-2.5">
-      {items.map((stock) => {
+      {items.map((storedStock) => {
+        const live = resolveRankingLiveQuote(storedStock.ticker, storedStock.price, storedStock.dailyMove, quotes);
+        const stock = { ...storedStock, price: live.price, dailyMove: live.dailyMove };
         const confidence = getModelConfidence(stock);
         const rowKey = String(stock.id ?? stock.ticker ?? stock.rank ?? "ranking-row");
         const isWhyOpen = openWhyKey === rowKey;

@@ -1020,8 +1020,7 @@ html[data-app-shell="true"] .sg-bottom-nav {
 
 
 .sg-dashboard-briefing {
-  background:
-    radial-gradient(circle at 85% 0%, rgba(242, 195, 95, 0.08), transparent 35%);
+  background: transparent;
 }
 
 .sg-dashboard-card,

@@ -7,11 +7,11 @@
 .tools :global(.sg-liquid-content) { display: flex; align-items: center; }
 .divider { width: 1px; height: 17px; background: #f3e7b219; }
 .dot { position: absolute; top: 8px; right: 10px; width: 5px; height: 5px; border-radius: 50%; background: #edc772; box-shadow: 0 0 0 2px #123927; }
-.dock { position: fixed; z-index: 40; left: max(16px,env(safe-area-inset-left)); right: max(16px,env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom,0px) + 8px); display: flex; align-items: center; gap: 11px; max-width: 450px; margin: 0 auto; }
+.dock { position: fixed; z-index: 40; left: max(16px,env(safe-area-inset-left)); right: max(16px,env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom,0px) + 2px); display: flex; align-items: center; gap: 11px; max-width: 450px; margin: 0 auto; }
 .dock::before { content: ""; position: absolute; pointer-events: none; z-index: -1; inset: -30px -16px -16px; background: linear-gradient(transparent,#0b2d1fde 60%,#0b2d1f); }
-.askBubble { width: 66px; height: 66px; flex-shrink: 0; }
+.askBubble { width: 60px; height: 60px; flex-shrink: 0; }
 .askBubble > :global(.sg-liquid-surface) { border-color: #e5c06b58; background: radial-gradient(circle at 34% 12%,#e5c06b16,transparent 63%),linear-gradient(145deg,#21432bdf,#0c2b1fde); }
-.askLink { position: relative; display: grid; place-items: center; width: 66px; height: 66px; border-radius: 50%; }
+.askLink { position: relative; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; }
 .smallFlame { width: 20.25px; height: 39px; position: relative; transform-origin: 50% 80%; filter: drop-shadow(0 0 5px #eac56e30); animation: flameLife 6.5s ease-in-out infinite; }
 .ember { position: absolute; inset: 17px 19px; border-radius: 50%; background: radial-gradient(ellipse,#ecc66430,transparent 68%); filter: blur(6px); opacity: .65; pointer-events: none; }
 .menuLayer { position: fixed; inset: 0; z-index: 90; }

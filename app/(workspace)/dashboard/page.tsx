@@ -10,6 +10,8 @@ import {
 import {
   MobileDashboardExperience,
   type MobileDashboardNewsArticle,
+  type DashboardMarketData,
+  type DashboardNewsData,
 } from "@/components/MobileDashboardExperience";
 import { MobileMarketMoversPortal } from "@/components/MobileMarketMovers";
 import { getServerViewer, getViewerProfile } from "@/lib/server-viewer";
@@ -81,6 +83,18 @@ function toPublishedMs(value: string | null | undefined) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function dashboardArticles(feed: Awaited<ReturnType<typeof getDashboardWorldNewsSafe>>): MobileDashboardNewsArticle[] {
+  return [...(feed?.articles ?? [])]
+    .filter(article => Boolean(article.title && article.url))
+    .sort((a, b) => toPublishedMs(b.published_at) - toPublishedMs(a.published_at))
+    .slice(0, 3).map(article => ({
+      id: String(article.id), title: String(article.title), summary: article.summary,
+      source: article.source, url: article.url, imageUrl: article.image_url,
+      publishedAt: article.published_at,
+      affectedTickers: article.affectedStocks.slice(0, 3).map(stock => stock.ticker).filter(Boolean),
+    }));
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -108,16 +122,20 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
   firstName?: string;
   nativeApp: boolean;
 }) {
-
+  const marketPromise: Promise<DashboardMarketData> = getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"])
+    .then(chart => ({ chart, value: getLatestPriceFromChart(chart), changePct: getChartChangePct(chart, "1D") }))
+    .catch(() => ({ chart: {}, value: null, changePct: null }));
+  const newsPromise: Promise<DashboardNewsData> = getDashboardWorldNewsSafe()
+    .then(feed => ({ articles: dashboardArticles(feed), status: feed ? "ok" : "error" }));
   const [
     profileResult,
     { data: rankingsData },
     { count: totalCount },
     { count: bullishCount },
     dashboardPortfolio,
-    sp500Data,
+    marketSnapshot,
     snapshotMap,
-    worldNewsFeed,
+    newsSnapshot,
   ] = await Promise.all([
     getViewerProfile().then(data => ({ data })),
     supabase
@@ -130,10 +148,10 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
       .from("stock_rankings")
       .select("*", { count: "exact", head: true })
       .gte("score", 7000),
-    getDashboardMainPortfolio(supabase, userId, portfolio),
-    getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"]),
+    getDashboardMainPortfolio(supabase, userId, portfolio, { deferDetails: nativeApp }),
+    nativeApp ? Promise.resolve({ chart: {}, value: null, changePct: null } as DashboardMarketData) : marketPromise,
     nativeApp ? Promise.resolve(new Map<string, number | null>()) : getRankSnapshotMapAround24hAgo(supabase),
-    getDashboardWorldNewsSafe(),
+    nativeApp ? Promise.resolve({ articles: [], status: "error" } as DashboardNewsData) : newsPromise,
   ]);
 
   const hasSubscription = hasActiveSubscription(
@@ -165,8 +183,9 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
           ? "Cautious market"
           : "Weak market";
 
-  const marketValue = getLatestPriceFromChart(sp500Data);
-  const marketChangePct = getChartChangePct(sp500Data, "1D");
+  const sp500Data = marketSnapshot.chart;
+  const marketValue = marketSnapshot.value;
+  const marketChangePct = marketSnapshot.changePct;
   const portfolioId = dashboardPortfolio?.portfolioId ?? null;
   const valuationState = dashboardPortfolio?.valuationState ?? "empty";
   const missingPriceTickers = dashboardPortfolio?.missingPriceTickers ?? [];
@@ -181,34 +200,11 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
         ? "limited"
         : null;
 
-  const dashboardNews: MobileDashboardNewsArticle[] = hasSubscription
-    ? [...(worldNewsFeed?.articles ?? [])]
-        .filter((article) => Boolean(article.title && article.url))
-        .sort(
-          (a, b) =>
-            toPublishedMs(b.published_at) - toPublishedMs(a.published_at),
-        )
-        .slice(0, 3)
-        .map((article) => ({
-          id: String(article.id),
-          title: String(article.title),
-          summary: article.summary,
-          source: article.source,
-          url: article.url,
-          imageUrl: article.image_url,
-          publishedAt: article.published_at,
-          affectedTickers: article.affectedStocks
-            .slice(0, 3)
-            .map((stock) => stock.ticker)
-            .filter(Boolean),
-        }))
-    : [];
+  const dashboardNews = hasSubscription ? newsSnapshot.articles : [];
 
   const newsStatus: "ok" | "error" | "locked" = !hasSubscription
     ? "locked"
-    : worldNewsFeed
-      ? "ok"
-      : "error";
+    : newsSnapshot.status;
 
   const askContext = {
     contextType: "dashboard" as const,
@@ -242,6 +238,10 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
           marketChangePct={marketChangePct}
           news={dashboardNews}
           newsStatus={newsStatus}
+          deferredChart={dashboardPortfolio?.deferredChart}
+          deferredOpportunities={hasSubscription ? dashboardPortfolio?.deferredOpportunities : undefined}
+          deferredMarket={nativeApp ? marketPromise : undefined}
+          deferredNews={nativeApp && hasSubscription ? newsPromise : undefined}
         />
         <MobileMarketMoversPortal canUsePremium={hasSubscription} />
 

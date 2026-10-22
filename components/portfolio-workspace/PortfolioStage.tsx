@@ -63,6 +63,7 @@ export function PortfolioStage({
   summary,
   chartData,
   chartMeta,
+  chartLoading = false,
   stageRef,
   sectionAnchorRef,
   section,
@@ -77,6 +78,7 @@ export function PortfolioStage({
   summary: PortfolioHealthSummary;
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta;
+  chartLoading?: boolean;
   stageRef: RefObject<HTMLElement | null>;
   sectionAnchorRef: RefObject<HTMLDivElement | null>;
   section: PortfolioSection;
@@ -249,7 +251,7 @@ export function PortfolioStage({
                 </span>
                 )}
                 <p className={styles.detailLabel}>
-                  {freshnessCopy(chartMeta)}
+                  {chartLoading ? "Loading chart history…" : freshnessCopy(chartMeta)}
                 </p>
               </div>
             </div>
@@ -272,15 +274,19 @@ export function PortfolioStage({
               />
             ) : (
               <div
+                role={chartLoading ? "status" : undefined}
+                aria-busy={chartLoading || undefined}
                 className="flex items-center justify-center border-y border-[#faf6f0]/8 text-center"
                 style={{ height: chartHeight }}
               >
                 <div className="max-w-md px-6">
                   <p className="text-[16px] font-black text-[#faf6f0] lg:text-[18px]">
-                    {chartStateTitle(chartMeta)}
+                    {chartLoading ? "Loading chart history" : chartStateTitle(chartMeta)}
                   </p>
                   <p className="mt-2 text-[11px] font-semibold leading-5 text-[#faf6f0]/48 lg:text-[12px] lg:leading-6">
-                    {chartMeta.health.displayState === "empty"
+                    {chartLoading
+                      ? "Your current value and holdings are ready. History will appear here shortly."
+                      : chartMeta.health.displayState === "empty"
                       ? "Your portfolio value and history will appear here as you add holdings."
                       : "StockGPT only plots confirmed portfolio history. Sparse or stale data is rebuilt before it is shown."}
                   </p>
@@ -303,7 +309,7 @@ export function PortfolioStage({
                   disabled={!available}
                   aria-pressed={active}
                   aria-label={`${label === "All" ? "All available history" : label} chart timeframe`}
-                  title={available ? undefined : "Not enough history for this timeframe"}
+                  title={available ? undefined : chartLoading ? "Loading chart history" : "Not enough history for this timeframe"}
                   onClick={() => {
                     setRequestedRange(range);
                     setScrubSelection(null);

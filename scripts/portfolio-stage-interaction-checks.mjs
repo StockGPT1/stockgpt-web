@@ -131,6 +131,17 @@ function assertCurrent(view, props) {
   assert.ok(!text(view.tree).includes("Total return at this point"));
 }
 
+test("pending chart history keeps the actual balance visible without claiming history is missing", () => {
+  const stage = stageHarness({ chartData: {}, chartLoading: true });
+  const view = stage.render();
+  assertCurrent(view, stage.props);
+  assert.equal(view.chart, undefined);
+  assert.ok(text(view.tree).includes("Loading chart history"));
+  assert.ok(!text(view.tree).includes("Chart history unavailable"));
+  assert.ok(!text(view.tree).includes("Add holdings to start charting"));
+  assert.ok(find(view.tree, (node) => node.props?.role === "status" && node.props["aria-busy"] === true));
+});
+
 test("portfolio dates use the shared chart overlay and keep selected return context accessible", () => {
   const stage = stageHarness();
   let view = stage.render();

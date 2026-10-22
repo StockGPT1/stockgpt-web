@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
@@ -15,7 +16,8 @@ import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { StockChart, type ChartPoint, type TimeRange } from "@/components/StockChart";
 import { StockLogo } from "@/components/StockLogo";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
-import type { DashboardPortfolioOpportunity } from "@/lib/dashboard-portfolio";
+import type { DashboardPortfolioOpportunity, DashboardPortfolioChart } from "@/lib/dashboard-portfolio";
+import { useDashboardData } from "@/components/DashboardDataStream";
 
 export type MobileDashboardRanking = {
   id: string | number;
@@ -45,6 +47,13 @@ type PortfolioChartState = {
   latestSnapshotAt: string | null;
 };
 
+export type DashboardMarketData = {
+  chart: Partial<Record<TimeRange, ChartPoint[]>>;
+  value: number | null;
+  changePct: number | null;
+};
+export type DashboardNewsData = { articles: MobileDashboardNewsArticle[]; status: "ok" | "error" };
+
 type Props = {
   firstName?: string;
   canUsePremium: boolean;
@@ -63,6 +72,10 @@ type Props = {
   marketChangePct: number | null;
   news: MobileDashboardNewsArticle[];
   newsStatus: "ok" | "error" | "locked";
+  deferredChart?: Promise<DashboardPortfolioChart>;
+  deferredOpportunities?: Promise<DashboardPortfolioOpportunity[]>;
+  deferredMarket?: Promise<DashboardMarketData>;
+  deferredNews?: Promise<DashboardNewsData>;
 };
 
 const PANELS = ["Portfolio", "What changed", "Opportunities"] as const;
@@ -157,40 +170,65 @@ function chartHasData(data: Partial<Record<TimeRange, ChartPoint[]>>) {
   return Object.values(data).some((points) => (points?.length ?? 0) > 1);
 }
 
+function subscribeClock(onChange: () => void) {
+  const timer = window.setInterval(onChange, 60_000);
+  window.addEventListener("pageshow", onChange);
+  return () => { clearInterval(timer); window.removeEventListener("pageshow", onChange); };
+}
+
 export function MobileDashboardExperience({
   firstName,
   canUsePremium,
   portfolioId,
   portfolios,
   summary,
-  portfolioChart,
-  portfolioChartState,
+  portfolioChart: initialPortfolioChart,
+  portfolioChartState: initialPortfolioChartState,
   valuationState,
   missingPriceTickers,
-  opportunities,
+  opportunities: initialOpportunities,
   rankings,
   rankingsLocked,
-  marketChart,
-  marketValue,
-  marketChangePct,
-  news,
-  newsStatus,
+  marketChart: initialMarketChart,
+  marketValue: initialMarketValue,
+  marketChangePct: initialMarketChangePct,
+  news: initialNews,
+  newsStatus: initialNewsStatus,
+  deferredChart,
+  deferredOpportunities,
+  deferredMarket,
+  deferredNews,
 }: Props) {
+  const chartStream = useDashboardData(deferredChart);
+  const ideasStream = useDashboardData(deferredOpportunities);
+  const marketStream = useDashboardData(deferredMarket);
+  const newsStream = useDashboardData(deferredNews);
+  const portfolioChart = chartStream.value?.chartData ?? initialPortfolioChart;
+  const chartHealth = chartStream.value?.chartMeta?.health;
+  const portfolioChartState: PortfolioChartState = chartStream.value ? {
+    displayState: chartStream.value.failed ? "error_no_cache" : chartHealth?.displayState === "ready" || chartHealth?.displayState === "error_with_cache" || chartHealth?.displayState === "error_no_cache" ? chartHealth.displayState : "limited",
+    isFlat: chartHealth?.isFlat ?? false,
+    latestSnapshotAt: chartHealth?.latestSnapshotAt ?? null,
+  } : initialPortfolioChartState;
+  const opportunities = ideasStream.value ?? initialOpportunities;
+  const marketChart = marketStream.value?.chart ?? initialMarketChart;
+  const marketValue = marketStream.value ? marketStream.value.value : initialMarketValue;
+  const marketChangePct = marketStream.value ? marketStream.value.changePct : initialMarketChangePct;
+  const news = newsStream.value?.articles ?? initialNews;
+  const newsStatus = newsStream.pending ? "loading" : newsStream.value?.status ?? initialNewsStatus;
   const carouselRef = useRef<HTMLDivElement>(null);
   const scrollFrame = useRef<number | null>(null);
   const [activePanel, setActivePanel] = useState(0);
-  const [greeting, setGreeting] = useState("Your StockGPT briefing");
-  const [market, setMarket] = useState("Market status");
+  const greeting = useSyncExternalStore(subscribeClock, () => localGreeting(firstName), () => "Your StockGPT briefing");
+  const market = useSyncExternalStore(subscribeClock, marketStatus, () => "Market status");
 
   useEffect(() => {
-    setGreeting(localGreeting(firstName));
-    setMarket(marketStatus());
     return () => {
       if (scrollFrame.current != null) {
         window.cancelAnimationFrame(scrollFrame.current);
       }
     };
-  }, [firstName]);
+  }, []);
 
   const topRanked = rankings[0];
   const portfolioHref = portfolioId
@@ -218,7 +256,7 @@ export function MobileDashboardExperience({
           ? `${topRanked.ticker} remains #1`
           : "rankings ready";
     return `${health} · ${review}`;
-  }, [canUsePremium, summary, topRanked?.ticker, valuationState]);
+  }, [canUsePremium, summary, topRanked, valuationState]);
 
   const changedItems = useMemo(() => {
     if (!summary) {
@@ -246,7 +284,7 @@ export function MobileDashboardExperience({
         ? `${topRanked.ticker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, summary, topRanked?.ticker, valuationState]);
+  }, [canUsePremium, summary, topRanked, valuationState]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
@@ -432,7 +470,7 @@ export function MobileDashboardExperience({
                         <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#f2c35f]/24" />
                         <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
                           <p className="text-[10px] font-black text-[#e7c56c]">
-                            {portfolioChartState.displayState === "error_no_cache"
+                            {chartStream.pending ? "Fetching chart history" : portfolioChartState.displayState === "error_no_cache"
                               ? "Chart temporarily unavailable"
                               : "Building reliable chart history"}
                           </p>
@@ -567,6 +605,8 @@ export function MobileDashboardExperience({
                       Build portfolio
                     </Link>
                   </div>
+                ) : ideasStream.pending ? (
+                  <p role="status" className="py-4 text-[11px] leading-5 text-[#fffaf2]/60">Checking ideas against your portfolio…</p>
                 ) : opportunities.length === 0 ? (
                   <div className="rounded-2xl border border-[#f2c35f]/14 bg-[#061b12]/55 p-4">
                     <p className="text-[13px] font-black">
@@ -755,7 +795,7 @@ export function MobileDashboardExperience({
             />
           ) : (
             <div className="flex h-[122px] items-center justify-center text-[11px] font-semibold text-[#fffaf2]/45">
-              Market chart temporarily unavailable
+              {marketStream.pending ? "Fetching market chart…" : "Market chart temporarily unavailable"}
             </div>
           )}
         </div>
@@ -779,7 +819,9 @@ export function MobileDashboardExperience({
           </Link>
         </div>
 
-        {newsStatus === "locked" ? (
+        {newsStatus === "loading" ? (
+          <p role="status" className="mt-3 text-[11px] text-[#fffaf2]/52">Fetching the latest stories…</p>
+        ) : newsStatus === "locked" ? (
           <div className="mt-3 rounded-2xl border border-[#f2c35f]/14 bg-[#0b2b1d]/52 p-4 text-[#fffaf2]">
             <p className="text-[12px] font-black">World news is a premium feature.</p>
             <Link href="/subscription" className="mt-3 inline-flex text-[10px] font-black uppercase tracking-[0.08em] text-[#f2c35f]">
@@ -864,6 +906,7 @@ export function MobileDashboardExperience({
           About &amp; disclaimer →
         </Link>
       </section>
+      {chartStream.bridge}{ideasStream.bridge}{marketStream.bridge}{newsStream.bridge}
     </div>
   );
 }

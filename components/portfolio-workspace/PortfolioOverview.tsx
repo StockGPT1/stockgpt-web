@@ -24,7 +24,7 @@ function Metric({ label, value, detail, onClick }: { label: string; value: strin
 }
 
 export function PortfolioOverview({
-  portfolioId, meta, summary, holdings, opportunities, canUsePremium, latestActivityDate,
+  portfolioId, meta, summary, holdings, opportunities, opportunitiesLoading = false, opportunitiesError = false, canUsePremium, latestActivityDate,
   onHolding, onAnalysis, onViewHoldings, onAdd,
 }: {
   portfolioId: string;
@@ -32,6 +32,8 @@ export function PortfolioOverview({
   summary: PortfolioHealthSummary;
   holdings: ExtendedHolding[];
   opportunities: DashboardPortfolioOpportunity[];
+  opportunitiesLoading?: boolean;
+  opportunitiesError?: boolean;
   canUsePremium: boolean;
   latestActivityDate: string | null;
   onHolding: (holding: ExtendedHolding) => void;
@@ -124,7 +126,7 @@ export function PortfolioOverview({
 
     <section className={styles.section}>
       <SectionHeading title="Portfolio-fit ideas" detail="Research prompts from the model, with a reason and a risk to check." action={<Link href="/rankings" className={styles.textAction}>Rankings <span aria-hidden="true">→</span></Link>} />
-      {researchIdeas.length ? <div className={styles.ideas}>
+      {opportunitiesLoading ? <p role="status" aria-busy="true" className={styles.stateCopy}>Finding portfolio-fit ideas…</p> : opportunitiesError ? <p className={styles.stateCopy}>Portfolio-fit ideas could not load. Your holdings and balances are available.</p> : researchIdeas.length ? <div className={styles.ideas}>
         {researchIdeas.map(idea => <article key={`${idea.ticker}-${idea.category}`} className={styles.idea}>
           <div className={styles.ideaHeading}><h3>{idea.ticker}<span>{idea.company}</span></h3><Link href={`/stock/${encodeURIComponent(idea.ticker)}`} className={styles.researchAction}>Research <span className="sr-only">{idea.ticker}</span><PortfolioIcon name="arrow" className="size-4" /></Link></div>
           <p className={styles.ideaCategory}>{idea.category}</p><p className={styles.ideaReason}>{idea.reason}</p><p className={styles.ideaRisk}><span>Risk to consider:</span> {idea.risk || "Review the stock's risks before drawing a conclusion."}</p>
