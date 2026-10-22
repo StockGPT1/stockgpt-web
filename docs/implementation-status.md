@@ -444,6 +444,32 @@ commit, push, deployment or outbound message was performed for these packets.
   external-network deny guard; ignored local helpers/environment files were not
   included or exempted by weaker lint rules. No migration was added this sprint.
 
+### Conditional feature-branch publication — 2026-10-22
+
+- The owner-installed customer Dashboard rule is now pinned exactly by the
+  local publication gate: skip only Preview + `codex/broker-sync-foundation`.
+  Live `autoExposeSystemEnvs=true` and absence of repository override were read
+  back. Customer Production remains `main`; isolated Staging correctly uses the
+  foundation branch as its Production branch while automatic Git deployment is
+  independently disabled. No cloud rule, environment or protection was changed.
+- Targeted verification: 104 isolation checks (including actual shell exits),
+  65 synthetic pilot rehearsal checks, 55 pilot AI exclusion checks, beta source
+  contracts, migration safety, database source contracts, changed-script lint
+  and diff checks pass. Only the two previously reviewed migrations are in the
+  four-checkpoint range; no migration is applied by publication.
+- Read-only trigger review: no repository webhooks, Vercel deploy hooks or custom
+  environment matchers; candidate push runs read-only Build Check, while Android
+  remains manual. Default-branch legacy workflows have no `workflow_run` listener
+  and are absent from this candidate; no workflow or shared root config changed.
+  Existing environment names/types/scopes were reviewed without exporting values.
+- User conditionally authorizes one ordinary push of the tested correction plus
+  four accepted checkpoints, only after a fresh complete release receipt passes.
+  Expected customer result is an ignored/canceled Preview event with no app build;
+  GitHub CI is expected. Record final SHA, receipt and post-push verification
+  separately after the local checkpoint to avoid self-referential commit hashes.
+  Any unexpected build/deployment stops further action; no forced Git rollback,
+  cloud settings change or Production deployment is authorized.
+
 Every implementation stage must pass:
 
 1. Code / migration complete

@@ -78,28 +78,32 @@ Before any separately approved push:
    lists. Unexpected customer build/target/environment is a stop condition;
    follow the approved operator response, never silently change Production.
 
-The implemented **uninstalled** customer-project-only proposal is
-`node scripts/customer-project-ignore-build.mjs` as the customer Dashboard
-Ignored Build Step. It exits 0 only for the exact customer project, GitHub
-repository owner/name, foundation branch and Preview environment; it logs no
-environment values. All other inputs exit 1, leaving normal builds eligible.
-This is deliberately not a universal unknown-project kill switch. Missing system
-metadata cannot establish isolation and blocks the publication receipt. Team
-ownership is independently checked against API metadata; `VERCEL_ORG_ID` is not
-assumed to be a Vercel build-system variable. Verify genuine system variables are
-available at the ignore step; do not inject fabricated identity values.
+The independently installed **customer-project-only Dashboard** Ignored Build
+Step was read back using the authenticated owner CLI on 22 October 2026:
 
-The source is not connected to any customer setting, root config, npm build or
-workflow. It does **not** prevent a push today. For an existing Dashboard ignore
-rule, stop for exact rule composition review rather than replacing it: an
-existing exit-0 skip must remain a skip outside this foundation predicate.
-The supplied publication evaluator intentionally refuses that case until a
-separate composition is reviewed. A repository `ignoreCommand`, including one
-from an alternate effective config, can supersede the Dashboard command.
+```sh
+if [ "$VERCEL_ENV" = "preview" ] && [ "$VERCEL_GIT_COMMIT_REF" = "codex/broker-sync-foundation" ]; then exit 0; else exit 1; fi
+```
+
+`autoExposeSystemEnvs` is true. The exact string is pinned in the local gate;
+tests execute it with Preview/Production, matching/nonmatching and missing
+metadata. Project/team/repository ownership is independently checked through
+authenticated metadata. The older Node predicate remains a scope-test helper,
+not the installed command. No repository-level ignore override exists. The
+customer Production branch remains `main`; the separate Staging project's
+Production branch is correctly `codex/broker-sync-foundation`, with Git deployment
+creation disabled independently. The gate no longer confuses target with branch.
+
+Any changed Dashboard rule requires new review, not automatic string acceptance
+or composition. A repository `ignoreCommand`, including one from an alternate
+effective config, can supersede the Dashboard command.
 Repository `git.deploymentEnabled` is shared configuration, not inherently a
 customer-project-only isolation setting. A skipped build may still create Vercel
 metadata and GitHub CI; this does not promise a push has zero side effects.
-Nothing in this proposal is configured or executed by this sprint.
+This publication task changes no cloud settings. Rollback of the isolation rule
+requires separate operator approval: restore its prior unset value only after
+no further foundation-branch push is planned. Do not force-push, change the
+Production target, or disable protection to recover an unexpected event.
 
 ### Exact later publication procedure — NOT EXECUTED
 
@@ -109,10 +113,11 @@ Nothing in this proposal is configured or executed by this sprint.
    effective config/ignore precedence, system-variable availability, names/types/
    scopes of environment settings, protection and current deployments. No secret
    values are needed. Resolve the Staging connector access gap first.
-2. With **separate explicit customer-settings approval**, preserve the existing
-   Dashboard ignore value and source precedence evidence. If no prior rule exists
-   and source cannot override it, install only the exact command above in the
-   **customer** project. This does not alter Production branch or root schedules.
+2. Read back the already installed exact customer Dashboard command above and
+   source precedence; do not reinstall or modify it during publication. Preserve
+   customer Production deployment and all eleven live schedules (the unchanged
+   feature-branch root config has ten; no merge or Production deployment is
+   authorized). Staging retains zero schedules and disabled cron execution.
    If a rule already exists, review a composed rule before any change; never
    overwrite it. Independently verify effective customer foundation/Preview skip
    and main/Production preservation. The incoming Git revision must contain the

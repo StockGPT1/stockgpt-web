@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CUSTOMER_PROJECT_ID, FOUNDATION_BRANCH, IGNORE_COMMAND, shouldSkipCustomerFoundationBuild } from "./customer-project-ignore-build.mjs";
-import { evaluatePublicationGate, ROOT_CONFIG_SHA256, STAGING_PROJECT_ID, TEAM_ID } from "./publication-gate.mjs";
+import { evaluatePublicationGate, ROOT_CONFIG_SHA256, STAGING_PROJECT_ID, STAGING_PRODUCTION_BRANCH, TEAM_ID } from "./publication-gate.mjs";
 
 let checks = 0;
 const check = (condition, label) => { assert.ok(condition, label); checks += 1; };
@@ -26,6 +26,19 @@ for (const [metadata, expected] of [[env, 0], [{ ...env, VERCEL_ENV: "production
   });
   check(result.status === expected && result.stdout === "" && result.stderr === "", "real exit contract, no logs");
 }
+// Execute the exact installed shell rule rather than merely emulating it in JS.
+const shell = process.platform === "win32" ? "C:/Program Files/Git/bin/bash.exe" : "/bin/sh";
+for (const [environment, branch, expected] of [
+  ["preview", FOUNDATION_BRANCH, 0], ["production", FOUNDATION_BRANCH, 1],
+  ["production", "main", 1], ["preview", "main", 1],
+  ["preview", `${FOUNDATION_BRANCH}-other`, 1], ["preview", "other", 1],
+  ["development", FOUNDATION_BRANCH, 1], ["", FOUNDATION_BRANCH, 1], ["preview", "", 1],
+]) {
+  const result = spawnSync(shell, ["-c", IGNORE_COMMAND], {
+    env: { SystemRoot: process.env.SystemRoot, VERCEL_ENV: environment, VERCEL_GIT_COMMIT_REF: branch }, encoding: "utf8",
+  });
+  check(result.status === expected && result.stdout === "" && result.stderr === "", "installed shell exit contract, no logs");
+}
 const candidateSha = "a".repeat(40);
 const remoteSha = "b".repeat(40);
 const now = new Date("2026-10-21T21:00:00Z");
@@ -40,8 +53,8 @@ const valid = {
   pushApprovedForSha: candidateSha, githubCiConsequencesReviewed: true, customerPreviewSkippedBuildAccepted: true,
   customer: { ...project, id: CUSTOMER_PROJECT_ID, automaticGitDeployments: true, foundationTarget: "preview",
     effectiveIgnoreCommand: IGNORE_COMMAND, sourceIgnoreCommandPresent: false, priorIgnoreCommand: null,
-    systemMetadataVerified: true, skipPredicateVerified: true, mainPredicatePreserved: true },
-  staging: { ...project, id: STAGING_PROJECT_ID, automaticGitDeployments: false, cronEnabled: false,
+    systemMetadataVerified: true, systemEnvironmentVariablesExposed: true, skipPredicateVerified: true, mainPredicatePreserved: true },
+  staging: { ...project, id: STAGING_PROJECT_ID, productionBranch: STAGING_PRODUCTION_BRANCH, automaticGitDeployments: false, cronEnabled: false,
     scheduleCount: 0, proofActivated: false },
 };
 const evaluate = (r) => evaluatePublicationGate(r, { candidateSha, remoteSha, now });
@@ -62,9 +75,13 @@ for (const change of [
   { customer: { ...valid.customer, sourceIgnoreCommandPresent: true } },
   { customer: { ...valid.customer, priorIgnoreCommand: "existing-policy" } },
   { customer: { ...valid.customer, effectiveIgnoreCommand: "exit 0" } },
+  { customer: { ...valid.customer, effectiveIgnoreCommand: "node scripts/customer-project-ignore-build.mjs" } },
+  { customer: { ...valid.customer, systemEnvironmentVariablesExposed: false } },
+  { customer: { ...valid.customer, productionBranch: FOUNDATION_BRANCH } },
   { customer: { ...valid.customer, teamId: "other" } },
   { staging: { ...valid.staging, id: CUSTOMER_PROJECT_ID } },
   { staging: { ...valid.staging, automaticGitDeployments: true } },
+  { staging: { ...valid.staging, productionBranch: "main" } },
   { staging: { ...valid.staging, cronEnabled: true } },
   { staging: { ...valid.staging, scheduleCount: 1 } },
   { staging: { ...valid.staging, proofActivated: true } },
@@ -74,4 +91,4 @@ check(createHash("sha256").update(configBytes.toString("utf8").replace(/\r\n/g, 
 const config = JSON.parse(configBytes);
 check(config.crons.length === 10 && !("ignoreCommand" in config) && !("git" in config), "no shared deployment policy mutation");
 check(!readFileSync(new URL("./publication-gate.mjs", import.meta.url), "utf8").includes("child_process"), "gate cannot invoke publication");
-console.log(`Deployment isolation: ${checks} deterministic checks passed; no cloud policy installed, no publication performed.`);
+console.log(`Deployment isolation: ${checks} deterministic checks passed; tests perform no cloud mutation or publication.`);

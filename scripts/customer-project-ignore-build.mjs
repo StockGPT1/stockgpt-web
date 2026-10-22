@@ -1,11 +1,12 @@
 import { pathToFileURL } from "node:url";
 
-// Proposal for the CUSTOMER project's Dashboard Ignored Build Step only.
-// Not wired into vercel.json, npm build or CI. Team ownership is independently
+// CUSTOMER-project-only predicate retained for deterministic scope checks.
+// The installed Dashboard shell policy is pinned below, not wired into root
+// vercel.json, npm build or CI. Team ownership is independently
 // verified by the publication gate; VERCEL_ORG_ID is not assumed a system var.
 export const CUSTOMER_PROJECT_ID = "prj_QzlZVgUZ5qIC5SwYz5k3ThQKkQNo";
 export const FOUNDATION_BRANCH = "codex/broker-sync-foundation";
-export const IGNORE_COMMAND = "node scripts/customer-project-ignore-build.mjs";
+export const IGNORE_COMMAND = 'if [ "$VERCEL_ENV" = "preview" ] && [ "$VERCEL_GIT_COMMIT_REF" = "codex/broker-sync-foundation" ]; then exit 0; else exit 1; fi';
 
 export function shouldSkipCustomerFoundationBuild(env) {
   return env?.VERCEL_PROJECT_ID === CUSTOMER_PROJECT_ID
