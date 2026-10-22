@@ -120,6 +120,7 @@ export async function withdrawPortfolioCash({
 
   await invalidatePortfolioPageSnapshot({ portfolioId, ownerId: user.id });
   revalidatePath("/portfolio");
+  revalidatePath("/dashboard");
   revalidatePath(`/portfolio?portfolio=${portfolioId}`);
   return { success: true };
 }

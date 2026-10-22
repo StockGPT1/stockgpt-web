@@ -823,6 +823,7 @@ async function recalculatePortfolioTotals(
 
 function revalidatePortfolio(portfolioId?: string | null) {
   revalidatePath("/portfolio");
+  revalidatePath("/dashboard");
 
   if (portfolioId) {
     revalidatePath(`/portfolio?portfolio=${portfolioId}`);

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getStableRankingsPage } from "@/lib/stable-rankings";
 import { getOneDayMoveMap } from "@/lib/yahoo";
+import { rankingMovesForFilter } from "@/lib/rankings-live-moves";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,8 @@ export async function GET(request: NextRequest) {
     scoreFilter: clean(request.nextUrl.searchParams.get("score")) || "all",
   });
   const tickers = result.rows.map((row) => row.ticker).filter((ticker): ticker is string => Boolean(ticker));
-  const moves = await getOneDayMoveMap(tickers);
+  const priceMove = clean(request.nextUrl.searchParams.get("priceMove")) || "all";
+  const moves = await rankingMovesForFilter(tickers, priceMove, getOneDayMoveMap);
   return NextResponse.json({
     rows: result.rows,
     dailyMoves: Object.fromEntries(tickers.map((ticker) => [ticker, moves.get(ticker)?.changePct ?? null])),

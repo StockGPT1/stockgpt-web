@@ -12,6 +12,7 @@ import { PortfolioActivity } from "@/components/portfolio-workspace/PortfolioAct
 import { PortfolioAddSheet } from "@/components/portfolio-workspace/PortfolioAddSheet";
 import { PortfolioAnalysisSheet } from "@/components/portfolio-workspace/PortfolioAnalysisSheet";
 import { PortfolioManageSheet } from "@/components/portfolio-workspace/PortfolioManageSheet";
+import { useDashboardData } from "@/components/DashboardDataStream";
 import type {
   PortfolioSection,
   PortfolioWorkspaceProps,
@@ -28,6 +29,8 @@ export function PortfolioModernWorkspace({
   chartData,
   chartMeta,
   opportunities,
+  chartPromise,
+  opportunitiesPromise,
   usdToDisplayRate,
   canUsePremium,
   initialSection,
@@ -42,6 +45,8 @@ export function PortfolioModernWorkspace({
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const chartStream = useDashboardData(chartPromise);
+  const ideasStream = useDashboardData(opportunitiesPromise);
 
   const holdingMap = useMemo(
     () => new Map(holdings.map((holding) => [holding.ticker.toUpperCase(), holding])),
@@ -112,6 +117,7 @@ export function PortfolioModernWorkspace({
 
   return (
     <main className="sg-native-portfolio-shell min-h-full overflow-x-hidden bg-transparent pb-[calc(120px+env(safe-area-inset-bottom))] text-[#fffaf2] lg:pb-12">
+      {chartStream.bridge}{ideasStream.bridge}
       <div className="mx-auto w-full max-w-[1480px] lg:px-6 xl:px-8 2xl:px-10">
         <PortfolioStage
           key={portfolioId}
@@ -119,8 +125,9 @@ export function PortfolioModernWorkspace({
           portfolios={portfolios}
           meta={portfolioMeta}
           summary={summary}
-          chartData={chartData}
-          chartMeta={chartMeta}
+          chartData={chartStream.value?.chartData ?? chartData}
+          chartMeta={chartStream.value?.chartMeta ?? chartMeta}
+          chartLoading={chartStream.pending}
           stageRef={stageRef}
           sectionAnchorRef={sectionAnchorRef}
           section={section}
@@ -141,7 +148,9 @@ export function PortfolioModernWorkspace({
                 meta={portfolioMeta}
                 summary={summary}
                 holdings={holdings}
-                opportunities={opportunities}
+                opportunities={ideasStream.value?.opportunities ?? opportunities}
+                opportunitiesLoading={ideasStream.pending && canUsePremium}
+                opportunitiesError={ideasStream.value?.opportunitiesError}
                 canUsePremium={canUsePremium}
                 latestActivityDate={latestActivityDate}
                 onHolding={(holding) => setSelectedTicker(holding.ticker)}

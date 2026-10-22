@@ -109,6 +109,14 @@ export type DashboardMainPortfolioResult = {
   opportunities: DashboardPortfolioOpportunity[];
   valuationState: "exact" | "partial" | "unavailable" | "empty";
   missingPriceTickers: string[];
+  deferredChart?: Promise<DashboardPortfolioChart>;
+  deferredOpportunities?: Promise<DashboardPortfolioOpportunity[]>;
+};
+
+export type DashboardPortfolioChart = {
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  chartMeta: PortfolioChartMeta | null;
+  failed?: boolean;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -331,6 +339,7 @@ export async function getDashboardMainPortfolio(
   supabase: SupabaseClient,
   userId: string,
   requestedPortfolioId?: string | null,
+  options: { deferDetails?: boolean } = {},
 ): Promise<DashboardMainPortfolioResult> {
   const { data: portfoliosData } = await supabase
     .from("user_portfolios")
@@ -438,8 +447,7 @@ export async function getDashboardMainPortfolio(
 
   /* chart build and opportunity scan are independent — running them
      sequentially was a large chunk of dashboard TTFB */
-  const [chartResult, opportunities] = await Promise.all([
-    buildPortfolioPageChartResult({
+  const chartPromise = buildPortfolioPageChartResult({
       portfolio: {
         id: mainPortfolio.portfolio.id,
         name: mainPortfolio.portfolio.name,
@@ -459,24 +467,27 @@ export async function getDashboardMainPortfolio(
       ownerId: userId,
       supabaseClient: supabase,
       allowCurrentSnapshot: missingPriceTickers.length === 0,
-    }),
-    buildPortfolioOpportunities(
+    }).then(result => ({ chartData: result.chartData, chartMeta: result.meta } as DashboardPortfolioChart))
+    .catch(error => { console.error("[dashboard] portfolio chart failed", error); return { chartData: {}, chartMeta: null, failed: true } as DashboardPortfolioChart; });
+  const opportunitiesPromise = buildPortfolioOpportunities(
       supabase,
       mainPortfolio.portfolio,
       mainPortfolio.enriched,
       mainPortfolio.summary,
-    ),
-  ]);
+    ).catch(error => { console.error("[dashboard] opportunities failed", error); return []; });
+
+  const details = options.deferDetails ? null : await Promise.all([chartPromise, opportunitiesPromise]);
 
   return {
     portfolioId: mainPortfolio.portfolio.id,
     portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
     summary: mainPortfolio.summary,
-    chartData: chartResult.chartData,
-    chartMeta: chartResult.meta,
+    chartData: details?.[0].chartData ?? {},
+    chartMeta: details?.[0].chartMeta ?? null,
     tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
-    opportunities,
+    opportunities: details?.[1] ?? [],
     valuationState,
     missingPriceTickers,
+    ...(options.deferDetails ? { deferredChart: chartPromise, deferredOpportunities: opportunitiesPromise } : {}),
   };
 }

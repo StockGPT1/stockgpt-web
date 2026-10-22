@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { StockIcon, type StockIconName } from "@/components/StockIcon";
 import { buildAskHref, type AskContext } from "@/lib/ask-context";
@@ -78,11 +79,13 @@ export function NativeBottomNavigation({ unreadCount, askHref }: { unreadCount: 
   const context = pageConfiguration?.path === pathname ? pageConfiguration.context : nativeAskContext(pathname);
   const actualAskHref = askHref.startsWith("/ask-stockgpt") ? buildAskHref(context) : askHref;
   useEffect(() => {
-    // Warm one likely destination at a time after the current screen has settled.
-    const queue = destinations.filter(item => item.key !== current);
+    // AUTO skips dynamic page data without a leaf loading boundary in Next 16.
+    // FULL warms the real route, rather than just its shared frame.
+    const queue = destinations.filter(item => item.key !== current)
+      .sort((a, b) => Number(b.key === "/chart-scan") - Number(a.key === "/chart-scan"));
     let cancelled = false;
-    let timer = window.setTimeout(warmNext, 1800);
-    function warmNext() { if (cancelled) return; const item = queue.shift(); if (!item) return; router.prefetch(item.key); timer = window.setTimeout(warmNext, 650); }
+    let timer = window.setTimeout(warmNext, 200);
+    function warmNext() { if (cancelled) return; const item = queue.shift(); if (!item) return; router.prefetch(item.key, { kind: PrefetchKind.FULL }); timer = window.setTimeout(warmNext, 350); }
     return () => { cancelled = true; clearTimeout(timer); };
   }, [current, router]);
   return <><NativeMoreMenu unreadCount={unreadCount} />{!hidden && <div className={`${styles.dock} sg-native-dock`}>

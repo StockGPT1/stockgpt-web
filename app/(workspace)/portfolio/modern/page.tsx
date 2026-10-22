@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PortfolioBuilder } from "@/components/PortfolioBuilder";
 import { PortfolioModernWorkspace } from "@/components/PortfolioModernWorkspace";
+import type { PortfolioDeferredChart, PortfolioDeferredOpportunities } from "@/components/portfolio-workspace/types";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getServerViewer } from "@/lib/server-viewer";
 import { enrichHoldings, type EnrichedHolding, type RiskTolerance } from "@/lib/portfolio-alerts";
 import { buildPortfolioHealthSummary } from "@/lib/portfolio-health";
 import { buildPortfolioPageChartResult } from "@/lib/portfolio-page-chart";
+import { emptyPortfolioChartHealth, type PortfolioChartMeta } from "@/lib/portfolio-chart-health";
 import { buildPortfolioOpportunities } from "@/lib/dashboard-portfolio";
 import { hasActiveSubscription } from "@/lib/subscription";
 import { getUsdFxRates } from "@/lib/fx-rates";
@@ -262,7 +264,15 @@ export default async function ModernPortfolioPage({
     cashBalance: cashBalanceUsd,
     cashDepositedTotal: cashDepositedTotalUsd,
   });
-  const chartResult = await buildPortfolioPageChartResult({
+  const initialChartMeta: PortfolioChartMeta = {
+    source: "building",
+    health: {
+      ...emptyPortfolioChartHealth("history_loading"),
+      status: "building",
+      displayState: "building",
+    },
+  };
+  const chartPromise: Promise<PortfolioDeferredChart> = buildPortfolioPageChartResult({
     portfolio: {
       id: activePortfolio.id,
       name: activePortfolio.name,
@@ -282,11 +292,34 @@ export default async function ModernPortfolioPage({
     allowCurrentSnapshot: enriched.every(
       (holding) => holding.shares <= 0 || holding.currentPrice > 0,
     ),
+  }).then((chartResult) => ({
+    chartData: convertChart(chartResult.chartData, displayCurrency, fxRates),
+    chartMeta: chartResult.meta,
+  })).catch(() => {
+    console.warn("[portfolio-page] chart history could not load");
+    return {
+      chartData: {},
+      chartMeta: {
+        source: "building",
+        health: {
+          ...emptyPortfolioChartHealth("history_load_failed"),
+          status: "broken",
+          displayState: "error_no_cache",
+          repairNeeded: true,
+        },
+      } satisfies PortfolioChartMeta,
+    };
   });
   const canUsePremium = hasActiveSubscription(profile?.subscription_status);
-  const opportunities = canUsePremium
-    ? await buildPortfolioOpportunities(supabase, activePortfolio, enriched, summaryUsd)
-    : [];
+  const opportunitiesPromise: Promise<PortfolioDeferredOpportunities> = (canUsePremium
+    ? buildPortfolioOpportunities(supabase, activePortfolio, enriched, summaryUsd)
+    : Promise.resolve([])
+  ).then((opportunities) => ({ opportunities, opportunitiesError: false })).catch(() => {
+    console.warn("[portfolio-page] portfolio-fit ideas could not load");
+    return { opportunities: [], opportunitiesError: true };
+  });
+  // Each optional section streams independently, so ready chart history never
+  // waits for research. Owner-checked value, holdings and activity render first.
 
   const totalValueDisplay = convertUsdToCurrency(summaryUsd.totalValue, displayCurrency, fxRates);
   const displayHoldings = enriched.map((holding) =>
@@ -358,9 +391,11 @@ export default async function ModernPortfolioPage({
         holdings={displayHoldings}
         stockOptions={stocks}
         transactions={displayTransactions}
-        chartData={convertChart(chartResult.chartData, displayCurrency, fxRates)}
-        chartMeta={chartResult.meta}
-        opportunities={opportunities}
+        chartData={{}}
+        chartMeta={initialChartMeta}
+        opportunities={[]}
+        chartPromise={chartPromise}
+        opportunitiesPromise={opportunitiesPromise}
         usdToDisplayRate={usdToDisplayRate}
         canUsePremium={canUsePremium}
         initialSection={

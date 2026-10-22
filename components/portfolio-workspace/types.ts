@@ -76,9 +76,21 @@ export type PortfolioWorkspaceProps = {
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
   chartMeta: PortfolioChartMeta;
   opportunities: DashboardPortfolioOpportunity[];
+  chartPromise?: Promise<PortfolioDeferredChart>;
+  opportunitiesPromise?: Promise<PortfolioDeferredOpportunities>;
   usdToDisplayRate: number;
   canUsePremium: boolean;
   initialSection: PortfolioSection;
+};
+
+export type PortfolioDeferredChart = {
+  chartData: Partial<Record<TimeRange, ChartPoint[]>>;
+  chartMeta: PortfolioChartMeta;
+};
+
+export type PortfolioDeferredOpportunities = {
+  opportunities: DashboardPortfolioOpportunity[];
+  opportunitiesError?: boolean;
 };
 
 export type ActivityItem = {

@@ -3,11 +3,12 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { FreshnessLabel } from "@/components/FreshnessLabel";
 import { RankingsMobileBatchList } from "@/components/RankingsMobileBatchList";
-import { LazyWhyRankDetails } from "@/components/LazyWhyRankDetails";
+import { RankingsLiveMoves, RankingDailyMove, RankingPrice, RankingWhy } from "@/components/RankingsLiveMoves";
 import { RankingsLock } from "@/components/RankingsLock";
 import { StockIcon } from "@/components/StockIcon";
 import { StockLogo } from "@/components/StockLogo";
-import { getOneDayMoveMap, getStockChart, getLatestPriceFromChart } from "@/lib/yahoo";
+import { getOneDayMoveMap } from "@/lib/yahoo";
+import { rankingMovesForFilter } from "@/lib/rankings-live-moves";
 import {
   getRankMove24h,
   getRankSnapshotMapAround24hAgo,
@@ -48,10 +49,6 @@ type RankingsSearchParams = {
   page?: string;
 };
 
-type Profile = {
-  subscription_status: string | null;
-};
-
 const MIN_DISPLAY_SCORE = 100;
 
 function normalizeDisplayScore(value: Ranking["score"]) {
@@ -60,57 +57,9 @@ function normalizeDisplayScore(value: Ranking["score"]) {
   return Math.round(Math.max(n, MIN_DISPLAY_SCORE));
 }
 
-function hasValidPrice(value: Ranking["price"]) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0;
-}
-
-function formatPrice(value: Ranking["price"]) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? `$${n.toFixed(2)}` : "—";
-}
-
 function formatScore(value: Ranking["score"]) {
   const score = normalizeDisplayScore(value);
   return score == null ? "—" : score.toLocaleString();
-}
-
-async function attachLivePriceIfMissing(stock: Ranking): Promise<Ranking> {
-  if (hasValidPrice(stock.price) || !stock.ticker) return stock;
-  const chartData = await getStockChart(stock.ticker, ["1D", "5D", "1M", "6M", "1Y"]);
-  const livePrice = getLatestPriceFromChart(chartData);
-  if (!livePrice || !Number.isFinite(livePrice) || livePrice <= 0) return stock;
-  return { ...stock, price: livePrice };
-}
-
-function dailyMoveClassName(changePct: number | null | undefined) {
-  if (!Number.isFinite(changePct)) return "text-[#072116]/35";
-  if (Number(changePct) >= 0) return "text-emerald-700";
-  return "text-red-700";
-}
-
-function DailyMovePill({
-  changePct,
-  className = "text-[10px]",
-}: {
-  changePct: number | null | undefined;
-  className?: string;
-}) {
-  const valid = Number.isFinite(changePct);
-  const value = valid ? Number(changePct) : null;
-
-  return (
-    <span
-      title="1D price move"
-      className={[
-        "inline-block shrink-0 font-black tabular-nums",
-        className,
-        dailyMoveClassName(value),
-      ].join(" ")}
-    >
-      {value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}
-    </span>
-  );
 }
 
 function matchesMoveFilter(stock: Ranking, moveFilter: string, snapshotMap: Map<string, number>) {
@@ -221,14 +170,9 @@ export default async function RankingsPage({
     priceMoveFilter !== "all" ||
     confidenceFilter !== "all";
 
-  const { supabase, user } = await getServerViewer();
-
-  const [profileResult, sectors] = await Promise.all([
-    getViewerProfile().then(data => ({ data })),
-    getRankingSectors(supabase),
-  ]);
-
-  const profile = (profileResult.data ?? null) as Profile | null;
+  const { supabase } = await getServerViewer();
+  const sectorsPromise = getRankingSectors(supabase);
+  const profile = await getViewerProfile();
   const hasSubscription = hasActiveSubscription(profile?.subscription_status);
 
   const rankingsLocked = !hasSubscription;
@@ -240,28 +184,30 @@ export default async function RankingsPage({
       : parsedPage;
   const offset = (currentPage - 1) * perPage;
   const rankingSource = rankingsLocked ? createAdminClient() : supabase;
-  const rankingPage = await getStableRankingsPage(rankingSource, {
-    limit: perPage,
-    offset,
-    q,
-    sector: sectorFilter,
-    scoreFilter,
-  });
+  const [rankingPage, sectors] = await Promise.all([
+    getStableRankingsPage(rankingSource, {
+      limit: perPage,
+      offset,
+      q,
+      sector: sectorFilter,
+      scoreFilter,
+    }),
+    sectorsPromise,
+  ]);
   const rawRankings = rankingPage.rows;
 
-  // Run price enrichment and daily move fetch concurrently —
-  // previously dailyMoveMap waited for allRankings to complete first.
+  // Stored rankings/prices render immediately. Only an explicit price-move
+  // filter needs live quotes to decide which rows belong in the result.
   const tickers = rawRankings
     .map((stock) => stock.ticker)
     .filter((ticker): ticker is string => !!ticker);
 
-  const [allRankings, dailyMoveMap, snapshotMap] = await Promise.all([
-    Promise.all(rawRankings.map((stock) => attachLivePriceIfMissing(stock))),
-    getOneDayMoveMap(tickers),
+  const [dailyMoveMap, snapshotMap] = await Promise.all([
+    rankingMovesForFilter(tickers, priceMoveFilter, getOneDayMoveMap),
     getRankSnapshotMapAround24hAgo(supabase, tickers),
   ]);
 
-  const rankings = allRankings.filter((stock) => {
+  const rankings = rawRankings.filter((stock) => {
     const ticker = stock.ticker ?? "";
     const dailyMove = dailyMoveMap.get(ticker)?.changePct;
     const searchable = `${stock.ticker ?? ""} ${stock.company ?? ""}`.toLowerCase();
@@ -289,6 +235,7 @@ export default async function RankingsPage({
 
   return (
     <AppShell activePath="/rankings" askLabel="Ask about rankings" askContext={{ contextType: "rankings", activeFilters: { q, sector: sectorFilter, move: moveFilter, score: scoreFilter, priceMove: priceMoveFilter, confidence: confidenceFilter } }}>
+      <RankingsLiveMoves key={JSON.stringify(params)} tickers={tickers} enabled={!rankingsLocked && priceMoveFilter === "all"}>
       <main className="flex min-h-full flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 pb-8">
         <section className="sg-rankings-hero relative shrink-0 overflow-hidden rounded-[24px] border border-[#f2c35f]/24 bg-[radial-gradient(circle_at_12%_0%,rgba(255,232,157,0.10),transparent_30%),linear-gradient(135deg,rgba(255,250,242,0.075),rgba(255,250,242,0.025)_46%,rgba(242,195,95,0.09))] p-3 shadow-[0_16px_38px_rgba(0,0,0,0.17)] backdrop-blur-xl sm:p-4">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -392,11 +339,11 @@ export default async function RankingsPage({
                         <div className="px-4 py-2.5 font-bold text-[#072116]/70">{stock.rank ?? "—"}</div>
                         <div className="px-4 py-2.5"><span title={move.title} className={["inline-flex h-6 min-w-[46px] items-center justify-center rounded-full border px-2 text-[10px] font-black tabular-nums", moveClassName(move.tone)].join(" ")}>{move.label}</span></div>
                         <div className="flex items-center gap-2 px-4 py-2.5 font-black text-[#072116]"><StockLogo ticker={stock.ticker} company={stock.company} size={22} /><span>{stock.ticker ?? "—"}</span></div>
-                        <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><DailyMovePill changePct={dailyMove} /></div>
+                        <div className="flex min-w-0 items-center gap-2 px-4 py-2.5 font-semibold text-[#072116]"><span className="min-w-0 truncate">{stock.company ?? "—"}</span><RankingDailyMove ticker={ticker} initialMove={dailyMove} /></div>
                         <div className="px-4 py-2.5"><span className={["inline-flex rounded-full border px-2 py-1 text-[9px] font-black", lightConfidenceClassName(confidence.label)].join(" ")}>{confidence.label}</span></div>
-                        <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]">{formatPrice(stock.price)}</div>
+                        <div className="px-4 py-2.5 font-semibold tabular-nums text-[#072116]"><RankingPrice ticker={ticker} storedPrice={stock.price} /></div>
                         <div className="px-4 py-2.5"><span className="inline-flex min-w-[68px] justify-center rounded-full bg-[#f2c35f] px-2.5 py-0.5 text-[10px] font-black text-[#072116]">{formatScore(stock.score)}</span></div>
-                        <div className="pointer-events-auto px-2 py-1.5"><LazyWhyRankDetails stock={stock} dailyMove={dailyMove} /></div>
+                        <div className="pointer-events-auto px-2 py-1.5"><RankingWhy stock={stock} initialMove={dailyMove} /></div>
                       </div>
                     </div>
                   );
@@ -439,6 +386,7 @@ export default async function RankingsPage({
           </nav>
         )}
       </main>
+      </RankingsLiveMoves>
     </AppShell>
   );
 }

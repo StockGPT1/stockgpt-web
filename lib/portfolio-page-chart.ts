@@ -242,7 +242,7 @@ export async function buildPortfolioPageChartResult({
     holdings: snapshotHoldings,
     transactions,
   });
-  const rebuildTimelineChart = async (): Promise<PortfolioPageChartResult | null> => {
+  const performTimelineRebuild = async (): Promise<PortfolioPageChartResult | null> => {
     if ((summary.holdingsCount ?? 0) <= 0 && summary.totalValue <= 0.01) return null;
 
     const timelineChart = await buildPortfolioValueTimeline({
@@ -296,6 +296,12 @@ export async function buildPortfolioPageChartResult({
       },
     };
   };
+
+  // A failed reconstruction must not launch the same upstream chart requests
+  // again when the snapshot fallback reaches the final rebuild branch.
+  let timelineRebuildPromise: Promise<PortfolioPageChartResult | null> | undefined;
+  const rebuildTimelineChart = () =>
+    (timelineRebuildPromise ??= performTimelineRebuild());
 
   if (resolvedOwnerId) {
     const snapshotChart = await getPortfolioSnapshotChartDataWithHealth({
