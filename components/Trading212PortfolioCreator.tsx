@@ -6,6 +6,11 @@ import {
   createPortfolioFromTrading212Csv,
   previewTrading212CsvForNewPortfolio,
 } from "@/lib/actions/portfolio-management";
+import {
+  TRADING212_CSV_MAX_BYTES,
+  TRADING212_CSV_UPLOAD_LIMIT_MESSAGE,
+  trading212CsvUploadError,
+} from "@/lib/trading212-csv-upload";
 
 type ImportPreview = {
   imported: number;
@@ -71,19 +76,20 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > TRADING212_CSV_MAX_BYTES) {
       setFileName("");
       setCsvText("");
-      setMessage("CSV file is too large. Please upload a file under 2MB.");
+      setMessage(TRADING212_CSV_UPLOAD_LIMIT_MESSAGE);
       return;
     }
 
     const text = await file.text();
 
-    if (!text.trim()) {
+    const uploadError = trading212CsvUploadError(text);
+    if (uploadError) {
       setFileName("");
       setCsvText("");
-      setMessage("This CSV looks empty.");
+      setMessage(uploadError);
       return;
     }
 
@@ -236,7 +242,7 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
                   <option value="USD">USD · US dollars</option>
                 </select>
                 <p className="mt-1 text-[10px] font-semibold text-[#072116]/45">
-                  This import uses StockGPT’s USD ranked-stock price feed.
+                  Each execution price must explicitly be in USD. No currency conversion is inferred.
                 </p>
               </label>
 
@@ -274,6 +280,8 @@ export function Trading212PortfolioCreator({ existingCount, onBack }: Props) {
                 Trading 212 CSV imports holdings only. Cash is not imported, so this
                 Portfolio starts with $0 cash; add cash separately afterward if needed.
                 Any unsupported open investment causes the whole import to be refused.
+                Use complete transaction history from your first purchase and reconcile the preview
+                against your broker. Transfers, splits and other ambiguous corporate actions are not reconstructed.
               </p>
             </div>
 

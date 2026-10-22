@@ -17,6 +17,9 @@ const local = Object.fromEntries(
       match[2].startsWith('"') ? JSON.parse(match[2]) : match[2],
     ]),
 );
+if (local.API_URL !== "http://127.0.0.1:54321" || !local.ANON_KEY || !local.SERVICE_ROLE_KEY) {
+  throw new Error("browser_acceptance_local_stack_required");
+}
 
 const env = {
   ...process.env,
@@ -39,6 +42,12 @@ const localEdge = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge
 if (process.platform === "win32" && existsSync(localEdge)) {
   env.PLAYWRIGHT_EXECUTABLE_PATH = localEdge;
 }
+
+// Public Supabase settings are compiled into client code: build with the same
+// isolated LOCAL configuration used by the server and browser journey.
+const build = spawnSync(process.execPath, [resolve("node_modules", "next", "dist", "bin", "next"), "build"],
+  { env, stdio: "inherit" });
+if (build.status !== 0) process.exit(build.status ?? 1);
 
 const result = spawnSync(
   process.execPath,

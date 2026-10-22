@@ -317,6 +317,41 @@ No-go on identity/permission uncertainty, unknown acknowledgement, cost overrun,
 validation failure, missing operator or privacy/processing clearance. Do not retry
 an uncertain write or erase last-good records to obtain a passing result.
 
+### Pilot feature exclusions and current provider evidence (22 October 2026)
+
+Trusted pilot cohort membership now denies Portfolio Draft generation/save and
+portfolio-aware Ask by default. Separate feature approvals remain empty; an
+expired/conflicting participant receipt cannot silently restore AI access.
+Normal non-pilot customer entitlements are unchanged. Anonymous Portfolio Draft
+generation is rejected. These are server entry-point controls, not regulatory
+clearance or a replacement for provider/counsel approval. Never enable personalized
+transaction instructions for the pilot.
+
+Public [broker access documentation](https://docs.snaptrade.com/docs/broker-access-guide)
+and [Commercial authentication guidance](https://docs.snaptrade.com/docs/personal-vs-commercial)
+describe capability and onboarding, not permission for this account. The existing
+non-secret Dashboard view shows TEST selected, Build and Production access locked.
+The $0 Build label alone establishes neither Personal authentication nor live
+broker eligibility. Obtain written confirmation whether this exact Commercial
+Build/TEST account may connect one consenting internal Trading 212 participant,
+or requires Production application, KYC/payment setup and a different key first.
+Do not buy/activate anything to resolve that question without approval.
+
+Trading 212 permission review must exclude order execution and money movement.
+Confirm supported Invest/ISA account type and the minimum read scopes with the
+provider; documentation with conflicting account-type descriptions is not an
+approval. No real provider calls or account connection were made in this sprint.
+
+CSV remains a separate reconstructed manual-state import, not live broker truth.
+It now refuses unknown/non-USD execution-price currency, overlapping records,
+invalid dates/numbers and ambiguous corporate actions rather than inventing basis.
+Complete history and independent reconciliation remain necessary; apparently
+plausible partial history cannot always be detected. Unsupported securities cause
+non-mutating whole-file refusal, not silent omission. The UI and actions enforce
+750 KiB raw UTF-8 / 900 KiB JSON-encoded text without increasing Next's request
+limit. Never remove required history merely to fit that budget. This does not
+change free/subscriber eligibility or bypass ranking RLS for an unentitled user.
+
 Ready for business-owner review, **not sent**:
 [provider enquiry](../drafts/stage22c-provider-enquiry.md) and
 [UK legal/privacy brief](../drafts/stage24-legal-review-brief.md).

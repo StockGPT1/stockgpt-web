@@ -15,7 +15,8 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
   },
   webServer: {
-    command: "npx next dev --hostname 127.0.0.1 --port 3010",
+    // Exercise the deployable runtime and CSP, not development-only eval/HMR.
+    command: "npx next start --hostname 127.0.0.1 --port 3010",
     url: "http://127.0.0.1:3010/login",
     reuseExistingServer: false,
     timeout: 120_000,

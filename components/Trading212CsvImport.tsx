@@ -8,6 +8,11 @@ import {
   importTrading212Csv,
   previewTrading212Csv,
 } from "@/lib/actions/portfolio-management";
+import {
+  TRADING212_CSV_MAX_BYTES,
+  TRADING212_CSV_UPLOAD_LIMIT_MESSAGE,
+  trading212CsvUploadError,
+} from "@/lib/trading212-csv-upload";
 
 type ImportPreview = {
   imported: number;
@@ -92,19 +97,20 @@ function ImportPanel({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > TRADING212_CSV_MAX_BYTES) {
       setFileName("");
       setCsvText("");
-      setMessage("CSV file is too large. Please upload a file under 2MB.");
+      setMessage(TRADING212_CSV_UPLOAD_LIMIT_MESSAGE);
       return;
     }
 
     const text = await file.text();
 
-    if (!text.trim()) {
+    const uploadError = trading212CsvUploadError(text);
+    if (uploadError) {
       setFileName("");
       setCsvText("");
-      setMessage("This CSV looks empty.");
+      setMessage(uploadError);
       return;
     }
 
@@ -286,6 +292,8 @@ function ImportPanel({
             This replaces holdings only. Existing cash, net contributions and prior
             activity stay unchanged. Unsupported open investments refuse the entire
             file, and this does not connect to or alter Trading 212.
+            Use complete transaction history and reconcile the preview against your broker.
+            Execution prices must explicitly be USD; FX, transfers and corporate actions are not inferred.
           </p>
         </div>
 

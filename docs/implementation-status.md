@@ -367,6 +367,83 @@ packet/feature brief to qualified counsel in parallel; obtain a fresh, narrowly
 authorized Vercel isolation/settings review before any publication. Real account
 connection, hosted migration, beta cohort and paid services remain unapproved.
 
+### External approval packets — 2026-10-22
+
+At `e6d2b67`, refreshed the existing provider/legal drafts only; no new engineering
+cycle or repeated tests. SnapTrade's official pricing/launch pages verify
+`support@snaptrade.com` as a commercial/pre-launch contact. Both enquiries remain
+unsent; no adviser has been nominated, engaged or paid.
+
+Inspected the locally held approved two-page formation certificate: StockGPT, LLC
+was formed in Delaware on 27 May 2026. Current standing, service ownership, UK
+establishment and controller remain unverified. Newark registered office and the
+website's Wilmington mailing address are not necessarily inconsistent; the
+privacy page's "StockGPT, LLC, UK" still requires factual entity/controller
+confirmation. No certificate, signature or authentication number entered Git.
+
+The legal packet now includes actual stock trade-level UI, preference-driven
+Portfolio Draft, portfolio-aware Ask, free-model fallback and lifecycle/export
+limitations, plus the minimum unexecuted local Auth/API/browser matrix.
+Fresh read-only customer Vercel metadata remains visible, but Git/ignore settings
+are omitted and exact Staging lookup still returns scope-limited 404. Publication
+remains NO-GO. No cloud changes, credentials, provider API, database operation,
+commit, push, deployment or outbound message was performed for these packets.
+
+### Pilot-readiness and CSV implementation — 2026-10-22
+
+- Restored the original local PostgreSQL 17 volume after an offline backup,
+  retaining system identity `7692187049475596325`, 49 migration versions and
+  original synthetic records. Started only local Auth/REST/gateway/database;
+  migrations and seeding were disabled. No reset or hosted connection was used.
+- Full `test:acceptance:database` PASS, including real local Auth/RLS, profile
+  entitlement protection, beta admission, secrets, worker promotion/last-good,
+  Stage 05 atomicity/concurrency/rollback, CSV and connected Portfolio boundaries,
+  Wave 4 history/context, Stripe security and generated-type drift.
+- Full `test:acceptance:static` PASS. New pilot AI exclusions pass 55 checks:
+  authenticated cohort members cannot generate/save Portfolio Drafts or use Ask
+  without separately reviewed feature approval. All approval registries remain
+  empty; ordinary non-pilot behavior and financial RPC semantics are unchanged.
+  Anonymous generation was rejected explicitly before any model request.
+- CSV parser/source checks PASS, including 29 hostile reconstruction cases and
+  UTF-8/JSON payload boundary cases. Explicit USD execution-price currency is
+  required; totals do not establish price/basis. Duplicate/indistinguishable
+  trades, malformed fields/dates, transfers and ambiguous corporate actions fail
+  without mutation. Unsupported holdings cannot be silently skipped. No FX,
+  cash or performance is fabricated. Complete history and reconciliation remain
+  required; not every apparently plausible partial export is detectable.
+- Replaced unreachable 2MB/character-based CSV promises with shared 750 KiB raw
+  UTF-8 / 900 KiB encoded text limits in both UIs and all four actions, preserving
+  Next's default request limit. No entitlement or ranking-RLS change was made.
+- Browser acceptance PASS (2 journeys): login API 200 and Dashboard navigation,
+  manual/connected/All Investments, connections-disabled, subscription, pricing,
+  mobile/reduced-motion/scroll/overflow. Tests now build/run the production
+  runtime with local configuration and unchanged CSP. Earlier dev runs failed
+  navigation/API assertions; a malformed generated dev-types artifact also
+  blocked the first production build. Preserving that generated artifact outside
+  the candidate and rebuilding resolved the local harness failure. No Auth or
+  CSP restriction was weakened. Browser-only synthetic projection was removed
+  through the exact-owner lifecycle RPC; original two Portfolios remain, no
+  jobs remain, admission is disabled and approvals are empty.
+- Current public SnapTrade guidance and already-loaded non-secret Dashboard
+  evidence establish Commercial TEST/Build and locked Production, not approval
+  to connect a real Trading 212 account. The existing unsent provider enquiry
+  now asks that exact account/key eligibility question. Provider permission,
+  applicable entity/privacy/regulatory decisions, consent/operator/cost receipt
+  and verified publication isolation remain external gates. Stage 22D has not
+  connected a participant; Stage 25 is not activated.
+- Remote foundation HEAD remains `b41f76f3f3cb82613a6bf9d6b66b29e835649018`.
+  Customer trigger metadata is incomplete and exact Staging lookup is unavailable
+  in current connector scope. Publishing remains NO-GO until an authorized
+  project-specific isolation/settings check passes. No push/deployment, hosted
+  database mutation, credential retrieval, real broker call or paid activation.
+- Final Next typegen, standalone `tsc --noEmit --incremental false`, changed-file
+  ESLint (zero warnings/errors), normal candidate lint (zero errors, 23 existing
+  warnings), production `build:app` and `git diff --check` PASS. The 15 executable
+  source/config/test files match the tested source-only candidate byte-for-byte.
+  Candidate tests used only local synthetic credentials in memory with an
+  external-network deny guard; ignored local helpers/environment files were not
+  included or exempted by weaker lint rules. No migration was added this sprint.
+
 Every implementation stage must pass:
 
 1. Code / migration complete

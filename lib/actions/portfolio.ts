@@ -1,5 +1,8 @@
 "use server";
 
+import { createClient } from "@/utils/supabase/server";
+import { pilotDraftAccess } from "@/lib/brokerage/pilot-feature-access";
+import { PILOT_DRAFT_UNAVAILABLE } from "@/lib/brokerage/pilot-feature-policy";
 import {
   generatePortfolio,
   type Portfolio,
@@ -12,6 +15,11 @@ export async function generatePortfolioAction(
   timeHorizon: TimeHorizon,
   investmentAmount: number
 ): Promise<{ portfolio: Portfolio | null; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { portfolio: null, error: "Please sign in to create a Portfolio Draft." };
+  if (!pilotDraftAccess(user.id).allowed) return { portfolio: null, error: PILOT_DRAFT_UNAVAILABLE };
+
   if (!["conservative", "moderate", "aggressive"].includes(riskTolerance)) {
     return { portfolio: null, error: "Invalid risk tolerance" };
   }

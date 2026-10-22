@@ -1,152 +1,199 @@
-# Stage 24 — focused UK regulatory and privacy review brief
+# Stage 24 - UK regulatory and privacy decision packet
 
-Status: **UNSENT REVIEW BRIEF**, 2026-10-21. Engineering source baseline
-`f452ed70a33488c2eca662e7a288f1acf69838cd`. For qualified UK financial-services
-counsel and a privacy professional; not legal advice, launch approval or an
-assertion that an exemption applies. No notice or customer contract is changed.
+Status: UNSENT; prepared 22 October 2026 for qualified advisers.
+Source checkpoint: e6d2b67fd0130b54500bf3c57a59689652ea2528.
+This is a factual instruction brief, not legal clearance or a changed notice.
 
-## Decision requested
+## Recipient and send-ready enquiry
 
-Please provide a written, feature-specific decision for (a) one consenting
-internal adult participant with a single read-only broker account, and (b) a
-later controlled beta. Identify conditions, prohibited features/claims,
-jurisdictions, required documents and unresolved facts separately for each.
-An internal pilot, research label, disclaimer or lack of trade execution must
-not be assumed to settle the regulatory perimeter.
+Recipient: a nominated UK financial-services regulatory solicitor, with
+data-protection capability or a coordinated privacy specialist. No named adviser
+or email has been nominated/verified. The Law Society's official
+[Find a Solicitor](https://solicitors.lawsociety.org.uk/) is a verified selection
+route, not the recipient and not itself a provider of legal advice.
+Verify the selected firm and individual in the
+[SRA register](https://www.sra.org.uk/consumers/register/) before engagement.
 
-## Establish the actual entity first
+Subject: StockGPT - scoped UK regulatory/privacy review before read-only pilot
 
-There is a verified source inconsistency in `app/legal/page.tsx`:
+Hello,
 
-- Terms identifies StockGPT, LLC as a Delaware limited liability company and
-  gives a Wilmington mailing address (lines 148–150 at the baseline).
-- Privacy identifies the controller as “StockGPT, LLC, UK” (line 444).
+We seek a coordinated UK financial-services and data-protection review for
+StockGPT: initially one consenting internal adult with one read-only brokerage
+account, then a separately authorized limited beta for UK users.
 
-These statements do not establish which entity actually contracts, controls
-processing, operates the service or is established in the UK. Do not correct the
-notice by picking one description. The business owner must securely provide:
+Please first complete a conflict check and propose a fixed-fee or capped scope,
+lead adviser and delivery date. We are requesting a proposal, not accepting an
+engagement or authorizing work/spend.
 
-1. Formation/incorporation certificate, entity number and current registry
-   extract; any UK company/branch registration and associated entity details.
-2. Registered office, principal operating establishment, service/contact address,
-   operating locations and the distinction from any mail-forwarding address.
-3. Ownership/management and the entity named in existing provider, hosting,
-   billing and AI contracts; evidence of authority to contract for the service.
-4. Proposed contracting entity, controller(s), any joint-controller arrangements,
-   actual target/participant jurisdictions and decision-making locations.
-5. Existing regulatory permissions/exemptions or professional opinions, if any;
-   ICO registration/fee status and representative/DPO assessments, where relevant.
+The supporting brief below describes the actual product, including stock
+rankings, model-derived trade levels, preference-driven portfolio drafts and
+portfolio-aware AI explanations. We need a feature-specific decision, not
+reliance on an educational disclaimer or the absence of trade execution.
 
-Qualified reviewers should determine what applies. Do not place identity
-documents, participant data or professional advice into public Git; retain only
-approved document references, scope and decisions in the release register.
+Please determine the correct contracting entity/controller; relevant investment
+advice, recommendation and financial-promotion boundaries; permitted pilot/beta
+features and claims; and the required privacy, processor, transfer, retention,
+rights, consent and participant documents. Please identify what must stay
+disabled and distinguish pilot-blocking from beta-only conditions.
 
-## Factual product and engineering scope
+Return one written decision register with the applicable rule/contract,
+permitted scope, required change, evidence, owner and review trigger. Identify
+any US/entity advice requiring separate counsel. Corporate documents and sample
+screens/prompts can be supplied through your approved secure channel after
+conflict checking.
 
-StockGPT imports accounts, positions, cash and activities into an owner-scoped
-broker domain; connected Portfolios reference accounts without copying financial
-truth into manual holdings. Unsupported assets remain represented; failed syncs
-retain last-good state and honest freshness/performance limitations. No order,
-transfer or withdrawal capability is included. Stage 22B proved only simulated
-TEST/SANDBOX operation; real-account access remains unauthorized.
+Thank you,
+StockGPT team
 
-The synthetic readiness checkpoint adds bounded session-owned export, a
-non-executable lifecycle inventory, outbound AI field minimization and default-off
-server admission/stop controls. These are not a complete rights-response product,
-retention policy or deletion executor. Application cohort checks are not proof
-of database-wide enforcement; review the final sprint's independent security
-evidence before pilot activation.
+## Supporting brief - evidence established and still missing
 
-Review actual screens and outputs, not this product summary alone:
+### 1. Entity/controller
 
-| Surface / source | Required review evidence |
+Inspected both pages of the locally held approved Certificate of Formation.
+The document identifies **StockGPT, LLC**, formed under Delaware law, filed
+**27 May 2026**, with a Secretary of State certified-copy cover dated
+28 May 2026. Its registered office is in Newark, Delaware. The certificate
+remains outside Git; authentication numbers, signatures and personal details
+are not reproduced here.
+
+This supports formation, not current good standing, ownership of this service,
+UK establishment, contracting authority, controller identity or regulatory
+permissions. No live registry authentication or current-standing check occurred.
+
+Source discrepancy:
+- app/legal/page.tsx:148-154 describes a Delaware LLC and a Wilmington
+  mailing address.
+- app/legal/page.tsx:444 calls the controller "StockGPT, LLC, UK".
+- scripts/update_legal_entity_to_llc.py contains a text replacement from an older
+  UK-company statement to Delaware wording, but does not remove that controller
+  suffix. This explains a possible editing mechanism, not corporate authority.
+
+A Newark registered office and Wilmington mailing address need not conflict.
+A Delaware company can also have UK activities: the certificate neither proves
+nor disproves them. Do not replace the privacy wording on that basis alone.
+
+Owner must provide securely: current standing/registry evidence and amendments;
+operating/ownership and authorized-signatory evidence; actual operating and
+decision-making locations; any UK entity/branch registration; the operator named
+in provider, hosting, payment and AI contracts; a signed operator/controller
+statement; and relevant ICO/representative/DPO assessments. Counsel should
+confirm entity linkage, UK/EU territorial application and factual notice wording.
+
+### 2. Product experience counsel must assess
+
+| Actual surface at reviewed source | Experience / question for counsel |
 |---|---|
-| Portfolio/Dashboard, attention states, notifications and digest | Current screenshots and synthetic output corpus, personalization inputs, limitations, urgency and calls to action |
-| Ask: `app/api/ask-stockgpt/route.ts`, `lib/ask-stockgpt-portfolio-context.ts` and final outbound minimizer | Exact system prompt, context allowlist, free text/history, models/fallback routing, sample safe/hostile answers and processor terms |
-| AI Portfolio Draft: `lib/portfolio.ts` and builder UI | Preference-driven stock selection/weights, allocation amounts, expected-return/risk narratives and rebalancing language; no assumption this feature is approved |
-| `/legal`, signup, Checkout, pricing, landing and affiliate material | Exact live wording/version, acknowledgements, risk/performance claims, marketing channels and proposed audiences |
-| Broker flow, export and lifecycle | Data/processor inventory, grants/RLS review, consent journey, disconnect versus deletion, logs/backups and rights-response gaps |
+| Rankings and stock detail | Named equities, ranked scores and model/technical research context. Assess selection, evaluation, conflicts, marketing and any investment-recommendation obligations; do not assume public ranking is exempt. |
+| Trade-level UI | Stock page has "AI Trade Plan", "Suggested Levels", "Entry", "Stop Loss", "Take Profit" and an "action summary" teaser. Unlocked TradeSetupCard uses model-derived levels/research states. Assess actual values, presentation and funnel, not research disclaimers alone. |
+| AI Portfolio Draft | User budget, risk tolerance and horizon drive named-stock selection, percentage/dollar allocations and estimated shares; source also supplies expected annual return, risk narrative and periodic rebalancing wording. This AI-branded feature includes deterministic selection logic, not necessarily an LLM for every output. Separate clearance or exclusion is needed. |
+| Portfolio/Dashboard/notifications | Owned holdings, cash, concentration and evidence drive On track / Monitor / Review / Urgent review. These are not trade commands, but their personalization, urgency and onward links require assessment. |
+| Ask StockGPT | Free-text questions plus selected owned Portfolio/All Investments and ranking context. Instructions prohibit personalized transaction decisions; minimization removes stable identifiers but facts/questions can remain personal data. Assess both the prompt and adversarial answers; instructions are not proof of every output. |
+| Broker connection | Explicit read-only authorization, account selection, background sync, then factual owner-scoped views. Unknown/unmapped/stale facts remain limited; no orders, transfers or fabricated performance. Internal pilot only is proposed. |
+| Marketing and monetization | Landing/pricing, signup, subscription Checkout, notifications/email and affiliate copy can communicate product/financial claims. Review the full journey and audience, not only /legal. |
 
-## Regulatory determinations
+Review anchors: app/stock/[ticker]/page.tsx, components/TradeSetupCard.tsx,
+lib/trading-levels.ts, lib/portfolio.ts, components/PortfolioBuilder.tsx,
+app/api/ask-stockgpt/route.ts, lib/ask-stockgpt-portfolio-context.ts,
+lib/ai/portfolio-context-policy.ts and app/legal/page.tsx.
+These describe source at the checkpoint, not an independently audited live
+deployment. Supply synthetic screen captures/output examples after engagement;
+do not give counsel real participant holdings just to illustrate functionality.
 
-Please assess the actual UK perimeter and any other relevant jurisdiction for:
+Required decisions: UK regulated-advice and personal-recommendation perimeter;
+financial promotions and any approval/exemption/audience restrictions;
+investment-recommendation/conflict/market-abuse considerations where applicable;
+AI Portfolio Draft and trade-level restrictions; and permitted pilot features
+versus public beta. No trading, a disclaimer or an internal participant is
+assumed to settle these issues. Ask whether other jurisdictions apply.
 
-1. Personalized research, portfolio attention states and AI answers; whether
-   outputs recommend particular investments or are presented as suitable/based
-   on personal circumstances. Assess AI Portfolio Draft separately, including
-   allocations, expected-return estimates and risk-profile explanations.
-2. Financial promotions across product, landing pages, email, notifications,
-   affiliates and social channels: who communicates/approves them, available
-   permissions/exemptions, audience restrictions and records required.
-3. Any relevant investment-recommendation, market-abuse/conflict or data-licensing
-   requirements; paid/affiliate incentives and disclosure obligations.
-4. Whether particular features should stay disabled or be narrowed for the
-   internal pilot pending authorization, approval or a different operating model.
-   Specify permitted evidence-explanation examples and prohibited outputs.
-5. Pilot participation terms, complaints/support and operational responsibilities;
-   whether any consumer, accessibility, vulnerable-user or other obligations
-   apply to the proposed facts. Do not infer participant waiver of mandatory rights.
+### 3. Data, AI and rights
 
-The FCA's [financial-promotion overview](https://www.fca.org.uk/firms/financial-promotions-adverts)
-and [PERG 13.3](https://handbook.fca.org.uk/handbook/perg13/perg13s3) are starting
-points, not a determination for StockGPT. The latter distinguishes public
-communications from personal recommendations; delivery through a website is
-not by itself decisive. Counsel should use current law and the actual product.
+Flow: broker/provider -> backend -> owner-scoped normalized data/history ->
+StockGPT views; optional minimized context -> OpenRouter/model providers for
+Ask. Separate sources include profile/Auth, Stripe, support, chat, email,
+analytics, operational logs and backups. See
+[data inventory](../privacy-data-inventory.md).
 
-## Privacy determinations and implementation instructions
+Secrets stay outside customer/AI context. Financial facts, source/coverage and
+unknown values are preserved. IDs removed from AI context do not anonymize
+holdings; user questions/history are separately supplied content. Current Ask
+routing includes paid and free-model fallbacks. No runtime key/model settings
+were inspected in this review: approve the exact recipients, retention/training
+terms and routing/fallbacks, not merely the gateway brand.
 
-Please return decisions against the [actual data inventory](../privacy-data-inventory.md),
-not a generic financial-app template:
+Please return category/purpose-specific lawful bases, roles/DPAs/subprocessors,
+UK/EU scope and international-transfer safeguards; DPIA/automated-decision
+assessment where applicable; explicit broker-derived AI go/no-go; versioned
+notice, terms, risk/claim and participant-information changes; distinct optional
+AI/marketing choices where appropriate; and a justified retention/hold/backup
+schedule. Broker authorization is not automatically GDPR consent for every use.
 
-- **Purpose and basis:** category-by-category purposes/lawful bases; participant
-  information and broker authorization; distinguish pilot participation, required
-  processing, optional AI use and marketing consent. Determine special-category
-  exposure through free text and whether DPIA/automated-decision assessment is
-  required. Do not treat consent as an automatic solution to every purpose.
-- **Recipients and transfers:** roles, DPAs, subprocessors, regions and transfer
-  evidence for SnapTrade, Supabase, Vercel, Stripe, OpenRouter/model providers,
-  email/analytics and operators. A UK/EU database region does not establish all
-  recipients' locations. Determine appropriate safeguards and assessments.
-- **AI:** approve exact context categories and provider/model routing, fallback,
-  retention, training and onward-processing terms. Financial context with IDs
-  removed may still be personal data. User-entered text/history needs its own
-  safeguards. State whether broker-derived AI use must remain disabled initially.
-- **Retention and rights:** approve periods and triggers by secret, raw financial,
-  derived history, chat, operational log, audit and backup category; legal holds,
-  restoration/re-erasure behavior and cross-processor requests. Existing seven-day
-  Ask cleanup on access is best effort, not guaranteed expiry. Append-only
-  accounting does not itself establish an indefinite legal retention obligation.
-- **Lifecycle and notice:** distinguish provider disconnect, connected-Portfolio
-  removal, provider credential revocation, broker-data erasure and account closure.
-  Specify owner verification, export completeness, access/portability response,
-  correction/restriction/objection handling and operational response deadlines.
-- **Incident and customer communications:** approved breach escalation, role and
-  contact ownership, notification decision process, notice/terms/acknowledgement
-  versions, cookie/analytics review and any representative/registration actions.
+Current export is a bounded, non-transactional brokerage subset, not a complete
+subject-rights export. Lifecycle code is inventory-only: provider disconnect,
+Portfolio removal, credential revocation, stored-data erasure and account closure
+are distinct. Full erasure/rights delivery is not implemented. Ask's seven-day
+cleanup is best-effort on access, not guaranteed deletion. Please specify rights,
+export completeness, correction/restriction, deletion/holds, backup treatment,
+processor requests, support/complaints and incident responsibilities.
 
-Relevant ICO starting points are [AI guidance](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/),
-[storage limitation](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-principles/a-guide-to-the-data-protection-principles/storage-limitation/)
-and [erasure](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/individual-rights/right-to-erasure/).
-Retention must be justified for the purpose; the guidance supplies no universal
-financial-app duration. ICO notes parts of its guidance are under review after
-the Data (Use and Access) Act: reviewers must confirm current law/commencement,
-not assume older guidance is complete.
+### 4. Decision and evidence register
 
-## One consolidated response and release gate
+Return: issue / fact still required / applicable current authority / permitted
+pilot scope / beta scope / required control or document / owner / deadline.
+A signed pilot-specific opinion, factual entity/controller statement, processing
+terms, participant information and operational procedure are the acceptance
+evidence, not this research. No contract or legal engagement is accepted here.
 
-Return one register, splitting pilot blockers from beta-only work:
+Primary reading, checked 22 October 2026: FCA
+[financial promotions](https://www.fca.org.uk/firms/financial-promotions-adverts)
+and [PERG 8](https://handbook.fca.org.uk/handbook/perg8); ICO
+[AI guidance](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/),
+[international transfers](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/international-transfers/a-brief-guide-to-international-transfers/)
+and [storage limitation](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-principles/a-guide-to-the-data-protection-principles/storage-limitation/).
+ICO marks some guidance under review after the Data (Use and Access) Act;
+counsel must confirm current law/commencement. These sources do not determine
+StockGPT's legal position.
 
-| Decision ID | Finding / applicable rule or contract | Required product/document/control change | Owner | Pilot blocking? | Beta blocking? | Evidence / review trigger |
-|---|---|---|---|---|---|---|
-| ENTITY / REG / AI / PRIVACY / RIGHTS / OPS | Pending qualified review | Pending | Pending | Pending | Pending | Pending |
+## Parallel technical gate - identified, NOT EXECUTED
 
-Required closeout: signed/dated scope opinion, confirmed entity/controller,
-approved feature/claim restrictions, processing/transfer terms, lawful-basis and
-retention schedule, factual notices and participant acknowledgement, rights and
-incident procedures, and named decision owners. Engineering implements approved
-decisions with synthetic tests; no destructive deletion or live access is implied.
+Accepted synthetic/PostgreSQL/type/build evidence from e6d2b67 is retained.
+Before the approved real-account artifact, the minimum remaining Auth/API/browser
+matrix is:
 
-Provider contract/permission clearance and explicit operator-covered Stage 22D
-authorization remain separate. Neither this brief nor a professional review
-automatically authorizes spending, deployment, real-account connection or beta
-admission. No enquiry has been sent and no contract accepted.
+1. Verified local synthetic full Supabase stack, no reset or destructive seed:
+   node scripts/verify-local-supabase-fixtures.mjs
+2. npm run test:profile-entitlement-security
+3. npm run test:broker-secret-security
+4. npm run test:broker-sync
+5. npm run test:connected-portfolios
+6. npm run test:wave4
+7. npm run test:acceptance:browser
+
+These use local Auth/API/RLS sessions, secret isolation, claim/promotion and
+last-good behavior, exact-owner/read-only projection, history/context and
+subscriber/mobile journeys. A fresh-scope approval/migration review remains
+necessary before any hosted release; the new default-deny admission migration
+has only been applied locally. Do not use a real account to finish this matrix.
+
+The two existing browser tests cover pricing scroll and subscriber Dashboard,
+manual/connected/All Investments context, capability-off connections, reduced
+motion/mobile and external-request assertions. They do NOT prove a live provider
+return, native-device behavior, or notification infrastructure-failure rendering.
+Retain the accepted deterministic failure tests and explicitly verify relevant
+failure UI during approved release smoke. Run from an audited secret-free local
+source with external-network guard; do not load production .env.local.
+
+Read-only Vercel check on 22 October 2026: customer project/team still match;
+latest reported READY Production is dpl_5CY81bBDsXPrbaL6vhn6d4crVcjV, and the
+Preview-filtered foundation list shows dpl_5Yeko3umQw3fZVVRcfRZ4zB7KRjX at
+b41f76f. Connector still omits effective Git/ignore/production-branch settings;
+the exact Staging project lookup returns 404 not_found in this scope.
+This is a visibility blocker, not proof the project is gone or isolation works.
+No settings, secrets, deployment or endpoint were changed/accessed to bypass it.
+
+Publication remains NO-GO pending fresh authorized settings evidence for both
+projects, a separately approved project-only isolation policy and explicit
+publication approval. Keep Staging cron/Git stopped and all approval registries
+empty. Original exact-proof migration mapping remains unchanged; never blindly
+reapply it. No tests, migrations, worker or provider API were run for this packet.

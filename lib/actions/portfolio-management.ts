@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { pilotDraftAccess } from "@/lib/brokerage/pilot-feature-access";
+import { PILOT_DRAFT_UNAVAILABLE } from "@/lib/brokerage/pilot-feature-policy";
+import { trading212CsvUploadError } from "@/lib/trading212-csv-upload";
 import type { Portfolio } from "@/lib/portfolio";
 import {
   resolveTradeOrder,
@@ -318,10 +321,11 @@ export async function previewTrading212Csv(
   csvText: string,
   options: Trading212ImportOptions,
 ): Promise<ActionResult<Trading212PreviewSummary>> {
-  if (!csvText || csvText.length > 2_000_000) {
+  const uploadError = trading212CsvUploadError(csvText);
+  if (uploadError) {
     return {
       success: false,
-      error: "Upload a valid Trading 212 CSV under 2MB.",
+      error: uploadError,
     };
   }
 
@@ -393,10 +397,11 @@ export async function previewTrading212Csv(
 export async function previewTrading212CsvForNewPortfolio(
   csvText: string,
 ): Promise<ActionResult<Trading212PreviewSummary>> {
-  if (!csvText || csvText.length > 2_000_000) {
+  const uploadError = trading212CsvUploadError(csvText);
+  if (uploadError) {
     return {
       success: false,
-      error: "Upload a valid Trading 212 CSV under 2MB.",
+      error: uploadError,
     };
   }
 
@@ -438,10 +443,11 @@ export async function createPortfolioFromTrading212Csv(
     return { success: false, error: "Portfolio name is required." };
   }
 
-  if (!input.csvText || input.csvText.length > 2_000_000) {
+  const uploadError = trading212CsvUploadError(input.csvText);
+  if (uploadError) {
     return {
       success: false,
-      error: "Upload a valid Trading 212 CSV under 2MB.",
+      error: uploadError,
     };
   }
 
@@ -497,10 +503,11 @@ export async function importTrading212Csv(
   csvText: string,
   options: Trading212ImportOptions,
 ): Promise<ActionResult<Trading212ImportSummary>> {
-  if (!csvText || csvText.length > 2_000_000) {
+  const uploadError = trading212CsvUploadError(csvText);
+  if (uploadError) {
     return {
       success: false,
-      error: "Upload a valid Trading 212 CSV under 2MB.",
+      error: uploadError,
     };
   }
 
@@ -615,6 +622,7 @@ export async function savePortfolio(
   const user = await getAuthenticatedUser(supabase);
 
   if (!user) return { success: false, error: "not_authenticated" };
+  if (!pilotDraftAccess(user.id).allowed) return { success: false, error: PILOT_DRAFT_UNAVAILABLE };
 
   const cleanName =
     options.name?.trim().slice(0, 80) ||

@@ -53,7 +53,6 @@ type InvestmentEvent = {
   date: string | null;
 };
 
-const INVESTMENT_ACTIONS = ["buy", "sell"] as const;
 const NON_INVESTMENT_ACTION_MARKERS = [
   "cash deposit",
   "deposit",
@@ -64,11 +63,8 @@ const NON_INVESTMENT_ACTION_MARKERS = [
   "fee",
   "currency conversion",
   "conversion",
-  "exchange",
   "card",
-  "transfer",
   "tax",
-  "lending",
 ] as const;
 
 function normaliseHeader(header: string) {
@@ -83,6 +79,7 @@ function parseCsvLine(line: string) {
   const values: string[] = [];
   let current = "";
   let inQuotes = false;
+  let closedQuote = false;
 
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index];
@@ -91,14 +88,19 @@ function parseCsvLine(line: string) {
       current += '"';
       index += 1;
     } else if (char === '"') {
+      if (!inQuotes && (current.trim() || closedQuote)) throw new Error("The CSV contains a malformed quoted field. Use an unedited export.");
       inQuotes = !inQuotes;
+      if (!inQuotes) closedQuote = true;
     } else if (char === "," && !inQuotes) {
       values.push(current.trim());
       current = "";
+      closedQuote = false;
     } else {
+      if (closedQuote && char.trim()) throw new Error("The CSV contains text after a quoted field. Use an unedited export.");
       current += char;
     }
   }
+  if (inQuotes) throw new Error("The CSV contains an unfinished quoted field. Re-export the complete file.");
   values.push(current.trim());
   return values;
 }
@@ -113,9 +115,15 @@ function parseCsv(csvText: string): CsvRow[] {
   if (lines.length < 2) return [];
   const headers = parseCsvLine(lines[0]).map(normaliseHeader);
   if (headers.some((header) => !header)) return [];
+  if (new Set(headers).size !== headers.length) {
+    throw new Error("The CSV contains duplicate column names. Use an unedited Trading 212 export.");
+  }
 
-  return lines.slice(1).map((line) => {
+  return lines.slice(1).map((line, index) => {
     const values = parseCsvLine(line);
+    if (values.length !== headers.length) {
+      throw new Error(`Row ${index + 2} does not match the CSV columns. Use an unedited export; no rows were imported.`);
+    }
     return Object.fromEntries(
       headers.map((header, index) => [header, values[index] ?? ""]),
     );
@@ -132,11 +140,12 @@ function getFirstValue(row: CsvRow, possibleHeaders: string[]) {
 
 function parseNumber(value: string) {
   if (!value.trim()) return null;
-  const cleaned = value
-    .replace(/[£$€,%]/gu, "")
-    .replace(/\s/gu, "")
-    .replace(/^\((.*)\)$/u, "-$1")
-    .replace(/,/gu, "");
+  const formatted = value.trim()
+    .replace(/[$]/gu, "")
+    .replace(/^\((.*)\)$/u, "-$1");
+  if (formatted.includes(",") && !/^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/u.test(formatted)) return null;
+  const cleaned = formatted.replace(/,/gu, "");
+  if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)$/u.test(cleaned)) return null;
   const number = Number(cleaned);
   return Number.isFinite(number) ? number : null;
 }
@@ -157,7 +166,7 @@ function parseDateEvidence(value: string) {
   const raw = value.trim();
   if (!raw) return { timestamp: null, date: null };
 
-  const isoDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/u);
+  const isoDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u);
   if (isoDate) {
     const date = `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`;
     const timestamp = Date.UTC(
@@ -168,36 +177,43 @@ function parseDateEvidence(value: string) {
       Number(isoDate[5] ?? 0),
       Number(isoDate[6] ?? 0),
     );
-    return { timestamp, date };
+    return validCalendarTime(timestamp, Number(isoDate[1]), Number(isoDate[2]), Number(isoDate[3]), Number(isoDate[4] ?? 0), Number(isoDate[5] ?? 0), Number(isoDate[6] ?? 0))
+      ? { timestamp, date }
+      : { timestamp: null, date: null };
   }
 
-  const ukDate = raw.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/u);
+  const ukDate = raw.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u);
   if (ukDate) {
     const year = Number(ukDate[3].length === 2 ? `20${ukDate[3]}` : ukDate[3]);
     const month = Number(ukDate[2]);
     const day = Number(ukDate[1]);
     const date = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return {
-      timestamp: Date.UTC(
+    const timestamp = Date.UTC(
         year,
         month - 1,
         day,
         Number(ukDate[4] ?? 0),
         Number(ukDate[5] ?? 0),
         Number(ukDate[6] ?? 0),
-      ),
-      date,
-    };
+      );
+    return validCalendarTime(timestamp, year, month, day, Number(ukDate[4] ?? 0), Number(ukDate[5] ?? 0), Number(ukDate[6] ?? 0))
+      ? { timestamp, date }
+      : { timestamp: null, date: null };
   }
 
   return { timestamp: null, date: null };
+}
+
+function validCalendarTime(timestamp: number, year: number, month: number, day: number, hour: number, minute: number, second: number) {
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day && hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second < 60;
 }
 
 export function normaliseTrading212Ticker(value: string) {
   return String(value ?? "")
     .trim()
     .toUpperCase()
-    .replace(/\s.*$/u, "")
     .replace(/_US_EQ$/u, "")
     .replace(/(?:\.US|-US|_US|:US)$/u, "");
 }
@@ -271,14 +287,13 @@ export function mapTrading212Positions(
   };
 }
 
-function classifyAction(action: string, hasInvestmentFields: boolean) {
+function classifyAction(action: string) {
   const normalized = action.trim().toLowerCase();
-  const investment = INVESTMENT_ACTIONS.find((candidate) => normalized.includes(candidate));
-  if (investment) return investment;
-  if (!normalized && hasInvestmentFields) return "buy";
+  const investment = normalized.match(/^(?:(?:market|limit|stop|stop limit) )?(buy|sell)$/u);
+  if (investment) return investment[1] as "buy" | "sell";
   if (
-    NON_INVESTMENT_ACTION_MARKERS.some((candidate) => normalized.includes(candidate)) ||
-    (!hasInvestmentFields && normalized !== "")
+    NON_INVESTMENT_ACTION_MARKERS.some((candidate) => normalized === candidate || normalized.startsWith(`${candidate} `)) &&
+    !/split|merger|spin.?off|stock dividend|rights|stock transfer|reinvest|in specie/iu.test(normalized)
   ) {
     return "ignore";
   }
@@ -323,11 +338,19 @@ function rowInvestmentFields(row: CsvRow) {
 }
 
 export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
-  const rows = parseCsv(csvText);
+  let rows: CsvRow[];
+  try {
+    rows = parseCsv(csvText);
+  } catch (error) {
+    return { accepted: false, positions: [], ignoredNonInvestmentRows: 0, investmentRows: 0,
+      issues: [error instanceof Error ? error.message : "The CSV structure could not be read safely."] };
+  }
   const issues: string[] = [];
   const events: InvestmentEvent[] = [];
   let ignoredNonInvestmentRows = 0;
   let investmentRows = 0;
+  const seenIds = new Set<string>();
+  const seenEvents = new Set<string>();
 
   if (rows.length === 0) {
     return {
@@ -343,15 +366,14 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
     const rowNumber = index + 2;
     const fields = rowInvestmentFields(row);
     const action = getFirstValue(row, ["Action", "Type", "Transaction type", "Event"]);
-    const hasInvestmentFields = Boolean(fields.ticker || fields.shares || fields.price);
-    const classification = classifyAction(action, hasInvestmentFields);
+    const classification = classifyAction(action);
 
     if (classification === "ignore") {
       ignoredNonInvestmentRows += 1;
       return;
     }
     if (classification === "invalid") {
-      issues.push(`Row ${rowNumber} has an unrecognised investment-like action.`);
+      issues.push(`Row ${rowNumber} has an unsupported or ambiguous action. Transfers and corporate actions require a complete, independently reconciled holdings record; no rows will be imported.`);
       return;
     }
 
@@ -359,25 +381,24 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
     const ticker = normaliseTrading212Ticker(fields.ticker);
     const rawShares = parseNumber(fields.shares);
     const rawPrice = parseNumber(fields.price);
-    const rawTotal = parseNumber(fields.total);
-    const shares = rawShares == null ? null : Math.abs(rawShares);
-    const derivedPrice =
-      rawPrice != null && Math.abs(rawPrice) > 0
-        ? Math.abs(rawPrice)
-        : shares != null && shares > 0 && rawTotal != null && Math.abs(rawTotal) > 0
-          ? Math.abs(rawTotal) / shares
-          : null;
+    const shares = rawShares;
+    const derivedPrice = rawPrice;
+    const priceCurrency = getFirstValue(row, ["Currency (Price / share)", "Price currency", "Currency (Price per share)"]).toUpperCase();
+    if (priceCurrency !== "USD") {
+      issues.push(`Row ${rowNumber} requires an explicit USD execution-price currency. Non-USD or unknown prices are not converted; account-total currency is not price currency.`);
+      return;
+    }
 
     if (!ticker || !/^[A-Z][A-Z0-9.\-]{0,15}$/u.test(ticker)) {
       issues.push(`Row ${rowNumber} has a missing or invalid investment ticker.`);
       return;
     }
-    if (shares == null || shares <= 0) {
+    if (shares == null || shares <= 0 || !Number.isFinite(roundShares(shares)) || roundShares(shares) <= 0) {
       issues.push(`Row ${rowNumber} (${ticker}) has an invalid share quantity.`);
       return;
     }
-    if (derivedPrice == null || derivedPrice <= 0) {
-      issues.push(`Row ${rowNumber} (${ticker}) has no defensible positive execution price.`);
+    if (derivedPrice == null || derivedPrice <= 0 || !Number.isFinite(roundPrice(derivedPrice)) || roundPrice(derivedPrice) <= 0) {
+      issues.push(`Row ${rowNumber} (${ticker}) needs a positive execution price per share; account totals cannot establish cost basis.`);
       return;
     }
 
@@ -390,6 +411,18 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
       "Transaction date",
     ]);
     const dateEvidence = parseDateEvidence(dateValue);
+    if (dateValue && dateEvidence.timestamp == null) {
+      issues.push(`Row ${rowNumber} (${ticker}) has an invalid or unsupported date. Use YYYY-MM-DD or the export's day/month/year format, with optional time.`);
+      return;
+    }
+    const transactionId = getFirstValue(row, ["ID", "Transaction ID", "Order ID"]);
+    const eventKey = JSON.stringify([ticker, classification, shares, derivedPrice, dateEvidence.timestamp]);
+    if ((transactionId && seenIds.has(transactionId)) || (!transactionId && seenEvents.has(eventKey))) {
+      issues.push(`Row ${rowNumber} (${ticker}) repeats an investment record or cannot be distinguished from one. Remove overlapping exports or provide unique transaction IDs; no automatic deduplication is applied.`);
+      return;
+    }
+    if (transactionId) seenIds.add(transactionId);
+    seenEvents.add(eventKey);
     events.push({
       rowNumber,
       ticker,
@@ -437,12 +470,14 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
     let shares = 0;
     let cost = 0;
     let purchaseDate: string | null = null;
+    let purchaseDateUnknown = false;
 
     for (const event of ordered) {
       if (event.side === "buy") {
         shares = roundShares(shares + event.shares);
         cost += event.shares * event.price;
-        purchaseDate = purchaseDate ?? event.date;
+        if (!event.date) purchaseDateUnknown = true;
+        if (event.date && (!purchaseDate || event.date < purchaseDate)) purchaseDate = event.date;
         continue;
       }
       if (shares <= 0 || event.shares > shares + 0.0000005) {
@@ -452,6 +487,10 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
       const averageCost = cost / shares;
       shares = roundShares(shares - event.shares);
       cost = shares <= 0 ? 0 : cost - event.shares * averageCost;
+      if (shares <= 0) {
+        purchaseDate = null;
+        purchaseDateUnknown = false;
+      }
     }
 
     if (shares > 0 && !issues.some((issue) => issue.includes(`(${ticker})`) || issue.startsWith(ticker))) {
@@ -464,7 +503,7 @@ export function parseTrading212Csv(csvText: string): Trading212CsvParseResult {
           shares: roundShares(shares),
           entryPrice: roundPrice(entryPrice),
           costBasis: roundMoney(roundShares(shares) * roundPrice(entryPrice)),
-          purchaseDate,
+          purchaseDate: purchaseDateUnknown ? null : purchaseDate,
         });
       }
     }

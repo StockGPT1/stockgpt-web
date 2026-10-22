@@ -19,6 +19,8 @@ import { loadConnectedPortfolioIntelligence } from "@/lib/connected-portfolio-in
 import { resolveOwnedPortfolioContext } from "@/lib/portfolio-context-server";
 import { loadAllInvestments } from "@/lib/all-investments";
 import { minimizeAskAppContext, safeAiProviderFailure } from "@/lib/ai/portfolio-context-policy";
+import { pilotAiAccess } from "@/lib/brokerage/pilot-feature-access";
+import { PILOT_ASK_UNAVAILABLE } from "@/lib/brokerage/pilot-feature-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -841,6 +843,9 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const access = await requireSubscribedUser(supabase);
     if (access.response) return access.response;
+    if (!pilotAiAccess(access.userId, "ask_explanations").allowed) {
+      return NextResponse.json({ answer: PILOT_ASK_UNAVAILABLE }, { status: 403 });
+    }
 
     // Generous for a human, but stops runaway client loops from burning
     // the shared OpenRouter quota for every subscriber.

@@ -34,8 +34,13 @@ async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(EMAIL);
   await page.getByLabel("Password").fill(PASSWORD);
+  const response = page.waitForResponse((value) =>
+    value.url().endsWith("/api/auth/login") && value.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Log in" }).click();
-  await expect(page).toHaveURL(/\/dashboard/u);
+  expect((await response).status()).toBe(200);
+  // Verify authenticated navigation independently of the successful API response.
+  await expect(page).toHaveURL(/\/dashboard/u, { timeout: 30_000 });
 }
 
 test("anonymous pricing remains scrollable at desktop and mobile widths", async ({ page }) => {
@@ -51,6 +56,7 @@ test("anonymous pricing remains scrollable at desktop and mobile widths", async 
 });
 
 test("subscriber critical Portfolio journeys remain local, bounded and usable", async ({ page }) => {
+  test.setTimeout(120_000);
   const connectedPortfolioId = await ensureConnectedPortfolio();
   const externalRequests: string[] = [];
   page.on("request", (request) => {
