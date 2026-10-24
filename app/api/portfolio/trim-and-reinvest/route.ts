@@ -43,7 +43,7 @@ async function getStock(
 }
 
 /**
- * The migration 20261024_atomic_portfolio_reinvest.sql MUST be applied before
+ * The migration 20261024152200_atomic_portfolio_reinvest.sql MUST be applied before
  * this handler is deployed. All portfolio and ledger writes happen in one RPC,
  * not as separate calls that could leave half of a transaction completed.
  */
