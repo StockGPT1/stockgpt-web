@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calculateTradeLevels } from "@/lib/trading-levels";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type PortfolioRow = {
-  id: string;
-  cash_balance: number | string | null;
-  currency: string | null;
-};
-
-type PortfolioTotalsRow = {
-  cash_balance: number | string | null;
-  cash_deposited_total: number | string | null;
-};
-
+type PortfolioRow = { id: string };
 type StockRow = {
   ticker: string | null;
   price: number | string | null;
@@ -23,302 +14,157 @@ type StockRow = {
   rank: number | string | null;
   sector?: string | null;
 };
-
 type HoldingRow = {
-  portfolio_id?: string | null;
-  shares: number | string | null;
+  portfolio_id: string;
   entry_price: number | string | null;
-  purchase_date?: string | null;
-  notes?: string | null;
 };
 
 function cleanTicker(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9.-]/g, "");
+  return typeof value === "string" ? value.trim().toUpperCase() : "";
 }
 
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+function numberOrNull(value: unknown): number | null {
+  if (value == null || value === "" || typeof value === "boolean" || typeof value === "object") return null;
+  const valueAsNumber = Number(value);
+  return Number.isFinite(valueAsNumber) ? valueAsNumber : null;
 }
 
-function nullableNumber(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function roundShares(value: number) {
-  return Math.round(value * 1_000_000) / 1_000_000;
-}
-
-async function getStock(supabase: Awaited<ReturnType<typeof createClient>>, ticker: string) {
-  const { data } = await supabase
+async function getStock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ticker: string,
+): Promise<StockRow | null> {
+  const { data, error } = await supabase
     .from("stock_rankings")
     .select("ticker,price,score,rank,sector")
     .eq("ticker", ticker)
     .maybeSingle();
-
+  if (error) throw error;
   return data as StockRow | null;
 }
 
-async function recordTransaction(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  input: {
-    portfolioId: string;
-    userId: string;
-    ticker: string;
-    type: "buy" | "sell";
-    shares: number;
-    price: number;
-    amount: number;
-    realisedPnl?: number | null;
-    currency: string;
-    notes: string;
-  },
-) {
-  await supabase.from("portfolio_transactions").insert({
-    portfolio_id: input.portfolioId,
-    user_id: input.userId,
-    ticker: input.ticker,
-    type: input.type,
-    shares: input.shares,
-    price: input.price,
-    amount: roundMoney(input.amount),
-    realised_pnl: input.realisedPnl == null ? null : roundMoney(input.realisedPnl),
-    currency: input.currency,
-    notes: input.notes,
-  });
-}
-
-async function saveEntryTradeLevels(stock: StockRow, entryPrice: number) {
-  const ticker = cleanTicker(stock.ticker);
-  if (!ticker || entryPrice <= 0) return { risk: null as number | null, target: null as number | null };
-
-  const tradeLevels = await calculateTradeLevels({
-    ticker,
-    price: entryPrice,
-    score: toNumber(stock.score, 0),
-    rank: nullableNumber(stock.rank),
-    sector: stock.sector ?? null,
-  });
-
-  if (!tradeLevels || tradeLevels.recommendation === "Avoid") {
-    return { risk: null as number | null, target: null as number | null };
-  }
-
-  return {
-    risk: tradeLevels.stopLoss > 0 ? tradeLevels.stopLoss : null,
-    target: tradeLevels.takeProfit > 0 ? tradeLevels.takeProfit : null,
-  };
-}
-
-async function recalculatePortfolioTotals(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  portfolioId: string,
-) {
-  const [{ data: holdings }, { data: portfolio }] = await Promise.all([
-    supabase.from("portfolio_holdings").select("entry_price,shares").eq("portfolio_id", portfolioId),
-    supabase.from("user_portfolios").select("cash_balance,cash_deposited_total").eq("id", portfolioId).maybeSingle(),
-  ]);
-
-  const holdingsCost = ((holdings ?? []) as Array<{ entry_price: number | string | null; shares: number | string | null }>).reduce(
-    (sum, holding) => sum + toNumber(holding.entry_price) * toNumber(holding.shares),
-    0,
-  );
-  const portfolioTotals = portfolio as PortfolioTotalsRow | null;
-  const cashBalance = toNumber(portfolioTotals?.cash_balance);
-  const deposited = toNumber(portfolioTotals?.cash_deposited_total);
-
-  await supabase
-    .from("user_portfolios")
-    .update({
-      investment_amount: roundMoney(holdingsCost),
-      cash_deposited_total: roundMoney(Math.max(deposited, cashBalance + holdingsCost)),
-    })
-    .eq("id", portfolioId);
-}
-
+/**
+ * The migration 20261024152200_atomic_portfolio_reinvest.sql MUST be applied before
+ * this handler is deployed. All portfolio and ledger writes happen in one RPC,
+ * not as separate calls that could leave half of a transaction completed.
+ */
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const requestedPortfolioId = String(body?.portfolioId ?? "").trim();
-  const sourceTicker = cleanTicker(body?.ticker);
-  const reinvestTicker = cleanTicker(body?.reinvestTicker);
-  const percentage = Number(body?.percentage);
+  try {
+    const body = await req.json().catch(() => null);
+    const requestedPortfolioId = String(body?.portfolioId ?? "").trim();
+    const sourceTicker = cleanTicker(body?.ticker);
+    const reinvestTicker = cleanTicker(body?.reinvestTicker);
+    const percentage = numberOrNull(body?.percentage);
 
-  if (!sourceTicker) return NextResponse.json({ success: false, error: "Missing holding ticker." }, { status: 400 });
-  if (!reinvestTicker) return NextResponse.json({ success: false, error: "Missing reinvestment ticker." }, { status: 400 });
-  if (reinvestTicker === sourceTicker) return NextResponse.json({ success: false, error: "Reinvestment target must be a different stock." }, { status: 400 });
-  if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
-    return NextResponse.json({ success: false, error: "Trim percentage must be between 1 and 100." }, { status: 400 });
-  }
+    if (requestedPortfolioId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedPortfolioId)) {
+      return NextResponse.json({ success: false, error: "Invalid portfolio ID." }, { status: 400 });
+    }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (!/^[A-Z][A-Z0-9.-]{0,11}$/.test(sourceTicker) ||
+        !/^[A-Z][A-Z0-9.-]{0,11}$/.test(reinvestTicker) ||
+        sourceTicker === reinvestTicker) {
+      return NextResponse.json({ success: false, error: "Choose two valid, different tickers." }, { status: 400 });
+    }
 
-  if (!user) return NextResponse.json({ success: false, error: "not_authenticated" }, { status: 401 });
+    if (percentage === null || percentage <= 0 || percentage > 100) {
+      return NextResponse.json({ success: false, error: "Trim percentage must be between 1 and 100." }, { status: 400 });
+    }
 
-  const portfolioQuery = supabase
-    .from("user_portfolios")
-    .select("id,cash_balance,currency")
-    .eq("user_id", user.id)
-    .is("archived_at", null);
+    const supabase = await createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return NextResponse.json({ success: false, error: "not_authenticated" }, { status: 401 });
+    }
 
-  const { data: portfoliosData } = requestedPortfolioId
-    ? await portfolioQuery.eq("id", requestedPortfolioId).limit(1)
-    : await portfolioQuery.order("created_at", { ascending: true }).limit(25);
+    const portfolioQuery = supabase
+      .from("user_portfolios")
+      .select("id")
+      .eq("user_id", user.id)
+      .is("archived_at", null);
+    const { data: portfoliosData, error: portfolioError } = requestedPortfolioId
+      ? await portfolioQuery.eq("id", requestedPortfolioId).limit(1)
+      : await portfolioQuery.order("created_at", { ascending: true }).limit(25);
 
-  const portfolios = (portfoliosData ?? []) as PortfolioRow[];
-  if (portfolios.length === 0) return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
+    if (portfolioError) throw portfolioError;
+    const portfolios = (portfoliosData ?? []) as PortfolioRow[];
+    if (portfolios.length === 0) {
+      return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
+    }
 
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
-  const { data: sourceHoldingRows } = await supabase
-    .from("portfolio_holdings")
-    .select("portfolio_id,shares,entry_price")
-    .in("portfolio_id", portfolioIds)
-    .eq("ticker", sourceTicker)
-    .order("added_at", { ascending: false })
-    .limit(1);
-
-  const sourceHolding = ((sourceHoldingRows ?? []) as HoldingRow[])[0] ?? null;
-  if (!sourceHolding?.portfolio_id) return NextResponse.json({ success: false, error: "Holding not found." }, { status: 404 });
-
-  const portfolioId = sourceHolding.portfolio_id;
-  const portfolio = portfolios.find((item) => item.id === portfolioId) ?? null;
-  if (!portfolio) return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
-
-  const [sourceStock, targetStock] = await Promise.all([
-    getStock(supabase, sourceTicker),
-    getStock(supabase, reinvestTicker),
-  ]);
-
-  if (!targetStock) return NextResponse.json({ success: false, error: "Reinvestment stock not found in rankings." }, { status: 404 });
-
-  const currentShares = toNumber(sourceHolding.shares);
-  const sourceEntryPrice = toNumber(sourceHolding.entry_price);
-  const sellPrice = toNumber(sourceStock?.price, sourceEntryPrice);
-  const buyPrice = toNumber(targetStock.price);
-
-  if (currentShares <= 0 || sellPrice <= 0) {
-    return NextResponse.json({ success: false, error: "Could not calculate trim value." }, { status: 400 });
-  }
-
-  if (buyPrice <= 0) {
-    return NextResponse.json({ success: false, error: "Could not find a valid reinvestment price." }, { status: 400 });
-  }
-
-  const sharesToSell = percentage >= 100 ? currentShares : roundShares(currentShares * (percentage / 100));
-  const remainingShares = roundShares(currentShares - sharesToSell);
-  const proceeds = roundMoney(sharesToSell * sellPrice);
-  const realisedPnl = roundMoney((sellPrice - sourceEntryPrice) * sharesToSell);
-  const boughtShares = roundShares(proceeds / buyPrice);
-
-  if (sharesToSell <= 0 || proceeds <= 0 || boughtShares <= 0) {
-    return NextResponse.json({ success: false, error: "Trim amount is too small to reinvest." }, { status: 400 });
-  }
-
-  const { data: existingTarget } = await supabase
-    .from("portfolio_holdings")
-    .select("shares,entry_price,purchase_date,notes")
-    .eq("portfolio_id", portfolioId)
-    .eq("ticker", reinvestTicker)
-    .maybeSingle();
-
-  const oldTargetShares = toNumber((existingTarget as HoldingRow | null)?.shares);
-  const oldTargetEntry = toNumber((existingTarget as HoldingRow | null)?.entry_price);
-  const nextTargetShares = roundShares(oldTargetShares + boughtShares);
-  const nextTargetEntry = nextTargetShares > 0
-    ? ((oldTargetShares * oldTargetEntry) + proceeds) / nextTargetShares
-    : buyPrice;
-  const now = new Date().toISOString();
-  const today = now.slice(0, 10);
-  const levels = await saveEntryTradeLevels(targetStock, buyPrice);
-
-  if (remainingShares <= 0.000001) {
-    const { error: deleteError } = await supabase
+    const { data: holdingRows, error: holdingError } = await supabase
       .from("portfolio_holdings")
-      .delete()
-      .eq("portfolio_id", portfolioId)
-      .eq("ticker", sourceTicker);
-    if (deleteError) return NextResponse.json({ success: false, error: deleteError.message }, { status: 500 });
-  } else {
-    const { error: updateError } = await supabase
-      .from("portfolio_holdings")
-      .update({ shares: remainingShares })
-      .eq("portfolio_id", portfolioId)
-      .eq("ticker", sourceTicker);
-    if (updateError) return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
-  }
+      .select("portfolio_id,entry_price")
+      .in("portfolio_id", portfolios.map(portfolio => portfolio.id))
+      .eq("ticker", sourceTicker)
+      .order("added_at", { ascending: false })
+      .limit(1);
+    if (holdingError) throw holdingError;
+    const sourceHolding = ((holdingRows ?? []) as HoldingRow[])[0];
+    if (!sourceHolding?.portfolio_id) {
+      return NextResponse.json({ success: false, error: "Holding not found." }, { status: 404 });
+    }
 
-  const { error: upsertError } = await supabase.from("portfolio_holdings").upsert(
-    {
-      portfolio_id: portfolioId,
+    // Match the original API: a portfolio is always chosen from the signed-in
+    // user's unarchived portfolios, never directly from an untrusted request.
+    const portfolioId = sourceHolding.portfolio_id;
+    if (!portfolios.some(portfolio => portfolio.id === portfolioId)) {
+      return NextResponse.json({ success: false, error: "Portfolio not found." }, { status: 404 });
+    }
+
+    const [sourceStock, targetStock] = await Promise.all([
+      getStock(supabase, sourceTicker),
+      getStock(supabase, reinvestTicker),
+    ]);
+    if (!targetStock) {
+      return NextResponse.json({ success: false, error: "Reinvestment stock not found in rankings." }, { status: 404 });
+    }
+
+    const sellPrice = numberOrNull(sourceStock?.price) ?? numberOrNull(sourceHolding.entry_price);
+    const buyPrice = numberOrNull(targetStock.price);
+    if (!sellPrice || sellPrice <= 0 || !buyPrice || buyPrice <= 0) {
+      return NextResponse.json({ success: false, error: "A valid stock price is unavailable." }, { status: 400 });
+    }
+
+    const levels = await calculateTradeLevels({
       ticker: reinvestTicker,
-      entry_price: Math.round(nextTargetEntry * 10_000) / 10_000,
-      shares: nextTargetShares,
-      allocation_pct: null,
-      score_at_entry: nullableNumber(targetStock.score),
-      rank_at_entry: nullableNumber(targetStock.rank),
-      risk_level_at_entry: levels.risk,
-      target_level_at_entry: levels.target,
-      last_reviewed_at: now,
-      purchase_date: (existingTarget as HoldingRow | null)?.purchase_date ?? today,
-      source: "reinvest",
-      notes: (existingTarget as HoldingRow | null)?.notes ?? `Reinvested from ${sourceTicker} trim.`,
-    },
-    { onConflict: "portfolio_id,ticker" },
-  );
+      price: buyPrice,
+      score: numberOrNull(targetStock.score) ?? 0,
+      rank: numberOrNull(targetStock.rank),
+      sector: targetStock.sector ?? null,
+    });
 
-  if (upsertError) return NextResponse.json({ success: false, error: upsertError.message }, { status: 500 });
+    const { data, error } = await createAdminClient()
+      .rpc("trim_and_reinvest_portfolio_atomic", {
+        p_portfolio_id: portfolioId,
+        p_user_id: user.id,
+        p_source_ticker: sourceTicker,
+        p_target_ticker: reinvestTicker,
+        p_percentage: percentage,
+        p_sell_price: sellPrice,
+        p_buy_price: buyPrice,
+        p_target_score: numberOrNull(targetStock.score),
+        p_target_rank: numberOrNull(targetStock.rank),
+        p_risk_level: levels && levels.recommendation !== "Avoid" && levels.stopLoss > 0
+          ? levels.stopLoss : null,
+        p_target_level: levels && levels.recommendation !== "Avoid" && levels.takeProfit > 0
+          ? levels.takeProfit : null,
+      });
 
-  const { error: cashError } = await supabase
-    .from("user_portfolios")
-    .update({ cash_balance: roundMoney(toNumber(portfolio.cash_balance)) })
-    .eq("id", portfolioId)
-    .eq("user_id", user.id);
-
-  if (cashError) return NextResponse.json({ success: false, error: cashError.message }, { status: 500 });
-
-  const currency = portfolio.currency ?? "USD";
-  await recordTransaction(supabase, {
-    portfolioId,
-    userId: user.id,
-    ticker: sourceTicker,
-    type: "sell",
-    shares: sharesToSell,
-    price: sellPrice,
-    amount: proceeds,
-    realisedPnl,
-    currency,
-    notes: `Trimmed ${percentage.toFixed(0)}% of ${sourceTicker} and reinvested into ${reinvestTicker}.`,
-  });
-  await recordTransaction(supabase, {
-    portfolioId,
-    userId: user.id,
-    ticker: reinvestTicker,
-    type: "buy",
-    shares: boughtShares,
-    price: buyPrice,
-    amount: proceeds,
-    currency,
-    notes: `Reinvested ${sourceTicker} trim proceeds into ${reinvestTicker}.`,
-  });
-
-  await recalculatePortfolioTotals(supabase, portfolioId);
-
-  return NextResponse.json({
-    success: true,
-    soldTicker: sourceTicker,
-    boughtTicker: reinvestTicker,
-    soldShares: sharesToSell,
-    boughtShares,
-    amount: proceeds,
-  });
+    if (error || !data || typeof data !== "object" || data.success !== true) {
+      console.error("[trim-and-reinvest] transaction rejected", {
+        code: error?.code ?? "unexpected_response",
+        message: error?.message ?? "No success response",
+      });
+      return NextResponse.json({
+        success: false,
+        error: "Could not confirm the reinvestment. Refresh your portfolio before retrying.",
+      }, { status: 500 });
+    }
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("[trim-and-reinvest] unexpected failure", error instanceof Error ? error.name : "Unknown");
+    return NextResponse.json({
+      success: false,
+      error: "Could not confirm the reinvestment. Refresh your portfolio before retrying.",
+    }, { status: 500 });
+  }
 }
