@@ -4,9 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 import {
   auditSecurityEvent,
   getClientIp,
-  precheckRateLimit,
+  checkRateLimit,
   rateKey,
-  recordRateLimitAttempts,
   tooManyRequests,
 } from "@/lib/security/rate-limit";
 import { cleanEmail, isValidEmail } from "@/lib/security/validation";
@@ -15,11 +14,9 @@ import { normaliseInternalRedirect } from "@/lib/auth/redirect";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/* Login latency is the whole product experience for returning users, so
-   this route keeps the Supabase round-trips down to two sequential
-   phases in production. Local development skips StockGPT's DB-backed
-   limiter entirely so iPhone tunnel testing does not require the
-   production service-role secret. Supabase's own auth limits still apply. */
+/* Concurrent login requests consume rate-limit slots atomically before
+   calling Supabase auth. Local development skips the DB-backed limiter
+   for iPhone tunnel testing; Supabase's own auth limits still apply. */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
@@ -50,13 +47,13 @@ export async function POST(req: NextRequest) {
 
   if (!isDevelopment) {
     const [ipLimit, emailLimit] = await Promise.all([
-      precheckRateLimit({
+      checkRateLimit({
         action: "login_ip",
         key: ipKey,
         limit: 20,
         windowSeconds: 15 * 60,
       }),
-      precheckRateLimit({
+      checkRateLimit({
         action: "login_email",
         key: emailKey,
         limit: 5,
@@ -70,22 +67,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
 
-  const authPromise = supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
-
-  const { data, error } = isDevelopment
-    ? await authPromise
-    : (
-        await Promise.all([
-          authPromise,
-          recordRateLimitAttempts([
-            { action: "login_ip", key: ipKey },
-            { action: "login_email", key: emailKey },
-          ]),
-        ])
-      )[0];
 
   if (error || !data.user) {
     if (!isDevelopment) {
