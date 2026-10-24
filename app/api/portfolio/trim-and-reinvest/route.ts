@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({
         success: false,
-        error: "Could not complete the reinvestment. No changes were saved.",
+        error: "Could not confirm the reinvestment. Refresh your portfolio before retrying.",
       }, { status: 500 });
     }
     return NextResponse.json(data);
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     console.error("[trim-and-reinvest] unexpected failure", error instanceof Error ? error.name : "Unknown");
     return NextResponse.json({
       success: false,
-      error: "Could not complete the reinvestment. Please try again.",
+      error: "Could not confirm the reinvestment. Refresh your portfolio before retrying.",
     }, { status: 500 });
   }
 }
