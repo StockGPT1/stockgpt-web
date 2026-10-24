@@ -24,3 +24,10 @@ test("atomic RPC verifies owner, locks portfolio, and writes holdings and ledger
   assert.match(sql, /TO service_role/);
   assert.match(sql, /SECURITY INVOKER/);
 });
+
+test("portfolio reinvestment rejects malformed IDs and coercive inputs", () => {
+  const route = read("app/api/portfolio/trim-and-reinvest/route.ts");
+  assert.match(route, /Invalid portfolio ID/);
+  assert.match(route, /typeof value === "boolean"/);
+  assert.match(route, /typeof value === "string" \? value\.trim\(\)\.toUpperCase\(\)/);
+});
