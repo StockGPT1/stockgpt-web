@@ -4,9 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 import {
   auditSecurityEvent,
   getClientIp,
-  precheckRateLimit,
+  checkRateLimit,
   rateKey,
-  recordRateLimitAttempts,
   tooManyRequests,
 } from "@/lib/security/rate-limit";
 import { validateSignupPayload } from "@/lib/security/validation";
@@ -18,10 +17,8 @@ export const dynamic = "force-dynamic";
 const GENERIC_SIGNUP_MESSAGE =
   "If this email is eligible, check your inbox to continue.";
 
-/* Production keeps StockGPT's DB-backed signup throttling and audit trail.
-   Local iPhone development skips those service-role-dependent writes because
-   Vercel deliberately replaces protected secrets with [SENSITIVE] when they
-   are pulled locally. Supabase's own signup protections still apply. */
+/* Production atomically consumes signup rate-limit slots and records
+   security events. Local development skips StockGPT's DB-backed limiter. */
 export async function POST(req: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === "development";
   const ipKey = rateKey(["signup-ip", getClientIp(req)]);
@@ -37,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!isDevelopment) {
       /* Invalid payloads still count against the IP limit in production so a
          client can't probe the validator without ever being throttled. */
-      const ipLimit = await precheckRateLimit({
+      const ipLimit = await checkRateLimit({
         action: "signup_ip",
         key: ipKey,
         limit: 5,
@@ -49,14 +46,11 @@ export async function POST(req: NextRequest) {
       }
 
       after(() =>
-        Promise.all([
-          recordRateLimitAttempts([{ action: "signup_ip", key: ipKey }]),
-          auditSecurityEvent({
-            req,
-            eventType: "signup_validation_failed",
-            metadata: { reason: validated.message },
-          }),
-        ]),
+        auditSecurityEvent({
+          req,
+          eventType: "signup_validation_failed",
+          metadata: { reason: validated.message },
+        }),
       );
     }
 
@@ -67,13 +61,13 @@ export async function POST(req: NextRequest) {
 
   if (!isDevelopment) {
     const [ipLimit, emailLimit] = await Promise.all([
-      precheckRateLimit({
+      checkRateLimit({
         action: "signup_ip",
         key: ipKey,
         limit: 5,
         windowSeconds: 60 * 60,
       }),
-      precheckRateLimit({
+      checkRateLimit({
         action: "signup_email",
         key: emailKey,
         limit: 3,
@@ -110,17 +104,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const { error } = isDevelopment
-    ? await signupPromise
-    : (
-        await Promise.all([
-          signupPromise,
-          recordRateLimitAttempts([
-            { action: "signup_ip", key: ipKey },
-            { action: "signup_email", key: emailKey },
-          ]),
-        ])
-      )[0];
+  const { error } = await signupPromise;
 
   if (error) {
     if (!isDevelopment) {
