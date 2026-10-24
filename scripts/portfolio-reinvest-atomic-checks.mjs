@@ -14,7 +14,7 @@ test("portfolio trim/reinvest delegates ALL writes to a single database RPC", ()
 });
 
 test("atomic RPC verifies owner, locks portfolio, and writes holdings and ledger together", () => {
-  const sql = read("supabase/migrations/20261024_atomic_portfolio_reinvest.sql");
+  const sql = read("supabase/migrations/20261024152200_atomic_portfolio_reinvest.sql");
   assert.match(sql, /up\.user_id = p_user_id/);
   assert.match(sql, /FOR UPDATE/);
   assert.match(sql, /INSERT INTO public\.portfolio_holdings/);
