@@ -31,3 +31,20 @@ test("marketing samples are not labelled as real backtests", () => {
   assert.match(code, /example rankings \(not live\)/);
   assert.doesNotMatch(code, /Backtested CAGR|5-year backtest/);
 });
+
+test("rate limiting uses a transaction-scoped lock and a database RPC", () => {
+  const sql = read("supabase/migrations/20261024_atomic_security_rate_limit.sql");
+  const implementation = read("lib/security/rate-limit.ts");
+  assert.match(sql, /pg_advisory_xact_lock/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.consume_security_rate_limit/);
+  assert.match(implementation, /\.rpc\("consume_security_rate_limit"/);
+  assert.doesNotMatch(implementation, /\.from\("security_rate_limits"\)/);
+});
+
+test("login and signup don't record request slots twice", () => {
+  for (const path of ["app/api/auth/login/route.ts", "app/api/auth/signup/route.ts"]) {
+    const code = read(path);
+    assert.match(code, /checkRateLimit\(/);
+    assert.doesNotMatch(code, /recordRateLimitAttempts|precheckRateLimit/);
+  }
+});
