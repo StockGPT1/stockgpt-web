@@ -174,9 +174,14 @@ export async function POST(request: Request) {
           });
         }
       } else if (STRIPE_STATUSES_ENDING_ACCESS.has(subscription.status)) {
-        await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
-          subscription_status: "none",
-        });
+        // Do not remove separately granted plans such as alpha. Only a
+        // Stripe-managed basic entitlement can be revoked here.
+        const profile = await getProfileByStripeCustomer(supabaseAdmin, customerId);
+        if (profile?.subscription_status === "basic") {
+          await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+            subscription_status: "none",
+          });
+        }
       }
     }
   }
@@ -192,9 +197,11 @@ export async function POST(request: Request) {
         customerId,
       );
 
-      await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
-        subscription_status: "none",
-      });
+      if (profile?.subscription_status === "basic") {
+        await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+          subscription_status: "none",
+        });
+      }
 
       const email = profile?.email;
       if (email) {
