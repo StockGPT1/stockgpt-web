@@ -7,8 +7,7 @@ const LEGAL_VERSION = "2026-05-17";
 type BillingPlan = "monthly" | "annual";
 const APPROVED_OFFER = "50PORTFOLIO2026";
 const LIMITED_TIME_MONTHLY_PRICE_ID =
-  process.env.STRIPE_CORE_LIMITED_OFFER_PRICE_ID ??
-  "price_1Tzit3IldrSzUOixERXx9tIb";
+  process.env.STRIPE_CORE_LIMITED_OFFER_PRICE_ID;
 
 function getTrialPeriodDays() {
   const rawValue = process.env.STRIPE_CORE_TRIAL_DAYS;
@@ -45,6 +44,9 @@ function getPriceId(plan: BillingPlan) {
     return annualPriceId;
   }
 
+  if (!LIMITED_TIME_MONTHLY_PRICE_ID) {
+    throw new Error("Missing STRIPE_CORE_LIMITED_OFFER_PRICE_ID");
+  }
   return LIMITED_TIME_MONTHLY_PRICE_ID;
 }
 
