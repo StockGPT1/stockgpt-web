@@ -61,3 +61,12 @@ test("sample news is labelled as a demonstration", () => {
   assert.match(code, /Illustrative headlines and simulated ticker moves/);
   assert.doesNotMatch(code, /\n\s+LIVE\n/);
 });
+
+test("Stripe webhook errors are retryable and email failures are isolated", () => {
+  const code = read("app/api/stripe-webhook/route.ts");
+  assert.match(code, /async function writeProfileOrThrow/);
+  assert.match(code, /if \(error\) \{/);
+  assert.match(code, /Webhook processing failed/);
+  assert.match(code, /sendEmailBestEffort/);
+  assert.match(code, /session\.payment_status === "paid"/);
+});
