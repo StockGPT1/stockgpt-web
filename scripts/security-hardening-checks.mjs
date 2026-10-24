@@ -19,7 +19,7 @@ test("chart scanner checks entitlement and limits AI spend", () => {
 });
 
 test("client profile updates cannot modify billing fields", () => {
-  const code = read("supabase/migrations/20261024_protect_profile_billing_fields.sql");
+  const code = read("supabase/migrations/20261024152000_protect_profile_billing_fields.sql");
   assert.match(code, /NEW\.subscription_status IS DISTINCT FROM OLD\.subscription_status/);
   assert.match(code, /NEW\.stripe_customer_id IS DISTINCT FROM OLD\.stripe_customer_id/);
   assert.match(code, /BEFORE UPDATE ON public\.profiles/);
@@ -33,7 +33,7 @@ test("marketing samples are not labelled as real backtests", () => {
 });
 
 test("rate limiting uses a transaction-scoped lock and a database RPC", () => {
-  const sql = read("supabase/migrations/20261024_atomic_security_rate_limit.sql");
+  const sql = read("supabase/migrations/20261024152100_atomic_security_rate_limit.sql");
   const implementation = read("lib/security/rate-limit.ts");
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.consume_security_rate_limit/);
