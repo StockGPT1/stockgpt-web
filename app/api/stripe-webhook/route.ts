@@ -36,11 +36,15 @@ async function getProfileEmail(
   supabaseAdmin: SupabaseAdminClient,
   userId: string,
 ) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("email")
     .eq("id", userId)
     .maybeSingle();
+  if (error) {
+    console.warn("[stripe-webhook] optional email lookup failed", { code: error.code });
+    return null;
+  }
 
   const profile = data as Pick<ProfileRow, "email"> | null;
 
@@ -51,12 +55,16 @@ async function getProfileByStripeCustomer(
   supabaseAdmin: SupabaseAdminClient,
   customerId: string,
 ) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("email,subscription_status")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
+  if (error) {
+    console.error("[stripe-webhook] profile lookup failed", { code: error.code });
+    throw new Error("Could not look up subscription");
+  }
   return (data as ProfileRow | null) ?? null;
 }
 
@@ -68,9 +76,15 @@ async function writeProfileOrThrow(
   value: string,
   changes: { subscription_status: string; stripe_customer_id?: string | null },
 ) {
-  const { error } = await supabaseAdmin.from("profiles").update(changes).eq(filter, value);
-  if (error) {
-    console.error("[stripe-webhook] entitlement write failed", { code: error.code });
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update(changes)
+    .eq(filter, value)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("[stripe-webhook] entitlement write failed", {
+      code: error?.code ?? "profile_not_found",
+    });
     throw new Error("Could not persist subscription status");
   }
 }
