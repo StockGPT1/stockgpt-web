@@ -329,7 +329,7 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="Stock Rankings"
-          sub={`${total} US stocks scored across six factors · Updated ${updated}`}
+          sub={`${total} US stocks scored · illustrative rankings, not live scores`}
           right={
             <>
               <GhostChip active>Daily run</GhostChip>
@@ -477,7 +477,7 @@ const HOLDINGS = [
   { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8, score: "8,145", move: "-0.3%", up: false },
 ];
 
-/* Backtest equity curve — the hero of the portfolio scene. Fixed-pixel
+/* Illustrative equity curve — the hero of the portfolio scene. Fixed-pixel
    SVG: the design canvas is a constant 1280×756, so the inner chart
    area is deterministic (824 wide) and paths can be hand-tuned. */
 function BacktestChart() {
@@ -806,7 +806,7 @@ export function NewsScreen() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="World News"
-          sub="Global headlines mapped to the tickers and sectors they actually move"
+          sub="Illustrative headlines and simulated ticker moves — not live news"
           right={
             <>
               {["Global", "US", "Europe", "Asia"].map((r, i) => (
@@ -816,7 +816,7 @@ export function NewsScreen() {
               ))}
               <span className="ml-2 flex items-center gap-1.5 text-[10.5px] font-black" style={{ color: T.green }}>
                 <span className="sl-pulse h-2 w-2 rounded-full" style={{ background: T.green }} />
-                LIVE
+                DEMO
               </span>
             </>
           }
