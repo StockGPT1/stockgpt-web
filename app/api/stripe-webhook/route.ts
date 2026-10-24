@@ -60,6 +60,30 @@ async function getProfileByStripeCustomer(
   return (data as ProfileRow | null) ?? null;
 }
 
+/** A Stripe event must not be acknowledged as successful if the entitlement
+ * write failed. A non-2xx webhook response tells Stripe to retry delivery. */
+async function writeProfileOrThrow(
+  supabaseAdmin: SupabaseAdminClient,
+  filter: "id" | "stripe_customer_id",
+  value: string,
+  changes: { subscription_status: string; stripe_customer_id?: string | null },
+) {
+  const { error } = await supabaseAdmin.from("profiles").update(changes).eq(filter, value);
+  if (error) {
+    console.error("[stripe-webhook] entitlement write failed", { code: error.code });
+    throw new Error("Could not persist subscription status");
+  }
+}
+
+async function sendEmailBestEffort(operation: () => Promise<unknown>) {
+  try {
+    await operation();
+  } catch (error) {
+    // Email delivery should not cause Stripe to replay a successful billing change.
+    console.error("[stripe-webhook] subscription email failed", error instanceof Error ? error.name : "Unknown");
+  }
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -89,20 +113,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid webhook" }, { status: 400 });
   }
 
+  try {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.metadata?.user_id;
     const customerId =
       typeof session.customer === "string" ? session.customer : null;
 
-    if (userId && session.mode === "subscription" && (session.payment_status === "paid" || session.payment_status === "no_payment_required")) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({
-          subscription_status: "basic",
-          stripe_customer_id: customerId,
-        })
-        .eq("id", userId);
+    if (userId && customerId && session.mode === "subscription" && (session.payment_status === "paid" || session.payment_status === "no_payment_required")) {
+      await writeProfileOrThrow(supabaseAdmin, "id", userId, {
+        subscription_status: "basic",
+        stripe_customer_id: customerId,
+      });
 
       const email =
         session.customer_details?.email ??
@@ -110,7 +132,7 @@ export async function POST(request: Request) {
         (await getProfileEmail(supabaseAdmin, userId));
 
       if (email) {
-        await sendCoreSubscriptionActivatedEmail(email);
+        await sendEmailBestEffort(() => sendCoreSubscriptionActivatedEmail(email));
       }
     }
   }
@@ -133,16 +155,14 @@ export async function POST(request: Request) {
         );
 
         if (profile && !hasActiveSubscription(profile.subscription_status)) {
-          await supabaseAdmin
-            .from("profiles")
-            .update({ subscription_status: "basic" })
-            .eq("stripe_customer_id", customerId);
+          await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+            subscription_status: "basic",
+          });
         }
       } else if (STRIPE_STATUSES_ENDING_ACCESS.has(subscription.status)) {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ subscription_status: "none" })
-          .eq("stripe_customer_id", customerId);
+        await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+          subscription_status: "none",
+        });
       }
     }
   }
@@ -158,13 +178,12 @@ export async function POST(request: Request) {
         customerId,
       );
 
-      await supabaseAdmin
-        .from("profiles")
-        .update({ subscription_status: "none" })
-        .eq("stripe_customer_id", customerId);
+      await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+        subscription_status: "none",
+      });
 
       if (profile?.email) {
-        await sendSubscriptionCancelledEmail(profile.email);
+        await sendEmailBestEffort(() => sendSubscriptionCancelledEmail(profile.email));
       }
     }
   }
@@ -185,9 +204,14 @@ export async function POST(request: Request) {
       );
 
       if (profile?.email) {
-        await sendPaymentFailedEmail(profile.email);
+        await sendEmailBestEffort(() => sendPaymentFailedEmail(profile.email));
       }
     }
+  }
+
+  } catch (error) {
+    console.error("[stripe-webhook] event processing failed", error instanceof Error ? error.name : "Unknown");
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
