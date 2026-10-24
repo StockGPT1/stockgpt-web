@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ModuleState } from "@/components/ModuleState";
 import { NotificationsList } from "@/components/NotificationsList";
 import { IOSPushSetupCard } from "@/components/IOSPushSetupCard";
 import { getUserNotifications } from "@/lib/notifications";
 import { hasActiveSubscription } from "@/lib/subscription";
-import { getServerViewer } from "@/lib/server-viewer";
+import { getServerViewer, getViewerProfile } from "@/lib/server-viewer";
 
 export const metadata: Metadata = {
   title: "Alerts | StockGPT Portfolio Notifications",
@@ -15,15 +16,11 @@ export const metadata: Metadata = {
 };
 
 export default async function NotificationsPage() {
-  const { supabase, user } = await getServerViewer();
+  const [{ user }, profile] = await Promise.all([getServerViewer(), getViewerProfile()]);
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("subscription_status")
-    .eq("id", user.id)
-    .maybeSingle();
   const canUseAlerts = hasActiveSubscription(profile?.subscription_status);
+  const inbox = canUseAlerts ? getUserNotifications({ includeDismissed: true }) : null;
 
   return (
     <AppShell activePath="/notifications" askLabel="Ask about my portfolio" askContext={{ contextType: "dashboard" }}>
@@ -31,7 +28,9 @@ export default async function NotificationsPage() {
         {canUseAlerts ? (
           <>
             <IOSPushSetupCard />
-            <NotificationsContent />
+            <Suspense fallback={<NotificationsPending />}>
+              <NotificationsContent inbox={inbox!} />
+            </Suspense>
           </>
         ) : (
           <div className="grid gap-4">
@@ -53,7 +52,15 @@ export default async function NotificationsPage() {
   );
 }
 
-async function NotificationsContent() {
-  const result = await getUserNotifications({ includeDismissed: true });
+function NotificationsPending() {
+  return <section role="status" aria-busy="true" className="rounded-[24px] border border-[#ddb159]/24 p-4 sm:p-5">
+    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ddb159]">Alert inbox</p>
+    <h1 className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#faf6f0]">What needs attention</h1>
+    <p className="mt-2 text-[11px] font-semibold text-[#faf6f0]/48">Checking your current holdings…</p>
+  </section>;
+}
+
+async function NotificationsContent({ inbox }: { inbox: ReturnType<typeof getUserNotifications> }) {
+  const result = await inbox;
   return <NotificationsList unread={result.unread} read={result.read} status={result.status === "ok" ? "ok" : "error"} />;
 }

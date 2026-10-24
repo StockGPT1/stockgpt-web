@@ -20,6 +20,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/notifications")) return "Alerts";
   if (pathname.startsWith("/world-news")) return "World News";
   if (pathname.startsWith("/watchlist")) return "Watchlist";
+  if (pathname.startsWith("/profile")) return "Your profile";
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/ask")) return "Ask StockGPT";
   return "";
@@ -34,6 +35,7 @@ function routeKey(pathname: string) {
   if (pathname.startsWith("/notifications")) return "notifications";
   if (pathname.startsWith("/world-news")) return "world-news";
   if (pathname.startsWith("/watchlist")) return "watchlist";
+  if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/settings")) return "settings";
   if (pathname.startsWith("/ask")) return "ask";
   if (pathname.startsWith("/dashboard")) return "dashboard";

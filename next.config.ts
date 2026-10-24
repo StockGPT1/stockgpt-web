@@ -84,7 +84,6 @@ const nextConfig: NextConfig = {
       { source: "/alerts", destination: "/notifications", permanent: true },
       { source: "/news", destination: "/world-news", permanent: true },
       { source: "/account", destination: "/settings", permanent: false },
-      { source: "/profile", destination: "/settings", permanent: false },
     ];
   },
 };

@@ -18,6 +18,8 @@ import { StockLogo } from "@/components/StockLogo";
 import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import type { DashboardPortfolioOpportunity, DashboardPortfolioChart } from "@/lib/dashboard-portfolio";
 import { useDashboardData } from "@/components/DashboardDataStream";
+import type { DashboardPortfolioLoad } from "@/lib/dashboard-portfolio";
+import { NativePageRegistration } from "@/components/NativePageRegistration";
 
 export type MobileDashboardRanking = {
   id: string | number;
@@ -76,6 +78,7 @@ type Props = {
   deferredOpportunities?: Promise<DashboardPortfolioOpportunity[]>;
   deferredMarket?: Promise<DashboardMarketData>;
   deferredNews?: Promise<DashboardNewsData>;
+  deferredPortfolio?: Promise<DashboardPortfolioLoad>;
 };
 
 const PANELS = ["Portfolio", "What changed", "Opportunities"] as const;
@@ -179,13 +182,13 @@ function subscribeClock(onChange: () => void) {
 export function MobileDashboardExperience({
   firstName,
   canUsePremium,
-  portfolioId,
-  portfolios,
-  summary,
+  portfolioId: initialPortfolioId,
+  portfolios: initialPortfolios,
+  summary: initialSummary,
   portfolioChart: initialPortfolioChart,
   portfolioChartState: initialPortfolioChartState,
-  valuationState,
-  missingPriceTickers,
+  valuationState: initialValuationState,
+  missingPriceTickers: initialMissingPriceTickers,
   opportunities: initialOpportunities,
   rankings,
   rankingsLocked,
@@ -198,19 +201,34 @@ export function MobileDashboardExperience({
   deferredOpportunities,
   deferredMarket,
   deferredNews,
+  deferredPortfolio,
 }: Props) {
-  const chartStream = useDashboardData(deferredChart);
-  const ideasStream = useDashboardData(deferredOpportunities);
+  const portfolioStream = useDashboardData(deferredPortfolio);
+  const basicPortfolio = portfolioStream.value?.status === "ready" ? portfolioStream.value.portfolio : undefined;
+  const healthStream = useDashboardData(basicPortfolio?.deferredEnrichment);
+  const fullPortfolio = healthStream.value?.failed ? undefined : healthStream.value;
+  const portfolio = fullPortfolio ?? basicPortfolio;
+  const portfolioId = portfolio?.portfolioId ?? initialPortfolioId;
+  const portfolios = portfolio?.portfolios ?? initialPortfolios;
+  const summary = portfolio?.summary ?? initialSummary;
+  const valuationState = portfolio?.valuationState ?? initialValuationState;
+  const missingPriceTickers = portfolio?.missingPriceTickers ?? initialMissingPriceTickers;
+  const portfolioValue = summary ?? basicPortfolio?.valuation;
+  const portfolioPending = portfolioStream.pending;
+  const portfolioFailed = portfolioStream.value?.status === "error";
+  const healthFailed = healthStream.value?.failed;
+  const chartStream = useDashboardData(portfolio?.deferredChart ?? deferredChart);
+  const ideasStream = useDashboardData(canUsePremium ? portfolio?.deferredOpportunities ?? deferredOpportunities : undefined);
   const marketStream = useDashboardData(deferredMarket);
   const newsStream = useDashboardData(deferredNews);
-  const portfolioChart = chartStream.value?.chartData ?? initialPortfolioChart;
+  const portfolioChart = chartStream.value?.chartData ?? portfolio?.chartData ?? initialPortfolioChart;
   const chartHealth = chartStream.value?.chartMeta?.health;
   const portfolioChartState: PortfolioChartState = chartStream.value ? {
     displayState: chartStream.value.failed ? "error_no_cache" : chartHealth?.displayState === "ready" || chartHealth?.displayState === "error_with_cache" || chartHealth?.displayState === "error_no_cache" ? chartHealth.displayState : "limited",
     isFlat: chartHealth?.isFlat ?? false,
     latestSnapshotAt: chartHealth?.latestSnapshotAt ?? null,
-  } : initialPortfolioChartState;
-  const opportunities = ideasStream.value ?? initialOpportunities;
+  } : healthFailed ? { displayState: "error_no_cache" as const, isFlat: false, latestSnapshotAt: null } : initialPortfolioChartState;
+  const opportunities = ideasStream.value ?? portfolio?.opportunities ?? initialOpportunities;
   const marketChart = marketStream.value?.chart ?? initialMarketChart;
   const marketValue = marketStream.value ? marketStream.value.value : initialMarketValue;
   const marketChangePct = marketStream.value ? marketStream.value.changePct : initialMarketChangePct;
@@ -235,6 +253,9 @@ export function MobileDashboardExperience({
     ? `/portfolio?portfolio=${encodeURIComponent(portfolioId)}`
     : "/portfolio";
   const briefingLine = useMemo(() => {
+    if (portfolioPending || portfolioFailed || (!summary && portfolioValue)) {
+      return topRanked?.ticker ? `${topRanked.ticker} leads the latest StockGPT rankings` : "Your latest market briefing";
+    }
     if (!summary) {
       return topRanked?.ticker
         ? `${topRanked.ticker} leads the rankings · build a portfolio for personal intelligence`
@@ -256,9 +277,15 @@ export function MobileDashboardExperience({
           ? `${topRanked.ticker} remains #1`
           : "rankings ready";
     return `${health} · ${review}`;
-  }, [canUsePremium, summary, topRanked, valuationState]);
+  }, [canUsePremium, summary, topRanked, valuationState, portfolioPending, portfolioFailed, portfolioValue]);
 
   const changedItems = useMemo(() => {
+    if (portfolioPending || portfolioFailed || (!summary && portfolioValue)) {
+      return [
+        topRanked?.ticker ? `${topRanked.ticker} is currently the highest-ranked StockGPT stock.` : "The latest rankings are not available yet.",
+        portfolioValue?.totalPnlPct != null ? `Portfolio total return is ${portfolioValue.totalPnlPct >= 0 ? "+" : ""}${portfolioValue.totalPnlPct.toFixed(1)}%.` : portfolioFailed ? "Your portfolio could not refresh. Open it to try again." : "Your portfolio research will update independently.",
+      ];
+    }
     if (!summary) {
       return [
         "Build or import a portfolio to receive a personal daily briefing.",
@@ -284,7 +311,7 @@ export function MobileDashboardExperience({
         ? `${topRanked.ticker} remains the highest-ranked stock in the current table.`
         : "The latest rankings are not available yet.",
     ];
-  }, [canUsePremium, summary, topRanked, valuationState]);
+  }, [canUsePremium, summary, topRanked, valuationState, portfolioPending, portfolioFailed, portfolioValue]);
 
   const updateActivePanel = useCallback(() => {
     const track = carouselRef.current;
@@ -389,7 +416,7 @@ export function MobileDashboardExperience({
               className="sg-dashboard-card relative isolate h-[318px] w-full shrink-0 snap-start snap-always overflow-hidden rounded-[1.65rem] border border-[#f2c35f]/30 bg-[radial-gradient(circle_at_82%_0%,rgba(255,232,157,0.14),transparent_34%),linear-gradient(145deg,rgba(16,67,44,0.94),rgba(7,34,23,0.97))] p-4 text-[#fffaf2] shadow-[0_20px_42px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.055)] min-[390px]:h-[310px]"
             >
               <div className="pointer-events-none absolute -right-14 -top-14 size-40 rounded-full bg-[#f2c35f]/13 blur-3xl" />
-              {summary ? (
+              {portfolioValue ? (
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -407,13 +434,13 @@ export function MobileDashboardExperience({
                         </div>
                       ) : (
                         <h2 className="mt-1 truncate text-[18px] font-black tracking-[-0.04em]">
-                          {summary.name}
+                          {portfolioValue.name}
                         </h2>
                       )}
                     </div>
                     <span className="shrink-0 rounded-full bg-[#f2c35f] px-2.5 py-1 text-[10px] font-black text-[#062016]">
                       {canUsePremium
-                        ? `Health ${summary.score}/100`
+                        ? summary ? `Health ${summary.score}/100` : healthFailed ? "Health unavailable" : "Health updating"
                         : "Health locked"}
                     </span>
                   </div>
@@ -432,19 +459,19 @@ export function MobileDashboardExperience({
                       <p className="truncate text-[34px] font-black leading-none tracking-[-0.06em]">
                         {valuationState === "unavailable"
                           ? "Value unavailable"
-                          : money(summary.totalValue, summary.currency)}
+                          : money(portfolioValue.totalValue, portfolioValue.currency)}
                       </p>
-                      {valuationState !== "unavailable" && (
+                      {valuationState !== "unavailable" && portfolioValue.totalPnl != null && portfolioValue.totalPnlPct != null && (
                         <p
                           className={`mt-1.5 text-[13px] font-black tabular-nums ${
-                            summary.totalPnl >= 0
+                            portfolioValue.totalPnl >= 0
                               ? "text-emerald-300"
                               : "text-red-200"
                           }`}
                         >
-                          {money(summary.totalPnl, summary.currency)} ·{" "}
-                          {summary.totalPnl >= 0 ? "+" : ""}
-                          {summary.totalPnlPct.toFixed(1)}%
+                          {money(portfolioValue.totalPnl, portfolioValue.currency)} ·{" "}
+                          {portfolioValue.totalPnl >= 0 ? "+" : ""}
+                          {portfolioValue.totalPnlPct.toFixed(1)}%
                         </p>
                       )}
                     </div>
@@ -470,7 +497,7 @@ export function MobileDashboardExperience({
                         <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#f2c35f]/24" />
                         <div className="relative rounded-xl bg-[#061b12]/82 px-3 py-2">
                           <p className="text-[10px] font-black text-[#e7c56c]">
-                            {chartStream.pending ? "Fetching chart history" : portfolioChartState.displayState === "error_no_cache"
+                            {healthStream.pending || chartStream.pending ? "Fetching chart history" : portfolioChartState.displayState === "error_no_cache"
                               ? "Chart temporarily unavailable"
                               : "Building reliable chart history"}
                           </p>
@@ -484,7 +511,7 @@ export function MobileDashboardExperience({
 
                   <div className="mt-2 flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.1em] text-[#fffaf2]/42">
                     <span>
-                      {summary.holdingsCount} holdings · {summary.sectorCount} sectors
+                      {portfolioValue.holdingsCount} holdings · {portfolioValue.sectorCount} sectors
                     </span>
                     {portfolioChartState.displayState === "error_with_cache" ? (
                       <span className="truncate text-[#e7c56c]">Last-known chart</span>
@@ -493,6 +520,11 @@ export function MobileDashboardExperience({
                       <span className="truncate text-[#e7c56c]">Partial prices</span>
                     ) : null}
                   </div>
+                </div>
+              ) : portfolioPending || portfolioFailed ? (
+                <div className="relative flex h-full flex-col justify-between">
+                  <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#f2c35f]">Your portfolio</p><h2 className="mt-3 text-[23px] font-black">{portfolioFailed ? "Portfolio unavailable" : "Connecting your portfolio"}</h2><p role={portfolioPending ? "status" : undefined} className="mt-3 text-[12px] leading-5 text-[#fffaf2]/58">{portfolioFailed ? "Your saved holdings have not changed. Open your portfolio to try again." : "Your saved holdings and current value will appear here. The latest rankings are ready below."}</p></div>
+                  <Link href="/portfolio" className="inline-flex h-11 items-center justify-center rounded-full border border-[#f2c35f]/30 px-5 text-[11px] font-black text-[#f2c35f]">Open portfolio</Link>
                 </div>
               ) : (
                 <div className="relative flex h-full flex-col justify-between">
@@ -592,6 +624,10 @@ export function MobileDashboardExperience({
                       View plans
                     </Link>
                   </div>
+                ) : portfolioPending || healthStream.pending ? (
+                  <p role="status" className="py-4 text-[11px] leading-5 text-[#fffaf2]/60">Checking ideas against your saved portfolio…</p>
+                ) : portfolioFailed || healthFailed ? (
+                  <p className="py-4 text-[11px] leading-5 text-[#fffaf2]/60">Portfolio research is temporarily unavailable.</p>
                 ) : !summary ? (
                   <div className="rounded-2xl border border-[#f2c35f]/14 bg-[#061b12]/55 p-4">
                     <p className="text-[13px] font-black">Build a portfolio first</p>
@@ -906,7 +942,8 @@ export function MobileDashboardExperience({
           About &amp; disclaimer →
         </Link>
       </section>
-      {chartStream.bridge}{ideasStream.bridge}{marketStream.bridge}{newsStream.bridge}
+      {deferredPortfolio && portfolioId && <NativePageRegistration context={{ contextType: "dashboard", portfolioId }} />}
+      {portfolioStream.bridge}{healthStream.bridge}{chartStream.bridge}{ideasStream.bridge}{marketStream.bridge}{newsStream.bridge}
     </div>
   );
 }

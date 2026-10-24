@@ -67,6 +67,7 @@ export default async function SettingsPage() {
           <section className="rounded-2xl bg-[#faf6f0] p-5 text-[#072116] shadow-[0_8px_22px_rgba(0,0,0,0.16)]">
             <h2 className="text-[15px] font-black tracking-[-0.02em]">Account</h2>
             <p className="mt-0.5 text-[11px] font-semibold text-[#072116]/55">Your account details</p>
+            <Link href="/profile" className="mt-3 inline-flex min-h-10 items-center rounded-full border border-[#072116]/15 px-4 text-[12px] font-bold">Edit profile &amp; photo →</Link>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-[#072116]/10 px-4 py-3">

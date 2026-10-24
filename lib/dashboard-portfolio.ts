@@ -111,7 +111,22 @@ export type DashboardMainPortfolioResult = {
   missingPriceTickers: string[];
   deferredChart?: Promise<DashboardPortfolioChart>;
   deferredOpportunities?: Promise<DashboardPortfolioOpportunity[]>;
+  valuation?: DashboardPortfolioValuation;
+  deferredEnrichment?: Promise<DashboardMainPortfolioResult>;
+  failed?: boolean;
 };
+
+export type DashboardPortfolioValuation = {
+  name: string;
+  currency: string;
+  totalValue: number;
+  totalPnl: number | null;
+  totalPnlPct: number | null;
+  holdingsCount: number;
+  sectorCount: number;
+};
+
+export type DashboardPortfolioLoad = { status: "ready"; portfolio: DashboardMainPortfolioResult } | { status: "error" };
 
 export type DashboardPortfolioChart = {
   chartData: Partial<Record<TimeRange, ChartPoint[]>>;
@@ -339,9 +354,9 @@ export async function getDashboardMainPortfolio(
   supabase: SupabaseClient,
   userId: string,
   requestedPortfolioId?: string | null,
-  options: { deferDetails?: boolean } = {},
+  options: { deferDetails?: boolean; deferEnrichment?: boolean } = {},
 ): Promise<DashboardMainPortfolioResult> {
-  const { data: portfoliosData } = await supabase
+  const { data: portfoliosData, error: portfolioError } = await supabase
     .from("user_portfolios")
     .select(
       "id,name,objective,risk_tolerance,time_horizon,investment_amount,cash_balance,cash_deposited_total,currency,created_at",
@@ -349,6 +364,7 @@ export async function getDashboardMainPortfolio(
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
+  if (portfolioError) throw new Error("Portfolio accounts could not be loaded.");
 
   const portfolios = ((portfoliosData ?? []) as PortfolioRow[]).map((portfolio) => ({
     ...portfolio,
@@ -370,7 +386,7 @@ export async function getDashboardMainPortfolio(
     portfolios.find((portfolio) => portfolio.id === requestedPortfolioId) ?? portfolios[0];
   const portfolioIds = [selectedPortfolio.id];
 
-  const [{ data: holdingsData }, { data: transactionData }] = await Promise.all([
+  const [{ data: holdingsData, error: holdingsError }, { data: transactionData, error: transactionError }] = await Promise.all([
     supabase
       .from("portfolio_holdings")
       .select(
@@ -386,6 +402,7 @@ export async function getDashboardMainPortfolio(
       .order("created_at", { ascending: true })
       .limit(1000),
   ]);
+  if (holdingsError || transactionError) throw new Error("Portfolio holdings could not be loaded.");
 
   const holdingsByPortfolio = new Map<string, RawHolding[]>();
   ((holdingsData ?? []) as HoldingRow[]).forEach((holding) => {
@@ -403,91 +420,137 @@ export async function getDashboardMainPortfolio(
     transactionsByPortfolio.set(transaction.portfolio_id, existing);
   });
 
-  const candidates: PortfolioCandidate[] = [];
+  const completePortfolio = async (): Promise<DashboardMainPortfolioResult> => {
+    const candidates: PortfolioCandidate[] = [];
 
-  for (const portfolio of [selectedPortfolio]) {
-    const rawHoldings = holdingsByPortfolio.get(portfolio.id) ?? [];
-    const transactions = transactionsByPortfolio.get(portfolio.id) ?? [];
-    const enriched = await enrichHoldings(
-      rawHoldings,
-      (portfolio.risk_tolerance as RiskTolerance) ?? null,
-    );
+    for (const portfolio of [selectedPortfolio]) {
+      const rawHoldings = holdingsByPortfolio.get(portfolio.id) ?? [];
+      const transactions = transactionsByPortfolio.get(portfolio.id) ?? [];
+      const enriched = await enrichHoldings(
+        rawHoldings,
+        (portfolio.risk_tolerance as RiskTolerance) ?? null,
+      );
 
-    const summary = buildPortfolioHealthSummary({
-      id: portfolio.id,
-      name: cleanPortfolioName(portfolio.name),
-      currency: portfolio.currency ?? "USD",
-      riskTolerance: portfolio.risk_tolerance,
-      holdings: enriched,
-      transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
-      cashBalance: toNumber(portfolio.cash_balance, 0),
-      cashDepositedTotal: toNumber(
-        portfolio.cash_deposited_total,
-        toNumber(portfolio.investment_amount, 0),
-      ),
-    });
+      const summary = buildPortfolioHealthSummary({
+        id: portfolio.id,
+        name: cleanPortfolioName(portfolio.name),
+        currency: portfolio.currency ?? "USD",
+        riskTolerance: portfolio.risk_tolerance,
+        holdings: enriched,
+        transactions: transactions.map((transaction) => ({ realisedPnl: transaction.realised_pnl })),
+        cashBalance: toNumber(portfolio.cash_balance, 0),
+        cashDepositedTotal: toNumber(
+          portfolio.cash_deposited_total,
+          toNumber(portfolio.investment_amount, 0),
+        ),
+      });
 
-    candidates.push({ portfolio, rawHoldings, enriched, transactions, summary });
-  }
+      candidates.push({ portfolio, rawHoldings, enriched, transactions, summary });
+    }
 
-  const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
-  if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
+    const mainPortfolio = candidates.sort((a, b) => b.summary.totalValue - a.summary.totalValue)[0];
+    if (!mainPortfolio) return { portfolioId: null, portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "empty", missingPriceTickers: [] };
 
-  const missingPriceTickers = mainPortfolio.enriched
-    .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
-    .map((holding) => holding.ticker);
-  const valuationState =
-    mainPortfolio.enriched.length === 0 && toNumber(mainPortfolio.portfolio.cash_balance, 0) <= 0
-      ? "empty"
-      : missingPriceTickers.length === 0
-        ? "exact"
-        : missingPriceTickers.length === mainPortfolio.enriched.length
-          ? "unavailable"
-          : "partial";
+    const missingPriceTickers = mainPortfolio.enriched
+      .filter((holding) => toNumber(holding.shares, 0) > 0 && toNumber(holding.currentPrice, 0) <= 0)
+      .map((holding) => holding.ticker);
+    const valuationState =
+      mainPortfolio.enriched.length === 0 && toNumber(mainPortfolio.portfolio.cash_balance, 0) <= 0
+        ? "empty"
+        : missingPriceTickers.length === 0
+          ? "exact"
+          : missingPriceTickers.length === mainPortfolio.enriched.length
+            ? "unavailable"
+            : "partial";
 
-  /* chart build and opportunity scan are independent — running them
-     sequentially was a large chunk of dashboard TTFB */
-  const chartPromise = buildPortfolioPageChartResult({
-      portfolio: {
-        id: mainPortfolio.portfolio.id,
-        name: mainPortfolio.portfolio.name,
-        objective: mainPortfolio.portfolio.objective ?? null,
-        risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
-        time_horizon: mainPortfolio.portfolio.time_horizon,
-        investment_amount: mainPortfolio.portfolio.investment_amount,
-        cash_balance: mainPortfolio.portfolio.cash_balance,
-        cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
-        currency: mainPortfolio.portfolio.currency ?? null,
-        created_at: mainPortfolio.portfolio.created_at ?? null,
-        user_id: userId,
-      },
-      enriched: mainPortfolio.enriched,
-      transactions: mainPortfolio.transactions,
+    /* chart build and opportunity scan are independent — running them
+       sequentially was a large chunk of dashboard TTFB */
+    const chartPromise = buildPortfolioPageChartResult({
+        portfolio: {
+          id: mainPortfolio.portfolio.id,
+          name: mainPortfolio.portfolio.name,
+          objective: mainPortfolio.portfolio.objective ?? null,
+          risk_tolerance: mainPortfolio.portfolio.risk_tolerance,
+          time_horizon: mainPortfolio.portfolio.time_horizon,
+          investment_amount: mainPortfolio.portfolio.investment_amount,
+          cash_balance: mainPortfolio.portfolio.cash_balance,
+          cash_deposited_total: mainPortfolio.portfolio.cash_deposited_total,
+          currency: mainPortfolio.portfolio.currency ?? null,
+          created_at: mainPortfolio.portfolio.created_at ?? null,
+          user_id: userId,
+        },
+        enriched: mainPortfolio.enriched,
+        transactions: mainPortfolio.transactions,
+        summary: mainPortfolio.summary,
+        ownerId: userId,
+        supabaseClient: supabase,
+        allowCurrentSnapshot: missingPriceTickers.length === 0,
+      }).then(result => ({ chartData: result.chartData, chartMeta: result.meta } as DashboardPortfolioChart))
+      .catch(error => { console.error("[dashboard] portfolio chart failed", error); return { chartData: {}, chartMeta: null, failed: true } as DashboardPortfolioChart; });
+    const opportunitiesPromise = buildPortfolioOpportunities(
+        supabase,
+        mainPortfolio.portfolio,
+        mainPortfolio.enriched,
+        mainPortfolio.summary,
+      ).catch(error => { console.error("[dashboard] opportunities failed", error); return []; });
+
+    const details = options.deferDetails ? null : await Promise.all([chartPromise, opportunitiesPromise]);
+
+    return {
+      portfolioId: mainPortfolio.portfolio.id,
+      portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
       summary: mainPortfolio.summary,
-      ownerId: userId,
-      supabaseClient: supabase,
-      allowCurrentSnapshot: missingPriceTickers.length === 0,
-    }).then(result => ({ chartData: result.chartData, chartMeta: result.meta } as DashboardPortfolioChart))
-    .catch(error => { console.error("[dashboard] portfolio chart failed", error); return { chartData: {}, chartMeta: null, failed: true } as DashboardPortfolioChart; });
-  const opportunitiesPromise = buildPortfolioOpportunities(
-      supabase,
-      mainPortfolio.portfolio,
-      mainPortfolio.enriched,
-      mainPortfolio.summary,
-    ).catch(error => { console.error("[dashboard] opportunities failed", error); return []; });
+      chartData: details?.[0].chartData ?? {},
+      chartMeta: details?.[0].chartMeta ?? null,
+      tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
+      opportunities: details?.[1] ?? [],
+      valuationState,
+      missingPriceTickers,
+      ...(options.deferDetails ? { deferredChart: chartPromise, deferredOpportunities: opportunitiesPromise } : {}),
+    };
+  };
 
-  const details = options.deferDetails ? null : await Promise.all([chartPromise, opportunitiesPromise]);
+  if (!options.deferEnrichment) return completePortfolio();
 
+  // The dashboard's account value needs confirmed holdings and stored quotes,
+  // not news, factor diagnostics, technical charts or generated action alerts.
+  // Keep that research independent so one slow enrichment cannot hide money.
+  const enrichedPortfolio = completePortfolio().catch(error => {
+    console.error("[dashboard] portfolio enrichment failed", error);
+    return { portfolioId: selectedPortfolio.id, portfolios: portfolios.map(item => ({ id: item.id, name: cleanPortfolioName(item.name) })), summary: null, chartData: {}, chartMeta: null, tickers: [], opportunities: [], valuationState: "unavailable", missingPriceTickers: [], failed: true } satisfies DashboardMainPortfolioResult;
+  });
+  const rawHoldings = holdingsByPortfolio.get(selectedPortfolio.id) ?? [];
+  const tickers = [...new Set(rawHoldings.map(holding => holding.ticker))];
+  const { data: quoteRows, error: quoteError } = tickers.length ? await supabase.from("stock_rankings").select("ticker,sector,price").in("ticker", tickers) : { data: [], error: null };
+  if (quoteError) throw new Error("Stored portfolio prices could not be loaded.");
+  const quoteMap = new Map(((quoteRows ?? []) as Array<{ ticker: string; sector: string | null; price: number | string | null }>).map(row => [row.ticker.toUpperCase(), row]));
+  let holdingsValue = 0, costBasis = 0;
+  let returnKnown = true;
+  const missingPriceTickers: string[] = [], sectors = new Set<string>();
+  for (const holding of rawHoldings) {
+    const shares = holding.shares == null ? Number.NaN : Number(holding.shares);
+    if (shares === 0) continue;
+    const quote = quoteMap.get(holding.ticker);
+    const price = Number(quote?.price);
+    if (quote?.sector) sectors.add(quote.sector);
+    if (!Number.isFinite(shares) || shares < 0 || !Number.isFinite(price) || price <= 0) {
+      missingPriceTickers.push(holding.ticker); returnKnown = false; continue;
+    }
+    holdingsValue += shares * price;
+    const entry = holding.entry_price == null ? Number.NaN : Number(holding.entry_price);
+    if (!Number.isFinite(entry) || entry <= 0) returnKnown = false;
+    else costBasis += shares * entry;
+  }
+  const cash = toNumber(selectedPortfolio.cash_balance, 0);
+  const realised = (transactionsByPortfolio.get(selectedPortfolio.id) ?? []).reduce((sum, transaction) => sum + toNumber(transaction.realised_pnl, 0), 0);
+  const totalPnl = returnKnown ? holdingsValue - costBasis + realised : null;
+  const basis = Math.max(toNumber(selectedPortfolio.cash_deposited_total, 0), costBasis, 1);
+  const valuationState = !rawHoldings.length && cash <= 0 ? "empty" : !missingPriceTickers.length ? "exact" : missingPriceTickers.length === rawHoldings.length ? "unavailable" : "partial";
   return {
-    portfolioId: mainPortfolio.portfolio.id,
-    portfolios: portfolios.map((portfolio) => ({ id: portfolio.id, name: cleanPortfolioName(portfolio.name) })),
-    summary: mainPortfolio.summary,
-    chartData: details?.[0].chartData ?? {},
-    chartMeta: details?.[0].chartMeta ?? null,
-    tickers: mainPortfolio.rawHoldings.map((holding) => holding.ticker),
-    opportunities: details?.[1] ?? [],
-    valuationState,
-    missingPriceTickers,
-    ...(options.deferDetails ? { deferredChart: chartPromise, deferredOpportunities: opportunitiesPromise } : {}),
+    portfolioId: selectedPortfolio.id,
+    portfolios: portfolios.map(item => ({ id: item.id, name: cleanPortfolioName(item.name) })),
+    summary: null, chartData: {}, chartMeta: null, tickers, opportunities: [], valuationState, missingPriceTickers,
+    valuation: { name: cleanPortfolioName(selectedPortfolio.name), currency: selectedPortfolio.currency ?? "USD", totalValue: holdingsValue + cash, totalPnl, totalPnlPct: totalPnl == null ? null : totalPnl / basis * 100, holdingsCount: rawHoldings.length, sectorCount: sectors.size },
+    deferredEnrichment: enrichedPortfolio,
   };
 }

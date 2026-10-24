@@ -9,11 +9,17 @@ const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modules = new Map();
+let notificationViewer = { supabase: null, user: null };
+const afterCallbacks = [];
+const savedSummaries = [];
+const chartCalls = [];
 function loadLibrary(name) {
   if (modules.has(name)) return modules.get(name);
   if (name === "@/utils/supabase/server" || name === "@/utils/supabase/admin") return {};
-  if (name === "@/lib/yahoo") return { getStockChart: async () => { throw new Error("No live chart calls in checks"); } };
-  if (name === "@/lib/notification-summary") return {};
+  if (name === "next/server") return { after: callback => afterCallbacks.push(callback) };
+  if (name === "@/lib/server-viewer") return { getServerViewer: async () => notificationViewer };
+  if (name === "@/lib/yahoo") return { getStockChart: async ticker => { chartCalls.push(ticker); throw new Error("No live chart calls in checks"); } };
+  if (name === "@/lib/notification-summary") return { saveUnreadNotificationSummary: async (userId, unreadCount) => savedSummaries.push({ userId, unreadCount }) };
   const module = { exports: {} };
   modules.set(name, module.exports);
   let source = fs.readFileSync(path.join(root, `${name.replace(/^@\//, "")}.ts`), "utf8");
@@ -24,8 +30,8 @@ function loadLibrary(name) {
   new Function("require", "module", "exports", code)(loadLibrary, module, module.exports);
   return module.exports;
 }
-const { buildActionAlert, buildEventAlerts, buildTriggers, enrichHoldingsWithClient } = loadLibrary("@/lib/portfolio-alerts");
-const { buildStoredTradeLevelNotifications } = loadLibrary("@/lib/notifications");
+const { buildActionAlert, buildEventAlerts, buildTriggers, enrichHoldingsWithClient, enrichHoldingGroups } = loadLibrary("@/lib/portfolio-alerts");
+const { buildStoredTradeLevelNotifications, getUserNotifications } = loadLibrary("@/lib/notifications");
 const { hasUsableAlertQuote } = loadLibrary("@/lib/portfolio-alert-data");
 const { buildPortfolioOverviewSnapshot } = loadLibrary("@/lib/portfolio-overview");
 const hoursAgo = (hours) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -102,6 +108,183 @@ function stock(ticker, overrides = {}) {
   return { ticker, company: ticker, sector: "Industrials", rank: 20, score: 8000, price: 150,
     updated_at: hoursAgo(1), last_price_update: hoursAgo(1), last_ranking_update: hoursAgo(1), ...overrides };
 }
+
+function inboxClient({ stocks = [], portfolios = [], holdings = [], dismissals = [], news = [], dismissalError = null } = {}) {
+  const calls = [];
+  const market = Array.from({ length: 500 }, (_, index) => ({ sector: "Industrials", rank: index + 1, score: 10000 - index * 10 }));
+  const tables = { stock_rankings: stocks, stock_factor_diagnostics: [], user_portfolios: portfolios, portfolio_holdings: holdings, notification_dismissals: dismissals, news_articles: news };
+  return { calls, from(table) {
+    const call = { table, columns: null, filters: [], limit: null };
+    const query = {
+      select(columns) { call.columns = columns; return query; },
+      eq(key, value) { call.filters.push(["eq", key, value]); return query; },
+      is(key, value) { call.filters.push(["is", key, value]); return query; },
+      in(key, values) { call.filters.push(["in", key, values]); return query; },
+      overlaps(key, values) { call.filters.push(["overlaps", key, values]); return query; },
+      gte() { return query; }, order() { return query; },
+      limit(limit) { call.limit = limit; return query; },
+      then(resolve) {
+        calls.push(call);
+        let data = call.columns === "sector, rank, score" ? market : tables[table] ?? [];
+        for (const [operator, key, value] of call.filters) {
+          data = data.filter(row => operator === "in" ? value.includes(row[key]) : operator === "overlaps" ? row[key].some(ticker => value.includes(ticker)) : row[key] === value);
+        }
+        if (call.limit !== null) data = data.slice(0, call.limit);
+        return Promise.resolve({ data, error: table === "notification_dismissals" ? dismissalError : null }).then(resolve);
+      },
+    };
+    return query;
+  } };
+}
+
+test("two portfolios share actual enrichment reads and chart work without mixing risk or sizing", async t => {
+  const previousTechnicalSetting = process.env.PORTFOLIO_TECHNICAL_CHARTS;
+  process.env.PORTFOLIO_TECHNICAL_CHARTS = "true";
+  t.after(() => {
+    if (previousTechnicalSetting === undefined) delete process.env.PORTFOLIO_TECHNICAL_CHARTS;
+    else process.env.PORTFOLIO_TECHNICAL_CHARTS = previousTechnicalSetting;
+  });
+  const tickers = ["A", "B", "C", "D"];
+  const supabase = inboxClient({ stocks: tickers.map(ticker => stock(ticker)) });
+  const beforeCharts = chartCalls.length;
+  const [conservative, aggressive] = await enrichHoldingGroups(supabase, [
+    { holdings: tickers.map(storedHolding), riskTolerance: "conservative" },
+    { holdings: tickers.map(ticker => ({ ...storedHolding(ticker), shares: 5 })), riskTolerance: "aggressive" },
+  ]);
+  assert.equal(supabase.calls.length, 4, "eight per-portfolio reads become four shared reads for identical holdings");
+  assert.equal(supabase.calls.filter(call => call.columns === "sector, rank, score").length, 1);
+  assert.equal(supabase.calls.filter(call => call.table === "stock_factor_diagnostics").length, 1);
+  assert.equal(chartCalls.length - beforeCharts, 4, "one calculation per ticker, rather than one per holding in each portfolio");
+  for (const holding of conservative) {
+    assert.equal(holding.currentAllocationPct, 25);
+    assert.equal(holding.shares, 10);
+    assert.equal(holding.actionAlerts[0].type, "trim_action");
+  }
+  for (const holding of aggressive) {
+    assert.equal(holding.currentAllocationPct, 25);
+    assert.equal(holding.shares, 5);
+    assert.deepEqual(holding.actionAlerts, []);
+  }
+});
+
+test("shared enrichment preserves each distinct portfolio's capped news window", async () => {
+  const articles = [
+    ...Array.from({ length: 300 }, (_, index) => ({ title: `A story ${index}`, impact: "positive", affected_tickers: ["A"], published_at: hoursAgo(1) })),
+    ...Array.from({ length: 5 }, (_, index) => ({ title: `B warning ${index}`, impact: "negative", affected_tickers: ["B"], published_at: hoursAgo(1) })),
+  ];
+  const supabase = inboxClient({ stocks: [stock("A"), stock("B")], news: articles });
+  const [, second] = await enrichHoldingGroups(supabase, [{ holdings: [storedHolding("A")] }, { holdings: [storedHolding("B")] }]);
+  const newsReads = supabase.calls.filter(call => call.table === "news_articles");
+  assert.equal(newsReads.length, 2);
+  assert.ok(newsReads.every(call => call.limit === 300));
+  assert.equal(second[0].eventAlerts.find(alert => alert.type === "news_event").severity, "warning", "B's news cannot be crowded out by A's 300 stories");
+});
+
+test("notification inbox keeps owner filtering, legacy dismissals and fresh stored-level rules", async () => {
+  const tickers = ["A", "B", "C", "D", "E"];
+  const supabase = inboxClient({
+    stocks: tickers.map(ticker => stock(ticker, { price: 120, last_price_update: hoursAgo(["D", "E"].includes(ticker) ? 96 : 1) })),
+    portfolios: [{ id: "mine", name: "My portfolio", risk_tolerance: "moderate", user_id: "owner", archived_at: null }, { id: "other", user_id: "someone-else", archived_at: null }],
+    holdings: [...tickers.map(ticker => ({ ...storedHolding(ticker), portfolio_id: "mine", risk_level_at_entry: ["B", "E"].includes(ticker) ? 130 : null, target_level_at_entry: ["A", "D"].includes(ticker) ? 110 : null })), { ...storedHolding("PRIVATE"), portfolio_id: "other", risk_level_at_entry: 999 }],
+    dismissals: [{ user_id: "owner", alert_key: "A:take_profit_hit:110.00" }, { user_id: "someone-else", alert_key: "mine:B:entry_risk_level_hit:130.00" }],
+  });
+  notificationViewer = { supabase, user: { id: "owner" } };
+  afterCallbacks.length = savedSummaries.length = 0;
+  const result = await getUserNotifications({ includeDismissed: true });
+  assert.equal(result.status, "ok");
+  assert.deepEqual(result.unread.map(alert => alert.ticker), ["B"]);
+  assert.deepEqual(result.read.map(alert => alert.ticker), ["A"]);
+  assert.equal(result.unread[0].severity, "critical");
+  assert.ok([...result.unread, ...result.read].every(alert => alert.portfolioId === "mine" && alert.type === "price_event"));
+  assert.deepEqual(supabase.calls.find(call => call.table === "portfolio_holdings").filters, [["in", "portfolio_id", ["mine"]]]);
+  assert.equal(savedSummaries.length, 0, "Redis and DB summary persistence must not block the inbox response");
+  assert.equal(afterCallbacks.length, 1);
+  await afterCallbacks[0]();
+  assert.deepEqual(savedSummaries, [{ userId: "owner", unreadCount: 1 }]);
+});
+
+test("empty and unauthenticated inboxes avoid enrichment and defer any summary write", async () => {
+  const supabase = inboxClient();
+  notificationViewer = { supabase, user: { id: "owner" } };
+  afterCallbacks.length = savedSummaries.length = 0;
+  assert.equal((await getUserNotifications()).status, "ok");
+  assert.deepEqual(supabase.calls.map(call => call.table), ["user_portfolios"]);
+  assert.equal(savedSummaries.length, 0);
+  await afterCallbacks[0]();
+  assert.deepEqual(savedSummaries, [{ userId: "owner", unreadCount: 0 }]);
+  notificationViewer = { supabase, user: null };
+  afterCallbacks.length = 0;
+  assert.equal((await getUserNotifications()).status, "unauthenticated");
+  assert.equal(afterCallbacks.length, 0);
+  assert.equal(supabase.calls.length, 1);
+});
+
+test("market data sharing ends with each enrichment request", async () => {
+  const current = stock("A", { price: 120 });
+  const supabase = inboxClient({ stocks: [current] });
+  const groups = [{ holdings: [storedHolding("A")] }];
+  const [first] = await enrichHoldingGroups(supabase, groups);
+  current.price = 90;
+  const [second] = await enrichHoldingGroups(supabase, groups);
+  assert.equal(first[0].currentPrice, 120);
+  assert.equal(second[0].currentPrice, 90);
+  assert.equal(supabase.calls.filter(call => call.table === "stock_factor_diagnostics").length, 2);
+});
+
+test("a failed dismissal lookup cannot resurrect read alerts", async t => {
+  const originalError = console.error;
+  console.error = () => {};
+  t.after(() => { console.error = originalError; });
+  notificationViewer = {
+    supabase: inboxClient({
+      portfolios: [{ id: "mine", user_id: "owner", archived_at: null }],
+      holdings: [{ ...storedHolding("A"), portfolio_id: "mine" }],
+      dismissalError: { message: "Unavailable" },
+    }),
+    user: { id: "owner" },
+  };
+  afterCallbacks.length = 0;
+  assert.equal((await getUserNotifications()).status, "error");
+  assert.equal(afterCallbacks.length, 0);
+});
+
+function notificationsPage({ subscribed, inbox }) {
+  let inboxCalls = 0;
+  const code = ts.transpileModule(fs.readFileSync(path.join(root, "app/(workspace)/notifications/page.tsx"), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const module = { exports: {} };
+  const modules = {
+    "@/lib/server-viewer": { getServerViewer: async () => ({ user: { id: "owner" } }), getViewerProfile: async () => ({ subscription_status: subscribed ? "active" : null }) },
+    "@/lib/subscription": { hasActiveSubscription: status => status === "active" },
+    "@/lib/notifications": { getUserNotifications: () => { inboxCalls++; return inbox; } },
+    "next/navigation": { redirect: target => { throw new Error(`Redirect ${target}`); } },
+  };
+  new Function("require", "module", "exports", code)(name => {
+    if (modules[name]) return modules[name];
+    if (name.startsWith("@/components/")) return new Proxy({}, { get: () => () => null });
+    if (name === "next/link") return { __esModule: true, default: () => null };
+    return require(name);
+  }, module, module.exports);
+  return { Page: module.exports.default, inboxCalls: () => inboxCalls };
+}
+
+test("alerts page returns its page shell without waiting for pending inbox enrichment", async () => {
+  const { Page, inboxCalls } = notificationsPage({ subscribed: true, inbox: new Promise(() => {}) });
+  let rendered = false;
+  const pending = Page().then(page => { rendered = true; return page; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rendered, true, "a slow alert query must not suspend the entire route");
+  assert.equal(inboxCalls(), 1);
+  const page = await pending;
+  assert.equal(page.props.activePath, "/notifications");
+});
+
+test("locked alerts page does not start personalised alert reads", async () => {
+  const { Page, inboxCalls } = notificationsPage({ subscribed: false, inbox: Promise.resolve({ unread: [], read: [] }) });
+  await Page();
+  assert.equal(inboxCalls(), 0);
+});
 
 test("the actual enrichment pipeline does not inflate allocation alerts when another quote is missing", async () => {
   const [priced] = await enrichHoldingsWithClient(fakeClient([stock("A"), stock("B", { price: null })]), [storedHolding("A"), storedHolding("B")]);

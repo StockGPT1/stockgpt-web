@@ -42,6 +42,7 @@ function harness() {
     react: hooks,
     "react/jsx-runtime": jsx,
     "next/link": { __esModule: true, default: placeholder },
+    "next/image": { __esModule: true, default: placeholder },
     "next/navigation": { usePathname: () => path, useRouter: () => router },
     "next/dist/client/components/router-reducer/router-reducer-types": { PrefetchKind },
     "@/components/AppChromeProvider": { useAppChrome: () => ({ focusedFlowCount: 0, keyboardOpen: false, pageConfiguration: null }) },

@@ -434,7 +434,7 @@ test("stock scrubbing keeps signed range return beside the selected value and pl
   chart.unmount();
 });
 
-test("stock hover and pointer capture gate wheel scrolling, while release keeps the final selected point", () => {
+test("stock hover and pointer capture gate wheel scrolling, while touch release restores the latest value", () => {
   const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
   let { tree, svg } = chart.render();
   assert.ok(svg.props.className.includes("touch-none"));
@@ -467,16 +467,105 @@ test("stock hover and pointer capture gate wheel scrolling, while release keeps 
   assert.equal(chart.frames.size, 0);
   assert.deepEqual(chart.releaseCalls, [9]);
   assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
-  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
-  // The browser emits lostpointercapture after a deliberate release. It must
-  // not erase the final point that pointerup intentionally retained.
+  assert.equal(chart.scrubbed.at(-1).point, null);
+  // A delayed capture-loss event must leave the released chart at its latest value.
   svg.props.onLostPointerCapture(pointer(svg, { pointerId: 9, pointerType: "touch" }));
-  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2]);
+  assert.equal(chart.scrubbed.at(-1).point, null);
   chart.flush();
   ({ tree } = chart.render());
   assert.ok(renderedText(tree).includes("$120.00"));
-  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 1);
-  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[2], "a queued earlier move must not overwrite the release point");
+  assert.equal(all(tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
+  assert.equal(chart.scrubbed.at(-1).point, null, "a queued move must not restore a released cursor");
+  chart.unmount();
+});
+
+test("stock finger release survives either WebKit event order and delayed compatibility mouse events", () => {
+  for (const order of ["touchend-first", "pointerup-first", "pointer-only"]) {
+    const chart = chartHarness({ nativeApp: true, ticker: "AAPL", compact: false, interaction: "stock" });
+    let { tree, svg } = chart.render();
+    const finger = touch(41, 100, chart.descendant);
+    if (order !== "pointer-only") chart.dispatchDocument("touchstart", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) });
+    svg.props.onPointerDown(pointer(svg, { pointerType: "touch", clientX: 100 }));
+    assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[1]);
+    svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 8 }));
+    assert.equal(chart.frames.size, 1);
+    const touchEnd = () => chart.dispatchDocument("touchend", { target: chart.outside, changedTouches: touchList(touch(41, 8, chart.descendant)) });
+    if (order === "touchend-first") touchEnd();
+    svg.props.onPointerUp(pointer(svg, { pointerType: "touch", clientX: 8 }));
+    if (order === "pointerup-first") touchEnd();
+    svg.props.onLostPointerCapture(pointer(svg, { pointerType: "touch" }));
+    // WebKit may send a final pointer move followed by compatibility mouse
+    // move/down/up at the old finger location after the native touch has ended.
+    svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 100 }));
+    chart.advanceTime(100);
+    svg.props.onPointerMove(pointer(svg, { clientX: 100 }));
+    svg.props.onPointerDown(pointer(svg, { clientX: 100 }));
+    svg.props.onPointerUp(pointer(svg, { clientX: 100 }));
+    assert.equal(chart.frames.size, 0, order);
+    chart.flush();
+    ({ tree, svg } = chart.render());
+    assert.equal(chart.scrubbed.at(-1).point, null, order);
+    assert.ok(renderedText(tree).includes("$120.00"), order);
+    assert.equal(all(tree, node => node.props?.["data-stock-chart-scrub-date"] === true).length, 0, order);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false, order);
+    // A real mouse can still inspect the chart after the brief touch cooldown.
+    chart.advanceTime(1000);
+    svg.props.onPointerMove(pointer(svg, { clientX: 100 }));
+    chart.flush();
+    assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[1], order);
+    chart.unmount();
+  }
+});
+
+test("native touch-only stock release and cancellation clear the cursor without pointer events", () => {
+  for (const type of ["touchend", "touchcancel"]) {
+    const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+    const { svg } = chart.render();
+    const finger = touch(41, 100, chart.descendant);
+    chart.dispatchDocument("touchstart", { target: chart.descendant, touches: touchList(finger), changedTouches: touchList(finger) });
+    chart.dispatchDocument("touchmove", { touches: touchList(touch(41, 8, chart.descendant)) });
+    assert.equal(chart.frames.size, 1);
+    chart.dispatchDocument(type, { changedTouches: touchList(finger) });
+    svg.props.onPointerMove(pointer(svg, { clientX: 100 }));
+    chart.flush();
+    assert.equal(chart.scrubbed.at(-1).point, null, type);
+    assert.equal(chart.frames.size, 0, type);
+    assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false, type);
+    assert.equal(all(chart.render().tree, node => node.props?.["data-stock-chart-scrub-date"] === true).length, 0, type);
+    chart.unmount();
+  }
+});
+
+test("touch scrubbing still moves and clears when pointer capture is unavailable", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  const { svg } = chart.render();
+  chart.target.setPointerCapture = () => { throw new Error("Pointer capture unavailable"); };
+  svg.props.onPointerDown(pointer(svg, { pointerType: "touch", clientX: 100 }));
+  svg.props.onPointerMove(pointer(svg, { pointerType: "touch", clientX: 8 }));
+  chart.flush();
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0]);
+  svg.props.onPointerUp(pointer(svg, { pointerType: "touch", pointerId: 99 }));
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0], "Another pointer must not finish the original scrub");
+  svg.props.onPointerUp(pointer(svg, { pointerType: "touch" }));
+  assert.equal(chart.scrubbed.at(-1).point, null);
+  assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
+  chart.unmount();
+});
+
+test("stock mouse hover and release keep desktop inspection available", () => {
+  const chart = chartHarness({ ticker: "AAPL", compact: false, interaction: "stock" });
+  let { tree, svg } = chart.render();
+  svg.props.onPointerMove(pointer(svg, { clientX: 8 }));
+  chart.flush();
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0]);
+  svg.props.onPointerDown(pointer(svg, { clientX: 100 }));
+  svg.props.onPointerUp(pointer(svg, { clientX: 100 }));
+  ({ tree, svg } = chart.render());
+  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[1]);
+  assert.ok(renderedText(tree).includes("$130.00"));
+  assert.equal(all(tree, node => node.props?.["data-stock-chart-scrub-date"] === true).length, 1);
+  svg.props.onPointerLeave();
+  assert.equal(chart.scrubbed.at(-1).point, null);
   chart.unmount();
 });
 
@@ -620,6 +709,7 @@ test("native stock touches block scrolling only for the chart's original finger,
     svg.props[handler](pointer(svg, { pointerType: "touch" }));
     assert.equal(chart.captured.size, 0, handler);
     assert.equal(chart.dispatchDocument("wheel").defaultPrevented, true, "native touch must remain active after pointer cancellation");
+    assert.equal(chart.scrubbed.at(-1).point, null, "cancelled pointer selection clears while the native touch fallback remains available");
   }
   assert.equal(chart.dispatchDocument("touchstart", { target: chart.outside, touches: touchList(unrelated, finger), changedTouches: touchList(unrelated) }).defaultPrevented, true);
 
@@ -634,10 +724,10 @@ test("native stock touches block scrolling only for the chart's original finger,
   assert.equal(chart.frames.size, 1);
   chart.dispatchDocument("touchend", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(touch(41, 8, chart.descendant)) });
   assert.equal(chart.frames.size, 0);
-  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0]);
+  assert.equal(chart.scrubbed.at(-1).point, null);
   chart.flush();
-  assert.strictEqual(chart.scrubbed.at(-1).point, chart.points[0], "the final touch coordinate must survive a previously queued move");
-  assert.equal(all(chart.render().tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 1);
+  assert.equal(chart.scrubbed.at(-1).point, null, "queued touch movement must not restore the released selection");
+  assert.equal(all(chart.render().tree, (node) => node.props?.["data-stock-chart-scrub-date"] === true).length, 0);
   assert.equal(chart.dispatchDocument("wheel").defaultPrevented, false);
   assert.equal(chart.dispatchDocument("touchmove", { target: chart.outside, touches: touchList(unrelated), changedTouches: touchList(unrelated) }).defaultPrevented, false);
   chart.unmount();

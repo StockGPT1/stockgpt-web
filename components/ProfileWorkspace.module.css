@@ -1,0 +1,70 @@
+.workspace { width: 100%; max-width: 900px; margin: 0 auto; padding: 22px 24px 36px; color: #faf7ee; }
+.heading { margin-bottom: 32px; }
+.heading > p { margin: 0 0 9px; color: #d9c17e; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.heading h1 { margin: 0; font-size: clamp(30px,4vw,40px); font-weight: 550; letter-spacing: -.055em; line-height: 1.12; }
+.heading > span { display: block; margin-top: 10px; font-size: 13px; line-height: 1.6; color: #b2c2a9; }
+.layout { display: grid; grid-template-columns: minmax(190px,.8fr) minmax(0,1.3fr); align-items: start; gap: 36px; }
+.identity { min-width: 0; display: flex; align-items: center; flex-direction: column; padding: 14px 0 0; text-align: center; }
+.avatarBubble { width: 132px; height: 132px; flex-shrink: 0; }
+.avatarBubble > :global(.sg-liquid-surface) { border-color: #e5c06b62; background: radial-gradient(ellipse at 30% 0,#f1d68c1c,transparent 70%),linear-gradient(145deg,#254d35,#103925); box-shadow: inset 0 1px 0 #fff2bc1f,0 10px 40px #0002; }
+.avatarButton { display: grid; place-items: center; position: relative; width: 132px; height: 132px; padding: 4px; border: none; border-radius: 50%; background: transparent; color: #f7e7b5; cursor: pointer; }
+.avatarButton:disabled { cursor: progress; }
+.avatarImage { display: block; width: 124px; height: 124px; border-radius: 50%; object-fit: cover; object-position: center; }
+.initials { display: block; font-size: 39px; font-weight: 450; letter-spacing: -.04em; }
+.cameraBadge { position: absolute; right: -1px; bottom: 1px; width: 37px; height: 37px; display: grid; place-items: center; border-radius: 50%; border: 3px solid #0b2d1f; color: #183623; background: linear-gradient(145deg,#f3daa0,#d9b966); box-shadow: inset 0 1px 0 #fff4d533; }
+.cameraBadge svg { width: 18px; height: 18px; }
+.fileInput { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.identity h2 { max-width: 100%; margin: 22px 0 0; font-size: 21px; font-weight: 550; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.identityEmail { max-width: 100%; margin: 7px 0 0; color: #abbca1; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.photoActions { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 19px; }
+.changePhoto,.photoSave,.textButton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; }
+.changePhoto { padding: 0 18px; color: #e6e9d9; background: transparent; border: none; }
+.photoSave { padding: 0 18px; border: 1px solid #edc77240; background: #edc77212; color: #edcf87; }
+.textButton { padding: 0 4px; border: none; background: transparent; color: #b2c1aa; }
+.photoActions button:disabled { cursor: default; opacity: .5; }
+.photoHint { max-width: 232px; margin: 13px 0 0; color: #9eaf96; font-size: 11px; line-height: 1.7; }
+.details { min-width: 0; padding: 26px 28px 12px; border: 1px solid #d3dec619; border-radius: 27px; background: #ecf5d803; box-shadow: inset 0 1px 0 #f2ffe805; }
+.sectionTitle { display: flex; align-items: center; gap: 10px; margin-bottom: 25px; }
+.sectionTitle svg { width: 19px; height: 19px; color: #e0c383; }
+.sectionTitle h2 { margin: 0; font-size: 16px; font-weight: 500; letter-spacing: -.02em; }
+.details form > label { display: block; margin-bottom: 9px; color: #e2e7d7; font-size: 12px; font-weight: 500; }
+.details input { width: 100%; min-width: 0; min-height: 50px; border: 1px solid #d3dec626; border-radius: 16px; background: #071f1538; padding: 12px 15px; color: #faf7ee; font-size: 16px; font-weight: 400; outline: none; transition: border-color 150ms ease,box-shadow 150ms ease; }
+.details input:focus { border-color: #e2c77e80; box-shadow: 0 0 0 3px #e2c77e09; }
+.details input[aria-invalid="true"] { border-color: #e8a29d80; }
+.details input:disabled { opacity: .65; }
+.fieldHint,.fieldError { margin: 9px 0 0; font-size: 11px; line-height: 1.7; }
+.fieldHint { color: #a8b99e; }
+.fieldError { color: #f2b4ac; }
+.accountDetail { margin-top: 25px; padding-top: 22px; border-top: 1px solid #d3dec615; }
+.accountDetail > span { display: block; color: #a8b99e; font-size: 11px; }
+.accountDetail > p { margin: 8px 0 0; color: #e7ecdd; font-size: 14px; overflow-wrap: anywhere; }
+.accountDetail > small { display: block; margin-top: 6px; font-size: 11px; line-height: 1.6; color: #9eaf96; }
+.memberSince { display: flex; align-items: center; gap: 7px; margin-top: 20px; color: #a9ba9e; font-size: 10px; line-height: 1.6; }
+.memberSince svg { width: 14px; height: 14px; flex-shrink: 0; }
+.saveButton { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 29px; padding: 11px 16px; border: 1px solid #f2d58f66; border-radius: 999px; color: #173321; background: linear-gradient(145deg,#f2d58f,#d9b864); box-shadow: inset 0 1px 0 #fff4d333,0 5px 18px #0001; font-size: 12px; font-weight: 600; cursor: pointer; }
+.saveButton svg { width: 17px; height: 17px; }
+.saveButton:disabled { opacity: .45; cursor: default; box-shadow: none; }
+.feedback { min-height: 38px; padding-top: 12px; }
+.feedback p { display: flex; align-items: flex-start; gap: 7px; margin: 0; font-size: 11px; line-height: 1.6; }
+.feedback svg { width: 15px; height: 15px; flex-shrink: 0; }
+.success { color: #a9dfb9; }
+.error { color: #f2b4ac; }
+.settingsLink { display: flex; align-items: center; gap: 9px; width: fit-content; min-height: 44px; margin: 30px 0 0 auto; color: #b7c4a9; font-size: 12px; }
+.settingsLink svg { width: 16px; height: 16px; color: #d6be7c; }
+.settingsLink > span:last-child { margin-left: 4px; font-size: 18px; line-height: 1; }
+.spinner { display: block; width: 16px; height: 16px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 639px) {
+  .workspace { padding: 14px 10px 26px; }
+  .heading { margin-bottom: 23px; padding-inline: 3px; }
+  .heading > p { font-size: 9px; }
+  .heading > span { font-size: 12px; }
+  .layout { grid-template-columns: minmax(0,1fr); gap: 27px; }
+  .identity { padding-top: 7px; }
+  .details { padding: 23px 20px 8px; border-radius: 24px; }
+  .settingsLink { margin: 17px auto 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+  .details input { transition: none; }
+}
