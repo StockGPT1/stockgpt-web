@@ -39,7 +39,7 @@ export function rateKey(parts: Array<string | null | undefined>) {
 }
 
 /** Atomically count and consume a request slot in Supabase.
- * Requires the 20261024_atomic_security_rate_limit.sql migration before deployment.
+ * Requires the 20261024152100_atomic_security_rate_limit.sql migration before deployment.
  */
 export async function checkRateLimit({
   action,
