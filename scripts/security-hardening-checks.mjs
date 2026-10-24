@@ -48,3 +48,16 @@ test("login and signup don't record request slots twice", () => {
     assert.doesNotMatch(code, /recordRateLimitAttempts|precheckRateLimit/);
   }
 });
+
+test("repeat checkout uses existing Stripe customer instead of creating a new one", () => {
+  const code = read("app/api/create-checkout-session/route.ts");
+  assert.match(code, /\.select\("stripe_customer_id"\)/);
+  assert.match(code, /\{ customer: existingCustomerId \}/);
+  assert.match(code, /\{ customer_email: user\.email \}/);
+});
+
+test("sample news is labelled as a demonstration", () => {
+  const code = read("app/landing/ScrollLandingScreens.tsx");
+  assert.match(code, /Illustrative headlines and simulated ticker moves/);
+  assert.doesNotMatch(code, /\n\s+LIVE\n/);
+});
