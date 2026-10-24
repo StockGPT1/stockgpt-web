@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run test:chart-scan && npm run test:portfolio && npm run test:market-movers && npm run test:offer && npm run test:news && npm run test:financials && npm run test:native-navigation && npm run test:rankings && npm run test:dashboard && npm run test:profile && next build",
+    "build": "npm run test:security && npm run test:chart-scan && npm run test:portfolio && npm run test:market-movers && npm run test:offer && npm run test:news && npm run test:financials && npm run test:native-navigation && npm run test:rankings && npm run test:dashboard && npm run test:profile && next build",
     "start": "next start",
+    "test:security": "node --no-warnings --test scripts/security-hardening-checks.mjs",
     "lint": "eslint",
     "test:market-movers": "node --test scripts/top-movers-client-checks.mjs scripts/top-movers-route-checks.mjs scripts/yahoo-performance-checks.mjs && eslint components/MobileMarketMovers.tsx lib/top-movers-client.ts lib/yahoo.ts app/api/top-movers/route.ts",
     "lint:portfolio": "eslint components/portfolio-workspace components/PortfolioModernWorkspace.tsx app/\"(workspace)\"/portfolio/page.tsx app/\"(workspace)\"/portfolio/modern/page.tsx lib/actions/portfolio-cash.ts",

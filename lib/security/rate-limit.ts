@@ -38,112 +38,46 @@ export function rateKey(parts: Array<string | null | undefined>) {
   return sha256(`${salt}:${parts.filter(Boolean).join(":")}`);
 }
 
+/** Atomically count and consume a request slot in Supabase.
+ * Requires the 20261024152100_atomic_security_rate_limit.sql migration before deployment.
+ */
 export async function checkRateLimit({
   action,
   key,
   limit,
   windowSeconds,
 }: RateLimitOptions): Promise<RateLimitResult> {
-  const admin = createAdminClient();
-  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("consume_security_rate_limit", {
+      p_action: action,
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    }).single();
 
-  const { count, error } = await admin
-    .from("security_rate_limits")
-    .select("*", { count: "exact", head: true })
-    .eq("action", action)
-    .eq("key", key)
-    .gte("created_at", since);
+    if (error || !data) {
+      console.error("[rate-limit] atomic consume failed", {
+        action,
+        message: error?.message ?? "No database response",
+      });
+      return { allowed: false, retryAfterSeconds: 60 };
+    }
 
-  if (error) {
-    console.error("[rate-limit] count failed", {
+    const result = data as {
+      allowed: boolean;
+      remaining: number;
+      retry_after_seconds: number;
+    };
+    return result.allowed
+      ? { allowed: true, remaining: result.remaining }
+      : { allowed: false, retryAfterSeconds: result.retry_after_seconds };
+  } catch (error) {
+    console.error("[rate-limit] atomic consume unavailable", {
       action,
-      message: error.message,
+      message: error instanceof Error ? error.message : "Unknown error",
     });
-
-    // Fail closed for auth routes. Fail open only if you intentionally choose to.
     return { allowed: false, retryAfterSeconds: 60 };
-  }
-
-  const used = count ?? 0;
-
-  if (used >= limit) {
-    return { allowed: false, retryAfterSeconds: windowSeconds };
-  }
-
-  const { error: insertError } = await admin.from("security_rate_limits").insert({
-    action,
-    key,
-    success: true,
-  });
-
-  if (insertError) {
-    console.error("[rate-limit] insert failed", {
-      action,
-      message: insertError.message,
-    });
-
-    return { allowed: false, retryAfterSeconds: 60 };
-  }
-
-  return { allowed: true, remaining: Math.max(0, limit - used - 1) };
-}
-
-/**
- * Latency-optimised two-phase variant of checkRateLimit for hot auth
- * routes: precheckRateLimit does the count only, so the caller can run
- * recordRateLimitAttempts concurrently with the actual auth call
- * instead of paying two more sequential round-trips. Semantics match
- * checkRateLimit: counts fail closed, attempts are only recorded when
- * the request was allowed.
- */
-export async function precheckRateLimit({
-  action,
-  key,
-  limit,
-  windowSeconds,
-}: RateLimitOptions): Promise<RateLimitResult> {
-  const admin = createAdminClient();
-  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
-
-  const { count, error } = await admin
-    .from("security_rate_limits")
-    .select("*", { count: "exact", head: true })
-    .eq("action", action)
-    .eq("key", key)
-    .gte("created_at", since);
-
-  if (error) {
-    console.error("[rate-limit] count failed", {
-      action,
-      message: error.message,
-    });
-
-    return { allowed: false, retryAfterSeconds: 60 };
-  }
-
-  const used = count ?? 0;
-
-  if (used >= limit) {
-    return { allowed: false, retryAfterSeconds: windowSeconds };
-  }
-
-  return { allowed: true, remaining: Math.max(0, limit - used - 1) };
-}
-
-export async function recordRateLimitAttempts(
-  attempts: Array<{ action: string; key: string }>,
-) {
-  const admin = createAdminClient();
-
-  const { error } = await admin
-    .from("security_rate_limits")
-    .insert(attempts.map(({ action, key }) => ({ action, key, success: true })));
-
-  if (error) {
-    /* Recording runs concurrently with the auth call, so by the time an
-       insert failure surfaces the attempt has already been made — fail
-       open here. A DB outage still fails closed at precheck time. */
-    console.error("[rate-limit] record failed", { message: error.message });
   }
 }
 

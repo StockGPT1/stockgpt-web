@@ -329,7 +329,7 @@ export function RankingsScreen({ metrics }: { metrics: LandingMetrics }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="Stock Rankings"
-          sub={`${total} US stocks scored across six factors · Updated ${updated}`}
+          sub={`${total} US stocks scored · illustrative rankings, not live scores`}
           right={
             <>
               <GhostChip active>Daily run</GhostChip>
@@ -477,7 +477,7 @@ const HOLDINGS = [
   { ticker: "CMG", name: "Chipotle Mexican Grill", pct: 8, score: "8,145", move: "-0.3%", up: false },
 ];
 
-/* Backtest equity curve — the hero of the portfolio scene. Fixed-pixel
+/* Illustrative equity curve — the hero of the portfolio scene. Fixed-pixel
    SVG: the design canvas is a constant 1280×756, so the inner chart
    area is deterministic (824 wide) and paths can be hand-tuned. */
 function BacktestChart() {
@@ -641,18 +641,18 @@ export function PortfolioScreen() {
             <div className="mt-3">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
-                  5-year backtest
+                  Illustrative portfolio example · not a backtest
                 </p>
                 <div className="flex items-center gap-4 text-[10px] font-black">
                   <span className="flex items-center gap-1.5" style={{ color: T.gold }}>
                     <span className="h-2 w-2 rounded-full" style={{ background: T.gold }} />
                     This portfolio
-                    <span className="sl-mono">+160%</span>
+                    <span className="sl-mono">Sample</span>
                   </span>
                   <span className="flex items-center gap-1.5" style={{ color: T.sub }}>
                     <span className="h-[2px] w-3.5 rounded-full" style={{ background: "rgba(244,241,232,0.35)" }} />
                     S&amp;P 500
-                    <span className="sl-mono">+71%</span>
+                    <span className="sl-mono">Sample</span>
                   </span>
                 </div>
               </div>
@@ -709,10 +709,10 @@ export function PortfolioScreen() {
 
             <div className="mt-auto grid grid-cols-4 gap-2.5 pt-3">
               {[
-                ["Backtested CAGR", "21.0%", T.gold],
-                ["Sharpe ratio", "1.31", T.text],
-                ["Max drawdown", "-9.8%", T.text],
-                ["Dividend yield", "1.8%", T.green],
+                ["Illustrative CAGR", "Demo", T.gold],
+                ["Sharpe ratio", "Demo", T.text],
+                ["Max drawdown", "Demo", T.text],
+                ["Dividend yield", "Demo", T.green],
               ].map(([label, value, color]) => (
                 <div key={label as string} className="rounded-xl border p-3" style={{ borderColor: T.line, background: T.panelSoft }}>
                   <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: T.faint }}>
@@ -806,7 +806,7 @@ export function NewsScreen() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ScreenTopBar
           title="World News"
-          sub="Global headlines mapped to the tickers and sectors they actually move"
+          sub="Illustrative headlines and simulated ticker moves — not live news"
           right={
             <>
               {["Global", "US", "Europe", "Asia"].map((r, i) => (
@@ -816,7 +816,7 @@ export function NewsScreen() {
               ))}
               <span className="ml-2 flex items-center gap-1.5 text-[10.5px] font-black" style={{ color: T.green }}>
                 <span className="sl-pulse h-2 w-2 rounded-full" style={{ background: T.green }} />
-                LIVE
+                DEMO
               </span>
             </>
           }
@@ -1060,14 +1060,14 @@ export function RankCard({ metrics }: { metrics: LandingMetrics }) {
               overflow: "hidden",
             }}
           >
-            {total} US stocks scored across six factors · updated {updated}
+            {total} US stocks scored across six factors · example rankings (not live)
           </p>
         </div>
         <span
           className="shrink-0 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.1em]"
           style={{ background: T.gold, color: "#071b11" }}
         >
-          Live
+          Demo
         </span>
       </div>
 

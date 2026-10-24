@@ -36,11 +36,15 @@ async function getProfileEmail(
   supabaseAdmin: SupabaseAdminClient,
   userId: string,
 ) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("email")
     .eq("id", userId)
     .maybeSingle();
+  if (error) {
+    console.warn("[stripe-webhook] optional email lookup failed", { code: error.code });
+    return null;
+  }
 
   const profile = data as Pick<ProfileRow, "email"> | null;
 
@@ -51,13 +55,47 @@ async function getProfileByStripeCustomer(
   supabaseAdmin: SupabaseAdminClient,
   customerId: string,
 ) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("email,subscription_status")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
+  if (error) {
+    console.error("[stripe-webhook] profile lookup failed", { code: error.code });
+    throw new Error("Could not look up subscription");
+  }
   return (data as ProfileRow | null) ?? null;
+}
+
+/** A Stripe event must not be acknowledged as successful if the entitlement
+ * write failed. A non-2xx webhook response tells Stripe to retry delivery. */
+async function writeProfileOrThrow(
+  supabaseAdmin: SupabaseAdminClient,
+  filter: "id" | "stripe_customer_id",
+  value: string,
+  changes: { subscription_status: string; stripe_customer_id?: string | null },
+) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update(changes)
+    .eq(filter, value)
+    .select("id");
+  if (error || !data?.length) {
+    console.error("[stripe-webhook] entitlement write failed", {
+      code: error?.code ?? "profile_not_found",
+    });
+    throw new Error("Could not persist subscription status");
+  }
+}
+
+async function sendEmailBestEffort(operation: () => Promise<unknown>) {
+  try {
+    await operation();
+  } catch (error) {
+    // Email delivery should not cause Stripe to replay a successful billing change.
+    console.error("[stripe-webhook] subscription email failed", error instanceof Error ? error.name : "Unknown");
+  }
 }
 
 export async function POST(request: Request) {
@@ -89,20 +127,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid webhook" }, { status: 400 });
   }
 
+  try {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.metadata?.user_id;
     const customerId =
       typeof session.customer === "string" ? session.customer : null;
 
-    if (userId) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({
-          subscription_status: "basic",
-          stripe_customer_id: customerId,
-        })
-        .eq("id", userId);
+    if (userId && customerId && session.mode === "subscription" && (session.payment_status === "paid" || session.payment_status === "no_payment_required")) {
+      await writeProfileOrThrow(supabaseAdmin, "id", userId, {
+        subscription_status: "basic",
+        stripe_customer_id: customerId,
+      });
 
       const email =
         session.customer_details?.email ??
@@ -110,7 +146,7 @@ export async function POST(request: Request) {
         (await getProfileEmail(supabaseAdmin, userId));
 
       if (email) {
-        await sendCoreSubscriptionActivatedEmail(email);
+        await sendEmailBestEffort(() => sendCoreSubscriptionActivatedEmail(email));
       }
     }
   }
@@ -133,16 +169,19 @@ export async function POST(request: Request) {
         );
 
         if (profile && !hasActiveSubscription(profile.subscription_status)) {
-          await supabaseAdmin
-            .from("profiles")
-            .update({ subscription_status: "basic" })
-            .eq("stripe_customer_id", customerId);
+          await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+            subscription_status: "basic",
+          });
         }
       } else if (STRIPE_STATUSES_ENDING_ACCESS.has(subscription.status)) {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ subscription_status: "none" })
-          .eq("stripe_customer_id", customerId);
+        // Do not remove separately granted plans such as alpha. Only a
+        // Stripe-managed basic entitlement can be revoked here.
+        const profile = await getProfileByStripeCustomer(supabaseAdmin, customerId);
+        if (profile?.subscription_status === "basic") {
+          await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+            subscription_status: "none",
+          });
+        }
       }
     }
   }
@@ -158,13 +197,15 @@ export async function POST(request: Request) {
         customerId,
       );
 
-      await supabaseAdmin
-        .from("profiles")
-        .update({ subscription_status: "none" })
-        .eq("stripe_customer_id", customerId);
+      if (profile?.subscription_status === "basic") {
+        await writeProfileOrThrow(supabaseAdmin, "stripe_customer_id", customerId, {
+          subscription_status: "none",
+        });
+      }
 
-      if (profile?.email) {
-        await sendSubscriptionCancelledEmail(profile.email);
+      const email = profile?.email;
+      if (email) {
+        await sendEmailBestEffort(() => sendSubscriptionCancelledEmail(email));
       }
     }
   }
@@ -184,10 +225,16 @@ export async function POST(request: Request) {
         customerId,
       );
 
-      if (profile?.email) {
-        await sendPaymentFailedEmail(profile.email);
+      const email = profile?.email;
+      if (email) {
+        await sendEmailBestEffort(() => sendPaymentFailedEmail(email));
       }
     }
+  }
+
+  } catch (error) {
+    console.error("[stripe-webhook] event processing failed", error instanceof Error ? error.name : "Unknown");
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
