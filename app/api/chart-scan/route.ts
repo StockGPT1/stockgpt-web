@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { hasActiveSubscription } from "@/lib/subscription";
+import { checkRateLimit, rateKey, tooManyRequests } from "@/lib/security/rate-limit";
 import { isChartAnalysis, parseScanJson, runGroundedChartScan, type ChartLayout } from "@/lib/chart-scanner";
 import { buildChartImageGuides } from "@/lib/chart-scan-images";
 import type { ScanGeometry } from "@/lib/chart-scan-coordinates";
@@ -156,6 +158,24 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError) return NextResponse.json({ error: "Could not verify subscription." }, { status: 503 });
+    if (!hasActiveSubscription(profile?.subscription_status)) {
+      return NextResponse.json({ error: "An active subscription is required." }, { status: 403 });
+    }
+
+    const limit = await checkRateLimit({
+      action: "chart_scan",
+      key: rateKey(["chart-scan", user.id]),
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+    if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds);
 
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     if (!apiKey) {
