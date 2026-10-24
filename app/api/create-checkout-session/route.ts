@@ -112,6 +112,26 @@ async function createCheckoutSession(request: Request) {
     });
   }
 
+  // Reuse the existing billing customer; creating another Stripe Customer on
+  // every checkout can orphan subscriptions and break cancellation handling.
+  const { data: billingProfile, error: billingProfileError } = await supabase
+    .from("profiles")
+    .select("stripe_customer_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (billingProfileError) {
+    console.error("[checkout] Could not load billing customer", billingProfileError.code);
+    return NextResponse.redirect(
+      new URL(`/checkout/confirm?plan=${plan}&checkout=failed`, request.url),
+      { status: 303 },
+    );
+  }
+  const existingCustomerId =
+    typeof billingProfile?.stripe_customer_id === "string" &&
+    billingProfile.stripe_customer_id.startsWith("cus_")
+      ? billingProfile.stripe_customer_id
+      : null;
+
   const legalMetadata = {
     user_id: user.id,
     plan: `core_${plan}`,
@@ -132,7 +152,9 @@ async function createCheckoutSession(request: Request) {
   try {
     session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: user.email,
+      ...(existingCustomerId
+        ? { customer: existingCustomerId }
+        : { customer_email: user.email }),
       ...(promotionCodeId
         ? { discounts: [{ promotion_code: promotionCodeId }] }
         : plan === "annual"
