@@ -20,11 +20,11 @@ type HoldingRow = {
 };
 
 function cleanTicker(value: unknown) {
-  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+  return typeof value === "string" ? value.trim().toUpperCase() : "";
 }
 
 function numberOrNull(value: unknown): number | null {
-  if (value == null || value === "") return null;
+  if (value == null || value === "" || typeof value === "boolean" || typeof value === "object") return null;
   const valueAsNumber = Number(value);
   return Number.isFinite(valueAsNumber) ? valueAsNumber : null;
 }
@@ -54,6 +54,10 @@ export async function POST(req: NextRequest) {
     const sourceTicker = cleanTicker(body?.ticker);
     const reinvestTicker = cleanTicker(body?.reinvestTicker);
     const percentage = numberOrNull(body?.percentage);
+
+    if (requestedPortfolioId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedPortfolioId)) {
+      return NextResponse.json({ success: false, error: "Invalid portfolio ID." }, { status: 400 });
+    }
 
     if (!/^[A-Z][A-Z0-9.-]{0,11}$/.test(sourceTicker) ||
         !/^[A-Z][A-Z0-9.-]{0,11}$/.test(reinvestTicker) ||
