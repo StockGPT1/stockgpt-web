@@ -27,6 +27,7 @@ import type { PortfolioHealthSummary } from "@/lib/portfolio-health";
 import {
   getDashboardMainPortfolio,
   type DashboardPortfolioOpportunity,
+  type DashboardPortfolioLoad,
 } from "@/lib/dashboard-portfolio";
 import type { ChartPoint, TimeRange } from "@/components/StockChart";
 import { getCachedWorldNewsFeed } from "@/lib/world-news-feed";
@@ -122,6 +123,13 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
   firstName?: string;
   nativeApp: boolean;
 }) {
+  const portfolioPromise = getDashboardMainPortfolio(supabase, userId, portfolio, { deferDetails: nativeApp, deferEnrichment: nativeApp });
+  const deferredPortfolio: Promise<DashboardPortfolioLoad> | undefined = nativeApp
+    ? portfolioPromise.then(value => ({ status: "ready" as const, portfolio: value })).catch(error => {
+      console.error("[dashboard] portfolio core read failed", error);
+      return { status: "error" as const };
+    })
+    : undefined;
   const marketPromise: Promise<DashboardMarketData> = getSP500Chart(["1D", "1M", "6M", "1Y", "5Y"])
     .then(chart => ({ chart, value: getLatestPriceFromChart(chart), changePct: getChartChangePct(chart, "1D") }))
     .catch(() => ({ chart: {}, value: null, changePct: null }));
@@ -148,7 +156,7 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
       .from("stock_rankings")
       .select("*", { count: "exact", head: true })
       .gte("score", 7000),
-    getDashboardMainPortfolio(supabase, userId, portfolio, { deferDetails: nativeApp }),
+    nativeApp ? Promise.resolve(null) : portfolioPromise,
     nativeApp ? Promise.resolve({ chart: {}, value: null, changePct: null } as DashboardMarketData) : marketPromise,
     nativeApp ? Promise.resolve(new Map<string, number | null>()) : getRankSnapshotMapAround24hAgo(supabase),
     nativeApp ? Promise.resolve({ articles: [], status: "error" } as DashboardNewsData) : newsPromise,
@@ -242,6 +250,7 @@ async function DashboardContent({ supabase, userId, portfolio, firstName, native
           deferredOpportunities={hasSubscription ? dashboardPortfolio?.deferredOpportunities : undefined}
           deferredMarket={nativeApp ? marketPromise : undefined}
           deferredNews={nativeApp && hasSubscription ? newsPromise : undefined}
+          deferredPortfolio={deferredPortfolio}
         />
         <MobileMarketMoversPortal canUsePremium={hasSubscription} />
 

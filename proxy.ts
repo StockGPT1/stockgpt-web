@@ -12,6 +12,7 @@ const sessionRoutePrefixes = [
   "/notifications",
   "/portfolio",
   "/pricing",
+  "/profile",
   "/rankings",
   "/settings",
   "/stock",

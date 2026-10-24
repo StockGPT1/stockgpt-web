@@ -1,8 +1,9 @@
-import { createClient } from "@/utils/supabase/server";
+import { after } from "next/server";
+import { getServerViewer } from "@/lib/server-viewer";
 import { saveUnreadNotificationSummary } from "@/lib/notification-summary";
 import { hasUsableAlertQuote } from "@/lib/portfolio-alert-data";
 import {
-  enrichHoldings,
+  enrichHoldingGroups,
   type AlertSeverity,
   type AlertType,
   type HoldingAlert,
@@ -49,6 +50,16 @@ type HoldingRow = {
   source?: string | null;
   notes?: string | null;
 };
+
+function persistSummaryAfterResponse(userId: string, unreadCount: number) {
+  after(async () => {
+    try {
+      await saveUnreadNotificationSummary(userId, unreadCount);
+    } catch (error) {
+      console.warn("[notifications] could not persist unread summary", error);
+    }
+  });
+}
 
 function cleanName(name: string | null | undefined, fallback: string) {
   const value = String(name ?? "").trim();
@@ -263,11 +274,7 @@ export async function getUserNotifications({
   unreadCount: number;
   status: "ok" | "error" | "unauthenticated";
 }> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerViewer();
 
   if (!user) return { unread: [], read: [], unreadCount: 0, status: "unauthenticated" };
 
@@ -285,18 +292,19 @@ export async function getUserNotifications({
   const portfolios = (portfoliosData ?? []) as PortfolioRow[];
 
   if (portfolios.length === 0) {
-    await saveUnreadNotificationSummary(user.id, 0);
+    persistSummaryAfterResponse(user.id, 0);
     return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
-  const { data: holdingsData, error: holdingsError } = await supabase
-    .from("portfolio_holdings")
-    .select(
-      "portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes",
-    )
-    .in("portfolio_id", portfolioIds);
+  const [{ data: holdingsData, error: holdingsError }, { data: dismissalsData, error: dismissalsError }] = await Promise.all([
+    supabase
+      .from("portfolio_holdings")
+      .select("portfolio_id, ticker, entry_price, score_at_entry, rank_at_entry, risk_level_at_entry, target_level_at_entry, added_at, last_reviewed_at, shares, allocation_pct, purchase_date, source, notes")
+      .in("portfolio_id", portfolioIds),
+    supabase.from("notification_dismissals").select("alert_key").eq("user_id", user.id),
+  ]);
 
   if (holdingsError) {
     console.error("[notifications] holdings read failed", holdingsError);
@@ -305,14 +313,14 @@ export async function getUserNotifications({
   const holdings = (holdingsData ?? []) as HoldingRow[];
 
   if (holdings.length === 0) {
-    await saveUnreadNotificationSummary(user.id, 0);
+    persistSummaryAfterResponse(user.id, 0);
     return { unread: [], read: [], unreadCount: 0, status: "ok" };
   }
 
-  const { data: dismissalsData } = await supabase
-    .from("notification_dismissals")
-    .select("alert_key")
-    .eq("user_id", user.id);
+  if (dismissalsError) {
+    console.error("[notifications] dismissal read failed", dismissalsError);
+    return { unread: [], read: [], unreadCount: 0, status: "error" };
+  }
 
   const dismissedKeys = new Set(
     (dismissalsData ?? []).map((dismissal) => String(dismissal.alert_key)),
@@ -321,33 +329,33 @@ export async function getUserNotifications({
   const today = new Date().toISOString();
   const allNotifications: BuiltNotification[] = [];
 
-  await Promise.all(
-    portfolios.map(async (portfolio, index) => {
-      const portfolioHoldings = holdings.filter(
+  const holdingGroups = portfolios.map(portfolio => ({
+    portfolioHoldings: holdings.filter(
         (holding) => holding.portfolio_id === portfolio.id && holding.ticker,
-      );
+    ),
+    riskTolerance: (portfolio.risk_tolerance as RiskTolerance) ?? null,
+  }));
+  const enrichedGroups = await enrichHoldingGroups(supabase, holdingGroups.map(({ portfolioHoldings, riskTolerance }) => ({
+    holdings: portfolioHoldings.map(holding => ({
+      ticker: String(holding.ticker).toUpperCase(),
+      entry_price: holding.entry_price,
+      score_at_entry: holding.score_at_entry,
+      rank_at_entry: holding.rank_at_entry,
+      shares: holding.shares,
+      allocation_pct: holding.allocation_pct,
+      added_at: holding.added_at ?? today,
+      last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? today,
+      purchase_date: holding.purchase_date ?? null,
+      source: holding.source ?? null,
+      notes: holding.notes ?? null,
+    })),
+    riskTolerance,
+  })));
 
-      if (portfolioHoldings.length === 0) return;
-
+  portfolios.forEach((portfolio, index) => {
+      const { portfolioHoldings } = holdingGroups[index];
       const portfolioName = cleanName(portfolio.name, `Portfolio ${index + 1}`);
-      const riskTolerance = (portfolio.risk_tolerance as RiskTolerance) ?? null;
-
-      const enriched = await enrichHoldings(
-        portfolioHoldings.map((holding) => ({
-          ticker: String(holding.ticker).toUpperCase(),
-          entry_price: holding.entry_price,
-          score_at_entry: holding.score_at_entry,
-          rank_at_entry: holding.rank_at_entry,
-          shares: holding.shares,
-          allocation_pct: holding.allocation_pct,
-          added_at: holding.added_at ?? today,
-          last_reviewed_at: holding.last_reviewed_at ?? holding.added_at ?? today,
-          purchase_date: holding.purchase_date ?? null,
-          source: holding.source ?? null,
-          notes: holding.notes ?? null,
-        })),
-        riskTolerance,
-      );
+      const enriched = enrichedGroups[index];
 
       const storedLevelsByTicker = new Map(
         portfolioHoldings.map((holding) => [
@@ -393,8 +401,7 @@ export async function getUserNotifications({
           }),
         );
       });
-    }),
-  );
+  });
 
   const severityOrder: Record<AlertSeverity, number> = {
     critical: 0,
@@ -422,7 +429,7 @@ export async function getUserNotifications({
     ? allNotifications.filter((notification) => isDismissed(notification))
     : [];
 
-  await saveUnreadNotificationSummary(user.id, unread.length);
+  persistSummaryAfterResponse(user.id, unread.length);
 
   return {
     unread: unread.map(stripInternal),

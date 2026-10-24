@@ -1325,42 +1325,26 @@ function buildAISummary(
   )}%, and the position can be left alone for now.`;
 }
 
-async function enrichHoldingsWithClient(
-  supabase: SupabaseQueryClient,
-  holdings: Array<{
-    ticker: string;
-    entry_price: number | null;
-    score_at_entry: number | null;
-    rank_at_entry: number | null;
-    shares: number | null;
-    allocation_pct: number | null;
-    added_at: string;
-    last_reviewed_at: string;
-    purchase_date?: string | null;
-    source?: string | null;
-    notes?: string | null;
-  }>,
-  riskTolerance: RiskTolerance = null,
-): Promise<EnrichedHolding[]> {
-  if (holdings.length === 0) return [];
+type HoldingInput = {
+  ticker: string;
+  entry_price: number | null;
+  score_at_entry: number | null;
+  rank_at_entry: number | null;
+  shares: number | null;
+  allocation_pct: number | null;
+  added_at: string;
+  last_reviewed_at: string;
+  purchase_date?: string | null;
+  source?: string | null;
+  notes?: string | null;
+};
 
-  const tickers = Array.from(new Set(holdings.map((holding) => holding.ticker)));
-
-  const fourteenDaysAgo = new Date(
-    Date.now() - NEWS_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString();
-
-  const [currentResult, newsResult, diagnosticsResult, sectorData] = await Promise.all([
+async function getHoldingMarketData(supabase: SupabaseQueryClient, tickers: string[]) {
+  const [currentResult, diagnosticsResult, sectorData] = await Promise.all([
     supabase
       .from("stock_rankings")
       .select("ticker, company, sector, rank, score, price, updated_at, last_price_update, last_ranking_update")
       .in("ticker", tickers),
-    supabase
-      .from("news_articles")
-      .select("title, impact, affected_tickers, published_at")
-      .gte("published_at", fourteenDaysAgo)
-      .overlaps("affected_tickers", tickers)
-      .limit(300),
     supabase
       .from("stock_factor_diagnostics")
       .select(
@@ -1369,10 +1353,48 @@ async function enrichHoldingsWithClient(
       .in("ticker", tickers),
     getSectorData(supabase),
   ]);
+  return { currentData: currentResult.data, factorDiagnosticsData: diagnosticsResult.data, sectorData };
+}
 
-  const currentData = currentResult.data;
+async function getHoldingNews(supabase: SupabaseQueryClient, tickers: string[]) {
+  const fourteenDaysAgo = new Date(Date.now() - NEWS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return await supabase
+    .from("news_articles")
+    .select("title, impact, affected_tickers, published_at")
+    .gte("published_at", fourteenDaysAgo)
+    .overlaps("affected_tickers", tickers)
+    .limit(300);
+}
+
+type EnrichmentSession = {
+  marketData: ReturnType<typeof getHoldingMarketData>;
+  news: Map<string, ReturnType<typeof getHoldingNews>>;
+  technical: Map<string, Promise<TechnicalLevels>>;
+};
+
+async function enrichHoldingsWithClient(
+  supabase: SupabaseQueryClient,
+  holdings: HoldingInput[],
+  riskTolerance: RiskTolerance = null,
+  session?: EnrichmentSession,
+): Promise<EnrichedHolding[]> {
+  if (holdings.length === 0) return [];
+
+  const tickers = Array.from(new Set(holdings.map((holding) => holding.ticker)));
+  // Keep each portfolio's news window intact; a single capped union query could
+  // hide articles for one portfolio when another has many recent stories.
+  const newsKey = JSON.stringify([...tickers].sort());
+  let newsPromise = session?.news.get(newsKey);
+  if (!newsPromise) {
+    newsPromise = getHoldingNews(supabase, tickers);
+    session?.news.set(newsKey, newsPromise);
+  }
+  const [{ currentData, factorDiagnosticsData, sectorData }, newsResult] = await Promise.all([
+    session?.marketData ?? getHoldingMarketData(supabase, tickers),
+    newsPromise,
+  ]);
+
   const recentNews = newsResult.data;
-  const factorDiagnosticsData = diagnosticsResult.data;
   const { momentum, bullishPct, maxScore, totalStocks } = sectorData;
 
   const currentMap = new Map(
@@ -1519,7 +1541,13 @@ async function enrichHoldingsWithClient(
       };
 
       const factorDiagnostics = diagnosticsMap.get(ticker) ?? null;
-      const technical = await getTechnicalLevels(ticker, currentPrice);
+      const technicalKey = JSON.stringify([ticker, currentPrice]);
+      let technicalPromise = session?.technical.get(technicalKey);
+      if (!technicalPromise) {
+        technicalPromise = getTechnicalLevels(ticker, currentPrice);
+        session?.technical.set(technicalKey, technicalPromise);
+      }
+      const technical = await technicalPromise;
       const rankingUpdatedAt = latestIso([
         current?.last_price_update,
         current?.last_ranking_update,
@@ -1634,6 +1662,21 @@ async function enrichHoldingsWithClient(
       };
     }),
   );
+}
+
+/** Shared reads for one request, while sizing and risk remain portfolio-specific. */
+export async function enrichHoldingGroups(
+  supabase: SupabaseQueryClient,
+  groups: Array<{ holdings: HoldingInput[]; riskTolerance?: RiskTolerance }>,
+): Promise<EnrichedHolding[][]> {
+  const tickers = Array.from(new Set(groups.flatMap(group => group.holdings.map(holding => holding.ticker))));
+  if (tickers.length === 0) return groups.map(() => []);
+  const session: EnrichmentSession = {
+    marketData: getHoldingMarketData(supabase, tickers),
+    news: new Map(),
+    technical: new Map(),
+  };
+  return Promise.all(groups.map(group => enrichHoldingsWithClient(supabase, group.holdings, group.riskTolerance ?? null, session)));
 }
 
 export async function enrichHoldings(

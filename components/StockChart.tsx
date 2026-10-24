@@ -35,6 +35,7 @@ type Props = {
 
 const DEFAULT_RANGES: TimeRange[] = ["1D", "5D", "1M", "6M", "1Y", "5Y", "MAX"];
 const NO_TEXT_SELECTION = { userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" } as const;
+const TOUCH_MOUSE_SUPPRESSION_MS = 800;
 
 function formatPrice(n: number) {
   if (Math.abs(n) >= 1000) {
@@ -115,6 +116,7 @@ export function StockChart({
   const activePointerRef = useRef<{ id: number; target: SVGSVGElement } | null>(null);
   const activeTouchRef = useRef<number | null>(null);
   const activeScrubPointerRef = useRef<number | null>(null);
+  const suppressMouseUntilRef = useRef(0);
   const scrubFeedbackRef = useRef<{ points: ChartPoint[]; ticker: string; index: number; lastTickAt: number } | null>(null);
   const scrubScrollLockedRef = useRef(false);
   const gradientId = `portfolio-chart-fill-${useId().replaceAll(":", "")}`;
@@ -334,13 +336,30 @@ export function StockChart({
   }, []);
 
   const handlePointerLeave = useCallback(() => {
+    if (isStockInteraction && (activeTouchRef.current !== null || activeScrubPointerRef.current !== null)) {
+      suppressMouseUntilRef.current = performance.now() + TOUCH_MOUSE_SUPPRESSION_MS;
+    }
     cancelPendingMove();
     activeTouchRef.current = null;
     releaseStockPointer();
     scrubFeedbackRef.current = null;
     setHoverSelection(null);
     onScrub?.(null, { range: resolvedRange });
+  }, [cancelPendingMove, releaseStockPointer, onScrub, resolvedRange, isStockInteraction]);
+
+  const clearStockTouchSelection = useCallback((keepNativeTouch = false) => {
+    suppressMouseUntilRef.current = performance.now() + TOUCH_MOUSE_SUPPRESSION_MS;
+    cancelPendingMove();
+    if (!keepNativeTouch) activeTouchRef.current = null;
+    releaseStockPointer();
+    scrubFeedbackRef.current = null;
+    setHoverSelection(null);
+    onScrub?.(null, { range: resolvedRange });
   }, [cancelPendingMove, releaseStockPointer, onScrub, resolvedRange]);
+
+  const ignoreCompatibilityMouse = (pointerType: string) => isStockInteraction && pointerType === "mouse" && (
+    activeTouchRef.current !== null || activeScrubPointerRef.current !== null || performance.now() < suppressMouseUntilRef.current
+  );
 
   useEffect(() => {
     if (!isStockInteraction) return cancelPendingMove;
@@ -381,13 +400,10 @@ export function StockChart({
       if (activeTouchRef.current === null) return;
       const touch = findTouch(event.changedTouches, activeTouchRef.current);
       if (!touch) return;
-      cancelPendingMove();
-      handleMove(touch.clientX);
-      activeTouchRef.current = null;
-      releaseStockPointer();
+      clearStockTouchSelection();
     };
     const cancelTouch = (event: TouchEvent) => {
-      if (activeTouchRef.current !== null && findTouch(event.changedTouches, activeTouchRef.current)) handlePointerLeave();
+      if (activeTouchRef.current !== null && findTouch(event.changedTouches, activeTouchRef.current)) clearStockTouchSelection();
     };
     // Capture keeps finger scrubbing locked when it crosses the plot boundary.
     document.addEventListener("wheel", blockScrubScroll, { passive: false });
@@ -405,7 +421,7 @@ export function StockChart({
       activeTouchRef.current = null;
       releaseStockPointer();
     };
-  }, [isStockInteraction, handleMove, scheduleMove, handlePointerLeave, cancelPendingMove, releaseStockPointer]);
+  }, [isStockInteraction, handleMove, scheduleMove, clearStockTouchSelection, cancelPendingMove, releaseStockPointer]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent<SVGSVGElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
@@ -543,16 +559,19 @@ export function StockChart({
           onKeyDown={isPortfolioAppearance ? handleKeyDown : undefined}
           onBlur={isPortfolioAppearance ? handlePointerLeave : undefined}
           onPointerMove={(e) => {
+            if (ignoreCompatibilityMouse(e.pointerType)) return;
             if (activeScrubPointerRef.current !== null && activeScrubPointerRef.current !== e.pointerId) return;
             if (isStockInteraction) {
+              if ((e.pointerType === "touch" || e.pointerType === "pen") && !activePointerRef.current && activeTouchRef.current === null && activeScrubPointerRef.current === null) return;
               if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
               scrubScrollLockedRef.current = true;
             }
             scheduleMove(e.clientX);
           }}
           onPointerDown={(e) => {
+            if (ignoreCompatibilityMouse(e.pointerType)) return;
             if (isStockInteraction) {
-              if (!e.isPrimary || e.button !== 0 || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
+              if (!e.isPrimary || e.button !== 0 || (activePointerRef.current && activePointerRef.current.id !== e.pointerId) || (activeScrubPointerRef.current !== null && activeScrubPointerRef.current !== e.pointerId)) return;
               scrubScrollLockedRef.current = true;
               activePointerRef.current = { id: e.pointerId, target: e.currentTarget };
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {
@@ -570,21 +589,31 @@ export function StockChart({
           }}
           onPointerCancel={(e) => {
             if (isStockInteraction && activePointerRef.current && activePointerRef.current.id !== e.pointerId) return;
+            if (isStockInteraction && activeScrubPointerRef.current !== null && activeScrubPointerRef.current !== e.pointerId) return;
             if (isStockInteraction && activeTouchRef.current !== null) {
-              cancelPendingMove();
-              releaseStockPointer();
+              clearStockTouchSelection(true);
+              return;
+            }
+            if (isStockInteraction && (e.pointerType === "touch" || e.pointerType === "pen")) {
+              clearStockTouchSelection();
               return;
             }
             handlePointerLeave();
           }}
           onLostPointerCapture={isStockInteraction ? (e) => {
             if (activePointerRef.current?.id !== e.pointerId) return;
-            if (activeTouchRef.current !== null) releaseStockPointer();
+            if (activeTouchRef.current !== null) clearStockTouchSelection(true);
+            else if (e.pointerType === "touch" || e.pointerType === "pen") clearStockTouchSelection();
             else handlePointerLeave();
           } : undefined}
           onPointerUp={(e) => {
+            if (ignoreCompatibilityMouse(e.pointerType)) return;
             if (isStockInteraction) {
-              if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId)) return;
+              if (e.isPrimary === false || (activePointerRef.current && activePointerRef.current.id !== e.pointerId) || (activeScrubPointerRef.current !== null && activeScrubPointerRef.current !== e.pointerId)) return;
+              if (e.pointerType === "touch" || e.pointerType === "pen" || activeTouchRef.current !== null) {
+                clearStockTouchSelection();
+                return;
+              }
               cancelPendingMove();
               handleMove(e.clientX);
               releaseStockPointer();
