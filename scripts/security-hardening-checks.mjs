@@ -70,3 +70,11 @@ test("Stripe webhook errors are retryable and email failures are isolated", () =
   assert.match(code, /sendEmailBestEffort/);
   assert.match(code, /session\.payment_status === "paid"/);
 });
+
+test("Stripe webhook refuses to acknowledge missing profile updates", () => {
+  const code = read("app/api/stripe-webhook/route.ts");
+  assert.match(code, /\.update\(changes\)[\s\S]*?\.select\("id"\)/);
+  assert.match(code, /!data\?\.length/);
+  assert.match(code, /profile_not_found/);
+  assert.match(code, /Could not look up subscription/);
+});
