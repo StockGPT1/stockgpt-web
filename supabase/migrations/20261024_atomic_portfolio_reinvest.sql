@@ -43,8 +43,8 @@ DECLARE
 BEGIN
   IF p_portfolio_id IS NULL OR p_user_id IS NULL
      OR p_source_ticker IS NULL OR p_target_ticker IS NULL
-     OR p_source_ticker !~ '^[A-Z][A-Z0-9.\\-]{0,11}$'
-     OR p_target_ticker !~ '^[A-Z][A-Z0-9.\\-]{0,11}$'
+     OR p_source_ticker !~ '^[A-Z][A-Z0-9.-]{0,11}$'
+     OR p_target_ticker !~ '^[A-Z][A-Z0-9.-]{0,11}$'
      OR p_source_ticker = p_target_ticker
      OR p_percentage IS NULL OR p_percentage <= 0 OR p_percentage > 100
      OR p_sell_price IS NULL OR p_sell_price <= 0
