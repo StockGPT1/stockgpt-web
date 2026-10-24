@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     const customerId =
       typeof session.customer === "string" ? session.customer : null;
 
-    if (userId) {
+    if (userId && session.mode === "subscription" && (session.payment_status === "paid" || session.payment_status === "no_payment_required")) {
       await supabaseAdmin
         .from("profiles")
         .update({
