@@ -182,8 +182,9 @@ export async function POST(request: Request) {
         subscription_status: "none",
       });
 
-      if (profile?.email) {
-        await sendEmailBestEffort(() => sendSubscriptionCancelledEmail(profile.email));
+      const email = profile?.email;
+      if (email) {
+        await sendEmailBestEffort(() => sendSubscriptionCancelledEmail(email));
       }
     }
   }
@@ -203,8 +204,9 @@ export async function POST(request: Request) {
         customerId,
       );
 
-      if (profile?.email) {
-        await sendEmailBestEffort(() => sendPaymentFailedEmail(profile.email));
+      const email = profile?.email;
+      if (email) {
+        await sendEmailBestEffort(() => sendPaymentFailedEmail(email));
       }
     }
   }
